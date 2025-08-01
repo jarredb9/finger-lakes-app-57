@@ -522,9 +522,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
         }
       })
 
-      // Set up idle listener for more responsive auto-search
+      // Listen for map movement and trigger auto-search
       mapInstance.addListener("idle", () => {
         const bounds = mapInstance.getBounds()
+        setCurrentBounds(bounds)
         if (autoSearch && bounds) {
           debouncedAutoSearch(bounds)
         }
@@ -1148,7 +1149,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
                 </Button>
               </div>
             )}
-          </div>
         </CardContent>
       </Card>
 
