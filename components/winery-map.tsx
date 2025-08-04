@@ -360,9 +360,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         searchWineriesRef.current(undefined, bounds, true)
       }
     }, 1000)
-  },
-  []
-)
+  }, [])
 
   // Add markers for search results
   const addSearchMarkers = useCallback((searchWineries: Winery[]) => {
@@ -1123,12 +1121,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
               )}
             </div>
 
-            {showSearchResults && (
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                    {searchResults.length} wineries found
-                  </Badge>
             {showSearchResults && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
