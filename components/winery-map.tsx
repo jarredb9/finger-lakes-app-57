@@ -523,8 +523,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
         const bounds = mapInstance.getBounds()
         setCurrentBounds(bounds)
 
-        // Trigger auto-search if enabled
-        if (autoSearch) {
+        // Use the ref to get the latest value!
+        if (autoSearchRef.current) {
           debouncedAutoSearch(bounds)
         }
       })
@@ -532,7 +532,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       // Set up idle listener for more responsive auto-search
       mapInstance.addListener("idle", () => {
         const bounds = mapInstance.getBounds()
-        if (autoSearch && bounds) {
+        if (autoSearchRef.current && bounds) {
           debouncedAutoSearch(bounds)
         }
       })
