@@ -363,45 +363,55 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, [])
 
   // Add markers for search results
-  const addSearchMarkers = useCallback((searchWineries: Winery[]) => {
-    if (!mapInstanceRef.current) return
+const addAllMarkers = useCallback((allWineries: Winery[]) => {
+  if (!mapInstanceRef.current) return;
 
-    // Always clear existing search markers before adding new ones
-    markersRef.current.forEach((marker, key) => {
-      if (key.startsWith("search-")) {
-        marker.setMap(null)
-        markersRef.current.delete(key)
-      }
-    }, [])
-    
-    // Add new search markers
-    searchWineries.forEach((winery) => {
-      // Skip if marker already exists (for auto-search)
-      if (markersRef.current.has(winery.id)) {
-        return
-      }
+  // Remove all existing markers
+  markersRef.current.forEach((marker) => {
+    marker.setMap(null);
+  });
+  markersRef.current.clear();
 
-      const marker = new window.google.maps.Marker({
-        position: { lat: winery.lat, lng: winery.lng },
-        map: mapInstanceRef.current,
-        title: winery.name,
-        icon: {
-          url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo=", // Blue for search results
-          scaledSize: new window.google.maps.Size(32, 32),
-        },
-      })
+  // Add a marker for each winery
+  allWineries.forEach((winery) => {
+    const marker = new window.google.maps.Marker({
+      position: { lat: winery.lat, lng: winery.lng },
+      map: mapInstanceRef.current,
+      title: winery.name,
+      icon: winery.isFromSearch
+        ? {
+            url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo=", // Blue for search results
+            scaledSize: new window.google.maps.Size(32, 32),
+          }
+        : winery.userVisited
+        ? {
+            url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo=", // Green for visited
+            scaledSize: new window.google.maps.Size(32, 32),
+          }
+        : {
+            url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1zbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA6LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=", // Red for not visited
+            scaledSize: new window.google.maps.Size(32, 32),
+          },
+    });
 
-      marker.addListener("click", () => {
-        setSelectedWinery(winery)
-      })
+    marker.addListener("click", () => {
+      setSelectedWinery(winery);
+    });
 
-      markersRef.current.set(winery.id, marker)
-    })
-  }, [])
+    markersRef.current.set(winery.id, marker);
+  });
+  }, []);
 
   useEffect(() => {
-    addSearchMarkers(searchResults)
-  }, [searchResults, addSearchMarkers])
+  if (mapInstanceRef.current) {
+    // Deduplicate by placeId if present, otherwise by id
+    const allWineriesMap = new Map<string, Winery>();
+    wineries.forEach(w => allWineriesMap.set(w.placeId || w.id, w));
+    searchResults.forEach(w => allWineriesMap.set(w.placeId || w.id, w));
+    addAllMarkers(Array.from(allWineriesMap.values()));
+  }
+}, [wineries, searchResults, mapInstanceRef.current, addAllMarkers]);
+
 
   // Load winery data without map
   const loadWineryData = useCallback(async () => {
