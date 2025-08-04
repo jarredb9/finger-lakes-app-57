@@ -357,22 +357,26 @@ export default function WineryMap({ userId }: WineryMapProps) {
     },
     [currentBounds, autoSearch, boundsChanged],
   )
+  const autoSearchRef = useRef(autoSearch)
+  useEffect(() => {
+    autoSearchRef.current = autoSearch
+  }, [autoSearch])
 
   // Debounced auto-search function
   const debouncedAutoSearch = useCallback(
-    (bounds: any) => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
+  (bounds: any) => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current)
+    }
 
-      searchTimeoutRef.current = setTimeout(() => {
-        if (autoSearch && bounds) {
-          searchWineries(undefined, bounds, true)
-        }
-      }, 1000) // Wait 1 second after user stops moving the map
-    },
-    [searchWineries, autoSearch],
-  )
+    searchTimeoutRef.current = setTimeout(() => {
+      if (autoSearchRef.current && bounds) {
+        searchWineries(undefined, bounds, true)
+      }
+    }, 1000)
+  },
+  [searchWineries]
+)
 
   // Add markers for search results
   const addSearchMarkers = useCallback((searchWineries: Winery[], isAutoSearch = false) => {
