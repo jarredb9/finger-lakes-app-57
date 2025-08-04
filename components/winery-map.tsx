@@ -325,17 +325,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
             console.log("Processed winery results:", wineryResults.length)
 
-            // For auto-search, merge with existing results instead of replacing
-            if (isAutoSearch) {
-              setSearchResults((prev) => {
-                // Remove duplicates and merge
-                const existingIds = new Set(prev.map((w) => w.placeId))
-                const newResults = wineryResults.filter((w) => !existingIds.has(w.placeId))
-                return [...prev, ...newResults]
-              })
-            } else {
-              setSearchResults(wineryResults)
-            }
+
+            setSearchResults(wineryResults)
+
 
             setShowSearchResults(true)
             setSearchCount((prev) => prev + 1)
@@ -379,19 +371,16 @@ export default function WineryMap({ userId }: WineryMapProps) {
 )
 
   // Add markers for search results
-  const addSearchMarkers = useCallback((searchWineries: Winery[], isAutoSearch = false) => {
+  const addSearchMarkers = useCallback((searchWineries: Winery[]) => {
     if (!mapInstanceRef.current) return
 
-    // For auto-search, don't clear existing markers, just add new ones
-    if (!isAutoSearch) {
-      // Clear existing search markers
-      markersRef.current.forEach((marker, key) => {
-        if (key.startsWith("search-")) {
-          marker.setMap(null)
-          markersRef.current.delete(key)
-        }
-      })
-    }
+    // Always clear existing search markers before adding new ones
+    markersRef.current.forEach((marker, key) => {
+      if (key.startsWith("search-")) {
+        marker.setMap(null)
+        markersRef.current.delete(key)
+      }
+    })
     
     // Add new search markers
     searchWineries.forEach((winery) => {
