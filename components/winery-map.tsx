@@ -293,7 +293,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
           if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
             const wineryResults: Winery[] = results
-              .filter((place) => place.geometry && place.geometry.location) // Only require a valid location
+              //.filter((place) => place.geometry && place.geometry.location)
               .slice(0, 50)
               .map((place, index) => ({
                 id: `search-${place.place_id}`,
