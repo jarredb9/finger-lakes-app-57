@@ -313,6 +313,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
               }))
 
             console.log("Processed winery results:", wineryResults.length)
+            console.log("All Google Places results:", results);
 
             setSearchResults(wineryResults)
             setShowSearchResults(true)
