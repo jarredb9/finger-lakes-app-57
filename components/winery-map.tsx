@@ -349,6 +349,11 @@ export default function WineryMap({ userId }: WineryMapProps) {
     autoSearchRef.current = autoSearch
   }, [autoSearch])
 
+  const searchWineriesRef = useRef(searchWineries);
+  useEffect(() => {
+    searchWineriesRef.current = searchWineries;
+  }, [searchWineries]);
+
   // Debounced auto-search function
   const debouncedAutoSearch = useCallback(
   (bounds: any) => {
@@ -859,7 +864,6 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
   const handleAutoSearchToggle = (enabled: boolean) => {
     setAutoSearch(enabled)
     if (enabled && currentBounds) {
-      // Trigger an immediate search when enabling auto-search
       debouncedAutoSearch(currentBounds)
     }
   }
