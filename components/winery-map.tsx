@@ -382,6 +382,11 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const addSearchMarkers = useCallback((searchWineries: Winery[], isAutoSearch = false) => {
     if (!mapInstanceRef.current) return
 
+    useEffect(() => {
+      // Always update search markers when searchResults changes
+      addSearchMarkers(searchResults)
+    }, [searchResults, addSearchMarkers])
+
     // For auto-search, don't clear existing markers, just add new ones
     if (!isAutoSearch) {
       // Clear existing search markers
@@ -392,7 +397,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         }
       })
     }
-
+    
     // Add new search markers
     searchWineries.forEach((winery) => {
       // Skip if marker already exists (for auto-search)
