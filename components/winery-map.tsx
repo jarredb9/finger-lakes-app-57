@@ -293,19 +293,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
           if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
             const wineryResults: Winery[] = results
-              .filter((place) => {
-                // Filter for wine-related businesses
-                const name = place.name?.toLowerCase() || ""
-                const types = place.types || []
-                return (
-                  name.includes("winery") ||
-                  name.includes("vineyard") ||
-                  name.includes("wine") ||
-                  name.includes("cellar") ||
-                  types.includes("establishment")
-                )
-              })
-              .slice(0, 50) // Limit to 50 results for performance
+              .filter((place) => place.geometry && place.geometry.location) // Only require a valid location
+              .slice(0, 50)
               .map((place, index) => ({
                 id: `search-${place.place_id}`,
                 name: place.name,
