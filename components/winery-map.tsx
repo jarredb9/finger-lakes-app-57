@@ -325,15 +325,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
             console.log("Processed winery results:", wineryResults.length)
 
-
             setSearchResults(wineryResults)
-
-
             setShowSearchResults(true)
             setSearchCount((prev) => prev + 1)
-
-            // Add markers for search results
-            addSearchMarkers(wineryResults, isAutoSearch)
           } else {
             console.error("Places search failed:", status)
             if (!isAutoSearch) {
@@ -380,7 +374,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         marker.setMap(null)
         markersRef.current.delete(key)
       }
-    })
+    }, [])
     
     // Add new search markers
     searchWineries.forEach((winery) => {
@@ -1129,6 +1123,12 @@ export default function WineryMap({ userId }: WineryMapProps) {
               )}
             </div>
 
+            {showSearchResults && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                    {searchResults.length} wineries found
+                  </Badge>
             {showSearchResults && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
