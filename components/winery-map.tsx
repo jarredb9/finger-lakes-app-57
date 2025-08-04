@@ -1165,6 +1165,7 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
                   ? "Loading map and winery data..."
                   : autoSearch
                     ? "Pan and zoom to automatically discover wineries in new areas!"
+                    : "Click on any marker to view details and track your visits. Enable auto-discovery for dynamic exploration!"}
               </CardDescription>
             </CardHeader>
             <CardContent>
