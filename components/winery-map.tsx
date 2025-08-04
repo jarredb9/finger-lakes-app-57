@@ -1070,11 +1070,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
           />
         )}
       </div>
-    )
-  }
-
-  return (
-    <div className="space-y-6">
       {/* Search Controls */}
       <Card>
         <CardHeader>
