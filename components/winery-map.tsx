@@ -410,8 +410,20 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
   if (mapInstanceRef.current) {
     // Deduplicate by placeId if present, otherwise by id
     const allWineriesMap = new Map<string, Winery>();
-    wineries.forEach(w => allWineriesMap.set(w.placeId || w.id, w));
-    searchResults.forEach(w => allWineriesMap.set(w.placeId || w.id, w));
+    wineries.forEach(w => {
+      if (w.placeId) {
+        allWineriesMap.set(w.placeId, w);
+      } else {
+        allWineriesMap.set(w.id, w);
+      }
+    });
+    searchResults.forEach(w => {
+      if (w.placeId) {
+        allWineriesMap.set(w.placeId, w);
+      } else {
+        allWineriesMap.set(w.id, w);
+      }
+    });
     addAllMarkers(Array.from(allWineriesMap.values()));
   }
 }, [wineries, searchResults, mapInstanceRef.current, addAllMarkers]);
