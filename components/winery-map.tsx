@@ -62,6 +62,8 @@ interface WineryMapProps {
 
 export default function WineryMap({ userId }: WineryMapProps) {
   // Fallback UI (map error or fallback mode)
+  const [error, setError] = useState<string | null>(null)
+  const [showFallback, setShowFallback] = useState(false)
   if (error || showFallback) {
     return (
       <div className="space-y-6">
