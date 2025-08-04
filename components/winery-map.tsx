@@ -280,9 +280,18 @@ export default function WineryMap({ userId }: WineryMapProps) {
         lastSearchBoundsRef.current = searchBounds
 
         // Search for wineries in the bounds
+        const keywords = [
+          "winery",
+          "vineyard",
+          "wine",
+          "tasting",
+          "cellar",
+          "cellars",
+          "vineyards",
+        ];
         const request = {
           bounds: searchBounds,
-          keyword: "winery vineyard wine tasting cellar cellars vineyards",
+          keyword: keywords.join(" "),
           type: "establishment",
         }
 
