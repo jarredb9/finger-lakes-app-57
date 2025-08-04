@@ -292,7 +292,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
         const request = {
           bounds: searchBounds,
           keyword: keywords.join(" "),
-          type: "establishment",
         }
 
         console.log("Places search request:", request)
