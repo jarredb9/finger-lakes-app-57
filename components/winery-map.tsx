@@ -371,11 +371,11 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
     searchTimeoutRef.current = setTimeout(() => {
       if (autoSearchRef.current && bounds) {
-        searchWineries(undefined, bounds, true)
+        searchWineriesRef.current(undefined, bounds, true)
       }
     }, 1000)
   },
-  [searchWineries]
+  []
 )
 
   // Add markers for search results
