@@ -61,12 +61,6 @@ interface WineryMapProps {
 }
 
 export default function WineryMap({ userId }: WineryMapProps) {
-  // ...existing code for hooks, state, and all logic...
-
-  // (All your hooks, callbacks, and logic remain unchanged)
-
-  // ...existing code...
-
   // Fallback UI (map error or fallback mode)
   if (error || showFallback) {
     return (
