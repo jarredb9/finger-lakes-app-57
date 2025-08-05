@@ -297,6 +297,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const initializeMap = useCallback(async () => {
     if (!googleMapsLoaded || apiKeyStatus !== "valid") return;
     try {
+      setLoading(false); 
       const mapContainer = createMapContainer();
       if (!mapContainer || !window.google?.maps?.Map) {
         throw new Error("Google Maps or the map container is not available.");
@@ -320,6 +321,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     } catch (error) {
       setError(`Failed to initialize map: ${error instanceof Error ? error.message : String(error)}`);
       setShowFallback(true);
+      setLoading(false);
       await loadWineryData();
     }
   }, [googleMapsLoaded, apiKeyStatus, createMapContainer, loadWineryData, debouncedAutoSearch]);
