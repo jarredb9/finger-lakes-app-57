@@ -149,7 +149,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
         locationRestriction: restriction,
       };
       
-      // THE CRITICAL CHANGE: This must say "searchText"
       const { places } = await window.google.maps.places.Place.searchText(request);
       
       const wineryResults: Winery[] = places.map((place: any) => ({
@@ -183,7 +182,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const addAllMarkers = useCallback(async (allWineries: Winery[]) => {
     if (!mapInstanceRef.current || !window.google.maps.marker) return;
 
-    // Advanced Markers require the library to be loaded.
     const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
     
     markersRef.current.forEach((marker) => { marker.map = null; });
@@ -224,8 +222,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
       
       const { Map } = await window.google.maps.importLibrary("maps") as google.maps.MapsLibrary;
       
-      // NOTE: You must create a Map ID in your Google Cloud Console for this to work.
-      // It can be a simple ID with no special styles. This is required for Advanced Markers.
       const map = new Map(mapDiv, {
         center: { lat: 42.5, lng: -77.0 },
         zoom: 10,
@@ -285,8 +281,45 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }
   }, [googleMapsLoaded, apiKeyStatus, initializeMap]);
   
-  const handleVisitUpdate = useCallback(async (winery: Winery, visitData: { visitDate: string; userReview: string }) => { /* ... full implementation ... */ }, []);
-  const handleDeleteVisit = useCallback(async (winery: Winery, visitId: string) => { /* ... full implementation ... */ }, []);
+  // --- THIS IS THE CORRECTED SYNTAX FOR THE CLEANUP EFFECT ---
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
+  
+  const handleVisitUpdate = useCallback(async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
+    try {
+      const response = await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wineryName: winery.name, wineryAddress: winery.address, visitDate: visitData.visitDate, userReview: visitData.userReview, }) });
+      const responseData = await response.json();
+      if (response.ok) {
+        const updateWinery = (w: Winery) => w.id === winery.id ? { ...w, visits: [...(w.visits || []), responseData], userVisited: true } : w;
+        setWineries((prev) => prev.map(updateWinery));
+        setSearchResults((prev) => prev.map(updateWinery));
+        setSelectedWinery((prev) => prev?.id === winery.id ? { ...prev, visits: [...(prev.visits || []), responseData], userVisited: true } : prev);
+      } else { alert(`Failed to save visit: ${responseData.error || "Unknown error"}`); }
+    } catch (error) { alert(`Error saving visit: ${error instanceof Error ? error.message : String(error)}`); }
+  }, []);
+
+  const handleDeleteVisit = useCallback(async (winery: Winery, visitId: string) => {
+    try {
+      const response = await fetch(`/api/visits/${visitId}`, { method: "DELETE" });
+      if (response.ok) {
+        const updateWinery = (w: Winery) => {
+          if (w.id === winery.id) {
+            const updatedVisits = w.visits?.filter((v) => v.id !== visitId) || [];
+            return { ...w, visits: updatedVisits, userVisited: updatedVisits.length > 0 };
+          } return w;
+        };
+        setWineries((prev) => prev.map(updateWinery));
+        setSearchResults((prev) => prev.map(updateWinery));
+        setSelectedWinery((prev) => prev?.id === winery.id ? { ...prev, visits: prev.visits?.filter((v) => v.id !== visitId) || [], userVisited: (prev.visits?.filter((v) => v.id !== visitId) || []).length > 0 } : prev );
+      } else { const responseData = await response.json(); alert(`Failed to delete visit: ${responseData.error || "Unknown error"}`); }
+    } catch (error) { alert(`Error deleting visit: ${error instanceof Error ? error.message : String(error)}`); }
+  }, []);
+  
   const handleSearchSubmit = useCallback((e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) searchWineries(searchLocation.trim()); }, [searchLocation, searchWineries]);
   const handleSearchInCurrentArea = useCallback(() => { searchWineries(); }, [searchWineries]);
   const clearSearchResults = useCallback(() => { setSearchResults([]); setShowSearchResults(false); }, []);
@@ -321,7 +354,12 @@ export default function WineryMap({ userId }: WineryMapProps) {
         </CardContent>
       </Card>
       
-      {showSearchResults && ( /* ... search results card ... */ )}
+      {showSearchResults && (
+        <Card>
+          <CardHeader><CardTitle>Search Results ({searchResults.length})</CardTitle><Button variant="outline" size="sm" onClick={clearSearchResults}>Clear Results</Button></CardHeader>
+          <CardContent>{/* Render search results here */}</Card.Content>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-0">
