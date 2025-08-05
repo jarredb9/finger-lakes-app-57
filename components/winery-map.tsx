@@ -144,17 +144,25 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (!searchBounds) { setSearching(false); return; }
       lastSearchBoundsRef.current = searchBounds;
       const request = {
-        fields: ["id", "displayName", "formattedAddress", "location", "rating", "websiteUri", "nationalPhoneNumber"],
+        fields: ["id", "displayName", "formattedAddress", "location", "rating", "website", "nationalPhoneNumber"],
         locationRestriction: searchBounds,
         includedTypes: ["winery"],
         maxResultCount: 20,
       };
       const { places } = await window.google.maps.places.Place.searchNearby(request);
       const wineryResults: Winery[] = places.map((place: any) => ({
-        id: `search-${place.id}`, name: place.displayName, address: place.formattedAddress || "N/A",
-        lat: place.location.latitude, lng: place.location.longitude, rating: place.rating,
-        phone: place.nationalPhoneNumber, website: place.websiteUri, placeId: place.id,
-        isFromSearch: true, userVisited: false, visits: [],
+        id: `search-${place.id}`, 
+        name: place.displayName, 
+        address: place.formattedAddress || "N/A",
+        lat: place.location.latitude, 
+        lng: place.location.longitude, 
+        rating: place.rating,
+        phone: place.nationalPhoneNumber, 
+        website: place.website, 
+        placeId: place.id,
+        isFromSearch: true, 
+        userVisited: false, 
+        visits: [],
       }));
       setSearchResults(wineryResults);
       setShowSearchResults(true);
@@ -241,7 +249,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         setApiKeyStatus("valid");
         return;
       }
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
       if (!apiKey) {
         setError("API key is not configured.");
         setApiKeyStatus("missing");
