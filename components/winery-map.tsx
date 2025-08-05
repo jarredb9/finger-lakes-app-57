@@ -260,7 +260,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   useEffect(() => {
     const loadScript = async () => {
       if (window.google?.maps) { setGoogleMapsLoaded(true); setApiKeyStatus("valid"); return; }
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
       if (!apiKey) { setError("API key is not configured."); setApiKeyStatus("missing"); setLoading(false); return; }
       if (!(await testApiKey(apiKey))) { setError("API key is invalid or project is misconfigured."); setApiKeyStatus("invalid"); setLoading(false); return; }
       setApiKeyStatus("valid");
@@ -281,7 +281,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }
   }, [googleMapsLoaded, apiKeyStatus, initializeMap]);
   
-  // --- THIS IS THE CORRECTED SYNTAX FOR THE CLEANUP EFFECT ---
+  // CORRECTED useEffect for cleanup
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) {
@@ -290,6 +290,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     };
   }, []);
   
+  // RESTORED FULL IMPLEMENTATION
   const handleVisitUpdate = useCallback(async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
     try {
       const response = await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wineryName: winery.name, wineryAddress: winery.address, visitDate: visitData.visitDate, userReview: visitData.userReview, }) });
@@ -303,6 +304,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     } catch (error) { alert(`Error saving visit: ${error instanceof Error ? error.message : String(error)}`); }
   }, []);
 
+  // RESTORED FULL IMPLEMENTATION
   const handleDeleteVisit = useCallback(async (winery: Winery, visitId: string) => {
     try {
       const response = await fetch(`/api/visits/${visitId}`, { method: "DELETE" });
@@ -357,7 +359,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       {showSearchResults && (
         <Card>
           <CardHeader><CardTitle>Search Results ({searchResults.length})</CardTitle><Button variant="outline" size="sm" onClick={clearSearchResults}>Clear Results</Button></CardHeader>
-          <CardContent>{/* Render search results here */}</Card.Content>
+          <CardContent>{/* Render search results here */}</CardContent>
         </Card>
       )}
 
