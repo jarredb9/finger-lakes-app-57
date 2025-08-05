@@ -144,7 +144,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (!searchBounds) { setSearching(false); return; }
       lastSearchBoundsRef.current = searchBounds;
       const request = {
-        fields: ["id", "displayName", "formattedAddress", "location", "rating", "website", "nationalPhoneNumber"],
+        fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber"],
         locationRestriction: searchBounds,
         includedTypes: ["winery"],
         maxResultCount: 20,
@@ -153,7 +153,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       const wineryResults: Winery[] = places.map((place: any) => ({
         id: `search-${place.id}`, name: place.displayName, address: place.formattedAddress || "N/A",
         lat: place.location.latitude, lng: place.location.longitude, rating: place.rating,
-        phone: place.nationalPhoneNumber, website: place.website, placeId: place.id,
+        phone: place.nationalPhoneNumber, website: undefined, placeId: place.id,
         isFromSearch: true, userVisited: false, visits: [],
       }));
       setSearchResults(wineryResults);
