@@ -302,6 +302,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (!mapContainer || !window.google?.maps?.Map) {
         throw new Error("Google Maps or the map container is not available.");
       }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
       if (!window.google.maps.places?.Place) {
         throw new Error("The new Google Maps Places library is not available.");
       }
@@ -318,11 +320,13 @@ export default function WineryMap({ userId }: WineryMapProps) {
       });
       
       await loadWineryData();
+      
     } catch (error) {
       setError(`Failed to initialize map: ${error instanceof Error ? error.message : String(error)}`);
       setShowFallback(true);
-      setLoading(false);
-      await loadWineryData();
+    } finally {
+        // Set loading to false only after everything is done or has failed.
+        setLoading(false);
     }
   }, [googleMapsLoaded, apiKeyStatus, createMapContainer, loadWineryData, debouncedAutoSearch]);
 
