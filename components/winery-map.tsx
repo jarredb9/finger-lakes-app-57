@@ -119,11 +119,19 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, []);
 
   const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
-    // --- LOGGING STEP 1 ---
     console.log(`[SEARCH] Function called. Location: "${location}", Is Auto-Search: ${isAutoSearch}`);
     console.log("[SEARCH] Current bounds from state:", currentBounds);
 
-    if (!window.google?.maps?.places?.Place || !mapInstanceRef.current) return;
+    if (!window.google?.maps?.places?.Place || !mapInstanceRef.current) {
+        console.warn("[SEARCH] Aborted: Google Maps or Map Instance not ready.");
+        return;
+    }
+
+    if (!location && !currentBounds) {
+        console.warn("[SEARCH] Aborted: No location or bounds available to search.");
+        setError("Search failed. Map bounds not available.");
+        return;
+    }
     
     if (isAutoSearch && (!autoSearch || !boundsChanged(currentBounds!, lastSearchBoundsRef.current))) {
       return;
@@ -159,7 +167,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
       
       lastSearchBoundsRef.current = restriction;
 
-      // --- LOGGING STEP 2 ---
       console.log("[SEARCH] Final restriction object being sent to API:", restriction);
 
       const request = {
@@ -180,7 +187,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
       setSearchResults(wineryResults);
       setShowSearchResults(true);
     } catch (error) {
-       // --- LOGGING STEP 3 ---
       console.error("[SEARCH] Raw error from Google API:", error);
       setError(`Search failed. ${error instanceof Error ? error.message : ''}`);
     } finally {
@@ -248,20 +254,27 @@ export default function WineryMap({ userId }: WineryMapProps) {
       });
       setWineries(wineryData);
 
-      // --- THE FIX IS HERE ---
-      // We only listen for 'idle', which is more reliable for when the map has settled.
-      // We add a check to ensure the bounds have a valid, non-zero area.
-      map.addListener("idle", () => {
-        const bounds = map.getBounds();
-        // The !bounds.isEmpty() check prevents using a zero-area box for searching.
-        if (bounds && !bounds.isEmpty()) { 
-          setCurrentBounds(bounds.toJSON());
-          debouncedAutoSearch();
+      // --- ROBUST INITIALIZATION LOGIC ---
+      // 1. Use a one-time listener for 'tilesloaded' to get reliable initial bounds.
+      window.google.maps.event.addListenerOnce(map, "tilesloaded", () => {
+        const initialBounds = map.getBounds();
+        if (initialBounds && !initialBounds.isEmpty()) {
+          console.log("[MAP READY] Tiles loaded, setting initial valid bounds.", initialBounds.toJSON());
+          setCurrentBounds(initialBounds.toJSON());
         }
       });
-      
-      // We no longer try to get the initial bounds here, as it's unreliable.
-      // The first 'idle' event after the map loads will handle it correctly.
+
+      // 2. Use 'idle' for subsequent user interactions, with a validity check.
+      map.addListener("idle", () => {
+        const bounds = map.getBounds();
+        // The !bounds.isEmpty() check prevents using a zero-area box.
+        if (bounds && !bounds.isEmpty()) {
+          setCurrentBounds(bounds.toJSON());
+          debouncedAutoSearch();
+        } else {
+            console.log("[MAP IDLE] Ignored empty or invalid bounds.");
+        }
+      });
 
     } catch (error) {
       setError(`Failed to initialize map: ${error instanceof Error ? error.message : String(error)}`);
@@ -273,7 +286,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   useEffect(() => {
     const loadScript = async () => {
       if (window.google?.maps) { setGoogleMapsLoaded(true); setApiKeyStatus("valid"); return; }
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
       if (!apiKey) {
         setError("API key is not configured."); setApiKeyStatus("missing"); setLoading(false); return;
       }
