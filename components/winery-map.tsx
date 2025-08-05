@@ -443,16 +443,33 @@ export default function WineryMap({ userId }: WineryMapProps) {
         if (autoSearchRef.current && bounds) debouncedAutoSearch(bounds)
       })
 
-      const visitsByWinery = await fetchUserVisits(userId)
-      const wineryData = fingerLakesWineries.map((winery, index) => {
-        const visits = visitsByWinery[winery.name] || []
-        return {
-          ...winery,
-          id: `winery-${index}`,
-          userVisited: visits.length > 0,
-          visits: visits,
+      if (!fingerLakesWineries) {
+        throw new Error("fingerLakesWineries is undefined")
+      }
+      if (!Array.isArray(fingerLakesWineries)) {
+        throw new Error("fingerLakesWineries is not an array")
+      }
+      
+      let wineryData = []
+      try {
+        const visitsByWinery = await fetchUserVisits(userId)
+        if (!Array.isArray(fingerLakesWineries)) {
+          throw new Error("fingerLakesWineries is not an array")
         }
-      })
+        wineryData = fingerLakesWineries.map((winery, index) => {
+          const visits = visitsByWinery[winery.name] || []
+          return {
+            ...winery,
+            id: `winery-${index}`,
+            userVisited: visits.length > 0,
+            visits: visits,
+          }
+        })
+        console.log("wineryData after mapping", wineryData)
+      } catch (err) {
+        console.error("Error during wineryData mapping:", err)
+        throw err
+      }
       setWineries(wineryData)
       console.log("visitsByWinery", visitsByWinery);
       console.log("fingerLakesWineries", fingerLakesWineries);
