@@ -393,6 +393,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
   // Initialize map when Google Maps is loaded
   const initializeMap = useCallback(async () => {
+    console.log("initializeMap called"); // <--- Add this as the first line
     if (!googleMapsLoaded || apiKeyStatus !== "valid") return
     try {
       const mapContainer = createMapContainer()
@@ -568,11 +569,12 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, [testApiKey, loadWineryData])
 
   useEffect(() => {
+    console.log("useEffect for map init called", { googleMapsLoaded, apiKeyStatus, alreadyInit: mapInitializedRef.current });
     if (googleMapsLoaded && apiKeyStatus === "valid" && !mapInitializedRef.current) {
-      mapInitializedRef.current = true
-      initializeMap()
+      mapInitializedRef.current = true;
+      initializeMap();
     }
-  }, [googleMapsLoaded, apiKeyStatus, initializeMap])
+  }, [googleMapsLoaded, apiKeyStatus, initializeMap]);
 
   useEffect(() => {
     return () => {
