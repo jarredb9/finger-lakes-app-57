@@ -32,7 +32,7 @@ interface Visit {
 
 interface Winery {
   id: string
-  name: string
+  name:string
   address: string
   lat: number
   lng: number
@@ -67,7 +67,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const [apiKeyStatus, setApiKeyStatus] = useState<"checking" | "valid" | "invalid" | "missing">("checking")
   const [apiKeyTestResult, setApiKeyTestResult] = useState<string>("")
   const [searchLocation, setSearchLocation] = useState("")
-  const [currentBounds, setCurrentBounds] = useState<any>(null)
+  const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBounds | null>(null)
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [autoSearch, setAutoSearch] = useState(false)
 
@@ -111,22 +111,23 @@ export default function WineryMap({ userId }: WineryMapProps) {
     return {};
   }, []);
 
-  const boundsChanged = useCallback((newBounds: any, oldBounds: any) => {
-    if (!oldBounds || !newBounds) return true;
-    const latDiff = Math.abs(newBounds.north - oldBounds.north) + Math.abs(newBounds.south - oldBounds.south);
-    const lngDiff = Math.abs(newBounds.east - oldBounds.east) + Math.abs(newBounds.west - oldBounds.west);
-    return latDiff > 0.01 || lngDiff > 0.01;
+  const boundsChanged = useCallback((newBounds: google.maps.LatLngBounds, oldBounds: google.maps.LatLngBounds | null) => {
+    if (!oldBounds) return true;
+    // .equals() is a more reliable way to compare LatLngBounds objects
+    return !newBounds.equals(oldBounds);
   }, []);
 
-  const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
+  const searchWineries = useCallback(async (location?: string, bounds?: google.maps.LatLngBounds, isAutoSearch = false) => {
     if (!window.google?.maps?.places?.Place || !mapInstanceRef.current) return;
     
-    let boundsForCheck = lastSearchBoundsRef.current;
-    if (isAutoSearch && (!autoSearch || !boundsChanged(currentBounds, boundsForCheck))) return;
+    // For auto-search, compare the new bounds with the last searched bounds
+    if (isAutoSearch && (!autoSearch || (lastSearchBoundsRef.current && !boundsChanged(bounds!, lastSearchBoundsRef.current)))) {
+      return;
+    }
 
     setSearching(true);
     try {
-      let searchBoundsForRequest: google.maps.LatLngBounds;
+      let searchBoundsForRequest: google.maps.LatLngBounds | undefined | null = bounds;
 
       if (location?.trim()) {
         const geocoder = new window.google.maps.Geocoder();
@@ -139,16 +140,17 @@ export default function WineryMap({ userId }: WineryMapProps) {
             new window.google.maps.LatLng(center.lat() + offset, center.lng() + offset)
           );
           mapInstanceRef.current.fitBounds(searchBoundsForRequest);
-          setCurrentBounds(searchBoundsForRequest.toJSON());
         } else {
           throw new Error("Location not found.");
         }
-      } else {
-        if (!currentBounds) { throw new Error("Map bounds not available."); }
-        searchBoundsForRequest = new window.google.maps.LatLngBounds(currentBounds);
+      } else if (!searchBoundsForRequest) {
+        // Fallback to state only if no bounds were passed directly
+        searchBoundsForRequest = currentBounds;
       }
       
-      lastSearchBoundsRef.current = searchBoundsForRequest.toJSON();
+      if (!searchBoundsForRequest) { throw new Error("Map bounds not available."); }
+      
+      lastSearchBoundsRef.current = searchBoundsForRequest;
 
       const request = {
         fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber"],
@@ -180,10 +182,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const searchWineriesRef = useRef(searchWineries);
   useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries]);
 
-  const debouncedAutoSearch = useCallback(() => {
+  const debouncedAutoSearch = useCallback((bounds: google.maps.LatLngBounds) => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
-      if (autoSearchRef.current) searchWineriesRef.current(undefined, true);
+      if (autoSearchRef.current) searchWineriesRef.current(undefined, bounds, true);
     }, 1000);
   }, []);
 
@@ -227,12 +229,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
       const map = new window.google.maps.Map(mapDiv, { center: { lat: 42.5, lng: -77.0 }, zoom: 10 });
       mapInstanceRef.current = map;
 
-      // Proactively set the initial bounds so the state is never null
-      const initialBounds = map.getBounds();
-      if (initialBounds) {
-        setCurrentBounds(initialBounds.toJSON());
-      }
-
       const visitsByWinery = await fetchUserVisits(userId);
       const wineryData = fingerLakesWineries.map((winery, index) => {
         const visits = visitsByWinery[winery.name] || [];
@@ -243,8 +239,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
       map.addListener("idle", () => {
         const bounds = map.getBounds();
         if (bounds) {
-          setCurrentBounds(bounds.toJSON());
-          debouncedAutoSearch();
+          setCurrentBounds(bounds); // Store the actual class instance
+          debouncedAutoSearch(bounds); // Pass it directly
         }
       });
 
@@ -331,7 +327,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const handleSearchSubmit = useCallback((e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) searchWineries(searchLocation.trim()); }, [searchLocation, searchWineries]);
   const handleSearchInCurrentArea = useCallback(() => { searchWineries(); }, [searchWineries]);
   const clearSearchResults = useCallback(() => { setSearchResults([]); setShowSearchResults(false); }, []);
-  const handleAutoSearchToggle = useCallback((enabled: boolean) => { setAutoSearch(enabled); if (enabled) debouncedAutoSearch(); }, [debouncedAutoSearch]);
+  const handleAutoSearchToggle = useCallback((enabled: boolean) => { setAutoSearch(enabled); if (enabled && currentBounds) debouncedAutoSearch(currentBounds); }, [currentBounds, debouncedAutoSearch]);
 
   if (error) {
     return (
