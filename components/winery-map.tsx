@@ -423,6 +423,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
       mapInstanceRef.current = mapInstance
 
       // --- MIGRATED: Use new Place API ---
+      if (!window.google?.maps?.places?.Place) {
+        setError(
+          "Google Maps Places API v3 is not available. Make sure you are using a supported Maps JS version (v3.55+), the Places API is enabled, and your API key is valid."
+        );
+        setShowFallback(true);
+        setLoading(false);
+        return;
+      }
       placesServiceRef.current = new window.google.maps.places.Place()
 
       mapInstance.addListener("bounds_changed", () => {
@@ -447,6 +455,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       })
       setWineries(wineryData)
       wineryData.forEach((winery, index) => {
+        if (!winery) return;
         const marker = new window.google.maps.Marker({
           position: { lat: winery.lat, lng: winery.lng },
           map: mapInstance,
@@ -507,7 +516,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       try {
         await new Promise<void>((resolve, reject) => {
           const script = document.createElement("script")
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&callback=initGoogleMaps`
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=weekly&callback=initGoogleMaps`
           script.async = true
           window.initGoogleMaps = () => {
             if (window.google && window.google.maps) {
