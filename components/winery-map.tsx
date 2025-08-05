@@ -424,7 +424,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       mapInstanceRef.current = mapInstance
 
       // --- MIGRATED: Use new Place API ---
-      if (!window.google?.maps?.places?.Place) {
+      if (!window.google?.maps?.places?.searchNearby) {
         setError(
           "Google Maps Places API v3 is not available. Make sure you are using a supported Maps JS version (v3.55+), the Places API is enabled, and your API key is valid."
         );
@@ -432,7 +432,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         setLoading(false);
         return;
       }
-      placesServiceRef.current = new window.google.maps.places.Place()
+      placesServiceRef.current = window.google.maps.places
 
       mapInstance.addListener("bounds_changed", () => {
         const bounds = mapInstance.getBounds()
