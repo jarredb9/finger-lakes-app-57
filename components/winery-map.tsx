@@ -80,15 +80,62 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const [autoSearch, setAutoSearch] = useState(false)
   const [searchCount, setSearchCount] = useState(0)
 
-  // Sample Finger Lakes wineries data
+  // Full Finger Lakes wineries data restored
   const fingerLakesWineries: Omit<Winery, "id" | "userVisited" | "visits">[] = [
     {
       name: "Dr. Konstantin Frank Winery",
       address: "9749 Middle Rd, Hammondsport, NY 14840",
       lat: 42.4089,
       lng: -77.2094,
+      phone: "(607) 868-4884",
+      website: "https://drfrankwines.com",
+      rating: 4.6,
     },
-    // ... other wineries
+    {
+      name: "Chateau Lafayette Reneau",
+      address: "5081 NY-414, Hector, NY 14841",
+      lat: 42.4756,
+      lng: -76.8739,
+      phone: "(607) 546-2062",
+      website: "https://clrwine.com",
+      rating: 4.4,
+    },
+    {
+      name: "Wagner Vineyards",
+      address: "9322 NY-414, Lodi, NY 14860",
+      lat: 42.6089,
+      lng: -76.8267,
+      phone: "(607) 582-6450",
+      website: "https://wagnervineyards.com",
+      rating: 4.3,
+    },
+    {
+      name: "Ravines Wine Cellars",
+      address: "1020 Keuka Lake Rd, Penn Yan, NY 14527",
+      lat: 42.6394,
+      lng: -77.0533,
+      phone: "(315) 536-4265",
+      website: "https://ravineswine.com",
+      rating: 4.5,
+    },
+    {
+      name: "Hermann J. Wiemer Vineyard",
+      address: "3962 NY-14, Dundee, NY 14837",
+      lat: 42.5267,
+      lng: -76.9733,
+      phone: "(607) 243-7971",
+      website: "https://wiemer.com",
+      rating: 4.7,
+    },
+    {
+      name: "Fox Run Vineyards",
+      address: "670 NY-14, Penn Yan, NY 14527",
+      lat: 42.6178,
+      lng: -77.0456,
+      phone: "(315) 536-4616",
+      website: "https://foxrunvineyards.com",
+      rating: 4.4,
+    },
   ];
 
   const testApiKey = useCallback(async (apiKey: string) => {
@@ -261,7 +308,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
       const map = new window.google.maps.Map(mapContainer, {
         center: { lat: 42.5, lng: -77.0 },
         zoom: 10,
-        // mapId was removed as it requires configuration
       });
       mapInstanceRef.current = map;
       
@@ -280,7 +326,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
   useEffect(() => {
     const loadMaps = async () => {
-      const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
       if (!apiKey) {
         setApiKeyStatus("missing");
         setError("API key is not configured.");
@@ -329,6 +375,67 @@ export default function WineryMap({ userId }: WineryMapProps) {
     };
   }, []);
   
+  // Full event handlers restored
+  const handleVisitUpdate = useCallback(async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
+    try {
+      const response = await fetch("/api/visits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wineryName: winery.name,
+          wineryAddress: winery.address,
+          visitDate: visitData.visitDate,
+          userReview: visitData.userReview,
+        }),
+      });
+      const responseData = await response.json();
+      if (response.ok) {
+        const updateWinery = (w: Winery) =>
+          w.id === winery.id
+            ? { ...w, visits: [...(w.visits || []), responseData], userVisited: true }
+            : w;
+        setWineries((prev) => prev.map(updateWinery));
+        setSearchResults((prev) => prev.map(updateWinery));
+        setSelectedWinery((prev) =>
+          prev?.id === winery.id
+            ? { ...prev, visits: [...(prev.visits || []), responseData], userVisited: true }
+            : prev
+        );
+      } else {
+        alert(`Failed to save visit: ${responseData.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      alert(`Error saving visit: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }, []);
+
+  const handleDeleteVisit = useCallback(async (winery: Winery, visitId: string) => {
+    try {
+      const response = await fetch(`/api/visits/${visitId}`, { method: "DELETE" });
+      if (response.ok) {
+        const updateWinery = (w: Winery) => {
+          if (w.id === winery.id) {
+            const updatedVisits = w.visits?.filter((v) => v.id !== visitId) || [];
+            return { ...w, visits: updatedVisits, userVisited: updatedVisits.length > 0 };
+          }
+          return w;
+        };
+        setWineries((prev) => prev.map(updateWinery));
+        setSearchResults((prev) => prev.map(updateWinery));
+        setSelectedWinery((prev) =>
+          prev?.id === winery.id
+            ? { ...prev, visits: prev.visits?.filter((v) => v.id !== visitId) || [], userVisited: (prev.visits?.filter((v) => v.id !== visitId) || []).length > 0 }
+            : prev
+        );
+      } else {
+        const responseData = await response.json();
+        alert(`Failed to delete visit: ${responseData.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      alert(`Error deleting visit: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }, []);
+  
   const handleSearchSubmit = useCallback((e: React.FormEvent) => {
       e.preventDefault();
       if (searchLocation.trim()) searchWineries(searchLocation.trim());
@@ -369,9 +476,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
                   <div className="bg-red-50 p-4 rounded-lg border border-red-200">
                     <p className="font-medium text-red-800 mb-2">🚨 Action Required:</p>
                     <ol className="list-decimal list-inside space-y-1 text-sm text-red-700">
-                      <li>Ensure your API Key is correct.</li>
+                      <li>Ensure your API Key is correct in your `.env.local` file.</li>
                       <li>Enable <strong>Maps JavaScript API</strong> and <strong>Places API</strong> in Google Cloud.</li>
                       <li>Ensure your project has a <strong>Billing Account</strong> attached.</li>
+                      <li>Restart your development server after changing `.env.local`.</li>
                     </ol>
                   </div>
                 </div>
@@ -379,7 +487,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
             </AlertDescription>
           </Alert>
         )}
-        {/* You can add a fallback list of wineries here if needed */}
       </div>
     );
   }
@@ -412,13 +519,21 @@ export default function WineryMap({ userId }: WineryMapProps) {
             <CardTitle>Search Results ({searchResults.length})</CardTitle>
             <Button variant="outline" size="sm" onClick={clearSearchResults}>Clear Results</Button>
           </CardHeader>
-          <CardContent>{/* Render search results here */}</CardContent>
+          <CardContent>{/* You can render a list of search results here */}</CardContent>
         </Card>
       )}
 
       <Card><CardContent className="p-0"><div ref={containerRef} className="relative w-full h-[600px] rounded-lg overflow-hidden"></div></CardContent></Card>
 
-      {selectedWinery && <WineryModal winery={selectedWinery} isOpen={!!selectedWinery} onClose={() => setSelectedWinery(null)} onVisitUpdate={() => {}} onDeleteVisit={() => {}} />}
+      {selectedWinery && 
+        <WineryModal 
+          winery={selectedWinery} 
+          isOpen={!!selectedWinery} 
+          onClose={() => setSelectedWinery(null)} 
+          onVisitUpdate={handleVisitUpdate} 
+          onDeleteVisit={handleDeleteVisit} 
+        />
+      }
     </div>
   );
 }
