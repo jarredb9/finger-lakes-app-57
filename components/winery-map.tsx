@@ -113,43 +113,52 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
   const boundsChanged = useCallback((newBounds: any, oldBounds: any) => {
     if (!oldBounds || !newBounds) return true;
-    const newNE = newBounds.getNorthEast(); const newSW = newBounds.getSouthWest();
-    const oldNE = oldBounds.getNorthEast(); const oldSW = oldBounds.getSouthWest();
-    const latDiff = Math.abs(newNE.lat() - oldNE.lat()) + Math.abs(newSW.lat() - oldSW.lat());
-    const lngDiff = Math.abs(newNE.lng() - oldNE.lng()) + Math.abs(newSW.lng() - oldSW.lng());
+    const latDiff = Math.abs(newBounds.north - oldBounds.north) + Math.abs(newBounds.south - oldBounds.south);
+    const lngDiff = Math.abs(newBounds.east - oldBounds.east) + Math.abs(newBounds.west - oldBounds.west);
     return latDiff > 0.01 || lngDiff > 0.01;
   }, []);
 
-  const searchWineries = useCallback(async (location?: string, bounds?: any, isAutoSearch = false) => {
+  const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
     if (!window.google?.maps?.places?.Place || !mapInstanceRef.current) return;
-    if (isAutoSearch && (!autoSearch || !boundsChanged(bounds, lastSearchBoundsRef.current))) return;
+    
+    let boundsForCheck = lastSearchBoundsRef.current;
+    if (isAutoSearch && (!autoSearch || !boundsChanged(currentBounds, boundsForCheck))) return;
 
     setSearching(true);
     try {
-      let searchBounds = bounds || currentBounds;
+      let searchBoundsForRequest: google.maps.LatLngBounds;
+
       if (location?.trim()) {
         const geocoder = new window.google.maps.Geocoder();
         const { results } = await geocoder.geocode({ address: location });
         if (results && results[0]) {
           const center = results[0].geometry.location;
           const offset = 0.18;
-          searchBounds = new window.google.maps.LatLngBounds(
+          searchBoundsForRequest = new window.google.maps.LatLngBounds(
             new window.google.maps.LatLng(center.lat() - offset, center.lng() - offset),
             new window.google.maps.LatLng(center.lat() + offset, center.lng() + offset)
           );
-          mapInstanceRef.current.fitBounds(searchBounds);
-          setCurrentBounds(searchBounds);
+          mapInstanceRef.current.fitBounds(searchBoundsForRequest);
+          setCurrentBounds(searchBoundsForRequest.toJSON());
+        } else {
+          throw new Error("Location not found.");
         }
+      } else {
+        if (!currentBounds) { throw new Error("Map bounds not available."); }
+        searchBoundsForRequest = new window.google.maps.LatLngBounds(currentBounds);
       }
-      if (!searchBounds) { setSearching(false); return; }
-      lastSearchBoundsRef.current = searchBounds;
+      
+      lastSearchBoundsRef.current = searchBoundsForRequest.toJSON();
+
       const request = {
         fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber"],
-        locationRestriction: searchBounds,
+        locationRestriction: searchBoundsForRequest,
         includedTypes: ["winery"],
         maxResultCount: 20,
       };
+      
       const { places } = await window.google.maps.places.Place.searchNearby(request);
+      
       const wineryResults: Winery[] = places.map((place: any) => ({
         id: `search-${place.id}`, name: place.displayName, address: place.formattedAddress || "N/A",
         lat: place.location.latitude, lng: place.location.longitude, rating: place.rating,
@@ -171,10 +180,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const searchWineriesRef = useRef(searchWineries);
   useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries]);
 
-  const debouncedAutoSearch = useCallback((bounds: any) => {
+  const debouncedAutoSearch = useCallback(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
-      if (autoSearchRef.current && bounds) searchWineriesRef.current(undefined, bounds, true);
+      if (autoSearchRef.current) searchWineriesRef.current(undefined, true);
     }, 1000);
   }, []);
 
@@ -225,7 +234,13 @@ export default function WineryMap({ userId }: WineryMapProps) {
       });
       setWineries(wineryData);
 
-      map.addListener("bounds_changed", () => debouncedAutoSearch(map.getBounds()));
+      map.addListener("idle", () => {
+        const bounds = map.getBounds();
+        if (bounds) {
+          setCurrentBounds(bounds.toJSON());
+          debouncedAutoSearch();
+        }
+      });
 
     } catch (error) {
       setError(`Failed to initialize map: ${error instanceof Error ? error.message : String(error)}`);
@@ -276,8 +291,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
       initializeMap();
     }
   }, [googleMapsLoaded, apiKeyStatus, initializeMap]);
-
-  useEffect(() => { () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current) } }, []);
   
   const handleVisitUpdate = useCallback(async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
     try {
@@ -310,9 +323,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, []);
   
   const handleSearchSubmit = useCallback((e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) searchWineries(searchLocation.trim()); }, [searchLocation, searchWineries]);
-  const handleSearchInCurrentArea = useCallback(() => { searchWineries(undefined, currentBounds); }, [currentBounds, searchWineries]);
+  const handleSearchInCurrentArea = useCallback(() => { searchWineries(); }, [searchWineries]);
   const clearSearchResults = useCallback(() => { setSearchResults([]); setShowSearchResults(false); }, []);
-  const handleAutoSearchToggle = useCallback((enabled: boolean) => { setAutoSearch(enabled); if (enabled && currentBounds) debouncedAutoSearch(currentBounds); }, [currentBounds, debouncedAutoSearch]);
+  const handleAutoSearchToggle = useCallback((enabled: boolean) => { setAutoSearch(enabled); if (enabled) debouncedAutoSearch(); }, [debouncedAutoSearch]);
 
   if (error) {
     return (
