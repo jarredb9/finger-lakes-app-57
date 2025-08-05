@@ -119,6 +119,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, []);
 
   const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
+    // --- LOGGING STEP 1 ---
+    console.log(`[SEARCH] Function called. Location: "${location}", Is Auto-Search: ${isAutoSearch}`);
+    console.log("[SEARCH] Current bounds from state:", currentBounds);
+
     if (!window.google?.maps?.places?.Place || !mapInstanceRef.current) return;
     
     if (isAutoSearch && (!autoSearch || !boundsChanged(currentBounds!, lastSearchBoundsRef.current))) {
@@ -130,6 +134,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       let restriction: google.maps.LatLngBoundsLiteral | null = null;
 
       if (location?.trim()) {
+        console.log("[SEARCH] Geocoding location:", location);
         const geocoder = new window.google.maps.Geocoder();
         const { results } = await geocoder.geocode({ address: location });
         if (results && results[0]) {
@@ -146,12 +151,16 @@ export default function WineryMap({ userId }: WineryMapProps) {
           throw new Error("Location not found.");
         }
       } else {
+        console.log("[SEARCH] Using bounds from state for search.");
         restriction = currentBounds;
       }
       
       if (!restriction) { throw new Error("Map bounds not available."); }
       
       lastSearchBoundsRef.current = restriction;
+
+      // --- LOGGING STEP 2 ---
+      console.log("[SEARCH] Final restriction object being sent to API:", restriction);
 
       const request = {
         fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber"],
@@ -171,6 +180,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
       setSearchResults(wineryResults);
       setShowSearchResults(true);
     } catch (error) {
+       // --- LOGGING STEP 3 ---
+      console.error("[SEARCH] Raw error from Google API:", error);
       setError(`Search failed. ${error instanceof Error ? error.message : ''}`);
     } finally {
       setSearching(false);
@@ -237,19 +248,20 @@ export default function WineryMap({ userId }: WineryMapProps) {
       });
       setWineries(wineryData);
 
+      // --- THE FIX IS HERE ---
+      // We only listen for 'idle', which is more reliable for when the map has settled.
+      // We add a check to ensure the bounds have a valid, non-zero area.
       map.addListener("idle", () => {
         const bounds = map.getBounds();
-        if (bounds) {
-          setCurrentBounds(bounds.toJSON()); // Store the plain object
+        // The !bounds.isEmpty() check prevents using a zero-area box for searching.
+        if (bounds && !bounds.isEmpty()) { 
+          setCurrentBounds(bounds.toJSON());
           debouncedAutoSearch();
         }
       });
       
-      // Also set the initial bounds when the map first loads
-      const initialBounds = map.getBounds();
-      if(initialBounds) {
-          setCurrentBounds(initialBounds.toJSON());
-      }
+      // We no longer try to get the initial bounds here, as it's unreliable.
+      // The first 'idle' event after the map loads will handle it correctly.
 
     } catch (error) {
       setError(`Failed to initialize map: ${error instanceof Error ? error.message : String(error)}`);
@@ -260,37 +272,22 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
   useEffect(() => {
     const loadScript = async () => {
-      if (window.google?.maps) {
-        setGoogleMapsLoaded(true);
-        setApiKeyStatus("valid");
-        return;
-      }
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      if (window.google?.maps) { setGoogleMapsLoaded(true); setApiKeyStatus("valid"); return; }
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
       if (!apiKey) {
-        setError("API key is not configured.");
-        setApiKeyStatus("missing");
-        setLoading(false);
-        return;
+        setError("API key is not configured."); setApiKeyStatus("missing"); setLoading(false); return;
       }
       if (!(await testApiKey(apiKey))) {
-        setError("API key is invalid or project is misconfigured.");
-        setApiKeyStatus("invalid");
-        setLoading(false);
-        return;
+        setError("API key is invalid or project is misconfigured."); setApiKeyStatus("invalid"); setLoading(false); return;
       }
       setApiKeyStatus("valid");
       
       window.initGoogleMaps = () => setGoogleMapsLoaded(true);
-      
       const script = document.createElement("script");
       script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=weekly&callback=initGoogleMaps`;
-      script.async = true;
-      script.defer = true;
+      script.async = true; script.defer = true;
       document.head.appendChild(script);
-      script.onerror = () => {
-        setError("The Google Maps script failed to load. Check ad blockers or network issues.");
-        setLoading(false);
-      };
+      script.onerror = () => { setError("Google Maps script failed to load."); setLoading(false); };
     };
     loadScript();
   }, [testApiKey]);
