@@ -454,6 +454,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
         }
       })
       setWineries(wineryData)
+      console.log("visitsByWinery", visitsByWinery);
+      console.log("fingerLakesWineries", fingerLakesWineries);
       console.log("wineryData", wineryData);
       const filteredWineries = wineryData.filter(w => w && w.id);
       filteredWineries.forEach((winery, index) => {
