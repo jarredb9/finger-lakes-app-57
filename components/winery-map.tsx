@@ -67,7 +67,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const [apiKeyStatus, setApiKeyStatus] = useState<"checking" | "valid" | "invalid" | "missing">("checking")
   const [apiKeyTestResult, setApiKeyTestResult] = useState<string>("")
   const [searchLocation, setSearchLocation] = useState("")
-  const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBounds | null>(null)
+  const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBoundsLiteral | null>(null)
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [autoSearch, setAutoSearch] = useState(false)
 
@@ -109,25 +109,25 @@ export default function WineryMap({ userId }: WineryMapProps) {
       }
     } catch {}
     return {};
-  }, []);
+  }, [userId]);
 
-  const boundsChanged = useCallback((newBounds: google.maps.LatLngBounds, oldBounds: google.maps.LatLngBounds | null) => {
+  const boundsChanged = useCallback((newBounds: google.maps.LatLngBoundsLiteral, oldBounds: google.maps.LatLngBoundsLiteral | null) => {
     if (!oldBounds) return true;
-    // .equals() is a more reliable way to compare LatLngBounds objects
-    return !newBounds.equals(oldBounds);
+    const latDiff = Math.abs(newBounds.north - oldBounds.north) + Math.abs(newBounds.south - oldBounds.south);
+    const lngDiff = Math.abs(newBounds.east - oldBounds.east) + Math.abs(newBounds.west - oldBounds.west);
+    return latDiff > 0.01 || lngDiff > 0.01;
   }, []);
 
-  const searchWineries = useCallback(async (location?: string, bounds?: google.maps.LatLngBounds, isAutoSearch = false) => {
+  const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
     if (!window.google?.maps?.places?.Place || !mapInstanceRef.current) return;
     
-    // For auto-search, compare the new bounds with the last searched bounds
-    if (isAutoSearch && (!autoSearch || (lastSearchBoundsRef.current && !boundsChanged(bounds!, lastSearchBoundsRef.current)))) {
+    if (isAutoSearch && (!autoSearch || !boundsChanged(currentBounds!, lastSearchBoundsRef.current))) {
       return;
     }
 
     setSearching(true);
     try {
-      let searchBoundsForRequest: google.maps.LatLngBounds | undefined | null = bounds;
+      let restriction: google.maps.LatLngBoundsLiteral | null = null;
 
       if (location?.trim()) {
         const geocoder = new window.google.maps.Geocoder();
@@ -135,26 +135,27 @@ export default function WineryMap({ userId }: WineryMapProps) {
         if (results && results[0]) {
           const center = results[0].geometry.location;
           const offset = 0.18;
-          searchBoundsForRequest = new window.google.maps.LatLngBounds(
+          const searchBoundsInstance = new window.google.maps.LatLngBounds(
             new window.google.maps.LatLng(center.lat() - offset, center.lng() - offset),
             new window.google.maps.LatLng(center.lat() + offset, center.lng() + offset)
           );
-          mapInstanceRef.current.fitBounds(searchBoundsForRequest);
+          mapInstanceRef.current.fitBounds(searchBoundsInstance);
+          restriction = searchBoundsInstance.toJSON();
+          setCurrentBounds(restriction);
         } else {
           throw new Error("Location not found.");
         }
-      } else if (!searchBoundsForRequest) {
-        // Fallback to state only if no bounds were passed directly
-        searchBoundsForRequest = currentBounds;
+      } else {
+        restriction = currentBounds;
       }
       
-      if (!searchBoundsForRequest) { throw new Error("Map bounds not available."); }
+      if (!restriction) { throw new Error("Map bounds not available."); }
       
-      lastSearchBoundsRef.current = searchBoundsForRequest;
+      lastSearchBoundsRef.current = restriction;
 
       const request = {
         fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber"],
-        locationRestriction: searchBoundsForRequest,
+        locationRestriction: restriction,
         includedTypes: ["winery"],
         maxResultCount: 20,
       };
@@ -182,10 +183,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const searchWineriesRef = useRef(searchWineries);
   useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries]);
 
-  const debouncedAutoSearch = useCallback((bounds: google.maps.LatLngBounds) => {
+  const debouncedAutoSearch = useCallback(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
-      if (autoSearchRef.current) searchWineriesRef.current(undefined, bounds, true);
+      if (autoSearchRef.current) searchWineriesRef.current(undefined, true);
     }, 1000);
   }, []);
 
@@ -239,10 +240,16 @@ export default function WineryMap({ userId }: WineryMapProps) {
       map.addListener("idle", () => {
         const bounds = map.getBounds();
         if (bounds) {
-          setCurrentBounds(bounds); // Store the actual class instance
-          debouncedAutoSearch(bounds); // Pass it directly
+          setCurrentBounds(bounds.toJSON()); // Store the plain object
+          debouncedAutoSearch();
         }
       });
+      
+      // Also set the initial bounds when the map first loads
+      const initialBounds = map.getBounds();
+      if(initialBounds) {
+          setCurrentBounds(initialBounds.toJSON());
+      }
 
     } catch (error) {
       setError(`Failed to initialize map: ${error instanceof Error ? error.message : String(error)}`);
@@ -258,7 +265,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         setApiKeyStatus("valid");
         return;
       }
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
       if (!apiKey) {
         setError("API key is not configured.");
         setApiKeyStatus("missing");
@@ -327,7 +334,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const handleSearchSubmit = useCallback((e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) searchWineries(searchLocation.trim()); }, [searchLocation, searchWineries]);
   const handleSearchInCurrentArea = useCallback(() => { searchWineries(); }, [searchWineries]);
   const clearSearchResults = useCallback(() => { setSearchResults([]); setShowSearchResults(false); }, []);
-  const handleAutoSearchToggle = useCallback((enabled: boolean) => { setAutoSearch(enabled); if (enabled && currentBounds) debouncedAutoSearch(currentBounds); }, [currentBounds, debouncedAutoSearch]);
+  const handleAutoSearchToggle = useCallback((enabled: boolean) => { setAutoSearch(enabled); if (enabled) debouncedAutoSearch(); }, [debouncedAutoSearch]);
 
   if (error) {
     return (
