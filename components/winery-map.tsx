@@ -227,6 +227,12 @@ export default function WineryMap({ userId }: WineryMapProps) {
       const map = new window.google.maps.Map(mapDiv, { center: { lat: 42.5, lng: -77.0 }, zoom: 10 });
       mapInstanceRef.current = map;
 
+      // Proactively set the initial bounds so the state is never null
+      const initialBounds = map.getBounds();
+      if (initialBounds) {
+        setCurrentBounds(initialBounds.toJSON());
+      }
+
       const visitsByWinery = await fetchUserVisits(userId);
       const wineryData = fingerLakesWineries.map((winery, index) => {
         const visits = visitsByWinery[winery.name] || [];
@@ -256,7 +262,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         setApiKeyStatus("valid");
         return;
       }
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
       if (!apiKey) {
         setError("API key is not configured.");
         setApiKeyStatus("missing");
@@ -346,7 +352,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
             <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2">
               <Input placeholder="Enter city, region, or address" value={searchLocation} onChange={(e) => setSearchLocation(e.target.value)} />
               <Button type="submit" disabled={searching}>{searching ? "Searching..." : "Search"}</Button>
-              <Button variant="outline" onClick={handleSearchInCurrentArea} disabled={searching || autoSearch}><RotateCcw className="w-4 h-4 mr-2" />Search This Area</Button>
+              <Button variant="outline" onClick={handleSearchInCurrentArea} disabled={searching || autoSearch || !currentBounds}>
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  Search This Area
+              </Button>
             </form>
             <div className="flex items-center space-x-2"><Switch id="auto-search" checked={autoSearch} onCheckedChange={handleAutoSearchToggle} /><Label htmlFor="auto-search">Automatically search when map moves</Label></div>
           </div>
