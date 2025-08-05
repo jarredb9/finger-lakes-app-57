@@ -454,8 +454,17 @@ export default function WineryMap({ userId }: WineryMapProps) {
         }
       })
       setWineries(wineryData)
-      wineryData.forEach((winery, index) => {
-        if (!winery) return;
+      console.log("wineryData", wineryData);
+      const filteredWineries = wineryData.filter(w => w && w.id);
+      filteredWineries.forEach((winery, index) => {
+        if (!winery) {
+          console.error("Undefined winery at index", index);
+          return;
+        }
+        if (!winery.id) {
+          console.error("Winery missing id at index", index, winery);
+          return;
+        }
         const marker = new window.google.maps.Marker({
           position: { lat: winery.lat, lng: winery.lng },
           map: mapInstance,
