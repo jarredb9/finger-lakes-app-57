@@ -168,25 +168,22 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, [googleMapsLoaded, userId, debouncedAutoSearch]);
 
   useEffect(() => {
-    const allWineries = new Map<string, Winery>();
-    wineries.forEach(w => allWineries.set(w.id, w));
-    searchResults.forEach(sr => allWineries.set(sr.id, sr));
-    
-    if (!mapInstanceRef.current) return;
-    const addMarkers = async () => {
-      try {
-        const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
-        markersRef.current.forEach(marker => { marker.map = null; });
-        markersRef.current.clear();
-        allWineries.forEach(winery => {
-          const marker = new AdvancedMarkerElement({ position: { lat: winery.lat, lng: winery.lng }, map: mapInstanceRef.current, title: winery.name });
-          marker.addListener("click", () => setSelectedWinery(winery));
-          markersRef.current.set(winery.id, marker);
-        });
-      } catch (e) { console.error("Error adding markers:", e); }
+    const loadScript = async () => {
+      if (window.google?.maps) { setGoogleMapsLoaded(true); setApiKeyStatus("valid"); return; }
+      const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
+      if (!apiKey) { setError("API key is not configured."); setApiKeyStatus("missing"); setLoading(false); return; }
+      if (!(await testApiKey(apiKey))) { setError("API key is invalid or project is misconfigured."); setApiKeyStatus("invalid"); setLoading(false); return; }
+      setApiKeyStatus("valid");
+      
+      window.initGoogleMaps = () => setGoogleMapsLoaded(true);
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker&v=weekly&callback=initGoogleMaps`;
+      script.async = true; script.defer = true;
+      document.head.appendChild(script);
+      script.onerror = () => { setError("Google Maps script failed to load."); setLoading(false); };
     };
-    addMarkers();
-  }, [wineries, searchResults]);
+    loadScript();
+  }, [testApiKey]);
 
   useEffect(() => {
     if (window.google?.maps) {
