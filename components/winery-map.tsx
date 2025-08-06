@@ -22,10 +22,6 @@ declare global {
   }
 }
 
-// ==================================================================
-// CRITICAL FIX: Define constants outside the component body
-// so they are not recreated on every render.
-// ==================================================================
 const fingerLakesWineries: Omit<Winery, "id" | "userVisited" | "visits">[] = [
   { name: "Dr. Konstantin Frank Winery", address: "9749 Middle Rd, Hammondsport, NY 14840", lat: 42.4089, lng: -77.2094, phone: "(607) 868-4884", website: "https://drfrankwines.com", rating: 4.6, },
   { name: "Chateau Lafayette Reneau", address: "5081 NY-414, Hector, NY 14841", lat: 42.4756, lng: -76.8739, phone: "(607) 546-2062", website: "https://clrwine.com", rating: 4.4, },
