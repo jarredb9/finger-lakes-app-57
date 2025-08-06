@@ -22,6 +22,16 @@ declare global {
   }
 }
 
+// ==================================================================
+// CRITICAL FIX: Define constants outside the component body
+// so they are not recreated on every render.
+// ==================================================================
+const fingerLakesWineries: Omit<Winery, "id" | "userVisited" | "visits">[] = [
+  { name: "Dr. Konstantin Frank Winery", address: "9749 Middle Rd, Hammondsport, NY 14840", lat: 42.4089, lng: -77.2094, phone: "(607) 868-4884", website: "https://drfrankwines.com", rating: 4.6, },
+  { name: "Chateau Lafayette Reneau", address: "5081 NY-414, Hector, NY 14841", lat: 42.4756, lng: -76.8739, phone: "(607) 546-2062", website: "https://clrwine.com", rating: 4.4, },
+  { name: "Wagner Vineyards", address: "9322 NY-414, Lodi, NY 14860", lat: 42.6089, lng: -76.8267, phone: "(607) 582-6450", website: "https://wagnervineyards.com", rating: 4.3, },
+];
+
 interface Visit {
   id?: string
   visitDate: string
@@ -68,12 +78,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBounds | null>(null)
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [autoSearch, setAutoSearch] = useState(false)
-
-  const fingerLakesWineries: Omit<Winery, "id" | "userVisited" | "visits">[] = [
-    { name: "Dr. Konstantin Frank Winery", address: "9749 Middle Rd, Hammondsport, NY 14840", lat: 42.4089, lng: -77.2094, phone: "(607) 868-4884", website: "https://drfrankwines.com", rating: 4.6, },
-    { name: "Chateau Lafayette Reneau", address: "5081 NY-414, Hector, NY 14841", lat: 42.4756, lng: -76.8739, phone: "(607) 546-2062", website: "https://clrwine.com", rating: 4.4, },
-    { name: "Wagner Vineyards", address: "9322 NY-414, Lodi, NY 14860", lat: 42.6089, lng: -76.8267, phone: "(607) 582-6450", website: "https://wagnervineyards.com", rating: 4.3, },
-  ];
 
   const testApiKey = useCallback(async (apiKey: string) => {
     try {
@@ -217,7 +221,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     } finally {
         setLoading(false);
     }
-  }, [googleMapsLoaded, apiKeyStatus, userId, fingerLakesWineries, fetchUserVisits, debouncedAutoSearch]);
+  }, [googleMapsLoaded, apiKeyStatus, userId, fetchUserVisits, debouncedAutoSearch]);
 
   const addAllMarkers = useCallback(async (allWineries: Winery[]) => {
     if (!mapInstanceRef.current) return;
@@ -347,7 +351,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Search Results ({searchResults.length})</CardTitle>
             <Button variant="outline" size="sm" onClick={clearSearchResults}>Clear Results</Button>
-          </CardHeader>
+          </Header>
           <CardContent>
             <div className="space-y-2">
               {searchResults.map(winery => (
