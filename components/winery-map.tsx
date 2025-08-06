@@ -67,7 +67,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const [apiKeyStatus, setApiKeyStatus] = useState<"checking" | "valid" | "invalid" | "missing">("checking")
   const [apiKeyTestResult, setApiKeyTestResult] = useState<string>("")
   const [searchLocation, setSearchLocation] = useState("")
-  const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBoundsLiteral | null>(null)
+  const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBounds | null>(null)
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [autoSearch, setAutoSearch] = useState(false)
 
@@ -105,11 +105,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
     return {};
   }, [userId]);
 
-  const boundsChanged = useCallback((newBounds: google.maps.LatLngBoundsLiteral, oldBounds: google.maps.LatLngBoundsLiteral | null) => {
+  const boundsChanged = useCallback((newBounds: google.maps.LatLngBounds, oldBounds: google.maps.LatLngBounds | null) => {
     if (!oldBounds) return true;
-    const latDiff = Math.abs(newBounds.north - oldBounds.north) + Math.abs(newBounds.south - oldBounds.south);
-    const lngDiff = Math.abs(newBounds.east - oldBounds.east) + Math.abs(newBounds.west - oldBounds.west);
-    return latDiff > 0.01 || lngDiff > 0.01;
+    return !newBounds.equals(oldBounds);
   }, []);
 
   const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
@@ -132,19 +130,20 @@ export default function WineryMap({ userId }: WineryMapProps) {
             new window.google.maps.LatLng(center.lat() + offset, center.lng() + offset)
           );
           mapInstanceRef.current.fitBounds(searchBoundsInstance);
-          setCurrentBounds(searchBoundsInstance.toJSON());
+          setCurrentBounds(searchBoundsInstance);
         } else { throw new Error("Location not found."); }
       } else {
         if (!currentBounds) throw new Error("Map bounds not available.");
-        searchBoundsInstance = new window.google.maps.LatLngBounds(currentBounds);
+        searchBoundsInstance = currentBounds;
       }
       
-      lastSearchBoundsRef.current = searchBoundsInstance.toJSON();
-      
+      lastSearchBoundsRef.current = searchBoundsInstance;
+
       const request = {
         fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber"],
         includedTypes: ["winery"],
-        locationRestriction: searchBoundsInstance.toJSON(), // Use only locationRestriction
+        // THE FINAL FIX: Convert the LatLngBounds INSTANCE to a plain OBJECT at the last moment.
+        locationRestriction: searchBoundsInstance.toJSON(),
         maxResultCount: 20
       };
       
@@ -238,14 +237,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
       window.google.maps.event.addListenerOnce(map, "tilesloaded", () => {
         const initialBounds = map.getBounds();
         if (initialBounds && !initialBounds.isEmpty()) {
-          setCurrentBounds(initialBounds.toJSON());
+          setCurrentBounds(initialBounds); // Store the instance
         }
       });
 
       map.addListener("idle", () => {
         const bounds = map.getBounds();
         if (bounds && !bounds.isEmpty()) {
-          setCurrentBounds(bounds.toJSON());
+          setCurrentBounds(bounds); // Store the instance
           debouncedAutoSearch();
         }
       });
