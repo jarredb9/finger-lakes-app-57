@@ -273,7 +273,7 @@ const searchWineries = useCallback(
 
         lastSearchBoundsRef.current = searchBounds;
 
-        // STEP 1: Search for places (this remains correct)
+        // STEP 1: Search for places
         const searchRequest = {
           textQuery: "winery",
           fields: ['id', 'displayName', 'location'],
@@ -290,10 +290,10 @@ const searchWineries = useCallback(
           return;
         }
 
-        // STEP 2: Fetch details with the literal property names. THIS IS THE FIX.
+        // STEP 2: Fetch details using the camelCase property names, which is correct for the 'beta' library.
         const detailFields = [
             'rating', 
-            'websiteUri', // CORRECT: The field name must match the property name.
+            'websiteUri', 
             'internationalPhoneNumber', 
             'priceLevel', 
             'photos',
@@ -311,7 +311,7 @@ const searchWineries = useCallback(
             lng: place.location!.longitude,
             rating: place.rating,
             phone: place.internationalPhoneNumber,
-            website: place.websiteUri, // This part remains correct, as you access the populated property.
+            website: place.websiteUri,
             placeId: place.id,
             isFromSearch: true,
             priceLevel: place.priceLevel,
@@ -633,7 +633,7 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
         console.log("Loading Google Maps API script...")
         await new Promise<void>((resolve, reject) => {
           const script = document.createElement("script")
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps&callback=initGoogleMaps`
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps&v=beta&callback=initGoogleMaps`
           script.async = true
 
           window.initGoogleMaps = () => {
