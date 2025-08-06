@@ -24,12 +24,9 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 
-// MIGRATION: Updated global type to reflect modern Google Maps types.
-// While `any` works, assuming `@types/google.maps` is installed provides better type safety.
 declare global {
   interface Window {
     google: typeof google
-    initGoogleMaps: () => void
   }
 }
 
@@ -61,173 +58,74 @@ interface WineryMapProps {
   userId: string
 }
 
+// Define module-level variables for the imported Google Maps classes
+let Map: typeof google.maps.Map;
+let Place: typeof google.maps.places.Place;
+let Geocoder: typeof google.maps.Geocoder;
+let Marker: typeof google.maps.Marker;
+let LatLngBounds: typeof google.maps.LatLngBounds;
+let LatLng: typeof google.maps.LatLng;
+
+
 export default function WineryMap({ userId }: WineryMapProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const mapContainerRef = useRef<HTMLDivElement | null>(null)
-  const mapInstanceRef = useRef<google.maps.Map | null>(null)
-  // MIGRATION: The legacy PlacesService instance is no longer needed.
-  // const placesServiceRef = useRef<any>(null);
-  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map())
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSearchBoundsRef = useRef<google.maps.LatLngBounds | null>(null)
-  const mapInitializedRef = useRef(false)
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapContainerRef = useRef<HTMLDivElement | null>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSearchBoundsRef = useRef<google.maps.LatLngBounds | null>(null);
 
-  const [wineries, setWineries] = useState<Winery[]>([])
-  const [searchResults, setSearchResults] = useState<Winery[]>([])
-  const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [searching, setSearching] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [googleMapsLoaded, setGoogleMapsLoaded] = useState(false)
-  const [apiKeyStatus, setApiKeyStatus] = useState<"checking" | "valid" | "invalid" | "missing">("checking")
-  const [apiKeyTestResult, setApiKeyTestResult] = useState<string>("")
-  const [showFallback, setShowFallback] = useState(false)
-  const [searchLocation, setSearchLocation] = useState("")
-  const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBounds | null>(null)
-  const [showSearchResults, setShowSearchResults] = useState(false)
-  const [autoSearch, setAutoSearch] = useState(false)
-  const [searchCount, setSearchCount] = useState(0)
+  const [wineries, setWineries] = useState<Winery[]>([]);
+  const [searchResults, setSearchResults] = useState<Winery[]>([]);
+  const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showFallback, setShowFallback] = useState(false);
+  const [searchLocation, setSearchLocation] = useState("");
+  const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBounds | null>(null);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [autoSearch, setAutoSearch] = useState(false);
+  const [searchCount, setSearchCount] = useState(0);
 
-  // Sample Finger Lakes wineries data
   const fingerLakesWineries: Omit<Winery, "id" | "userVisited" | "visits">[] = [
-    {
-      name: "Dr. Konstantin Frank Winery",
-      address: "9749 Middle Rd, Hammondsport, NY 14840",
-      lat: 42.4089,
-      lng: -77.2094,
-      phone: "(607) 868-4884",
-      website: "https://drfrankwines.com",
-      rating: 4.6,
-    },
-    {
-      name: "Chateau Lafayette Reneau",
-      address: "5081 NY-414, Hector, NY 14841",
-      lat: 42.4756,
-      lng: -76.8739,
-      phone: "(607) 546-2062",
-      website: "https://clrwine.com",
-      rating: 4.4,
-    },
-    {
-      name: "Wagner Vineyards",
-      address: "9322 NY-414, Lodi, NY 14860",
-      lat: 42.6089,
-      lng: -76.8267,
-      phone: "(607) 582-6450",
-      website: "https://wagnervineyards.com",
-      rating: 4.3,
-    },
-    {
-      name: "Ravines Wine Cellars",
-      address: "1020 Keuka Lake Rd, Penn Yan, NY 14527",
-      lat: 42.6394,
-      lng: -77.0533,
-      phone: "(315) 536-4265",
-      website: "https://ravineswine.com",
-      rating: 4.5,
-    },
-    {
-      name: "Hermann J. Wiemer Vineyard",
-      address: "3962 NY-14, Dundee, NY 14837",
-      lat: 42.5267,
-      lng: -76.9733,
-      phone: "(607) 243-7971",
-      website: "https://wiemer.com",
-      rating: 4.7,
-    },
-    {
-      name: "Fox Run Vineyards",
-      address: "670 NY-14, Penn Yan, NY 14527",
-      lat: 42.6178,
-      lng: -77.0456,
-      phone: "(315) 536-4616",
-      website: "https://foxrunvineyards.com",
-      rating: 4.4,
-    },
-  ]
-
-  // Test API key by making a direct request
-  const testApiKey = useCallback(async (apiKey: string) => {
-    try {
-      console.log("Testing API key with direct request...")
-      const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=New+York&key=${apiKey}`)
-      const data = await response.json()
-
-      console.log("API key test response:", data)
-
-      if (data.status === "OK") {
-        setApiKeyTestResult("✅ API key is valid and working")
-        return true
-      } else if (data.status === "REQUEST_DENIED") {
-        setApiKeyTestResult(`❌ API key denied: ${data.error_message || "Unknown error"}`)
-        return false
-      } else if (data.status === "OVER_QUERY_LIMIT") {
-        setApiKeyTestResult("⚠️ API quota exceeded - check your billing and quotas")
-        return false
-      } else {
-        setApiKeyTestResult(`⚠️ API key test returned: ${data.status} - ${data.error_message || "Unknown error"}`)
-        return false
-      }
-    } catch (error) {
-      console.error("API key test failed:", error)
-      setApiKeyTestResult(`❌ API key test failed: ${error}`)
-      return false
-    }
-  }, [])
+    { name: "Dr. Konstantin Frank Winery", address: "9749 Middle Rd, Hammondsport, NY 14840", lat: 42.4089, lng: -77.2094, phone: "(607) 868-4884", website: "https://drfrankwines.com", rating: 4.6 },
+    { name: "Chateau Lafayette Reneau", address: "5081 NY-414, Hector, NY 14841", lat: 42.4756, lng: -76.8739, phone: "(607) 546-2062", website: "https://clrwine.com", rating: 4.4 },
+    { name: "Wagner Vineyards", address: "9322 NY-414, Lodi, NY 14860", lat: 42.6089, lng: -76.8267, phone: "(607) 582-6450", website: "https://wagnervineyards.com", rating: 4.3 },
+    { name: "Ravines Wine Cellars", address: "1020 Keuka Lake Rd, Penn Yan, NY 14527", lat: 42.6394, lng: -77.0533, phone: "(315) 536-4265", website: "https://ravineswine.com", rating: 4.5 },
+    { name: "Hermann J. Wiemer Vineyard", address: "3962 NY-14, Dundee, NY 14837", lat: 42.5267, lng: -76.9733, phone: "(607) 243-7971", website: "https://wiemer.com", rating: 4.7 },
+    { name: "Fox Run Vineyards", address: "670 NY-14, Penn Yan, NY 14527", lat: 42.6178, lng: -77.0456, phone: "(315) 536-4616", website: "https://foxrunvineyards.com", rating: 4.4 },
+  ];
 
   const fetchUserVisits = useCallback(async (userId: string) => {
     try {
-      console.log("Fetching user visits for user:", userId)
-      const response = await fetch("/api/visits")
+      const response = await fetch("/api/visits");
       if (response.ok) {
-        const visits = await response.json()
-        console.log("Visits fetched successfully:", visits)
-
-        // Group visits by winery name
-        const visitsByWinery = visits.reduce((acc: any, visit: any) => {
-          if (!acc[visit.winery_name]) {
-            acc[visit.winery_name] = []
-          }
-          acc[visit.winery_name].push({
-            id: visit.id,
-            visitDate: visit.visit_date,
-            userReview: visit.user_review,
-            createdAt: visit.created_at,
-          })
-          return acc
-        }, {})
-
-        console.log("Visits grouped by winery:", visitsByWinery)
-        return visitsByWinery
-      } else {
-        console.error("Failed to fetch visits:", response.status, response.statusText)
+        const visits = await response.json();
+        return visits.reduce((acc: any, visit: any) => {
+          if (!acc[visit.winery_name]) acc[visit.winery_name] = [];
+          acc[visit.winery_name].push({ id: visit.id, visitDate: visit.visit_date, userReview: visit.user_review, createdAt: visit.created_at });
+          return acc;
+        }, {});
       }
-    } catch (error) {
-      console.error("Error fetching user visits:", error)
-    }
-    return {}
-  }, [])
+    } catch (error) { console.error("Error fetching user visits:", error); }
+    return {};
+  }, []);
 
-  // Check if bounds have changed significantly to avoid redundant searches
   const boundsChanged = useCallback((newBounds: google.maps.LatLngBounds, oldBounds: google.maps.LatLngBounds | null) => {
-    if (!oldBounds || !newBounds) return true
-
-    const newNE = newBounds.getNorthEast()
-    const newSW = newBounds.getSouthWest()
-    const oldNE = oldBounds.getNorthEast()
-    const oldSW = oldBounds.getSouthWest()
-
-    // Calculate the difference in bounds (roughly 30% change threshold)
-    const latDiff = Math.abs(newNE.lat() - oldNE.lat()) + Math.abs(newSW.lat() - oldSW.lat())
-    const lngDiff = Math.abs(newNE.lng() - oldNE.lng()) + Math.abs(newSW.lng() - oldSW.lng())
-
-    const threshold = 0.01 // Adjust this to control sensitivity
-    return latDiff > threshold || lngDiff > threshold
-  }, [])
-
-  // MIGRATION: This function has been rewritten to use the new Place Class static methods.
+    if (!oldBounds || !newBounds) return true;
+    const newNE = newBounds.getNorthEast(); const newSW = newBounds.getSouthWest();
+    const oldNE = oldBounds.getNorthEast(); const oldSW = oldBounds.getSouthWest();
+    const latDiff = Math.abs(newNE.lat() - oldNE.lat()) + Math.abs(newSW.lat() - oldSW.lat());
+    const lngDiff = Math.abs(newNE.lng() - oldNE.lng()) + Math.abs(newSW.lng() - oldSW.lng());
+    return latDiff > 0.01 || lngDiff > 0.01;
+  }, []);
+  
   const searchWineries = useCallback(async (location?: string, bounds?: google.maps.LatLngBounds, isAutoSearch = false) => {
-    if (!mapInstanceRef.current || !Place) return;
+    if (!mapInstanceRef.current || !Place) {
+        console.error("Map or Place library not initialized.");
+        return;
+    }
     if (isAutoSearch && (!autoSearch || !boundsChanged(bounds!, lastSearchBoundsRef.current))) return;
 
     setSearching(true);
@@ -267,26 +165,31 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
       const detailFields: (keyof google.maps.places.Place)[] = ['rating', 'websiteUri', 'internationalPhoneNumber', 'priceLevel', 'photos', 'formattedAddress'];
       const wineryPromises = places.map(async (place) => {
-        await place.fetchFields({ fields: detailFields });
-        return {
-          id: `search-${place.id}`,
-          name: place.displayName!,
-          address: place.formattedAddress || "Address not available",
-          lat: place.location!.latitude,
-          lng: place.location!.longitude,
-          rating: place.rating,
-          phone: place.internationalPhoneNumber,
-          website: place.websiteUri,
-          placeId: place.id,
-          isFromSearch: true,
-          priceLevel: place.priceLevel,
-          photos: place.photos?.slice(0, 3).map(p => p.getURI({ maxWidth: 400, maxHeight: 300 })),
-          userVisited: false,
-          visits: [],
-        };
+        try {
+            await place.fetchFields({ fields: detailFields });
+            return {
+              id: `search-${place.id}`,
+              name: place.displayName!,
+              address: place.formattedAddress || "Address not available",
+              lat: place.location!.latitude,
+              lng: place.location!.longitude,
+              rating: place.rating,
+              phone: place.internationalPhoneNumber,
+              website: place.websiteUri,
+              placeId: place.id,
+              isFromSearch: true,
+              priceLevel: place.priceLevel,
+              photos: place.photos?.slice(0, 3).map(p => p.getURI({ maxWidth: 400, maxHeight: 300 })),
+              userVisited: false,
+              visits: [],
+            };
+        } catch(e) {
+            console.error(`Could not fetch details for place ${place.id}`, e);
+            return null; // Return null if details for one place fail
+        }
       });
       
-      const wineryResults = await Promise.all(wineryPromises);
+      const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null);
       setSearchResults(wineryResults);
       setShowSearchResults(true);
       setSearchCount(prev => prev + 1);
@@ -342,7 +245,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     setWineries(wineryData);
   }, [userId, fetchUserVisits]);
 
-  // REFACTORED INITIALIZATION
   useEffect(() => {
     const initMap = async () => {
       const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
@@ -354,14 +256,12 @@ export default function WineryMap({ userId }: WineryMapProps) {
         return;
       }
 
-      // We still do a basic fetch test for the key validity
       try {
         const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=New+York&key=${apiKey}`);
         const data = await response.json();
         if (data.status !== 'OK') {
             throw new Error(data.error_message || `API Key Test Failed: ${data.status}`);
         }
-        setApiKeyStatus("valid");
       } catch(e) {
         setError((e as Error).message);
         setShowFallback(true);
@@ -370,7 +270,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
         return;
       }
 
-      // Modern library loading
       try {
         const { Map: GoogleMap } = await google.maps.importLibrary("maps") as google.maps.MapsLibrary;
         const { Place: GooglePlace } = await google.maps.importLibrary("places") as google.maps.PlacesLibrary;
@@ -378,7 +277,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
         const { Marker: GoogleMarker } = await google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
         const { LatLngBounds: GoogleLatLngBounds, LatLng: GoogleLatLng } = await google.maps.importLibrary("core") as google.maps.CoreLibrary;
 
-        // Assign to module-level variables
         Map = GoogleMap;
         Place = GooglePlace;
         Geocoder = GoogleGeocoder;
@@ -386,7 +284,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         LatLngBounds = GoogleLatLngBounds;
         LatLng = GoogleLatLng;
 
-        const mapContainer = containerRef.current!.querySelector("#google-map-div") || (() => {
+        const mapContainer = containerRef.current!.querySelector<HTMLDivElement>("#google-map-div") || (() => {
             const div = document.createElement("div");
             div.id = "google-map-div";
             div.style.cssText = "width:100%;height:100%;min-height:384px;border-radius:0.5rem;";
@@ -398,7 +296,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
             center: { lat: 42.5, lng: -77.0 },
             zoom: 10,
             styles: [{ featureType: "water", elementType: "geometry", stylers: [{ color: "#4A90E2" }] }],
-            mapId: 'WINERY_MAP_ID' // Recommended for use with new features
+            mapId: 'WINERY_MAP_ID'
         });
         mapInstanceRef.current = map;
 
@@ -426,166 +324,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     initMap();
   }, [loadWineryData, debouncedAutoSearch]);
 
-
-      console.log("Map created successfully")
-
-      // This logic for loading default wineries and visits remains unchanged.
-      console.log("Loading user visits...")
-      const visitsByWinery = await fetchUserVisits(userId)
-      console.log("User visits loaded:", visitsByWinery)
-
-      const wineryData = fingerLakesWineries.map((winery, index) => {
-        const visits = visitsByWinery[winery.name] || []
-        return {
-          ...winery,
-          id: `winery-${index}`,
-          userVisited: visits.length > 0,
-          visits: visits,
-        }
-      })
-
-      console.log("Winery data prepared:", wineryData)
-      setWineries(wineryData)
-      
-      console.log("All markers added successfully")
-      console.log("Map initialization complete")
-      setLoading(false)
-    } catch (error) {
-      console.error("Error initializing map:", error)
-
-      const errorString = (error as Error).toString()
-      if (errorString.includes("InvalidKeyMapError")) {
-        setApiKeyStatus("invalid")
-        setError("Invalid Google Maps API key. Please check your API key in Google Cloud Console.")
-      } else if (errorString.includes("ApiNotActivatedMapError")) {
-        setApiKeyStatus("invalid")
-        setError("Maps JavaScript API is not enabled. Please enable it in Google Cloud Console.")
-      } else if (errorString.includes("RefererNotAllowedMapError")) {
-        setApiKeyStatus("invalid")
-        setError("API key restrictions are blocking this domain. Check your API key restrictions.")
-      } else if (errorString.includes("ApiProjectMapError")) {
-        setApiKeyStatus("invalid")
-        setError(
-          "Google Cloud project configuration error. This usually means billing is not enabled, the project is invalid, or APIs are not properly configured.",
-        )
-      } else {
-        setError(`Failed to initialize map: ${errorString}`)
-      }
-      setShowFallback(true)
-      await loadWineryData()
-    }
-  }, [
-    googleMapsLoaded,
-    apiKeyStatus,
-    userId,
-    fetchUserVisits,
-    createMapContainer,
-    loadWineryData,
-    addAllMarkers, 
-    debouncedAutoSearch,
-  ])
-
-  // Check API key and load Google Maps
-  useEffect(() => {
-    const loadGoogleMaps = async () => {
-      console.log("Starting Google Maps initialization...")
-
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-      console.log("API Key check:", {
-        exists: !!apiKey,
-        length: apiKey?.length || 0,
-        preview: apiKey ? apiKey.substring(0, 10) + "..." : "none",
-      })
-
-      if (!apiKey) {
-        console.error("Google Maps API key is missing")
-        setApiKeyStatus("missing")
-        setError(
-          "Google Maps API key is not configured. Please add NEXT_PUBLIC_Maps_API_KEY to your environment variables.",
-        )
-        setShowFallback(true)
-        await loadWineryData()
-        return
-      }
-
-      setApiKeyStatus("checking")
-
-      const isValidKey = await testApiKey(apiKey)
-      if (!isValidKey) {
-        setApiKeyStatus("invalid")
-        setError("Google Maps API key is invalid or has insufficient permissions.")
-        setShowFallback(true)
-        await loadWineryData()
-        return
-      }
-
-      setApiKeyStatus("valid")
-
-      if (window.google && window.google.maps) {
-        console.log("Google Maps API already loaded")
-        setGoogleMapsLoaded(true)
-        return
-      }
-
-      try {
-        // MIGRATION: The script URL now recommends loading 'maps' and 'places' libraries explicitly.
-        // Your original code already did this, so it's correct.
-        console.log("Loading Google Maps API script...")
-        await new Promise<void>((resolve, reject) => {
-          const script = document.createElement("script")
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps&callback=initGoogleMaps`
-          script.async = true
-
-          window.initGoogleMaps = () => {
-            console.log("Google Maps API callback triggered")
-            if (window.google && window.google.maps) {
-              console.log("Google Maps API loaded successfully")
-              setGoogleMapsLoaded(true)
-              resolve()
-            } else {
-              console.error("Google Maps API callback triggered but API not available")
-              reject(new Error("Google Maps API not available after load"))
-            }
-          }
-
-          script.onerror = (error) => {
-            console.error("Failed to load Google Maps API script:", error)
-            reject(new Error("Failed to load Google Maps script"))
-          }
-
-          document.head.appendChild(script)
-        })
-      } catch (error) {
-        console.error("Error loading Google Maps:", error)
-        setApiKeyStatus("invalid")
-        setError(
-          "Failed to load Google Maps API. This usually means the API key is invalid, the service is unavailable, or the API is not enabled.",
-        )
-        setShowFallback(true)
-        await loadWineryData()
-      }
-    }
-
-    loadGoogleMaps()
-  }, [testApiKey, loadWineryData])
-
-  // Initialize map when Google Maps is loaded
-  useEffect(() => {
-    if (googleMapsLoaded && apiKeyStatus === "valid" && !mapInitializedRef.current) {
-      mapInitializedRef.current = true
-      console.log("Google Maps ready, initializing map...")
-      initializeMap()
-    }
-  }, [googleMapsLoaded, apiKeyStatus, initializeMap])
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
-    }
-  }, [])
 
   const handleVisitUpdate = async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
     console.log("handleVisitUpdate called:", { winery: winery.name, visitData })
