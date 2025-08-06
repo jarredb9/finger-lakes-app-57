@@ -33,13 +33,13 @@ declare global {
 }
 
 // MIGRATION: Define module-level variables for the imported Google Maps classes.
-// This is a necessary addition for the new initialization pattern.
 let Map: typeof google.maps.Map;
 let Place: typeof google.maps.places.Place;
 let Geocoder: typeof google.maps.Geocoder;
 let Marker: typeof google.maps.Marker;
 let LatLngBounds: typeof google.maps.LatLngBounds;
 let LatLng: typeof google.maps.LatLng;
+
 
 interface Visit {
   id?: string
@@ -93,6 +93,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [autoSearch, setAutoSearch] = useState(false)
   const [searchCount, setSearchCount] = useState(0)
+
+  // MIGRATION: Added a single state to prevent race conditions during library loading.
+  const [librariesLoaded, setLibrariesLoaded] = useState(false);
 
   // UNCHANGED: Your sample data is preserved.
   const fingerLakesWineries: Omit<Winery, "id" | "userVisited" | "visits">[] = [
@@ -158,27 +161,12 @@ export default function WineryMap({ userId }: WineryMapProps) {
       console.log("Testing API key with direct request...")
       const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=New+York&key=${apiKey}`)
       const data = await response.json()
-
       console.log("API key test response:", data)
-
-      if (data.status === "OK") {
-        setApiKeyTestResult("✅ API key is valid and working")
-        return true
-      } else if (data.status === "REQUEST_DENIED") {
-        setApiKeyTestResult(`❌ API key denied: ${data.error_message || "Unknown error"}`)
-        return false
-      } else if (data.status === "OVER_QUERY_LIMIT") {
-        setApiKeyTestResult("⚠️ API quota exceeded - check your billing and quotas")
-        return false
-      } else {
-        setApiKeyTestResult(`⚠️ API key test returned: ${data.status} - ${data.error_message || "Unknown error"}`)
-        return false
-      }
-    } catch (error) {
-      console.error("API key test failed:", error)
-      setApiKeyTestResult(`❌ API key test failed: ${error}`)
-      return false
-    }
+      if (data.status === "OK") { setApiKeyTestResult("✅ API key is valid and working"); return true; }
+      else if (data.status === "REQUEST_DENIED") { setApiKeyTestResult(`❌ API key denied: ${data.error_message || "Unknown error"}`); return false; }
+      else if (data.status === "OVER_QUERY_LIMIT") { setApiKeyTestResult("⚠️ API quota exceeded - check your billing and quotas"); return false; }
+      else { setApiKeyTestResult(`⚠️ API key test returned: ${data.status} - ${data.error_message || "Unknown error"}`); return false; }
+    } catch (error) { console.error("API key test failed:", error); setApiKeyTestResult(`❌ API key test failed: ${error}`); return false; }
   }, [])
 
   const fetchUserVisits = useCallback(async (userId: string) => {
@@ -188,52 +176,35 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (response.ok) {
         const visits = await response.json()
         console.log("Visits fetched successfully:", visits)
-
         const visitsByWinery = visits.reduce((acc: any, visit: any) => {
-          if (!acc[visit.winery_name]) {
-            acc[visit.winery_name] = []
-          }
-          acc[visit.winery_name].push({
-            id: visit.id,
-            visitDate: visit.visit_date,
-            userReview: visit.user_review,
-            createdAt: visit.created_at,
-          })
+          if (!acc[visit.winery_name]) { acc[visit.winery_name] = [] }
+          acc[visit.winery_name].push({ id: visit.id, visitDate: visit.visit_date, userReview: visit.user_review, createdAt: visit.created_at, });
           return acc
         }, {})
-
         console.log("Visits grouped by winery:", visitsByWinery)
         return visitsByWinery
-      } else {
-        console.error("Failed to fetch visits:", response.status, response.statusText)
-      }
-    } catch (error) {
-      console.error("Error fetching user visits:", error)
-    }
+      } else { console.error("Failed to fetch visits:", response.status, response.statusText); }
+    } catch (error) { console.error("Error fetching user visits:", error); }
     return {}
   }, [])
 
   const boundsChanged = useCallback((newBounds: google.maps.LatLngBounds, oldBounds: google.maps.LatLngBounds | null) => {
-    if (!oldBounds || !newBounds) return true
+    if (!oldBounds || !newBounds) return true;
+    const newNE = newBounds.getNorthEast(); const newSW = newBounds.getSouthWest();
+    const oldNE = oldBounds.getNorthEast(); const oldSW = oldBounds.getSouthWest();
+    const latDiff = Math.abs(newNE.lat() - oldNE.lat()) + Math.abs(newSW.lat() - oldSW.lat());
+    const lngDiff = Math.abs(newNE.lng() - oldNE.lng()) + Math.abs(newSW.lng() - oldSW.lng());
+    const threshold = 0.01;
+    return latDiff > threshold || lngDiff > threshold;
+  }, []);
 
-    const newNE = newBounds.getNorthEast()
-    const newSW = newBounds.getSouthWest()
-    const oldNE = oldBounds.getNorthEast()
-    const oldSW = oldBounds.getSouthWest()
-
-    const latDiff = Math.abs(newNE.lat() - oldNE.lat()) + Math.abs(newSW.lat() - oldSW.lat())
-    const lngDiff = Math.abs(newNE.lng() - oldNE.lng()) + Math.abs(newSW.lng() - oldSW.lng())
-
-    const threshold = 0.01
-    return latDiff > threshold || lngDiff > threshold
-  }, [])
-
-  // MIGRATION: This function's body is the only part replaced, to use the pure Place class approach.
+  // MIGRATION: This function's body is replaced to use the pure Place class approach, resolving the deprecation warning.
   const searchWineries = useCallback(
     async (location?: string, bounds?: google.maps.LatLngBounds, isAutoSearch = false) => {
-      if (!mapInstanceRef.current || !Place) {
-          console.error("Map or Place library not ready for search.");
-          return;
+      // Safety check to prevent crash
+      if (!librariesLoaded || !mapInstanceRef.current) {
+        console.log("Libraries not loaded yet, skipping search.");
+        return;
       }
       if (isAutoSearch && (!autoSearch || !boundsChanged(bounds!, lastSearchBoundsRef.current))) return;
 
@@ -245,9 +216,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
         if (location && location.trim()) {
           const geocoder = new Geocoder();
-          const { results } = await geocoder.geocode({ address: location });
-          if (results && results.length > 0) {
-            const result = results[0];
+          const geocodeResult = await geocoder.geocode({ address: location });
+          if (geocodeResult.results && geocodeResult.results.length > 0) {
+            const result = geocodeResult.results[0];
             searchBounds = result.geometry.viewport || result.geometry.bounds;
             if (!searchBounds) {
                  const center = result.geometry.location;
@@ -313,25 +284,25 @@ export default function WineryMap({ userId }: WineryMapProps) {
         setSearching(false);
       }
     },
-    [currentBounds, autoSearch, boundsChanged]
+    [currentBounds, autoSearch, boundsChanged, librariesLoaded] // Add librariesLoaded as dependency
   );
   
-  // UNCHANGED: All your other hooks and helpers are preserved.
-  const autoSearchRef = useRef(autoSearch)
-  useEffect(() => { autoSearchRef.current = autoSearch }, [autoSearch])
+  const autoSearchRef = useRef(autoSearch);
+  useEffect(() => { autoSearchRef.current = autoSearch }, [autoSearch]);
 
   const searchWineriesRef = useRef(searchWineries);
-  useEffect(() => { searchWineriesRef.current = searchWineries; }, [searchWineries]);
+  useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries]);
 
   const debouncedAutoSearch = useCallback((bounds: any) => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
     searchTimeoutRef.current = setTimeout(() => {
       if (autoSearchRef.current && bounds) searchWineriesRef.current(undefined, bounds, true)
     }, 1000)
-  }, [])
+  }, []);
 
   const addAllMarkers = useCallback((allWineries: Winery[]) => {
-    if (!mapInstanceRef.current || !Marker) return;
+    // Safety check to prevent crash
+    if (!librariesLoaded || !mapInstanceRef.current) return;
 
     markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current.clear();
@@ -342,15 +313,15 @@ export default function WineryMap({ userId }: WineryMapProps) {
         map: mapInstanceRef.current,
         title: winery.name,
         icon: winery.isFromSearch
-          ? { url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo=", scaledSize: new window.google.maps.Size(32, 32), }
+          ? { url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo=", scaledSize: new window.google.maps.Size(32, 32) }
           : winery.userVisited
-          ? { url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo=", scaledSize: new window.google.maps.Size(32, 32), }
-          : { url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=", scaledSize: new window.google.maps.Size(32, 32), },
+          ? { url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo=", scaledSize: new window.google.maps.Size(32, 32) }
+          : { url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=", scaledSize: new window.google.maps.Size(32, 32) },
       });
       marker.addListener("click", () => { setSelectedWinery(winery); });
       markersRef.current.set(winery.id, marker);
     });
-  }, []);
+  }, [librariesLoaded]);
 
   useEffect(() => {
     if (mapInstanceRef.current) {
@@ -401,21 +372,15 @@ export default function WineryMap({ userId }: WineryMapProps) {
       const { Marker: GoogleMarker } = await window.google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
       const { LatLngBounds: GoogleLatLngBounds, LatLng: GoogleLatLng } = await window.google.maps.importLibrary("core") as google.maps.CoreLibrary;
       
-      // MIGRATION: Assign to module-level variables.
+      // MIGRATION: Assign to module-level variables and set the safety flag.
       Map = GoogleMap; Place = GooglePlace; Geocoder = GoogleGeocoder; Marker = GoogleMarker; LatLngBounds = GoogleLatLngBounds; LatLng = GoogleLatLng;
-      
-      // UNCHANGED: The rest of your initialization logic is preserved.
-      const mapContainer = createMapContainer()
-      if (!mapContainer) {
-        console.error("Failed to create map container")
-        setError("Failed to create map container"); setShowFallback(true); setLoading(false); return;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 200))
+      setLibrariesLoaded(true);
 
-      if (!window.google || !window.google.maps) {
-        console.error("Google Maps API not available")
-        setError("Google Maps API not available"); setShowFallback(true); setLoading(false); return;
-      }
+      const mapContainer = createMapContainer();
+      if (!mapContainer) { throw new Error("Failed to create map container"); }
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
+      if (!window.google || !window.google.maps) { throw new Error("Google Maps API not available"); }
 
       console.log("Creating Google Maps instance...")
       const mapInstance = new Map(mapContainer, {
@@ -423,157 +388,253 @@ export default function WineryMap({ userId }: WineryMapProps) {
         zoom: 10,
         styles: [{ featureType: "water", elementType: "geometry", stylers: [{ color: "#4A90E2" }] }],
         mapId: 'WINERY_MAP_ID' // Recommended for new features
-      })
-      mapInstanceRef.current = mapInstance
+      });
+      mapInstanceRef.current = mapInstance;
 
       mapInstance.addListener("bounds_changed", () => {
         const bounds = mapInstance.getBounds()
-        if (bounds) { setCurrentBounds(bounds); if (autoSearchRef.current) debouncedAutoSearch(bounds); }
-      })
+        if (bounds) { setCurrentBounds(bounds); if (autoSearchRef.current) { debouncedAutoSearch(bounds); } }
+      });
       mapInstance.addListener("idle", () => {
         const bounds = mapInstance.getBounds()
-        if (autoSearchRef.current && bounds) debouncedAutoSearch(bounds)
-      })
-      console.log("Map created successfully")
+        if (autoSearchRef.current && bounds) { debouncedAutoSearch(bounds); }
+      });
+      console.log("Map created successfully");
 
-      console.log("Loading user visits...")
-      const visitsByWinery = await fetchUserVisits(userId)
-      console.log("User visits loaded:", visitsByWinery)
+      console.log("Loading user visits...");
+      const visitsByWinery = await fetchUserVisits(userId);
+      console.log("User visits loaded:", visitsByWinery);
       const wineryData = fingerLakesWineries.map((winery, index) => {
-        const visits = visitsByWinery[winery.name] || []
-        return { ...winery, id: `winery-${index}`, userVisited: visits.length > 0, visits: visits, }
-      })
-      console.log("Winery data prepared:", wineryData)
-      setWineries(wineryData)
-      console.log("All markers added successfully")
-      console.log("Map initialization complete")
-      setLoading(false)
+        const visits = visitsByWinery[winery.name] || [];
+        return { ...winery, id: `winery-${index}`, userVisited: visits.length > 0, visits: visits };
+      });
+      console.log("Winery data prepared:", wineryData);
+      setWineries(wineryData);
+      console.log("Map initialization complete");
+      setLoading(false);
     } catch (error) {
       console.error("Error initializing map:", error)
-      const errorString = (error as Error).toString()
-      if (errorString.includes("InvalidKeyMapError")) { setApiKeyStatus("invalid"); setError("Invalid Google Maps API key...") }
-      else if (errorString.includes("ApiNotActivatedMapError")) { setApiKeyStatus("invalid"); setError("Maps JavaScript API is not enabled...") }
-      else if (errorString.includes("RefererNotAllowedMapError")) { setApiKeyStatus("invalid"); setError("API key restrictions are blocking this domain...") }
-      else if (errorString.includes("ApiProjectMapError")) { setApiKeyStatus("invalid"); setError("Google Cloud project configuration error...") }
-      else { setError(`Failed to initialize map: ${errorString}`) }
-      setShowFallback(true)
-      await loadWineryData()
+      const errorString = (error as Error).toString();
+      if (errorString.includes("InvalidKeyMapError")) { setApiKeyStatus("invalid"); setError("Invalid Google Maps API key."); }
+      else if (errorString.includes("ApiNotActivatedMapError")) { setApiKeyStatus("invalid"); setError("Maps JavaScript API is not enabled."); }
+      else if (errorString.includes("RefererNotAllowedMapError")) { setApiKeyStatus("invalid"); setError("API key restrictions are blocking this domain."); }
+      else if (errorString.includes("ApiProjectMapError")) { setApiKeyStatus("invalid"); setError("Google Cloud project configuration error."); }
+      else { setError(`Failed to initialize map: ${errorString}`); }
+      setShowFallback(true);
+      await loadWineryData();
     }
-  }, [googleMapsLoaded, apiKeyStatus, userId, fetchUserVisits, createMapContainer, loadWineryData, debouncedAutoSearch])
+  }, [apiKeyStatus, createMapContainer, debouncedAutoSearch, fetchUserVisits, googleMapsLoaded, loadWineryData, userId]);
 
-  // UNCHANGED: Your first useEffect for loading is preserved.
-  // MIGRATION: Added `v=beta` to the script URL.
+  // MIGRATION: Added `v=beta` to the script URL. Your two-hook structure is preserved.
   useEffect(() => {
     const loadGoogleMaps = async () => {
-      console.log("Starting Google Maps initialization...")
-      const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY
+      console.log("Starting Google Maps initialization...");
+      const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
       if (!apiKey) {
         console.error("Google Maps API key is missing");
         setApiKeyStatus("missing");
-        setError("Google Maps API key is not configured...");
-        setShowFallback(true); await loadWineryData(); return;
+        setError("Google Maps API key is not configured.");
+        setShowFallback(true);
+        await loadWineryData();
+        return;
       }
       setApiKeyStatus("checking");
-      const isValidKey = await testApiKey(apiKey)
+      const isValidKey = await testApiKey(apiKey);
       if (!isValidKey) {
-        setApiKeyStatus("invalid"); setError("Google Maps API key is invalid or has insufficient permissions.");
-        setShowFallback(true); await loadWineryData(); return;
+        setApiKeyStatus("invalid");
+        setError("Google Maps API key is invalid or has insufficient permissions.");
+        setShowFallback(true);
+        await loadWineryData();
+        return;
       }
-      setApiKeyStatus("valid")
+      setApiKeyStatus("valid");
 
-      if (window.google && window.google.maps) { console.log("Google Maps API already loaded"); setGoogleMapsLoaded(true); return; }
+      if (window.google && window.google.maps) {
+        console.log("Google Maps API already loaded");
+        setGoogleMapsLoaded(true);
+        return;
+      }
 
       try {
-        console.log("Loading Google Maps API script...")
+        console.log("Loading Google Maps API script...");
         await new Promise<void>((resolve, reject) => {
-          const script = document.createElement("script")
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps&v=beta&callback=initGoogleMaps`
-          script.async = true
+          const script = document.createElement("script");
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps&v=beta&callback=initGoogleMaps`;
+          script.async = true;
           window.initGoogleMaps = () => {
-            console.log("Google Maps API callback triggered")
+            console.log("Google Maps API callback triggered");
             if (window.google && window.google.maps) {
-              console.log("Google Maps API loaded successfully")
-              setGoogleMapsLoaded(true)
-              resolve()
+              console.log("Google Maps API loaded successfully");
+              setGoogleMapsLoaded(true);
+              resolve();
             } else {
-              console.error("Google Maps API callback triggered but API not available")
-              reject(new Error("Google Maps API not available after load"))
+              reject(new Error("Google Maps API not available after load"));
             }
-          }
-          script.onerror = (error) => { console.error("Failed to load Google Maps API script:", error); reject(new Error("Failed to load Google Maps script")) }
-          document.head.appendChild(script)
-        })
+          };
+          script.onerror = (error) => reject(new Error(`Failed to load Google Maps script: ${error}`));
+          document.head.appendChild(script);
+        });
       } catch (error) {
-        console.error("Error loading Google Maps:", error)
-        setApiKeyStatus("invalid")
-        setError("Failed to load Google Maps API...");
-        setShowFallback(true)
-        await loadWineryData()
+        console.error("Error loading Google Maps:", error);
+        setApiKeyStatus("invalid");
+        setError("Failed to load Google Maps API.");
+        setShowFallback(true);
+        await loadWineryData();
       }
-    }
-    loadGoogleMaps()
-  }, [testApiKey, loadWineryData])
+    };
+    loadGoogleMaps();
+  }, [testApiKey, loadWineryData]);
 
-  // UNCHANGED: Your second useEffect for initialization is preserved.
   useEffect(() => {
     if (googleMapsLoaded && apiKeyStatus === "valid" && !mapInitializedRef.current) {
-      mapInitializedRef.current = true
-      console.log("Google Maps ready, initializing map...")
-      initializeMap()
+      mapInitializedRef.current = true;
+      console.log("Google Maps ready, initializing map...");
+      initializeMap();
     }
-  }, [googleMapsLoaded, apiKeyStatus, initializeMap])
+  }, [googleMapsLoaded, apiKeyStatus, initializeMap]);
 
-  useEffect(() => { return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current) } }, [])
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
+      }
+    }
+  }, [])
 
-  // UNCHANGED: All your event handlers are preserved exactly.
   const handleVisitUpdate = async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
     console.log("handleVisitUpdate called:", { winery: winery.name, visitData })
+
     try {
       const response = await fetch("/api/visits", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ wineryName: winery.name, wineryAddress: winery.address, visitDate: visitData.visitDate, userReview: visitData.userReview, }),
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          wineryName: winery.name,
+          wineryAddress: winery.address,
+          visitDate: visitData.visitDate,
+          userReview: visitData.userReview,
+        }),
       })
+
       console.log("API response status:", response.status)
       const responseData = await response.json()
       console.log("API response data:", responseData)
+
       if (response.ok) {
         console.log("Visit saved successfully, updating local state")
+
         const newVisit = { ...visitData, id: responseData.id, createdAt: responseData.created_at };
-        const updateWinery = (w: Winery) => w.id === winery.id ? { ...w, visits: [...(w.visits || []), newVisit], userVisited: true, } : w
+
+        const updateWinery = (w: Winery) =>
+          w.id === winery.id
+            ? {
+                ...w,
+                visits: [...(w.visits || []), newVisit],
+                userVisited: true,
+              }
+            : w
+
         setWineries((prev) => prev.map(updateWinery))
         setSearchResults((prev) => prev.map(updateWinery))
-        setSelectedWinery((prev) => prev?.id === winery.id ? { ...prev, visits: [...(prev.visits || []), newVisit], userVisited: true, } : prev)
+
+        setSelectedWinery((prev) =>
+          prev?.id === winery.id
+            ? {
+                ...prev,
+                visits: [...(prev.visits || []), newVisit],
+                userVisited: true,
+              }
+            : prev,
+        )
+
         console.log("Local state updated successfully")
-      } else { console.error("Failed to save visit:", responseData); alert(`Failed to save visit: ${responseData.error || "Unknown error"}`) }
-    } catch (error) { console.error("Error saving visit:", error); alert(`Error saving visit: ${error}`) }
+      } else {
+        console.error("Failed to save visit:", responseData)
+        alert(`Failed to save visit: ${responseData.error || "Unknown error"}`)
+      }
+    } catch (error) {
+      console.error("Error saving visit:", error)
+      alert(`Error saving visit: ${error}`)
+    }
   }
 
   const handleDeleteVisit = async (winery: Winery, visitId: string) => {
     console.log("handleDeleteVisit called:", { winery: winery.name, visitId })
+
     try {
-      const response = await fetch(`/api/visits/${visitId}`, { method: "DELETE" })
+      const response = await fetch(`/api/visits/${visitId}`, {
+        method: "DELETE",
+      })
+
       console.log("Delete API response status:", response.status)
+
       if (response.ok) {
         console.log("Visit deleted successfully, updating local state")
+
         const updateWinery = (w: Winery) => {
-          if (w.id !== winery.id) return w;
-          const updatedVisits = w.visits?.filter((v) => v.id !== visitId) || [];
-          return { ...w, visits: updatedVisits, userVisited: updatedVisits.length > 0, }
+            if (w.id !== winery.id) return w;
+            const updatedVisits = w.visits?.filter((v) => v.id !== visitId) || [];
+            return {
+                ...w,
+                visits: updatedVisits,
+                userVisited: updatedVisits.length > 0,
+              }
         }
+        
         setWineries((prev) => prev.map(updateWinery))
         setSearchResults((prev) => prev.map(updateWinery))
-        setSelectedWinery((prev) => prev?.id === winery.id ? { ...prev, visits: prev.visits?.filter((v) => v.id !== visitId) || [], userVisited: (prev.visits?.filter((v) => v.id !== visitId) || []).length > 0, } : prev)
+
+        setSelectedWinery((prev) =>
+          prev?.id === winery.id
+            ? {
+                ...prev,
+                visits: prev.visits?.filter((v) => v.id !== visitId) || [],
+                userVisited: (prev.visits?.filter((v) => v.id !== visitId) || []).length > 0,
+              }
+            : prev,
+        )
+
         console.log("Local state updated after deletion")
-      } else { const responseData = await response.json(); console.error("Failed to delete visit:", responseData); alert(`Failed to delete visit: ${responseData.error || "Unknown error"}`) }
-    } catch (error) { console.error("Error deleting visit:", error); alert(`Error deleting visit: ${error}`) }
+      } else {
+        const responseData = await response.json()
+        console.error("Failed to delete visit:", responseData)
+        alert(`Failed to delete visit: ${responseData.error || "Unknown error"}`)
+      }
+    } catch (error) {
+      console.error("Error deleting visit:", error)
+      alert(`Error deleting visit: ${error}`)
+    }
   }
 
-  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) searchWineries(searchLocation.trim()); }
-  const handleSearchInCurrentArea = () => { searchWineries(undefined, currentBounds!) }
-  const clearSearchResults = () => { setSearchResults([]); setShowSearchResults(false); setSearchCount(0); lastSearchBoundsRef.current = null; }
-  const handleAutoSearchToggle = (enabled: boolean) => { setAutoSearch(enabled); if (enabled && currentBounds) debouncedAutoSearch(currentBounds); }
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchLocation.trim()) {
+      searchWineries(searchLocation.trim())
+    }
+  }
+
+  const handleSearchInCurrentArea = () => {
+    searchWineries(undefined, currentBounds!)
+  }
+
+  const clearSearchResults = () => {
+    setSearchResults([])
+    setShowSearchResults(false)
+    setSearchCount(0)
+    lastSearchBoundsRef.current = null
+    // This will trigger the useEffect to re-render markers without search results
+  }
+
+  const handleAutoSearchToggle = (enabled: boolean) => {
+    setAutoSearch(enabled)
+    if (enabled && currentBounds) {
+      debouncedAutoSearch(currentBounds)
+    }
+  }
   
-  // UNCHANGED: All of your JSX and UI logic is fully preserved.
+  // All JSX below is preserved to maintain your UI and fallback logic.
+
   if (error || showFallback) {
     return (
       <div className="space-y-6">
@@ -582,37 +643,200 @@ export default function WineryMap({ userId }: WineryMapProps) {
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               <div className="space-y-3">
-                <p><strong>Map Error:</strong> {error}</p>
+                <p>
+                  <strong>Map Error:</strong> {error}
+                </p>
+
                 <div className="text-sm space-y-3">
-                  <div className="flex items-center space-x-2"><Key className="h-4 w-4" /><span><strong>API Key Status:</strong>{" "}
-                      {apiKeyStatus === "missing" ? ( <span className="text-red-600 flex items-center gap-1"><XCircle className="h-3 w-3" />Missing</span> ) : apiKeyStatus === "invalid" ? ( <span className="text-red-600 flex items-center gap-1"><XCircle className="h-3 w-3" />Invalid/Project Error</span> ) : apiKeyStatus === "valid" ? ( <span className="text-green-600 flex items-center gap-1"><CheckCircle className="h-3 w-3" />Valid</span> ) : ( <span className="text-yellow-600">Checking...</span> )}
+                  <div className="flex items-center space-x-2">
+                    <Key className="h-4 w-4" />
+                    <span>
+                      <strong>API Key Status:</strong>{" "}
+                      {apiKeyStatus === "missing" ? (
+                        <span className="text-red-600 flex items-center gap-1">
+                          <XCircle className="h-3 w-3" />
+                          Missing
+                        </span>
+                      ) : apiKeyStatus === "invalid" ? (
+                        <span className="text-red-600 flex items-center gap-1">
+                          <XCircle className="h-3 w-3" />
+                          Invalid/Project Error
+                        </span>
+                      ) : apiKeyStatus === "valid" ? (
+                        <span className="text-green-600 flex items-center gap-1">
+                          <CheckCircle className="h-3 w-3" />
+                          Valid
+                        </span>
+                      ) : (
+                        <span className="text-yellow-600">Checking...</span>
+                      )}
                     </span>
                   </div>
-                  {apiKeyTestResult && (<div className="bg-gray-50 p-3 rounded"><p className="font-medium mb-1">API Key Test Result:</p><p className="text-sm">{apiKeyTestResult}</p></div>)}
-                  <div className="bg-red-50 p-4 rounded-lg border border-red-200"><p className="font-medium text-red-800 mb-2">🚨 ApiProjectMapError - Action Required:</p><p className="text-sm text-red-700 mb-3">This error means your Google Cloud project has configuration issues. You need to:</p><ol className="list-decimal list-inside space-y-1 text-sm text-red-700"><li><strong>Enable billing</strong> - Google Maps requires a billing account (even for free usage)</li><li><strong>Enable APIs</strong> - Maps JavaScript API and Places API must be enabled</li><li><strong>Check quotas</strong> - Make sure you haven't exceeded usage limits</li><li><strong>Verify project</strong> - Ensure your project is active and valid</li></ol></div>
-                  <div className="bg-blue-50 p-3 rounded"><p className="font-medium text-blue-800 mb-2">Quick Setup Links:</p><div className="space-y-2 text-sm"><Button variant="outline" size="sm" asChild className="w-full justify-start bg-transparent"><a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4 mr-2" />1. Enable Billing</a></Button><Button variant="outline" size="sm" asChild className="w-full justify-start bg-transparent"><a href="https://console.cloud.google.com/apis/library/places-backend.googleapis.com" target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4 mr-2" />2. Enable Places API</a></Button><Button variant="outline" size="sm" asChild className="w-full justify-start bg-transparent"><a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer"><ExternalLink className="w-4 h-4 mr-2" />3. Check API Key</a></Button></div></div>
+
+                  {apiKeyTestResult && (
+                    <div className="bg-gray-50 p-3 rounded">
+                      <p className="font-medium mb-1">API Key Test Result:</p>
+                      <p className="text-sm">{apiKeyTestResult}</p>
+                    </div>
+                  )}
+
+                  <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                    <p className="font-medium text-red-800 mb-2">🚨 ApiProjectMapError - Action Required:</p>
+                    <p className="text-sm text-red-700 mb-3">
+                      This error means your Google Cloud project has configuration issues. You need to:
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1 text-sm text-red-700">
+                      <li>
+                        <strong>Enable billing</strong> - Google Maps requires a billing account (even for free usage)
+                      </li>
+                      <li>
+                        <strong>Enable APIs</strong> - Maps JavaScript API and Places API must be enabled
+                      </li>
+                      <li>
+                        <strong>Check quotas</strong> - Make sure you haven't exceeded usage limits
+                      </li>
+                      <li>
+                        <strong>Verify project</strong> - Ensure your project is active and valid
+                      </li>
+                    </ol>
+                  </div>
+
+                  <div className="bg-blue-50 p-3 rounded">
+                    <p className="font-medium text-blue-800 mb-2">Quick Setup Links:</p>
+                    <div className="space-y-2 text-sm">
+                      <Button variant="outline" size="sm" asChild className="w-full justify-start bg-transparent">
+                        <a href="https://console.cloud.google.com/billing" target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          1. Enable Billing
+                        </a>
+                      </Button>
+                      <Button variant="outline" size="sm" asChild className="w-full justify-start bg-transparent">
+                        <a
+                          href="https://console.cloud.google.com/apis/library/places-backend.googleapis.com"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          2. Enable Places API
+                        </a>
+                      </Button>
+                      <Button variant="outline" size="sm" asChild className="w-full justify-start bg-transparent">
+                        <a
+                          href="https://console.cloud.google.com/apis/credentials"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <ExternalLink className="w-4 h-4 mr-2" />
+                          3. Check API Key
+                        </a>
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </AlertDescription>
           </Alert>
         )}
+
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
             <Card>
-              <CardHeader><CardTitle>Finger Lakes Wineries</CardTitle><CardDescription>Map is currently unavailable - using list view. All winery tracking features are still functional!</CardDescription></CardHeader>
+              <CardHeader>
+                <CardTitle>Finger Lakes Wineries</CardTitle>
+                <CardDescription>
+                  Map is currently unavailable - using list view. All winery tracking features are still functional!
+                </CardDescription>
+              </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {wineries.map((winery) => (<Card key={winery.id} className={`cursor-pointer transition-colors hover:bg-gray-50 ${winery.userVisited ? "border-green-200 bg-green-50" : ""}`} onClick={() => setSelectedWinery(winery)}><CardContent className="p-4"><div className="flex items-start justify-between"><div className="flex-1"><h3 className="font-semibold text-lg">{winery.name}</h3><p className="text-sm text-gray-600 mt-1">{winery.address}</p>{winery.phone && <p className="text-sm text-gray-500 mt-1">{winery.phone}</p>}{winery.rating && <p className="text-sm text-gray-500 mt-1">Rating: {winery.rating}/5.0</p>}</div><div className="flex flex-col items-end space-y-2">{winery.userVisited && (<div className="flex items-center space-x-1 text-green-600"><CheckCircle className="w-4 h-4" /><span className="text-sm font-medium">{winery.visits?.length || 0} visit{(winery.visits?.length || 0) !== 1 ? "s" : ""}</span></div>)}{winery.visits && winery.visits.length > 0 && (<div className="flex items-center space-x-1 text-gray-500"><Calendar className="w-3 h-3" /><span className="text-xs">Last: {new Date(winery.visits[0].visitDate).toLocaleDateString()}</span></div>)}</div></div></CardContent></Card>))}
+                  {wineries.map((winery) => (
+                    <Card
+                      key={winery.id}
+                      className={`cursor-pointer transition-colors hover:bg-gray-50 ${
+                        winery.userVisited ? "border-green-200 bg-green-50" : ""
+                      }`}
+                      onClick={() => setSelectedWinery(winery)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h3 className="font-semibold text-lg">{winery.name}</h3>
+                            <p className="text-sm text-gray-600 mt-1">{winery.address}</p>
+                            {winery.phone && <p className="text-sm text-gray-500 mt-1">{winery.phone}</p>}
+                            {winery.rating && <p className="text-sm text-gray-500 mt-1">Rating: {winery.rating}/5.0</p>}
+                          </div>
+                          <div className="flex flex-col items-end space-y-2">
+                            {winery.userVisited && (
+                              <div className="flex items-center space-x-1 text-green-600">
+                                <CheckCircle className="w-4 h-4" />
+                                <span className="text-sm font-medium">
+                                  {winery.visits?.length || 0} visit{(winery.visits?.length || 0) !== 1 ? "s" : ""}
+                                </span>
+                              </div>
+                            )}
+                            {winery.visits && winery.visits.length > 0 && (
+                              <div className="flex items-center space-x-1 text-gray-500">
+                                <Calendar className="w-3 h-3" />
+                                <span className="text-xs">
+                                  Last: {new Date(winery.visits[0].visitDate).toLocaleDateString()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               </CardContent>
             </Card>
           </div>
+
           <div className="space-y-4">
-            <Card><CardHeader><CardTitle>Your Progress</CardTitle></CardHeader><CardContent><div className="text-center"><div className="text-3xl font-bold text-green-600">{wineries.filter((w) => w.userVisited).length}</div><div className="text-sm text-gray-600">of {wineries.length} wineries visited</div><div className="text-xs text-gray-500 mt-1">Total visits: {wineries.reduce((sum, w) => sum + (w.visits?.length || 0), 0)}</div></div></CardContent></Card>
-            <Card><CardHeader><CardTitle>Status</CardTitle></CardHeader><CardContent className="space-y-2"><div className="flex items-center space-x-2"><div className="w-4 h-4 bg-green-500 rounded-full"></div><span className="text-sm">Visited</span></div><div className="flex items-center space-x-2"><div className="w-4 h-4 bg-gray-300 rounded-full"></div><span className="text-sm">Not visited</span></div><div className="text-xs text-gray-500 mt-2">Click any winery to add visits and reviews</div></CardContent></Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Progress</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-600">
+                    {wineries.filter((w) => w.userVisited).length}
+                  </div>
+                  <div className="text-sm text-gray-600">of {wineries.length} wineries visited</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Total visits: {wineries.reduce((sum, w) => sum + (w.visits?.length || 0), 0)}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Status</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                  <span className="text-sm">Visited</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-4 h-4 bg-gray-300 rounded-full"></div>
+                  <span className="text-sm">Not visited</span>
+                </div>
+                <div className="text-xs text-gray-500 mt-2">Click any winery to add visits and reviews</div>
+              </CardContent>
+            </Card>
           </div>
         </div>
-        {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} />)}
+
+        {selectedWinery && (
+          <WineryModal
+            winery={selectedWinery}
+            onClose={() => setSelectedWinery(null)}
+            onSaveVisit={handleVisitUpdate}
+            onDeleteVisit={handleDeleteVisit}
+          />
+        )}
       </div>
     )
   }
@@ -620,49 +844,213 @@ export default function WineryMap({ userId }: WineryMapProps) {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader><CardTitle className="flex items-center space-x-2"><Search className="w-5 h-5" /><span>Discover Wineries</span></CardTitle><CardDescription>Search for wineries in any location or explore dynamically as you move the map</CardDescription></CardHeader>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <Search className="w-5 h-5" />
+            <span>Discover Wineries</span>
+          </CardTitle>
+          <CardDescription>
+            Search for wineries in any location or explore dynamically as you move the map
+          </CardDescription>
+        </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-4">
-              <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2"><Input placeholder="Enter city, region, or address (e.g., 'Napa Valley, CA')" value={searchLocation} onChange={(e) => setSearchLocation(e.target.value)} className="flex-1" /><Button type="submit" disabled={searching || !searchLocation.trim()}>{searching ? "Searching..." : "Search"}</Button></form>
-              <Button variant="outline" onClick={handleSearchInCurrentArea} disabled={searching || !currentBounds} className="flex items-center space-x-2 bg-transparent"><MapPin className="w-4 h-4" /><span>Search Current Area</span></Button>
+              <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
+                <Input
+                  placeholder="Enter city, region, or address (e.g., 'Napa Valley, CA')"
+                  value={searchLocation}
+                  onChange={(e) => setSearchLocation(e.target.value)}
+                  className="flex-1"
+                />
+                <Button type="submit" disabled={searching || !searchLocation.trim()}>
+                  {searching ? "Searching..." : "Search"}
+                </Button>
+              </form>
+              <Button
+                variant="outline"
+                onClick={handleSearchInCurrentArea}
+                disabled={searching || !currentBounds}
+                className="flex items-center space-x-2 bg-transparent"
+              >
+                <MapPin className="w-4 h-4" />
+                <span>Search Current Area</span>
+              </Button>
             </div>
+
             <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center space-x-3"><div className="flex items-center space-x-2"><Switch id="auto-search" checked={autoSearch} onCheckedChange={handleAutoSearchToggle} /><Label htmlFor="auto-search" className="text-sm font-medium">Auto-discover wineries as you explore</Label></div>{autoSearch && searching && (<div className="flex items-center space-x-1 text-blue-600"><div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600"></div><span className="text-xs">Searching...</span></div>)}</div>
-              {searchCount > 0 && (<Badge variant="secondary" className="bg-blue-100 text-blue-800">{searchCount} searches</Badge>)}
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center space-x-2">
+                  <Switch id="auto-search" checked={autoSearch} onCheckedChange={handleAutoSearchToggle} />
+                  <Label htmlFor="auto-search" className="text-sm font-medium">
+                    Auto-discover wineries as you explore
+                  </Label>
+                </div>
+                {autoSearch && searching && (
+                  <div className="flex items-center space-x-1 text-blue-600">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600"></div>
+                    <span className="text-xs">Searching...</span>
+                  </div>
+                )}
+              </div>
+              {searchCount > 0 && (
+                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  {searchCount} searches
+                </Badge>
+              )}
             </div>
-            {showSearchResults && (<div className="flex items-center justify-between"><div className="flex items-center space-x-2"><Badge variant="secondary" className="bg-blue-100 text-blue-800">{searchResults.length} wineries found</Badge><span className="text-sm text-gray-600">Blue markers on map</span>{autoSearch && <span className="text-xs text-gray-500">(Auto-updating as you explore)</span>}</div><Button variant="ghost" size="sm" onClick={clearSearchResults}><RotateCcw className="w-4 h-4 mr-1" />Clear Results</Button></div>)}
+
+            {showSearchResults && (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                    {searchResults.length} wineries found
+                  </Badge>
+                  <span className="text-sm text-gray-600">Blue markers on map</span>
+                  {autoSearch && <span className="text-xs text-gray-500">(Auto-updating as you explore)</span>}
+                </div>
+                <Button variant="ghost" size="sm" onClick={clearSearchResults}>
+                  <RotateCcw className="w-4 h-4 mr-1" />
+                  Clear Results
+                </Button>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
           <Card>
-            <CardHeader><CardTitle>Finger Lakes Wineries Map</CardTitle><CardDescription>{loading ? "Loading map and winery data..." : autoSearch ? "Pan and zoom to automatically discover wineries in new areas!" : "Click on any marker to view details and track your visits. Enable auto-discovery for dynamic exploration!"}</CardDescription></CardHeader>
+            <CardHeader>
+              <CardTitle>Finger Lakes Wineries Map</CardTitle>
+              <CardDescription>
+                {loading
+                  ? "Loading map and winery data..."
+                  : autoSearch
+                    ? "Pan and zoom to automatically discover wineries in new areas!"
+                    : "Click on any marker to view details and track your visits. Enable auto-discovery for dynamic exploration!"}
+              </CardDescription>
+            </CardHeader>
             <CardContent>
-              <div ref={containerRef} className="h-96 w-full rounded-lg border bg-gray-100 relative" style={{ minHeight: "384px", minWidth: "100%", display: "block", }}>
-                {loading && (<div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg z-10"><div className="text-center space-y-3"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div><div className="space-y-1"><p className="text-gray-700 font-medium">{apiKeyStatus === "checking" ? "Validating API key..." : !googleMapsLoaded ? "Loading Google Maps..." : "Initializing map..."}</p>{apiKeyTestResult && <p className="text-xs text-gray-600">{apiKeyTestResult}</p>}<div className="flex items-center justify-center space-x-4 text-xs text-gray-500"><div className="flex items-center space-x-1"><Key className="h-3 w-3" /><span>API: {apiKeyStatus}</span></div><div className="flex items-center space-x-1"><Wifi className="h-3 w-3" /><span>Maps: {googleMapsLoaded ? "loaded" : "loading"}</span></div></div></div></div></div>)}
+              <div
+                ref={containerRef}
+                className="h-96 w-full rounded-lg border bg-gray-100 relative"
+                style={{
+                  minHeight: "384px",
+                  minWidth: "100%",
+                  display: "block",
+                }}
+              >
+                {loading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 rounded-lg z-10">
+                    <div className="text-center space-y-3">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                      <div className="space-y-1">
+                        <p className="text-gray-700 font-medium">
+                          {apiKeyStatus === "checking"
+                            ? "Validating API key..."
+                            : !googleMapsLoaded
+                              ? "Loading Google Maps..."
+                              : "Initializing map..."}
+                        </p>
+                        {apiKeyTestResult && <p className="text-xs text-gray-600">{apiKeyTestResult}</p>}
+                        <div className="flex items-center justify-center space-x-4 text-xs text-gray-500">
+                          <div className="flex items-center space-x-1">
+                            <Key className="h-3 w-3" />
+                            <span>API: {apiKeyStatus}</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <Wifi className="h-3 w-3" />
+                            <span>Maps: {googleMapsLoaded ? "loaded" : "loading"}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
+
         <div className="space-y-4">
-          <Card><CardHeader><CardTitle>Your Progress</CardTitle></CardHeader><CardContent><div className="text-center"><div className="text-3xl font-bold text-green-600">{wineries.filter((w) => w.userVisited).length}</div><div className="text-sm text-gray-600">of {fingerLakesWineries.length} default wineries visited</div><div className="text-xs text-gray-500 mt-1">Total visits: {wineries.reduce((sum, w) => sum + (w.visits?.length || 0), 0)}</div></div></CardContent></Card>
-          <Card><CardHeader><CardTitle>Legend</CardTitle></CardHeader><CardContent className="space-y-2"><div className="flex items-center space-x-2"><div className="w-4 h-4 bg-green-500 rounded-full"></div><span className="text-sm">Visited (default wineries)</span></div><div className="flex items-center space-x-2"><div className="w-4 h-4 bg-red-500 rounded-full"></div><span className="text-sm">Not visited (default wineries)</span></div><div className="flex items-center space-x-2"><div className="w-4 h-4 bg-blue-500 rounded-full"></div><span className="text-sm">Discovered wineries</span></div></CardContent></Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Your Progress</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-green-600">{wineries.filter((w) => w.userVisited).length}</div>
+                <div className="text-sm text-gray-600">of {wineries.length} default wineries visited</div>
+                <div className="text-xs text-gray-500 mt-1">
+                  Total visits: {wineries.reduce((sum, w) => sum + (w.visits?.length || 0), 0)}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Legend</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                <span className="text-sm">Visited (default wineries)</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                <span className="text-sm">Not visited (default wineries)</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                <span className="text-sm">Discovered wineries</span>
+              </div>
+            </CardContent>
+          </Card>
+
           {showSearchResults && (
             <Card>
-              <CardHeader><CardTitle className="flex items-center justify-between"><span>Discovered Wineries</span><Badge variant="secondary">{searchResults.length}</Badge></CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span>Discovered Wineries</span>
+                  <Badge variant="secondary">{searchResults.length}</Badge>
+                </CardTitle>
+              </CardHeader>
               <CardContent>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {searchResults.slice(0, 10).map((winery) => (<div key={winery.id} className="p-2 border rounded cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => setSelectedWinery(winery)}><div className="font-medium text-sm">{winery.name}</div><div className="text-xs text-gray-600">{winery.address}</div>{winery.rating && <div className="text-xs text-gray-500">★ {winery.rating}/5.0</div>}</div>))}
-                  {searchResults.length > 10 && (<div className="text-xs text-gray-500 text-center py-2">And {searchResults.length - 10} more... (see map for all results)</div>)}
+                  {searchResults.slice(0, 10).map((winery) => (
+                    <div
+                      key={winery.id}
+                      className="p-2 border rounded cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => setSelectedWinery(winery)}
+                    >
+                      <div className="font-medium text-sm">{winery.name}</div>
+                      <div className="text-xs text-gray-600">{winery.address}</div>
+                      {winery.rating && <div className="text-xs text-gray-500">★ {winery.rating}/5.0</div>}
+                    </div>
+                  ))}
+                  {searchResults.length > 10 && (
+                    <div className="text-xs text-gray-500 text-center py-2">
+                      And {searchResults.length - 10} more... (see map for all results)
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
           )}
         </div>
       </div>
-      {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} />)}
+
+      {selectedWinery && (
+        <WineryModal
+          winery={selectedWinery}
+          onClose={() => setSelectedWinery(null)}
+          onSaveVisit={handleVisitUpdate}
+          onDeleteVisit={handleDeleteVisit}
+        />
+      )}
     </div>
   )
 }
