@@ -54,8 +54,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const mapInstanceRef = useRef<any>(null)
   const markersRef = useRef<Map<string, any>>(new Map())
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const lastSearchBoundsRef = useRef<any>(null)
   const mapInitializedRef = useRef(false)
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
 
   const [wineries, setWineries] = useState<Winery[]>([])
   const [searchResults, setSearchResults] = useState<Winery[]>([])
@@ -103,118 +103,82 @@ export default function WineryMap({ userId }: WineryMapProps) {
       }
     } catch {}
     return {};
-  }, [userId]);
-
-  const boundsChanged = useCallback((newBounds: google.maps.LatLngBounds, oldBounds: google.maps.LatLngBounds | null) => {
-    if (!oldBounds) return true;
-    return !newBounds.equals(oldBounds);
   }, []);
 
-    const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
-    console.group(`searchWineries Triggered`);
-    console.log(`Timestamp: ${new Date().toISOString()}`);
-    console.log(`Search Location: ${location || 'Current Map Area'}`);
-    console.log(`Is Auto Search: ${isAutoSearch}`);
-
-    if (!window.google?.maps?.places?.Place || !mapInstanceRef.current) {
-        console.warn("Search aborted: Google Maps Places library or map instance not available.");
-        console.groupEnd();
+  const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
+    if (!placesServiceRef.current || !mapInstanceRef.current) {
         return;
     }
-    if (!location && !currentBounds) {
-        setError("Search failed. Map bounds not available.");
-        console.warn("Search aborted: No location or currentBounds.");
-        console.groupEnd();
+    if (isAutoSearch && !autoSearch) {
         return;
     }
-    if (isAutoSearch && (!autoSearch || !boundsChanged(currentBounds!, lastSearchBoundsRef.current))) {
-        console.log("Auto search skipped: toggle is off or bounds have not changed significantly.");
-        console.groupEnd();
-        return;
-    }
-
+    
     setSearching(true);
     setError(null);
 
+    const performSearch = (request: google.maps.places.TextSearchRequest): Promise<google.maps.places.PlaceResult[]> => {
+        return new Promise((resolve, reject) => {
+            placesServiceRef.current!.textSearch(request, (results, status) => {
+                if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
+                    resolve(results);
+                } else {
+                    reject(new Error(`PlacesService Error: ${status}`));
+                }
+            });
+        });
+    };
+
     try {
-        let searchBoundsInstance: google.maps.LatLngBounds;
+        let request: google.maps.places.TextSearchRequest;
 
         if (location?.trim()) {
-            console.log("Geocoding location:", location);
-            const geocoder = new window.google.maps.Geocoder();
-            const { results } = await geocoder.geocode({ address: location });
-
-            if (results && results[0]) {
-                console.log("Geocoder Result:", results[0]);
-                const geometry = results[0].geometry;
-
-                if (geometry.viewport) {
-                    console.log("Using provided viewport from geocoder.");
-                    searchBoundsInstance = geometry.viewport;
-                } else {
-                    console.log("No viewport provided, creating bounds from center location.");
-                    const center = geometry.location;
-                    const offset = 0.1;
-                    searchBoundsInstance = new window.google.maps.LatLngBounds(
-                        new window.google.maps.LatLng(center.lat() - offset, center.lng() - offset),
-                        new window.google.maps.LatLng(center.lat() + offset, center.lng() + offset)
-                    );
-                }
-                mapInstanceRef.current.fitBounds(searchBoundsInstance);
-            } else {
-                throw new Error("Location not found by geocoder.");
-            }
+            request = {
+                query: `wineries in ${location}`,
+                bounds: mapInstanceRef.current.getBounds()!,
+            };
         } else {
             if (!currentBounds) throw new Error("Map bounds not available for area search.");
-            console.log("Using current map bounds for search.");
-            searchBoundsInstance = currentBounds;
+            request = {
+                query: 'winery',
+                bounds: currentBounds,
+            };
+        }
+        
+        const places = await performSearch(request);
+        
+        const bounds = new window.google.maps.LatLngBounds();
+        places.forEach(place => {
+            if (place.geometry?.location) {
+                bounds.extend(place.geometry.location);
+            }
+        });
+        if (!bounds.isEmpty()) {
+            mapInstanceRef.current.fitBounds(bounds);
         }
 
-        lastSearchBoundsRef.current = searchBoundsInstance;
-
-        const request = {
-            fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber"],
-            includedTypes: ["winery"],
-            locationRestriction: searchBoundsInstance.toJSON(),
-            maxResultCount: 20
-        };
-
-        console.log("%cFinal Search Request Object:", "color: blue; font-weight: bold;", request);
-
-        const { places } = await window.google.maps.places.Place.searchNearby(request);
-
-        console.log("%cSearch Successful. Places Found:", "color: green; font-weight: bold;", places);
-
-        const wineryResults: Winery[] = places.map((place: any) => ({
-            id: `search-${place.id}`, name: place.displayName, address: place.formattedAddress || "N/A",
-            lat: place.location.latitude, lng: place.location.longitude, rating: place.rating,
-            phone: place.nationalPhoneNumber, website: place.websiteUri, placeId: place.id,
-            isFromSearch: true, userVisited: false, visits: [],
+        const wineryResults: Winery[] = places.map((place) => ({
+            id: `search-${place.place_id}`,
+            name: place.name || "Unnamed Place",
+            address: place.formatted_address || "N/A",
+            lat: place.geometry!.location!.lat(),
+            lng: place.geometry!.location!.lng(),
+            rating: place.rating,
+            phone: place.international_phone_number,
+            website: place.website,
+            placeId: place.place_id,
+            isFromSearch: true,
+            userVisited: false,
+            visits: [],
         }));
         setSearchResults(wineryResults);
         setShowSearchResults(true);
     } catch (error) {
-        console.error("%c--- MAP SEARCH FAILED ---", "color: red; font-weight: bold;");
-        console.error("Full Error Object:", error);
+        console.error("--- MAP SEARCH FAILED ---", error);
         setError(`Search failed. ${error instanceof Error ? error.message : String(error)}`);
     } finally {
         setSearching(false);
-        console.groupEnd();
     }
-  }, [currentBounds, autoSearch, boundsChanged]);
-
-  const autoSearchRef = useRef(autoSearch);
-  useEffect(() => { autoSearchRef.current = autoSearch }, [autoSearch]);
-
-  const searchWineriesRef = useRef(searchWineries);
-  useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries]);
-
-  const debouncedAutoSearch = useCallback(() => {
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    searchTimeoutRef.current = setTimeout(() => {
-      if (autoSearchRef.current) searchWineriesRef.current(undefined, true);
-    }, 1000);
-  }, []);
+  }, [currentBounds, autoSearch]);
 
   const addAllMarkers = useCallback(async (allWineries: Winery[]) => {
     if (!mapInstanceRef.current) return;
@@ -243,28 +207,34 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }
   }, [wineries, searchResults, addAllMarkers]);
 
+  const searchWineriesRef = useRef(searchWineries);
+  useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries]);
+
+  const debouncedAutoSearch = useCallback(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      if (autoSearch) searchWineriesRef.current(undefined, true);
+    }, 1000);
+  }, [autoSearch]);
+
   const initializeMap = useCallback(async () => {
     if (!googleMapsLoaded || apiKeyStatus !== "valid" || !containerRef.current || mapInitializedRef.current) return;
     mapInitializedRef.current = true;
     
     try {
-      const existingMap = containerRef.current.querySelector("#google-map-div");
-      if (existingMap) existingMap.remove();
+      const { Map } = await window.google.maps.importLibrary("maps") as google.maps.MapsLibrary;
       const mapDiv = document.createElement("div");
-      mapDiv.id = "google-map-div";
       mapDiv.style.cssText = "width: 100%; height: 100%;";
+      containerRef.current.innerHTML = '';
       containerRef.current.appendChild(mapDiv);
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
-      
-      const { Map } = await window.google.maps.importLibrary("maps") as google.maps.MapsLibrary;
-      
       const map = new Map(mapDiv, {
         center: { lat: 42.5, lng: -77.0 },
         zoom: 10,
         mapId: "YOUR_MAP_ID_HERE" 
       });
       mapInstanceRef.current = map;
+      placesServiceRef.current = new window.google.maps.places.PlacesService(map);
 
       const visitsByWinery = await fetchUserVisits(userId);
       const wineryData = fingerLakesWineries.map((winery, index) => {
@@ -273,17 +243,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
       });
       setWineries(wineryData);
 
-      window.google.maps.event.addListenerOnce(map, "tilesloaded", () => {
-        const initialBounds = map.getBounds();
-        if (initialBounds && !initialBounds.isEmpty()) {
-          setCurrentBounds(initialBounds); // Store the instance
-        }
-      });
-
       map.addListener("idle", () => {
         const bounds = map.getBounds();
         if (bounds && !bounds.isEmpty()) {
-          setCurrentBounds(bounds); // Store the instance
+          setCurrentBounds(bounds);
           debouncedAutoSearch();
         }
       });
@@ -292,12 +255,12 @@ export default function WineryMap({ userId }: WineryMapProps) {
     } finally {
       setLoading(false);
     }
-  }, [googleMapsLoaded, apiKeyStatus, userId, debouncedAutoSearch, fetchUserVisits]);
+  }, [googleMapsLoaded, apiKeyStatus, userId, debouncedAutoSearch, fetchUserVisits, fingerLakesWineries]);
 
   useEffect(() => {
     const loadScript = async () => {
       if (window.google?.maps) { setGoogleMapsLoaded(true); setApiKeyStatus("valid"); return; }
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
       if (!apiKey) { setError("API key is not configured."); setApiKeyStatus("missing"); setLoading(false); return; }
       if (!(await testApiKey(apiKey))) { setError("API key is invalid or project is misconfigured."); setApiKeyStatus("invalid"); setLoading(false); return; }
       setApiKeyStatus("valid");
@@ -359,7 +322,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const handleSearchSubmit = useCallback((e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) searchWineries(searchLocation.trim()); }, [searchLocation, searchWineries]);
   const handleSearchInCurrentArea = useCallback(() => { searchWineries(); }, [searchWineries]);
   const clearSearchResults = useCallback(() => { setSearchResults([]); setShowSearchResults(false); }, []);
-  const handleAutoSearchToggle = useCallback((enabled: boolean) => { setAutoSearch(enabled); if (enabled) debouncedAutoSearch(); }, [debouncedAutoSearch]);
+  const handleAutoSearchToggle = useCallback((enabled: boolean) => { setAutoSearch(enabled); }, []);
 
   if (error) {
     return (
@@ -380,7 +343,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
             <form onSubmit={handleSearchSubmit} className="flex flex-col sm:flex-row gap-2">
               <Input placeholder="Enter city, region, or address" value={searchLocation} onChange={(e) => setSearchLocation(e.target.value)} />
               <Button type="submit" disabled={searching}>{searching ? "Searching..." : "Search"}</Button>
-              <Button variant="outline" onClick={handleSearchInCurrentArea} disabled={searching || autoSearch || !currentBounds}>
+              <Button variant="outline" type="button" onClick={handleSearchInCurrentArea} disabled={searching || autoSearch || !currentBounds}>
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Search This Area
               </Button>
@@ -392,8 +355,20 @@ export default function WineryMap({ userId }: WineryMapProps) {
       
       {showSearchResults && (
         <Card>
-          <CardHeader><CardTitle>Search Results ({searchResults.length})</CardTitle><Button variant="outline" size="sm" onClick={clearSearchResults}>Clear Results</Button></CardHeader>
-          <CardContent>{/* Render search results here */}</CardContent>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Search Results ({searchResults.length})</CardTitle>
+            <Button variant="outline" size="sm" onClick={clearSearchResults}>Clear Results</Button>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {searchResults.map(winery => (
+                <div key={winery.id} className="p-2 border rounded-md cursor-pointer hover:bg-accent" onClick={() => setSelectedWinery(winery)}>
+                  <p className="font-semibold">{winery.name}</p>
+                  <p className="text-sm text-muted-foreground">{winery.address}</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
         </Card>
       )}
 
