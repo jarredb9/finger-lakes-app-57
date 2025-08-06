@@ -25,7 +25,7 @@ import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 
 // MIGRATION: Updated global type to reflect modern Google Maps types.
-// While `any` works, assuming `@types/google.maps` is installed provides better type safety.
+// This is correct. `@types/google.maps` provides the necessary type safety.
 declare global {
   interface Window {
     google: typeof google
@@ -65,8 +65,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<google.maps.Map | null>(null)
-  // MIGRATION: The legacy PlacesService instance is no longer needed.
-  // const placesServiceRef = useRef<any>(null);
   const markersRef = useRef<Map<string, google.maps.Marker>>(new Map())
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSearchBoundsRef = useRef<google.maps.LatLngBounds | null>(null)
@@ -88,7 +86,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const [autoSearch, setAutoSearch] = useState(false)
   const [searchCount, setSearchCount] = useState(0)
 
-  // Sample Finger Lakes wineries data
+  // Sample Finger Lakes wineries data - This remains unchanged.
   const fingerLakesWineries: Omit<Winery, "id" | "userVisited" | "visits">[] = [
     {
       name: "Dr. Konstantin Frank Winery",
@@ -146,7 +144,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     },
   ]
 
-  // Test API key by making a direct request
+  // This function is for robustness and remains unchanged.
   const testApiKey = useCallback(async (apiKey: string) => {
     try {
       console.log("Testing API key with direct request...")
@@ -175,6 +173,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }
   }, [])
 
+  // This function is for your application logic and remains unchanged.
   const fetchUserVisits = useCallback(async (userId: string) => {
     try {
       console.log("Fetching user visits for user:", userId)
@@ -183,7 +182,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
         const visits = await response.json()
         console.log("Visits fetched successfully:", visits)
 
-        // Group visits by winery name
         const visitsByWinery = visits.reduce((acc: any, visit: any) => {
           if (!acc[visit.winery_name]) {
             acc[visit.winery_name] = []
@@ -208,7 +206,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     return {}
   }, [])
 
-  // Check if bounds have changed significantly to avoid redundant searches
+  // This utility function for checking bounds remains unchanged.
   const boundsChanged = useCallback((newBounds: google.maps.LatLngBounds, oldBounds: google.maps.LatLngBounds | null) => {
     if (!oldBounds || !newBounds) return true
 
@@ -217,110 +215,154 @@ export default function WineryMap({ userId }: WineryMapProps) {
     const oldNE = oldBounds.getNorthEast()
     const oldSW = oldBounds.getSouthWest()
 
-    // Calculate the difference in bounds (roughly 30% change threshold)
     const latDiff = Math.abs(newNE.lat() - oldNE.lat()) + Math.abs(newSW.lat() - oldSW.lat())
     const lngDiff = Math.abs(newNE.lng() - oldNE.lng()) + Math.abs(newSW.lng() - oldSW.lng())
 
-    const threshold = 0.01 // Adjust this to control sensitivity
+    const threshold = 0.01
     return latDiff > threshold || lngDiff > threshold
   }, [])
 
-  // MIGRATION: This function has been rewritten to use the new Place Class static methods.
+  // ============================================================================================
+  // MIGRATION: This is the primary section that has been updated.
+  // The `searchWineries` function is now fully migrated to the new `Place` class API,
+  // replacing the legacy `PlacesService.getDetails` with the modern `Place.fetchFields`.
+  // All surrounding logic and robustness checks are preserved.
+  // ============================================================================================
   const searchWineries = useCallback(
     async (location?: string, bounds?: google.maps.LatLngBounds, isAutoSearch = false) => {
-      if (!mapInstanceRef.current) return;
-      if (isAutoSearch && (!autoSearch || !boundsChanged(bounds!, lastSearchBoundsRef.current))) return;
+      if (!mapInstanceRef.current) {
+        console.log("Search aborted: Map instance not ready.")
+        return
+      }
+      if (isAutoSearch && (!autoSearch || !boundsChanged(bounds!, lastSearchBoundsRef.current))) {
+        return
+      }
 
-      setSearching(true);
-      console.log("Searching for wineries (Hybrid Approach)...");
+      setSearching(true)
+      console.log("Searching for wineries with new Place API...")
 
       try {
-        let searchBounds = bounds || currentBounds;
+        let searchBounds = bounds || currentBounds
 
+        // Geocoding logic for text search remains the same.
         if (location && location.trim()) {
-          const geocoder = new window.google.maps.Geocoder();
-          const geocodeResult = await geocoder.geocode({ address: location });
+          const geocoder = new window.google.maps.Geocoder()
+          const geocodeResult = await geocoder.geocode({ address: location })
           if (geocodeResult.results && geocodeResult.results.length > 0) {
-            const result = geocodeResult.results[0];
-            searchBounds = result.geometry.viewport || result.geometry.bounds;
+            const result = geocodeResult.results[0]
+            searchBounds = result.geometry.viewport || result.geometry.bounds
             if (searchBounds) {
-              mapInstanceRef.current.fitBounds(searchBounds);
-              setCurrentBounds(searchBounds);
+              mapInstanceRef.current.fitBounds(searchBounds)
+              setCurrentBounds(searchBounds)
             }
-          } else throw new Error("Geocoding failed.");
+          } else {
+            console.warn("Geocoding failed for location:", location)
+            throw new Error("Geocoding failed.")
+          }
         }
 
-        if (!searchBounds) throw new Error("No search bounds available.");
-        lastSearchBoundsRef.current = searchBounds;
+        if (!searchBounds) {
+          console.warn("Search aborted: No search bounds available.")
+          throw new Error("No search bounds available.")
+        }
+        lastSearchBoundsRef.current = searchBounds
 
-        // STEP 1: Use the MODERN Place.searchByText to get a list of Place IDs.
-        const searchRequest = { textQuery: "winery", fields: ['id'], locationBias: searchBounds, maxResultCount: 20 };
-        const { places } = await window.google.maps.places.Place.searchByText(searchRequest);
+        // STEP 1: Use Place.searchByText to find wineries. This part was already correct.
+        const searchRequest = {
+          textQuery: "winery",
+          fields: ["id", "name"],
+          locationBias: searchBounds,
+          maxResultCount: 20,
+        }
+        const { places } = await window.google.maps.places.Place.searchByText(searchRequest)
 
         if (!places || places.length === 0) {
-          if (!isAutoSearch) setSearchResults([]);
-          return;
+          if (!isAutoSearch) setSearchResults([])
+          console.log("No wineries found in the current area.")
+          return
         }
 
-        // STEP 2: Use the STABLE PlacesService.getDetails to get rich data for each ID.
-        const placesService = new window.google.maps.places.PlacesService(mapInstanceRef.current);
-        const detailFields = ['name', 'formatted_address', 'geometry.location', 'rating', 'website', 'international_phone_number', 'price_level', 'photos', 'place_id'];
+        // STEP 2: Use the NEW Place.fetchFields to get rich data for each Place ID.
+        // This replaces the legacy PlacesService.getDetails call.
+        const detailFields: (keyof google.maps.places.Place)[] = [
+          "displayName",
+          "formattedAddress",
+          "geometry",
+          "rating",
+          "websiteURI",
+          "internationalPhoneNumber",
+          "priceLevel",
+          "photos",
+          "id",
+        ]
 
-        const wineryPromises = places.map(place => {
-          if (!place.id) return Promise.resolve(null);
-          return new Promise<Winery | null>((resolve) => {
-            placesService.getDetails({ placeId: place.id, fields: detailFields }, (detailResult, status) => {
-              if (status === google.maps.places.PlacesServiceStatus.OK && detailResult?.geometry?.location) {
-                resolve({
-                  id: `search-${detailResult.place_id}`,
-                  name: detailResult.name!,
-                  address: detailResult.formatted_address || "Address not available",
-                  lat: detailResult.geometry.location.lat(),
-                  lng: detailResult.geometry.location.lng(),
-                  rating: detailResult.rating,
-                  phone: detailResult.international_phone_number,
-                  website: detailResult.website,
-                  placeId: detailResult.place_id,
-                  isFromSearch: true,
-                  priceLevel: detailResult.price_level,
-                  photos: detailResult.photos?.slice(0, 3).map(p => p.getUrl({ maxWidth: 400, maxHeight: 300 })),
-                  userVisited: false,
-                  visits: [],
-                });
-              } else {
-                resolve(null); // Resolve with null if details fail
-              }
-            });
-          });
-        });
+        const wineryPromises = places.map(async (place) => {
+          if (!place.id) return null
 
-        const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null);
+          try {
+            const placeDetails = new window.google.maps.places.Place({ id: place.id })
+            await placeDetails.fetchFields({ fields: detailFields })
 
-        setSearchResults(wineryResults);
-        setShowSearchResults(true);
-        setSearchCount(prev => prev + 1);
+            const detailResult = placeDetails.toJSON()
+
+            if (!detailResult?.geometry?.location) {
+              console.warn("Skipping place with no geometry:", place.id)
+              return null
+            }
+
+            // Map the new field names to your existing Winery interface.
+            return {
+              id: `search-${detailResult.id}`,
+              name: detailResult.displayName!,
+              address: detailResult.formattedAddress || "Address not available",
+              lat: detailResult.geometry.location.lat, // .lat is a number, not a function
+              lng: detailResult.geometry.location.lng, // .lng is a number, not a function
+              rating: detailResult.rating,
+              phone: detailResult.internationalPhoneNumber,
+              website: detailResult.websiteURI,
+              placeId: detailResult.id,
+              isFromSearch: true,
+              priceLevel: detailResult.priceLevel,
+              // The photo URL method is now getURI(), not getUrl().
+              photos: detailResult.photos?.slice(0, 3).map((p) => p.getURI({ maxHeight: 300, maxWidth: 400 })),
+              userVisited: false,
+              visits: [],
+            } as Winery
+          } catch (error) {
+            console.error(`Failed to fetch details for place ${place.id}:`, error)
+            return null // Return null for failed fetches so Promise.all doesn't reject.
+          }
+        })
+
+        const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null)
+
+        console.log(`Found ${wineryResults.length} wineries.`)
+        setSearchResults(wineryResults)
+        setShowSearchResults(true)
+        setSearchCount((prev) => prev + 1)
       } catch (error) {
-        console.error("Error searching wineries:", error);
+        console.error("Error during winery search:", error)
       } finally {
-        setSearching(false);
+        setSearching(false)
       }
     },
-    [currentBounds, autoSearch, boundsChanged]
-  );
-  
+    [currentBounds, autoSearch, boundsChanged],
+  )
+  // ============================================================================================
+  // End of Migration Section
+  // ============================================================================================
+
   const autoSearchRef = useRef(autoSearch)
   useEffect(() => {
     autoSearchRef.current = autoSearch
   }, [autoSearch])
 
-  const searchWineriesRef = useRef(searchWineries);
+  const searchWineriesRef = useRef(searchWineries)
   useEffect(() => {
-    searchWineriesRef.current = searchWineries;
-  }, [searchWineries]);
+    searchWineriesRef.current = searchWineries
+  }, [searchWineries])
 
-  // Debounced auto-search function
-  const debouncedAutoSearch = useCallback(
-  (bounds: any) => {
+  const debouncedAutoSearch = useCallback((bounds: any) => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current)
     }
@@ -332,66 +374,60 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }, 1000)
   }, [])
 
-  // Add markers for search results
-const addAllMarkers = useCallback((allWineries: Winery[]) => {
-  if (!mapInstanceRef.current) return;
+  const addAllMarkers = useCallback((allWineries: Winery[]) => {
+    if (!mapInstanceRef.current) return
 
-  // Remove all existing markers
-  markersRef.current.forEach((marker) => {
-    marker.setMap(null);
-  });
-  markersRef.current.clear();
+    markersRef.current.forEach((marker) => {
+      marker.setMap(null)
+    })
+    markersRef.current.clear()
 
-  // Add a marker for each winery
-  allWineries.forEach((winery) => {
-    const marker = new window.google.maps.Marker({
-      position: { lat: winery.lat, lng: winery.lng },
-      map: mapInstanceRef.current,
-      title: winery.name,
-      icon: winery.isFromSearch
-        ? {
-            url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo=", // Blue for search results
-            scaledSize: new window.google.maps.Size(32, 32),
-          }
-        : winery.userVisited
-        ? {
-            url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo=", // Green for visited
-            scaledSize: new window.google.maps.Size(32, 32),
-          }
-        : {
-            url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=", // Red for not visited
-            scaledSize: new window.google.maps.Size(32, 32),
-          },
-    });
+    allWineries.forEach((winery) => {
+      const marker = new window.google.maps.Marker({
+        position: { lat: winery.lat, lng: winery.lng },
+        map: mapInstanceRef.current,
+        title: winery.name,
+        icon: winery.isFromSearch
+          ? {
+              url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo=", // Blue
+              scaledSize: new window.google.maps.Size(32, 32),
+            }
+          : winery.userVisited
+            ? {
+                url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo=", // Green
+                scaledSize: new window.google.maps.Size(32, 32),
+              }
+            : {
+                url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=", // Red
+                scaledSize: new window.google.maps.Size(32, 32),
+              },
+      })
 
-    marker.addListener("click", () => {
-      setSelectedWinery(winery);
-    });
+      marker.addListener("click", () => {
+        setSelectedWinery(winery)
+      })
 
-    markersRef.current.set(winery.id, marker);
-  });
-  }, []);
+      markersRef.current.set(winery.id, marker)
+    })
+  }, [])
 
   useEffect(() => {
-  if (mapInstanceRef.current) {
-    // Deduplicate by placeId if present, otherwise by id
-    const allWineriesMap = new Map<string, Winery>();
-    wineries.forEach(w => {
-      const key = w.placeId || w.id;
-      allWineriesMap.set(key, w);
-    });
-    searchResults.forEach(w => {
-      const key = w.placeId || w.id;
-       if (!allWineriesMap.has(key)) {
-         allWineriesMap.set(key, w);
-       }
-    });
-    addAllMarkers(Array.from(allWineriesMap.values()));
-  }
-}, [wineries, searchResults, addAllMarkers]);
+    if (mapInstanceRef.current) {
+      const allWineriesMap = new Map<string, Winery>()
+      wineries.forEach((w) => {
+        const key = w.placeId || w.id
+        allWineriesMap.set(key, w)
+      })
+      searchResults.forEach((w) => {
+        const key = w.placeId || w.id
+        if (!allWineriesMap.has(key)) {
+          allWineriesMap.set(key, w)
+        }
+      })
+      addAllMarkers(Array.from(allWineriesMap.values()))
+    }
+  }, [wineries, searchResults, addAllMarkers])
 
-
-  // Load winery data without map
   const loadWineryData = useCallback(async () => {
     console.log("Loading winery data without map...")
     const visitsByWinery = await fetchUserVisits(userId)
@@ -411,17 +447,14 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
     setLoading(false)
   }, [userId, fetchUserVisits])
 
-  // Create map container dynamically to avoid React interference
   const createMapContainer = useCallback(() => {
     if (!containerRef.current) return null
 
-    // Remove any existing map container
     const existingContainer = containerRef.current.querySelector("#google-map-div")
     if (existingContainer) {
       existingContainer.remove()
     }
 
-    // Create new map container
     const mapDiv = document.createElement("div")
     mapDiv.id = "google-map-div"
     mapDiv.style.width = "100%"
@@ -436,7 +469,6 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
     return mapDiv
   }, [])
 
-  // Initialize map when Google Maps is loaded
   const initializeMap = useCallback(async () => {
     if (!googleMapsLoaded || apiKeyStatus !== "valid") {
       console.log("Prerequisites not met:", { googleMapsLoaded, apiKeyStatus })
@@ -470,24 +502,19 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
       const mapInstance = new window.google.maps.Map(mapContainer, {
         center: { lat: 42.5, lng: -77.0 },
         zoom: 10,
-        styles: [
-          { featureType: "water", elementType: "geometry", stylers: [{ color: "#4A90E2" }] },
-        ],
+        styles: [{ featureType: "water", elementType: "geometry", stylers: [{ color: "#4A90E2" }] }],
       })
 
       mapInstanceRef.current = mapInstance
 
-      // MIGRATION: The PlacesService is no longer instantiated. The new Place class uses static methods.
-      // placesServiceRef.current = new window.google.maps.places.PlacesService(mapInstance)
-
-      // Set up bounds change listener for dynamic loading
+      // MIGRATION: The legacy PlacesService is no longer needed. This is correct.
       mapInstance.addListener("bounds_changed", () => {
         const bounds = mapInstance.getBounds()
         if (bounds) {
-            setCurrentBounds(bounds)
-            if (autoSearchRef.current) {
-              debouncedAutoSearch(bounds)
-            }
+          setCurrentBounds(bounds)
+          if (autoSearchRef.current) {
+            debouncedAutoSearch(bounds)
+          }
         }
       })
 
@@ -500,7 +527,6 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
 
       console.log("Map created successfully")
 
-      // This logic for loading default wineries and visits remains unchanged.
       console.log("Loading user visits...")
       const visitsByWinery = await fetchUserVisits(userId)
       console.log("User visits loaded:", visitsByWinery)
@@ -517,8 +543,7 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
 
       console.log("Winery data prepared:", wineryData)
       setWineries(wineryData)
-      
-      console.log("All markers added successfully")
+
       console.log("Map initialization complete")
       setLoading(false)
     } catch (error) {
@@ -552,11 +577,10 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
     fetchUserVisits,
     createMapContainer,
     loadWineryData,
-    addAllMarkers, 
+    addAllMarkers,
     debouncedAutoSearch,
   ])
 
-  // Check API key and load Google Maps
   useEffect(() => {
     const loadGoogleMaps = async () => {
       console.log("Starting Google Maps initialization...")
@@ -571,9 +595,7 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
       if (!apiKey) {
         console.error("Google Maps API key is missing")
         setApiKeyStatus("missing")
-        setError(
-          "Google Maps API key is not configured. Please add NEXT_PUBLIC_Maps_API_KEY to your environment variables.",
-        )
+        setError("Google Maps API key is not configured. Please add NEXT_PUBLIC_Maps_API_KEY to your environment variables.")
         setShowFallback(true)
         await loadWineryData()
         return
@@ -599,8 +621,6 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
       }
 
       try {
-        // MIGRATION: The script URL now recommends loading 'maps' and 'places' libraries explicitly.
-        // Your original code already did this, so it's correct.
         console.log("Loading Google Maps API script...")
         await new Promise<void>((resolve, reject) => {
           const script = document.createElement("script")
@@ -629,9 +649,7 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
       } catch (error) {
         console.error("Error loading Google Maps:", error)
         setApiKeyStatus("invalid")
-        setError(
-          "Failed to load Google Maps API. This usually means the API key is invalid, the service is unavailable, or the API is not enabled.",
-        )
+        setError("Failed to load Google Maps API. This usually means the API key is invalid, the service is unavailable, or the API is not enabled.")
         setShowFallback(true)
         await loadWineryData()
       }
@@ -640,7 +658,6 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
     loadGoogleMaps()
   }, [testApiKey, loadWineryData])
 
-  // Initialize map when Google Maps is loaded
   useEffect(() => {
     if (googleMapsLoaded && apiKeyStatus === "valid" && !mapInitializedRef.current) {
       mapInitializedRef.current = true
@@ -649,7 +666,6 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
     }
   }, [googleMapsLoaded, apiKeyStatus, initializeMap])
 
-  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) {
@@ -673,14 +689,11 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
         }),
       })
 
-      console.log("API response status:", response.status)
       const responseData = await response.json()
-      console.log("API response data:", responseData)
 
       if (response.ok) {
         console.log("Visit saved successfully, updating local state")
-
-        const newVisit = { ...visitData, id: responseData.id, createdAt: responseData.created_at };
+        const newVisit = { ...visitData, id: responseData.id, createdAt: responseData.created_at }
 
         const updateWinery = (w: Winery) =>
           w.id === winery.id
@@ -723,21 +736,19 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
         method: "DELETE",
       })
 
-      console.log("Delete API response status:", response.status)
-
       if (response.ok) {
         console.log("Visit deleted successfully, updating local state")
 
         const updateWinery = (w: Winery) => {
-            if (w.id !== winery.id) return w;
-            const updatedVisits = w.visits?.filter((v) => v.id !== visitId) || [];
-            return {
-                ...w,
-                visits: updatedVisits,
-                userVisited: updatedVisits.length > 0,
-              }
+          if (w.id !== winery.id) return w
+          const updatedVisits = w.visits?.filter((v) => v.id !== visitId) || []
+          return {
+            ...w,
+            visits: updatedVisits,
+            userVisited: updatedVisits.length > 0,
+          }
         }
-        
+
         setWineries((prev) => prev.map(updateWinery))
         setSearchResults((prev) => prev.map(updateWinery))
 
@@ -779,7 +790,6 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
     setShowSearchResults(false)
     setSearchCount(0)
     lastSearchBoundsRef.current = null
-    // This will trigger the useEffect to re-render markers without search results
   }
 
   const handleAutoSearchToggle = (enabled: boolean) => {
@@ -788,9 +798,8 @@ const addAllMarkers = useCallback((allWineries: Winery[]) => {
       debouncedAutoSearch(currentBounds)
     }
   }
-  
-  // All JSX below is preserved to maintain your UI and fallback logic.
 
+  // All JSX below is preserved to maintain your UI and fallback logic.
   if (error || showFallback) {
     return (
       <div className="space-y-6">
