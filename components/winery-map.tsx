@@ -120,7 +120,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     setSearching(true);
     try {
       let searchBoundsInstance: google.maps.LatLngBounds;
-      const query = "winery";
 
       if (location?.trim()) {
         const geocoder = new window.google.maps.Geocoder();
@@ -141,18 +140,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
       }
       
       lastSearchBoundsRef.current = searchBoundsInstance.toJSON();
-
+      
       const request = {
         fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber"],
-        includedTypes: [query],
-        // --- THE DEFINITIVE FIX ---
-        // Provide both the center point and the restriction bounds
-        location: searchBoundsInstance.getCenter(),
-        locationRestriction: searchBoundsInstance.toJSON(),
+        includedTypes: ["winery"],
+        locationRestriction: searchBoundsInstance.toJSON(), // Use only locationRestriction
         maxResultCount: 20
       };
       
-      // --- REVERT TO searchNearby ---
       const { places } = await window.google.maps.places.Place.searchNearby(request);
       
       const wineryResults: Winery[] = places.map((place: any) => ({
@@ -185,14 +180,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
   const addAllMarkers = useCallback(async (allWineries: Winery[]) => {
     if (!mapInstanceRef.current) return;
-
-    // Use a try-catch block in case the marker library isn't ready
     try {
       const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
-      
       markersRef.current.forEach((marker) => { marker.map = null; });
       markersRef.current.clear();
-
       allWineries.forEach((winery) => {
         const marker = new AdvancedMarkerElement({
           position: { lat: winery.lat, lng: winery.lng },
@@ -202,9 +193,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         marker.addListener("click", () => setSelectedWinery(winery));
         markersRef.current.set(winery.id, marker);
       });
-    } catch (error) {
-        console.error("Error loading marker library or creating markers:", error)
-    }
+    } catch (error) { console.error("Error with Advanced Markers:", error); }
   }, []);
 
   useEffect(() => {
