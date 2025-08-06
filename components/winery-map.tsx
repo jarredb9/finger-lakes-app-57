@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 
 // ==================================================================
-// SETUP: Interfaces and Global Declarations
+// SETUP
 // ==================================================================
 declare global {
   interface Window {
@@ -54,7 +54,7 @@ interface Winery {
 }
 
 // ==================================================================
-// THE CUSTOM HOOK: All complex logic is encapsulated here
+// THE CUSTOM HOOK
 // ==================================================================
 const useWineryMap = (containerRef: React.RefObject<HTMLDivElement>, userId: string) => {
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -89,9 +89,7 @@ const useWineryMap = (containerRef: React.RefObject<HTMLDivElement>, userId: str
         marker.addListener("click", () => setSelectedWinery(winery));
         markersRef.current.set(winery.id, marker);
       });
-    } catch (e) {
-      console.error("Error adding markers:", e);
-    }
+    } catch (e) { console.error("Error adding markers:", e); }
   }, []);
 
   const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
@@ -133,15 +131,12 @@ const useWineryMap = (containerRef: React.RefObject<HTMLDivElement>, userId: str
     }
   }, [autoSearch, currentBounds]);
 
-  const searchWineriesRef = useRef(searchWineries);
-  useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries]);
-
   const debouncedAutoSearch = useCallback(() => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
-      searchWineriesRef.current(undefined, true);
+      searchWineries(undefined, true);
     }, 1000);
-  }, []);
+  }, [searchWineries]);
 
   useEffect(() => {
     const fetchVisitsAndSetWineries = async () => {
@@ -161,6 +156,7 @@ const useWineryMap = (containerRef: React.RefObject<HTMLDivElement>, userId: str
         setWineries(wineryData);
       } catch (e) { console.error("Failed to fetch user visits", e); }
     };
+    
     fetchVisitsAndSetWineries();
   }, [userId]);
 
@@ -192,7 +188,7 @@ const useWineryMap = (containerRef: React.RefObject<HTMLDivElement>, userId: str
   }, [googleMapsLoaded]);
 
   useEffect(() => {
-    const combinedWineries = [...wineries, ...searchResults.filter(sr => !wineries.some(w => w.placeId === sr.placeId))];
+    const combinedWineries = [...wineries, ...searchResults.filter(sr => !wineries.some(w => w.placeId === sr.placeId && w.isFromSearch))];
     addAllMarkers(combinedWineries);
   }, [wineries, searchResults, addAllMarkers]);
 
@@ -220,11 +216,33 @@ const useWineryMap = (containerRef: React.RefObject<HTMLDivElement>, userId: str
   }, []);
 
   const handleVisitUpdate = useCallback(async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
-    // ... logic for handleVisitUpdate
+    try {
+      const response = await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wineryName: winery.name, wineryAddress: winery.address, visitDate: visitData.visitDate, userReview: visitData.userReview, }) });
+      const responseData = await response.json();
+      if (response.ok) {
+        const updateWinery = (w: Winery) => w.id === winery.id ? { ...w, visits: [...(w.visits || []), responseData], userVisited: true } : w;
+        setWineries((prev) => prev.map(updateWinery));
+        setSearchResults((prev) => prev.map(updateWinery));
+        setSelectedWinery((prev) => prev?.id === winery.id ? { ...prev, visits: [...(prev.visits || []), responseData], userVisited: true } : prev);
+      } else { alert(`Failed to save visit: ${responseData.error || "Unknown error"}`); }
+    } catch (error) { alert(`Error saving visit: ${error instanceof Error ? error.message : String(error)}`); }
   }, []);
 
   const handleDeleteVisit = useCallback(async (winery: Winery, visitId: string) => {
-    // ... logic for handleDeleteVisit
+    try {
+      const response = await fetch(`/api/visits/${visitId}`, { method: "DELETE" });
+      if (response.ok) {
+        const updateWinery = (w: Winery) => {
+          if (w.id === winery.id) {
+            const updatedVisits = w.visits?.filter((v) => v.id !== visitId) || [];
+            return { ...w, visits: updatedVisits, userVisited: updatedVisits.length > 0 };
+          } return w;
+        };
+        setWineries((prev) => prev.map(updateWinery));
+        setSearchResults((prev) => prev.map(updateWinery));
+        setSelectedWinery((prev) => prev?.id === winery.id ? { ...prev, visits: prev.visits?.filter((v) => v.id !== visitId) || [], userVisited: (prev.visits?.filter((v) => v.id !== visitId) || []).length > 0 } : prev);
+      } else { const responseData = await response.json(); alert(`Failed to delete visit: ${responseData.error || "Unknown error"}`); }
+    } catch (error) { alert(`Error deleting visit: ${error instanceof Error ? error.message : String(error)}`); }
   }, []);
 
   return {
@@ -240,7 +258,7 @@ const useWineryMap = (containerRef: React.RefObject<HTMLDivElement>, userId: str
 };
 
 // ==================================================================
-// THE COMPONENT: Clean, simple, and responsible only for UI.
+// THE COMPONENT
 // ==================================================================
 interface WineryMapProps {
   userId: string;
