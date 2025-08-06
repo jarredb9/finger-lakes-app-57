@@ -273,7 +273,7 @@ const searchWineries = useCallback(
 
         lastSearchBoundsRef.current = searchBounds;
 
-        // STEP 1: Search for places (this part was correct)
+        // STEP 1: Search for places (this remains correct)
         const searchRequest = {
           textQuery: "winery",
           fields: ['id', 'displayName', 'location'],
@@ -290,10 +290,10 @@ const searchWineries = useCallback(
           return;
         }
 
-        // STEP 2: Fetch details with the CORRECT field names.
+        // STEP 2: Fetch details with the literal property names. THIS IS THE FIX.
         const detailFields = [
             'rating', 
-            'website', // CORRECT: Request 'website'
+            'websiteUri', // CORRECT: The field name must match the property name.
             'internationalPhoneNumber', 
             'priceLevel', 
             'photos',
@@ -311,7 +311,7 @@ const searchWineries = useCallback(
             lng: place.location!.longitude,
             rating: place.rating,
             phone: place.internationalPhoneNumber,
-            website: place.websiteUri, // CORRECT: Access the result with .websiteUri
+            website: place.websiteUri, // This part remains correct, as you access the populated property.
             placeId: place.id,
             isFromSearch: true,
             priceLevel: place.priceLevel,
