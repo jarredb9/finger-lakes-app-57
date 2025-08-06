@@ -173,7 +173,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         lastSearchBoundsRef.current = searchBoundsInstance;
 
         const request = {
-            fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber", "websiteUri"],
+            fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber", "website"],
             includedTypes: ["winery"],
             locationRestriction: searchBoundsInstance.toJSON(),
             maxResultCount: 20
