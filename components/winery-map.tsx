@@ -226,108 +226,107 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, [])
 
   // MIGRATION: This function has been rewritten to use the new Place Class static methods.
-  const searchWineries = useCallback(
+const searchWineries = useCallback(
     async (location?: string, bounds?: google.maps.LatLngBounds, isAutoSearch = false) => {
-      // MIGRATION: Check for mapInstanceRef directly, as PlacesService is gone.
       if (!mapInstanceRef.current) {
-        console.error("Map not available for searching")
-        return
+        console.error("Map not available for searching");
+        return;
       }
 
       if (isAutoSearch && (!autoSearch || !boundsChanged(bounds!, lastSearchBoundsRef.current))) {
-        return
+        return;
       }
 
-      setSearching(true)
-      console.log("Searching for wineries...", { location, bounds: !!bounds, isAutoSearch, searchCount })
+      setSearching(true);
+      console.log("Searching for wineries...", { location, bounds: !!bounds, isAutoSearch, searchCount });
 
       try {
-        let searchBounds = bounds || currentBounds
+        let searchBounds = bounds || currentBounds;
 
-        // Geocoding logic remains the same for text-based location searches
+        // Geocoding logic to find bounds from a location string (this part is correct)
         if (location && location.trim()) {
-          const geocoder = new window.google.maps.Geocoder()
-          const geocodeResult = await geocoder.geocode({ address: location })
+          const geocoder = new window.google.maps.Geocoder();
+          const geocodeResult = await geocoder.geocode({ address: location });
 
           if (geocodeResult.results && geocodeResult.results.length > 0) {
-              const result = geocodeResult.results[0]
-              if(result.geometry.viewport) {
-                  searchBounds = result.geometry.viewport
-              } else {
-                  // Fallback to creating a bounds if viewport is not available
-                  const center = result.geometry.location
-                  const offset = 0.18 // roughly 20km in degrees
-                  searchBounds = new window.google.maps.LatLngBounds(
+            const result = geocodeResult.results[0];
+            searchBounds = result.geometry.viewport || result.geometry.bounds || null;
+            if (!searchBounds) {
+                 const center = result.geometry.location
+                 const offset = 0.18
+                 searchBounds = new window.google.maps.LatLngBounds(
                     new window.google.maps.LatLng(center.lat() - offset, center.lng() - offset),
                     new window.google.maps.LatLng(center.lat() + offset, center.lng() + offset),
-                  )
-              }
-              mapInstanceRef.current.fitBounds(searchBounds!)
-              setCurrentBounds(searchBounds)
+                 )
+            }
+            mapInstanceRef.current.fitBounds(searchBounds!);
+            setCurrentBounds(searchBounds);
           } else {
-             throw new Error("Geocoding failed to find location.")
+            throw new Error("Geocoding failed to find location.");
           }
         }
 
         if (!searchBounds) {
-          console.error("No search bounds available")
-          setSearching(false)
-          return
+          console.error("No search bounds available");
+          setSearching(false);
+          return;
         }
 
-        lastSearchBoundsRef.current = searchBounds
+        lastSearchBoundsRef.current = searchBounds;
 
-        // MIGRATION: Use `Place.searchByText` instead of `nearbySearch`.
-        // This requires specifying the fields you want returned.
-        const fields: (keyof google.maps.places.Place)[] = [
-          'id', 'displayName', 'formattedAddress', 'location', 'rating', 
-          'internationalPhoneNumber', 'websiteUri', 'priceLevel', 'photos'
-        ];
-        
-        console.log("Place.searchByText request:", { textQuery: "winery", locationBias: searchBounds });
-
-        const { places } = await window.google.maps.places.Place.searchByText({
+        // STEP 1: Search for places, requesting only basic fields.
+        const searchRequest = {
           textQuery: "winery",
-          fields: fields,
+          fields: ['id', 'displayName', 'location'], // Basic fields for search
           locationBias: searchBounds,
-          maxResultCount: 20, // Max results per request is 20
-        });
+          maxResultCount: 20,
+        };
 
-        console.log("Place search results:", { count: places?.length, isAutoSearch });
+        console.log("Place.searchByText request:", searchRequest);
+        const { places } = await window.google.maps.places.Place.searchByText(searchRequest);
 
-        if (places && places.length > 0) {
-          // MIGRATION: Map the new `Place` object properties to your `Winery` interface.
-          // Note the changes: `place.id`, `place.displayName`, `place.location.latitude`, etc.
-          const wineryResults: Winery[] = places
-            .filter(place => place.location) // Ensure place has a location
-            .map((place) => ({
-              id: `search-${place.id}`,
-              name: place.displayName!,
-              address: place.formattedAddress || "Address not available",
-              lat: place.location!.latitude,
-              lng: place.location!.longitude,
-              rating: place.rating,
-              phone: place.internationalPhoneNumber,
-              website: place.websiteUri,
-              placeId: place.id,
-              isFromSearch: true,
-              priceLevel: place.priceLevel,
-              // MIGRATION: Use `photo.getURI()` instead of `getUrl()`
-              photos: place.photos?.slice(0, 3).map((photo) => photo.getURI({ maxWidth: 400, maxHeight: 300 })),
-              userVisited: false,
-              visits: [],
-            }));
-
-          console.log("Processed winery results:", wineryResults.length);
-          setSearchResults(wineryResults);
-          setShowSearchResults(true);
-          setSearchCount((prev) => prev + 1);
-        } else {
+        if (!places || places.length === 0) {
           console.log("No wineries found in the current area.");
-          if (!isAutoSearch) {
-            setSearchResults([]);
-          }
+          if (!isAutoSearch) setSearchResults([]);
+          return;
         }
+
+        // STEP 2: For each place found, fetch the detailed fields.
+        const detailFields: (keyof google.maps.places.Place)[] = [
+            'rating', 'websiteUri', 'internationalPhoneNumber', 'priceLevel', 'photos'
+        ];
+
+        const wineryPromises = places.map(async (place) => {
+          // fetchFields populates the existing Place object with new data.
+          await place.fetchFields({ fields: detailFields });
+          
+          // Now map the fully populated Place object to your Winery interface
+          return {
+            id: `search-${place.id}`,
+            name: place.displayName!,
+            address: place.formattedAddress || "Address not available", // Note: formattedAddress is not available from search, requires details call
+            lat: place.location!.latitude,
+            lng: place.location!.longitude,
+            rating: place.rating,
+            phone: place.internationalPhoneNumber,
+            website: place.websiteUri,
+            placeId: place.id,
+            isFromSearch: true,
+            priceLevel: place.priceLevel,
+            photos: place.photos?.slice(0, 3).map((photo) => photo.getURI({ maxWidth: 400, maxHeight: 300 })),
+            userVisited: false,
+            visits: [],
+          };
+        });
+        
+        // Wait for all the detail requests to complete
+        const wineryResults = await Promise.all(wineryPromises);
+
+        console.log("Processed winery results:", wineryResults.length);
+        setSearchResults(wineryResults);
+        setShowSearchResults(true);
+        setSearchCount((prev) => prev + 1);
+
       } catch (error) {
         console.error("Error searching wineries:", error);
       } finally {
@@ -335,7 +334,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       }
     },
     [currentBounds, autoSearch, boundsChanged, searchCount]
-  );
+);
   
   const autoSearchRef = useRef(autoSearch)
   useEffect(() => {
