@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 
 // ==================================================================
-// SETUP: Interfaces, Global Declarations, and Constants
+// SETUP
 // ==================================================================
 declare global {
   interface Window {
@@ -25,7 +25,6 @@ declare global {
   }
 }
 
-// Moved outside the component to prevent re-creation on every render, which stabilizes useEffect hooks.
 const fingerLakesWineriesData: Omit<Winery, "id" | "userVisited" | "visits">[] = [
   { name: "Dr. Konstantin Frank Winery", address: "9749 Middle Rd, Hammondsport, NY 14840", lat: 42.4089, lng: -77.2094, phone: "(607) 868-4884", website: "https://drfrankwines.com", rating: 4.6, },
   { name: "Chateau Lafayette Reneau", address: "5081 NY-414, Hector, NY 14841", lat: 42.4756, lng: -76.8739, phone: "(607) 546-2062", website: "https://clrwine.com", rating: 4.4, },
@@ -194,26 +193,39 @@ export default function WineryMap({ userId }: WineryMapProps) {
       setGoogleMapsLoaded(true);
       return;
     }
-    const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
       setError("API key is not configured.");
       setLoading(false);
       return;
     }
+    const scriptId = "google-maps-script";
+    const existingScript = document.getElementById(scriptId);
+
+    if (existingScript) {
+      // If the script is already there, assume it's loading or loaded
+      // and the callback will handle setting the state.
+      return;
+    }
+    
     const script = document.createElement("script");
+    script.id = scriptId;
     script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker&v=weekly&callback=initGoogleMaps`;
     script.async = true;
     script.defer = true;
     window.initGoogleMaps = () => setGoogleMapsLoaded(true);
     document.head.appendChild(script);
+    
     script.onerror = () => {
       setError("Google Maps script failed to load.");
       setLoading(false);
     };
+
     return () => {
-      const existingScript = document.querySelector(`script[src*="${apiKey}"]`);
-      if (existingScript) {
-        document.head.removeChild(existingScript);
+      // Cleanup the script tag and the global callback on unmount
+      const scriptElement = document.getElementById(scriptId);
+      if (scriptElement) {
+        document.head.removeChild(scriptElement);
       }
       delete window.initGoogleMaps;
     }
@@ -230,10 +242,11 @@ export default function WineryMap({ userId }: WineryMapProps) {
       const response = await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wineryName: winery.name, wineryAddress: winery.address, visitDate: visitData.visitDate, userReview: visitData.userReview, }) });
       const responseData = await response.json();
       if (response.ok) {
-        const updateWinery = (w: Winery) => w.id === winery.id ? { ...w, visits: [...(w.visits || []), responseData.visit[0]], userVisited: true } : w;
+        const newVisit = responseData.visit && Array.isArray(responseData.visit) ? responseData.visit[0] : responseData;
+        const updateWinery = (w: Winery) => w.id === winery.id ? { ...w, visits: [...(w.visits || []), newVisit], userVisited: true } : w;
         setWineries((prev) => prev.map(updateWinery));
         setSearchResults((prev) => prev.map(updateWinery));
-        setSelectedWinery((prev) => prev?.id === winery.id ? { ...prev, visits: [...(prev.visits || []), responseData.visit[0]], userVisited: true } : prev);
+        setSelectedWinery((prev) => prev?.id === winery.id ? { ...prev, visits: [...(prev.visits || []), newVisit], userVisited: true } : prev);
       } else { alert(`Failed to save visit: ${responseData.error || "Unknown error"}`); }
     } catch (error) { alert(`Error saving visit: ${error instanceof Error ? error.message : String(error)}`); }
   }, []);
