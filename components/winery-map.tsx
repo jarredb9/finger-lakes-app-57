@@ -24,8 +24,6 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 
-// MIGRATION: Updated global type to reflect modern Google Maps types.
-// This is correct. `@types/google.maps` provides the necessary type safety.
 declare global {
   interface Window {
     google: typeof google
@@ -86,7 +84,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const [autoSearch, setAutoSearch] = useState(false)
   const [searchCount, setSearchCount] = useState(0)
 
-  // Sample Finger Lakes wineries data - This remains unchanged.
   const fingerLakesWineries: Omit<Winery, "id" | "userVisited" | "visits">[] = [
     {
       name: "Dr. Konstantin Frank Winery",
@@ -144,7 +141,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     },
   ]
 
-  // This function is for robustness and remains unchanged.
   const testApiKey = useCallback(async (apiKey: string) => {
     try {
       console.log("Testing API key with direct request...")
@@ -173,7 +169,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }
   }, [])
 
-  // This function is for your application logic and remains unchanged.
   const fetchUserVisits = useCallback(async (userId: string) => {
     try {
       console.log("Fetching user visits for user:", userId)
@@ -206,7 +201,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     return {}
   }, [])
 
-  // This utility function for checking bounds remains unchanged.
   const boundsChanged = useCallback((newBounds: google.maps.LatLngBounds, oldBounds: google.maps.LatLngBounds | null) => {
     if (!oldBounds || !newBounds) return true
 
@@ -222,12 +216,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     return latDiff > threshold || lngDiff > threshold
   }, [])
 
-  // ============================================================================================
-  // MIGRATION: This is the primary section that has been updated.
-  // The `searchWineries` function is now fully migrated to the new `Place` class API,
-  // replacing the legacy `PlacesService.getDetails` with the modern `Place.fetchFields`.
-  // All surrounding logic and robustness checks are preserved.
-  // ============================================================================================
   const searchWineries = useCallback(
     async (location?: string, bounds?: google.maps.LatLngBounds, isAutoSearch = false) => {
       if (!mapInstanceRef.current) {
@@ -237,14 +225,13 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (isAutoSearch && (!autoSearch || !boundsChanged(bounds!, lastSearchBoundsRef.current))) {
         return
       }
-
+  
       setSearching(true)
       console.log("Searching for wineries with new Place API...")
-
+  
       try {
         let searchBounds = bounds || currentBounds
-
-        // Geocoding logic for text search remains the same.
+  
         if (location && location.trim()) {
           const geocoder = new window.google.maps.Geocoder()
           const geocodeResult = await geocoder.geocode({ address: location })
@@ -260,30 +247,30 @@ export default function WineryMap({ userId }: WineryMapProps) {
             throw new Error("Geocoding failed.")
           }
         }
-
+  
         if (!searchBounds) {
           console.warn("Search aborted: No search bounds available.")
           throw new Error("No search bounds available.")
         }
         lastSearchBoundsRef.current = searchBounds
-
-        // STEP 1: Use Place.searchByText to find wineries. This part was already correct.
+  
+        // STEP 1: Use Place.searchByText to find wineries.
+        // CORRECTION: The field 'name' has been changed to 'displayName'.
         const searchRequest = {
           textQuery: "winery",
-          fields: ["id", "name"],
+          fields: ["id", "displayName"],
           locationBias: searchBounds,
           maxResultCount: 20,
         }
         const { places } = await window.google.maps.places.Place.searchByText(searchRequest)
-
+  
         if (!places || places.length === 0) {
           if (!isAutoSearch) setSearchResults([])
           console.log("No wineries found in the current area.")
           return
         }
-
+  
         // STEP 2: Use the NEW Place.fetchFields to get rich data for each Place ID.
-        // This replaces the legacy PlacesService.getDetails call.
         const detailFields: (keyof google.maps.places.Place)[] = [
           "displayName",
           "formattedAddress",
@@ -295,47 +282,45 @@ export default function WineryMap({ userId }: WineryMapProps) {
           "photos",
           "id",
         ]
-
+  
         const wineryPromises = places.map(async (place) => {
           if (!place.id) return null
-
+  
           try {
             const placeDetails = new window.google.maps.places.Place({ id: place.id })
             await placeDetails.fetchFields({ fields: detailFields })
-
+  
             const detailResult = placeDetails.toJSON()
-
+  
             if (!detailResult?.geometry?.location) {
               console.warn("Skipping place with no geometry:", place.id)
               return null
             }
-
-            // Map the new field names to your existing Winery interface.
+  
             return {
               id: `search-${detailResult.id}`,
               name: detailResult.displayName!,
               address: detailResult.formattedAddress || "Address not available",
-              lat: detailResult.geometry.location.lat, // .lat is a number, not a function
-              lng: detailResult.geometry.location.lng, // .lng is a number, not a function
+              lat: detailResult.geometry.location.lat,
+              lng: detailResult.geometry.location.lng,
               rating: detailResult.rating,
               phone: detailResult.internationalPhoneNumber,
               website: detailResult.websiteURI,
               placeId: detailResult.id,
               isFromSearch: true,
               priceLevel: detailResult.priceLevel,
-              // The photo URL method is now getURI(), not getUrl().
               photos: detailResult.photos?.slice(0, 3).map((p) => p.getURI({ maxHeight: 300, maxWidth: 400 })),
               userVisited: false,
               visits: [],
             } as Winery
           } catch (error) {
             console.error(`Failed to fetch details for place ${place.id}:`, error)
-            return null // Return null for failed fetches so Promise.all doesn't reject.
+            return null
           }
         })
-
+  
         const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null)
-
+  
         console.log(`Found ${wineryResults.length} wineries.`)
         setSearchResults(wineryResults)
         setShowSearchResults(true)
@@ -348,9 +333,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     },
     [currentBounds, autoSearch, boundsChanged],
   )
-  // ============================================================================================
-  // End of Migration Section
-  // ============================================================================================
 
   const autoSearchRef = useRef(autoSearch)
   useEffect(() => {
@@ -507,7 +489,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
       mapInstanceRef.current = mapInstance
 
-      // MIGRATION: The legacy PlacesService is no longer needed. This is correct.
       mapInstance.addListener("bounds_changed", () => {
         const bounds = mapInstance.getBounds()
         if (bounds) {
@@ -799,7 +780,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }
   }
 
-  // All JSX below is preserved to maintain your UI and fallback logic.
   if (error || showFallback) {
     return (
       <div className="space-y-6">
