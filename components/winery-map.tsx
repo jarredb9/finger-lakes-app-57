@@ -444,10 +444,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         center: { lat: 42.5, lng: -77.0 },
         zoom: 10,
         mapId: "ac7e853c8d70efc0fdd4c089",
-        styles: [
-          { featureType: "water", elementType: "geometry", stylers: [{ color: "#4A90E2" }] },
-        ],
-      })
+              })
 
       mapInstanceRef.current = mapInstance
 
