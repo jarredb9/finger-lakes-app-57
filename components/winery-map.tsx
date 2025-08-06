@@ -249,7 +249,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   useEffect(() => {
     const loadScript = async () => {
       if (window.google?.maps) { setGoogleMapsLoaded(true); setApiKeyStatus("valid"); return; }
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;;
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
       if (!apiKey) { setError("API key is not configured."); setApiKeyStatus("missing"); setLoading(false); return; }
       if (!(await testApiKey(apiKey))) { setError("API key is invalid or project is misconfigured."); setApiKeyStatus("invalid"); setLoading(false); return; }
       setApiKeyStatus("valid");
@@ -303,7 +303,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
         };
         setWineries((prev) => prev.map(updateWinery));
         setSearchResults((prev) => prev.map(updateWinery));
-        setSelectedWinery((prev) => prev?.id === winery.id ? { ...prev, visits: prev.visits?.filter((v) => v.id !== visitId) || [], userVisited: (prev.visits?.filter((v) => v.id !== visitId) || []).length > 0 } : prev );
+        // CORRECTED LINE: Removed extra parenthesis from the end of this line
+        setSelectedWinery((prev) => prev?.id === winery.id ? { ...prev, visits: prev.visits?.filter((v) => v.id !== visitId) || [], userVisited: (prev.visits?.filter((v) => v.id !== visitId) || []).length > 0 } : prev);
       } else { const responseData = await response.json(); alert(`Failed to delete visit: ${responseData.error || "Unknown error"}`); }
     } catch (error) { alert(`Error deleting visit: ${error instanceof Error ? error.message : String(error)}`); }
   }, []);
