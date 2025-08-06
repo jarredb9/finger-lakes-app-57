@@ -215,7 +215,7 @@ const useWineryMap = (containerRef: React.RefObject<HTMLDivElement>, userId: str
     };
   }, []);
 
-  const handleVisitUpdate = useCallback(async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
+const handleVisitUpdate = useCallback(async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
     try {
       const response = await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wineryName: winery.name, wineryAddress: winery.address, visitDate: visitData.visitDate, userReview: visitData.userReview, }) });
       const responseData = await response.json();
