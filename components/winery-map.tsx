@@ -119,25 +119,39 @@ export default function WineryMap({ userId }: WineryMapProps) {
     try {
       let searchBoundsInstance: google.maps.LatLngBounds;
 
-      if (location?.trim()) {
+    if (location?.trim()) {
         const geocoder = new window.google.maps.Geocoder();
         const { results } = await geocoder.geocode({ address: location });
+
         if (results && results[0]) {
-          const center = results[0].geometry.location;
-          const offset = 0.18;
-          searchBoundsInstance = new window.google.maps.LatLngBounds(
-            new window.google.maps.LatLng(center.lat() - offset, center.lng() - offset),
-            new window.google.maps.LatLng(center.lat() + offset, center.lng() + offset)
-          );
+          const geometry = results[0].geometry;
+
+          // **THE FIX: Use the recommended viewport if it exists**
+          if (geometry.viewport) {
+             searchBoundsInstance = geometry.viewport;
+          } else {
+            // Fallback for results that are just a single point (e.g., a specific address)
+            const center = geometry.location;
+            const offset = 0.1; // A smaller offset might be better for point-specific searches
+            searchBoundsInstance = new window.google.maps.LatLngBounds(
+              new window.google.maps.LatLng(center.lat() - offset, center.lng() - offset),
+              new window.google.maps.LatLng(center.lat() + offset, center.lng() + offset)
+            );
+          }
+
           mapInstanceRef.current.fitBounds(searchBoundsInstance);
-          setCurrentBounds(searchBoundsInstance);
-        } else { throw new Error("Location not found."); }
-      } else {
-        if (!currentBounds) throw new Error("Map bounds not available.");
-        searchBoundsInstance = currentBounds;
-      }
-      
-      lastSearchBoundsRef.current = searchBoundsInstance;
+          // Important: Set currentBounds AFTER the map has moved and is idle.
+          // The 'idle' listener already handles this, so we can remove this next line
+          // to prevent potential race conditions.
+          // setCurrentBounds(searchBoundsInstance); 
+          
+        } else { 
+          throw new Error("Location not found."); 
+          }
+        } else {
+          if (!currentBounds) throw new Error("Map bounds not available.");
+          searchBoundsInstance = currentBounds;
+        }
 
       const request = {
         fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber"],
