@@ -100,7 +100,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     return {};
   }, [userId]);
   
-  // Using the modern `Place.searchWithText` API
   const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
     if (!window.google?.maps?.places?.Place || !mapInstanceRef.current) {
       return;
@@ -174,7 +173,19 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }
   }, [currentBounds, autoSearch]);
 
-  // Robust `initializeMap` function (only one definition)
+  // ==================================================================
+  // CORRECTED ORDER: Define dependent functions before they are used.
+  // ==================================================================
+  const searchWineriesRef = useRef(searchWineries);
+  useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries]);
+
+  const debouncedAutoSearch = useCallback(() => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => {
+      searchWineriesRef.current(undefined, true);
+    }, 1000);
+  }, []);
+
   const initializeMap = useCallback(async () => {
     if (!googleMapsLoaded || apiKeyStatus !== 'valid' || !containerRef.current || mapInitializedRef.current) {
         return;
@@ -237,17 +248,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
       addAllMarkers(Array.from(allWineriesMap.values()));
     }
   }, [wineries, searchResults, addAllMarkers]);
-
-  const searchWineriesRef = useRef(searchWineries);
-  useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries]);
-
-  const debouncedAutoSearch = useCallback(() => {
-    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-    searchTimeoutRef.current = setTimeout(() => {
-      // The check for autoSearch is now inside the searchWineries function
-      searchWineriesRef.current(undefined, true);
-    }, 1000);
-  }, []);
 
   useEffect(() => {
     const loadScript = async () => {
@@ -350,7 +350,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Search Results ({searchResults.length})</CardTitle>
             <Button variant="outline" size="sm" onClick={clearSearchResults}>Clear Results</Button>
-          </CardHeader>
+          </Header>
           <CardContent>
             <div className="space-y-2">
               {searchResults.map(winery => (
