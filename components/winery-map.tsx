@@ -226,277 +226,206 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, [])
 
   // MIGRATION: This function has been rewritten to use the new Place Class static methods.
-  const searchWineries = useCallback(
-    async (location?: string, bounds?: google.maps.LatLngBounds, isAutoSearch = false) => {
-      if (!mapInstanceRef.current) return;
-      if (isAutoSearch && (!autoSearch || !boundsChanged(bounds!, lastSearchBoundsRef.current))) return;
+  const searchWineries = useCallback(async (location?: string, bounds?: google.maps.LatLngBounds, isAutoSearch = false) => {
+    if (!mapInstanceRef.current || !Place) return;
+    if (isAutoSearch && (!autoSearch || !boundsChanged(bounds!, lastSearchBoundsRef.current))) return;
 
-      setSearching(true);
-      console.log("Searching for wineries (Hybrid Approach)...");
+    setSearching(true);
+    console.log("Searching for wineries (Modern Approach)...");
 
-      try {
-        let searchBounds = bounds || currentBounds;
+    try {
+      let searchBounds = bounds || currentBounds;
 
-        if (location && location.trim()) {
-          const geocoder = new window.google.maps.Geocoder();
-          const geocodeResult = await geocoder.geocode({ address: location });
-          if (geocodeResult.results && geocodeResult.results.length > 0) {
-            const result = geocodeResult.results[0];
-            searchBounds = result.geometry.viewport || result.geometry.bounds;
-            if (searchBounds) {
-              mapInstanceRef.current.fitBounds(searchBounds);
-              setCurrentBounds(searchBounds);
-            }
-          } else throw new Error("Geocoding failed.");
-        }
-
-        if (!searchBounds) throw new Error("No search bounds available.");
-        lastSearchBoundsRef.current = searchBounds;
-
-        // STEP 1: Use the MODERN Place.searchByText to get a list of Place IDs.
-        const searchRequest = { textQuery: "winery", fields: ['id'], locationBias: searchBounds, maxResultCount: 20 };
-        const { places } = await window.google.maps.places.Place.searchByText(searchRequest);
-
-        if (!places || places.length === 0) {
-          if (!isAutoSearch) setSearchResults([]);
-          return;
-        }
-
-        // STEP 2: Use the STABLE PlacesService.getDetails to get rich data for each ID.
-        const placesService = new window.google.maps.places.PlacesService(mapInstanceRef.current);
-        const detailFields = ['name', 'formatted_address', 'geometry.location', 'rating', 'website', 'international_phone_number', 'price_level', 'photos', 'place_id'];
-
-        const wineryPromises = places.map(place => {
-          if (!place.id) return Promise.resolve(null);
-          return new Promise<Winery | null>((resolve) => {
-            placesService.getDetails({ placeId: place.id, fields: detailFields }, (detailResult, status) => {
-              if (status === google.maps.places.PlacesServiceStatus.OK && detailResult?.geometry?.location) {
-                resolve({
-                  id: `search-${detailResult.place_id}`,
-                  name: detailResult.name!,
-                  address: detailResult.formatted_address || "Address not available",
-                  lat: detailResult.geometry.location.lat(),
-                  lng: detailResult.geometry.location.lng(),
-                  rating: detailResult.rating,
-                  phone: detailResult.international_phone_number,
-                  website: detailResult.website,
-                  placeId: detailResult.place_id,
-                  isFromSearch: true,
-                  priceLevel: detailResult.price_level,
-                  photos: detailResult.photos?.slice(0, 3).map(p => p.getUrl({ maxWidth: 400, maxHeight: 300 })),
-                  userVisited: false,
-                  visits: [],
-                });
-              } else {
-                resolve(null); // Resolve with null if details fail
-              }
-            });
-          });
-        });
-
-        const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null);
-
-        setSearchResults(wineryResults);
-        setShowSearchResults(true);
-        setSearchCount(prev => prev + 1);
-      } catch (error) {
-        console.error("Error searching wineries:", error);
-      } finally {
-        setSearching(false);
+      if (location && location.trim()) {
+        const geocoder = new Geocoder();
+        const { results } = await geocoder.geocode({ address: location });
+        if (results && results.length > 0) {
+          const result = results[0];
+          searchBounds = result.geometry.viewport || result.geometry.bounds;
+           if (!searchBounds) {
+               const center = result.geometry.location;
+               const offset = 0.18;
+               searchBounds = new LatLngBounds(new LatLng(center.lat() - offset, center.lng() - offset), new LatLng(center.lat() + offset, center.lng() + offset));
+           }
+          if (searchBounds) {
+            mapInstanceRef.current.fitBounds(searchBounds);
+            setCurrentBounds(searchBounds);
+          }
+        } else throw new Error("Geocoding failed.");
       }
-    },
-    [currentBounds, autoSearch, boundsChanged]
-  );
-  
-  const autoSearchRef = useRef(autoSearch)
-  useEffect(() => {
-    autoSearchRef.current = autoSearch
-  }, [autoSearch])
+
+      if (!searchBounds) throw new Error("No search bounds available.");
+      lastSearchBoundsRef.current = searchBounds;
+
+      const searchRequest = { textQuery: "winery", fields: ['id', 'displayName', 'location'], locationBias: searchBounds, maxResultCount: 20 };
+      const { places } = await Place.searchByText(searchRequest);
+      
+      if (!places || places.length === 0) {
+        if (!isAutoSearch) setSearchResults([]);
+        return;
+      }
+
+      const detailFields: (keyof google.maps.places.Place)[] = ['rating', 'websiteUri', 'internationalPhoneNumber', 'priceLevel', 'photos', 'formattedAddress'];
+      const wineryPromises = places.map(async (place) => {
+        await place.fetchFields({ fields: detailFields });
+        return {
+          id: `search-${place.id}`,
+          name: place.displayName!,
+          address: place.formattedAddress || "Address not available",
+          lat: place.location!.latitude,
+          lng: place.location!.longitude,
+          rating: place.rating,
+          phone: place.internationalPhoneNumber,
+          website: place.websiteUri,
+          placeId: place.id,
+          isFromSearch: true,
+          priceLevel: place.priceLevel,
+          photos: place.photos?.slice(0, 3).map(p => p.getURI({ maxWidth: 400, maxHeight: 300 })),
+          userVisited: false,
+          visits: [],
+        };
+      });
+      
+      const wineryResults = await Promise.all(wineryPromises);
+      setSearchResults(wineryResults);
+      setShowSearchResults(true);
+      setSearchCount(prev => prev + 1);
+    } catch (error) {
+      console.error("Error searching wineries:", error);
+    } finally {
+      setSearching(false);
+    }
+  }, [currentBounds, autoSearch, boundsChanged]);
+
+  const autoSearchRef = useRef(autoSearch);
+  useEffect(() => { autoSearchRef.current = autoSearch }, [autoSearch]);
 
   const searchWineriesRef = useRef(searchWineries);
-  useEffect(() => {
-    searchWineriesRef.current = searchWineries;
-  }, [searchWineries]);
+  useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries]);
 
-  // Debounced auto-search function
-  const debouncedAutoSearch = useCallback(
-  (bounds: any) => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
+  const debouncedAutoSearch = useCallback((bounds: any) => {
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     searchTimeoutRef.current = setTimeout(() => {
-      if (autoSearchRef.current && bounds) {
-        searchWineriesRef.current(undefined, bounds, true)
-      }
-    }, 1000)
-  }, [])
+      if (autoSearchRef.current && bounds) searchWineriesRef.current(undefined, bounds, true);
+    }, 1000);
+  }, []);
 
-  // Add markers for search results
-const addAllMarkers = useCallback((allWineries: Winery[]) => {
-  if (!mapInstanceRef.current) return;
-
-  // Remove all existing markers
-  markersRef.current.forEach((marker) => {
-    marker.setMap(null);
-  });
-  markersRef.current.clear();
-
-  // Add a marker for each winery
-  allWineries.forEach((winery) => {
-    const marker = new window.google.maps.Marker({
-      position: { lat: winery.lat, lng: winery.lng },
-      map: mapInstanceRef.current,
-      title: winery.name,
-      icon: winery.isFromSearch
-        ? {
-            url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo=", // Blue for search results
-            scaledSize: new window.google.maps.Size(32, 32),
-          }
-        : winery.userVisited
-        ? {
-            url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo=", // Green for visited
-            scaledSize: new window.google.maps.Size(32, 32),
-          }
-        : {
-            url: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=", // Red for not visited
-            scaledSize: new window.google.maps.Size(32, 32),
-          },
+  const addAllMarkers = useCallback((allWineries: Winery[]) => {
+    if (!mapInstanceRef.current || !Marker) return;
+    markersRef.current.forEach(marker => marker.setMap(null));
+    markersRef.current.clear();
+    allWineries.forEach(winery => {
+      const iconUrl = winery.isFromSearch ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
+        : winery.userVisited ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
+        : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=";
+      const marker = new Marker({ position: { lat: winery.lat, lng: winery.lng }, map: mapInstanceRef.current, title: winery.name, icon: { url: iconUrl, scaledSize: new window.google.maps.Size(32, 32) } });
+      marker.addListener("click", () => setSelectedWinery(winery));
+      markersRef.current.set(winery.id, marker);
     });
-
-    marker.addListener("click", () => {
-      setSelectedWinery(winery);
-    });
-
-    markersRef.current.set(winery.id, marker);
-  });
   }, []);
 
   useEffect(() => {
-  if (mapInstanceRef.current) {
-    // Deduplicate by placeId if present, otherwise by id
-    const allWineriesMap = new Map<string, Winery>();
-    wineries.forEach(w => {
-      const key = w.placeId || w.id;
-      allWineriesMap.set(key, w);
-    });
-    searchResults.forEach(w => {
-      const key = w.placeId || w.id;
-       if (!allWineriesMap.has(key)) {
-         allWineriesMap.set(key, w);
-       }
-    });
-    addAllMarkers(Array.from(allWineriesMap.values()));
-  }
-}, [wineries, searchResults, addAllMarkers]);
-
-
-  // Load winery data without map
+    if (mapInstanceRef.current) {
+      const allWineriesMap = new Map<string, Winery>();
+      wineries.forEach(w => allWineriesMap.set(w.placeId || w.id, w));
+      searchResults.forEach(w => { if (!allWineriesMap.has(w.placeId || w.id)) { allWineriesMap.set(w.placeId || w.id, w); } });
+      addAllMarkers(Array.from(allWineriesMap.values()));
+    }
+  }, [wineries, searchResults, addAllMarkers]);
+  
   const loadWineryData = useCallback(async () => {
-    console.log("Loading winery data without map...")
-    const visitsByWinery = await fetchUserVisits(userId)
-
+    const visitsByWinery = await fetchUserVisits(userId);
     const wineryData = fingerLakesWineries.map((winery, index) => {
-      const visits = visitsByWinery[winery.name] || []
-      return {
-        ...winery,
-        id: `winery-${index}`,
-        userVisited: visits.length > 0,
-        visits: visits,
-      }
-    })
+      const visits = visitsByWinery[winery.name] || [];
+      return { ...winery, id: `winery-${index}`, userVisited: visits.length > 0, visits: visits };
+    });
+    setWineries(wineryData);
+  }, [userId, fetchUserVisits]);
 
-    console.log("Winery data loaded:", wineryData)
-    setWineries(wineryData)
-    setLoading(false)
-  }, [userId, fetchUserVisits])
-
-  // Create map container dynamically to avoid React interference
-  const createMapContainer = useCallback(() => {
-    if (!containerRef.current) return null
-
-    // Remove any existing map container
-    const existingContainer = containerRef.current.querySelector("#google-map-div")
-    if (existingContainer) {
-      existingContainer.remove()
-    }
-
-    // Create new map container
-    const mapDiv = document.createElement("div")
-    mapDiv.id = "google-map-div"
-    mapDiv.style.width = "100%"
-    mapDiv.style.height = "100%"
-    mapDiv.style.minHeight = "384px"
-    mapDiv.style.borderRadius = "0.5rem"
-
-    containerRef.current.appendChild(mapDiv)
-    mapContainerRef.current = mapDiv
-
-    console.log("Map container created:", mapDiv)
-    return mapDiv
-  }, [])
-
-  // Initialize map when Google Maps is loaded
-  const initializeMap = useCallback(async () => {
-    if (!googleMapsLoaded || apiKeyStatus !== "valid") {
-      console.log("Prerequisites not met:", { googleMapsLoaded, apiKeyStatus })
-      return
-    }
-
-    console.log("Starting map initialization...")
-
-    try {
-      const mapContainer = createMapContainer()
-      if (!mapContainer) {
-        console.error("Failed to create map container")
-        setError("Failed to create map container")
-        setShowFallback(true)
-        setLoading(false)
-        return
+  // REFACTORED INITIALIZATION
+  useEffect(() => {
+    const initMap = async () => {
+      const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
+      if (!apiKey) {
+        setError("Google Maps API key not configured.");
+        setShowFallback(true);
+        setLoading(false);
+        await loadWineryData();
+        return;
       }
 
-      await new Promise((resolve) => setTimeout(resolve, 200))
-
-      if (!window.google || !window.google.maps) {
-        console.error("Google Maps API not available")
-        setError("Google Maps API not available")
-        setShowFallback(true)
-        setLoading(false)
-        return
-      }
-
-      console.log("Creating Google Maps instance...")
-
-      const mapInstance = new window.google.maps.Map(mapContainer, {
-        center: { lat: 42.5, lng: -77.0 },
-        zoom: 10,
-        styles: [
-          { featureType: "water", elementType: "geometry", stylers: [{ color: "#4A90E2" }] },
-        ],
-      })
-
-      mapInstanceRef.current = mapInstance
-
-      // MIGRATION: The PlacesService is no longer instantiated. The new Place class uses static methods.
-      // placesServiceRef.current = new window.google.maps.places.PlacesService(mapInstance)
-
-      // Set up bounds change listener for dynamic loading
-      mapInstance.addListener("bounds_changed", () => {
-        const bounds = mapInstance.getBounds()
-        if (bounds) {
-            setCurrentBounds(bounds)
-            if (autoSearchRef.current) {
-              debouncedAutoSearch(bounds)
-            }
+      // We still do a basic fetch test for the key validity
+      try {
+        const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=New+York&key=${apiKey}`);
+        const data = await response.json();
+        if (data.status !== 'OK') {
+            throw new Error(data.error_message || `API Key Test Failed: ${data.status}`);
         }
-      })
+        setApiKeyStatus("valid");
+      } catch(e) {
+        setError((e as Error).message);
+        setShowFallback(true);
+        setLoading(false);
+        await loadWineryData();
+        return;
+      }
 
-      mapInstance.addListener("idle", () => {
-        const bounds = mapInstance.getBounds()
-        if (autoSearchRef.current && bounds) {
-          debouncedAutoSearch(bounds)
-        }
-      })
+      // Modern library loading
+      try {
+        const { Map: GoogleMap } = await google.maps.importLibrary("maps") as google.maps.MapsLibrary;
+        const { Place: GooglePlace } = await google.maps.importLibrary("places") as google.maps.PlacesLibrary;
+        const { Geocoder: GoogleGeocoder } = await google.maps.importLibrary("geocoding") as google.maps.GeocodingLibrary;
+        const { Marker: GoogleMarker } = await google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
+        const { LatLngBounds: GoogleLatLngBounds, LatLng: GoogleLatLng } = await google.maps.importLibrary("core") as google.maps.CoreLibrary;
+
+        // Assign to module-level variables
+        Map = GoogleMap;
+        Place = GooglePlace;
+        Geocoder = GoogleGeocoder;
+        Marker = GoogleMarker;
+        LatLngBounds = GoogleLatLngBounds;
+        LatLng = GoogleLatLng;
+
+        const mapContainer = containerRef.current!.querySelector("#google-map-div") || (() => {
+            const div = document.createElement("div");
+            div.id = "google-map-div";
+            div.style.cssText = "width:100%;height:100%;min-height:384px;border-radius:0.5rem;";
+            containerRef.current!.appendChild(div);
+            return div;
+        })();
+        
+        const map = new Map(mapContainer, {
+            center: { lat: 42.5, lng: -77.0 },
+            zoom: 10,
+            styles: [{ featureType: "water", elementType: "geometry", stylers: [{ color: "#4A90E2" }] }],
+            mapId: 'WINERY_MAP_ID' // Recommended for use with new features
+        });
+        mapInstanceRef.current = map;
+
+        map.addListener("bounds_changed", () => {
+          const bounds = map.getBounds();
+          if (bounds) {
+            setCurrentBounds(bounds);
+            if (autoSearchRef.current) debouncedAutoSearch(bounds);
+          }
+        });
+        map.addListener("idle", () => { if (autoSearchRef.current) debouncedAutoSearch(map.getBounds()); });
+
+        await loadWineryData();
+        setLoading(false);
+
+      } catch (e) {
+        console.error("Error loading Google Maps libraries:", e);
+        setError((e as Error).message);
+        setShowFallback(true);
+        setLoading(false);
+        await loadWineryData();
+      }
+    };
+
+    initMap();
+  }, [loadWineryData, debouncedAutoSearch]);
+
 
       console.log("Map created successfully")
 
