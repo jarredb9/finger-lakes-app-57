@@ -260,7 +260,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   useEffect(() => {
     const loadScript = async () => {
       if (window.google?.maps) { setGoogleMapsLoaded(true); setApiKeyStatus("valid"); return; }
-      const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY;
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
       if (!apiKey) { setError("API key is not configured."); setApiKeyStatus("missing"); setLoading(false); return; }
       if (!(await testApiKey(apiKey))) { setError("API key is invalid or project is misconfigured."); setApiKeyStatus("invalid"); setLoading(false); return; }
       setApiKeyStatus("valid");
