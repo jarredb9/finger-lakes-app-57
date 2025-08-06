@@ -243,7 +243,6 @@ const searchWineries = useCallback(
       try {
         let searchBounds = bounds || currentBounds;
 
-        // Geocoding logic to find bounds from a location string (this part is correct)
         if (location && location.trim()) {
           const geocoder = new window.google.maps.Geocoder();
           const geocodeResult = await geocoder.geocode({ address: location });
@@ -274,10 +273,10 @@ const searchWineries = useCallback(
 
         lastSearchBoundsRef.current = searchBounds;
 
-        // STEP 1: Search for places, requesting only basic fields.
+        // STEP 1: Search for places (this part was correct)
         const searchRequest = {
           textQuery: "winery",
-          fields: ['id', 'displayName', 'location'], // Basic fields for search
+          fields: ['id', 'displayName', 'location'],
           locationBias: searchBounds,
           maxResultCount: 20,
         };
@@ -291,25 +290,28 @@ const searchWineries = useCallback(
           return;
         }
 
-        // STEP 2: For each place found, fetch the detailed fields.
-        const detailFields: (keyof google.maps.places.Place)[] = [
-            'rating', 'websiteUri', 'internationalPhoneNumber', 'priceLevel', 'photos'
+        // STEP 2: Fetch details with the CORRECT field names.
+        const detailFields = [
+            'rating', 
+            'website', // CORRECT: Request 'website'
+            'internationalPhoneNumber', 
+            'priceLevel', 
+            'photos',
+            'formattedAddress'
         ];
 
         const wineryPromises = places.map(async (place) => {
-          // fetchFields populates the existing Place object with new data.
           await place.fetchFields({ fields: detailFields });
           
-          // Now map the fully populated Place object to your Winery interface
           return {
             id: `search-${place.id}`,
             name: place.displayName!,
-            address: place.formattedAddress || "Address not available", // Note: formattedAddress is not available from search, requires details call
+            address: place.formattedAddress || "Address not available",
             lat: place.location!.latitude,
             lng: place.location!.longitude,
             rating: place.rating,
             phone: place.internationalPhoneNumber,
-            website: place.websiteUri,
+            website: place.websiteUri, // CORRECT: Access the result with .websiteUri
             placeId: place.id,
             isFromSearch: true,
             priceLevel: place.priceLevel,
@@ -319,7 +321,6 @@ const searchWineries = useCallback(
           };
         });
         
-        // Wait for all the detail requests to complete
         const wineryResults = await Promise.all(wineryPromises);
 
         console.log("Processed winery results:", wineryResults.length);
