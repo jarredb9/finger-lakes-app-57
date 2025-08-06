@@ -245,17 +245,37 @@ const useWineryMap = (containerRef: React.RefObject<HTMLDivElement>, userId: str
     } catch (error) { alert(`Error deleting visit: ${error instanceof Error ? error.message : String(error)}`); }
   }, []);
 
+// This is the return statement for the useWineryMap HOOK
   return {
-    state: { loading, searching, error, searchLocation, autoSearch, showSearchResults, searchResults, selectedWinery, currentBounds },
+    state: {
+      loading,
+      searching,
+      error,
+      searchLocation,
+      autoSearch,
+      showSearchResults,
+      searchResults,
+      selectedWinery,
+      currentBounds,
+    },
     handlers: {
-      setSearchLocation, setAutoSearch, setSelectedWinery,
-      handleSearchSubmit: (e: React.FormEvent) => { e.preventDefault(); searchWineries(searchLocation.trim()); },
+      setSearchLocation,
+      setAutoSearch,
+      setSelectedWinery,
+      handleSearchSubmit: (e: React.FormEvent) => {
+        e.preventDefault();
+        searchWineries(searchLocation.trim());
+      },
       handleSearchInCurrentArea: () => searchWineries(),
-      clearSearchResults: () => { setSearchResults([]); setShowSearchResults(false); },
-      handleVisitUpdate, handleDeleteVisit
-    }
-  };
-};
+      clearSearchResults: () => {
+        setSearchResults([]);
+        setShowSearchResults(false);
+      },
+      handleVisitUpdate,
+      handleDeleteVisit,
+    }, // <-- This brace closes the 'handlers' object
+  }; // <-- This brace closes the main 'return' object, and the semicolon ends the statement.
+}
 
 // ==================================================================
 // THE COMPONENT
