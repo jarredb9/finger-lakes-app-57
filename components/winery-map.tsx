@@ -119,8 +119,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
     setSearching(true);
     try {
-      let restriction: google.maps.LatLngBoundsLiteral | null = null;
-      let query = location?.trim() || "winery";
+      let searchBoundsInstance: google.maps.LatLngBounds;
+      const query = "winery";
 
       if (location?.trim()) {
         const geocoder = new window.google.maps.Geocoder();
@@ -128,28 +128,32 @@ export default function WineryMap({ userId }: WineryMapProps) {
         if (results && results[0]) {
           const center = results[0].geometry.location;
           const offset = 0.18;
-          const searchBoundsInstance = new window.google.maps.LatLngBounds(
+          searchBoundsInstance = new window.google.maps.LatLngBounds(
             new window.google.maps.LatLng(center.lat() - offset, center.lng() - offset),
             new window.google.maps.LatLng(center.lat() + offset, center.lng() + offset)
           );
           mapInstanceRef.current.fitBounds(searchBoundsInstance);
-          restriction = searchBoundsInstance.toJSON();
-          setCurrentBounds(restriction);
+          setCurrentBounds(searchBoundsInstance.toJSON());
         } else { throw new Error("Location not found."); }
       } else {
-        restriction = currentBounds;
+        if (!currentBounds) throw new Error("Map bounds not available.");
+        searchBoundsInstance = new window.google.maps.LatLngBounds(currentBounds);
       }
       
-      if (!restriction) { throw new Error("Map bounds not available."); }
-      lastSearchBoundsRef.current = restriction;
+      lastSearchBoundsRef.current = searchBoundsInstance.toJSON();
 
       const request = {
-        textQuery: query,
         fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber"],
-        locationRestriction: restriction,
+        includedTypes: [query],
+        // --- THE DEFINITIVE FIX ---
+        // Provide both the center point and the restriction bounds
+        location: searchBoundsInstance.getCenter(),
+        locationRestriction: searchBoundsInstance.toJSON(),
+        maxResultCount: 20
       };
       
-      const { places } = await window.google.maps.places.Place.searchText(request);
+      // --- REVERT TO searchNearby ---
+      const { places } = await window.google.maps.places.Place.searchNearby(request);
       
       const wineryResults: Winery[] = places.map((place: any) => ({
         id: `search-${place.id}`, name: place.displayName, address: place.formattedAddress || "N/A",
@@ -180,21 +184,27 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, []);
 
   const addAllMarkers = useCallback(async (allWineries: Winery[]) => {
-    if (!mapInstanceRef.current || !window.google.maps.marker) return;
+    if (!mapInstanceRef.current) return;
 
-    const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
-    
-    markersRef.current.forEach((marker) => { marker.map = null; });
-    markersRef.current.clear();
-    allWineries.forEach((winery) => {
-      const marker = new AdvancedMarkerElement({
-        position: { lat: winery.lat, lng: winery.lng },
-        map: mapInstanceRef.current,
-        title: winery.name,
+    // Use a try-catch block in case the marker library isn't ready
+    try {
+      const { AdvancedMarkerElement } = await window.google.maps.importLibrary("marker") as google.maps.MarkerLibrary;
+      
+      markersRef.current.forEach((marker) => { marker.map = null; });
+      markersRef.current.clear();
+
+      allWineries.forEach((winery) => {
+        const marker = new AdvancedMarkerElement({
+          position: { lat: winery.lat, lng: winery.lng },
+          map: mapInstanceRef.current,
+          title: winery.name,
+        });
+        marker.addListener("click", () => setSelectedWinery(winery));
+        markersRef.current.set(winery.id, marker);
       });
-      marker.addListener("click", () => setSelectedWinery(winery));
-      markersRef.current.set(winery.id, marker);
-    });
+    } catch (error) {
+        console.error("Error loading marker library or creating markers:", error)
+    }
   }, []);
 
   useEffect(() => {
@@ -260,7 +270,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   useEffect(() => {
     const loadScript = async () => {
       if (window.google?.maps) { setGoogleMapsLoaded(true); setApiKeyStatus("valid"); return; }
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
       if (!apiKey) { setError("API key is not configured."); setApiKeyStatus("missing"); setLoading(false); return; }
       if (!(await testApiKey(apiKey))) { setError("API key is invalid or project is misconfigured."); setApiKeyStatus("invalid"); setLoading(false); return; }
       setApiKeyStatus("valid");
@@ -281,7 +291,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }
   }, [googleMapsLoaded, apiKeyStatus, initializeMap]);
   
-  // CORRECTED useEffect for cleanup
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) {
@@ -290,7 +299,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     };
   }, []);
   
-  // RESTORED FULL IMPLEMENTATION
   const handleVisitUpdate = useCallback(async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
     try {
       const response = await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wineryName: winery.name, wineryAddress: winery.address, visitDate: visitData.visitDate, userReview: visitData.userReview, }) });
@@ -304,7 +312,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     } catch (error) { alert(`Error saving visit: ${error instanceof Error ? error.message : String(error)}`); }
   }, []);
 
-  // RESTORED FULL IMPLEMENTATION
   const handleDeleteVisit = useCallback(async (winery: Winery, visitId: string) => {
     try {
       const response = await fetch(`/api/visits/${visitId}`, { method: "DELETE" });
