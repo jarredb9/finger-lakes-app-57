@@ -110,71 +110,96 @@ export default function WineryMap({ userId }: WineryMapProps) {
     return !newBounds.equals(oldBounds);
   }, []);
 
-  const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
-    if (!window.google?.maps?.places?.Place || !mapInstanceRef.current) return;
-    if (!location && !currentBounds) { setError("Search failed. Map bounds not available."); return; }
-    if (isAutoSearch && (!autoSearch || !boundsChanged(currentBounds!, lastSearchBoundsRef.current))) { return; }
+    const searchWineries = useCallback(async (location?: string, isAutoSearch = false) => {
+    console.group(`searchWineries Triggered`);
+    console.log(`Timestamp: ${new Date().toISOString()}`);
+    console.log(`Search Location: ${location || 'Current Map Area'}`);
+    console.log(`Is Auto Search: ${isAutoSearch}`);
+
+    if (!window.google?.maps?.places?.Place || !mapInstanceRef.current) {
+        console.warn("Search aborted: Google Maps Places library or map instance not available.");
+        console.groupEnd();
+        return;
+    }
+    if (!location && !currentBounds) {
+        setError("Search failed. Map bounds not available.");
+        console.warn("Search aborted: No location or currentBounds.");
+        console.groupEnd();
+        return;
+    }
+    if (isAutoSearch && (!autoSearch || !boundsChanged(currentBounds!, lastSearchBoundsRef.current))) {
+        console.log("Auto search skipped: toggle is off or bounds have not changed significantly.");
+        console.groupEnd();
+        return;
+    }
 
     setSearching(true);
+    setError(null);
+
     try {
-      let searchBoundsInstance: google.maps.LatLngBounds;
+        let searchBoundsInstance: google.maps.LatLngBounds;
 
-    if (location?.trim()) {
-        const geocoder = new window.google.maps.Geocoder();
-        const { results } = await geocoder.geocode({ address: location });
+        if (location?.trim()) {
+            console.log("Geocoding location:", location);
+            const geocoder = new window.google.maps.Geocoder();
+            const { results } = await geocoder.geocode({ address: location });
 
-        if (results && results[0]) {
-          const geometry = results[0].geometry;
+            if (results && results[0]) {
+                console.log("Geocoder Result:", results[0]);
+                const geometry = results[0].geometry;
 
-          // **THE FIX: Use the recommended viewport if it exists**
-          if (geometry.viewport) {
-             searchBoundsInstance = geometry.viewport;
-          } else {
-            // Fallback for results that are just a single point (e.g., a specific address)
-            const center = geometry.location;
-            const offset = 0.1; // A smaller offset might be better for point-specific searches
-            searchBoundsInstance = new window.google.maps.LatLngBounds(
-              new window.google.maps.LatLng(center.lat() - offset, center.lng() - offset),
-              new window.google.maps.LatLng(center.lat() + offset, center.lng() + offset)
-            );
-          }
-
-          mapInstanceRef.current.fitBounds(searchBoundsInstance);
-          // Important: Set currentBounds AFTER the map has moved and is idle.
-          // The 'idle' listener already handles this, so we can remove this next line
-          // to prevent potential race conditions.
-          // setCurrentBounds(searchBoundsInstance); 
-          
-        } else { 
-          throw new Error("Location not found."); 
-          }
+                if (geometry.viewport) {
+                    console.log("Using provided viewport from geocoder.");
+                    searchBoundsInstance = geometry.viewport;
+                } else {
+                    console.log("No viewport provided, creating bounds from center location.");
+                    const center = geometry.location;
+                    const offset = 0.1;
+                    searchBoundsInstance = new window.google.maps.LatLngBounds(
+                        new window.google.maps.LatLng(center.lat() - offset, center.lng() - offset),
+                        new window.google.maps.LatLng(center.lat() + offset, center.lng() + offset)
+                    );
+                }
+                mapInstanceRef.current.fitBounds(searchBoundsInstance);
+            } else {
+                throw new Error("Location not found by geocoder.");
+            }
         } else {
-          if (!currentBounds) throw new Error("Map bounds not available.");
-          searchBoundsInstance = currentBounds;
+            if (!currentBounds) throw new Error("Map bounds not available for area search.");
+            console.log("Using current map bounds for search.");
+            searchBoundsInstance = currentBounds;
         }
 
-      const request = {
-        fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber"],
-        includedTypes: ["winery"],
-        // THE FINAL FIX: Convert the LatLngBounds INSTANCE to a plain OBJECT at the last moment.
-        locationRestriction: searchBoundsInstance.toJSON(),
-        maxResultCount: 20
-      };
-      
-      const { places } = await window.google.maps.places.Place.searchNearby(request);
-      
-      const wineryResults: Winery[] = places.map((place: any) => ({
-        id: `search-${place.id}`, name: place.displayName, address: place.formattedAddress || "N/A",
-        lat: place.location.latitude, lng: place.location.longitude, rating: place.rating,
-        phone: place.nationalPhoneNumber, website: undefined, placeId: place.id,
-        isFromSearch: true, userVisited: false, visits: [],
-      }));
-      setSearchResults(wineryResults);
-      setShowSearchResults(true);
+        lastSearchBoundsRef.current = searchBoundsInstance;
+
+        const request = {
+            fields: ["id", "displayName", "formattedAddress", "location", "rating", "nationalPhoneNumber", "websiteUri"],
+            includedTypes: ["winery"],
+            locationRestriction: searchBoundsInstance.toJSON(),
+            maxResultCount: 20
+        };
+
+        console.log("%cFinal Search Request Object:", "color: blue; font-weight: bold;", request);
+
+        const { places } = await window.google.maps.places.Place.searchNearby(request);
+
+        console.log("%cSearch Successful. Places Found:", "color: green; font-weight: bold;", places);
+
+        const wineryResults: Winery[] = places.map((place: any) => ({
+            id: `search-${place.id}`, name: place.displayName, address: place.formattedAddress || "N/A",
+            lat: place.location.latitude, lng: place.location.longitude, rating: place.rating,
+            phone: place.nationalPhoneNumber, website: place.websiteUri, placeId: place.id,
+            isFromSearch: true, userVisited: false, visits: [],
+        }));
+        setSearchResults(wineryResults);
+        setShowSearchResults(true);
     } catch (error) {
-      setError(`Search failed. ${error instanceof Error ? error.message : ''}`);
+        console.error("%c--- MAP SEARCH FAILED ---", "color: red; font-weight: bold;");
+        console.error("Full Error Object:", error);
+        setError(`Search failed. ${error instanceof Error ? error.message : String(error)}`);
     } finally {
-      setSearching(false);
+        setSearching(false);
+        console.groupEnd();
     }
   }, [currentBounds, autoSearch, boundsChanged]);
 
