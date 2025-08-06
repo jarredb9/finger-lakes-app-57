@@ -173,9 +173,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }
   }, [currentBounds, autoSearch]);
 
-  // ==================================================================
-  // CORRECTED ORDER: Define dependent functions before they are used.
-  // ==================================================================
   const searchWineriesRef = useRef(searchWineries);
   useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries]);
 
@@ -350,7 +347,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Search Results ({searchResults.length})</CardTitle>
             <Button variant="outline" size="sm" onClick={clearSearchResults}>Clear Results</Button>
-          </Header>
+          </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {searchResults.map(winery => (
