@@ -91,67 +91,18 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const [renderingType, setRenderingType] = useState<RenderingType>("UNINITIALIZED")
 
   const fingerLakesWineries: Omit<Winery, "id" | "userVisited" | "visits">[] = [
-    {
-      name: "Dr. Konstantin Frank Winery",
-      address: "9749 Middle Rd, Hammondsport, NY 14840",
-      lat: 42.4089,
-      lng: -77.2094,
-      phone: "(607) 868-4884",
-      website: "https://drfrankwines.com",
-      rating: 4.6,
-    },
-    {
-      name: "Chateau Lafayette Reneau",
-      address: "5081 NY-414, Hector, NY 14841",
-      lat: 42.4756,
-      lng: -76.8739,
-      phone: "(607) 546-2062",
-      website: "https://clrwine.com",
-      rating: 4.4,
-    },
-    {
-      name: "Wagner Vineyards",
-      address: "9322 NY-414, Lodi, NY 14860",
-      lat: 42.6089,
-      lng: -76.8267,
-      phone: "(607) 582-6450",
-      website: "https://wagnervineyards.com",
-      rating: 4.3,
-    },
-    {
-      name: "Ravines Wine Cellars",
-      address: "1020 Keuka Lake Rd, Penn Yan, NY 14527",
-      lat: 42.6394,
-      lng: -77.0533,
-      phone: "(315) 536-4265",
-      website: "https://ravineswine.com",
-      rating: 4.5,
-    },
-    {
-      name: "Hermann J. Wiemer Vineyard",
-      address: "3962 NY-14, Dundee, NY 14837",
-      lat: 42.5267,
-      lng: -76.9733,
-      phone: "(607) 243-7971",
-      website: "https://wiemer.com",
-      rating: 4.7,
-    },
-    {
-      name: "Fox Run Vineyards",
-      address: "670 NY-14, Penn Yan, NY 14527",
-      lat: 42.6178,
-      lng: -77.0456,
-      phone: "(315) 536-4616",
-      website: "https://foxrunvineyards.com",
-      rating: 4.4,
-    },
+    { name: "Dr. Konstantin Frank Winery", address: "9749 Middle Rd, Hammondsport, NY 14840", lat: 42.4089, lng: -77.2094, phone: "(607) 868-4884", website: "https://drfrankwines.com", rating: 4.6 },
+    { name: "Chateau Lafayette Reneau", address: "5081 NY-414, Hector, NY 14841", lat: 42.4756, lng: -76.8739, phone: "(607) 546-2062", website: "https://clrwine.com", rating: 4.4 },
+    { name: "Wagner Vineyards", address: "9322 NY-414, Lodi, NY 14860", lat: 42.6089, lng: -76.8267, phone: "(607) 582-6450", website: "https://wagnervineyards.com", rating: 4.3 },
+    { name: "Ravines Wine Cellars", address: "1020 Keuka Lake Rd, Penn Yan, NY 14527", lat: 42.6394, lng: -77.0533, phone: "(315) 536-4265", website: "https://ravineswine.com", rating: 4.5 },
+    { name: "Hermann J. Wiemer Vineyard", address: "3962 NY-14, Dundee, NY 14837", lat: 42.5267, lng: -76.9733, phone: "(607) 243-7971", website: "https://wiemer.com", rating: 4.7 },
+    { name: "Fox Run Vineyards", address: "670 NY-14, Penn Yan, NY 14527", lat: 42.6178, lng: -77.0456, phone: "(315) 536-4616", website: "https://foxrunvineyards.com", rating: 4.4 },
   ]
 
   const testApiKey = useCallback(async (apiKey: string) => {
     try {
       const response = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?address=New+York&key=${apiKey}`)
       const data = await response.json()
-
       if (data.status === "OK") {
         setApiKeyTestResult("✅ API key is valid and working")
         return true
@@ -164,7 +115,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
       return false
     }
   }, [])
-
 
   const fetchUserVisits = useCallback(async (userId: string) => {
     try {
@@ -352,42 +302,28 @@ export default function WineryMap({ userId }: WineryMapProps) {
     markersRef.current.clear()
 
     allWineries.forEach((winery) => {
-      const iconUrl = winery.isFromSearch
-        ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
-        : winery.userVisited
-          ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
-          : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo="
+      // FINAL FIX: Wrap each marker creation in a try/catch block for maximum robustness.
+      try {
+        const iconUrl = winery.isFromSearch
+          ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
+          : winery.userVisited
+            ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
+            : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo="
 
-      let marker: google.maps.marker.AdvancedMarkerElement | google.maps.Marker;
+        let marker: google.maps.marker.AdvancedMarkerElement | google.maps.Marker
 
-      if (renderingType === 'VECTOR' && window.google.maps.marker) {
-        // Use modern Advanced Markers if Vector rendering is successful
-        const pinElement = document.createElement("img")
-        pinElement.src = iconUrl
-        pinElement.style.width = "32px"; pinElement.style.height = "32px"; pinElement.style.cursor = "pointer"
-        marker = new window.google.maps.marker.AdvancedMarkerElement({
-          position: { lat: winery.lat, lng: winery.lng },
-          map: mapInstanceRef.current,
-          title: winery.name,
-          content: pinElement,
-        })
-      } else {
-        // Fallback to legacy Markers if map is Raster or marker library fails
-        marker = new window.google.maps.Marker({
-          position: { lat: winery.lat, lng: winery.lng },
-          map: mapInstanceRef.current,
-          title: winery.name,
-          /*icon: {
-            url: iconUrl,
-            scaledSize: new window.google.maps.Size(32, 32),
-          },*/
-        })
+        if (renderingType === 'VECTOR' && window.google.maps.marker) {
+          const pinElement = document.createElement("img")
+          pinElement.src = iconUrl; pinElement.style.width = "32px"; pinElement.style.height = "32px"; pinElement.style.cursor = "pointer"
+          marker = new window.google.maps.marker.AdvancedMarkerElement({ position: { lat: winery.lat, lng: winery.lng }, map: mapInstanceRef.current, title: winery.name, content: pinElement })
+        } else {
+          marker = new window.google.maps.Marker({ position: { lat: winery.lat, lng: winery.lng }, map: mapInstanceRef.current, title: winery.name, icon: { url: iconUrl, scaledSize: new window.google.maps.Size(32, 32) } })
+        }
+        marker.addListener("click", () => setSelectedWinery(winery))
+        markersRef.current.set(winery.id, marker)
+      } catch (e) {
+        console.error(`Failed to create marker for winery "${winery.name}":`, e)
       }
-
-      marker.addListener("click", () => {
-        setSelectedWinery(winery)
-      })
-      markersRef.current.set(winery.id, marker)
     })
   }, [renderingType]) // Dependency on renderingType ensures this re-runs when the mode changes
 
