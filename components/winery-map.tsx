@@ -97,7 +97,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     { name: "Hermann J. Wiemer Vineyard", address: "3962 NY-14, Dundee, NY 14837", lat: 42.5267, lng: -76.9733, phone: "(607) 243-7971", website: "https://wiemer.com", rating: 4.7 },
     { name: "Fox Run Vineyards", address: "670 NY-14, Penn Yan, NY 14527", lat: 42.6178, lng: -77.0456, phone: "(315) 536-4616", website: "https://foxrunvineyards.com", rating: 4.4 },
   ]
-  
+
   useEffect(() => {
     if (showSearchResults) {
       setDisplayedWineries(searchResults)
@@ -154,7 +154,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     if (!isAutoSearch) {
       setIsNewSearch(true)
     }
-    
+
     try {
       let searchBounds = bounds || currentBounds
       if (location?.trim()) {
@@ -168,7 +168,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (!searchBounds) throw new Error("No search bounds available.")
       lastSearchBoundsRef.current = searchBounds
       const { places } = await window.google.maps.places.Place.searchByText({ textQuery: "winery", fields: ["id", "displayName"], locationBias: searchBounds, maxResultCount: 20 })
-      
+
       const detailFields: (keyof google.maps.places.Place)[] = ["displayName", "formattedAddress", "location", "rating", "websiteURI", "internationalPhoneNumber", "priceLevel", "photos", "id"]
       const wineryPromises = (places || []).map(async (place) => {
         if (!place.id) return null
@@ -182,7 +182,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         } catch (error) { console.error(`Failed to fetch details for place ${place.id}:`, error); return null }
       })
       const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null)
-      
+
       setSearchResults(wineryResults)
       setShowSearchResults(true)
       if (!isAutoSearch) {
@@ -197,7 +197,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       setIsNewSearch(false)
     }
   }, [currentBounds, autoSearch, boundsChanged])
-  
+
   const autoSearchRef = useRef(autoSearch)
   useEffect(() => { autoSearchRef.current = autoSearch }, [autoSearch])
 
@@ -210,7 +210,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (autoSearchRef.current && bounds) searchWineriesRef.current(undefined, bounds, true)
     }, 1000)
   }, [])
-  
+
   const addAllMarkers = useCallback((wineriesToDisplay: Winery[]) => {
     if (!mapInstanceRef.current || renderingType === "UNINITIALIZED") return
 
@@ -229,9 +229,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
         const iconUrl = winery.isFromSearch
           ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
           : winery.userVisited
-          ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
-          : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo="
-        
+            ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
+            : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo="
+
         let marker: google.maps.marker.AdvancedMarkerElement | google.maps.Marker
         if (renderingType === 'VECTOR' && window.google.maps.marker) {
           const pinElement = document.createElement("img")
@@ -373,14 +373,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }
 
   const handleSearchInCurrentArea = () => searchWineries(undefined, currentBounds!)
-  
-  const clearSearchResults = () => { 
-    setSearchResults([]); 
-    setShowSearchResults(false); 
-    setSearchCount(0); 
-    lastSearchBoundsRef.current = null 
+
+  const clearSearchResults = () => {
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setSearchCount(0);
+    lastSearchBoundsRef.current = null
   }
-  
+
   const handleAutoSearchToggle = (enabled: boolean) => { setAutoSearch(enabled); if (enabled && currentBounds) debouncedAutoSearch(currentBounds) }
 
   if (error || showFallback) {
@@ -414,15 +414,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
                   <Switch id="auto-search" checked={autoSearch} onCheckedChange={handleAutoSearchToggle} />
                   <Label htmlFor="auto-search" className="text-sm font-medium"> Auto-discover wineries as you explore </Label>
                 </div>
-                {autoSearch && searching && (<div className="flex items-center space-x-1 text-blue-600"> <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600"></div> <span className="text-xs">Searching...</span> </div>)}
               </div>
               {searchCount > 0 && (<Badge variant="secondary" className="bg-blue-100 text-blue-800"> {searchCount} searches </Badge>)}
             </div>
             {showSearchResults && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  {isNewSearch ? (
-                    <span className="text-sm text-gray-600">Searching for wineries...</span>
+                  {(isNewSearch || (autoSearch && searching)) ? (
+                    <span className="text-sm text-gray-600 animate-pulse">Discovering wineries...</span>
                   ) : (
                     <>
                       <Badge variant="secondary" className="bg-blue-100 text-blue-800">
@@ -500,14 +499,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
                       {winery.rating && <div className="text-xs text-gray-500">★ {winery.rating}/5.0</div>}
                     </div>
                   ))}
-                  {searchResults.length > 10 && ( <div className="text-xs text-gray-500 text-center py-2"> And {searchResults.length - 10} more... (see map for all results) </div> )}
+                  {searchResults.length > 10 && (<div className="text-xs text-gray-500 text-center py-2"> And {searchResults.length - 10} more... (see map for all results) </div>)}
                 </div>
               </CardContent>
             </Card>
           )}
         </div>
       </div>
-      {selectedWinery && ( <WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} /> )}
+      {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} />)}
     </div>
   )
 }
