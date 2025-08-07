@@ -248,13 +248,13 @@ export default function WineryMap({ userId }: WineryMapProps) {
       }
     });
         setVisiblePinCount(markersRef.current.size);
-  }, [renderingType, setVisiblePinCount])
+  }, [renderingType, setVisiblePinCount, setSelectedWinery])
 
   useEffect(() => {
     if (mapInstanceRef.current && renderingType !== "UNINITIALIZED") {
       addAllMarkers(displayedWineries)
     }
-  }, [displayedWineries, addAllMarkers, renderingType])
+  }, [displayedWineries, renderingType])
 
   const loadWineryData = useCallback(async () => {
     const visitsByWinery = await fetchUserVisits(userId)
