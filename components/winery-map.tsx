@@ -208,9 +208,13 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const debouncedAutoSearch = useCallback((bounds: google.maps.LatLngBounds) => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
     searchTimeoutRef.current = setTimeout(() => {
-      if (autoSearchRef.current && bounds) searchWineriesRef.current(undefined, bounds, true)
+      if (autoSearchRef.current && bounds) {
+        // We call the searchWineries function directly, not a ref.
+        searchWineries(undefined, bounds, true)
+      }
     }, 1000)
-  }, [])
+  }, [searchWineries]) // This now depends on the latest version of searchWineries.
+
 
   const addAllMarkers = useCallback((wineriesToDisplay: Winery[]) => {
     if (!mapInstanceRef.current || renderingType === "UNINITIALIZED") return
