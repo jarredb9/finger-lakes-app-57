@@ -59,6 +59,9 @@ interface WineryMapProps {
   userId: string
 }
 
+// MIGRATION: Define a type for the map's rendering mode for robust state management.
+type RenderingType = "VECTOR" | "RASTER" | "UNINITIALIZED"
+
 export default function WineryMap({ userId }: WineryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
@@ -83,6 +86,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [autoSearch, setAutoSearch] = useState(false)
   const [searchCount, setSearchCount] = useState(0)
+
+  // MIGRATION: Added state to track the map's rendering type.
+  const [renderingType, setRenderingType] = useState<RenderingType>("UNINITIALIZED")
 
   const fingerLakesWineries: Omit<Winery, "id" | "userVisited" | "visits">[] = [
     {
@@ -159,24 +165,18 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }
   }, [])
 
+
   const fetchUserVisits = useCallback(async (userId: string) => {
     try {
       const response = await fetch("/api/visits")
       if (response.ok) {
         const visits = await response.json()
-        const visitsByWinery = visits.reduce((acc: any, visit: any) => {
-          if (!acc[visit.winery_name]) {
-            acc[visit.winery_name] = []
-          }
-          acc[visit.winery_name].push({
-            id: visit.id,
-            visitDate: visit.visit_date,
-            userReview: visit.user_review,
-            createdAt: visit.created_at,
-          })
+        return visits.reduce((acc: any, visit: any) => {
+          if (!acc[visit.winery_name]) acc[visit.winery_name] = []
+          acc[visit.winery_name].push({ id: visit.id, visitDate: visit.visit_date, userReview: visit.user_review, createdAt: visit.created_at })
           return acc
         }, {})
-        return visitsByWinery
+
       }
     } catch (error) {
       console.error("Error fetching user visits:", error)
@@ -306,7 +306,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     },
     [currentBounds, autoSearch, boundsChanged],
   )
-  
+
   const autoSearchRef = useRef(autoSearch)
   useEffect(() => {
     autoSearchRef.current = autoSearch
@@ -318,83 +318,91 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, [searchWineries]);
 
   const debouncedAutoSearch = useCallback(
-  (bounds: any) => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current)
-    }
-
-    searchTimeoutRef.current = setTimeout(() => {
-      if (autoSearchRef.current && bounds) {
-        searchWineriesRef.current(undefined, bounds, true)
+    (bounds: any) => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current)
       }
-    }, 1000)
-  }, [])
-  
-  const addAllMarkers = useCallback((allWineries: Winery[]) => {
-    if (!mapInstanceRef.current || !window.google.maps.marker) {
-      return
-    }
 
+      searchTimeoutRef.current = setTimeout(() => {
+        if (autoSearchRef.current && bounds) {
+          searchWineriesRef.current(undefined, bounds, true)
+        }
+      }, 1000)
+    }, [])
+
+  // ============================================================================================
+  // MIGRATION: This function is now the heart of the hybrid rendering solution.
+  // It checks the `renderingType` state and creates the appropriate marker.
+  // ============================================================================================
+  const addAllMarkers = useCallback((allWineries: Winery[]) => {
+    if (!mapInstanceRef.current || renderingType === "UNINITIALIZED") return
+
+    // MIGRATION: The clearing logic now handles both marker types.
     markersRef.current.forEach((marker) => {
-      marker.map = null
-    })
+      if ("map" in marker && typeof marker.map !== "undefined") {
+        // AdvancedMarkerElement: Set map property to null
+        marker.map = null
+      } else if ("setMap" in marker) {
+        // Legacy Marker: Call setMap(null)
+        (marker as google.maps.Marker).setMap(null)
+      }
+    });
     markersRef.current.clear()
 
     allWineries.forEach((winery) => {
       const iconUrl = winery.isFromSearch
-        ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo=" // Blue
+        ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
         : winery.userVisited
-        ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo=" // Green
-        : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=" // Red
+          ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
+          : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo="
 
-      const pinElement = document.createElement("img")
-      pinElement.src = iconUrl
-      pinElement.style.width = "32px"
-      pinElement.style.height = "32px"
-      pinElement.style.cursor = "pointer"
+      let marker: google.maps.marker.AdvancedMarkerElement | google.maps.Marker;
 
-      const marker = new window.google.maps.marker.AdvancedMarkerElement({
-        position: { lat: winery.lat, lng: winery.lng },
-        map: mapInstanceRef.current,
-        title: winery.name,
-        content: pinElement,
-      })
+      if (renderingType === 'VECTOR' && window.google.maps.marker) {
+        // Use modern Advanced Markers if Vector rendering is successful
+        const pinElement = document.createElement("img")
+        pinElement.src = iconUrl
+        pinElement.style.width = "32px"; pinElement.style.height = "32px"; pinElement.style.cursor = "pointer"
+        marker = new window.google.maps.marker.AdvancedMarkerElement({
+          position: { lat: winery.lat, lng: winery.lng },
+          map: mapInstanceRef.current,
+          title: winery.name,
+          content: pinElement,
+        })
+      } else {
+        // Fallback to legacy Markers if map is Raster or marker library fails
+        marker = new window.google.maps.Marker({
+          position: { lat: winery.lat, lng: winery.lng },
+          map: mapInstanceRef.current,
+          title: winery.name,
+          icon: {
+            url: iconUrl,
+            scaledSize: new window.google.maps.Size(32, 32),
+          },
+        })
+      }
 
       marker.addListener("click", () => {
         setSelectedWinery(winery)
       })
-
       markersRef.current.set(winery.id, marker)
     })
-  }, [])
+  }, [renderingType]) // Dependency on renderingType ensures this re-runs when the mode changes
 
   useEffect(() => {
-    if (mapInstanceRef.current) {
+    if (mapInstanceRef.current && renderingType !== "UNINITIALIZED") {
       const allWineriesMap = new Map<string, Winery>()
-      wineries.forEach(w => {
-        const key = w.placeId || w.id
-        allWineriesMap.set(key, w)
-      })
-      searchResults.forEach(w => {
-        const key = w.placeId || w.id
-         if (!allWineriesMap.has(key)) {
-           allWineriesMap.set(key, w)
-         }
-      })
+      wineries.forEach(w => allWineriesMap.set(w.placeId || w.id, w))
+      searchResults.forEach(w => { if (!allWineriesMap.has(w.placeId || w.id)) allWineriesMap.set(w.placeId || w.id, w) })
       addAllMarkers(Array.from(allWineriesMap.values()))
     }
-  }, [wineries, searchResults, addAllMarkers]);
+  }, [wineries, searchResults, addAllMarkers, renderingType])
 
   const loadWineryData = useCallback(async () => {
     const visitsByWinery = await fetchUserVisits(userId)
     const wineryData = fingerLakesWineries.map((winery, index) => {
       const visits = visitsByWinery[winery.name] || []
-      return {
-        ...winery,
-        id: `winery-${index}`,
-        userVisited: visits.length > 0,
-        visits: visits,
-      }
+      return { ...winery, id: `winery-${index}`, userVisited: visits.length > 0, visits }
     })
     setWineries(wineryData)
     setLoading(false)
@@ -403,147 +411,78 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const createMapContainer = useCallback(() => {
     if (!containerRef.current) return null
     const existingContainer = containerRef.current.querySelector("#google-map-div")
-    if (existingContainer) {
-      existingContainer.remove()
-    }
+    if (existingContainer) existingContainer.remove()
     const mapDiv = document.createElement("div")
-    mapDiv.id = "google-map-div"
-    mapDiv.style.width = "100%"
-    mapDiv.style.height = "100%"
-    mapDiv.style.minHeight = "384px"
-    mapDiv.style.borderRadius = "0.5rem"
+    mapDiv.id = "google-map-div"; mapDiv.style.width = "100%"; mapDiv.style.height = "100%"; mapDiv.style.minHeight = "384px"; mapDiv.style.borderRadius = "0.5rem"
     containerRef.current.appendChild(mapDiv)
     mapContainerRef.current = mapDiv
     return mapDiv
   }, [])
 
   const initializeMap = useCallback(async () => {
-    if (!googleMapsLoaded || apiKeyStatus !== "valid") {
-      return
-    }
+    if (!googleMapsLoaded || apiKeyStatus !== "valid") return
 
     try {
       const mapContainer = createMapContainer()
-      if (!mapContainer) {
-        setError("Failed to create map container")
-        setShowFallback(true)
-        setLoading(false)
-        return
-      }
-
+      if (!mapContainer) { setError("Failed to create map container"); setShowFallback(true); setLoading(false); return }
       await new Promise((resolve) => setTimeout(resolve, 200))
+      if (!window.google || !window.google.maps) { setError("Google Maps API not available"); setShowFallback(true); setLoading(false); return }
 
-      if (!window.google || !window.google.maps) {
-        setError("Google Maps API not available")
-        setShowFallback(true)
-        setLoading(false)
-        return
-      }
-      
       const mapInstance = new window.google.maps.Map(mapContainer, {
         center: { lat: 42.5, lng: -77.0 },
         zoom: 10,
-        mapId: "ac7e853c8d70efc0fdd4c089",
-              })
-
+        mapId: "ac7e853c8d70efc0fdd4c089", // Use your actual Map ID
+      })
       mapInstanceRef.current = mapInstance
+
+      // MIGRATION: Listen for rendering type changes to enable the hybrid marker logic.
+      mapInstance.addListener('renderingtype_changed', () => {
+        const newType = mapInstance.getRenderingType()
+        console.log(`Map rendering type is: ${newType}`);
+        setRenderingType(newType)
+      })
+      // Set the initial rendering type as well.
+      setRenderingType(mapInstance.getRenderingType())
 
       mapInstance.addListener("bounds_changed", () => {
         const bounds = mapInstance.getBounds()
-        if (bounds) {
-            setCurrentBounds(bounds)
-            if (autoSearchRef.current) {
-              debouncedAutoSearch(bounds)
-            }
-        }
+        if (bounds) { setCurrentBounds(bounds); if (autoSearchRef.current) debouncedAutoSearch(bounds) }
       })
-
       mapInstance.addListener("idle", () => {
         const bounds = mapInstance.getBounds()
-        if (autoSearchRef.current && bounds) {
-          debouncedAutoSearch(bounds)
-        }
+        if (autoSearchRef.current && bounds) debouncedAutoSearch(bounds)
       })
 
       const visitsByWinery = await fetchUserVisits(userId)
-      const wineryData = fingerLakesWineries.map((winery, index) => {
-        const visits = visitsByWinery[winery.name] || []
-        return {
-          ...winery,
-          id: `winery-${index}`,
-          userVisited: visits.length > 0,
-          visits: visits,
-        }
-      })
+      const wineryData = fingerLakesWineries.map((winery, index) => ({ ...winery, id: `winery-${index}`, userVisited: (visitsByWinery[winery.name] || []).length > 0, visits: visitsByWinery[winery.name] || [] }))
       setWineries(wineryData)
       setLoading(false)
     } catch (error) {
       console.error("Error initializing map:", error)
-      const errorString = (error as Error).toString()
-      if (errorString.includes("InvalidKeyMapError")) {
-        setApiKeyStatus("invalid")
-        setError("Invalid Google Maps API key.")
-      } else {
-        setError(`Failed to initialize map: ${errorString}`)
-      }
       setShowFallback(true)
       await loadWineryData()
     }
-  }, [
-    googleMapsLoaded,
-    apiKeyStatus,
-    userId,
-    fetchUserVisits,
-    createMapContainer,
-    loadWineryData,
-    debouncedAutoSearch,
-  ])
+  }, [googleMapsLoaded, apiKeyStatus, userId, fetchUserVisits, createMapContainer, loadWineryData, debouncedAutoSearch])
 
   useEffect(() => {
     const loadGoogleMaps = async () => {
-      const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
-      if (!apiKey) {
-        setError("Google Maps API key is not configured.")
-        setShowFallback(true)
-        await loadWineryData()
-        return
-      }
+      const apiKey = process.env.NEXT_PUBLIC_Maps_API_KEY
+      if (!apiKey) { setError("Google Maps API key is not configured."); setShowFallback(true); await loadWineryData(); return }
       setApiKeyStatus("checking")
-      const isValidKey = await testApiKey(apiKey)
-      if (!isValidKey) {
-        setApiKeyStatus("invalid")
-        setError("Google Maps API key is invalid or has insufficient permissions.")
-        setShowFallback(true)
-        await loadWineryData()
-        return
-      }
+      if (!(await testApiKey(apiKey))) { setError("Google Maps API key is invalid or has insufficient permissions."); setShowFallback(true); await loadWineryData(); return }
       setApiKeyStatus("valid")
-      if (window.google && window.google.maps) {
-        setGoogleMapsLoaded(true)
-        return
-      }
+      if (window.google && window.google.maps) { setGoogleMapsLoaded(true); return }
       try {
         await new Promise<void>((resolve, reject) => {
           const script = document.createElement("script")
           script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps,marker&callback=initGoogleMaps`
-          script.async = true
-          script.setAttribute("loading", "async")
-          window.initGoogleMaps = () => {
-            if (window.google && window.google.maps) {
-              setGoogleMapsLoaded(true)
-              resolve()
-            } else {
-              reject(new Error("Google Maps API not available after load"))
-            }
-          }
-          script.onerror = (error) => reject(new Error("Failed to load Google Maps script"))
+          script.async = true; script.setAttribute("loading", "async")
+          window.initGoogleMaps = () => window.google && window.google.maps ? (setGoogleMapsLoaded(true), resolve()) : reject(new Error("Google Maps API not available after load"))
+          script.onerror = () => reject(new Error("Failed to load Google Maps script"))
           document.head.appendChild(script)
         })
       } catch (error) {
-        console.error("Error loading Google Maps:", error)
-        setError("Failed to load Google Maps API.")
-        setShowFallback(true)
-        await loadWineryData()
+        console.error("Error loading Google Maps:", error); setError("Failed to load Google Maps API."); setShowFallback(true); await loadWineryData()
       }
     }
     loadGoogleMaps()
@@ -557,11 +496,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, [googleMapsLoaded, apiKeyStatus, initializeMap])
 
   useEffect(() => {
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current)
-      }
-    }
+    return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current) }
   }, [])
 
   const handleVisitUpdate = async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
@@ -606,9 +541,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
       })
       if (response.ok) {
         const updateWinery = (w: Winery) => {
-            if (w.id !== winery.id) return w;
-            const updatedVisits = w.visits?.filter((v) => v.id !== visitId) || [];
-            return { ...w, visits: updatedVisits, userVisited: updatedVisits.length > 0 }
+          if (w.id !== winery.id) return w;
+          const updatedVisits = w.visits?.filter((v) => v.id !== visitId) || [];
+          return { ...w, visits: updatedVisits, userVisited: updatedVisits.length > 0 }
         }
         setWineries((prev) => prev.map(updateWinery))
         setSearchResults((prev) => prev.map(updateWinery))
@@ -650,7 +585,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       debouncedAutoSearch(currentBounds)
     }
   }
-  
+
   if (error || showFallback) {
     return (
       <div className="space-y-6">
