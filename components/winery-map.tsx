@@ -202,25 +202,30 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const autoSearchRef = useRef(autoSearch)
   useEffect(() => { autoSearchRef.current = autoSearch }, [autoSearch])
 
+  const searchWineriesRef = useRef(searchWineries);
+  useEffect(() => {
+    searchWineriesRef.current = searchWineries;
+  }, [searchWineries]);
+
   const debouncedAutoSearch = useCallback((bounds: google.maps.LatLngBounds) => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
     searchTimeoutRef.current = setTimeout(() => {
       if (autoSearchRef.current && bounds) {
         // We call the searchWineries function directly, not a ref.
-        searchWineries(undefined, bounds, true)
+        searchWineriesRef.current(undefined, bounds, true)
       }
     }, 1000)
-  }, [searchWineries]) // This now depends on the latest version of searchWineries.
+  }, []) // This now depends on the latest version of searchWineries.
 
 
   const addAllMarkers = useCallback((wineriesToDisplay: Winery[]) => {
-    if (!mapInstanceRef.current || renderingType === "UNINITIALIZED") return
+    if (!mapInstanceRef.current || renderingType === "UNINITIALIZED") return;
 
     markersRef.current.forEach((marker) => {
-      if ("map" in marker && typeof marker.map !== "undefined") marker.map = null
-      else if ("setMap" in marker) (marker as google.maps.Marker).setMap(null)
+      if ("map" in marker && typeof marker.map !== "undefined") marker.map = null;
+      else if ("setMap" in marker) (marker as google.maps.Marker).setMap(null);
     });
-    markersRef.current.clear()
+    markersRef.current.clear();
 
     wineriesToDisplay.forEach((winery) => {
       try {
@@ -231,8 +236,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
         const iconUrl = winery.isFromSearch
           ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
           : winery.userVisited
-          ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
-          : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo="
+            ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
+            : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo="
 
         let marker: google.maps.marker.AdvancedMarkerElement | google.maps.Marker
         if (renderingType === 'VECTOR' && window.google.maps.marker) {
@@ -502,14 +507,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
                       {winery.rating && <div className="text-xs text-gray-500">★ {winery.rating}/5.0</div>}
                     </div>
                   ))}
-                  {searchResults.length > 10 && ( <div className="text-xs text-gray-500 text-center py-2"> And {searchResults.length - 10} more... (see map for all results) </div>)}
+                  {searchResults.length > 10 && (<div className="text-xs text-gray-500 text-center py-2"> And {searchResults.length - 10} more... (see map for all results) </div>)}
                 </div>
               </CardContent>
             </Card>
           )}
         </div>
       </div>
-      {selectedWinery && ( <WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} />)}
+      {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} />)}
     </div>
   )
 }
