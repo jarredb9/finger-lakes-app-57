@@ -202,9 +202,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const autoSearchRef = useRef(autoSearch)
   useEffect(() => { autoSearchRef.current = autoSearch }, [autoSearch])
 
-  const searchWineriesRef = useRef(searchWineries)
-  useEffect(() => { searchWineriesRef.current = searchWineries }, [searchWineries])
-
   const debouncedAutoSearch = useCallback((bounds: google.maps.LatLngBounds) => {
     if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current)
     searchTimeoutRef.current = setTimeout(() => {
@@ -256,9 +253,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
   useEffect(() => {
     if (mapInstanceRef.current && renderingType !== "UNINITIALIZED") {
-      addAllMarkers(displayedWineries)
+      addAllMarkers(displayedWineries);
     }
-  }, [displayedWineries, addAllMarkers, renderingType])
+  }, [displayedWineries, renderingType, addAllMarkers]);
 
   const loadWineryData = useCallback(async () => {
     const visitsByWinery = await fetchUserVisits(userId)
