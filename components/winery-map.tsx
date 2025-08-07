@@ -335,6 +335,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
   // It checks the `renderingType` state and creates the appropriate marker.
   // ============================================================================================
   const addAllMarkers = useCallback((allWineries: Winery[]) => {
+    console.log(`addAllMarkers called with ${allWineries.length} wineries. Rendering type: ${renderingType}`);
+
     if (!mapInstanceRef.current || renderingType === "UNINITIALIZED") return
 
     // MIGRATION: The clearing logic now handles both marker types.
@@ -375,10 +377,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
           position: { lat: winery.lat, lng: winery.lng },
           map: mapInstanceRef.current,
           title: winery.name,
-          icon: {
+          /*icon: {
             url: iconUrl,
             scaledSize: new window.google.maps.Size(32, 32),
-          },
+          },*/
         })
       }
 
