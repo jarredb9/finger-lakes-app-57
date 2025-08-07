@@ -73,6 +73,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
   const [wineries, setWineries] = useState<Winery[]>([])
   const [searchResults, setSearchResults] = useState<Winery[]>([])
+  const [displayedWineries, setDisplayedWineries] = useState<Winery[]>([])
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null)
   const [loading, setLoading] = useState(true)
   const [searching, setSearching] = useState(false)
@@ -98,6 +99,15 @@ export default function WineryMap({ userId }: WineryMapProps) {
     { name: "Hermann J. Wiemer Vineyard", address: "3962 NY-14, Dundee, NY 14837", lat: 42.5267, lng: -76.9733, phone: "(607) 243-7971", website: "https://wiemer.com", rating: 4.7 },
     { name: "Fox Run Vineyards", address: "670 NY-14, Penn Yan, NY 14527", lat: 42.6178, lng: -77.0456, phone: "(315) 536-4616", website: "https://foxrunvineyards.com", rating: 4.4 },
   ]
+
+  // This useEffect hook manages which set of wineries is currently active on the map.
+  useEffect(() => {
+    if (showSearchResults) {
+      setDisplayedWineries(searchResults)
+    } else {
+      setDisplayedWineries(wineries)
+    }
+  }, [wineries, searchResults, showSearchResults])
 
   const testApiKey = useCallback(async (apiKey: string) => {
     try {
@@ -301,14 +311,19 @@ export default function WineryMap({ userId }: WineryMapProps) {
     });
     markersRef.current.clear()
 
-    allWineries.forEach((winery) => {
-      // FINAL FIX: Wrap each marker creation in a try/catch block for maximum robustness.
+    wineriesToDisplay.forEach((winery) => {
       try {
+        // FINAL ROBUSTNESS FIX: Validate coordinates before creating a marker.
+        if (!winery || typeof winery.lat !== 'number' || typeof winery.lng !== 'number' || !isFinite(winery.lat) || !isFinite(winery.lng)) {
+          console.warn(`Skipping winery with invalid coordinates: ${winery?.name || 'Unknown'}`);
+          return; // Skip this iteration
+        }
+
         const iconUrl = winery.isFromSearch
           ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
           : winery.userVisited
             ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
-            : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo="
+            : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE peculierLjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo="
 
         let marker: google.maps.marker.AdvancedMarkerElement | google.maps.Marker
 
@@ -325,16 +340,13 @@ export default function WineryMap({ userId }: WineryMapProps) {
         console.error(`Failed to create marker for winery "${winery.name}":`, e)
       }
     })
-  }, [renderingType]) // Dependency on renderingType ensures this re-runs when the mode changes
+  }, [renderingType])
 
   useEffect(() => {
     if (mapInstanceRef.current && renderingType !== "UNINITIALIZED") {
-      const allWineriesMap = new Map<string, Winery>()
-      wineries.forEach(w => allWineriesMap.set(w.placeId || w.id, w))
-      searchResults.forEach(w => { if (!allWineriesMap.has(w.placeId || w.id)) allWineriesMap.set(w.placeId || w.id, w) })
-      addAllMarkers(Array.from(allWineriesMap.values()))
+      addAllMarkers(displayedWineries)
     }
-  }, [wineries, searchResults, addAllMarkers, renderingType])
+  }, [displayedWineries, addAllMarkers, renderingType])
 
   const loadWineryData = useCallback(async () => {
     const visitsByWinery = await fetchUserVisits(userId)
