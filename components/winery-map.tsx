@@ -254,7 +254,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     if (mapInstanceRef.current && renderingType !== "UNINITIALIZED") {
       addAllMarkers(displayedWineries)
     }
-  }, [displayedWineries, renderingType])
+  }, [displayedWineries, addAllMarkers, renderingType])
 
   const loadWineryData = useCallback(async () => {
     const visitsByWinery = await fetchUserVisits(userId)
