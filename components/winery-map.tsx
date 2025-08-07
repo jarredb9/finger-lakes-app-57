@@ -247,7 +247,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         console.error(`Failed to create marker for winery "${winery.name}":`, e)
       }
     });
-        setVisiblePinCount(markersRef.current.size);
+    setVisiblePinCount(markersRef.current.size);
   }, [renderingType, setVisiblePinCount, setSelectedWinery])
 
   useEffect(() => {
