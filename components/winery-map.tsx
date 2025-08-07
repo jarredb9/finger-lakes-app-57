@@ -246,9 +246,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
       } catch (e) {
         console.error(`Failed to create marker for winery "${winery.name}":`, e)
       }
-    })
+    });
         setVisiblePinCount(markersRef.current.size);
-  }, [renderingType])
+  }, [renderingType, setVisiblePinCount])
 
   useEffect(() => {
     if (mapInstanceRef.current && renderingType !== "UNINITIALIZED") {
@@ -501,14 +501,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
                       {winery.rating && <div className="text-xs text-gray-500">★ {winery.rating}/5.0</div>}
                     </div>
                   ))}
-                  {searchResults.length > 10 && (<div className="text-xs text-gray-500 text-center py-2"> And {searchResults.length - 10} more... (see map for all results) </div>)}
+                  {searchResults.length > 10 && ( <div className="text-xs text-gray-500 text-center py-2"> And {searchResults.length - 10} more... (see map for all results) </div>)}
                 </div>
               </CardContent>
             </Card>
           )}
         </div>
       </div>
-      {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} />)}
+      {selectedWinery && ( <WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} />)}
     </div>
   )
 }
