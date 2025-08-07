@@ -156,116 +156,75 @@ export default function WineryMap({ userId }: WineryMapProps) {
     return latDiff > threshold || lngDiff > threshold
   }, [])
 
+  // In winery-map.tsx
+
   const searchWineries = useCallback(
     async (location?: string, bounds?: google.maps.LatLngBounds, isAutoSearch = false) => {
-      if (!mapInstanceRef.current) {
-        return
-      }
-      if (isAutoSearch && (!autoSearch || !boundsChanged(bounds!, lastSearchBoundsRef.current))) {
-        return
+      if (!mapInstanceRef.current || (isAutoSearch && (!autoSearch || !boundsChanged(bounds!, lastSearchBoundsRef.current)))) return;
+
+      // FIX: For any new manual search, immediately clear the old results.
+      // This ensures the UI doesn't show stale data while new results are loading.
+      if (!isAutoSearch) {
+        setShowSearchResults(true); // Keep the results section visible
+        setSearchResults([]);     // Clear the data, which will update the badge to "0"
       }
 
-      setSearching(true)
-
+      setSearching(true);
       try {
-        let searchBounds = bounds || currentBounds
-        if (location && location.trim()) {
-          const geocoder = new window.google.maps.Geocoder()
-          const geocodeResult = await geocoder.geocode({ address: location })
-          if (geocodeResult.results && geocodeResult.results.length > 0) {
-            const result = geocodeResult.results[0]
-            searchBounds = result.geometry.viewport || result.geometry.bounds
-            if (searchBounds) {
-              mapInstanceRef.current.fitBounds(searchBounds)
-              setCurrentBounds(searchBounds)
-            }
+        let searchBounds = bounds || currentBounds;
+        if (location?.trim()) {
+          const geocoder = new window.google.maps.Geocoder();
+          const { results } = await geocoder.geocode({ address: location });
+          if (results && results.length > 0) {
+            searchBounds = results[0].geometry.viewport || results[0].geometry.bounds;
+            if (searchBounds) mapInstanceRef.current.fitBounds(searchBounds);
           } else {
-            throw new Error("Geocoding failed.")
+            throw new Error("Geocoding failed.");
           }
         }
+        if (!searchBounds) throw new Error("No search bounds available.");
+        lastSearchBoundsRef.current = searchBounds;
 
-        if (!searchBounds) {
-          throw new Error("No search bounds available.")
-        }
-        lastSearchBoundsRef.current = searchBounds
+        const { places } = await window.google.maps.places.Place.searchByText({ textQuery: "winery", fields: ["id", "displayName"], locationBias: searchBounds, maxResultCount: 20 });
 
-        const searchRequest = {
-          textQuery: "winery",
-          fields: ["id", "displayName"],
-          locationBias: searchBounds,
-          maxResultCount: 20,
-        }
-        const { places } = await window.google.maps.places.Place.searchByText(searchRequest)
-
+        // If the API returns no places, we can just return. 
+        // The results are already cleared for manual searches.
         if (!places || places.length === 0) {
-          if (!isAutoSearch) setSearchResults([])
-          return
+          return;
         }
 
-        const detailFields: (keyof google.maps.places.Place)[] = [
-          "displayName",
-          "formattedAddress",
-          "location",
-          "rating",
-          "websiteURI",
-          "internationalPhoneNumber",
-          "priceLevel",
-          "photos",
-          "id",
-        ]
-
+        const detailFields: (keyof google.maps.places.Place)[] = ["displayName", "formattedAddress", "location", "rating", "websiteURI", "internationalPhoneNumber", "priceLevel", "photos", "id"];
         const wineryPromises = places.map(async (place) => {
-          if (!place.id) return null
-
+          if (!place.id) return null;
           try {
-            const placeDetails = new window.google.maps.places.Place({ id: place.id })
-            await placeDetails.fetchFields({ fields: detailFields })
-
-            // CORRECTION: Get photo URIs from the rich object BEFORE calling toJSON().
-            const photoUris =
-              placeDetails.photos?.slice(0, 3).map((p) => p.getURI({ maxHeight: 300, maxWidth: 400 })) || []
-
-            const detailResult = placeDetails.toJSON()
-
-            if (!detailResult?.location) {
-              return null
-            }
-
-            return {
-              id: `search-${detailResult.id}`,
-              name: detailResult.displayName!,
-              address: detailResult.formattedAddress || "Address not available",
-              lat: detailResult.location.lat,
-              lng: detailResult.location.lng,
-              rating: detailResult.rating,
-              phone: detailResult.internationalPhoneNumber,
-              website: detailResult.websiteURI,
-              placeId: detailResult.id,
-              isFromSearch: true,
-              priceLevel: detailResult.priceLevel,
-              photos: photoUris, // Use the pre-generated URI array.
-              userVisited: false,
-              visits: [],
-            } as Winery
+            const placeDetails = new window.google.maps.places.Place({ id: place.id });
+            await placeDetails.fetchFields({ fields: detailFields });
+            const photoUris = placeDetails.photos?.slice(0, 3).map((p) => p.getURI({ maxHeight: 300, maxWidth: 400 })) || [];
+            const detailResult = placeDetails.toJSON();
+            if (!detailResult.location) return null;
+            return { id: `search-${detailResult.id}`, name: detailResult.displayName!, address: detailResult.formattedAddress || "Address not available", lat: detailResult.location.lat, lng: detailResult.location.lng, rating: detailResult.rating, phone: detailResult.internationalPhoneNumber, website: detailResult.websiteURI, placeId: detailResult.id, isFromSearch: true, priceLevel: detailResult.priceLevel, photos: photoUris, userVisited: false, visits: [] } as Winery;
           } catch (error) {
-            console.error(`Failed to fetch details for place ${place.id}:`, error)
-            return null
+            console.error(`Failed to fetch details for place ${place.id}:`, error);
+            return null;
           }
-        })
+        });
+        const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null);
 
-        const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null)
-
-        setSearchResults(wineryResults)
-        setShowSearchResults(true)
-        setSearchCount((prev) => prev + 1)
+        setSearchResults(wineryResults);
+        if (!isAutoSearch) {
+          setSearchCount((p) => p + 1);
+        }
+        setShowSearchResults(true);
       } catch (error) {
-        console.error("Error during winery search:", error)
+        console.error("Error during winery search:", error);
+        setShowSearchResults(false); // Hide results on error
+        setSearchResults([]);
       } finally {
-        setSearching(false)
+        setSearching(false);
       }
     },
-    [currentBounds, autoSearch, boundsChanged],
-  )
+    [currentBounds, autoSearch, boundsChanged]
+  );
 
   const autoSearchRef = useRef(autoSearch)
   useEffect(() => {
