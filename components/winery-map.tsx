@@ -294,8 +294,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
   // MIGRATION: This function is now the heart of the hybrid rendering solution.
   // It checks the `renderingType` state and creates the appropriate marker.
   // ============================================================================================
-  const addAllMarkers = useCallback((allWineries: Winery[]) => {
-    console.log(`addAllMarkers called with ${allWineries.length} wineries. Rendering type: ${renderingType}`);
+  const addAllMarkers = useCallback((wineriesToDisplay: Winery[]) => {
+    console.log(`addAllMarkers called with ${wineriesToDisplay.length} wineries. Rendering type: ${renderingType}`);
 
     if (!mapInstanceRef.current || renderingType === "UNINITIALIZED") return
 
