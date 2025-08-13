@@ -173,16 +173,8 @@ export default function WineryMap({ userId }: WineryMapProps) {
       })
       const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null)
       
-      if (isAutoSearch) {
-        setSearchResults(prevResults => {
-          const existingIds = new Set(prevResults.map(w => w.id));
-          const newUniqueWineries = wineryResults.filter(w => !existingIds.has(w.id));
-          return [...prevResults, ...newUniqueWineries];
-        });
-      } else {
-        setSearchResults(wineryResults);
-      }
-
+      setSearchResults(wineryResults);
+      
       setShowSearchResults(true)
       if (!isAutoSearch) setSearchCount((p) => p + 1)
     } catch (error) {
