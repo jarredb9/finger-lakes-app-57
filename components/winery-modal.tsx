@@ -15,13 +15,16 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2 } from "lucide-react"
+import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload } from "lucide-react"
+import { useToast } from "@/components/ui/use-toast"
 
 interface Visit {
   id?: string
   visitDate: string
   userReview: string
   createdAt?: string
+  rating?: number
+  photos?: string[]
 }
 
 interface Winery {
@@ -40,38 +43,48 @@ interface Winery {
 interface WineryModalProps {
   winery: Winery
   onClose: () => void
-  onSaveVisit: (winery: Winery, visitData: { visitDate: string; userReview: string }) => void
+  onSaveVisit: (winery: Winery, visitData: { visitDate: string; userReview: string; rating: number; photos: string[] }) => void
   onDeleteVisit?: (winery: Winery, visitId: string) => void
 }
 
 export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisit }: WineryModalProps) {
   const [visitDate, setVisitDate] = useState("")
   const [userReview, setUserReview] = useState("")
+  const [rating, setRating] = useState(0)
+  const [photos, setPhotos] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
+  const { toast } = useToast()
 
   const visits = winery.visits || []
   const sortedVisits = visits.sort((a, b) => new Date(b.visitDate).getTime() - new Date(a.visitDate).getTime())
 
   const handleSave = async () => {
     if (!visitDate.trim()) {
-      console.error("Visit date is required")
+      toast({
+        title: "Error",
+        description: "Visit date is required.",
+        variant: "destructive",
+      })
       return
     }
 
-    console.log("Saving visit:", {
-      winery: winery.name,
-      visitDate,
-      userReview,
-    })
-
     setSaving(true)
     try {
-      await onSaveVisit(winery, { visitDate, userReview })
-      console.log("Visit saved successfully")
+      await onSaveVisit(winery, { visitDate, userReview, rating, photos })
       setVisitDate("")
       setUserReview("")
+      setRating(0)
+      setPhotos([])
+      toast({
+        title: "Success",
+        description: "Your visit has been saved.",
+      })
     } catch (error) {
-      console.error("Error saving visit:", error)
+      toast({
+        title: "Error",
+        description: "There was a problem saving your visit.",
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }
@@ -79,8 +92,11 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
 
   const handleDeleteVisit = async (visitId: string) => {
     if (onDeleteVisit && visitId) {
-      console.log("Deleting visit:", visitId)
       await onDeleteVisit(winery, visitId)
+      toast({
+        title: "Success",
+        description: "The visit has been deleted.",
+      })
     }
   }
 
@@ -156,6 +172,16 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                               })}
                             </span>
                           </div>
+                          {visit.rating && (
+                            <div className="flex items-center space-x-1">
+                              {[...Array(5)].map((_, i) => (
+                                <Star
+                                  key={i}
+                                  className={`w-4 h-4 ${i < visit.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
+                                />
+                              ))}
+                            </div>
+                          )}
                           {visit.userReview && (
                             <div className="flex items-start space-x-2">
                               <MessageSquare className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
@@ -194,13 +220,23 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                 id="visitDate"
                 type="date"
                 value={visitDate}
-                onChange={(e) => {
-                  console.log("Visit date changed:", e.target.value)
-                  setVisitDate(e.target.value)
-                }}
+                onChange={(e) => setVisitDate(e.target.value)}
                 max={new Date().toISOString().split("T")[0]}
                 required
               />
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Rating</Label>
+              <div className="flex items-center space-x-1">
+                {[...Array(5)].map((_, i) => (
+                  <Star
+                    key={i}
+                    className={`w-6 h-6 cursor-pointer ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
+                    onClick={() => setRating(i + 1)}
+                  />
+                ))}
+              </div>
             </div>
 
             <div className="space-y-2">
@@ -209,17 +245,26 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                 id="userReview"
                 placeholder="Share your thoughts about this visit..."
                 value={userReview}
-                onChange={(e) => {
-                  console.log("Review changed:", e.target.value.length, "characters")
-                  setUserReview(e.target.value)
-                }}
+                onChange={(e) => setUserReview(e.target.value)}
                 rows={4}
               />
             </div>
-
-            {/* Debug info */}
-            <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-              Debug: Date={visitDate || "empty"}, Review={userReview.length} chars, Valid={!!visitDate.trim()}
+            
+            <div className="space-y-2">
+              <Label>Photos (Optional)</Label>
+              <div className="flex items-center justify-center w-full">
+                <label
+                  htmlFor="dropzone-file"
+                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
+                >
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    <Upload className="w-8 h-8 mb-2 text-gray-500" />
+                    <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                    <p className="text-xs text-gray-500">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
+                  </div>
+                  <input id="dropzone-file" type="file" className="hidden" multiple />
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -231,7 +276,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
           <Button
             onClick={handleSave}
             disabled={!visitDate.trim() || saving}
-            className={!visitDate.trim() ? "opacity-50 cursor-not-allowed" : ""}
           >
             {saving ? "Saving..." : "Add Visit"}
           </Button>
