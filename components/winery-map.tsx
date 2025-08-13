@@ -32,11 +32,13 @@ interface Visit {
   visitDate: string
   userReview: string
   createdAt?: string
+  rating?: number;
+  photos?: string[];
 }
 
 interface Winery {
   id: string
-  name:string
+  name: string
   address: string
   lat: number
   lng: number
@@ -91,7 +93,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     { name: "Hermann J. Wiemer Vineyard", address: "3962 NY-14, Dundee, NY 14837", lat: 42.5267, lng: -76.9733, phone: "(607) 243-7971", website: "https://wiemer.com", rating: 4.7 },
     { name: "Fox Run Vineyards", address: "670 NY-14, Penn Yan, NY 14527", lat: 42.6178, lng: -77.0456, phone: "(315) 536-4616", website: "https://foxrunvineyards.com", rating: 4.4 },
   ]
-  
+
   useEffect(() => {
     setDisplayedWineries([...wineries, ...searchResults])
   }, [wineries, searchResults])
@@ -142,7 +144,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
     setSearching(true)
     if (!isAutoSearch) setIsNewSearch(true)
-    
+
     try {
       let searchBounds = bounds || currentBounds
       if (location?.trim()) {
@@ -156,7 +158,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (!searchBounds) throw new Error("No search bounds available.")
       lastSearchBoundsRef.current = searchBounds
       const { places } = await window.google.maps.places.Place.searchByText({ textQuery: "winery", fields: ["id", "displayName"], locationBias: searchBounds, maxResultCount: 20 })
-      
+
       const detailFields: (keyof google.maps.places.Place)[] = ["displayName", "formattedAddress", "location", "rating", "websiteURI", "internationalPhoneNumber", "priceLevel", "photos", "id"]
       const wineryPromises = (places || []).map(async (place) => {
         if (!place.id) return null
@@ -170,7 +172,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         } catch (error) { console.error(`Failed to fetch details for place ${place.id}:`, error); return null }
       })
       const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null)
-      
+
       if (isAutoSearch) {
         setSearchResults(prevResults => {
           const existingIds = new Set(prevResults.map(w => w.id));
@@ -192,7 +194,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       setIsNewSearch(false)
     }
   }, [currentBounds, autoSearch, boundsChanged])
-  
+
   const autoSearchRef = useRef(autoSearch)
   useEffect(() => { autoSearchRef.current = autoSearch }, [autoSearch])
 
@@ -205,32 +207,27 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (autoSearchRef.current && bounds) searchWineriesRef.current(undefined, bounds, true)
     }, 1000)
   }, [])
-  
+
   // *** FIX START: Simplify addAllMarkers to ONLY use AdvancedMarkerElement ***
   const addAllMarkers = useCallback((wineriesToDisplay: Winery[]) => {
-    if (!mapInstanceRef.current || !window.google.maps.marker) {
-        // If the map or the marker library isn't ready, do nothing.
-        return;
-    }
 
-    // Set all existing markers to null to remove them from the map, then clear the ref.
-    markersRef.current.forEach((marker) => {
-        marker.map = null;
-    });
-    markersRef.current.clear();
+    if (!mapInstanceRef.current || !window.google.maps.marker) return
 
-    // Loop through the wineries and create a new AdvancedMarkerElement for each one.
+    markersRef.current.forEach((marker) => { marker.map = null })
+    markersRef.current.clear()
+
     wineriesToDisplay.forEach((winery) => {
-        if (!winery || typeof winery.lat !== 'number' || typeof winery.lng !== 'number' || !isFinite(winery.lat) || !isFinite(winery.lng)) {
-        console.warn(`Skipping winery with invalid coordinates: ${winery?.name || 'Unknown'}`);
+      if (!winery || typeof winery.lat !== 'number' || typeof winery.lng !== 'number' || !isFinite(winery.lat) || !isFinite(winery.lng)) {
+        // *** ENHANCED LOGGING: Log the entire problematic object ***
+        console.warn(`Skipping winery with invalid coordinates. Data:`, winery);
         return;
-        }
+      }
       try {
         const iconUrl = winery.isFromSearch
           ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
           : winery.userVisited
-          ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
-          : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=";
+            ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
+            : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=";
 
         const pinElement = document.createElement("img");
         pinElement.src = iconUrl;
@@ -239,10 +236,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
         pinElement.style.cursor = "pointer";
 
         const marker = new window.google.maps.marker.AdvancedMarkerElement({
-            position: { lat: winery.lat, lng: winery.lng },
-            map: mapInstanceRef.current,
-            title: winery.name,
-            content: pinElement,
+          position: { lat: winery.lat, lng: winery.lng },
+          map: mapInstanceRef.current,
+          title: winery.name,
+          content: pinElement,
         });
 
         marker.addListener("click", () => setSelectedWinery(winery));
@@ -275,7 +272,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     containerRef.current.appendChild(mapDiv); mapContainerRef.current = mapDiv
     return mapDiv
   }, [])
-  
+
   const updateVisibleWineryCount = useCallback(() => {
     if (!mapInstanceRef.current) return;
     const bounds = mapInstanceRef.current.getBounds();
@@ -310,10 +307,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
       mapInstance.addListener("idle", () => {
         const bounds = mapInstance.getBounds()
         if (bounds) {
-            updateVisibleWineryCount();
-            if (autoSearchRef.current) {
-                debouncedAutoSearch(bounds)
-            }
+          updateVisibleWineryCount();
+          if (autoSearchRef.current) {
+            debouncedAutoSearch(bounds)
+          }
         }
       })
 
@@ -355,7 +352,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       initializeMap()
     }
   }, [googleMapsLoaded, apiKeyStatus, initializeMap])
-  
+
   useEffect(() => {
     if (mapInstanceRef.current) {
       updateVisibleWineryCount();
@@ -403,14 +400,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }
 
   const handleSearchInCurrentArea = () => searchWineries(undefined, currentBounds!, false)
-  
-  const clearSearchResults = () => { 
-    setSearchResults([]); 
-    setShowSearchResults(false); 
-    setSearchCount(0); 
-    lastSearchBoundsRef.current = null 
+
+  const clearSearchResults = () => {
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setSearchCount(0);
+    lastSearchBoundsRef.current = null
   }
-  
+
   const handleAutoSearchToggle = (enabled: boolean) => { setAutoSearch(enabled); if (enabled && currentBounds) debouncedAutoSearch(currentBounds) }
 
   if (error || showFallback) {
@@ -423,19 +420,19 @@ export default function WineryMap({ userId }: WineryMapProps) {
           </AlertDescription>
         </Alert>
         <Card>
-            <CardHeader>
-                <CardTitle>Wineries</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <div className="space-y-2">
-                    {wineries.map(winery => (
-                        <div key={winery.id} className="p-2 border rounded">
-                            <p className="font-bold">{winery.name}</p>
-                            <p className="text-sm text-gray-600">{winery.address}</p>
-                        </div>
-                    ))}
+          <CardHeader>
+            <CardTitle>Wineries</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {wineries.map(winery => (
+                <div key={winery.id} className="p-2 border rounded">
+                  <p className="font-bold">{winery.name}</p>
+                  <p className="text-sm text-gray-600">{winery.address}</p>
                 </div>
-            </CardContent>
+              ))}
+            </div>
+          </CardContent>
         </Card>
       </div>
     )
@@ -468,20 +465,20 @@ export default function WineryMap({ userId }: WineryMapProps) {
               {searchCount > 0 && (<Badge variant="secondary" className="bg-blue-100 text-blue-800"> {searchCount} searches </Badge>)}
             </div>
             <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  {searching && isNewSearch ? (
-                    <span className="text-sm text-gray-600">Searching for wineries...</span>
-                  ) : (
-                    <>
-                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                        {visibleWineryCount} {visibleWineryCount === 1 ? 'winery' : 'wineries'} in view
-                      </Badge>
-                      {showSearchResults && <span className="text-sm text-gray-600">({searchResults.length} total discovered)</span>}
-                    </>
-                  )}
-                  {autoSearch && !isNewSearch && <span className="text-xs text-gray-500">(Auto-updating as you explore)</span>}
-                </div>
-                {showSearchResults && <Button variant="ghost" size="sm" onClick={clearSearchResults}> <RotateCcw className="w-4 h-4 mr-1" /> Clear Discovered </Button>}
+              <div className="flex items-center space-x-2">
+                {searching && isNewSearch ? (
+                  <span className="text-sm text-gray-600">Searching for wineries...</span>
+                ) : (
+                  <>
+                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                      {visibleWineryCount} {visibleWineryCount === 1 ? 'winery' : 'wineries'} in view
+                    </Badge>
+                    {showSearchResults && <span className="text-sm text-gray-600">({searchResults.length} total discovered)</span>}
+                  </>
+                )}
+                {autoSearch && !isNewSearch && <span className="text-xs text-gray-500">(Auto-updating as you explore)</span>}
+              </div>
+              {showSearchResults && <Button variant="ghost" size="sm" onClick={clearSearchResults}> <RotateCcw className="w-4 h-4 mr-1" /> Clear Discovered </Button>}
             </div>
           </div>
         </CardContent>
@@ -547,14 +544,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
                       {winery.rating && <div className="text-xs text-gray-500">★ {winery.rating}/5.0</div>}
                     </div>
                   ))}
-                  {searchResults.length > 10 && ( <div className="text-xs text-gray-500 text-center py-2"> And {searchResults.length - 10} more... </div> )}
+                  {searchResults.length > 10 && (<div className="text-xs text-gray-500 text-center py-2"> And {searchResults.length - 10} more... </div>)}
                 </div>
               </CardContent>
             </Card>
           )}
         </div>
       </div>
-      {selectedWinery && ( <WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} /> )}
+      {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} />)}
     </div>
   )
 }
