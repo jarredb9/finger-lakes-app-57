@@ -38,7 +38,7 @@ interface Visit {
 
 interface Winery {
   id: string
-  name: string
+  name:string
   address: string
   lat: number
   lng: number
@@ -61,10 +61,11 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<google.maps.Map | null>(null)
-  const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map()) // Note: No longer a union type
+  const markersRef = useRef<Map<string, google.maps.Marker | google.maps.marker.AdvancedMarkerElement>>(new Map())
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSearchBoundsRef = useRef<google.maps.LatLngBounds | null>(null)
   const mapInitializedRef = useRef(false)
+  const [canUseAdvancedMarkers, setCanUseAdvancedMarkers] = useState(false); // State to track marker availability
 
   const [wineries, setWineries] = useState<Winery[]>([])
   const [searchResults, setSearchResults] = useState<Winery[]>([])
@@ -93,7 +94,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     { name: "Hermann J. Wiemer Vineyard", address: "3962 NY-14, Dundee, NY 14837", lat: 42.5267, lng: -76.9733, phone: "(607) 243-7971", website: "https://wiemer.com", rating: 4.7 },
     { name: "Fox Run Vineyards", address: "670 NY-14, Penn Yan, NY 14527", lat: 42.6178, lng: -77.0456, phone: "(315) 536-4616", website: "https://foxrunvineyards.com", rating: 4.4 },
   ]
-
+  
   useEffect(() => {
     setDisplayedWineries([...wineries, ...searchResults])
   }, [wineries, searchResults])
@@ -144,7 +145,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
     setSearching(true)
     if (!isAutoSearch) setIsNewSearch(true)
-
+    
     try {
       let searchBounds = bounds || currentBounds
       if (location?.trim()) {
@@ -158,7 +159,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (!searchBounds) throw new Error("No search bounds available.")
       lastSearchBoundsRef.current = searchBounds
       const { places } = await window.google.maps.places.Place.searchByText({ textQuery: "winery", fields: ["id", "displayName"], locationBias: searchBounds, maxResultCount: 20 })
-
+      
       const detailFields: (keyof google.maps.places.Place)[] = ["displayName", "formattedAddress", "location", "rating", "websiteURI", "internationalPhoneNumber", "priceLevel", "photos", "id"]
       const wineryPromises = (places || []).map(async (place) => {
         if (!place.id) return null
@@ -172,7 +173,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         } catch (error) { console.error(`Failed to fetch details for place ${place.id}:`, error); return null }
       })
       const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null)
-
+      
       if (isAutoSearch) {
         setSearchResults(prevResults => {
           const existingIds = new Set(prevResults.map(w => w.id));
@@ -194,7 +195,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       setIsNewSearch(false)
     }
   }, [currentBounds, autoSearch, boundsChanged])
-
+  
   const autoSearchRef = useRef(autoSearch)
   useEffect(() => { autoSearchRef.current = autoSearch }, [autoSearch])
 
@@ -207,40 +208,58 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (autoSearchRef.current && bounds) searchWineriesRef.current(undefined, bounds, true)
     }, 1000)
   }, [])
-
-  // *** FIX START: Simplify addAllMarkers to ONLY use AdvancedMarkerElement ***
+  
   const addAllMarkers = useCallback((wineriesToDisplay: Winery[]) => {
-
-    if (!mapInstanceRef.current || !window.google.maps.marker) return
-
-    markersRef.current.forEach((marker) => { marker.map = null })
-    markersRef.current.clear()
+    if (!mapInstanceRef.current) return;
+    
+    markersRef.current.forEach((marker) => { marker.setMap(null); });
+    markersRef.current.clear();
 
     wineriesToDisplay.forEach((winery) => {
       if (!winery || typeof winery.lat !== 'number' || typeof winery.lng !== 'number' || !isFinite(winery.lat) || !isFinite(winery.lng)) {
-        // *** ENHANCED LOGGING: Log the entire problematic object ***
         console.warn(`Skipping winery with invalid coordinates. Data:`, winery);
         return;
       }
+
       try {
-        const iconUrl = winery.isFromSearch
-          ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
-          : winery.userVisited
+        let marker: google.maps.Marker | google.maps.marker.AdvancedMarkerElement;
+        
+        if (canUseAdvancedMarkers) {
+            const iconUrl = winery.isFromSearch
+            ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
+            : winery.userVisited
             ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
             : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=";
 
-        const pinElement = document.createElement("img");
-        pinElement.src = iconUrl;
-        pinElement.style.width = "32px";
-        pinElement.style.height = "32px";
-        pinElement.style.cursor = "pointer";
+            const pinElement = document.createElement("img");
+            pinElement.src = iconUrl;
+            pinElement.style.width = "32px";
+            pinElement.style.height = "32px";
+            pinElement.style.cursor = "pointer";
 
-        const marker = new window.google.maps.marker.AdvancedMarkerElement({
-          position: { lat: winery.lat, lng: winery.lng },
-          map: mapInstanceRef.current,
-          title: winery.name,
-          content: pinElement,
-        });
+            marker = new window.google.maps.marker.AdvancedMarkerElement({
+                position: { lat: winery.lat, lng: winery.lng },
+                map: mapInstanceRef.current,
+                title: winery.name,
+                content: pinElement,
+            });
+        } else {
+            const iconUrl = winery.isFromSearch
+            ? "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+            : winery.userVisited
+            ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
+            : "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
+            
+            marker = new google.maps.Marker({
+                position: { lat: winery.lat, lng: winery.lng },
+                map: mapInstanceRef.current,
+                title: winery.name,
+                icon: {
+                    url: iconUrl,
+                    scaledSize: new google.maps.Size(32, 32),
+                },
+            });
+        }
 
         marker.addListener("click", () => setSelectedWinery(winery));
         markersRef.current.set(winery.id, marker);
@@ -248,8 +267,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         console.error(`Failed to create marker for winery "${winery.name}":`, e);
       }
     });
-  }, []);
-  // *** FIX END ***
+  }, [canUseAdvancedMarkers]);
 
   useEffect(() => {
     if (mapInstanceRef.current) {
@@ -272,7 +290,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     containerRef.current.appendChild(mapDiv); mapContainerRef.current = mapDiv
     return mapDiv
   }, [])
-
+  
   const updateVisibleWineryCount = useCallback(() => {
     if (!mapInstanceRef.current) return;
     const bounds = mapInstanceRef.current.getBounds();
@@ -292,11 +310,18 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const initializeMap = useCallback(async () => {
     if (!googleMapsLoaded || apiKeyStatus !== "valid") return
     try {
+      setCanUseAdvancedMarkers(!!window.google.maps.marker); // Check for advanced marker support
+
       const mapContainer = createMapContainer()
       if (!mapContainer) { setError("Failed to create map container"); setShowFallback(true); setLoading(false); return }
       await new Promise((resolve) => setTimeout(resolve, 200))
       if (!window.google || !window.google.maps) { setError("Google Maps API not available"); setShowFallback(true); setLoading(false); return }
-      const mapInstance = new window.google.maps.Map(mapContainer, { center: { lat: 42.5, lng: -77.0 }, zoom: 10, mapId: "ac7e853c8d70efc0fdd4c089" })
+      
+      const mapInstance = new window.google.maps.Map(mapContainer, { 
+        center: { lat: 42.5, lng: -77.0 }, 
+        zoom: 10, 
+        mapId: "ac7e853c8d70efc0fdd4c089" 
+      })
       mapInstanceRef.current = mapInstance
 
       mapInstance.addListener("bounds_changed", () => {
@@ -307,10 +332,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
       mapInstance.addListener("idle", () => {
         const bounds = mapInstance.getBounds()
         if (bounds) {
-          updateVisibleWineryCount();
-          if (autoSearchRef.current) {
-            debouncedAutoSearch(bounds)
-          }
+            updateVisibleWineryCount();
+            if (autoSearchRef.current) {
+                debouncedAutoSearch(bounds)
+            }
         }
       })
 
@@ -329,13 +354,13 @@ export default function WineryMap({ userId }: WineryMapProps) {
       setApiKeyStatus("checking")
       if (!(await testApiKey(apiKey))) { setError("Google Maps API key is invalid or has insufficient permissions."); setShowFallback(true); await loadWineryData(); return }
       setApiKeyStatus("valid")
-      if (window.google?.maps?.marker) { setGoogleMapsLoaded(true); return }
+      if (window.google?.maps) { setGoogleMapsLoaded(true); return }
       try {
         await new Promise<void>((resolve, reject) => {
           const script = document.createElement("script")
           script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps,marker&callback=initGoogleMaps`
           script.async = true; script.setAttribute("loading", "async")
-          window.initGoogleMaps = () => window.google?.maps?.marker ? (setGoogleMapsLoaded(true), resolve()) : reject(new Error("Google Maps API not available after load"))
+          window.initGoogleMaps = () => window.google?.maps ? (setGoogleMapsLoaded(true), resolve()) : reject(new Error("Google Maps API not available after load"))
           script.onerror = () => reject(new Error("Failed to load Google Maps script"))
           document.head.appendChild(script)
         })
@@ -352,7 +377,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       initializeMap()
     }
   }, [googleMapsLoaded, apiKeyStatus, initializeMap])
-
+  
   useEffect(() => {
     if (mapInstanceRef.current) {
       updateVisibleWineryCount();
@@ -363,9 +388,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current) }
   }, [])
 
-  const handleVisitUpdate = async (winery: Winery, visitData: { visitDate: string; userReview: string }) => {
+  const handleVisitUpdate = async (winery: Winery, visitData: { visitDate: string; userReview: string; rating: number; photos: string[] }) => {
     try {
-      const response = await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wineryName: winery.name, wineryAddress: winery.address, visitDate: visitData.visitDate, userReview: visitData.userReview }) })
+      const response = await fetch("/api/visits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ wineryId: winery.id.replace('search-', ''), visitDate: visitData.visitDate, userReview: visitData.userReview, rating: visitData.rating, photos: visitData.photos }) })
       const responseData = await response.json()
       if (response.ok) {
         const newVisit = { ...visitData, id: responseData.id, createdAt: responseData.created_at }
@@ -400,14 +425,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }
 
   const handleSearchInCurrentArea = () => searchWineries(undefined, currentBounds!, false)
-
-  const clearSearchResults = () => {
-    setSearchResults([]);
-    setShowSearchResults(false);
-    setSearchCount(0);
-    lastSearchBoundsRef.current = null
+  
+  const clearSearchResults = () => { 
+    setSearchResults([]); 
+    setShowSearchResults(false); 
+    setSearchCount(0); 
+    lastSearchBoundsRef.current = null 
   }
-
+  
   const handleAutoSearchToggle = (enabled: boolean) => { setAutoSearch(enabled); if (enabled && currentBounds) debouncedAutoSearch(currentBounds) }
 
   if (error || showFallback) {
@@ -420,19 +445,19 @@ export default function WineryMap({ userId }: WineryMapProps) {
           </AlertDescription>
         </Alert>
         <Card>
-          <CardHeader>
-            <CardTitle>Wineries</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {wineries.map(winery => (
-                <div key={winery.id} className="p-2 border rounded">
-                  <p className="font-bold">{winery.name}</p>
-                  <p className="text-sm text-gray-600">{winery.address}</p>
+            <CardHeader>
+                <CardTitle>Wineries</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    {wineries.map(winery => (
+                        <div key={winery.id} className="p-2 border rounded">
+                            <p className="font-bold">{winery.name}</p>
+                            <p className="text-sm text-gray-600">{winery.address}</p>
+                        </div>
+                    ))}
                 </div>
-              ))}
-            </div>
-          </CardContent>
+            </CardContent>
         </Card>
       </div>
     )
@@ -465,20 +490,20 @@ export default function WineryMap({ userId }: WineryMapProps) {
               {searchCount > 0 && (<Badge variant="secondary" className="bg-blue-100 text-blue-800"> {searchCount} searches </Badge>)}
             </div>
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                {searching && isNewSearch ? (
-                  <span className="text-sm text-gray-600">Searching for wineries...</span>
-                ) : (
-                  <>
-                    <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                      {visibleWineryCount} {visibleWineryCount === 1 ? 'winery' : 'wineries'} in view
-                    </Badge>
-                    {showSearchResults && <span className="text-sm text-gray-600">({searchResults.length} total discovered)</span>}
-                  </>
-                )}
-                {autoSearch && !isNewSearch && <span className="text-xs text-gray-500">(Auto-updating as you explore)</span>}
-              </div>
-              {showSearchResults && <Button variant="ghost" size="sm" onClick={clearSearchResults}> <RotateCcw className="w-4 h-4 mr-1" /> Clear Discovered </Button>}
+                <div className="flex items-center space-x-2">
+                  {searching && isNewSearch ? (
+                    <span className="text-sm text-gray-600">Searching for wineries...</span>
+                  ) : (
+                    <>
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                        {visibleWineryCount} {visibleWineryCount === 1 ? 'winery' : 'wineries'} in view
+                      </Badge>
+                      {showSearchResults && <span className="text-sm text-gray-600">({searchResults.length} total discovered)</span>}
+                    </>
+                  )}
+                  {autoSearch && !isNewSearch && <span className="text-xs text-gray-500">(Auto-updating as you explore)</span>}
+                </div>
+                {showSearchResults && <Button variant="ghost" size="sm" onClick={clearSearchResults}> <RotateCcw className="w-4 h-4 mr-1" /> Clear Discovered </Button>}
             </div>
           </div>
         </CardContent>
@@ -525,9 +550,18 @@ export default function WineryMap({ userId }: WineryMapProps) {
           <Card>
             <CardHeader> <CardTitle>Legend</CardTitle> </CardHeader>
             <CardContent className="space-y-2">
-              <div className="flex items-center space-x-2"> <div className="w-4 h-4 bg-green-500 rounded-full"></div> <span className="text-sm">Visited (default)</span> </div>
-              <div className="flex items-center space-x-2"> <div className="w-4 h-4 bg-red-500 rounded-full"></div> <span className="text-sm">Not visited (default)</span> </div>
-              <div className="flex items-center space-x-2"> <div className="w-4 h-4 bg-blue-500 rounded-full"></div> <span className="text-sm">Discovered</span> </div>
+              <div className="flex items-center space-x-2">
+                  <img src="http://maps.google.com/mapfiles/ms/icons/green-dot.png" alt="Visited winery icon" className="w-4 h-4" />
+                  <span className="text-sm">Visited</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                  <img src="http://maps.google.com/mapfiles/ms/icons/red-dot.png" alt="Not visited winery icon" className="w-4 h-4" />
+                  <span className="text-sm">Not Visited</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                  <img src="http://maps.google.com/mapfiles/ms/icons/blue-dot.png" alt="Discovered winery icon" className="w-4 h-4" />
+                  <span className="text-sm">Discovered</span>
+              </div>
             </CardContent>
           </Card>
           {showSearchResults && searchResults.length > 0 && (
@@ -544,14 +578,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
                       {winery.rating && <div className="text-xs text-gray-500">★ {winery.rating}/5.0</div>}
                     </div>
                   ))}
-                  {searchResults.length > 10 && (<div className="text-xs text-gray-500 text-center py-2"> And {searchResults.length - 10} more... </div>)}
+                  {searchResults.length > 10 && ( <div className="text-xs text-gray-500 text-center py-2"> And {searchResults.length - 10} more... </div> )}
                 </div>
               </CardContent>
             </Card>
           )}
         </div>
       </div>
-      {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} />)}
+      {selectedWinery && ( <WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} /> )}
     </div>
   )
 }
