@@ -55,13 +55,11 @@ interface WineryMapProps {
   userId: string
 }
 
-type RenderingType = "VECTOR" | "RASTER" | "UNINITIALIZED"
-
 export default function WineryMap({ userId }: WineryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<google.maps.Map | null>(null)
-  const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement | google.maps.Marker>>(new Map())
+  const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map()) // Note: No longer a union type
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSearchBoundsRef = useRef<google.maps.LatLngBounds | null>(null)
   const mapInitializedRef = useRef(false)
@@ -83,11 +81,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const [showSearchResults, setShowSearchResults] = useState(false)
   const [autoSearch, setAutoSearch] = useState(false)
   const [searchCount, setSearchCount] = useState(0)
-  const [renderingType, setRenderingType] = useState<RenderingType>("UNINITIALIZED")
-  
-  // *** FIX START: New state to track only visible wineries ***
   const [visibleWineryCount, setVisibleWineryCount] = useState(0)
-  // *** FIX END ***
 
   const fingerLakesWineries: Omit<Winery, "id" | "userVisited" | "visits">[] = [
     { name: "Dr. Konstantin Frank Winery", address: "9749 Middle Rd, Hammondsport, NY 14840", lat: 42.4089, lng: -77.2094, phone: "(607) 868-4884", website: "https://drfrankwines.com", rating: 4.6 },
@@ -98,12 +92,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
     { name: "Fox Run Vineyards", address: "670 NY-14, Penn Yan, NY 14527", lat: 42.6178, lng: -77.0456, phone: "(315) 536-4616", website: "https://foxrunvineyards.com", rating: 4.4 },
   ]
   
-  // *** FIX START: Combine base wineries and search results for display ***
   useEffect(() => {
-    // This effect ensures that `displayedWineries` is the single source of truth for all markers that should exist on the map.
     setDisplayedWineries([...wineries, ...searchResults])
   }, [wineries, searchResults])
-  // *** FIX END ***
 
   const testApiKey = useCallback(async (apiKey: string) => {
     try {
@@ -150,9 +141,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     if (!mapInstanceRef.current || (isAutoSearch && (!autoSearch || !boundsChanged(bounds!, lastSearchBoundsRef.current)))) return
 
     setSearching(true)
-    if (!isAutoSearch) {
-      setIsNewSearch(true)
-    }
+    if (!isAutoSearch) setIsNewSearch(true)
     
     try {
       let searchBounds = bounds || currentBounds
@@ -193,14 +182,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
       }
 
       setShowSearchResults(true)
-      if (!isAutoSearch) {
-        setSearchCount((p) => p + 1)
-      }
+      if (!isAutoSearch) setSearchCount((p) => p + 1)
     } catch (error) {
       console.error("Error during winery search:", error)
-      if (!isAutoSearch) {
-        setSearchResults([])
-      }
+      if (!isAutoSearch) setSearchResults([])
       setShowSearchResults(true)
     } finally {
       setSearching(false)
@@ -221,48 +206,60 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }, 1000)
   }, [])
   
+  // *** FIX START: Simplify addAllMarkers to ONLY use AdvancedMarkerElement ***
   const addAllMarkers = useCallback((wineriesToDisplay: Winery[]) => {
-    if (!mapInstanceRef.current || renderingType === "UNINITIALIZED") return
+    if (!mapInstanceRef.current || !window.google.maps.marker) {
+        // If the map or the marker library isn't ready, do nothing.
+        return;
+    }
 
+    // Set all existing markers to null to remove them from the map, then clear the ref.
     markersRef.current.forEach((marker) => {
-      if ("map" in marker && typeof marker.map !== "undefined") marker.map = null
-      else if ("setMap" in marker) (marker as google.maps.Marker).setMap(null)
+        marker.map = null;
     });
-    markersRef.current.clear()
+    markersRef.current.clear();
 
+    // Loop through the wineries and create a new AdvancedMarkerElement for each one.
     wineriesToDisplay.forEach((winery) => {
       try {
         if (!winery || typeof winery.lat !== 'number' || typeof winery.lng !== 'number' || !isFinite(winery.lat) || !isFinite(winery.lng)) {
           console.warn(`Skipping winery with invalid coordinates: ${winery?.name || 'Unknown'}`);
           return;
         }
+
         const iconUrl = winery.isFromSearch
           ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
           : winery.userVisited
           ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
-          : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo="
-        
-        let marker: google.maps.marker.AdvancedMarkerElement | google.maps.Marker
-        if (renderingType === 'VECTOR' && window.google.maps.marker) {
-          const pinElement = document.createElement("img")
-          pinElement.src = iconUrl; pinElement.style.width = "32px"; pinElement.style.height = "32px"; pinElement.style.cursor = "pointer"
-          marker = new window.google.maps.marker.AdvancedMarkerElement({ position: { lat: winery.lat, lng: winery.lng }, map: mapInstanceRef.current, title: winery.name, content: pinElement })
-        } else {
-          marker = new window.google.maps.Marker({ position: { lat: winery.lat, lng: winery.lng }, map: mapInstanceRef.current, title: winery.name, icon: { url: iconUrl, scaledSize: new window.google.maps.Size(32, 32) } })
-        }
-        marker.addListener("click", () => setSelectedWinery(winery))
-        markersRef.current.set(winery.id, marker)
+          : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=";
+
+        const pinElement = document.createElement("img");
+        pinElement.src = iconUrl;
+        pinElement.style.width = "32px";
+        pinElement.style.height = "32px";
+        pinElement.style.cursor = "pointer";
+
+        const marker = new window.google.maps.marker.AdvancedMarkerElement({
+            position: { lat: winery.lat, lng: winery.lng },
+            map: mapInstanceRef.current,
+            title: winery.name,
+            content: pinElement,
+        });
+
+        marker.addListener("click", () => setSelectedWinery(winery));
+        markersRef.current.set(winery.id, marker);
       } catch (e) {
-        console.error(`Failed to create marker for winery "${winery.name}":`, e)
+        console.error(`Failed to create marker for winery "${winery.name}":`, e);
       }
-    })
-  }, [renderingType])
+    });
+  }, []);
+  // *** FIX END ***
 
   useEffect(() => {
-    if (mapInstanceRef.current && renderingType !== "UNINITIALIZED") {
+    if (mapInstanceRef.current) {
       addAllMarkers(displayedWineries)
     }
-  }, [displayedWineries, addAllMarkers, renderingType])
+  }, [displayedWineries, addAllMarkers])
 
   const loadWineryData = useCallback(async () => {
     const visitsByWinery = await fetchUserVisits(userId)
@@ -280,7 +277,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     return mapDiv
   }, [])
   
-  // *** FIX START: New function to calculate visible wineries ***
   const updateVisibleWineryCount = useCallback(() => {
     if (!mapInstanceRef.current) return;
     const bounds = mapInstanceRef.current.getBounds();
@@ -295,7 +291,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }, 0);
     setVisibleWineryCount(visibleCount);
   }, [displayedWineries]);
-  // *** FIX END ***
 
   const initializeMap = useCallback(async () => {
     if (!googleMapsLoaded || apiKeyStatus !== "valid") return
@@ -306,28 +301,21 @@ export default function WineryMap({ userId }: WineryMapProps) {
       if (!window.google || !window.google.maps) { setError("Google Maps API not available"); setShowFallback(true); setLoading(false); return }
       const mapInstance = new window.google.maps.Map(mapContainer, { center: { lat: 42.5, lng: -77.0 }, zoom: 10, mapId: "ac7e853c8d70efc0fdd4c089" })
       mapInstanceRef.current = mapInstance
-      mapInstance.addListener('renderingtype_changed', () => {
-        const newType = mapInstance.getRenderingType()
-        setRenderingType(newType)
-      })
-      setRenderingType(mapInstance.getRenderingType())
 
       mapInstance.addListener("bounds_changed", () => {
         const bounds = mapInstance.getBounds()
         if (bounds) { setCurrentBounds(bounds); if (autoSearchRef.current) debouncedAutoSearch(bounds) }
       })
 
-      // *** FIX START: Call the new counter function on idle ***
       mapInstance.addListener("idle", () => {
         const bounds = mapInstance.getBounds()
         if (bounds) {
-            updateVisibleWineryCount(); // Update count when map stops moving
+            updateVisibleWineryCount();
             if (autoSearchRef.current) {
                 debouncedAutoSearch(bounds)
             }
         }
       })
-      // *** FIX END ***
 
       const visitsByWinery = await fetchUserVisits(userId)
       const wineryData = fingerLakesWineries.map((winery, index) => ({ ...winery, id: `winery-${index}`, userVisited: (visitsByWinery[winery.name] || []).length > 0, visits: visitsByWinery[winery.name] || [] }))
@@ -344,13 +332,13 @@ export default function WineryMap({ userId }: WineryMapProps) {
       setApiKeyStatus("checking")
       if (!(await testApiKey(apiKey))) { setError("Google Maps API key is invalid or has insufficient permissions."); setShowFallback(true); await loadWineryData(); return }
       setApiKeyStatus("valid")
-      if (window.google?.maps) { setGoogleMapsLoaded(true); return }
+      if (window.google?.maps?.marker) { setGoogleMapsLoaded(true); return }
       try {
         await new Promise<void>((resolve, reject) => {
           const script = document.createElement("script")
           script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps,marker&callback=initGoogleMaps`
           script.async = true; script.setAttribute("loading", "async")
-          window.initGoogleMaps = () => window.google?.maps ? (setGoogleMapsLoaded(true), resolve()) : reject(new Error("Google Maps API not available after load"))
+          window.initGoogleMaps = () => window.google?.maps?.marker ? (setGoogleMapsLoaded(true), resolve()) : reject(new Error("Google Maps API not available after load"))
           script.onerror = () => reject(new Error("Failed to load Google Maps script"))
           document.head.appendChild(script)
         })
@@ -368,14 +356,11 @@ export default function WineryMap({ userId }: WineryMapProps) {
     }
   }, [googleMapsLoaded, apiKeyStatus, initializeMap])
   
-  // *** FIX START: Update the visible count whenever the list of markers changes ***
   useEffect(() => {
     if (mapInstanceRef.current) {
       updateVisibleWineryCount();
     }
   }, [displayedWineries, updateVisibleWineryCount]);
-  // *** FIX END ***
-
 
   useEffect(() => {
     return () => { if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current) }
@@ -439,7 +424,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         </Alert>
         <Card>
             <CardHeader>
-                <CardTitle>Finger Lakes Wineries</CardTitle>
+                <CardTitle>Wineries</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="space-y-2">
@@ -482,7 +467,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
               </div>
               {searchCount > 0 && (<Badge variant="secondary" className="bg-blue-100 text-blue-800"> {searchCount} searches </Badge>)}
             </div>
-            {/* *** FIX START: Use visibleWineryCount for the badge *** */}
             <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   {searching && isNewSearch ? (
@@ -499,7 +483,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
                 </div>
                 {showSearchResults && <Button variant="ghost" size="sm" onClick={clearSearchResults}> <RotateCcw className="w-4 h-4 mr-1" /> Clear Discovered </Button>}
             </div>
-            {/* *** FIX END *** */}
           </div>
         </CardContent>
       </Card>
