@@ -61,11 +61,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<google.maps.Map | null>(null)
-  const markersRef = useRef<Map<string, google.maps.Marker | google.maps.marker.AdvancedMarkerElement>>(new Map())
+  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map())
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSearchBoundsRef = useRef<google.maps.LatLngBounds | null>(null)
   const mapInitializedRef = useRef(false)
-  const [canUseAdvancedMarkers, setCanUseAdvancedMarkers] = useState(false); // State to track marker availability
 
   const [wineries, setWineries] = useState<Winery[]>([])
   const [searchResults, setSearchResults] = useState<Winery[]>([])
@@ -211,7 +210,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   
   const addAllMarkers = useCallback((wineriesToDisplay: Winery[]) => {
     if (!mapInstanceRef.current) return;
-    
+
     markersRef.current.forEach((marker) => { marker.setMap(null); });
     markersRef.current.clear();
 
@@ -222,44 +221,30 @@ export default function WineryMap({ userId }: WineryMapProps) {
       }
 
       try {
-        let marker: google.maps.Marker | google.maps.marker.AdvancedMarkerElement;
-        
-        if (canUseAdvancedMarkers) {
-            const iconUrl = winery.isFromSearch
-            ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
-            : winery.userVisited
-            ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo="
-            : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo=";
+        // *** FIX: Use modern inline SVG for markers ***
+        const pinStyle = {
+          path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+          fillOpacity: 1,
+          strokeWeight: 1,
+          strokeColor: '#fff',
+          scale: 1.5,
+          anchor: new google.maps.Point(12, 24),
+        };
 
-            const pinElement = document.createElement("img");
-            pinElement.src = iconUrl;
-            pinElement.style.width = "32px";
-            pinElement.style.height = "32px";
-            pinElement.style.cursor = "pointer";
-
-            marker = new window.google.maps.marker.AdvancedMarkerElement({
-                position: { lat: winery.lat, lng: winery.lng },
-                map: mapInstanceRef.current,
-                title: winery.name,
-                content: pinElement,
-            });
-        } else {
-            const iconUrl = winery.isFromSearch
-            ? "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
-            : winery.userVisited
-            ? "http://maps.google.com/mapfiles/ms/icons/green-dot.png"
-            : "http://maps.google.com/mapfiles/ms/icons/red-dot.png";
-            
-            marker = new google.maps.Marker({
-                position: { lat: winery.lat, lng: winery.lng },
-                map: mapInstanceRef.current,
-                title: winery.name,
-                icon: {
-                    url: iconUrl,
-                    scaledSize: new google.maps.Size(32, 32),
-                },
-            });
+        let color = '#3B82F6'; // Blue for discovered
+        if (!winery.isFromSearch) {
+          color = winery.userVisited ? '#10B981' : '#EF4444'; // Green for visited, Red for not visited
         }
+        
+        const marker = new google.maps.Marker({
+            position: { lat: winery.lat, lng: winery.lng },
+            map: mapInstanceRef.current,
+            title: winery.name,
+            icon: {
+                ...pinStyle,
+                fillColor: color,
+            },
+        });
 
         marker.addListener("click", () => setSelectedWinery(winery));
         markersRef.current.set(winery.id, marker);
@@ -267,7 +252,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
         console.error(`Failed to create marker for winery "${winery.name}":`, e);
       }
     });
-  }, [canUseAdvancedMarkers]);
+  }, []);
 
   useEffect(() => {
     if (mapInstanceRef.current) {
@@ -310,8 +295,6 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const initializeMap = useCallback(async () => {
     if (!googleMapsLoaded || apiKeyStatus !== "valid") return
     try {
-      setCanUseAdvancedMarkers(!!window.google.maps.marker); // Check for advanced marker support
-
       const mapContainer = createMapContainer()
       if (!mapContainer) { setError("Failed to create map container"); setShowFallback(true); setLoading(false); return }
       await new Promise((resolve) => setTimeout(resolve, 200))
@@ -358,7 +341,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
       try {
         await new Promise<void>((resolve, reject) => {
           const script = document.createElement("script")
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps,marker&callback=initGoogleMaps`
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps&callback=initGoogleMaps`
           script.async = true; script.setAttribute("loading", "async")
           window.initGoogleMaps = () => window.google?.maps ? (setGoogleMapsLoaded(true), resolve()) : reject(new Error("Google Maps API not available after load"))
           script.onerror = () => reject(new Error("Failed to load Google Maps script"))
@@ -551,16 +534,16 @@ export default function WineryMap({ userId }: WineryMapProps) {
             <CardHeader> <CardTitle>Legend</CardTitle> </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex items-center space-x-2">
-                  <img src="http://maps.google.com/mapfiles/ms/icons/green-dot.png" alt="Visited winery icon" className="w-4 h-4" />
-                  <span className="text-sm">Visited</span>
+                <div className="w-4 h-4 rounded-full bg-green-500"></div>
+                <span className="text-sm">Visited</span>
               </div>
               <div className="flex items-center space-x-2">
-                  <img src="http://maps.google.com/mapfiles/ms/icons/red-dot.png" alt="Not visited winery icon" className="w-4 h-4" />
-                  <span className="text-sm">Not Visited</span>
+                <div className="w-4 h-4 rounded-full bg-red-500"></div>
+                <span className="text-sm">Not Visited</span>
               </div>
               <div className="flex items-center space-x-2">
-                  <img src="http://maps.google.com/mapfiles/ms/icons/blue-dot.png" alt="Discovered winery icon" className="w-4 h-4" />
-                  <span className="text-sm">Discovered</span>
+                <div className="w-4 h-4 rounded-full bg-blue-500"></div>
+                <span className="text-sm">Discovered</span>
               </div>
             </CardContent>
           </Card>
