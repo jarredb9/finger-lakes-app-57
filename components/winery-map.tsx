@@ -221,12 +221,11 @@ export default function WineryMap({ userId }: WineryMapProps) {
 
     // Loop through the wineries and create a new AdvancedMarkerElement for each one.
     wineriesToDisplay.forEach((winery) => {
-      try {
         if (!winery || typeof winery.lat !== 'number' || typeof winery.lng !== 'number' || !isFinite(winery.lat) || !isFinite(winery.lng)) {
-          console.warn(`Skipping winery with invalid coordinates: ${winery?.name || 'Unknown'}`);
-          return;
+        console.warn(`Skipping winery with invalid coordinates: ${winery?.name || 'Unknown'}`);
+        return;
         }
-
+      try {
         const iconUrl = winery.isFromSearch
           ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo="
           : winery.userVisited
@@ -283,6 +282,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
     if (!bounds) return;
 
     const visibleCount = displayedWineries.reduce((count, winery) => {
+      if (!winery || typeof winery.lat !== 'number' || typeof winery.lng !== 'number') return count;
       const position = new google.maps.LatLng(winery.lat, winery.lng);
       if (bounds.contains(position)) {
         return count + 1;
