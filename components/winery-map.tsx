@@ -296,8 +296,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
       
       // *** FIX: Simplify map constructor to remove mapId which can cause Vector Map failure ***
       const mapInstance = new window.google.maps.Map(mapContainer, { 
-        center: { lat: 42.5, lng: -77.0 }, 
-        zoom: 10, 
+        center: { lat: 42.5, lng: -77.0 },
+        zoom: 10,
+        mapId: "ac7e853c8d70efc0fdd4c089"
       })
       mapInstanceRef.current = mapInstance
 
