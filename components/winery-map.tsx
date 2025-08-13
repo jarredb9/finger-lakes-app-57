@@ -61,7 +61,7 @@ export default function WineryMap({ userId }: WineryMapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapContainerRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<google.maps.Map | null>(null)
-  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map())
+  const markersRef = useRef<Map<string, google.maps.marker.AdvancedMarkerElement>>(new Map())
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const lastSearchBoundsRef = useRef<google.maps.LatLngBounds | null>(null)
   const mapInitializedRef = useRef(false)
@@ -209,9 +209,9 @@ export default function WineryMap({ userId }: WineryMapProps) {
   }, [])
   
   const addAllMarkers = useCallback((wineriesToDisplay: Winery[]) => {
-    if (!mapInstanceRef.current) return;
+    if (!mapInstanceRef.current || !window.google.maps.marker) return;
 
-    markersRef.current.forEach((marker) => { marker.setMap(null); });
+    markersRef.current.forEach((marker) => { marker.map = null; });
     markersRef.current.clear();
 
     wineriesToDisplay.forEach((winery) => {
@@ -221,29 +221,23 @@ export default function WineryMap({ userId }: WineryMapProps) {
       }
 
       try {
-        // *** FIX: Use modern inline SVG for markers ***
-        const pinStyle = {
-          path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
-          fillOpacity: 1,
-          strokeWeight: 1,
-          strokeColor: '#fff',
-          scale: 1.5,
-          anchor: new google.maps.Point(12, 24),
-        };
+        const iconUrl = winery.isFromSearch
+          ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMzMzM0ZGIi8+Cjwvc3ZnPgo=" // Blue
+          : winery.userVisited
+          ? "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjMTBCOTgxIi8+Cjwvc3ZnPgo=" // Green
+          : "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDOC4xMyAyIDUgNS4xMyA1IDlDNSAxNC4yNSAxMiAyMiAxMiAyMkMxMiAyMiAxOSAxNC4yNSAxOSA5QzE5IDUuMTMgMTUuODcgMiAxMiAyWk0xMiAxMS41QzEwLjYyIDExLjUgOS41IDEwLjM4IDkuNSA5QzkuNSA3LjYyIDEwLjYyIDYuNSAxMiA2LjVDMTMuMzggNi41IDE0LjUgNy42MiAxNC41IDlDMTQuNSAxMC4zOCAxMy4zOCAxMS41IDEyIDExLjVaIiBmaWxsPSIjRUY0NDQ0Ii8+Cjwvc3ZnPgo="; // Red
 
-        let color = '#3B82F6'; // Blue for discovered
-        if (!winery.isFromSearch) {
-          color = winery.userVisited ? '#10B981' : '#EF4444'; // Green for visited, Red for not visited
-        }
-        
-        const marker = new google.maps.Marker({
+        const pinElement = document.createElement("img");
+        pinElement.src = iconUrl;
+        pinElement.style.width = "32px";
+        pinElement.style.height = "32px";
+        pinElement.style.cursor = "pointer";
+
+        const marker = new window.google.maps.marker.AdvancedMarkerElement({
             position: { lat: winery.lat, lng: winery.lng },
             map: mapInstanceRef.current,
             title: winery.name,
-            icon: {
-                ...pinStyle,
-                fillColor: color,
-            },
+            content: pinElement,
         });
 
         marker.addListener("click", () => setSelectedWinery(winery));
@@ -300,10 +294,10 @@ export default function WineryMap({ userId }: WineryMapProps) {
       await new Promise((resolve) => setTimeout(resolve, 200))
       if (!window.google || !window.google.maps) { setError("Google Maps API not available"); setShowFallback(true); setLoading(false); return }
       
+      // *** FIX: Simplify map constructor to remove mapId which can cause Vector Map failure ***
       const mapInstance = new window.google.maps.Map(mapContainer, { 
         center: { lat: 42.5, lng: -77.0 }, 
         zoom: 10, 
-        mapId: "ac7e853c8d70efc0fdd4c089" 
       })
       mapInstanceRef.current = mapInstance
 
@@ -337,13 +331,14 @@ export default function WineryMap({ userId }: WineryMapProps) {
       setApiKeyStatus("checking")
       if (!(await testApiKey(apiKey))) { setError("Google Maps API key is invalid or has insufficient permissions."); setShowFallback(true); await loadWineryData(); return }
       setApiKeyStatus("valid")
-      if (window.google?.maps) { setGoogleMapsLoaded(true); return }
+      if (window.google?.maps?.marker) { setGoogleMapsLoaded(true); return }
       try {
         await new Promise<void>((resolve, reject) => {
           const script = document.createElement("script")
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps&callback=initGoogleMaps`
+          // *** FIX: Ensure the 'marker' library is requested for AdvancedMarkerElement ***
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,maps,marker&callback=initGoogleMaps`
           script.async = true; script.setAttribute("loading", "async")
-          window.initGoogleMaps = () => window.google?.maps ? (setGoogleMapsLoaded(true), resolve()) : reject(new Error("Google Maps API not available after load"))
+          window.initGoogleMaps = () => window.google?.maps?.marker ? (setGoogleMapsLoaded(true), resolve()) : reject(new Error("Google Maps API not available after load"))
           script.onerror = () => reject(new Error("Failed to load Google Maps script"))
           document.head.appendChild(script)
         })
