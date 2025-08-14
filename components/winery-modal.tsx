@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload } from "lucide-react"
-import { useToast } from "@/components/ui/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 interface Visit {
   id?: string
