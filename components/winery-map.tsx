@@ -2,15 +2,10 @@
 
 import type React from "react"
 import { useEffect, useState, useCallback, useRef } from "react"
-import { APIProvider, Map, AdvancedMarker, Pin, useMap } from "@vis.gl/react-google-maps"
+import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  AlertTriangle,
-  Search,
-  MapPin,
-  RotateCcw,
-} from "lucide-react"
+import { AlertTriangle, Search, MapPin, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -29,21 +24,16 @@ function useDebounce<T>(value: T, delay: number): T {
 }
 
 // Interfaces
-interface Visit {
-  id?: string; visitDate: string; userReview: string; createdAt?: string; rating?: number; photos?: string[];
-}
+interface Visit { id?: string; visitDate: string; userReview: string; createdAt?: string; rating?: number; photos?: string[]; }
+interface Winery { id: string; name: string; address: string; lat: number; lng: number; phone?: string; website?: string; rating?: number; userVisited?: boolean; visits?: Visit[]; placeId?: string; }
+interface WineryMapProps { userId: string; }
 
-interface Winery {
-  id: string; name: string; address: string; lat: number; lng: number; phone?: string; website?: string; rating?: number; userVisited?: boolean; visits?: Visit[]; placeId?: string;
-}
-
-interface WineryMapProps {
-  userId: string;
-}
-
-// Main map content component, separated to access map instance via hooks
+// Main map content component
 function MapContent({ userId }: WineryMapProps) {
   const map = useMap();
+  const places = useMapsLibrary('places');
+  const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
+
   const [searchResults, setSearchResults] = useState<Winery[]>([]);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
@@ -52,55 +42,48 @@ function MapContent({ userId }: WineryMapProps) {
 
   const debouncedBounds = useDebounce(currentBounds, 1500);
 
+  useEffect(() => {
+    if (!map || !places) return;
+    setPlacesService(new places.PlacesService(map));
+  }, [map, places]);
+
   const searchWineries = useCallback(async (location?: string, bounds?: google.maps.LatLngBounds | null) => {
-    if (!google?.maps?.places || !map) return;
+    if (!placesService) return;
     
     let searchBounds = bounds;
-
-    if (location?.trim()) {
+    if (location?.trim() && google?.maps) {
       const geocoder = new google.maps.Geocoder();
       try {
         const { results } = await geocoder.geocode({ address: location });
         if (results && results.length > 0) {
           searchBounds = results[0].geometry.viewport || results[0].geometry.bounds;
-          if (searchBounds) map.fitBounds(searchBounds);
+          if (searchBounds && map) map.fitBounds(searchBounds);
         }
       } catch (e) { console.error("Geocoding failed:", e); return; }
     }
 
     if (!searchBounds) return;
 
-    // Use modern Place.searchByText
-    const { Place } = await google.maps.importLibrary("places") as google.maps.PlacesLibrary;
-    const request = {
-      textQuery: "winery",
-      fields: ["id", "displayName", "location", "formattedAddress", "rating"],
-      locationBias: searchBounds,
-    };
+    const request = { query: "winery", locationBias: searchBounds };
     
-    const { places } = await Place.searchByText(request);
-
-    if (places.length) {
-      const visibleWineries = places.filter(place => {
-        if (searchBounds && place.location) {
-          return searchBounds.contains(place.location);
-        }
-        return false;
-      }).map(place => ({
-        id: place.id!,
-        placeId: place.id!,
-        name: place.displayName!,
-        address: place.formattedAddress!,
-        lat: place.location!.lat(),
-        lng: place.location!.lng(),
-        rating: place.rating,
-        userVisited: false, // This would be cross-referenced with your DB
-      }));
-      setSearchResults(visibleWineries);
-    } else {
-      setSearchResults([]);
-    }
-  }, [map]);
+    placesService.textSearch(request, (results, status) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+        const strictlyVisibleWineries = results.filter(place => 
+          searchBounds && place.geometry?.location && searchBounds.contains(place.geometry.location)
+        ).map(place => ({
+          id: place.place_id!,
+          placeId: place.place_id!,
+          name: place.name!,
+          address: place.formatted_address!,
+          lat: place.geometry!.location!.lat(),
+          lng: place.geometry!.location!.lng(),
+          rating: place.rating,
+          userVisited: false, // This would be cross-referenced with your DB
+        }));
+        setSearchResults(strictlyVisibleWineries);
+      }
+    });
+  }, [map, placesService]);
 
   useEffect(() => {
     if (autoSearch && debouncedBounds) {
@@ -110,23 +93,18 @@ function MapContent({ userId }: WineryMapProps) {
 
   const handleVisitUpdate = async (winery: Winery, visitData: any) => { /* ... */ };
   const handleDeleteVisit = async (winery: Winery, visitId: string) => { /* ... */ };
-  
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchLocation.trim()) searchWineries(searchLocation.trim(), null);
-  };
-
+  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) searchWineries(searchLocation.trim(), null); };
   const handleSearchInCurrentArea = () => searchWineries(undefined, currentBounds);
   const clearSearchResults = () => setSearchResults([]);
   
   return (
     <div className="space-y-6">
       <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center space-x-2"> <Search className="w-5 h-5" /> <span>Discover Wineries</span> </CardTitle>
-            <CardDescription> Search for wineries or explore dynamically as you move the map </CardDescription>
-          </CardHeader>
-          <CardContent>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2"> <Search className="w-5 h-5" /> <span>Discover Wineries</span> </CardTitle>
+          <CardDescription> Search for wineries or explore dynamically as you move the map </CardDescription>
+        </CardHeader>
+        <CardContent>
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-4">
                 <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
@@ -150,8 +128,8 @@ function MapContent({ userId }: WineryMapProps) {
                 {searchResults.length > 0 && <Button variant="ghost" size="sm" onClick={clearSearchResults}> <RotateCcw className="w-4 h-4 mr-1" /> Clear Discovered </Button>}
             </div>
             </div>
-          </CardContent>
-        </Card>
+        </CardContent>
+      </Card>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
           <Card>
@@ -162,20 +140,12 @@ function MapContent({ userId }: WineryMapProps) {
                   defaultZoom={10}
                   gestureHandling={'greedy'}
                   disableDefaultUI={true}
-                  mapId={'ac7e853c8d70efc0fdd4c089'}
+                  mapId={process.env.NEXT_PUBLIC_Google Maps_MAP_ID || 'ac7e853c8d70efc0fdd4c089'}
                   onBoundsChanged={e => setCurrentBounds(e.detail.bounds)}
                 >
                   {searchResults.map((winery) => (
-                    <AdvancedMarker
-                      key={winery.id}
-                      position={{ lat: winery.lat, lng: winery.lng }}
-                      onClick={() => setSelectedWinery(winery)}
-                    >
-                      <Pin 
-                        background={winery.userVisited ? '#10B981' : '#3B82F6'}
-                        borderColor={winery.userVisited ? '#059669' : '#2563EB'}
-                        glyphColor={'#fff'}
-                      />
+                    <AdvancedMarker key={winery.id} position={{ lat: winery.lat, lng: winery.lng }} onClick={() => setSelectedWinery(winery)}>
+                      <Pin background={winery.userVisited ? '#10B981' : '#3B82F6'} borderColor={winery.userVisited ? '#059669' : '#2563EB'} glyphColor={'#fff'} />
                     </AdvancedMarker>
                   ))}
                 </Map>
@@ -222,10 +192,9 @@ function MapContent({ userId }: WineryMapProps) {
   );
 }
 
-// Wrapper component to provide the API key and load the libraries
+// Wrapper component to provide the API key
 export default function WineryMapWrapper({ userId }: WineryMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
   if (!apiKey) {
       return (
         <Alert variant="destructive">
@@ -234,7 +203,6 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
         </Alert>
       )
   }
-
   return (
     <APIProvider apiKey={apiKey} libraries={['places', 'marker']}>
         <MapContent userId={userId} />
