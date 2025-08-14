@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -29,12 +29,12 @@ function MapContent({ userId }: WineryMapProps) {
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
-
   const [searchResults, setSearchResults] = useState<Winery[]>([]);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
   const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBoundsLiteral | null>(null);
   const [autoSearch, setAutoSearch] = useState(true);
+  const initialSearchDone = useRef(false); // Ref to track if the initial search has been done
 
   useEffect(() => {
     if (!map || !places || !geocoding) return;
@@ -43,22 +43,22 @@ function MapContent({ userId }: WineryMapProps) {
 
   const searchWineries = useCallback(async (location?: string, boundsForSearch?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral | null) => {
     if (!geocoder || !places) return;
-
+    
     let searchBounds: google.maps.LatLngBounds;
-
+    
     if (location?.trim()) {
-        try {
-            const { results } = await geocoder.geocode({ address: location });
-            if (results && results.length > 0 && results[0].geometry.viewport) {
-                searchBounds = results[0].geometry.viewport;
-                if (map) map.fitBounds(searchBounds);
-            } else { return; }
-        } catch (e) {
-            console.error("Geocoding failed:", e);
-            return;
-        }
+      try {
+        const { results } = await geocoder.geocode({ address: location });
+        if (results && results.length > 0 && results[0].geometry.viewport) {
+          searchBounds = results[0].geometry.viewport;
+          if (map) map.fitBounds(searchBounds);
+        } else { return; }
+      } catch (e) {
+        console.error("Geocoding failed:", e);
+        return;
+      }
     } else if (boundsForSearch) {
-        searchBounds = new google.maps.LatLngBounds(boundsForSearch);
+      searchBounds = new google.maps.LatLngBounds(boundsForSearch);
     } else { return; }
     
     const request = {
@@ -70,50 +70,54 @@ function MapContent({ userId }: WineryMapProps) {
     const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
 
     if (foundPlaces.length) {
-        const allWineries = foundPlaces.map(place => ({
-            id: place.id!,
-            placeId: place.id!,
-            name: place.displayName!,
-            address: place.formattedAddress!,
-            lat: place.location!.lat(),
-            lng: place.location!.lng(),
-            rating: place.rating,
-            userVisited: false,
-        }));
-
-        // ** FINAL LOGIC FIX: Replace results instead of accumulating **
-        // This ensures the list always reflects the current map view.
-        setSearchResults(allWineries);
+      const allWineries = foundPlaces.map(place => ({
+        id: place.id!,
+        placeId: place.id!,
+        name: place.displayName!,
+        address: place.formattedAddress!,
+        lat: place.location!.lat(),
+        lng: place.location!.lng(),
+        rating: place.rating,
+        userVisited: false,
+      }));
+      setSearchResults(allWineries);
     } else {
-        setSearchResults([]);
+      setSearchResults([]);
     }
-
   }, [map, places, geocoder]);
-
-  // This useEffect now triggers a clean refresh on every pan/zoom
+  
+  // Debounced search for when the user stops panning the map
   useEffect(() => {
+    if (!autoSearch || !currentBounds || !initialSearchDone.current) return;
+    
     const handler = setTimeout(() => {
-      if (autoSearch && currentBounds) {
-        searchWineries(undefined, currentBounds);
-      }
+      searchWineries(undefined, currentBounds);
     }, 1500);
+    
     return () => clearTimeout(handler);
   }, [autoSearch, currentBounds, searchWineries]);
   
-  const handleVisitUpdate = async (winery: Winery, visitData: any) => { /* ... */ };
-  const handleDeleteVisit = async (winery: Winery, visitId: string) => { /* ... */ };
-  
-  // A manual search should also clear old results first
+  const handleMapLoad = useCallback(() => {
+    if (map && !initialSearchDone.current) {
+      const bounds = map.getBounds();
+      if (bounds) {
+        setCurrentBounds(bounds.toJSON());
+        searchWineries(undefined, bounds);
+        initialSearchDone.current = true;
+      }
+    }
+  }, [map, searchWineries]);
+
   const handleSearchSubmit = (e: React.FormEvent) => { 
     e.preventDefault(); 
     if (searchLocation.trim()) { 
-      setSearchResults([]); // Clear previous results before searching
+      setSearchResults([]); 
       searchWineries(searchLocation.trim(), null); 
     }
   };
 
   const handleSearchInCurrentArea = () => {
-    setSearchResults([]); // Clear previous results before searching
+    setSearchResults([]); 
     searchWineries(undefined, currentBounds);
   };
   
@@ -163,7 +167,8 @@ function MapContent({ userId }: WineryMapProps) {
                   gestureHandling={'greedy'}
                   disableDefaultUI={true}
                   mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'ac7e853c8d70efc0fdd4c089'}
-                  onBoundsChanged={(e: CustomEvent<{ bounds: google.maps.LatLngBoundsLiteral }>) => setCurrentBounds(e.detail.bounds)}
+                  onBoundsChanged={(e) => setCurrentBounds(e.detail.bounds)}
+                  onTilesLoaded={handleMapLoad} // Use this for a reliable initial search
                 >
                   {searchResults.map((winery: Winery) => (
                     <AdvancedMarker key={winery.id} position={{ lat: winery.lat, lng: winery.lng }} onClick={() => setSelectedWinery(winery)}>
@@ -234,8 +239,7 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
         </Alert>
       )
   }
-
-  // Only render the APIProvider once the component has mounted on the client
+  
   if (!mounted) {
     return <div className="h-96 w-full lg:h-[600px] bg-gray-100 rounded-lg animate-pulse" />;
   }
