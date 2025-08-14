@@ -18,7 +18,7 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 
-// Debounce hook to prevent excessive API calls
+// Debounce hook
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
@@ -30,97 +30,76 @@ function useDebounce<T>(value: T, delay: number): T {
 
 // Interfaces
 interface Visit {
-  id?: string;
-  visitDate: string;
-  userReview: string;
-  createdAt?: string;
-  rating?: number;
-  photos?: string[];
+  id?: string; visitDate: string; userReview: string; createdAt?: string; rating?: number; photos?: string[];
 }
 
 interface Winery {
-  id: string;
-  name: string;
-  address: string;
-  lat: number;
-  lng: number;
-  phone?: string;
-  website?: string;
-  rating?: number;
-  userVisited?: boolean;
-  visits?: Visit[];
-  placeId?: string;
+  id: string; name: string; address: string; lat: number; lng: number; phone?: string; website?: string; rating?: number; userVisited?: boolean; visits?: Visit[]; placeId?: string;
 }
 
 interface WineryMapProps {
   userId: string;
 }
 
-// Main map content component
+// Main map content component, separated to access map instance via hooks
 function MapContent({ userId }: WineryMapProps) {
   const map = useMap();
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
-  
   const [searchResults, setSearchResults] = useState<Winery[]>([]);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
   const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBounds | null>(null);
   const [autoSearch, setAutoSearch] = useState(true);
 
-  const debouncedBounds = useDebounce(currentBounds, 1000);
-
-  // Initialize PlacesService once the map is ready
-  useEffect(() => {
-    if (map) {
-      placesServiceRef.current = new google.maps.places.PlacesService(map);
-    }
-  }, [map]);
+  const debouncedBounds = useDebounce(currentBounds, 1500);
 
   const searchWineries = useCallback(async (location?: string, bounds?: google.maps.LatLngBounds | null) => {
-    if (!placesServiceRef.current) return;
-
+    if (!google?.maps?.places || !map) return;
+    
     let searchBounds = bounds;
-    if (location?.trim() && google?.maps) {
+
+    if (location?.trim()) {
       const geocoder = new google.maps.Geocoder();
       try {
         const { results } = await geocoder.geocode({ address: location });
         if (results && results.length > 0) {
           searchBounds = results[0].geometry.viewport || results[0].geometry.bounds;
-          if (searchBounds && map) map.fitBounds(searchBounds);
+          if (searchBounds) map.fitBounds(searchBounds);
         }
-      } catch (e) {
-        console.error("Geocoding failed:", e);
-        return;
-      }
+      } catch (e) { console.error("Geocoding failed:", e); return; }
     }
 
     if (!searchBounds) return;
 
+    // Use modern Place.searchByText
+    const { Place } = await google.maps.importLibrary("places") as google.maps.PlacesLibrary;
     const request = {
-      query: "winery",
+      textQuery: "winery",
+      fields: ["id", "displayName", "location", "formattedAddress", "rating"],
       locationBias: searchBounds,
     };
+    
+    const { places } = await Place.searchByText(request);
 
-    placesServiceRef.current.textSearch(request, (results, status) => {
-      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-        const strictlyVisibleWineries = results.filter(place => {
-          if (searchBounds && place.geometry?.location) {
-            return searchBounds.contains(place.geometry.location);
-          }
-          return false;
-        }).map(place => ({
-          id: place.place_id!,
-          placeId: place.place_id!,
-          name: place.name!,
-          address: place.formatted_address!,
-          lat: place.geometry!.location!.lat(),
-          lng: place.geometry!.location!.lng(),
-          rating: place.rating,
-          userVisited: false, // This should be cross-referenced with your DB
-        }));
-        setSearchResults(strictlyVisibleWineries);
-      }
-    });
+    if (places.length) {
+      const visibleWineries = places.filter(place => {
+        if (searchBounds && place.location) {
+          return searchBounds.contains(place.location);
+        }
+        return false;
+      }).map(place => ({
+        id: place.id!,
+        placeId: place.id!,
+        name: place.displayName!,
+        address: place.formattedAddress!,
+        lat: place.location!.lat(),
+        lng: place.location!.lng(),
+        rating: place.rating,
+        userVisited: false, // This would be cross-referenced with your DB
+      }));
+      setSearchResults(visibleWineries);
+    } else {
+      setSearchResults([]);
+    }
   }, [map]);
 
   useEffect(() => {
@@ -129,13 +108,8 @@ function MapContent({ userId }: WineryMapProps) {
     }
   }, [autoSearch, debouncedBounds, searchWineries]);
 
-  const handleVisitUpdate = async (winery: Winery, visitData: { visitDate: string; userReview: string; rating: number; photos: string[] }) => {
-    // DB update logic
-  };
-
-  const handleDeleteVisit = async (winery: Winery, visitId: string) => {
-    // DB delete logic
-  };
+  const handleVisitUpdate = async (winery: Winery, visitData: any) => { /* ... */ };
+  const handleDeleteVisit = async (winery: Winery, visitId: string) => { /* ... */ };
   
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -248,7 +222,7 @@ function MapContent({ userId }: WineryMapProps) {
   );
 }
 
-// Wrapper component to provide the API key
+// Wrapper component to provide the API key and load the libraries
 export default function WineryMapWrapper({ userId }: WineryMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
@@ -262,7 +236,7 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
   }
 
   return (
-    <APIProvider apiKey={apiKey} libraries={['places']}>
+    <APIProvider apiKey={apiKey} libraries={['places', 'marker']}>
         <MapContent userId={userId} />
     </APIProvider>
   )
