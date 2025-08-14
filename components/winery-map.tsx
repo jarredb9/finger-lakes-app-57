@@ -5,7 +5,12 @@ import { useEffect, useState, useCallback, useRef } from "react"
 import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertTriangle, Search, MapPin, RotateCcw } from "lucide-react"
+import {
+  AlertTriangle,
+  Search,
+  MapPin,
+  RotateCcw,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -78,7 +83,7 @@ function MapContent({ userId }: WineryMapProps) {
           lat: place.geometry!.location!.lat(),
           lng: place.geometry!.location!.lng(),
           rating: place.rating,
-          userVisited: false, // This would be cross-referenced with your DB
+          userVisited: false,
         }));
         setSearchResults(strictlyVisibleWineries);
       }
@@ -100,11 +105,11 @@ function MapContent({ userId }: WineryMapProps) {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2"> <Search className="w-5 h-5" /> <span>Discover Wineries</span> </CardTitle>
-          <CardDescription> Search for wineries or explore dynamically as you move the map </CardDescription>
-        </CardHeader>
-        <CardContent>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2"> <Search className="w-5 h-5" /> <span>Discover Wineries</span> </CardTitle>
+            <CardDescription> Search for wineries or explore dynamically as you move the map </CardDescription>
+          </CardHeader>
+          <CardContent>
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-4">
                 <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
@@ -128,8 +133,8 @@ function MapContent({ userId }: WineryMapProps) {
                 {searchResults.length > 0 && <Button variant="ghost" size="sm" onClick={clearSearchResults}> <RotateCcw className="w-4 h-4 mr-1" /> Clear Discovered </Button>}
             </div>
             </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
           <Card>
@@ -145,7 +150,11 @@ function MapContent({ userId }: WineryMapProps) {
                 >
                   {searchResults.map((winery) => (
                     <AdvancedMarker key={winery.id} position={{ lat: winery.lat, lng: winery.lng }} onClick={() => setSelectedWinery(winery)}>
-                      <Pin background={winery.userVisited ? '#10B981' : '#3B82F6'} borderColor={winery.userVisited ? '#059669' : '#2563EB'} glyphColor={'#fff'} />
+                      <Pin 
+                        background={winery.userVisited ? '#10B981' : '#3B82F6'}
+                        borderColor={winery.userVisited ? '#059669' : '#2563EB'}
+                        glyphColor={'#fff'}
+                      />
                     </AdvancedMarker>
                   ))}
                 </Map>
@@ -192,9 +201,10 @@ function MapContent({ userId }: WineryMapProps) {
   );
 }
 
-// Wrapper component to provide the API key
+// Wrapper component to provide the API key and load the libraries
 export default function WineryMapWrapper({ userId }: WineryMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
   if (!apiKey) {
       return (
         <Alert variant="destructive">
@@ -203,6 +213,7 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
         </Alert>
       )
   }
+
   return (
     <APIProvider apiKey={apiKey} libraries={['places', 'marker']}>
         <MapContent userId={userId} />
