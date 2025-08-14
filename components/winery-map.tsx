@@ -71,9 +71,6 @@ function MapContent({ userId }: WineryMapProps) {
 
     placesService.textSearch(request, (results, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            // CRITICAL FIX: Removed the restrictive .filter() call.
-            // Google's search with 'bounds' already prioritizes the visible area.
-            // This ensures we display all relevant results returned by the API.
             const allWineries = results.map(place => ({
                 id: place.place_id!,
                 placeId: place.place_id!,
@@ -206,6 +203,11 @@ function MapContent({ userId }: WineryMapProps) {
 // Wrapper component to provide the API key
 export default function WineryMapWrapper({ userId }: WineryMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  // ** HYDRATION FIX **
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   if (!apiKey) {
       return (
@@ -214,6 +216,11 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
             <AlertDescription>Google Maps API key is not configured.</AlertDescription>
         </Alert>
       )
+  }
+
+  // Only render the APIProvider once the component has mounted on the client
+  if (!mounted) {
+    return null;
   }
 
   return (
