@@ -61,12 +61,11 @@ function MapContent({ userId }: WineryMapProps) {
       searchBounds = new google.maps.LatLngBounds(boundsForSearch);
     } else { return; }
     
-    // ** FINAL FIX 1: Use `bounds` instead of `locationBias` **
-    // This tells the API to strictly search within the visible map area.
+    // ** FINAL FIX: Reverted `bounds` back to the correct `locationBias` property **
     const request = {
       textQuery: "winery",
       fields: ["displayName", "location", "formattedAddress", "rating", "id"],
-      bounds: searchBounds, 
+      locationBias: searchBounds, 
     };
     
     const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
@@ -82,8 +81,6 @@ function MapContent({ userId }: WineryMapProps) {
         rating: place.rating,
         userVisited: false,
       }));
-      // ** FINAL FIX 2: Replace the results array on every search **
-      // This ensures the list always reflects the current map view.
       setSearchResults(allWineries);
     } else {
       setSearchResults([]);
