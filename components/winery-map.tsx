@@ -28,7 +28,8 @@ function MapContent({ userId }: WineryMapProps) {
   const map = useMap();
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
-  const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
+  // DEPRECATED PlacesService is no longer needed
+  // const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
 
   const [searchResults, setSearchResults] = useState<Winery[]>([]);
@@ -39,12 +40,12 @@ function MapContent({ userId }: WineryMapProps) {
 
   useEffect(() => {
     if (!map || !places || !geocoding) return;
-    setPlacesService(new places.PlacesService(map));
     setGeocoder(new geocoding.Geocoder());
   }, [map, places, geocoding]);
 
   const searchWineries = useCallback(async (location?: string, boundsForSearch?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral | null) => {
-    if (!placesService || !geocoder) return;
+    // We no longer need the placesService to be initialized
+    if (!geocoder || !places) return;
 
     let searchBounds: google.maps.LatLngBounds;
 
@@ -54,37 +55,42 @@ function MapContent({ userId }: WineryMapProps) {
             if (results && results.length > 0 && results[0].geometry.viewport) {
                 searchBounds = results[0].geometry.viewport;
                 if (map) map.fitBounds(searchBounds);
-            } else {
-                return;
-            }
+            } else { return; }
         } catch (e) {
             console.error("Geocoding failed:", e);
             return;
         }
     } else if (boundsForSearch) {
         searchBounds = new google.maps.LatLngBounds(boundsForSearch);
+    } else { return; }
+    
+    // ** MODERN API FIX **
+    // Use the new Place.searchByText method
+    const request = {
+      textQuery: "winery",
+      fields: ["displayName", "location", "formattedAddress", "rating", "place_id"],
+      locationBias: searchBounds,
+    };
+    
+    const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
+
+    if (foundPlaces.length) {
+        const allWineries = foundPlaces.map(place => ({
+            id: place.id!,
+            placeId: place.id!,
+            name: place.displayName!,
+            address: place.formattedAddress!,
+            lat: place.location!.lat(),
+            lng: place.location!.lng(),
+            rating: place.rating,
+            userVisited: false,
+        }));
+        setSearchResults(allWineries);
     } else {
-        return;
+        setSearchResults([]);
     }
 
-    const request: google.maps.places.TextSearchRequest = { query: "winery", bounds: searchBounds };
-
-    placesService.textSearch(request, (results, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            const allWineries = results.map(place => ({
-                id: place.place_id!,
-                placeId: place.place_id!,
-                name: place.name!,
-                address: place.formatted_address!,
-                lat: place.geometry!.location!.lat(),
-                lng: place.geometry!.location!.lng(),
-                rating: place.rating,
-                userVisited: false,
-            }));
-            setSearchResults(allWineries);
-        }
-    });
-  }, [map, placesService, geocoder]);
+  }, [map, places, geocoder]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -204,7 +210,6 @@ function MapContent({ userId }: WineryMapProps) {
 export default function WineryMapWrapper({ userId }: WineryMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const [mounted, setMounted] = useState(false);
-  
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -220,7 +225,6 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
 
   // Only render the APIProvider once the component has mounted on the client
   if (!mounted) {
-    // Render a placeholder or nothing on the server and during initial client render
     return <div className="h-96 w-full lg:h-[600px] bg-gray-100 rounded-lg animate-pulse" />;
   }
 
