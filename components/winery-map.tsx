@@ -201,7 +201,7 @@ function MapContent({ userId }: WineryMapProps) {
 
 // Wrapper component to provide the API key
 export default function WineryMapWrapper({ userId }: WineryMapProps) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
       return (
