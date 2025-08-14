@@ -44,6 +44,9 @@ function MapContent({ userId }: WineryMapProps) {
   const searchWineries = useCallback(async (location?: string, boundsForSearch?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral | null) => {
     if (!geocoder || !places) return;
     
+    // ** ADDED LOGGING **
+    console.log("Searching with bounds:", boundsForSearch);
+
     let searchBounds: google.maps.LatLngBounds;
     
     if (location?.trim()) {
@@ -97,6 +100,8 @@ function MapContent({ userId }: WineryMapProps) {
     return () => clearTimeout(handler);
   }, [autoSearch, currentBounds, searchWineries]);
   
+  // ** NEW LOGIC **
+  // This function is now the primary trigger for the first search.
   const handleMapLoad = useCallback(() => {
     if (map && !initialSearchDone.current) {
       const bounds = map.getBounds();
@@ -168,7 +173,7 @@ function MapContent({ userId }: WineryMapProps) {
                   disableDefaultUI={true}
                   mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'ac7e853c8d70efc0fdd4c089'}
                   onBoundsChanged={(e) => setCurrentBounds(e.detail.bounds)}
-                  onTilesLoaded={handleMapLoad} // Use this for a reliable initial search
+                  onTilesLoaded={handleMapLoad} // ** NEW PROP **
                 >
                   {searchResults.map((winery: Winery) => (
                     <AdvancedMarker key={winery.id} position={{ lat: winery.lat, lng: winery.lng }} onClick={() => setSelectedWinery(winery)}>
