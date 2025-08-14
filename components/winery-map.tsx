@@ -61,18 +61,16 @@ function MapContent({ userId }: WineryMapProps) {
         searchBounds = new google.maps.LatLngBounds(boundsForSearch);
     } else { return; }
     
-    // ** FINAL API FIX **
-    // The field for Place ID in the new API is `id`, not `place_id`.
     const request = {
       textQuery: "winery",
-      fields: ["displayName", "location", "formattedAddress", "rating", "id"], // Corrected "place_id" to "id"
+      fields: ["displayName", "location", "formattedAddress", "rating", "id"],
       locationBias: searchBounds,
     };
     
     const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
 
     if (foundPlaces.length) {
-        const allWineries = foundPlaces.map(place => ({
+        const newlyFoundWineries = foundPlaces.map(place => ({
             id: place.id!,
             placeId: place.id!,
             name: place.displayName!,
@@ -82,9 +80,14 @@ function MapContent({ userId }: WineryMapProps) {
             rating: place.rating,
             userVisited: false,
         }));
-        setSearchResults(allWineries);
-    } else {
-        setSearchResults([]);
+
+        // ** FINAL FIX: Accumulate unique results **
+        // This merges newly found wineries with existing ones, preventing duplicates.
+        setSearchResults(prevResults => {
+            const existingIds = new Set(prevResults.map(w => w.id));
+            const uniqueNewWineries = newlyFoundWineries.filter(w => !existingIds.has(w.id));
+            return [...prevResults, ...uniqueNewWineries];
+        });
     }
 
   }, [map, places, geocoder]);
@@ -100,7 +103,7 @@ function MapContent({ userId }: WineryMapProps) {
   
   const handleVisitUpdate = async (winery: Winery, visitData: any) => { /* ... */ };
   const handleDeleteVisit = async (winery: Winery, visitId: string) => { /* ... */ };
-  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) searchWineries(searchLocation.trim(), null); };
+  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { setSearchResults([]); searchWineries(searchLocation.trim(), null); }};
   const handleSearchInCurrentArea = () => searchWineries(undefined, currentBounds);
   const clearSearchResults = () => setSearchResults([]);
   
