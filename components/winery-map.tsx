@@ -28,8 +28,6 @@ function MapContent({ userId }: WineryMapProps) {
   const map = useMap();
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
-  // DEPRECATED PlacesService is no longer needed
-  // const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
 
   const [searchResults, setSearchResults] = useState<Winery[]>([]);
@@ -44,7 +42,6 @@ function MapContent({ userId }: WineryMapProps) {
   }, [map, places, geocoding]);
 
   const searchWineries = useCallback(async (location?: string, boundsForSearch?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral | null) => {
-    // We no longer need the placesService to be initialized
     if (!geocoder || !places) return;
 
     let searchBounds: google.maps.LatLngBounds;
@@ -64,11 +61,11 @@ function MapContent({ userId }: WineryMapProps) {
         searchBounds = new google.maps.LatLngBounds(boundsForSearch);
     } else { return; }
     
-    // ** MODERN API FIX **
-    // Use the new Place.searchByText method
+    // ** FINAL API FIX **
+    // The field for Place ID in the new API is `id`, not `place_id`.
     const request = {
       textQuery: "winery",
-      fields: ["displayName", "location", "formattedAddress", "rating", "place_id"],
+      fields: ["displayName", "location", "formattedAddress", "rating", "id"], // Corrected "place_id" to "id"
       locationBias: searchBounds,
     };
     
