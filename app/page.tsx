@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic'
 // Dynamically import the map component with SSR turned off
 const WineryMap = dynamic(() => import('@/components/winery-map'), { 
   ssr: false,
+  // Provide a loading component to show while the map is loading
   loading: () => <div className="h-96 w-full lg:h-[600px] bg-gray-100 rounded-lg animate-pulse" />
 });
 
@@ -44,7 +45,7 @@ export default async function HomePage() {
           </p>
         </div>
 
-        {/* Suspense is no longer strictly needed here since dynamic import has a loading state, but it doesn't hurt */}
+        {/* The Suspense component is good practice, but the loading state in dynamic() is key */}
         <Suspense fallback={<div className="h-96 bg-gray-100 rounded-lg animate-pulse" />}>
           <WineryMap userId={user.id} />
         </Suspense>

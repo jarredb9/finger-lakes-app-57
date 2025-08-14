@@ -27,7 +27,9 @@ interface WineryMapProps { userId: string; }
 function MapContent({ userId }: WineryMapProps) {
   const map = useMap();
   const places = useMapsLibrary('places');
+  const geocoding = useMapsLibrary('geocoding'); // Load geocoding library
   const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
+  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
 
   const [searchResults, setSearchResults] = useState<Winery[]>([]);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
@@ -36,24 +38,24 @@ function MapContent({ userId }: WineryMapProps) {
   const [autoSearch, setAutoSearch] = useState(true);
 
   useEffect(() => {
-    if (!map || !places) return;
+    if (!map || !places || !geocoding) return;
     setPlacesService(new places.PlacesService(map));
-  }, [map, places]);
+    setGeocoder(new geocoding.Geocoder());
+  }, [map, places, geocoding]);
 
   const searchWineries = useCallback(async (location?: string, boundsForSearch?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral | null) => {
-    if (!placesService || !google?.maps) return;
+    if (!placesService || !geocoder) return;
 
     let searchBounds: google.maps.LatLngBounds;
 
     if (location?.trim()) {
-        const geocoder = new google.maps.Geocoder();
         try {
             const { results } = await geocoder.geocode({ address: location });
             if (results && results.length > 0 && results[0].geometry.viewport) {
                 searchBounds = results[0].geometry.viewport;
                 if (map) map.fitBounds(searchBounds);
             } else {
-                return; // No results for geocoding
+                return; 
             }
         } catch (e) {
             console.error("Geocoding failed:", e);
@@ -62,10 +64,10 @@ function MapContent({ userId }: WineryMapProps) {
     } else if (boundsForSearch) {
         searchBounds = new google.maps.LatLngBounds(boundsForSearch);
     } else {
-        return; // No location or bounds provided
+        return;
     }
 
-    const request: google.maps.places.TextSearchRequest = { query: "winery", locationBias: searchBounds };
+    const request: google.maps.places.TextSearchRequest = { query: "winery", bounds: searchBounds };
 
     placesService.textSearch(request, (results, status) => {
         if (status === google.maps.places.PlacesServiceStatus.OK && results) {
@@ -84,14 +86,14 @@ function MapContent({ userId }: WineryMapProps) {
             setSearchResults(strictlyVisibleWineries);
         }
     });
-  }, [map, placesService]);
+  }, [map, placesService, geocoder]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
       if (autoSearch && currentBounds) {
         searchWineries(undefined, currentBounds);
       }
-    }, 1500); // Debounce map movements
+    }, 1500);
     return () => clearTimeout(handler);
   }, [autoSearch, currentBounds, searchWineries]);
   
@@ -112,7 +114,7 @@ function MapContent({ userId }: WineryMapProps) {
             <div className="space-y-4">
               <div className="flex flex-col sm:flex-row gap-4">
                 <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
-                  <Input placeholder="Enter city, region, or address" value={searchLocation} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchLocation(e.target.value)} className="flex-1" />
+                  <Input placeholder="Enter city, region, or address" value={searchLocation} onChange={(e) => setSearchLocation(e.target.value)} className="flex-1" />
                   <Button type="submit" disabled={!searchLocation.trim()}>Search</Button>
                 </form>
                 <Button variant="outline" onClick={handleSearchInCurrentArea} disabled={!currentBounds} className="flex items-center space-x-2 bg-transparent" > <MapPin className="w-4 h-4" /> <span>Search Current Area</span> </Button>
@@ -125,7 +127,7 @@ function MapContent({ userId }: WineryMapProps) {
               </div>
                <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Badge className="bg-blue-100 text-blue-800">
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
                     {searchResults.length} {searchResults.length === 1 ? 'winery' : 'wineries'} in view
                   </Badge>
                 </div>
@@ -144,10 +146,10 @@ function MapContent({ userId }: WineryMapProps) {
                   defaultZoom={10}
                   gestureHandling={'greedy'}
                   disableDefaultUI={true}
-                  mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'ac7e853c8d70efc0fdd4c089'}
-                  onBoundsChanged={(e: CustomEvent<{ bounds: google.maps.LatLngBoundsLiteral }>) => setCurrentBounds(e.detail.bounds)}
+                  mapId={process.env.NEXT_PUBLIC_Google Maps_MAP_ID}
+                  onBoundsChanged={(e) => setCurrentBounds(e.detail.bounds)}
                 >
-                  {searchResults.map((winery: Winery) => (
+                  {searchResults.map((winery) => (
                     <AdvancedMarker key={winery.id} position={{ lat: winery.lat, lng: winery.lng }} onClick={() => setSelectedWinery(winery)}>
                       <Pin 
                         background={winery.userVisited ? '#10B981' : '#3B82F6'}
@@ -178,11 +180,11 @@ function MapContent({ userId }: WineryMapProps) {
           {searchResults.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center justify-between"> <span>Discovered List</span> <Badge>{searchResults.length}</Badge> </CardTitle>
+                <CardTitle className="flex items-center justify-between"> <span>Discovered List</span> <Badge variant="secondary">{searchResults.length}</Badge> </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 max-h-[450px] overflow-y-auto">
-                  {searchResults.map((winery: Winery) => (
+                  {searchResults.map((winery) => (
                     <div key={winery.id} className="p-2 border rounded cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => setSelectedWinery(winery)} >
                       <div className="font-medium text-sm">{winery.name}</div>
                       <div className="text-xs text-gray-600">{winery.address}</div>
