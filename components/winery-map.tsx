@@ -55,7 +55,7 @@ function MapContent({ userId }: WineryMapProps) {
                 searchBounds = results[0].geometry.viewport;
                 if (map) map.fitBounds(searchBounds);
             } else {
-                return; 
+                return;
             }
         } catch (e) {
             console.error("Geocoding failed:", e);
@@ -203,8 +203,8 @@ function MapContent({ userId }: WineryMapProps) {
 // Wrapper component to provide the API key
 export default function WineryMapWrapper({ userId }: WineryMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  // ** HYDRATION FIX **
   const [mounted, setMounted] = useState(false);
+  
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -220,7 +220,8 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
 
   // Only render the APIProvider once the component has mounted on the client
   if (!mounted) {
-    return null;
+    // Render a placeholder or nothing on the server and during initial client render
+    return <div className="h-96 w-full lg:h-[600px] bg-gray-100 rounded-lg animate-pulse" />;
   }
 
   return (
