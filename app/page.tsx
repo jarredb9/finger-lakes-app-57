@@ -45,7 +45,6 @@ export default async function HomePage() {
           </p>
         </div>
 
-        {/* The Suspense component is good practice, but the loading state in dynamic() is key */}
         <Suspense fallback={<div className="h-96 bg-gray-100 rounded-lg animate-pulse" />}>
           <WineryMap userId={user.id} />
         </Suspense>
