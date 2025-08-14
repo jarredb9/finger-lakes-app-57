@@ -1,15 +1,19 @@
-import { redirect } from "next/navigation";
-import { getUser } from "@/lib/auth";
-import { Suspense } from "react";
-import dynamic from 'next/dynamic';
+import { redirect } from "next/navigation"
+import { getUser } from "@/lib/auth"
+import { Suspense } from "react"
+import dynamic from 'next/dynamic'
 
-const WineryMap = dynamic(() => import('@/components/winery-map'), { ssr: false });
+// Dynamically import the map component with SSR turned off
+const WineryMap = dynamic(() => import('@/components/winery-map'), { 
+  ssr: false,
+  loading: () => <div className="h-96 w-full lg:h-[600px] bg-gray-100 rounded-lg animate-pulse" />
+});
 
 export default async function HomePage() {
-  const user = await getUser();
+  const user = await getUser()
 
   if (!user) {
-    redirect("/login");
+    redirect("/login")
   }
 
   return (
@@ -40,10 +44,11 @@ export default async function HomePage() {
           </p>
         </div>
 
+        {/* Suspense is no longer strictly needed here since dynamic import has a loading state, but it doesn't hurt */}
         <Suspense fallback={<div className="h-96 bg-gray-100 rounded-lg animate-pulse" />}>
           <WineryMap userId={user.id} />
         </Suspense>
       </main>
     </div>
-  );
+  )
 }

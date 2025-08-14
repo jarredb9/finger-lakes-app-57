@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState, useCallback, useRef } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -17,16 +17,6 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
-
-// Debounce hook - no longer needed, can be removed.
-// function useDebounce<T>(value: T, delay: number): T {
-//   const [debouncedValue, setDebouncedValue] = useState<T>(value);
-//   useEffect(() => {
-//     const handler = setTimeout(() => setDebouncedValue(value), delay);
-//     return () => clearTimeout(handler);
-//   }, [value, delay]);
-//   return debouncedValue;
-// }
 
 // Interfaces
 interface Visit { id?: string; visitDate: string; userReview: string; createdAt?: string; rating?: number; photos?: string[]; }
@@ -45,65 +35,66 @@ function MapContent({ userId }: WineryMapProps) {
   const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBoundsLiteral | null>(null);
   const [autoSearch, setAutoSearch] = useState(true);
 
-  // Debounce is removed for a more direct approach
-  // const debouncedBounds = useDebounce(currentBounds, 1500);
-
   useEffect(() => {
     if (!map || !places) return;
     setPlacesService(new places.PlacesService(map));
   }, [map, places]);
 
-  const searchWineries = useCallback(async (location?: string, bounds?: google.maps.LatLngBoundsLiteral | null) => {
+  const searchWineries = useCallback(async (location?: string, boundsForSearch?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral | null) => {
     if (!placesService || !google?.maps) return;
 
-    let searchBounds: google.maps.LatLngBounds | undefined;
-    
+    let searchBounds: google.maps.LatLngBounds;
+
     if (location?.trim()) {
-      const geocoder = new google.maps.Geocoder();
-      try {
-        const { results } = await geocoder.geocode({ address: location });
-        if (results && results.length > 0) {
-          searchBounds = results[0].geometry.viewport || results[0].geometry.bounds;
-          if (searchBounds && map) map.fitBounds(searchBounds);
+        const geocoder = new google.maps.Geocoder();
+        try {
+            const { results } = await geocoder.geocode({ address: location });
+            if (results && results.length > 0 && results[0].geometry.viewport) {
+                searchBounds = results[0].geometry.viewport;
+                if (map) map.fitBounds(searchBounds);
+            } else {
+                return; // No results for geocoding
+            }
+        } catch (e) {
+            console.error("Geocoding failed:", e);
+            return;
         }
-      } catch (e) { console.error("Geocoding failed:", e); return; }
-    } else if (bounds) {
-      searchBounds = new google.maps.LatLngBounds(bounds);
+    } else if (boundsForSearch) {
+        searchBounds = new google.maps.LatLngBounds(boundsForSearch);
+    } else {
+        return; // No location or bounds provided
     }
 
-    if (!searchBounds) return;
-
     const request: google.maps.places.TextSearchRequest = { query: "winery", locationBias: searchBounds };
-    
+
     placesService.textSearch(request, (results, status) => {
-      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-        // This is the critical fix. We ensure searchBounds is a LatLngBounds object
-        // before calling .contains() on it.
-        const mapBounds = new google.maps.LatLngBounds(searchBounds);
-        const strictlyVisibleWineries = results.filter(place => 
-          place.geometry?.location && mapBounds.contains(place.geometry.location)
-        ).map(place => ({
-          id: place.place_id!,
-          placeId: place.place_id!,
-          name: place.name!,
-          address: place.formatted_address!,
-          lat: place.geometry!.location!.lat(),
-          lng: place.geometry!.location!.lng(),
-          rating: place.rating,
-          userVisited: false, 
-        }));
-        setSearchResults(strictlyVisibleWineries);
-      }
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            const strictlyVisibleWineries = results.filter(place =>
+                place.geometry?.location && searchBounds.contains(place.geometry.location)
+            ).map(place => ({
+                id: place.place_id!,
+                placeId: place.place_id!,
+                name: place.name!,
+                address: place.formatted_address!,
+                lat: place.geometry!.location!.lat(),
+                lng: place.geometry!.location!.lng(),
+                rating: place.rating,
+                userVisited: false,
+            }));
+            setSearchResults(strictlyVisibleWineries);
+        }
     });
   }, [map, placesService]);
 
-  // Updated useEffect to remove debounce and simplify logic
   useEffect(() => {
-    if (autoSearch && currentBounds) {
-      searchWineries(undefined, currentBounds);
-    }
+    const handler = setTimeout(() => {
+      if (autoSearch && currentBounds) {
+        searchWineries(undefined, currentBounds);
+      }
+    }, 1500); // Debounce map movements
+    return () => clearTimeout(handler);
   }, [autoSearch, currentBounds, searchWineries]);
-
+  
   const handleVisitUpdate = async (winery: Winery, visitData: any) => { /* ... */ };
   const handleDeleteVisit = async (winery: Winery, visitId: string) => { /* ... */ };
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) searchWineries(searchLocation.trim(), null); };
@@ -223,7 +214,7 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
   }
 
   return (
-    <APIProvider apiKey={apiKey} libraries={['places', 'marker']}>
+    <APIProvider apiKey={apiKey} libraries={['places', 'marker', 'geocoding']}>
         <MapContent userId={userId} />
     </APIProvider>
   )
