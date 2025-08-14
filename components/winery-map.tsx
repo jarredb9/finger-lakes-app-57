@@ -173,8 +173,15 @@ export default function WineryMap({ userId }: WineryMapProps) {
       })
       const wineryResults = (await Promise.all(wineryPromises)).filter((w): w is Winery => w !== null)
       
-      setSearchResults(wineryResults);
-      
+      const strictlyVisibleWineries = wineryResults.filter(winery => {
+      if (searchBounds && winery.lat && winery.lng) {
+          return searchBounds.contains({ lat: winery.lat, lng: winery.lng });
+      }
+      return false;
+      });
+
+      setSearchResults(strictlyVisibleWineries);
+
       setShowSearchResults(true)
       if (!isAutoSearch) setSearchCount((p) => p + 1)
     } catch (error) {
