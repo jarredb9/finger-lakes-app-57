@@ -70,7 +70,7 @@ function MapContent({ userId }: WineryMapProps) {
     const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
 
     if (foundPlaces.length) {
-        const newlyFoundWineries = foundPlaces.map(place => ({
+        const allWineries = foundPlaces.map(place => ({
             id: place.id!,
             placeId: place.id!,
             name: place.displayName!,
@@ -81,30 +81,42 @@ function MapContent({ userId }: WineryMapProps) {
             userVisited: false,
         }));
 
-        // ** FINAL FIX: Accumulate unique results **
-        // This merges newly found wineries with existing ones, preventing duplicates.
-        setSearchResults(prevResults => {
-            const existingIds = new Set(prevResults.map(w => w.id));
-            const uniqueNewWineries = newlyFoundWineries.filter(w => !existingIds.has(w.id));
-            return [...prevResults, ...uniqueNewWineries];
-        });
+        // ** FINAL LOGIC FIX: Replace results instead of accumulating **
+        // This ensures the list always reflects the current map view.
+        setSearchResults(allWineries);
+    } else {
+        setSearchResults([]);
     }
 
   }, [map, places, geocoder]);
 
+  // This useEffect now triggers a clean refresh on every pan/zoom
   useEffect(() => {
     const handler = setTimeout(() => {
       if (autoSearch && currentBounds) {
         searchWineries(undefined, currentBounds);
       }
-    }, 1500); // Debounce map movements
+    }, 1500);
     return () => clearTimeout(handler);
   }, [autoSearch, currentBounds, searchWineries]);
   
   const handleVisitUpdate = async (winery: Winery, visitData: any) => { /* ... */ };
   const handleDeleteVisit = async (winery: Winery, visitId: string) => { /* ... */ };
-  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { setSearchResults([]); searchWineries(searchLocation.trim(), null); }};
-  const handleSearchInCurrentArea = () => searchWineries(undefined, currentBounds);
+  
+  // A manual search should also clear old results first
+  const handleSearchSubmit = (e: React.FormEvent) => { 
+    e.preventDefault(); 
+    if (searchLocation.trim()) { 
+      setSearchResults([]); // Clear previous results before searching
+      searchWineries(searchLocation.trim(), null); 
+    }
+  };
+
+  const handleSearchInCurrentArea = () => {
+    setSearchResults([]); // Clear previous results before searching
+    searchWineries(undefined, currentBounds);
+  };
+  
   const clearSearchResults = () => setSearchResults([]);
   
   return (
