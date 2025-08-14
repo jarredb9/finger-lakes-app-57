@@ -21,15 +21,6 @@ import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 import { useToast } from "@/hooks/use-toast"
 
-// A simple component to render a pin icon in the UI (e.g., in the legend)
-const LegendPin = ({ color, borderColor }: { color: string, borderColor: string }) => (
-    <div
-        style={{ backgroundColor: color, border: `2px solid ${borderColor}` }}
-        className="w-4 h-4 rounded-full"
-    />
-);
-
-
 // Interfaces
 interface Visit {
     id: string;
@@ -69,10 +60,12 @@ function MapContent({ userId }: WineryMapProps) {
   const [searchLocation, setSearchLocation] = useState("Finger Lakes, NY");
   const [autoSearch, setAutoSearch] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
-  const [hitApiLimit, setHitApiLimit] = useState(false); // State to track API limit
+  const [hitApiLimit, setHitApiLimit] = useState(false);
   const [allUserVisits, setAllUserVisits] = useState<Visit[]>([]);
-  const initialLoadFired = useRef(false);
   const { toast } = useToast();
+  
+  // A ref to track if the very first programmatic search has been done
+  const initialSearchFired = useRef(false);
 
   useEffect(() => {
     if (places && geocoding) {
@@ -96,104 +89,118 @@ function MapContent({ userId }: WineryMapProps) {
     fetchUserVisits();
   }, [fetchUserVisits]);
 
-  const getVisitedWineryIds = () => {
+  const getVisitedWineryIds = useCallback(() => {
     return new Set(allUserVisits.map(v => v.winery_id));
-  };
+  }, [allUserVisits]);
   
-  const searchWineries = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
+  const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
     if (!places || !geocoder) return;
 
     setIsSearching(true);
-    setHitApiLimit(false); // Reset limit warning
-    setSearchResults([]); // Always clear results before a new search
+    setHitApiLimit(false);
+    setSearchResults([]); // **CRITICAL FIX**: Clear previous results immediately
 
     let searchBounds: google.maps.LatLngBounds;
 
     if (locationText) {
-      const { results } = await geocoder.geocode({ address: locationText });
-      if (results && results.length > 0 && results[0].geometry.viewport) {
-        searchBounds = results[0].geometry.viewport;
-        map?.fitBounds(searchBounds);
-      } else {
-        toast({ variant: "destructive", description: "Could not find that location." });
+        try {
+            const { results } = await geocoder.geocode({ address: locationText });
+            if (results && results.length > 0 && results[0].geometry.viewport) {
+                searchBounds = results[0].geometry.viewport;
+                map?.fitBounds(searchBounds);
+            } else {
+                toast({ variant: "destructive", description: "Could not find that location." });
+                setIsSearching(false);
+                return;
+            }
+        } catch (error) {
+            console.error("Geocoding failed:", error);
+            setIsSearching(false);
+            return;
+        }
+    } else if (bounds) {
+        searchBounds = new google.maps.LatLngBounds(bounds);
+    } else {
         setIsSearching(false);
         return;
-      }
-    } else if (bounds) {
-      searchBounds = new google.maps.LatLngBounds(bounds);
-    } else {
-      setIsSearching(false);
-      return;
     }
 
     const request = {
-      textQuery: "winery",
-      fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"],
-      locationBias: searchBounds,
+        textQuery: "winery",
+        fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"],
+        locationBias: searchBounds,
     };
 
     try {
-      const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-      
-      // Check if the API returned the maximum number of results
-      if (foundPlaces.length === 20) {
-        setHitApiLimit(true);
-      }
-
-      const visitedIds = getVisitedWineryIds();
-      const wineries = foundPlaces.map(place => ({
-        id: place.id!,
-        name: place.displayName!,
-        address: place.formattedAddress!,
-        lat: place.location!.lat(),
-        lng: place.location!.lng(),
-        rating: place.rating,
-        website: place.websiteURI,
-        phone: place.nationalPhoneNumber,
-        userVisited: visitedIds.has(place.id!),
-      }));
-
-      setSearchResults(wineries);
-    } catch (error) {
-      console.error("Google Places search error:", error);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [map, places, geocoder, allUserVisits, toast]);
-  
-  // Effect for handling map idle event (user stops moving the map)
-  useEffect(() => {
-    if (!map) return;
-
-    const idleListener = map.addListener('idle', () => {
-        if (!autoSearch) return;
-
-        if (!initialLoadFired.current) {
-            searchWineries("Finger Lakes, NY");
-            initialLoadFired.current = true;
-        } else {
-            const bounds = map.getBounds();
-            if (bounds) {
-                searchWineries(undefined, bounds);
-            }
+        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
+        
+        if (foundPlaces.length === 20) {
+            setHitApiLimit(true);
         }
-    });
 
-    return () => google.maps.event.removeListener(idleListener);
-  }, [map, autoSearch, searchWineries]);
+        const visitedIds = getVisitedWineryIds();
+        const wineries = foundPlaces.map(place => ({
+            id: place.id!,
+            name: place.displayName!,
+            address: place.formattedAddress!,
+            lat: place.location!.lat(),
+            lng: place.location!.lng(),
+            rating: place.rating,
+            website: place.websiteURI,
+            phone: place.nationalPhoneNumber,
+            userVisited: visitedIds.has(place.id!),
+        }));
+
+        setSearchResults(wineries);
+    } catch (error) {
+        console.error("Google Places search error:", error);
+    } finally {
+        setIsSearching(false);
+    }
+}, [map, places, geocoder, getVisitedWineryIds, toast]);
+
+  // This robust useEffect handles all map-based searches.
+  useEffect(() => {
+    if (!map || !geocoder) return;
+  
+    // Define the idle handler inside the effect to avoid stale closures.
+    const handleIdle = () => {
+      if (!autoSearch || !initialSearchFired.current) {
+        return;
+      }
+      const bounds = map.getBounds();
+      if (bounds) {
+        executeSearch(undefined, bounds);
+      }
+    };
+  
+    // Add the listener.
+    const idleListener = map.addListener('idle', handleIdle);
+  
+    // **CRITICAL FIX**: Trigger the very first search programmatically.
+    if (!initialSearchFired.current) {
+      executeSearch("Finger Lakes, NY");
+      initialSearchFired.current = true;
+    }
+  
+    // Cleanup function to remove the listener.
+    return () => {
+      google.maps.event.removeListener(idleListener);
+    };
+  }, [map, geocoder, autoSearch, executeSearch]);
 
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchLocation.trim()) {
-      searchWineries(searchLocation.trim());
+      executeSearch(searchLocation.trim());
     }
   };
 
   const handleManualSearchArea = () => {
     const bounds = map?.getBounds();
     if (bounds) {
-      searchWineries(undefined, bounds);
+      executeSearch(undefined, bounds);
     }
   };
 
@@ -217,8 +224,8 @@ function MapContent({ userId }: WineryMapProps) {
 
     if (response.ok) {
       toast({ description: "Visit saved successfully." });
-      await fetchUserVisits(); // Refresh all visits
-      setSelectedWinery(null); // Close modal
+      await fetchUserVisits();
+      setSelectedWinery(null);
     } else {
       toast({ variant: "destructive", description: "Failed to save visit." });
     }
@@ -229,7 +236,7 @@ function MapContent({ userId }: WineryMapProps) {
 
     if (response.ok) {
       toast({ description: "Visit deleted successfully." });
-      await fetchUserVisits(); // Refresh all visits
+      await fetchUserVisits();
       setSelectedWinery(w => w ? {...w, visits: w.visits?.filter(v => v.id !== visitId) } : null);
     } else {
       toast({ variant: "destructive", description: "Failed to delete visit." });
@@ -304,11 +311,11 @@ function MapContent({ userId }: WineryMapProps) {
             <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
             <CardContent className="space-y-2">
                 <div className="flex items-center gap-2">
-                    <LegendPin color="#10B981" borderColor="#059669" />
+                    <div style={{ backgroundColor: '#10B981', border: '2px solid #059669' }} className="w-4 h-4 rounded-full" />
                     <span className="text-sm">Visited</span>
                 </div>
                 <div className="flex items-center gap-2">
-                    <LegendPin color="#3B82F6" borderColor="#2563EB" />
+                    <div style={{ backgroundColor: '#3B82F6', border: '2px solid #2563EB' }} className="w-4 h-4 rounded-full" />
                     <span className="text-sm">Discovered</span>
                 </div>
             </CardContent>
