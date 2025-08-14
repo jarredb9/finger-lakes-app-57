@@ -1,13 +1,15 @@
-import { redirect } from "next/navigation"
-import { getUser } from "@/lib/auth"
-import WineryMap from "@/components/winery-map"
-import { Suspense } from "react"
+import { redirect } from "next/navigation";
+import { getUser } from "@/lib/auth";
+import { Suspense } from "react";
+import dynamic from 'next/dynamic';
+
+const WineryMap = dynamic(() => import('@/components/winery-map'), { ssr: false });
 
 export default async function HomePage() {
-  const user = await getUser()
+  const user = await getUser();
 
   if (!user) {
-    redirect("/login")
+    redirect("/login");
   }
 
   return (
@@ -43,5 +45,5 @@ export default async function HomePage() {
         </Suspense>
       </main>
     </div>
-  )
+  );
 }

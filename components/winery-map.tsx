@@ -18,15 +18,15 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 
-// Debounce hook
-function useDebounce<T>(value: T, delay: number): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-  useEffect(() => {
-    const handler = setTimeout(() => setDebouncedValue(value), delay);
-    return () => clearTimeout(handler);
-  }, [value, delay]);
-  return debouncedValue;
-}
+// Debounce hook - no longer needed, can be removed.
+// function useDebounce<T>(value: T, delay: number): T {
+//   const [debouncedValue, setDebouncedValue] = useState<T>(value);
+//   useEffect(() => {
+//     const handler = setTimeout(() => setDebouncedValue(value), delay);
+//     return () => clearTimeout(handler);
+//   }, [value, delay]);
+//   return debouncedValue;
+// }
 
 // Interfaces
 interface Visit { id?: string; visitDate: string; userReview: string; createdAt?: string; rating?: number; photos?: string[]; }
@@ -42,21 +42,23 @@ function MapContent({ userId }: WineryMapProps) {
   const [searchResults, setSearchResults] = useState<Winery[]>([]);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
-  const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBounds | null>(null);
+  const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBoundsLiteral | null>(null);
   const [autoSearch, setAutoSearch] = useState(true);
 
-  const debouncedBounds = useDebounce(currentBounds, 1500);
+  // Debounce is removed for a more direct approach
+  // const debouncedBounds = useDebounce(currentBounds, 1500);
 
   useEffect(() => {
     if (!map || !places) return;
     setPlacesService(new places.PlacesService(map));
   }, [map, places]);
 
-  const searchWineries = useCallback(async (location?: string, bounds?: google.maps.LatLngBounds | null) => {
-    if (!placesService) return;
+  const searchWineries = useCallback(async (location?: string, bounds?: google.maps.LatLngBoundsLiteral | null) => {
+    if (!placesService || !google?.maps) return;
+
+    let searchBounds: google.maps.LatLngBounds | undefined;
     
-    let searchBounds = bounds;
-    if (location?.trim() && google?.maps) {
+    if (location?.trim()) {
       const geocoder = new google.maps.Geocoder();
       try {
         const { results } = await geocoder.geocode({ address: location });
@@ -65,16 +67,21 @@ function MapContent({ userId }: WineryMapProps) {
           if (searchBounds && map) map.fitBounds(searchBounds);
         }
       } catch (e) { console.error("Geocoding failed:", e); return; }
+    } else if (bounds) {
+      searchBounds = new google.maps.LatLngBounds(bounds);
     }
 
     if (!searchBounds) return;
 
-    const request = { query: "winery", locationBias: searchBounds };
+    const request: google.maps.places.TextSearchRequest = { query: "winery", locationBias: searchBounds };
     
     placesService.textSearch(request, (results, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+        // This is the critical fix. We ensure searchBounds is a LatLngBounds object
+        // before calling .contains() on it.
+        const mapBounds = new google.maps.LatLngBounds(searchBounds);
         const strictlyVisibleWineries = results.filter(place => 
-          searchBounds && place.geometry?.location && searchBounds.contains(place.geometry.location)
+          place.geometry?.location && mapBounds.contains(place.geometry.location)
         ).map(place => ({
           id: place.place_id!,
           placeId: place.place_id!,
@@ -90,11 +97,12 @@ function MapContent({ userId }: WineryMapProps) {
     });
   }, [map, placesService]);
 
+  // Updated useEffect to remove debounce and simplify logic
   useEffect(() => {
-    if (autoSearch && debouncedBounds) {
-      searchWineries(undefined, debouncedBounds);
+    if (autoSearch && currentBounds) {
+      searchWineries(undefined, currentBounds);
     }
-  }, [autoSearch, debouncedBounds, searchWineries]);
+  }, [autoSearch, currentBounds, searchWineries]);
 
   const handleVisitUpdate = async (winery: Winery, visitData: any) => { /* ... */ };
   const handleDeleteVisit = async (winery: Winery, visitId: string) => { /* ... */ };
@@ -145,7 +153,7 @@ function MapContent({ userId }: WineryMapProps) {
                   defaultZoom={10}
                   gestureHandling={'greedy'}
                   disableDefaultUI={true}
-                  mapId={process.env.NEXT_PUBLIC_Google_Maps_MAP_ID || 'ac7e853c8d70efc0fdd4c089'}
+                  mapId={process.env.NEXT_PUBLIC_Google Maps_MAP_ID || 'ac7e853c8d70efc0fdd4c089'}
                   onBoundsChanged={e => setCurrentBounds(e.detail.bounds)}
                 >
                   {searchResults.map((winery) => (
