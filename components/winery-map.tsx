@@ -10,6 +10,7 @@ import {
   Search,
   MapPin,
   RotateCcw,
+  Loader2, // Added for loading spinner
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,10 +18,11 @@ import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
+import { useToast } from "@/hooks/use-toast"
 
 // Interfaces
 interface Visit { id?: string; visitDate: string; userReview: string; createdAt?: string; rating?: number; photos?: string[]; }
-interface Winery { id: string; name: string; address: string; lat: number; lng: number; phone?: string; website?: string; rating?: number; userVisited?: boolean; visits?: Visit[]; placeId?: string; }
+interface Winery { id: string; name:string; address: string; lat: number; lng: number; phone?: string; website?: string; rating?: number; userVisited?: boolean; visits?: Visit[]; placeId?: string; }
 interface WineryMapProps { userId: string; }
 
 // Main map content component
@@ -34,59 +36,106 @@ function MapContent({ userId }: WineryMapProps) {
   const [searchLocation, setSearchLocation] = useState("");
   const [currentBounds, setCurrentBounds] = useState<google.maps.LatLngBoundsLiteral | null>(null);
   const [autoSearch, setAutoSearch] = useState(true);
+  const [isSearching, setIsSearching] = useState(false); // New state for loading
+  const [visitedWineryIds, setVisitedWineryIds] = useState<Set<string>>(new Set()); // New state for visited wineries
   const initialSearchDone = useRef(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     if (!map || !places || !geocoding) return;
     setGeocoder(new geocoding.Geocoder());
   }, [map, places, geocoding]);
 
-  const searchWineries = useCallback(async (location?: string, boundsForSearch?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral | null) => {
-    if (!geocoder || !places) return;
-
-    let searchBounds: google.maps.LatLngBounds;
-    
-    if (location?.trim()) {
-      try {
-        const { results } = await geocoder.geocode({ address: location });
-        if (results && results.length > 0 && results[0].geometry.viewport) {
-          searchBounds = results[0].geometry.viewport;
-          if (map) map.fitBounds(searchBounds);
-        } else { return; }
-      } catch (e) {
-        console.error("Geocoding failed:", e);
-        return;
+  // Fetch user's visits to mark wineries as visited
+  const fetchUserVisits = useCallback(async () => {
+    try {
+      const response = await fetch('/api/visits');
+      if (response.ok) {
+        const visits = await response.json();
+        const visitedIds = new Set(visits.map((v: any) => v.winery_id));
+        setVisitedWineryIds(visitedIds);
       }
-    } else if (boundsForSearch) {
-      searchBounds = new google.maps.LatLngBounds(boundsForSearch);
-    } else { return; }
-    
-    // ** FINAL FIX: Reverted `bounds` back to the correct `locationBias` property **
-    const request = {
-      textQuery: "winery",
-      fields: ["displayName", "location", "formattedAddress", "rating", "id"],
-      locationBias: searchBounds, 
-    };
-    
-    const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-
-    if (foundPlaces.length) {
-      const allWineries = foundPlaces.map(place => ({
-        id: place.id!,
-        placeId: place.id!,
-        name: place.displayName!,
-        address: place.formattedAddress!,
-        lat: place.location!.lat(),
-        lng: place.location!.lng(),
-        rating: place.rating,
-        userVisited: false,
-      }));
-      setSearchResults(allWineries);
-    } else {
-      setSearchResults([]);
+    } catch (error) {
+      console.error("Failed to fetch user visits:", error);
     }
-  }, [map, places, geocoder]);
-  
+  }, []);
+
+  useEffect(() => {
+    fetchUserVisits();
+  }, [fetchUserVisits]);
+
+    const searchWineries = useCallback(async (location?: string, boundsForSearch?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral | null) => {
+        setIsSearching(true);
+        setSearchResults([]); // Clear previous results immediately
+
+        if (!geocoder || !places) {
+            setIsSearching(false);
+            return;
+        }
+
+        let searchBounds: google.maps.LatLngBounds;
+
+        if (location?.trim()) {
+            try {
+                const { results } = await geocoder.geocode({ address: location });
+                if (results && results.length > 0 && results[0].geometry.viewport) {
+                    searchBounds = results[0].geometry.viewport;
+                    if (map) map.fitBounds(searchBounds);
+                } else {
+                    setIsSearching(false);
+                    return;
+                }
+            } catch (e) {
+                console.error("Geocoding failed:", e);
+                setIsSearching(false);
+                return;
+            }
+        } else if (boundsForSearch) {
+            searchBounds = new google.maps.LatLngBounds(boundsForSearch);
+        } else {
+            setIsSearching(false);
+            return;
+        }
+
+        // Note: The Places API searchByText method returns a maximum of 20 results.
+        // For a more comprehensive search in a large area, you might need to implement
+        // a grid-based search strategy, performing multiple searches for smaller areas
+        // within the current map bounds. This is a more advanced implementation.
+        const request = {
+            textQuery: "winery",
+            fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"],
+            locationBias: searchBounds,
+        };
+
+        try {
+            const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
+
+            if (foundPlaces.length) {
+                const allWineries = foundPlaces.map(place => ({
+                    id: place.id!,
+                    placeId: place.id!,
+                    name: place.displayName!,
+                    address: place.formattedAddress!,
+                    lat: place.location!.lat(),
+                    lng: place.location!.lng(),
+                    rating: place.rating,
+                    website: place.websiteURI,
+                    phone: place.nationalPhoneNumber,
+                    userVisited: visitedWineryIds.has(place.id!),
+                    visits: [], // This can be populated when a winery is selected
+                }));
+                setSearchResults(allWineries);
+            } else {
+                setSearchResults([]);
+            }
+        } catch (error) {
+            console.error("Error searching for wineries:", error);
+            setSearchResults([]);
+        } finally {
+            setIsSearching(false);
+        }
+    }, [map, places, geocoder, visitedWineryIds]);
+
   // Debounced search for when the user stops panning the map
   useEffect(() => {
     if (!autoSearch || !currentBounds || !initialSearchDone.current) return;
@@ -112,7 +161,6 @@ function MapContent({ userId }: WineryMapProps) {
   const handleSearchSubmit = (e: React.FormEvent) => { 
     e.preventDefault(); 
     if (searchLocation.trim()) { 
-      setSearchResults([]); 
       searchWineries(searchLocation.trim(), null); 
     }
   };
@@ -123,6 +171,47 @@ function MapContent({ userId }: WineryMapProps) {
   
   const clearSearchResults = () => setSearchResults([]);
   
+  const handleVisitUpdate = async (winery: Winery, visitData: { visitDate: string; userReview: string; rating: number; photos: string[] }) => {
+    try {
+      const response = await fetch('/api/visits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          wineryId: winery.id,
+          visitDate: visitData.visitDate,
+          userReview: visitData.userReview,
+          rating: visitData.rating,
+          photos: visitData.photos,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to save visit');
+      
+      await fetchUserVisits(); // Re-fetch visits to update the map
+      toast({ title: "Success", description: "Your visit has been saved." });
+    } catch (error) {
+      console.error("Error saving visit:", error);
+      toast({ title: "Error", description: "There was a problem saving your visit.", variant: "destructive" });
+    }
+  };
+
+  const handleDeleteVisit = async (winery: Winery, visitId: string) => {
+    try {
+      const response = await fetch(`/api/visits/${visitId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) throw new Error('Failed to delete visit');
+
+      await fetchUserVisits(); // Re-fetch visits to update the map
+      toast({ title: "Success", description: "The visit has been deleted." });
+    } catch (error) {
+      console.error("Error deleting visit:", error);
+      toast({ title: "Error", description: "There was a problem deleting your visit.", variant: "destructive" });
+    }
+  };
+
+
   return (
     <div className="space-y-6">
       <Card>
@@ -135,9 +224,15 @@ function MapContent({ userId }: WineryMapProps) {
               <div className="flex flex-col sm:flex-row gap-4">
                 <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
                   <Input placeholder="Enter city, region, or address" value={searchLocation} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchLocation(e.target.value)} className="flex-1" />
-                  <Button type="submit" disabled={!searchLocation.trim()}>Search</Button>
+                  <Button type="submit" disabled={!searchLocation.trim() || isSearching}>
+                    {isSearching && !autoSearch ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                    Search
+                  </Button>
                 </form>
-                <Button variant="outline" onClick={handleSearchInCurrentArea} disabled={!currentBounds} className="flex items-center space-x-2 bg-transparent" > <MapPin className="w-4 h-4" /> <span>Search Current Area</span> </Button>
+                <Button variant="outline" onClick={handleSearchInCurrentArea} disabled={!currentBounds || isSearching} className="flex items-center space-x-2 bg-transparent" > 
+                  {isSearching && autoSearch ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MapPin className="w-4 h-4" />}
+                  <span>Search Current Area</span> 
+                </Button>
               </div>
               <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
                 <div className="flex items-center space-x-2">
@@ -159,7 +254,12 @@ function MapContent({ userId }: WineryMapProps) {
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
           <Card>
-            <CardContent className="p-0">
+            <CardContent className="p-0 relative">
+              {isSearching && (
+                <div className="absolute inset-0 bg-white/50 z-10 flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                </div>
+              )}
               <div className="h-96 w-full lg:h-[600px]">
                 <Map
                   defaultCenter={{ lat: 42.5, lng: -77.0 }}
