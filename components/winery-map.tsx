@@ -11,6 +11,7 @@ import {
   MapPin,
   RotateCcw,
   Loader2,
+  Info,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,6 +20,15 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 import { useToast } from "@/hooks/use-toast"
+
+// A simple component to render a pin icon in the UI (e.g., in the legend)
+const LegendPin = ({ color, borderColor }: { color: string, borderColor: string }) => (
+    <div
+        style={{ backgroundColor: color, border: `2px solid ${borderColor}` }}
+        className="w-4 h-4 rounded-full"
+    />
+);
+
 
 // Interfaces
 interface Visit {
@@ -59,6 +69,7 @@ function MapContent({ userId }: WineryMapProps) {
   const [searchLocation, setSearchLocation] = useState("Finger Lakes, NY");
   const [autoSearch, setAutoSearch] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
+  const [hitApiLimit, setHitApiLimit] = useState(false); // State to track API limit
   const [allUserVisits, setAllUserVisits] = useState<Visit[]>([]);
   const initialLoadFired = useRef(false);
   const { toast } = useToast();
@@ -93,6 +104,7 @@ function MapContent({ userId }: WineryMapProps) {
     if (!places || !geocoder) return;
 
     setIsSearching(true);
+    setHitApiLimit(false); // Reset limit warning
     setSearchResults([]); // Always clear results before a new search
 
     let searchBounds: google.maps.LatLngBounds;
@@ -114,11 +126,6 @@ function MapContent({ userId }: WineryMapProps) {
       return;
     }
 
-    // --- API LIMITATION ---
-    // The searchByText method returns a MAXIMUM of 20 results per query.
-    // When zoomed out on a dense area, you may see fewer than all available wineries.
-    // A more advanced solution involves breaking the map viewport into a grid and
-    // running a search query for each grid cell to get more comprehensive results.
     const request = {
       textQuery: "winery",
       fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"],
@@ -127,8 +134,13 @@ function MapContent({ userId }: WineryMapProps) {
 
     try {
       const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-      const visitedIds = getVisitedWineryIds();
+      
+      // Check if the API returned the maximum number of results
+      if (foundPlaces.length === 20) {
+        setHitApiLimit(true);
+      }
 
+      const visitedIds = getVisitedWineryIds();
       const wineries = foundPlaces.map(place => ({
         id: place.id!,
         name: place.displayName!,
@@ -151,20 +163,20 @@ function MapContent({ userId }: WineryMapProps) {
   
   // Effect for handling map idle event (user stops moving the map)
   useEffect(() => {
-    if (!map || !autoSearch) return;
+    if (!map) return;
 
     const idleListener = map.addListener('idle', () => {
-      if (!initialLoadFired.current) {
-        // Fire initial search on first load
-        searchWineries("Finger Lakes, NY");
-        initialLoadFired.current = true;
-      } else {
-        // Subsequent searches when user moves map
-        const bounds = map.getBounds();
-        if (bounds) {
-          searchWineries(undefined, bounds);
+        if (!autoSearch) return;
+
+        if (!initialLoadFired.current) {
+            searchWineries("Finger Lakes, NY");
+            initialLoadFired.current = true;
+        } else {
+            const bounds = map.getBounds();
+            if (bounds) {
+                searchWineries(undefined, bounds);
+            }
         }
-      }
     });
 
     return () => google.maps.event.removeListener(idleListener);
@@ -218,7 +230,6 @@ function MapContent({ userId }: WineryMapProps) {
     if (response.ok) {
       toast({ description: "Visit deleted successfully." });
       await fetchUserVisits(); // Refresh all visits
-      // Optimistically update the modal view
       setSelectedWinery(w => w ? {...w, visits: w.visits?.filter(v => v.id !== visitId) } : null);
     } else {
       toast({ variant: "destructive", description: "Failed to delete visit." });
@@ -237,13 +248,12 @@ function MapContent({ userId }: WineryMapProps) {
             <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
               <Input placeholder="Enter city or region" value={searchLocation} onChange={e => setSearchLocation(e.target.value)} />
               <Button type="submit" disabled={isSearching}>
-                {isSearching && <Loader2 className="animate-spin" />}
-                {!isSearching && <Search />}
+                {isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />}
                 <span className="ml-2">Search</span>
               </Button>
             </form>
             <Button variant="outline" onClick={handleManualSearchArea} disabled={isSearching}>
-              <MapPin className="mr-2" /> Search This Area
+              <MapPin className="mr-2 w-4 h-4" /> Search This Area
             </Button>
           </div>
           <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200">
@@ -252,6 +262,14 @@ function MapContent({ userId }: WineryMapProps) {
               Auto-discover wineries as you explore
             </Label>
           </div>
+          {hitApiLimit && (
+            <Alert variant="default" className="bg-yellow-50 border-yellow-200">
+                <Info className="h-4 w-4 text-yellow-700" />
+                <AlertDescription className="text-yellow-800">
+                    Map results are limited. Zoom in to a more specific area to see more wineries.
+                </AlertDescription>
+            </Alert>
+          )}
           <div className="flex items-center justify-between">
             <Badge variant="secondary">{isSearching ? 'Searching...' : `${searchResults.length} wineries in view`}</Badge>
             {searchResults.length > 0 && <Button variant="ghost" size="sm" onClick={() => setSearchResults([])}><RotateCcw className="mr-2 w-4 h-4" /> Clear</Button>}
@@ -285,8 +303,14 @@ function MapContent({ userId }: WineryMapProps) {
           <Card>
             <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
             <CardContent className="space-y-2">
-              <div className="flex items-center gap-2"><Pin background="#10B981" borderColor="#059669" glyphColor="#fff" /><span className="text-sm">Visited</span></div>
-              <div className="flex items-center gap-2"><Pin background="#3B82F6" borderColor="#2563EB" glyphColor="#fff" /><span className="text-sm">Discovered</span></div>
+                <div className="flex items-center gap-2">
+                    <LegendPin color="#10B981" borderColor="#059669" />
+                    <span className="text-sm">Visited</span>
+                </div>
+                <div className="flex items-center gap-2">
+                    <LegendPin color="#3B82F6" borderColor="#2563EB" />
+                    <span className="text-sm">Discovered</span>
+                </div>
             </CardContent>
           </Card>
           {searchResults.length > 0 && (
