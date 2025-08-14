@@ -23,11 +23,10 @@ interface Visit { id?: string; visitDate: string; userReview: string; createdAt?
 interface Winery { id: string; name: string; address: string; lat: number; lng: number; phone?: string; website?: string; rating?: number; userVisited?: boolean; visits?: Visit[]; placeId?: string; }
 interface WineryMapProps { userId: string; }
 
-// Main map content component
 function MapContent({ userId }: WineryMapProps) {
   const map = useMap();
   const places = useMapsLibrary('places');
-  const geocoding = useMapsLibrary('geocoding'); // Correctly load the geocoding library
+  const geocoding = useMapsLibrary('geocoding');
   const [placesService, setPlacesService] = useState<google.maps.places.PlacesService | null>(null);
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
 
@@ -44,11 +43,7 @@ function MapContent({ userId }: WineryMapProps) {
   }, [map, places, geocoding]);
 
   const searchWineries = useCallback(async (location?: string, boundsForSearch?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral | null) => {
-    // Ensure all required services are loaded
-    if (!placesService || !geocoder) {
-        console.log("Waiting for Google Maps services to load...");
-        return;
-    }
+    if (!placesService || !geocoder) return;
 
     let searchBounds: google.maps.LatLngBounds;
 
@@ -59,8 +54,7 @@ function MapContent({ userId }: WineryMapProps) {
                 searchBounds = results[0].geometry.viewport;
                 if (map) map.fitBounds(searchBounds);
             } else {
-                console.error("No results found for the geocoding request.");
-                return; 
+                return;
             }
         } catch (e) {
             console.error("Geocoding failed:", e);
@@ -69,11 +63,9 @@ function MapContent({ userId }: WineryMapProps) {
     } else if (boundsForSearch) {
         searchBounds = new google.maps.LatLngBounds(boundsForSearch);
     } else {
-        console.error("Search requires a location or map bounds.");
         return;
     }
 
-    // Use 'bounds' instead of 'locationBias' for a more precise search within the visible area
     const request: google.maps.places.TextSearchRequest = { query: "winery", bounds: searchBounds };
 
     placesService.textSearch(request, (results, status) => {
@@ -94,12 +86,11 @@ function MapContent({ userId }: WineryMapProps) {
   }, [map, placesService, geocoder]);
 
   useEffect(() => {
-    // Use a debounce effect to avoid excessive API calls while panning the map
     const handler = setTimeout(() => {
       if (autoSearch && currentBounds) {
         searchWineries(undefined, currentBounds);
       }
-    }, 1500); 
+    }, 1500);
     return () => clearTimeout(handler);
   }, [autoSearch, currentBounds, searchWineries]);
   
@@ -109,7 +100,6 @@ function MapContent({ userId }: WineryMapProps) {
   const handleSearchInCurrentArea = () => searchWineries(undefined, currentBounds);
   const clearSearchResults = () => setSearchResults([]);
   
-  // Using the syntactically correct JSX provided by user/Copilot
   return (
     <div className="space-y-6">
       <Card>
@@ -134,7 +124,7 @@ function MapContent({ userId }: WineryMapProps) {
               </div>
                <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
-                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                  <Badge className="bg-blue-100 text-blue-800">
                     {searchResults.length} {searchResults.length === 1 ? 'winery' : 'wineries'} in view
                   </Badge>
                 </div>
@@ -153,7 +143,7 @@ function MapContent({ userId }: WineryMapProps) {
                   defaultZoom={10}
                   gestureHandling={'greedy'}
                   disableDefaultUI={true}
-                  mapId={process.env.NEXT_PUBLIC_Google Maps_MAP_ID || 'ac7e853c8d70efc0fdd4c089'}
+                  mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID || 'ac7e853c8d70efc0fdd4c089'}
                   onBoundsChanged={(e: CustomEvent<{ bounds: google.maps.LatLngBoundsLiteral }>) => setCurrentBounds(e.detail.bounds)}
                 >
                   {searchResults.map((winery: Winery) => (
@@ -211,7 +201,7 @@ function MapContent({ userId }: WineryMapProps) {
 
 // Wrapper component to provide the API key
 export default function WineryMapWrapper({ userId }: WineryMapProps) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID;
 
   if (!apiKey) {
       return (
