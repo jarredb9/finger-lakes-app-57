@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useRef, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useRef } from "react"
 import { APIProvider, Map, AdvancedMarker, Pin, useMap } from "@vis.gl/react-google-maps"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -18,50 +18,49 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 
-// Debounce hook to prevent excessive API calls while panning the map
+// Debounce hook to prevent excessive API calls
 function useDebounce<T>(value: T, delay: number): T {
   const [debouncedValue, setDebouncedValue] = useState<T>(value);
   useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-    return () => {
-      clearTimeout(handler);
-    };
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
   }, [value, delay]);
   return debouncedValue;
 }
 
+// Interfaces
 interface Visit {
-  id?: string
-  visitDate: string
-  userReview: string
-  createdAt?: string
+  id?: string;
+  visitDate: string;
+  userReview: string;
+  createdAt?: string;
   rating?: number;
   photos?: string[];
 }
 
 interface Winery {
-  id: string
-  name:string
-  address: string
-  lat: number
-  lng: number
-  phone?: string
-  website?: string
-  rating?: number
-  userVisited?: boolean
-  visits?: Visit[]
-  placeId?: string
+  id: string;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  phone?: string;
+  website?: string;
+  rating?: number;
+  userVisited?: boolean;
+  visits?: Visit[];
+  placeId?: string;
 }
 
 interface WineryMapProps {
-  userId: string
+  userId: string;
 }
 
-// A separate component for the map's children to get access to the map instance
+// Main map content component
 function MapContent({ userId }: WineryMapProps) {
   const map = useMap();
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
+  
   const [searchResults, setSearchResults] = useState<Winery[]>([]);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
@@ -70,17 +69,24 @@ function MapContent({ userId }: WineryMapProps) {
 
   const debouncedBounds = useDebounce(currentBounds, 1000);
 
+  // Initialize PlacesService once the map is ready
+  useEffect(() => {
+    if (map) {
+      placesServiceRef.current = new google.maps.places.PlacesService(map);
+    }
+  }, [map]);
+
   const searchWineries = useCallback(async (location?: string, bounds?: google.maps.LatLngBounds | null) => {
-    if (!map || (!bounds && !location)) return;
+    if (!placesServiceRef.current) return;
 
     let searchBounds = bounds;
-    if (location?.trim()) {
+    if (location?.trim() && google?.maps) {
       const geocoder = new google.maps.Geocoder();
       try {
         const { results } = await geocoder.geocode({ address: location });
         if (results && results.length > 0) {
           searchBounds = results[0].geometry.viewport || results[0].geometry.bounds;
-          if (searchBounds) map.fitBounds(searchBounds);
+          if (searchBounds && map) map.fitBounds(searchBounds);
         }
       } catch (e) {
         console.error("Geocoding failed:", e);
@@ -90,13 +96,12 @@ function MapContent({ userId }: WineryMapProps) {
 
     if (!searchBounds) return;
 
-    const placesService = new google.maps.places.PlacesService(map);
     const request = {
       query: "winery",
       locationBias: searchBounds,
     };
 
-    placesService.textSearch(request, (results, status) => {
+    placesServiceRef.current.textSearch(request, (results, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK && results) {
         const strictlyVisibleWineries = results.filter(place => {
           if (searchBounds && place.geometry?.location) {
@@ -111,7 +116,7 @@ function MapContent({ userId }: WineryMapProps) {
           lat: place.geometry!.location!.lat(),
           lng: place.geometry!.location!.lng(),
           rating: place.rating,
-          userVisited: false, // This would be cross-referenced with your DB
+          userVisited: false, // This should be cross-referenced with your DB
         }));
         setSearchResults(strictlyVisibleWineries);
       }
@@ -125,11 +130,11 @@ function MapContent({ userId }: WineryMapProps) {
   }, [autoSearch, debouncedBounds, searchWineries]);
 
   const handleVisitUpdate = async (winery: Winery, visitData: { visitDate: string; userReview: string; rating: number; photos: string[] }) => {
-    // Logic to update the visit in your database...
+    // DB update logic
   };
 
   const handleDeleteVisit = async (winery: Winery, visitId: string) => {
-    // Logic to delete the visit from your database...
+    // DB delete logic
   };
   
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -143,36 +148,36 @@ function MapContent({ userId }: WineryMapProps) {
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2"> <Search className="w-5 h-5" /> <span>Discover Wineries</span> </CardTitle>
-          <CardDescription> Search for wineries or explore dynamically as you move the map </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-              <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
-                <Input placeholder="Enter city, region, or address" value={searchLocation} onChange={(e) => setSearchLocation(e.target.value)} className="flex-1" />
-                <Button type="submit" disabled={!searchLocation.trim()}>Search</Button>
-              </form>
-              <Button variant="outline" onClick={handleSearchInCurrentArea} disabled={!currentBounds} className="flex items-center space-x-2 bg-transparent" > <MapPin className="w-4 h-4" /> <span>Search Current Area</span> </Button>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="flex items-center space-x-2">
-                <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} />
-                <Label htmlFor="auto-search" className="text-sm font-medium"> Auto-discover wineries as you explore </Label>
+          <CardHeader>
+            <CardTitle className="flex items-center space-x-2"> <Search className="w-5 h-5" /> <span>Discover Wineries</span> </CardTitle>
+            <CardDescription> Search for wineries or explore dynamically as you move the map </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
+                  <Input placeholder="Enter city, region, or address" value={searchLocation} onChange={(e) => setSearchLocation(e.target.value)} className="flex-1" />
+                  <Button type="submit" disabled={!searchLocation.trim()}>Search</Button>
+                </form>
+                <Button variant="outline" onClick={handleSearchInCurrentArea} disabled={!currentBounds} className="flex items-center space-x-2 bg-transparent" > <MapPin className="w-4 h-4" /> <span>Search Current Area</span> </Button>
               </div>
-            </div>
-             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800">
-                  {searchResults.length} {searchResults.length === 1 ? 'winery' : 'wineries'} in view
-                </Badge>
+              <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="flex items-center space-x-2">
+                  <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} />
+                  <Label htmlFor="auto-search" className="text-sm font-medium"> Auto-discover wineries as you explore </Label>
+                </div>
               </div>
-              {searchResults.length > 0 && <Button variant="ghost" size="sm" onClick={clearSearchResults}> <RotateCcw className="w-4 h-4 mr-1" /> Clear Discovered </Button>}
-          </div>
-          </div>
-        </CardContent>
-      </Card>
+               <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Badge variant="secondary" className="bg-blue-100 text-blue-800">
+                    {searchResults.length} {searchResults.length === 1 ? 'winery' : 'wineries'} in view
+                  </Badge>
+                </div>
+                {searchResults.length > 0 && <Button variant="ghost" size="sm" onClick={clearSearchResults}> <RotateCcw className="w-4 h-4 mr-1" /> Clear Discovered </Button>}
+            </div>
+            </div>
+          </CardContent>
+        </Card>
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
           <Card>
@@ -240,11 +245,12 @@ function MapContent({ userId }: WineryMapProps) {
       </div>
       {selectedWinery && ( <WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} /> )}
     </div>
-  );
+  )
 }
 
+// Wrapper component to provide the API key
 export default function WineryMapWrapper({ userId }: WineryMapProps) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
   if (!apiKey) {
       return (
@@ -256,7 +262,7 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
   }
 
   return (
-    <APIProvider apiKey={apiKey}>
+    <APIProvider apiKey={apiKey} libraries={['places']}>
         <MapContent userId={userId} />
     </APIProvider>
   )
