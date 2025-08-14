@@ -245,7 +245,7 @@ function MapContent({ userId }: WineryMapProps) {
       </div>
       {selectedWinery && ( <WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} /> )}
     </div>
-  )
+  );
 }
 
 // Wrapper component to provide the API key
