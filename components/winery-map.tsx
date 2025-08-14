@@ -83,7 +83,7 @@ function MapContent({ userId }: WineryMapProps) {
           lat: place.geometry!.location!.lat(),
           lng: place.geometry!.location!.lng(),
           rating: place.rating,
-          userVisited: false,
+          userVisited: false, 
         }));
         setSearchResults(strictlyVisibleWineries);
       }
@@ -145,7 +145,7 @@ function MapContent({ userId }: WineryMapProps) {
                   defaultZoom={10}
                   gestureHandling={'greedy'}
                   disableDefaultUI={true}
-                  mapId={process.env.NEXT_PUBLIC_Google Maps_MAP_ID || 'ac7e853c8d70efc0fdd4c089'}
+                  mapId={process.env.NEXT_PUBLIC_Google_Maps_MAP_ID || 'ac7e853c8d70efc0fdd4c089'}
                   onBoundsChanged={e => setCurrentBounds(e.detail.bounds)}
                 >
                   {searchResults.map((winery) => (
@@ -198,12 +198,13 @@ function MapContent({ userId }: WineryMapProps) {
       </div>
       {selectedWinery && ( <WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleVisitUpdate} onDeleteVisit={handleDeleteVisit} /> )}
     </div>
-  );
+  )
 }
 
-// Wrapper component to provide the API key and load the libraries
+// Wrapper component to provide the API key
 export default function WineryMapWrapper({ userId }: WineryMapProps) {
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
   if (!apiKey) {
       return (
         <Alert variant="destructive">
@@ -212,6 +213,7 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
         </Alert>
       )
   }
+
   return (
     <APIProvider apiKey={apiKey} libraries={['places', 'marker']}>
         <MapContent userId={userId} />
