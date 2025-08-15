@@ -50,9 +50,9 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 }
 
 // --- Memoized Child Components for Ultimate Performance ---
-const MapComponent = memo(({ searchResults, onMarkerClick, onMapClick }: { searchResults: Winery[], onMarkerClick: (winery: Winery) => void, onMapClick: (e: google.maps.MapMouseEvent) => void }) => (
+const MapComponent = memo(({ searchResults, onMarkerClick }: { searchResults: Winery[], onMarkerClick: (winery: Winery) => void }) => (
     <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
-        <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} onClick={onMapClick} clickableIcons={false}>
+        <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
             {searchResults.map(winery => (
                 <AdvancedMarker key={winery.id} position={winery} onClick={() => onMarkerClick(winery)}>
                     <Pin background={winery.userVisited ? '#10B981' : '#3B82F6'} borderColor={winery.userVisited ? '#059669' : '#2563EB'} glyphColor="#fff" />
@@ -89,10 +89,10 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
 ));
 SearchUI.displayName = 'SearchUI';
 
-const ResultsUI = memo(({ searchState, onOpenModal, onMapClick }: { searchState: SearchState, onOpenModal: (winery: Winery) => void, onMapClick: (e: google.maps.MapMouseEvent) => void }) => (
+const ResultsUI = memo(({ searchState, onOpenModal }: { searchState: SearchState, onOpenModal: (winery: Winery) => void }) => (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
-            <Card> <CardContent className="p-0 relative"> <MapComponent searchResults={searchState.results} onMarkerClick={onOpenModal} onMapClick={onMapClick} /> </CardContent> </Card>
+            <Card> <CardContent className="p-0 relative"> <MapComponent searchResults={searchState.results} onMarkerClick={onOpenModal} /> </CardContent> </Card>
         </div>
         <div className="space-y-4">
             <Card>
@@ -142,20 +142,9 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
 
-  // --- Start of new logging ---
-  console.log("%c--- Map Logic Re-render ---", "color: blue; font-weight: bold;");
-  console.log("`places` library loaded:", !!places);
-  console.log("`geocoding` library loaded:", !!geocoding);
-  console.log("`map` instance available:", !!map);
-  console.log("`geocoder` state initialized:", !!geocoder);
-  // --- End of new logging ---
-
   useEffect(() => {
     if (geocoding) {
-      console.log("%cGeocoding library is available, creating Geocoder instance.", "color: green");
       setGeocoder(new geocoding.Geocoder());
-    } else {
-      console.log("%cWaiting for geocoding library...", "color: orange");
     }
   }, [geocoding]);
   
@@ -264,6 +253,19 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }
   }, [places, geocoder, getVisitedWineryIds, toast]);
 
+  // NEW: Effect to manage the map click listener
+  useEffect(() => {
+    if (!map) return;
+
+    console.log("%cAdding map click listener.", "color: purple");
+    const clickListener = map.addListener('click', handleMapClick);
+
+    return () => {
+        console.log("%cRemoving map click listener.", "color: purple");
+        clickListener.remove();
+    };
+  }, [map, handleMapClick]); // Re-attach listener if handleMapClick changes
+
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
   const handleOpenModal = (winery: Winery) => { const wineryVisits = allUserVisits.filter(v => v.winery_id === winery.id); setSelectedWinery({ ...winery, visits: wineryVisits }); };
@@ -297,7 +299,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         handleManualSearchArea={handleManualSearchArea}
         dispatch={dispatch}
       />
-      <ResultsUI searchState={searchState} onOpenModal={handleOpenModal} onMapClick={handleMapClick} />
+      <ResultsUI searchState={searchState} onOpenModal={handleOpenModal} />
       {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleSaveVisit} onDeleteVisit={handleDeleteVisit} />)}
 
       {proposedWinery && (
