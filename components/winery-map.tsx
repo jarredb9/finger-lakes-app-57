@@ -67,7 +67,6 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
             <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200">
                 <Label htmlFor="auto-search" className="flex items-center gap-2 text-sm font-medium cursor-pointer"> <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} /> Auto-discover wineries as you explore </Label>
             </div>
-            {/* **LAYOUT SHIFT FIX**: The container for the alert now has a fixed height, preventing layout shifts. */}
             <div className="h-12">
               {searchState.hitApiLimit && (<Alert variant="default" className="bg-yellow-50 border-yellow-200"> <Info className="h-4 w-4 text-yellow-700" /> <AlertDescription className="text-yellow-800"> Map results are limited. Zoom in for more wineries. </AlertDescription> </Alert>)}
             </div>
@@ -157,7 +156,12 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     } else if (bounds) { searchBounds = new google.maps.LatLngBounds(bounds); } 
     else { dispatch({ type: 'SEARCH_ERROR' }); return; }
 
-    const request = { textQuery: "winery", fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], locationRestriction: searchBounds };
+    // **EDGE CASE FIX**: Broaden the search query to include common variations.
+    const request = { 
+        textQuery: "winery OR vineyard OR wines", 
+        fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], 
+        locationRestriction: searchBounds 
+    };
     try {
         const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
         const visitedIds = getVisitedWineryIds();
