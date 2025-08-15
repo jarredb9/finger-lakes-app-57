@@ -191,35 +191,29 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }, [map, autoSearch]);
 
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
-    // **DEBUGGING LOGS ADDED HERE**
-    console.log("Map clicked. Event:", e);
-    
-    // The click event on a POI should include a placeId. If it doesn't, this is the issue.
-    if (e.placeId) {
-        console.log(`A POI was clicked. Place ID: ${e.placeId}`);
-        e.stop(); // Stop the map from zooming or showing its default info window
-    } else {
-        console.log("Clicked on the map base, not a specific POI.");
-        // We will still proceed to try and find the nearest location.
-    }
-
     if (!e.latLng || !geocoder) return;
-    
+    e.stop();
+
     try {
         const { results } = await geocoder.geocode({ location: e.latLng });
         if (results && results[0]) {
             const place = results[0];
             if (!place.place_id || !place.geometry?.location) {
-                toast({ variant: "destructive", description: "Could not identify a specific location." });
+                toast({ variant: "destructive", description: "Could not identify a specific POI at that location." });
                 return;
             }
 
+            const placeDetails = new google.maps.places.Place({ id: place.place_id });
+            await placeDetails.fetchFields({ fields: ["displayName", "formattedAddress", "websiteURI", "nationalPhoneNumber"]});
+
             const newWinery: Winery = {
                 id: place.place_id,
-                name: place.formatted_address.split(',')[0],
-                address: place.formatted_address,
+                name: placeDetails.displayName || place.formatted_address.split(',')[0],
+                address: placeDetails.formattedAddress || place.formatted_address,
                 lat: place.geometry.location.lat(),
                 lng: place.geometry.location.lng(),
+                website: placeDetails.websiteURI,
+                phone: placeDetails.nationalPhoneNumber,
                 userVisited: getVisitedWineryIds().has(place.place_id)
             };
             setProposedWinery(newWinery);
@@ -230,7 +224,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         console.error("Error during reverse geocoding:", error);
         toast({ variant: "destructive", description: "An error occurred while finding the location." });
     }
-  }, [geocoder, getVisitedWineryIds, toast]);
+  }, [geocoder, places, getVisitedWineryIds, toast]);
 
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
