@@ -193,18 +193,18 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
     console.log("%c--- Map Click Event Triggered ---", "color: orange; font-weight: bold;");
     console.log("Full Click Event Object:", e);
+    
+    if (!e.latLng || !geocoder) {
+        console.error("Click handler aborted: Missing latLng or geocoder.");
+        return;
+    }
 
     if (e.placeId) {
-        console.log(`Click event HAS a placeId: ${e.placeId}. Stopping default map behavior.`);
+        console.log(`A POI was clicked. Place ID: ${e.placeId}. Stopping default map behavior.`);
         e.stop();
     } else {
         console.log("Click event does NOT have a placeId. This is a click on the base map.");
     }
-
-    if (!e.latLng || !geocoder) {
-        console.error("Click handler aborted: Missing latLng or geocoder.");
-        return;
-    };
 
     try {
         console.log("Performing reverse geocode lookup for:", e.latLng.toJSON());
@@ -219,17 +219,12 @@ function WineryMapLogic({ userId }: WineryMapProps) {
                 return;
             }
 
-            const placeDetails = new google.maps.places.Place({ id: place.place_id });
-            await placeDetails.fetchFields({ fields: ["displayName", "formattedAddress", "websiteURI", "nationalPhoneNumber"]});
-
             const newWinery: Winery = {
                 id: place.place_id,
-                name: placeDetails.displayName || place.formatted_address.split(',')[0],
-                address: placeDetails.formattedAddress || place.formatted_address,
+                name: place.formatted_address.split(',')[0],
+                address: place.formatted_address,
                 lat: place.geometry.location.lat(),
                 lng: place.geometry.location.lng(),
-                website: placeDetails.websiteURI,
-                phone: placeDetails.nationalPhoneNumber,
                 userVisited: getVisitedWineryIds().has(place.place_id)
             };
             console.log("Successfully created proposed winery:", newWinery);
@@ -241,7 +236,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         console.error("Error during reverse geocoding:", error);
         toast({ variant: "destructive", description: "An error occurred while finding the location." });
     }
-  }, [geocoder, places, getVisitedWineryIds, toast]);
+  }, [geocoder, getVisitedWineryIds, toast]);
 
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
