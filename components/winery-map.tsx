@@ -181,30 +181,42 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 }, [map, places, geocoder, getVisitedWineryIds, toast]);
 
     useEffect(() => { searchFnRef.current = executeSearch; });
+    
+    // This effect now depends on the geocoder being ready before setting listeners.
     useEffect(() => {
-        if (!map) return;
-        if (!initialSearchFired.current) { initialSearchFired.current = true; searchFnRef.current?.("Finger Lakes, NY"); }
+        if (!map || !geocoder) return; // Wait for both map and geocoder to be ready.
+
+        if (!initialSearchFired.current) { 
+            initialSearchFired.current = true; 
+            searchFnRef.current?.("Finger Lakes, NY"); 
+        }
+        
         const idleListener = map.addListener('idle', () => {
-            if (autoSearch && initialSearchFired.current) { const bounds = map.getBounds(); if (bounds) { searchFnRef.current?.(undefined, bounds); } }
+            if (autoSearch && initialSearchFired.current) { 
+                const bounds = map.getBounds(); 
+                if (bounds) { 
+                    searchFnRef.current?.(undefined, bounds); 
+                } 
+            }
         });
         return () => { google.maps.event.removeListener(idleListener); };
-    }, [map, autoSearch]);
+    }, [map, geocoder, autoSearch]);
+
 
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
     console.log("%c--- Map Click Event Triggered ---", "color: orange; font-weight: bold;");
-    console.log("Full Click Event Object:", e);
-
-    // **FINAL FIX**: Check if the necessary services are ready before proceeding.
+    // Check if the necessary services are ready *before* doing anything else.
     if (!places || !geocoder || !e.latLng) {
         console.error("Click handler aborted: Missing latLng, geocoder, or places service.");
         toast({ variant: "destructive", description: "Map services not ready yet. Please try again in a moment." });
         return;
     }
+
+    console.log("Full Click Event Object:", e);
     
-    // If the click was on a POI, the event will have a placeId.
     if (e.placeId) {
         console.log(`A POI was clicked. Place ID: ${e.placeId}. Stopping default map behavior.`);
-        e.stop(); // Stop the map from showing its default info window
+        e.stop();
     } else {
         console.log("Click event does NOT have a placeId. This is a click on the base map.");
     }
