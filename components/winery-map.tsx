@@ -40,7 +40,6 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 }
 
 // --- Memoized Child Components for Ultimate Performance ---
-
 const MapComponent = memo(({ searchResults, onMarkerClick }: { searchResults: Winery[], onMarkerClick: (winery: Winery) => void }) => (
     <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
         <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID}>
@@ -68,7 +67,10 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
             <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200">
                 <Label htmlFor="auto-search" className="flex items-center gap-2 text-sm font-medium cursor-pointer"> <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} /> Auto-discover wineries as you explore </Label>
             </div>
-            {searchState.hitApiLimit && (<Alert variant="default" className="bg-yellow-50 border-yellow-200"> <Info className="h-4 w-4 text-yellow-700" /> <AlertDescription className="text-yellow-800"> Map results are limited. Zoom in to a more specific area to see more wineries. </AlertDescription> </Alert>)}
+            {/* **LAYOUT SHIFT FIX**: The container for the alert now has a fixed height, preventing layout shifts. */}
+            <div className="h-12">
+              {searchState.hitApiLimit && (<Alert variant="default" className="bg-yellow-50 border-yellow-200"> <Info className="h-4 w-4 text-yellow-700" /> <AlertDescription className="text-yellow-800"> Map results are limited. Zoom in for more wineries. </AlertDescription> </Alert>)}
+            </div>
             <div className="flex items-center justify-between">
                 <Badge variant="secondary">{searchState.isSearching ? 'Searching...' : `${searchState.results.length} wineries in view`}</Badge>
                 {searchState.results.length > 0 && <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'CLEAR_RESULTS' })}><RotateCcw className="mr-2 w-4 h-4" /> Clear</Button>}
