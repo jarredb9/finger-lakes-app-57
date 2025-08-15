@@ -66,6 +66,9 @@ function MapContent({ userId }: WineryMapProps) {
   
   const initialSearchFired = useRef(false);
 
+  // A ref to hold the latest version of the search function
+  const searchFnRef = useRef(executeSearch);
+
   useEffect(() => {
     if (places && geocoding) {
       setGeocoder(new geocoding.Geocoder());
@@ -92,6 +95,7 @@ function MapContent({ userId }: WineryMapProps) {
     return new Set(allUserVisits.map(v => v.winery_id));
   }, [allUserVisits]);
   
+  // Use useCallback to define the search function
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
     if (!places || !geocoder) return;
 
@@ -127,8 +131,6 @@ function MapContent({ userId }: WineryMapProps) {
     const request = {
         textQuery: "winery",
         fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"],
-        // ** THE FIX IS HERE: Use locationRestriction instead of locationBias **
-        // This forces the API to only return results strictly within the map's visible area.
         locationRestriction: searchBounds,
     };
 
@@ -160,30 +162,38 @@ function MapContent({ userId }: WineryMapProps) {
     }
 }, [map, places, geocoder, getVisitedWineryIds, toast]);
 
-  useEffect(() => {
-    if (!map || !geocoder) return;
-  
-    const handleIdle = () => {
-      if (!autoSearch || !initialSearchFired.current) {
-        return;
-      }
-      const bounds = map.getBounds();
-      if (bounds) {
-        executeSearch(undefined, bounds);
-      }
-    };
-  
-    const idleListener = map.addListener('idle', handleIdle);
-  
-    if (!initialSearchFired.current) {
-      executeSearch("Finger Lakes, NY");
-      initialSearchFired.current = true;
-    }
-  
-    return () => {
-      google.maps.event.removeListener(idleListener);
-    };
-  }, [map, geocoder, autoSearch, executeSearch]);
+    // **PERFORMANCE FIX**: Update the ref with the latest search function on every render.
+    // This doesn't cause a re-render itself, but ensures the event listener always has the fresh function.
+    useEffect(() => {
+        searchFnRef.current = executeSearch;
+    });
+
+    // This simplified useEffect now only runs once when the map is ready.
+    // It uses the ref to call the latest search function, preventing stale closures
+    // and eliminating the jarring re-renders from re-adding the listener.
+    useEffect(() => {
+        if (!map) return;
+
+        // Fire initial search
+        if (!initialSearchFired.current) {
+            initialSearchFired.current = true;
+            searchFnRef.current("Finger Lakes, NY");
+        }
+
+        const idleListener = map.addListener('idle', () => {
+            if (autoSearch && initialSearchFired.current) {
+                const bounds = map.getBounds();
+                if (bounds) {
+                    searchFnRef.current(undefined, bounds);
+                }
+            }
+        });
+
+        return () => {
+            google.maps.event.removeListener(idleListener);
+        };
+    }, [map, autoSearch]);
+
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
