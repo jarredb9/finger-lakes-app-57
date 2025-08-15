@@ -142,9 +142,20 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
 
+  // --- Start of new logging ---
+  console.log("%c--- Map Logic Re-render ---", "color: blue; font-weight: bold;");
+  console.log("`places` library loaded:", !!places);
+  console.log("`geocoding` library loaded:", !!geocoding);
+  console.log("`map` instance available:", !!map);
+  console.log("`geocoder` state initialized:", !!geocoder);
+  // --- End of new logging ---
+
   useEffect(() => {
     if (geocoding) {
+      console.log("%cGeocoding library is available, creating Geocoder instance.", "color: green");
       setGeocoder(new geocoding.Geocoder());
+    } else {
+      console.log("%cWaiting for geocoding library...", "color: orange");
     }
   }, [geocoding]);
   
