@@ -53,7 +53,7 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 const MapComponent = memo(({ searchResults, onMarkerClick, onMapClick }: { searchResults: Winery[], onMarkerClick: (winery: Winery) => void, onMapClick: (e: google.maps.MapMouseEvent) => void }) => (
     <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
         {/* CLICKABLE ICONS FIX: Set to false to allow our custom onClick to handle POI clicks */}
-        <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} onClick={onMapClick} clickableIcons={false}>
+        <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} onClick={onMapClick} clickableIcons={true}>
             {searchResults.map(winery => (
                 <AdvancedMarker key={winery.id} position={winery} onClick={() => onMarkerClick(winery)}>
                     <Pin background={winery.userVisited ? '#10B981' : '#3B82F6'} borderColor={winery.userVisited ? '#059669' : '#2563EB'} glyphColor="#fff" />
