@@ -192,7 +192,9 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
     if (!e.latLng || !geocoder || !places) return;
-
+    
+    // **CLICK FIX**: The faulty logic that blocked this function has been removed.
+    // This will now correctly fire on any map click that isn't one of our AdvancedMarkers.
     const { results } = await geocoder.geocode({ location: e.latLng });
     if (results && results[0] && results[0].place_id) {
         const placeDetails = new places.Place({ id: results[0].place_id });
