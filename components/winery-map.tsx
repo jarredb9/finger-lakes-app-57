@@ -126,7 +126,6 @@ ResultsUI.displayName = 'ResultsUI';
 // --- Main Logic Component ---
 function WineryMapLogic({ userId }: WineryMapProps) {
   const [searchState, dispatch] = useReducer(searchReducer, initialState);
-  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("Finger Lakes, NY");
   const [autoSearch, setAutoSearch] = useState(true);
@@ -140,10 +139,15 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
+  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
 
-  useEffect(() => { if (places && geocoding) { setGeocoder(new geocoding.Geocoder()); } }, [places, geocoding]);
-
+  useEffect(() => {
+    if (geocoding) {
+      setGeocoder(new geocoding.Geocoder());
+    }
+  }, [geocoding]);
+  
   const fetchUserVisits = useCallback(async () => {
     try {
       const response = await fetch('/api/visits');
@@ -178,13 +182,12 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         }));
         dispatch({ type: 'SEARCH_SUCCESS', payload: wineries });
     } catch (error) { console.error("Google Places search error:", error); dispatch({ type: 'SEARCH_ERROR' }); }
-}, [map, places, geocoder, getVisitedWineryIds, toast]);
+  }, [map, places, geocoder, getVisitedWineryIds, toast]);
 
     useEffect(() => { searchFnRef.current = executeSearch; });
     
-    // This effect now depends on the geocoder being ready before setting listeners.
     useEffect(() => {
-        if (!map || !geocoder) return; // Wait for both map and geocoder to be ready.
+        if (!map || !geocoder) return;
 
         if (!initialSearchFired.current) { 
             initialSearchFired.current = true; 
@@ -202,59 +205,51 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         return () => { google.maps.event.removeListener(idleListener); };
     }, [map, geocoder, autoSearch]);
 
-
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
-    console.log("%c--- Map Click Event Triggered ---", "color: orange; font-weight: bold;");
-    // Check if the necessary services are ready *before* doing anything else.
     if (!places || !geocoder || !e.latLng) {
-        console.error("Click handler aborted: Missing latLng, geocoder, or places service.");
-        toast({ variant: "destructive", description: "Map services not ready yet. Please try again in a moment." });
-        return;
+      toast({ variant: "destructive", description: "Map services not yet ready. Please wait a moment and try again." });
+      return;
     }
 
-    console.log("Full Click Event Object:", e);
-    
-    if (e.placeId) {
-        console.log(`A POI was clicked. Place ID: ${e.placeId}. Stopping default map behavior.`);
-        e.stop();
+    let placeId: string | undefined | null = e.placeId;
+
+    if (placeId) {
+      e.stop();
     } else {
-        console.log("Click event does NOT have a placeId. This is a click on the base map.");
+      const { results } = await geocoder.geocode({ location: e.latLng });
+      if (results && results[0]) {
+        placeId = results[0].place_id;
+      }
+    }
+
+    if (!placeId) {
+      toast({ variant: "destructive", description: "Could not identify a location at that point. Please click closer to a point of interest." });
+      return;
     }
 
     try {
-        console.log("Performing reverse geocode lookup for:", e.latLng.toJSON());
-        const { results } = await geocoder.geocode({ location: e.latLng });
-        
-        console.log("Reverse geocode results:", results);
+        const placeDetails = new places.Place({ id: placeId });
+        await placeDetails.fetchFields({ fields: ["displayName", "formattedAddress", "websiteURI", "nationalPhoneNumber", "location"]});
 
-        if (results && results[0]) {
-            const place = results[0];
-            if (!place.place_id || !place.geometry?.location) {
-                toast({ variant: "destructive", description: "Could not identify a specific POI at that location." });
-                return;
-            }
-
-            const placeDetails = new places.Place({ id: place.place_id });
-            await placeDetails.fetchFields({ fields: ["displayName", "formattedAddress", "websiteURI", "nationalPhoneNumber"]});
-
-            const newWinery: Winery = {
-                id: place.place_id,
-                name: placeDetails.displayName || place.formatted_address.split(',')[0],
-                address: placeDetails.formattedAddress || place.formatted_address,
-                lat: place.geometry.location.lat(),
-                lng: place.geometry.location.lng(),
-                website: placeDetails.websiteURI,
-                phone: placeDetails.nationalPhoneNumber,
-                userVisited: getVisitedWineryIds().has(place.place_id)
-            };
-            console.log("Successfully created proposed winery:", newWinery);
-            setProposedWinery(newWinery);
-        } else {
-            toast({ variant: "destructive", description: "Could not find a location at that point." });
+        if (!placeDetails.location) {
+            toast({ variant: "destructive", description: "Could not get details for this location." });
+            return;
         }
+
+        const newWinery: Winery = {
+            id: placeId,
+            name: placeDetails.displayName || placeDetails.formattedAddress?.split(',')[0] || "Unnamed Location",
+            address: placeDetails.formattedAddress || 'Address not available',
+            lat: placeDetails.location.lat(),
+            lng: placeDetails.location.lng(),
+            website: placeDetails.websiteURI,
+            phone: placeDetails.nationalPhoneNumber,
+            userVisited: getVisitedWineryIds().has(placeId)
+        };
+        setProposedWinery(newWinery);
     } catch (error) {
-        console.error("Error during reverse geocoding:", error);
-        toast({ variant: "destructive", description: "An error occurred while finding the location." });
+        console.error("Error fetching place details:", error);
+        toast({ variant: "destructive", description: "An error occurred while fetching details for the location." });
     }
   }, [places, geocoder, getVisitedWineryIds, toast]);
 
@@ -269,6 +264,15 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
     if (response.ok) { toast({ description: "Visit deleted successfully." }); await fetchUserVisits(); setSelectedWinery(w => w ? {...w, visits: w.visits?.filter(v => v.id !== visitId) } : null); } else { toast({ variant: "destructive", description: "Failed to delete visit." }); }
   };
+
+  if (!places || !geocoder) {
+    return (
+        <div className="flex justify-center items-center h-[600px] w-full">
+            <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+            <span className="ml-2 text-muted-foreground">Loading map services...</span>
+        </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
