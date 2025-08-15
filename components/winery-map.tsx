@@ -120,8 +120,6 @@ function WineryMap({ userId }: WineryMapProps) {
 
     setIsSearching(true);
     setHitApiLimit(false);
-    // Don't clear results here to prevent the list from disappearing, the new results will replace them.
-    // setSearchResults([]); 
 
     let searchBounds: google.maps.LatLngBounds;
 
@@ -251,20 +249,20 @@ function WineryMap({ userId }: WineryMapProps) {
             </CardContent>
           </Card>
           
-          {/* **LAYOUT SHIFT FIX**: The Card is always rendered. The content inside changes. */}
           <Card>
               <CardHeader><CardTitle className="flex justify-between items-center">Discovered List <Badge>{searchResults.length}</Badge></CardTitle></CardHeader>
               <CardContent>
-                <div className="space-y-2 max-h-[450px] overflow-y-auto">
+                {/* **LAYOUT SHIFT FIX**: Add a min-height to prevent the card from collapsing */}
+                <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto">
                   {isSearching && (
-                    <div className="flex items-center justify-center p-4">
-                        <Loader2 className="animate-spin text-muted-foreground" />
+                    <div className="flex items-center justify-center pt-10">
+                        <Loader2 className="animate-spin text-muted-foreground h-8 w-8" />
                     </div>
                   )}
                   {!isSearching && searchResults.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center p-4">No wineries found in this area.</p>
+                    <p className="text-sm text-muted-foreground text-center pt-10">No wineries found in this area.</p>
                   )}
-                  {searchResults.map(winery => (
+                  {!isSearching && searchResults.map(winery => (
                     <div key={winery.id} className="p-2 border rounded cursor-pointer hover:bg-muted" onClick={() => handleOpenModal(winery)}>
                       <p className="font-medium text-sm">{winery.name}</p>
                       <p className="text-xs text-muted-foreground">{winery.address}</p>
