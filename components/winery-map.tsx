@@ -52,8 +52,7 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 // --- Memoized Child Components for Ultimate Performance ---
 const MapComponent = memo(({ searchResults, onMarkerClick, onMapClick }: { searchResults: Winery[], onMarkerClick: (winery: Winery) => void, onMapClick: (e: google.maps.MapMouseEvent) => void }) => (
     <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
-        {/* CLICKABLE ICONS FIX: Set to false to allow our custom onClick to handle POI clicks */}
-        <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} onClick={onMapClick} clickableIcons={true}>
+        <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} onClick={onMapClick} clickableIcons={false}>
             {searchResults.map(winery => (
                 <AdvancedMarker key={winery.id} position={winery} onClick={() => onMarkerClick(winery)}>
                     <Pin background={winery.userVisited ? '#10B981' : '#3B82F6'} borderColor={winery.userVisited ? '#059669' : '#2563EB'} glyphColor="#fff" />
@@ -169,12 +168,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     } else if (bounds) { searchBounds = new google.maps.LatLngBounds(bounds); } 
     else { dispatch({ type: 'SEARCH_ERROR' }); return; }
 
-    const request = { 
-        // **FINAL SEARCH QUERY**: Includes "cellars" for better matching.
-        textQuery: "winery OR vineyard OR tasting room OR cellars", 
-        fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], 
-        locationRestriction: searchBounds 
-    };
+    const request = { textQuery: "winery OR vineyard OR tasting room OR cellars", fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], locationRestriction: searchBounds };
     try {
         const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
         const visitedIds = getVisitedWineryIds();
@@ -197,19 +191,8 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }, [map, autoSearch]);
 
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
-    // Prevents the dialog from opening if the user clicks on one of our existing markers.
-    if (e.placeId) {
-        // Find if the clicked place is already in our search results
-        const existingWinery = searchState.results.find(w => w.id === e.placeId);
-        if (existingWinery) {
-            handleOpenModal(existingWinery);
-            return;
-        }
-    }
-      
     if (!e.latLng || !geocoder || !places) return;
 
-    // Find the nearest place to the click
     const { results } = await geocoder.geocode({ location: e.latLng });
     if (results && results[0] && results[0].place_id) {
         const placeDetails = new places.Place({ id: results[0].place_id });
@@ -227,7 +210,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     } else {
         toast({ variant: "destructive", description: "Could not find a location at that point." });
     }
-  }, [geocoder, places, getVisitedWineryIds, toast, searchState.results]);
+  }, [geocoder, places, getVisitedWineryIds, toast]);
 
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
