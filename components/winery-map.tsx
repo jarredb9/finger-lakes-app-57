@@ -191,13 +191,22 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }, [map, autoSearch]);
 
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
-    if (!e.latLng || !geocoder || !places) return;
+    // **DEBUGGING LOGS ADDED HERE**
+    console.log("Map clicked. Event:", e);
     
-    // **CLICK FIX**: The faulty logic that blocked this function has been removed.
-    // This will now correctly fire on any map click that isn't one of our AdvancedMarkers.
-    const { results } = await geocoder.geocode({ location: e.latLng });
-    if (results && results[0] && results[0].place_id) {
-        const placeDetails = new places.Place({ id: results[0].place_id });
+    // The click event on a POI should include a placeId. If it doesn't, this is the issue.
+    if (e.placeId) {
+        console.log(`A POI was clicked. Place ID: ${e.placeId}`);
+        e.stop(); // Stop the map from zooming or showing its default info window
+    } else {
+        console.log("Clicked on the map base, not a specific POI.");
+        return; // Don't proceed if it wasn't a click on a specific place
+    }
+
+    if (!geocoder || !places) return;
+    
+    try {
+        const placeDetails = new places.Place({ id: e.placeId });
         await placeDetails.fetchFields({ fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"]});
         
         if (placeDetails.location) {
@@ -209,8 +218,9 @@ function WineryMapLogic({ userId }: WineryMapProps) {
             };
             setProposedWinery(newWinery);
         }
-    } else {
-        toast({ variant: "destructive", description: "Could not find a location at that point." });
+    } catch (error) {
+        console.error("Error fetching details for clicked place:", error);
+        toast({ variant: "destructive", description: "Could not fetch details for the selected location." });
     }
   }, [geocoder, places, getVisitedWineryIds, toast]);
 
