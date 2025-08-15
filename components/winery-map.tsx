@@ -48,16 +48,7 @@ interface WineryMapProps {
 }
 
 // --- Memoized Map Component for Performance ---
-// This component will only re-render if its props (searchResults or onMarkerClick) change.
-// This prevents the map itself from re-rendering during other state updates, stopping the "jarring" effect.
 const MapComponent = memo(({ searchResults, onMarkerClick }: { searchResults: Winery[], onMarkerClick: (winery: Winery) => void }) => {
-    const map = useMap();
-    const mapRef = useRef(map);
-
-    useEffect(() => {
-        mapRef.current = map;
-    }, [map]);
-    
     return (
         <div className="h-96 w-full lg:h-[600px] bg-muted">
             <Map
@@ -129,7 +120,8 @@ function WineryMap({ userId }: WineryMapProps) {
 
     setIsSearching(true);
     setHitApiLimit(false);
-    setSearchResults([]);
+    // Don't clear results here to prevent the list from disappearing, the new results will replace them.
+    // setSearchResults([]); 
 
     let searchBounds: google.maps.LatLngBounds;
 
@@ -176,6 +168,7 @@ function WineryMap({ userId }: WineryMapProps) {
         }));
         setSearchResults(wineries);
     } catch (error) {
+        setSearchResults([]); // Clear results on error
         console.error("Google Places search error:", error);
     } finally {
         setIsSearching(false);
@@ -192,7 +185,6 @@ function WineryMap({ userId }: WineryMapProps) {
             initialSearchFired.current = true;
             searchFnRef.current?.("Finger Lakes, NY");
         }
-
         const idleListener = map.addListener('idle', () => {
             if (autoSearch && initialSearchFired.current) {
                 const bounds = map.getBounds();
@@ -201,7 +193,6 @@ function WineryMap({ userId }: WineryMapProps) {
                 }
             }
         });
-
         return () => { google.maps.event.removeListener(idleListener); };
     }, [map, autoSearch]);
 
@@ -259,11 +250,20 @@ function WineryMap({ userId }: WineryMapProps) {
                 <div className="flex items-center gap-2"> <div style={{ backgroundColor: '#3B82F6', border: '2px solid #2563EB' }} className="w-4 h-4 rounded-full" /> <span className="text-sm">Discovered</span> </div>
             </CardContent>
           </Card>
-          {searchResults.length > 0 && (
-            <Card>
+          
+          {/* **LAYOUT SHIFT FIX**: The Card is always rendered. The content inside changes. */}
+          <Card>
               <CardHeader><CardTitle className="flex justify-between items-center">Discovered List <Badge>{searchResults.length}</Badge></CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-2 max-h-[450px] overflow-y-auto">
+                  {isSearching && (
+                    <div className="flex items-center justify-center p-4">
+                        <Loader2 className="animate-spin text-muted-foreground" />
+                    </div>
+                  )}
+                  {!isSearching && searchResults.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center p-4">No wineries found in this area.</p>
+                  )}
                   {searchResults.map(winery => (
                     <div key={winery.id} className="p-2 border rounded cursor-pointer hover:bg-muted" onClick={() => handleOpenModal(winery)}>
                       <p className="font-medium text-sm">{winery.name}</p>
@@ -274,7 +274,6 @@ function WineryMap({ userId }: WineryMapProps) {
                 </div>
               </CardContent>
             </Card>
-          )}
         </div>
       </div>
       
