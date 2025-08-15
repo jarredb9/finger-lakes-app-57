@@ -191,34 +191,44 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }, [map, autoSearch]);
 
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
+    // **DEBUGGING LOGS ADDED HERE**
+    console.log("Map clicked. Event:", e);
+    
+    // The click event on a POI should include a placeId. If it doesn't, this is the issue.
+    if (e.placeId) {
+        console.log(`A POI was clicked. Place ID: ${e.placeId}`);
+        e.stop(); // Stop the map from zooming or showing its default info window
+    } else {
+        console.log("Clicked on the map base, not a specific POI.");
+        // We will still proceed to try and find the nearest location.
+    }
+
     if (!e.latLng || !geocoder) return;
     
-    // Stop the map's default behavior (like zooming on click)
-    e.stop();
+    try {
+        const { results } = await geocoder.geocode({ location: e.latLng });
+        if (results && results[0]) {
+            const place = results[0];
+            if (!place.place_id || !place.geometry?.location) {
+                toast({ variant: "destructive", description: "Could not identify a specific location." });
+                return;
+            }
 
-    const { results } = await geocoder.geocode({ location: e.latLng });
-    
-    // The first result is the most likely candidate for the clicked POI
-    if (results && results[0]) {
-        const place = results[0];
-        // Ensure we have a place_id and location to work with
-        if (!place.place_id || !place.geometry || !place.geometry.location) {
-            toast({ variant: "destructive", description: "Could not identify a specific location at that point." });
-            return;
+            const newWinery: Winery = {
+                id: place.place_id,
+                name: place.formatted_address.split(',')[0],
+                address: place.formatted_address,
+                lat: place.geometry.location.lat(),
+                lng: place.geometry.location.lng(),
+                userVisited: getVisitedWineryIds().has(place.place_id)
+            };
+            setProposedWinery(newWinery);
+        } else {
+            toast({ variant: "destructive", description: "Could not find a location at that point." });
         }
-
-        const newWinery: Winery = {
-            id: place.place_id,
-            name: place.formatted_address.split(',')[0], // Best guess for the name
-            address: place.formatted_address,
-            lat: place.geometry.location.lat(),
-            lng: place.geometry.location.lng(),
-            userVisited: getVisitedWineryIds().has(place.place_id)
-        };
-        setProposedWinery(newWinery);
-        
-    } else {
-        toast({ variant: "destructive", description: "Could not find a location at that point." });
+    } catch (error) {
+        console.error("Error during reverse geocoding:", error);
+        toast({ variant: "destructive", description: "An error occurred while finding the location." });
     }
   }, [geocoder, getVisitedWineryIds, toast]);
 
