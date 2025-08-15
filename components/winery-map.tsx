@@ -251,18 +251,20 @@ function WineryMap({ userId }: WineryMapProps) {
           
           <Card>
               <CardHeader><CardTitle className="flex justify-between items-center">Discovered List <Badge>{searchResults.length}</Badge></CardTitle></CardHeader>
-              <CardContent>
-                {/* **LAYOUT SHIFT FIX**: Add a min-height to prevent the card from collapsing */}
-                <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto">
-                  {isSearching && (
-                    <div className="flex items-center justify-center pt-10">
+              {/* **SMOOTH REFRESH FIX**: The CardContent is now relative for the overlay */}
+              <CardContent className="relative">
+                {/* The loading overlay */}
+                {isSearching && (
+                    <div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 flex items-center justify-center rounded-b-lg">
                         <Loader2 className="animate-spin text-muted-foreground h-8 w-8" />
                     </div>
-                  )}
-                  {!isSearching && searchResults.length === 0 && (
+                )}
+                {/* The list container with a stable height */}
+                <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto">
+                  {searchResults.length === 0 && !isSearching && (
                     <p className="text-sm text-muted-foreground text-center pt-10">No wineries found in this area.</p>
                   )}
-                  {!isSearching && searchResults.map(winery => (
+                  {searchResults.map(winery => (
                     <div key={winery.id} className="p-2 border rounded cursor-pointer hover:bg-muted" onClick={() => handleOpenModal(winery)}>
                       <p className="font-medium text-sm">{winery.name}</p>
                       <p className="text-xs text-muted-foreground">{winery.address}</p>
