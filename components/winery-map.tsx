@@ -66,8 +66,9 @@ function MapContent({ userId }: WineryMapProps) {
   
   const initialSearchFired = useRef(false);
 
-  // A ref to hold the latest version of the search function
-  const searchFnRef = useRef(executeSearch);
+  // **CRASH FIX**: Initialize the ref with null. 
+  // The useEffect hook below will populate it with the function after the first render.
+  const searchFnRef = useRef<((locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => Promise<void>) | null>(null);
 
   useEffect(() => {
     if (places && geocoding) {
@@ -95,7 +96,6 @@ function MapContent({ userId }: WineryMapProps) {
     return new Set(allUserVisits.map(v => v.winery_id));
   }, [allUserVisits]);
   
-  // Use useCallback to define the search function
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
     if (!places || !geocoder) return;
 
@@ -162,29 +162,28 @@ function MapContent({ userId }: WineryMapProps) {
     }
 }, [map, places, geocoder, getVisitedWineryIds, toast]);
 
-    // **PERFORMANCE FIX**: Update the ref with the latest search function on every render.
-    // This doesn't cause a re-render itself, but ensures the event listener always has the fresh function.
+    // This effect keeps the ref pointing to the latest version of executeSearch
     useEffect(() => {
         searchFnRef.current = executeSearch;
     });
 
     // This simplified useEffect now only runs once when the map is ready.
-    // It uses the ref to call the latest search function, preventing stale closures
-    // and eliminating the jarring re-renders from re-adding the listener.
     useEffect(() => {
         if (!map) return;
 
         // Fire initial search
         if (!initialSearchFired.current) {
             initialSearchFired.current = true;
-            searchFnRef.current("Finger Lakes, NY");
+            // Use the ref to call the function
+            searchFnRef.current?.("Finger Lakes, NY");
         }
 
         const idleListener = map.addListener('idle', () => {
             if (autoSearch && initialSearchFired.current) {
                 const bounds = map.getBounds();
                 if (bounds) {
-                    searchFnRef.current(undefined, bounds);
+                    // Use the ref to call the function
+                    searchFnRef.current?.(undefined, bounds);
                 }
             }
         });
