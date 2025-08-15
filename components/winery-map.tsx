@@ -53,17 +53,41 @@ const MapComponent = memo(({ searchResults, onMarkerClick }: { searchResults: Wi
 ));
 MapComponent.displayName = 'MapComponent';
 
-const ResultsUI = memo(({ searchState, onOpenModal }: { searchState: SearchState, onOpenModal: (winery: Winery) => void }) => (
+const SearchContainer = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch }) => (
+    <Card>
+        <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries or explore dynamically as you move the map.</CardDescription> </CardHeader>
+        <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+                <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
+                    <Input placeholder="Enter city or region" value={searchLocation} onChange={e => setSearchLocation(e.target.value)} />
+                    <Button type="submit" disabled={searchState.isSearching}> {searchState.isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />} <span className="ml-2">Search</span> </Button>
+                </form>
+                <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching}> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200">
+                <Label htmlFor="auto-search" className="flex items-center gap-2 text-sm font-medium cursor-pointer"> <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} /> Auto-discover wineries as you explore </Label>
+            </div>
+            {searchState.hitApiLimit && (<Alert variant="default" className="bg-yellow-50 border-yellow-200"> <Info className="h-4 w-4 text-yellow-700" /> <AlertDescription className="text-yellow-800"> Map results are limited. Zoom in to a more specific area to see more wineries. </AlertDescription> </Alert>)}
+            <div className="flex items-center justify-between">
+                <Badge variant="secondary">{searchState.isSearching ? 'Searching...' : `${searchState.results.length} wineries in view`}</Badge>
+                {searchState.results.length > 0 && <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'CLEAR_RESULTS' })}><RotateCcw className="mr-2 w-4 h-4" /> Clear</Button>}
+            </div>
+        </CardContent>
+    </Card>
+));
+SearchContainer.displayName = 'SearchContainer';
+
+const ResultsContainer = memo(({ searchState, onOpenModal }: { searchState: SearchState, onOpenModal: (winery: Winery) => void }) => (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
-            <Card><CardContent className="p-0 relative"><MapComponent searchResults={searchState.results} onMarkerClick={onOpenModal} /></CardContent></Card>
+            <Card> <CardContent className="p-0 relative"> <MapComponent searchResults={searchState.results} onMarkerClick={onOpenModal} /> </CardContent> </Card>
         </div>
         <div className="space-y-4">
             <Card>
                 <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
-                    <div className="flex items-center gap-2"><div style={{ backgroundColor: '#10B981', border: '2px solid #059669' }} className="w-4 h-4 rounded-full" /><span className="text-sm">Visited</span></div>
-                    <div className="flex items-center gap-2"><div style={{ backgroundColor: '#3B82F6', border: '2px solid #2563EB' }} className="w-4 h-4 rounded-full" /><span className="text-sm">Discovered</span></div>
+                    <div className="flex items-center gap-2"> <div style={{ backgroundColor: '#10B981', border: '2px solid #059669' }} className="w-4 h-4 rounded-full" /> <span className="text-sm">Visited</span> </div>
+                    <div className="flex items-center gap-2"> <div style={{ backgroundColor: '#3B82F6', border: '2px solid #2563EB' }} className="w-4 h-4 rounded-full" /> <span className="text-sm">Discovered</span> </div>
                 </CardContent>
             </Card>
             <Card>
@@ -85,7 +109,7 @@ const ResultsUI = memo(({ searchState, onOpenModal }: { searchState: SearchState
         </div>
     </div>
 ));
-ResultsUI.displayName = 'ResultsUI';
+ResultsContainer.displayName = 'ResultsContainer';
 
 // --- Main Logic Component ---
 function WineryMapLogic({ userId }: WineryMapProps) {
@@ -166,29 +190,17 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 
   return (
     <div className="space-y-6">
-      <Card>
-        <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries or explore dynamically as you move the map.</CardDescription> </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
-              <Input placeholder="Enter city or region" value={searchLocation} onChange={e => setSearchLocation(e.target.value)} />
-              <Button type="submit" disabled={searchState.isSearching}> {searchState.isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />} <span className="ml-2">Search</span> </Button>
-            </form>
-            <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching}> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
-          </div>
-          <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200">
-            <Label htmlFor="auto-search" className="flex items-center gap-2 text-sm font-medium cursor-pointer"> <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} /> Auto-discover wineries as you explore </Label>
-          </div>
-          {searchState.hitApiLimit && (<Alert variant="default" className="bg-yellow-50 border-yellow-200"> <Info className="h-4 w-4 text-yellow-700" /> <AlertDescription className="text-yellow-800"> Map results are limited. Zoom in to a more specific area to see more wineries. </AlertDescription> </Alert>)}
-          <div className="flex items-center justify-between">
-            <Badge variant="secondary">{searchState.isSearching ? 'Searching...' : `${searchState.results.length} wineries in view`}</Badge>
-            {searchState.results.length > 0 && <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'CLEAR_RESULTS' })}><RotateCcw className="mr-2 w-4 h-4" /> Clear</Button>}
-          </div>
-        </CardContent>
-      </Card>
-      
-      <ResultsUI searchState={searchState} onOpenModal={handleOpenModal} />
-      
+      <SearchContainer 
+        searchState={searchState}
+        searchLocation={searchLocation}
+        setSearchLocation={setSearchLocation}
+        autoSearch={autoSearch}
+        setAutoSearch={setAutoSearch}
+        handleSearchSubmit={handleSearchSubmit}
+        handleManualSearchArea={handleManualSearchArea}
+        dispatch={dispatch}
+      />
+      <ResultsContainer searchState={searchState} onOpenModal={handleOpenModal} />
       {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleSaveVisit} onDeleteVisit={handleDeleteVisit} />)}
     </div>
   );
