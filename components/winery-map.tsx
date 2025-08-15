@@ -191,7 +191,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 
   return (
     <div className="space-y-6">
-      <SearchContainer 
+      <SearchUI 
         searchState={searchState}
         searchLocation={searchLocation}
         setSearchLocation={setSearchLocation}
@@ -201,7 +201,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         handleManualSearchArea={handleManualSearchArea}
         dispatch={dispatch}
       />
-      <ResultsContainer searchState={searchState} onOpenModal={handleOpenModal} />
+      <ResultsUI searchState={searchState} onOpenModal={handleOpenModal} />
       {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleSaveVisit} onDeleteVisit={handleDeleteVisit} />)}
     </div>
   );
