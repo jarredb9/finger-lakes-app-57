@@ -32,7 +32,7 @@ interface Visit {
 }
 
 interface Winery {
-    id: string; // This is the Google Place ID
+    id: string;
     name: string;
     address: string;
     lat: number;
@@ -41,15 +41,15 @@ interface Winery {
     website?: string;
     rating?: number;
     userVisited?: boolean;
-    visits?: Visit[]; // Populated when a winery is selected
+    visits?: Visit[];
 }
 
 interface WineryMapProps {
     userId: string;
 }
 
-// Main map content component
 function MapContent({ userId }: WineryMapProps) {
+  console.log("--- MapContent Component Re-rendered ---");
   const map = useMap();
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
@@ -64,24 +64,27 @@ function MapContent({ userId }: WineryMapProps) {
   const [allUserVisits, setAllUserVisits] = useState<Visit[]>([]);
   const { toast } = useToast();
   
-  // A ref to track if the very first programmatic search has been done
   const initialSearchFired = useRef(false);
 
   useEffect(() => {
+    console.log("DEBUG: useEffect for Places/Geocoding services fired.");
     if (places && geocoding) {
+      console.log("DEBUG: Places and Geocoding services are available. Setting geocoder.");
       setGeocoder(new geocoding.Geocoder());
     }
   }, [places, geocoding]);
 
   const fetchUserVisits = useCallback(async () => {
+    console.log("DEBUG: Fetching user visits.");
     try {
       const response = await fetch('/api/visits');
       if (response.ok) {
         const visits: Visit[] = await response.json();
         setAllUserVisits(visits);
+        console.log(`DEBUG: Successfully fetched ${visits.length} visits.`);
       }
     } catch (error) {
-      console.error("Failed to fetch user visits:", error);
+      console.error("DEBUG: Failed to fetch user visits:", error);
     }
   }, []);
 
@@ -94,11 +97,17 @@ function MapContent({ userId }: WineryMapProps) {
   }, [allUserVisits]);
   
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
-    if (!places || !geocoder) return;
+    console.log(`%cDEBUG: executeSearch called. Location: ${locationText || 'none'}, Bounds: ${bounds ? JSON.stringify(bounds) : 'none'}`, 'color: blue; font-weight: bold;');
+    
+    if (!places || !geocoder) {
+      console.error("DEBUG: Search aborted, places or geocoder not ready.");
+      return;
+    }
 
     setIsSearching(true);
     setHitApiLimit(false);
-    setSearchResults([]); // **CRITICAL FIX**: Clear previous results immediately
+    setSearchResults([]); 
+    console.log("DEBUG: Cleared searchResults, set isSearching to true.");
 
     let searchBounds: google.maps.LatLngBounds;
 
@@ -114,7 +123,7 @@ function MapContent({ userId }: WineryMapProps) {
                 return;
             }
         } catch (error) {
-            console.error("Geocoding failed:", error);
+            console.error("DEBUG: Geocoding failed:", error);
             setIsSearching(false);
             return;
         }
@@ -132,10 +141,13 @@ function MapContent({ userId }: WineryMapProps) {
     };
 
     try {
+        console.log("DEBUG: Sending request to Google Places API...");
         const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
+        console.log(`DEBUG: Google Places API returned ${foundPlaces.length} results.`);
         
         if (foundPlaces.length === 20) {
             setHitApiLimit(true);
+            console.log("DEBUG: API limit of 20 results was hit.");
         }
 
         const visitedIds = getVisitedWineryIds();
@@ -152,39 +164,50 @@ function MapContent({ userId }: WineryMapProps) {
         }));
 
         setSearchResults(wineries);
+        console.log(`DEBUG: setSearchResults called with ${wineries.length} new wineries.`);
     } catch (error) {
-        console.error("Google Places search error:", error);
+        console.error("DEBUG: Google Places search error:", error);
     } finally {
         setIsSearching(false);
+        console.log("DEBUG: Search finished, set isSearching to false.");
     }
 }, [map, places, geocoder, getVisitedWineryIds, toast]);
 
-  // This robust useEffect handles all map-based searches.
   useEffect(() => {
-    if (!map || !geocoder) return;
+    console.log("DEBUG: Main search useEffect fired. Dependencies: [map, geocoder, autoSearch, executeSearch]");
+    if (!map || !geocoder) {
+      console.log("DEBUG: Main search useEffect waiting for map or geocoder.");
+      return;
+    }
   
-    // Define the idle handler inside the effect to avoid stale closures.
     const handleIdle = () => {
+      console.log(`%cDEBUG: Map 'idle' event fired.`, 'color: green;');
+      console.log(`DEBUG: Inside idle - autoSearch: ${autoSearch}, initialSearchFired: ${initialSearchFired.current}`);
+
       if (!autoSearch || !initialSearchFired.current) {
+        console.log("DEBUG: Idle search condition not met. Aborting.");
         return;
       }
       const bounds = map.getBounds();
       if (bounds) {
-        executeSearch(undefined, bounds);
+        console.log("DEBUG: Calling executeSearch from idle listener.");
+        executeSearch(undefined, bounds.toJSON());
+      } else {
+        console.log("DEBUG: Idle event fired but getBounds() returned null.");
       }
     };
   
-    // Add the listener.
+    console.log("DEBUG: Adding 'idle' event listener to map.");
     const idleListener = map.addListener('idle', handleIdle);
   
-    // **CRITICAL FIX**: Trigger the very first search programmatically.
     if (!initialSearchFired.current) {
+      console.log("DEBUG: Firing initial programmatic search for 'Finger Lakes, NY'.");
       executeSearch("Finger Lakes, NY");
       initialSearchFired.current = true;
     }
   
-    // Cleanup function to remove the listener.
     return () => {
+      console.log("DEBUG: Cleanup: Removing 'idle' event listener.");
       google.maps.event.removeListener(idleListener);
     };
   }, [map, geocoder, autoSearch, executeSearch]);
@@ -200,7 +223,7 @@ function MapContent({ userId }: WineryMapProps) {
   const handleManualSearchArea = () => {
     const bounds = map?.getBounds();
     if (bounds) {
-      executeSearch(undefined, bounds);
+      executeSearch(undefined, bounds.toJSON());
     }
   };
 
@@ -210,6 +233,7 @@ function MapContent({ userId }: WineryMapProps) {
   };
   
   const handleSaveVisit = async (winery: Winery, visitData: Omit<Visit, 'id' | 'winery_id'>) => {
+    // ... (rest of the component is unchanged)
     const response = await fetch('/api/visits', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
