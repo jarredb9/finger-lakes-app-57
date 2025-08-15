@@ -39,9 +39,10 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     }
 }
 
-// --- Memoized Child Components for Performance ---
+// --- Memoized Child Components for Ultimate Performance ---
+
 const MapComponent = memo(({ searchResults, onMarkerClick }: { searchResults: Winery[], onMarkerClick: (winery: Winery) => void }) => (
-    <div className="h-96 w-full lg:h-[600px] bg-muted">
+    <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
         <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID}>
             {searchResults.map(winery => (
                 <AdvancedMarker key={winery.id} position={winery} onClick={() => onMarkerClick(winery)}>
@@ -53,7 +54,7 @@ const MapComponent = memo(({ searchResults, onMarkerClick }: { searchResults: Wi
 ));
 MapComponent.displayName = 'MapComponent';
 
-const SearchContainer = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch }) => (
+const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch }) => (
     <Card>
         <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries or explore dynamically as you move the map.</CardDescription> </CardHeader>
         <CardContent className="space-y-4">
@@ -75,9 +76,9 @@ const SearchContainer = memo(({ searchState, searchLocation, setSearchLocation, 
         </CardContent>
     </Card>
 ));
-SearchContainer.displayName = 'SearchContainer';
+SearchUI.displayName = 'SearchUI';
 
-const ResultsContainer = memo(({ searchState, onOpenModal }: { searchState: SearchState, onOpenModal: (winery: Winery) => void }) => (
+const ResultsUI = memo(({ searchState, onOpenModal }: { searchState: SearchState, onOpenModal: (winery: Winery) => void }) => (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
             <Card> <CardContent className="p-0 relative"> <MapComponent searchResults={searchState.results} onMarkerClick={onOpenModal} /> </CardContent> </Card>
@@ -109,7 +110,7 @@ const ResultsContainer = memo(({ searchState, onOpenModal }: { searchState: Sear
         </div>
     </div>
 ));
-ResultsContainer.displayName = 'ResultsContainer';
+ResultsUI.displayName = 'ResultsUI';
 
 // --- Main Logic Component ---
 function WineryMapLogic({ userId }: WineryMapProps) {
