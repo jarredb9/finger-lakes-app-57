@@ -191,38 +191,36 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }, [map, autoSearch]);
 
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
-    // **DEBUGGING LOGS ADDED HERE**
-    console.log("Map clicked. Event:", e);
+    if (!e.latLng || !geocoder) return;
     
-    // The click event on a POI should include a placeId. If it doesn't, this is the issue.
-    if (e.placeId) {
-        console.log(`A POI was clicked. Place ID: ${e.placeId}`);
-        e.stop(); // Stop the map from zooming or showing its default info window
-    } else {
-        console.log("Clicked on the map base, not a specific POI.");
-        return; // Don't proceed if it wasn't a click on a specific place
-    }
+    // Stop the map's default behavior (like zooming on click)
+    e.stop();
 
-    if (!geocoder || !places) return;
+    const { results } = await geocoder.geocode({ location: e.latLng });
     
-    try {
-        const placeDetails = new places.Place({ id: e.placeId });
-        await placeDetails.fetchFields({ fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"]});
-        
-        if (placeDetails.location) {
-            const newWinery: Winery = {
-                id: placeDetails.id!, name: placeDetails.displayName!, address: placeDetails.formattedAddress!, 
-                lat: placeDetails.location.lat(), lng: placeDetails.location.lng(), rating: placeDetails.rating,
-                website: placeDetails.websiteURI, phone: placeDetails.nationalPhoneNumber,
-                userVisited: getVisitedWineryIds().has(placeDetails.id!)
-            };
-            setProposedWinery(newWinery);
+    // The first result is the most likely candidate for the clicked POI
+    if (results && results[0]) {
+        const place = results[0];
+        // Ensure we have a place_id and location to work with
+        if (!place.place_id || !place.geometry || !place.geometry.location) {
+            toast({ variant: "destructive", description: "Could not identify a specific location at that point." });
+            return;
         }
-    } catch (error) {
-        console.error("Error fetching details for clicked place:", error);
-        toast({ variant: "destructive", description: "Could not fetch details for the selected location." });
+
+        const newWinery: Winery = {
+            id: place.place_id,
+            name: place.formatted_address.split(',')[0], // Best guess for the name
+            address: place.formatted_address,
+            lat: place.geometry.location.lat(),
+            lng: place.geometry.location.lng(),
+            userVisited: getVisitedWineryIds().has(place.place_id)
+        };
+        setProposedWinery(newWinery);
+        
+    } else {
+        toast({ variant: "destructive", description: "Could not find a location at that point." });
     }
-  }, [geocoder, places, getVisitedWineryIds, toast]);
+  }, [geocoder, getVisitedWineryIds, toast]);
 
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
