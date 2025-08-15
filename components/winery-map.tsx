@@ -156,9 +156,9 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     } else if (bounds) { searchBounds = new google.maps.LatLngBounds(bounds); } 
     else { dispatch({ type: 'SEARCH_ERROR' }); return; }
 
-    // **EDGE CASE FIX**: Broaden the search query to include common variations.
     const request = { 
-        textQuery: "winery OR vineyard OR wines", 
+        // **EDGE CASE FIX**: Final, most inclusive search query.
+        textQuery: "winery OR vineyard OR wines OR tasting room OR wine bar OR wine store", 
         fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], 
         locationRestriction: searchBounds 
     };
