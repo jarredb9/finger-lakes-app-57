@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload, Loader2 } from "lucide-react"
+import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload, Loader2, Camera } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Visit {
@@ -146,37 +146,27 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                 <Calendar className="w-5 h-5" />
                 <span>Your Visits</span>
               </h3>
-              <div className="space-y-3 max-h-60 overflow-y-auto">
+              <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
                 {sortedVisits.map((visit, index) => (
-                  <Card key={visit.id || index} className="bg-green-50 border-green-200">
-                    <CardContent className="p-4">
+                  <Card key={visit.id || index} className="bg-slate-50 border-slate-200">
+                    <CardContent className="p-4 space-y-3">
                       <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Calendar className="w-4 h-4 text-green-600" />
-                            <span className="font-medium text-green-800">
+                        <div className="flex-1 space-y-1">
+                           <p className="font-semibold text-slate-800">
                               {new Date(visit.visit_date).toLocaleDateString("en-US", {
-                                weekday: "long",
                                 year: "numeric",
                                 month: "long",
                                 day: "numeric",
                               })}
-                            </span>
-                          </div>
+                            </p>
                           {visit.rating && (
-                            <div className="flex items-center space-x-1">
+                            <div className="flex items-center">
                               {[...Array(5)].map((_, i) => (
                                 <Star
                                   key={i}
-                                  className={`w-4 h-4 ${i < visit.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
+                                  className={`w-5 h-5 ${i < visit.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
                                 />
                               ))}
-                            </div>
-                          )}
-                          {visit.userReview && (
-                            <div className="flex items-start space-x-2">
-                              <MessageSquare className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
-                              <p className="text-sm text-green-700">{visit.userReview}</p>
                             </div>
                           )}
                         </div>
@@ -189,6 +179,30 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
+                        )}
+                      </div>
+
+                      {visit.user_review && (
+                        <div>
+                          <h4 className="font-semibold text-sm text-slate-600 mb-1">Your Review</h4>
+                          <p className="text-sm text-slate-700 bg-white p-3 rounded-md border">{visit.user_review}</p>
+                        </div>
+                      )}
+
+                      <div>
+                        <h4 className="font-semibold text-sm text-slate-600 mb-1">Photos</h4>
+                        {(visit.photos && visit.photos.length > 0) ? (
+                            <div className="grid grid-cols-3 gap-2">
+                                {visit.photos.map((photo, pIndex) => (
+                                    // Using a placeholder image for now
+                                    <img key={pIndex} src="https://placehold.co/600x400" alt={`Visit photo ${pIndex + 1}`} className="rounded-md object-cover w-full h-24" />
+                                ))}
+                            </div>
+                        ) : (
+                            <div className="flex items-center space-x-2 text-sm text-slate-500 bg-white p-3 rounded-md border">
+                                <Camera className="w-4 h-4" />
+                                <span>No photos were added for this visit.</span>
+                            </div>
                         )}
                       </div>
                     </CardContent>
