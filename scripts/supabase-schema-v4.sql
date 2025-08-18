@@ -5,7 +5,7 @@ DROP TABLE IF EXISTS public.wineries CASCADE;
 -- Create wineries reference table first
 CREATE TABLE public.wineries (
     id SERIAL PRIMARY KEY,
-    google_place_id TEXT UNIQUE, -- Added this column to store the unique Google Place ID
+    google_place_id TEXT UNIQUE,
     name VARCHAR(255) NOT NULL,
     address TEXT NOT NULL,
     latitude DECIMAL(10, 8),
@@ -29,21 +29,11 @@ CREATE TABLE public.visits (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Insert sample Finger Lakes wineries (optional, for testing)
--- Note: These won't have google_place_id initially, but new ones you add via the app will.
-INSERT INTO public.wineries (name, address, latitude, longitude, phone, website, google_rating) VALUES
-('Dr. Konstantin Frank Winery', '9749 Middle Rd, Hammondsport, NY 14840', 42.4089, -77.2094, '(607) 868-4884', 'https://drfrankwines.com', 4.6),
-('Chateau Lafayette Reneau', '5081 NY-414, Hector, NY 14841', 42.4756, -76.8739, '(607) 546-2062', 'https://clrwine.com', 4.4),
-('Wagner Vineyards', '9322 NY-414, Lodi, NY 14860', 42.6089, -76.8267, '(607) 582-6450', 'https://wagnervineyards.com', 4.3),
-('Ravines Wine Cellars', '1020 Keuka Lake Rd, Penn Yan, NY 14527', 42.6394, -77.0533, '(315) 536-4265', 'https://ravineswine.com', 4.5),
-('Hermann J. Wiemer Vineyard', '3962 NY-14, Dundee, NY 14837', 42.5267, -76.9733, '(607) 243-7971', 'https://wiemer.com', 4.7),
-('Fox Run Vineyards', '670 NY-14, Penn Yan, NY 14527', 42.6178, -77.0456, '(315) 536-4616', 'https://foxrunvineyards.com', 4.4);
-
 -- Enable RLS on both tables
 ALTER TABLE public.visits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wineries ENABLE ROW LEVEL SECURITY;
 
--- Create RLS policies for visits table
+-- RLS Policies for visits table
 CREATE POLICY "Users can view their own visits" ON public.visits
     FOR SELECT USING (auth.uid() = user_id);
 
@@ -56,6 +46,10 @@ CREATE POLICY "Users can update their own visits" ON public.visits
 CREATE POLICY "Users can delete their own visits" ON public.visits
     FOR DELETE USING (auth.uid() = user_id);
 
--- Create policy to allow everyone to read wineries
+-- RLS Policies for wineries table
 CREATE POLICY "Anyone can view wineries" ON public.wineries
     FOR SELECT USING (true);
+
+-- NEW POLICY: Allow authenticated users to insert new wineries
+CREATE POLICY "Authenticated users can insert wineries" ON public.wineries
+    FOR INSERT TO authenticated WITH CHECK (true);
