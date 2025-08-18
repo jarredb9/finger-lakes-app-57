@@ -5,10 +5,11 @@ DROP TABLE IF EXISTS public.wineries CASCADE;
 -- Create wineries reference table first
 CREATE TABLE public.wineries (
     id SERIAL PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
+    google_place_id TEXT UNIQUE, -- Added this column to store the unique Google Place ID
+    name VARCHAR(255) NOT NULL,
     address TEXT NOT NULL,
-    latitude DECIMAL(10, 8) NOT NULL,
-    longitude DECIMAL(11, 8) NOT NULL,
+    latitude DECIMAL(10, 8),
+    longitude DECIMAL(11, 8),
     phone VARCHAR(20),
     website VARCHAR(255),
     google_rating DECIMAL(2, 1),
@@ -28,7 +29,8 @@ CREATE TABLE public.visits (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Insert sample Finger Lakes wineries
+-- Insert sample Finger Lakes wineries (optional, for testing)
+-- Note: These won't have google_place_id initially, but new ones you add via the app will.
 INSERT INTO public.wineries (name, address, latitude, longitude, phone, website, google_rating) VALUES
 ('Dr. Konstantin Frank Winery', '9749 Middle Rd, Hammondsport, NY 14840', 42.4089, -77.2094, '(607) 868-4884', 'https://drfrankwines.com', 4.6),
 ('Chateau Lafayette Reneau', '5081 NY-414, Hector, NY 14841', 42.4756, -76.8739, '(607) 546-2062', 'https://clrwine.com', 4.4),
