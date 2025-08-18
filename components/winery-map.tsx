@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload, Loader2 } from "lucide-react"
+import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Visit {
@@ -40,11 +40,10 @@ interface Winery {
   visits?: Visit[]
 }
 
-// Corrected the type for visitData to use snake_case
 interface WineryModalProps {
-  winery: Winery
+  winery: Winery | null; // Allow winery to be null
   onClose: () => void
-  onSaveVisit: (winery: Winery, visitData: { visit_date: string; userReview: string; rating: number; photos: string[] }) => Promise<void>
+  onSaveVisit: (winery: Winery, visitData: { visit_date: string; userReview: string; rating: number; photos: string[] }) => void
   onDeleteVisit?: (winery: Winery, visitId: string) => void
 }
 
@@ -55,6 +54,11 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
   const [photos, setPhotos] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
+
+  // Guard clause to prevent rendering if winery is null
+  if (!winery) {
+    return null;
+  }
 
   const visits = winery.visits || []
   const sortedVisits = visits.sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
@@ -71,12 +75,21 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
 
     setSaving(true)
     try {
-      // Pass the data with the correct property name `visit_date`
-      // The parent component now handles success/error toasts
       await onSaveVisit(winery, { visit_date: visitDate, userReview, rating, photos })
+      setVisitDate("")
+      setUserReview("")
+      setRating(0)
+      setPhotos([])
+      toast({
+        title: "Success",
+        description: "Your visit has been saved.",
+      })
     } catch (error) {
-      // The parent component's toast is more specific, but we can log here
-      console.error("Failed to save visit:", error)
+      toast({
+        title: "Error",
+        description: "There was a problem saving your visit.",
+        variant: "destructive",
+      })
     } finally {
       setSaving(false)
     }
@@ -269,7 +282,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
             onClick={handleSave}
             disabled={!visitDate.trim() || saving}
           >
-            {saving ? <Loader2 className="animate-spin" /> : "Add Visit"}
+            {saving ? "Saving..." : "Add Visit"}
           </Button>
         </DialogFooter>
       </DialogContent>
