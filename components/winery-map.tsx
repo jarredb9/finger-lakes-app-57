@@ -1,287 +1,364 @@
 "use client"
 
-import { useState } from "react"
+import React, { useEffect, useState, useCallback, useRef, memo, useReducer } from "react"
+import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import {
+  AlertTriangle,
+  Search,
+  MapPin,
+  RotateCcw,
+  Loader2,
+  Info,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent } from "@/components/ui/card"
-import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload, Loader2 } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import WineryModal from "./winery-modal"
 import { useToast } from "@/hooks/use-toast"
 
-// This interface now correctly expects `visit_date` to match your database
-interface Visit {
-  id?: string
-  visit_date: string
-  userReview: string
-  createdAt?: string
-  rating?: number
-  photos?: string[]
-}
+// --- DEBUG LOG ---
+console.log("--- [Module] winery-map.tsx loaded ---");
 
-interface Winery {
-  id: string
-  name: string
-  address: string
-  lat: number
-  lng: number
-  phone?: string
-  website?: string
-  rating?: number
-  userVisited?: boolean
-  visits?: Visit[]
-}
+// --- Interfaces & Types ---
+interface Visit { id: string; visit_date: string; user_review: string; rating?: number; photos?: string[]; winery_id: string; }
+interface Winery { id: string; name: string; address: string; lat: number; lng: number; phone?: string; website?: string; rating?: number; userVisited?: boolean; visits?: Visit[]; }
+interface WineryMapProps { userId: string; }
 
-interface WineryModalProps {
-  winery: Winery | null // Changed: Allows winery to be null to prevent crashes
-  onClose: () => void
-  onSaveVisit: (winery: Winery, visitData: { visit_date: string; userReview: string; rating: number; photos: string[] }) => Promise<void>
-  onDeleteVisit?: (winery: Winery, visitId: string) => void
-}
-
-export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisit }: WineryModalProps) {
-  const [visitDate, setVisitDate] = useState("")
-  const [userReview, setUserReview] = useState("")
-  const [rating, setRating] = useState(0)
-  const [photos, setPhotos] = useState<string[]>([])
-  const [saving, setSaving] = useState(false)
-  const { toast } = useToast()
-
-  // --- FIX ---
-  // This guard clause is the critical fix. It prevents the component from
-  // trying to render if the winery prop is null (e.g., during closing transitions),
-  // which was the cause of the application crash.
-  if (!winery) {
-    return null;
-  }
-
-  const visits = winery.visits || []
-  // Correctly sorts visits using the `visit_date` property from the database.
-  const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
-
-  const handleSave = async () => {
-    if (!visitDate.trim()) {
-      toast({
-        title: "Error",
-        description: "Visit date is required.",
-        variant: "destructive",
-      })
-      return
+// --- State Management with useReducer for Performance ---
+interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
+type SearchAction = | { type: 'SEARCH_START' } | { type: 'SEARCH_SUCCESS'; payload: Winery[] } | { type: 'SEARCH_ERROR' } | { type: 'CLEAR_RESULTS' };
+const initialState: SearchState = { isSearching: false, hitApiLimit: false, results: [], };
+function searchReducer(state: SearchState, action: SearchAction): SearchState {
+    switch (action.type) {
+        case 'SEARCH_START': return { ...state, isSearching: true, hitApiLimit: false };
+        case 'SEARCH_SUCCESS': return { isSearching: false, hitApiLimit: action.payload.length === 20, results: action.payload };
+        case 'SEARCH_ERROR': return { ...state, isSearching: false, results: [] };
+        case 'CLEAR_RESULTS': return { ...state, results: [] };
+        default: return state;
     }
+}
 
-    setSaving(true)
+// --- Memoized Child Components for Ultimate Performance ---
+const MapComponent = memo(({ searchResults, onMarkerClick }: { searchResults: Winery[], onMarkerClick: (winery: Winery) => void }) => (
+    <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
+        <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
+            {searchResults.map(winery => (
+                <AdvancedMarker key={winery.id} position={winery} onClick={() => onMarkerClick(winery)}>
+                    <Pin background={winery.userVisited ? '#10B981' : '#3B82F6'} borderColor={winery.userVisited ? '#059669' : '#2563EB'} glyphColor="#fff" />
+                </AdvancedMarker>
+            ))}
+        </Map>
+    </div>
+));
+MapComponent.displayName = 'MapComponent';
+
+const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch }) => (
+    <Card>
+        <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries, or click directly on the map to add a location.</CardDescription> </CardHeader>
+        <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+                <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
+                    <Input placeholder="Enter city or region" value={searchLocation} onChange={e => setSearchLocation(e.target.value)} />
+                    <Button type="submit" disabled={searchState.isSearching}> {searchState.isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />} <span className="ml-2">Search</span> </Button>
+                </form>
+                <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching}> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200">
+                <Label htmlFor="auto-search" className="flex items-center gap-2 text-sm font-medium cursor-pointer"> <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} /> Auto-discover wineries as you explore </Label>
+            </div>
+            <div className="h-12">
+              {searchState.hitApiLimit && (<Alert variant="default" className="bg-yellow-50 border-yellow-200"> <Info className="h-4 w-4 text-yellow-700" /> <AlertDescription className="text-yellow-800"> Map results are limited. Zoom in for more wineries. </AlertDescription> </Alert>)}
+            </div>
+            <div className="flex items-center justify-between">
+                <Badge variant="secondary">{searchState.isSearching ? 'Searching...' : `${searchState.results.length} wineries in view`}</Badge>
+                {searchState.results.length > 0 && <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'CLEAR_RESULTS' })}><RotateCcw className="mr-2 w-4 h-4" /> Clear</Button>}
+            </div>
+        </CardContent>
+    </Card>
+));
+SearchUI.displayName = 'SearchUI';
+
+const ResultsUI = memo(({ searchState, onOpenModal }: { searchState: SearchState, onOpenModal: (winery: Winery) => void }) => (
+    <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-3">
+            <Card> <CardContent className="p-0 relative"> <MapComponent searchResults={searchState.results} onMarkerClick={onOpenModal} /> </CardContent> </Card>
+        </div>
+        <div className="space-y-4">
+            <Card>
+                <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
+                <CardContent className="space-y-2">
+                    <div className="flex items-center gap-2"> <div style={{ backgroundColor: '#10B981', border: '2px solid #059669' }} className="w-4 h-4 rounded-full" /> <span className="text-sm">Visited</span> </div>
+                    <div className="flex items-center gap-2"> <div style={{ backgroundColor: '#3B82F6', border: '2px solid #2563EB' }} className="w-4 h-4 rounded-full" /> <span className="text-sm">Discovered</span> </div>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader><CardTitle className="flex justify-between items-center">Discovered List <Badge>{searchState.results.length}</Badge></CardTitle></CardHeader>
+                <CardContent className="relative">
+                    {searchState.isSearching && (<div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 flex items-center justify-center rounded-b-lg z-10"><Loader2 className="animate-spin text-muted-foreground h-8 w-8" /></div>)}
+                    <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto">
+                        {searchState.results.length === 0 && !searchState.isSearching && (<p className="text-sm text-muted-foreground text-center pt-10">No wineries found in this area.</p>)}
+                        {searchState.results.map(winery => (
+                            <div key={winery.id} className="p-2 border rounded cursor-pointer hover:bg-muted" onClick={() => onOpenModal(winery)}>
+                                <p className="font-medium text-sm">{winery.name}</p>
+                                <p className="text-xs text-muted-foreground">{winery.address}</p>
+                                {winery.rating && <p className="text-xs text-muted-foreground">★ {winery.rating}/5.0</p>}
+                            </div>
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
+    </div>
+));
+ResultsUI.displayName = 'ResultsUI';
+
+function WineryMapLogic({ userId }: WineryMapProps) {
+  // --- DEBUG LOG ---
+  console.log("--- [Render] WineryMapLogic rendering ---");
+  
+  const [searchState, dispatch] = useReducer(searchReducer, initialState);
+  const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
+  const [searchLocation, setSearchLocation] = useState("Finger Lakes, NY");
+  const [autoSearch, setAutoSearch] = useState(true);
+  const [allUserVisits, setAllUserVisits] = useState<Visit[]>([]);
+  const { toast } = useToast();
+  
+  const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
+  
+  const searchFnRef = useRef<((locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => Promise<void>) | null>(null);
+  const initialSearchFired = useRef(false);
+
+  const places = useMapsLibrary('places');
+  const geocoding = useMapsLibrary('geocoding');
+  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
+  const map = useMap();
+
+  useEffect(() => {
+    if (geocoding) {
+      setGeocoder(new geocoding.Geocoder());
+    }
+  }, [geocoding]);
+  
+  const fetchUserVisits = useCallback(async () => {
     try {
-      // POST FIX: Pass the data with the correct `visit_date` property.
-      // The parent component will handle success/error toasts.
-      await onSaveVisit(winery, { visit_date: visitDate, userReview, rating, photos })
-    } catch (error) {
-      // The parent component will show a more specific error toast.
-      console.error("Save operation failed:", error)
-    } finally {
-      setSaving(false)
-    }
-  }
+      const response = await fetch('/api/visits');
+      if (response.ok) { setAllUserVisits(await response.json()); }
+    } catch (error) { console.error("Failed to fetch user visits:", error); }
+  }, []);
+  useEffect(() => { fetchUserVisits(); }, [fetchUserVisits]);
 
-  const handleDeleteVisit = async (visitId: string) => {
-    if (onDeleteVisit && visitId) {
-      await onDeleteVisit(winery, visitId)
-      toast({
-        title: "Success",
-        description: "The visit has been deleted.",
-      })
+  const getVisitedWineryIds = useCallback(() => new Set(allUserVisits.map(v => v.winery_id)), [allUserVisits]);
+  
+  const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
+    if (!places || !geocoder) return;
+    dispatch({ type: 'SEARCH_START' });
+
+    let searchBounds: google.maps.LatLngBounds;
+    if (locationText) {
+        try {
+            const { results } = await geocoder.geocode({ address: locationText });
+            if (results && results.length > 0 && results[0].geometry.viewport) { searchBounds = results[0].geometry.viewport; map?.fitBounds(searchBounds); } 
+            else { toast({ variant: "destructive", description: "Could not find that location." }); dispatch({ type: 'SEARCH_ERROR' }); return; }
+        } catch (error) { console.error("Geocoding failed:", error); dispatch({ type: 'SEARCH_ERROR' }); return; }
+    } else if (bounds) { searchBounds = new google.maps.LatLngBounds(bounds); } 
+    else { dispatch({ type: 'SEARCH_ERROR' }); return; }
+
+    const request = { textQuery: "winery OR vineyard OR tasting room OR cellars", fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], locationRestriction: searchBounds };
+    try {
+        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
+        const visitedIds = getVisitedWineryIds();
+        const wineries = foundPlaces.map(place => ({
+            id: place.id!, name: place.displayName!, address: place.formattedAddress!, lat: place.location!.lat(), lng: place.location!.lng(),
+            rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber, userVisited: visitedIds.has(place.id!),
+        }));
+        dispatch({ type: 'SEARCH_SUCCESS', payload: wineries });
+    } catch (error) { console.error("Google Places search error:", error); dispatch({ type: 'SEARCH_ERROR' }); }
+  }, [map, places, geocoder, getVisitedWineryIds, toast]);
+
+    useEffect(() => { searchFnRef.current = executeSearch; });
+    
+    useEffect(() => {
+        if (!map || !geocoder) return;
+
+        if (!initialSearchFired.current) { 
+            initialSearchFired.current = true; 
+            searchFnRef.current?.("Finger Lakes, NY"); 
+        }
+        
+        const idleListener = map.addListener('idle', () => {
+            if (autoSearch && initialSearchFired.current) { 
+                const bounds = map.getBounds(); 
+                if (bounds) { 
+                    searchFnRef.current?.(undefined, bounds); 
+                } 
+            }
+        });
+        return () => { google.maps.event.removeListener(idleListener); };
+    }, [map, geocoder, autoSearch]);
+
+  const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
+    if (!places || !geocoder || !e.latLng) {
+      toast({ variant: "destructive", description: "Map services not yet ready. Please wait a moment and try again." });
+      return;
     }
+
+    let placeId: string | undefined | null = e.placeId;
+
+    if (placeId) {
+      e.stop();
+    } else {
+      const { results } = await geocoder.geocode({ location: e.latLng });
+      if (results && results[0]) {
+        placeId = results[0].place_id;
+      }
+    }
+
+    if (!placeId) {
+      toast({ variant: "destructive", description: "Could not identify a location at that point. Please click closer to a point of interest." });
+      return;
+    }
+
+    try {
+        const placeDetails = new places.Place({ id: placeId });
+        await placeDetails.fetchFields({ fields: ["displayName", "formattedAddress", "websiteURI", "nationalPhoneNumber", "location"]});
+
+        if (!placeDetails.location) {
+            toast({ variant: "destructive", description: "Could not get details for this location." });
+            return;
+        }
+
+        const newWinery: Winery = {
+            id: placeId,
+            name: placeDetails.displayName || placeDetails.formattedAddress?.split(',')[0] || "Unnamed Location",
+            address: placeDetails.formattedAddress || 'Address not available',
+            lat: placeDetails.location.lat(),
+            lng: placeDetails.location.lng(),
+            website: placeDetails.websiteURI,
+            phone: placeDetails.nationalPhoneNumber,
+            userVisited: getVisitedWineryIds().has(placeId)
+        };
+        setProposedWinery(newWinery);
+    } catch (error) {
+        console.error("Error fetching place details:", error);
+        toast({ variant: "destructive", description: "An error occurred while fetching details for the location." });
+    }
+  }, [places, geocoder, getVisitedWineryIds, toast]);
+
+  useEffect(() => {
+    if (!map) return;
+    const clickListener = map.addListener('click', handleMapClick);
+    return () => {
+        clickListener.remove();
+    };
+  }, [map, handleMapClick]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
+  const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
+  const handleOpenModal = (winery: Winery) => { const wineryVisits = allUserVisits.filter(v => v.winery_id === winery.id); setSelectedWinery({ ...winery, visits: wineryVisits }); };
+  
+  const handleSaveVisit = async (winery: Winery, visitData: Omit<Visit, 'id' | 'winery_id'>) => {
+    const response = await fetch('/api/visits', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+            wineryData: winery,
+            visitDate: visitData.visit_date, 
+            userReview: visitData.userReview, 
+            rating: visitData.rating, 
+            photos: visitData.photos 
+        }), 
+    });
+    if (response.ok) { 
+        toast({ description: "Visit saved successfully." }); 
+        await fetchUserVisits(); 
+        setSelectedWinery(null); 
+    } else { 
+        const errorData = await response.json();
+        toast({ variant: "destructive", description: `Failed to save visit: ${errorData.details || errorData.error}` }); 
+    }
+  };
+
+  const handleDeleteVisit = async (winery: Winery, visitId: string) => {
+    const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
+    if (response.ok) { toast({ description: "Visit deleted successfully." }); await fetchUserVisits(); setSelectedWinery(w => w ? {...w, visits: w.visits?.filter(v => v.id !== visitId) } : null); } else { toast({ variant: "destructive", description: "Failed to delete visit." }); }
+  };
+
+  if (!places || !geocoder) {
+    return (
+        <div className="flex justify-center items-center h-[600px] w-full">
+            <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
+            <span className="ml-2 text-muted-foreground">Loading map services...</span>
+        </div>
+    );
   }
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center justify-between">
-            <span>{winery.name}</span>
-            {visits.length > 0 && (
-              <Badge variant="secondary" className="bg-green-100 text-green-800">
-                {visits.length} visit{visits.length !== 1 ? "s" : ""}
-              </Badge>
-            )}
-          </DialogTitle>
-          <DialogDescription>
-            <div className="space-y-2 mt-2">
-              <div className="flex items-center space-x-2">
-                <MapPin className="w-4 h-4" />
-                <span>{winery.address}</span>
-              </div>
-              {winery.phone && (
-                <div className="flex items-center space-x-2">
-                  <Phone className="w-4 h-4" />
-                  <span>{winery.phone}</span>
-                </div>
-              )}
-              {winery.website && (
-                <div className="flex items-center space-x-2">
-                  <Globe className="w-4 h-4" />
-                  <a
-                    href={winery.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-blue-600 hover:underline"
-                  >
-                    Visit Website
-                  </a>
-                </div>
-              )}
-              {winery.rating && (
-                <div className="flex items-center space-x-2">
-                  <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                  <span>{winery.rating}/5.0 (Google Reviews)</span>
-                </div>
-              )}
-            </div>
-          </DialogDescription>
-        </DialogHeader>
+    <div className="space-y-6">
+      <SearchUI 
+        searchState={searchState}
+        searchLocation={searchLocation}
+        setSearchLocation={setSearchLocation}
+        autoSearch={autoSearch}
+        setAutoSearch={setAutoSearch}
+        handleSearchSubmit={handleSearchSubmit}
+        handleManualSearchArea={handleManualSearchArea}
+        dispatch={dispatch}
+      />
+      <ResultsUI searchState={searchState} onOpenModal={handleOpenModal} />
+      {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleSaveVisit} onDeleteVisit={handleDeleteVisit} />)}
 
-        <div className="space-y-6">
-          {/* Previous Visits */}
-          {sortedVisits.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold flex items-center space-x-2">
-                <Calendar className="w-5 h-5" />
-                <span>Your Visits</span>
-              </h3>
-              <div className="space-y-3 max-h-60 overflow-y-auto">
-                {sortedVisits.map((visit, index) => (
-                  <Card key={visit.id || index} className="bg-green-50 border-green-200">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Calendar className="w-4 h-4 text-green-600" />
-                            <span className="font-medium text-green-800">
-                              {new Date(visit.visit_date).toLocaleDateString("en-US", {
-                                weekday: "long",
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                              })}
-                            </span>
-                          </div>
-                          {visit.rating && (
-                            <div className="flex items-center space-x-1">
-                              {[...Array(5)].map((_, i) => (
-                                <Star
-                                  key={i}
-                                  className={`w-4 h-4 ${i < visit.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
-                                />
-                              ))}
-                            </div>
-                          )}
-                          {visit.userReview && (
-                            <div className="flex items-start space-x-2">
-                              <MessageSquare className="w-4 h-4 text-green-600 mt-1 flex-shrink-0" />
-                              <p className="text-sm text-green-700">{visit.userReview}</p>
-                            </div>
-                          )}
-                        </div>
-                        {onDeleteVisit && visit.id && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDeleteVisit(visit.id!)}
-                            className="text-red-600 hover:text-red-800 hover:bg-red-50"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
+      {proposedWinery && (
+        <AlertDialog open={!!proposedWinery} onOpenChange={() => setProposedWinery(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Add this location?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Do you want to add a visit for the following location?
+                        <Card className="mt-4 text-left">
+                            <CardHeader>
+                                <CardTitle>{proposedWinery.name}</CardTitle>
+                                <CardDescription>{proposedWinery.address}</CardDescription>
+                            </CardHeader>
+                        </Card>
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setProposedWinery(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => {
+                        handleOpenModal(proposedWinery);
+                        setProposedWinery(null);
+                    }}>Add Visit</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </div>
+  );
+}
 
-          {/* Add New Visit */}
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold flex items-center space-x-2">
-              <Plus className="w-5 h-5" />
-              <span>Add New Visit</span>
-            </h3>
+// --- Wrapper Component ---
+export default function WineryMapWrapper({ userId }: WineryMapProps) {
+    // --- DEBUG LOG ---
+    console.log("--- [Render] WineryMapWrapper rendering ---");
 
-            <div className="space-y-2">
-              <Label htmlFor="visitDate">Visit Date *</Label>
-              <Input
-                id="visitDate"
-                type="date"
-                value={visitDate}
-                onChange={(e) => setVisitDate(e.target.value)}
-                max={new Date().toISOString().split("T")[0]}
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Rating</Label>
-              <div className="flex items-center space-x-1">
-                {[...Array(5)].map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`w-6 h-6 cursor-pointer ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
-                    onClick={() => setRating(i + 1)}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="userReview">Your Review (Optional)</Label>
-              <Textarea
-                id="userReview"
-                placeholder="Share your thoughts about this visit..."
-                value={userReview}
-                onChange={(e) => setUserReview(e.target.value)}
-                rows={4}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Photos (Optional)</Label>
-              <div className="flex items-center justify-center w-full">
-                <label
-                  htmlFor="dropzone-file"
-                  className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100"
-                >
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                    <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
-                    <p className="text-xs text-gray-500">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
-                  </div>
-                  <input id="dropzone-file" type="file" className="hidden" multiple />
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
-          <Button
-            onClick={handleSave}
-            disabled={!visitDate.trim() || saving}
-          >
-            {saving ? <Loader2 className="animate-spin" /> : "Add Visit"}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey) {
+        console.error("--- [CRITICAL] Google Maps API key is missing! ---");
+        return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
+    }
+    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding']}><WineryMapLogic userId={userId} /></APIProvider>);
 }
