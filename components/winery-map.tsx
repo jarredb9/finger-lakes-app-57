@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload } from "lucide-react"
+import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Visit {
@@ -41,9 +41,9 @@ interface Winery {
 }
 
 interface WineryModalProps {
-  winery: Winery | null; // Allow winery to be null
+  winery: Winery | null
   onClose: () => void
-  onSaveVisit: (winery: Winery, visitData: { visit_date: string; userReview: string; rating: number; photos: string[] }) => void
+  onSaveVisit: (winery: Winery, visitData: { visit_date: string; userReview: string; rating: number; photos: string[] }) => Promise<void>
   onDeleteVisit?: (winery: Winery, visitId: string) => void
 }
 
@@ -55,13 +55,16 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
 
-  // Guard clause to prevent rendering if winery is null
+  // --- FIX ---
+  // Add a guard clause. This prevents the component from attempting to render
+  // and access properties of `winery` if it is null, which fixes the crash.
   if (!winery) {
-    return null;
+    return null
   }
 
   const visits = winery.visits || []
-  const sortedVisits = visits.sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
+  // Use .slice() to create a shallow copy before sorting, which is a React best practice.
+  const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
 
   const handleSave = async () => {
     if (!visitDate.trim()) {
@@ -75,21 +78,13 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
 
     setSaving(true)
     try {
+      // The parent component (`WineryMap`) now handles all API logic and success/error toasts.
+      // This modal's only job is to collect the data and pass it up.
       await onSaveVisit(winery, { visit_date: visitDate, userReview, rating, photos })
-      setVisitDate("")
-      setUserReview("")
-      setRating(0)
-      setPhotos([])
-      toast({
-        title: "Success",
-        description: "Your visit has been saved.",
-      })
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "There was a problem saving your visit.",
-        variant: "destructive",
-      })
+      // The parent component will show a more specific error toast.
+      // We just log it here for debugging purposes.
+      console.error("Save operation failed:", error)
     } finally {
       setSaving(false)
     }
@@ -282,7 +277,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
             onClick={handleSave}
             disabled={!visitDate.trim() || saving}
           >
-            {saving ? "Saving..." : "Add Visit"}
+            {saving ? <Loader2 className="animate-spin" /> : "Add Visit"}
           </Button>
         </DialogFooter>
       </DialogContent>
