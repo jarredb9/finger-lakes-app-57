@@ -10,9 +10,10 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = await createClient()
+    // Updated query to join with the wineries table and select the google_place_id
     const { data: visits, error } = await supabase
       .from("visits")
-      .select("*")
+      .select("*, wineries(google_place_id)")
       .eq("user_id", user.id)
       .order("visit_date", { ascending: false })
 
