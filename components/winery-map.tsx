@@ -253,26 +253,42 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }
   }, [places, geocoder, getVisitedWineryIds, toast]);
 
-  // NEW: Effect to manage the map click listener
   useEffect(() => {
     if (!map) return;
 
-    console.log("%cAdding map click listener.", "color: purple");
     const clickListener = map.addListener('click', handleMapClick);
 
     return () => {
-        console.log("%cRemoving map click listener.", "color: purple");
         clickListener.remove();
     };
-  }, [map, handleMapClick]); // Re-attach listener if handleMapClick changes
+  }, [map, handleMapClick]);
 
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
   const handleOpenModal = (winery: Winery) => { const wineryVisits = allUserVisits.filter(v => v.winery_id === winery.id); setSelectedWinery({ ...winery, visits: wineryVisits }); };
+  
   const handleSaveVisit = async (winery: Winery, visitData: Omit<Visit, 'id' | 'winery_id'>) => {
-    const response = await fetch('/api/visits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ wineryId: winery.id, visitDate: visitData.visit_date, userReview: visitData.user_review, rating: visitData.rating, photos: visitData.photos, }), });
-    if (response.ok) { toast({ description: "Visit saved successfully." }); await fetchUserVisits(); setSelectedWinery(null); } else { toast({ variant: "destructive", description: "Failed to save visit." }); }
+    const response = await fetch('/api/visits', { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ 
+            wineryData: winery, // Send the whole winery object
+            visitDate: visitData.visit_date, 
+            userReview: visitData.user_review, 
+            rating: visitData.rating, 
+            photos: visitData.photos 
+        }), 
+    });
+    if (response.ok) { 
+        toast({ description: "Visit saved successfully." }); 
+        await fetchUserVisits(); 
+        setSelectedWinery(null); 
+    } else { 
+        const errorData = await response.json();
+        toast({ variant: "destructive", description: `Failed to save visit: ${errorData.details || errorData.error}` }); 
+    }
   };
+
   const handleDeleteVisit = async (winery: Winery, visitId: string) => {
     const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
     if (response.ok) { toast({ description: "Visit deleted successfully." }); await fetchUserVisits(); setSelectedWinery(w => w ? {...w, visits: w.visits?.filter(v => v.id !== visitId) } : null); } else { toast({ variant: "destructive", description: "Failed to delete visit." }); }

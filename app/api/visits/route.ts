@@ -36,16 +36,53 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { wineryId, visitDate, userReview, rating, photos } = body
+    const { wineryData, visitDate, userReview, rating, photos } = body
 
-    if (!wineryId || !visitDate) {
+    if (!wineryData || !wineryData.id || !visitDate) {
       return NextResponse.json(
-        { error: "Missing required fields: wineryId, visitDate" },
+        { error: "Missing required fields: wineryData, visitDate" },
         { status: 400 },
       )
     }
 
     const supabase = await createClient()
+
+    // Upsert winery logic
+    let wineryId: number;
+
+    const { data: existingWinery, error: findError } = await supabase
+      .from("wineries")
+      .select("id")
+      .eq("google_place_id", wineryData.id)
+      .single()
+
+    if (findError && findError.code !== 'PGRST116') { // PGRST116 = 'not found'
+        throw findError;
+    }
+
+    if (existingWinery) {
+      wineryId = existingWinery.id
+    } else {
+      const { data: newWinery, error: insertError } = await supabase
+        .from("wineries")
+        .insert({
+          google_place_id: wineryData.id,
+          name: wineryData.name,
+          address: wineryData.address,
+          latitude: wineryData.lat,
+          longitude: wineryData.lng,
+          phone: wineryData.phone,
+          website: wineryData.website,
+          google_rating: wineryData.rating,
+        })
+        .select("id")
+        .single()
+      
+      if (insertError) throw insertError;
+      wineryId = newWinery!.id
+    }
+
+    // Insert the visit
     const visitData = {
       user_id: user.id,
       winery_id: wineryId,
@@ -53,8 +90,6 @@ export async function POST(request: NextRequest) {
       user_review: userReview || null,
       rating: rating || null,
       photos: photos || null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     }
 
     const { data, error } = await supabase.from("visits").insert(visitData).select()
@@ -66,6 +101,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, visit: data })
   } catch (error) {
     console.error("Internal error creating visit:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+    return NextResponse.json({ error: "Internal server error", details: errorMessage }, { status: 500 })
   }
 }
