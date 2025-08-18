@@ -15,13 +15,13 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload } from "lucide-react"
+import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
 interface Visit {
   id?: string
-  visitDate: string
-  userReview: string
+  visit_date: string
+  user_review: string
   createdAt?: string
   rating?: number
   photos?: string[]
@@ -41,9 +41,9 @@ interface Winery {
 }
 
 interface WineryModalProps {
-  winery: Winery
+  winery: Winery | null
   onClose: () => void
-  onSaveVisit: (winery: Winery, visitData: { visitDate: string; userReview: string; rating: number; photos: string[] }) => void
+  onSaveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => Promise<void>
   onDeleteVisit?: (winery: Winery, visitId: string) => void
 }
 
@@ -55,8 +55,12 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
 
+  if (!winery) {
+    return null
+  }
+
   const visits = winery.visits || []
-  const sortedVisits = visits.sort((a, b) => new Date(b.visitDate).getTime() - new Date(a.visitDate).getTime())
+  const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
 
   const handleSave = async () => {
     if (!visitDate.trim()) {
@@ -70,21 +74,9 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
 
     setSaving(true)
     try {
-      await onSaveVisit(winery, { visitDate, userReview, rating, photos })
-      setVisitDate("")
-      setUserReview("")
-      setRating(0)
-      setPhotos([])
-      toast({
-        title: "Success",
-        description: "Your visit has been saved.",
-      })
+      await onSaveVisit(winery, { visit_date: visitDate, user_review: userReview, rating, photos })
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "There was a problem saving your visit.",
-        variant: "destructive",
-      })
+      console.error("Save operation failed:", error)
     } finally {
       setSaving(false)
     }
@@ -148,7 +140,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Previous Visits */}
           {sortedVisits.length > 0 && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold flex items-center space-x-2">
@@ -164,7 +155,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                           <div className="flex items-center space-x-2 mb-2">
                             <Calendar className="w-4 h-4 text-green-600" />
                             <span className="font-medium text-green-800">
-                              {new Date(visit.visitDate).toLocaleDateString("en-US", {
+                              {new Date(visit.visit_date).toLocaleDateString("en-US", {
                                 weekday: "long",
                                 year: "numeric",
                                 month: "long",
@@ -207,7 +198,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
             </div>
           )}
 
-          {/* Add New Visit */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold flex items-center space-x-2">
               <Plus className="w-5 h-5" />
@@ -277,7 +267,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
             onClick={handleSave}
             disabled={!visitDate.trim() || saving}
           >
-            {saving ? "Saving..." : "Add Visit"}
+            {saving ? <Loader2 className="animate-spin" /> : "Add Visit"}
           </Button>
         </DialogFooter>
       </DialogContent>

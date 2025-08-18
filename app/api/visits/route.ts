@@ -37,20 +37,18 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     
-    // --- NEW DEBUG LOG ---
     console.log("Received payload at /api/visits:", JSON.stringify(body, null, 2));
 
-    const { wineryData, visitDate, userReview, rating, photos } = body
+    const { wineryData, visit_date, user_review, rating, photos } = body
 
-    if (!wineryData || !wineryData.id || !visitDate) {
-      // --- NEW DEBUG LOG ---
+    if (!wineryData || !wineryData.id || !visit_date) {
       console.error("Validation failed on incoming request:", {
         hasWineryData: !!wineryData,
         hasWineryId: !!wineryData?.id,
-        hasVisitDate: !!visitDate,
+        hasVisitDate: !!visit_date,
       });
       return NextResponse.json(
-        { error: "Missing required fields: wineryData, visitDate" },
+        { error: "Missing required fields: wineryData, visit_date" },
         { status: 400 },
       )
     }
@@ -93,8 +91,8 @@ export async function POST(request: NextRequest) {
     const visitData = {
       user_id: user.id,
       winery_id: wineryId,
-      visit_date: visitDate,
-      user_review: userReview || null,
+      visit_date: visit_date,
+      user_review: user_review || null,
       rating: rating || null,
       photos: photos || null,
     }

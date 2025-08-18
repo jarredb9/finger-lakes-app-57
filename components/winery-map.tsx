@@ -30,10 +30,12 @@ import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 import { useToast } from "@/hooks/use-toast"
 
+// --- Interfaces & Types ---
 interface Visit { id: string; visit_date: string; user_review: string; rating?: number; photos?: string[]; winery_id: string; }
 interface Winery { id: string; name: string; address: string; lat: number; lng: number; phone?: string; website?: string; rating?: number; userVisited?: boolean; visits?: Visit[]; }
 interface WineryMapProps { userId: string; }
 
+// --- State Management with useReducer for Performance ---
 interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
 type SearchAction = | { type: 'SEARCH_START' } | { type: 'SEARCH_SUCCESS'; payload: Winery[] } | { type: 'SEARCH_ERROR' } | { type: 'CLEAR_RESULTS' };
 const initialState: SearchState = { isSearching: false, hitApiLimit: false, results: [], };
@@ -47,6 +49,7 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     }
 }
 
+// --- Memoized Child Components for Ultimate Performance ---
 const MapComponent = memo(({ searchResults, onMarkerClick }: { searchResults: Winery[], onMarkerClick: (winery: Winery) => void }) => (
     <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
         <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
@@ -265,12 +268,11 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     const payload = { 
         wineryData: winery,
         visitDate: visitData.visit_date, 
-        userReview: visitData.userReview, 
+        userReview: visitData.user_review, 
         rating: visitData.rating, 
         photos: visitData.photos 
     };
 
-    // --- NEW DEBUG LOG ---
     console.log("Sending payload to /api/visits:", payload);
 
     const response = await fetch('/api/visits', { 
