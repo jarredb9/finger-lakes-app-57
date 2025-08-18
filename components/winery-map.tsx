@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload, Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 
+// This interface now correctly expects `visit_date` to match your database
 interface Visit {
   id?: string
   visit_date: string
@@ -41,7 +42,7 @@ interface Winery {
 }
 
 interface WineryModalProps {
-  winery: Winery | null
+  winery: Winery | null // Changed: Allows winery to be null to prevent crashes
   onClose: () => void
   onSaveVisit: (winery: Winery, visitData: { visit_date: string; userReview: string; rating: number; photos: string[] }) => Promise<void>
   onDeleteVisit?: (winery: Winery, visitId: string) => void
@@ -56,14 +57,15 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
   const { toast } = useToast()
 
   // --- FIX ---
-  // Add a guard clause. This prevents the component from attempting to render
-  // and access properties of `winery` if it is null, which fixes the crash.
+  // This guard clause is the critical fix. It prevents the component from
+  // trying to render if the winery prop is null (e.g., during closing transitions),
+  // which was the cause of the application crash.
   if (!winery) {
-    return null
+    return null;
   }
 
   const visits = winery.visits || []
-  // Use .slice() to create a shallow copy before sorting, which is a React best practice.
+  // Correctly sorts visits using the `visit_date` property from the database.
   const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
 
   const handleSave = async () => {
@@ -78,12 +80,11 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
 
     setSaving(true)
     try {
-      // The parent component (`WineryMap`) now handles all API logic and success/error toasts.
-      // This modal's only job is to collect the data and pass it up.
+      // POST FIX: Pass the data with the correct `visit_date` property.
+      // The parent component will handle success/error toasts.
       await onSaveVisit(winery, { visit_date: visitDate, userReview, rating, photos })
     } catch (error) {
       // The parent component will show a more specific error toast.
-      // We just log it here for debugging purposes.
       console.error("Save operation failed:", error)
     } finally {
       setSaving(false)
