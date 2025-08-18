@@ -30,9 +30,6 @@ import { Label } from "@/components/ui/label"
 import WineryModal from "./winery-modal"
 import { useToast } from "@/hooks/use-toast"
 
-// --- DEBUG LOG ---
-console.log("--- [Module] winery-map.tsx loaded ---");
-
 // --- Interfaces & Types ---
 interface Visit { id: string; visit_date: string; user_review: string; rating?: number; photos?: string[]; winery_id: string; }
 interface Winery { id: string; name: string; address: string; lat: number; lng: number; phone?: string; website?: string; rating?: number; userVisited?: boolean; visits?: Visit[]; }
@@ -127,9 +124,6 @@ const ResultsUI = memo(({ searchState, onOpenModal }: { searchState: SearchState
 ResultsUI.displayName = 'ResultsUI';
 
 function WineryMapLogic({ userId }: WineryMapProps) {
-  // --- DEBUG LOG ---
-  console.log("--- [Render] WineryMapLogic rendering ---");
-  
   const [searchState, dispatch] = useReducer(searchReducer, initialState);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("Finger Lakes, NY");
@@ -276,6 +270,8 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         headers: { 'Content-Type': 'application/json' }, 
         body: JSON.stringify({ 
             wineryData: winery,
+            // --- FIX ---
+            // The API expects `visitDate` (camelCase), so we send it in that format.
             visitDate: visitData.visit_date, 
             userReview: visitData.userReview, 
             rating: visitData.rating, 
@@ -350,14 +346,9 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   );
 }
 
-// --- Wrapper Component ---
 export default function WineryMapWrapper({ userId }: WineryMapProps) {
-    // --- DEBUG LOG ---
-    console.log("--- [Render] WineryMapWrapper rendering ---");
-
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
-        console.error("--- [CRITICAL] Google Maps API key is missing! ---");
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
     return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding']}><WineryMapLogic userId={userId} /></APIProvider>);
