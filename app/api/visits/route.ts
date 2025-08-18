@@ -36,9 +36,19 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
+    
+    // --- NEW DEBUG LOG ---
+    console.log("Received payload at /api/visits:", JSON.stringify(body, null, 2));
+
     const { wineryData, visitDate, userReview, rating, photos } = body
 
     if (!wineryData || !wineryData.id || !visitDate) {
+      // --- NEW DEBUG LOG ---
+      console.error("Validation failed on incoming request:", {
+        hasWineryData: !!wineryData,
+        hasWineryId: !!wineryData?.id,
+        hasVisitDate: !!visitDate,
+      });
       return NextResponse.json(
         { error: "Missing required fields: wineryData, visitDate" },
         { status: 400 },
@@ -47,16 +57,14 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // Upsert winery logic
     let wineryId: number;
-
     const { data: existingWinery, error: findError } = await supabase
       .from("wineries")
       .select("id")
       .eq("google_place_id", wineryData.id)
       .single()
 
-    if (findError && findError.code !== 'PGRST116') { // PGRST116 = 'not found'
+    if (findError && findError.code !== 'PGRST116') {
         throw findError;
     }
 
@@ -82,7 +90,6 @@ export async function POST(request: NextRequest) {
       wineryId = newWinery!.id
     }
 
-    // Insert the visit
     const visitData = {
       user_id: user.id,
       winery_id: wineryId,
@@ -95,6 +102,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase.from("visits").insert(visitData).select()
 
     if (error) {
+      console.error("Supabase insert error:", error);
       return NextResponse.json({ error: `Database error: ${error.message}` }, { status: 500 })
     }
 
