@@ -264,16 +264,14 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
   const handleOpenModal = (winery: Winery) => { const wineryVisits = allUserVisits.filter(v => v.winery_id === winery.id); setSelectedWinery({ ...winery, visits: wineryVisits }); };
   
-  const handleSaveVisit = async (winery: Winery, visitData: Omit<Visit, 'id' | 'winery_id'>) => {
+  const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
     const payload = { 
         wineryData: winery,
-        visitDate: visitData.visit_date, 
-        userReview: visitData.user_review, 
+        visit_date: visitData.visit_date, 
+        user_review: visitData.user_review, 
         rating: visitData.rating, 
         photos: visitData.photos 
     };
-
-    console.log("Sending payload to /api/visits:", payload);
 
     const response = await fetch('/api/visits', { 
         method: 'POST', 
