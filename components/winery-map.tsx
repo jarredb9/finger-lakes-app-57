@@ -62,16 +62,17 @@ const MapComponent = memo(({ wineries, allVisited, filter, onMarkerClick }: { wi
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 {(filter === 'all' || filter === 'notVisited' || filter === 'wantToGo') && wineries.map(winery => {
                     if (winery.userVisited) return null; // Handled by clusterer
-                    const pinProps = {
-                        background: winery.onWishlist ? '#9333ea' : '#3B82F6', // Purple for wishlist
-                        borderColor: winery.onWishlist ? '#7e22ce' : '#2563EB',
-                        glyph: winery.onWishlist ? <ListPlus size={14} /> : undefined,
-                        glyphColor: "#fff",
-                    };
                     return (
                         <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
                             <div className="animate-pop-in">
-                                <Pin {...pinProps} />
+                               <Pin
+                                    background={winery.onWishlist ? '#9333ea' : '#3B82F6'}
+                                    borderColor={winery.onWishlist ? '#7e22ce' : '#2563EB'}
+                                    glyphColor="#fff"
+                                >
+                                    {/* The icon is now a child of the Pin component */}
+                                    {winery.onWishlist && <ListPlus size={14} />}
+                                </Pin>
                             </div>
                         </AdvancedMarker>
                     )
