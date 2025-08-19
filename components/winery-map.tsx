@@ -253,6 +253,9 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
 
+  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
+  const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
+  
   useEffect(() => {
     if (geocoding) setGeocoder(new geocoding.Geocoder());
   }, [geocoding]);
@@ -431,7 +434,6 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         onDeleteVisit={handleDeleteVisit} 
         onToggleWishlist={handleToggleWishlist}
       />)}
-      {/* Proposed winery dialog is removed for simplicity as map-click adding is less critical */}
     </div>
   );
 }
