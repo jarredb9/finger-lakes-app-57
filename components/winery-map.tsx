@@ -61,9 +61,9 @@ const MapComponent = memo(({ wineries, allVisited, filter, onMarkerClick }: { wi
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <Map defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 {(filter === 'all' || filter === 'notVisited' || filter === 'wantToGo') && wineries.map(winery => {
-                    if (winery.userVisited) return null; // Visited wineries are handled by the clusterer
+                    if (winery.userVisited) return null;
                     const pinProps = {
-                        background: winery.onWishlist ? '#9333ea' : '#3B82F6', // Purple for wishlist
+                        background: winery.onWishlist ? '#9333ea' : '#3B82F6',
                         borderColor: winery.onWishlist ? '#7e22ce' : '#2563EB',
                         glyphColor: "#fff",
                     };
@@ -169,7 +169,7 @@ function useWineries() {
     } catch (error) { console.error("Failed to fetch wishlist", error); }
   }, []);
 
-  const fetchUserVisits = useCallback(async (). -> {
+  const fetchUserVisits = useCallback(async () => {
     try {
       const response = await fetch('/api/visits');
       if (response.ok) setAllUserVisits(await response.json());
