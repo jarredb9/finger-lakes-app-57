@@ -59,12 +59,12 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     }
 }
 
-const MapComponent = memo(({ discoveredWineries, allVisited, allWishlist, allFavorites, filter, onMarkerClick }: { discoveredWineries: Winery[], allVisited: Winery[], allWishlist: Winery[], allFavorites: Winery[], filter: string, onMarkerClick: (winery: Winery) => void }) => {
+const MapComponent = memo(({ discoveredWineries, allVisited, allWishlist, allFavorites, filter, onMarkerClick }: { discoveredWineries: Winery[], allVisited: Winery[], allWishlist: Winery[], allFavorites: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void }) => {
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 
-                {(filter === 'all' || filter === 'notVisited') && discoveredWineries.map(winery => (
+                {(filter.includes('all') || filter.includes('notVisited')) && discoveredWineries.map(winery => (
                     <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
                         <div className="animate-pop-in">
                            <Pin background={'#3B82F6'} borderColor={'#2563EB'} glyphColor="#fff" />
@@ -72,15 +72,15 @@ const MapComponent = memo(({ discoveredWineries, allVisited, allWishlist, allFav
                     </AdvancedMarker>
                 ))}
 
-                {(filter === 'all' || filter === 'wantToGo') && (
+                {(filter.includes('all') || filter.includes('wantToGo')) && (
                   <WishlistClusterer wineries={allWishlist} onClick={onMarkerClick} />
                 )}
                 
-                {(filter === 'all' || filter === 'visited') && (
+                {(filter.includes('all') || filter.includes('visited')) && (
                   <WineryClusterer wineries={allVisited} onClick={onMarkerClick} />
                 )}
 
-                {(filter === 'all' || filter === 'favorites') && (
+                {(filter.includes('all') || filter.includes('favorites')) && (
                   <FavoriteClusterer wineries={allFavorites} onClick={onMarkerClick} />
                 )}
 
@@ -102,7 +102,7 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                 <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching} aria-label="Search This Area"> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
             </div>
             <div className="flex items-center justify-between">
-                <ToggleGroup type="single" value={filter} onValueChange={(value) => value && setFilter(value)} aria-label="Filter wineries">
+                <ToggleGroup type="multiple" value={filter} onValueChange={(value) => setFilter(value.length > 0 ? value : ['all'])} aria-label="Filter wineries">
                     <ToggleGroupItem value="all" aria-label="All">All</ToggleGroupItem>
                     <ToggleGroupItem value="visited" aria-label="Visited">Visited</ToggleGroupItem>
                     <ToggleGroupItem value="favorites" aria-label="Favorites">Favorites</ToggleGroupItem>
@@ -118,7 +118,7 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
 ));
 SearchUI.displayName = 'SearchUI';
 
-const ResultsUI = memo(({ wineries, onOpenModal, isSearching, filter, allVisited, allWishlist, allFavorites }: { wineries: Winery[], onOpenModal: (winery: Winery) => void, isSearching: boolean, filter: string, allVisited: Winery[], allWishlist: Winery[], allFavorites: Winery[]}) => {
+const ResultsUI = memo(({ wineries, onOpenModal, isSearching, filter, allVisited, allWishlist, allFavorites }: { wineries: Winery[], onOpenModal: (winery: Winery) => void, isSearching: boolean, filter: string[], allVisited: Winery[], allWishlist: Winery[], allFavorites: Winery[]}) => {
     const discoveredWineries = useMemo(() => {
         const persistentIds = new Set([...allVisited.map(w => w.id), ...allWishlist.map(w => w.id), ...allFavorites.map(w => w.id)]);
         return wineries.filter(w => !persistentIds.has(w.id));
@@ -246,7 +246,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
   const [autoSearch, setAutoSearch] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [filter, setFilter] = useState<string[]>(['all']);
   const [mapBounds, setMapBounds] = useState<google.maps.LatLngBounds | null>(null);
   const { fetchUserVisits, allVisitedWineries, allWishlistWineries, allFavoriteWineries, fetchWishlist, fetchFavorites } = useWineries();
   const { toast } = useToast();
@@ -282,23 +282,23 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 
   const listResultsInView = useMemo(() => {
     if (!mapBounds) {
-        // Before map loads, the list should be based on search results
-        return filter === 'all' ? searchState.results : [];
+        return filter.includes('all') ? searchState.results : [];
     }
-
     const persistentMap = new Map(allPersistentWineries.map(p => [p.id, p]));
     const uniqueDynamicWineries = searchState.results.filter(w => !persistentMap.has(w.id));
     const allWineries = [...allPersistentWineries, ...uniqueDynamicWineries];
-
+    
     const wineriesInView = allWineries.filter(w => mapBounds.contains({ lat: w.lat, lng: w.lng }));
 
-    switch (filter) {
-        case 'visited': return wineriesInView.filter(w => w.userVisited);
-        case 'favorites': return wineriesInView.filter(w => w.isFavorite);
-        case 'wantToGo': return wineriesInView.filter(w => w.onWishlist && !w.userVisited);
-        case 'notVisited': return wineriesInView.filter(w => !w.userVisited && !w.onWishlist && !w.isFavorite);
-        case 'all': default: return wineriesInView;
-    }
+    if (filter.includes('all')) return wineriesInView;
+    
+    return wineriesInView.filter(w => {
+        if (filter.includes('visited') && w.userVisited) return true;
+        if (filter.includes('favorites') && w.isFavorite) return true;
+        if (filter.includes('wantToGo') && w.onWishlist && !w.userVisited) return true;
+        if (filter.includes('notVisited') && !w.userVisited && !w.onWishlist && !w.isFavorite) return true;
+        return false;
+    });
   }, [filter, searchState.results, allPersistentWineries, mapBounds]);
   
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
