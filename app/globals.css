@@ -8,6 +8,23 @@
   }
 }
 
+/* Add this new layer for animations */
+@layer base {
+  @keyframes map-marker-pop-in {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+  }
+  .animate-pop-in {
+    animation: map-marker-pop-in 0.3s ease-out forwards;
+  }
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

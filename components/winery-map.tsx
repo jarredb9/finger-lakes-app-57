@@ -37,6 +37,10 @@ const WineryModal = dynamic(() => import('./winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
 });
 
+// Add this animation class to your globals.css
+// @keyframes map-marker-pop-in { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+// .animate-pop-in { animation: map-marker-pop-in 0.3s ease-out; }
+
 interface WineryMapProps { userId: string; }
 
 interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
@@ -58,7 +62,9 @@ const MapComponent = memo(({ searchResults, onMarkerClick }: { searchResults: Wi
         <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
             {searchResults.map(winery => (
                 <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
-                    <Pin background={winery.userVisited ? '#10B981' : '#3B82F6'} borderColor={winery.userVisited ? '#059669' : '#2563EB'} glyphColor="#fff" />
+                    <div className="animate-pop-in">
+                        <Pin background={winery.userVisited ? '#10B981' : '#3B82F6'} borderColor={winery.userVisited ? '#059669' : '#2563EB'} glyphColor="#fff" />
+                    </div>
                 </AdvancedMarker>
             ))}
         </Map>
@@ -109,7 +115,7 @@ const ResultsUI = memo(({ searchState, onOpenModal }: { searchState: SearchState
                 <CardHeader><CardTitle className="flex justify-between items-center">Discovered List <Badge>{searchState.results.length}</Badge></CardTitle></CardHeader>
                 <CardContent className="relative">
                     {searchState.isSearching && (<div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 flex items-center justify-center rounded-b-lg z-10"><Loader2 className="animate-spin text-muted-foreground h-8 w-8" /></div>)}
-                    <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto">
+                    <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto data-[loaded=true]:animate-in data-[loaded=true]:fade-in-50" data-loaded={!searchState.isSearching}>
                         {searchState.results.length === 0 && !searchState.isSearching && (
                           <div className="text-center pt-10 text-muted-foreground">
                             <Wine className="mx-auto h-12 w-12" />
@@ -124,10 +130,10 @@ const ResultsUI = memo(({ searchState, onOpenModal }: { searchState: SearchState
                           </div>
                         ))}
                         {!searchState.isSearching && searchState.results.map(winery => (
-                            <div key={winery.id} className="p-2 border rounded cursor-pointer hover:bg-muted" onClick={() => onOpenModal(winery)}>
+                            <div key={winery.id} className="p-3 border rounded-lg cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] transition-all duration-200" onClick={() => onOpenModal(winery)}>
                                 <p className="font-medium text-sm">{winery.name}</p>
                                 <p className="text-xs text-muted-foreground">{winery.address}</p>
-                                {winery.rating && <p className="text-xs text-muted-foreground">★ {winery.rating}/5.0</p>}
+                                {winery.rating && <p className="text-xs text-muted-foreground mt-1">★ {winery.rating}/5.0</p>}
                             </div>
                         ))}
                     </div>
@@ -191,10 +197,8 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }
   }, [geocoding]);
 
-  // THIS IS THE FIX: A new useEffect to synchronize search results with visit status
   useEffect(() => {
-    // If there are no results, there's nothing to update
-    if (searchState.results.length === 0) return;
+    if (searchState.results.length === 0 && allUserVisits.length === 0) return;
 
     const visitedPlaceIds = new Set(allUserVisits.map((v: Visit) => v.wineries.google_place_id));
 
@@ -203,9 +207,10 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         userVisited: visitedPlaceIds.has(winery.id)
     }));
 
-    // Dispatch an update to the search results state to trigger a re-render of the map pins
-    dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
-  }, [allUserVisits]); // This effect runs whenever the `allUserVisits` state changes
+    if (JSON.stringify(updatedResults) !== JSON.stringify(searchState.results)) {
+        dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
+    }
+  }, [allUserVisits, searchState.results]);
   
   const getVisitedWineryIds = useCallback(() => new Set(allUserVisits.map(v => v.wineries.google_place_id)), [allUserVisits]);
   
