@@ -59,7 +59,6 @@ const MapComponent = memo(({ notVisited, allVisited, filter, onMarkerClick }: { 
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <Map defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
-                {/* Render non-visited wineries ONLY if filter is 'all' or 'notVisited' */}
                 {(filter === 'all' || filter === 'notVisited') && notVisited.map(winery => (
                     <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
                         <div className="animate-pop-in">
@@ -68,7 +67,6 @@ const MapComponent = memo(({ notVisited, allVisited, filter, onMarkerClick }: { 
                     </AdvancedMarker>
                 ))}
                 
-                {/* Render visited wineries with the clusterer ONLY if filter is 'all' or 'visited' */}
                 {(filter === 'all' || filter === 'visited') && (
                   <WineryClusterer wineries={allVisited} onClick={onMarkerClick} />
                 )}
@@ -123,7 +121,7 @@ const ResultsUI = memo(({ wineries, onOpenModal, isSearching, filter, allVisited
                     </CardContent>
                 </Card>
                 <Card>
-                    <CardHeader><CardTitle className="flex justify-between items-center">Results List <Badge>{wineries.length}</Badge></CardTitle></CardHeader>
+                    <CardHeader><CardTitle className="flex justify-between items-center">Results In View <Badge>{wineries.length}</Badge></CardTitle></CardHeader>
                     <CardContent className="relative">
                         {isSearching && (<div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 flex items-center justify-center rounded-b-lg z-10"><Loader2 className="animate-spin text-muted-foreground h-8 w-8" /></div>)}
                         <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto data-[loaded=true]:animate-in data-[loaded=true]:fade-in-50" data-loaded={!isSearching}>
@@ -180,11 +178,11 @@ function useWineries() {
         lat: parseFloat(visit.wineries.latitude),
         lng: parseFloat(visit.wineries.longitude),
         userVisited: true,
-        // Add other fields as available/needed
+        visits: [{...visit}]
     }));
   }, [allUserVisits])
 
-  return { allUserVisits, fetchUserVisits, allVisitedWineries };
+  return { fetchUserVisits, allVisitedWineries };
 }
 
 function WineryMapLogic({ userId }: WineryMapProps) {
@@ -192,7 +190,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
   const [autoSearch, setAutoSearch] = useState(true);
-  const [filter, setFilter] = useState('all'); // 'all', 'visited', 'notVisited'
+  const [filter, setFilter] = useState('all');
   const { fetchUserVisits, allVisitedWineries } = useWineries();
   const { toast } = useToast();
   
@@ -218,14 +216,14 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   }, [allVisitedWineries, searchState.results]);
 
   const filteredListWineries = useMemo(() => {
+    const inViewWineries = searchState.results;
     switch (filter) {
-        case 'visited': return allVisitedWineries;
-        case 'notVisited': return searchState.results.filter(w => !w.userVisited);
+        case 'visited': return inViewWineries.filter(w => w.userVisited);
+        case 'notVisited': return inViewWineries.filter(w => !w.userVisited);
         case 'all':
-        default: return [...allVisitedWineries, ...searchState.results.filter(w => !w.userVisited)]
-            .filter((v, i, a) => a.findIndex(t => (t.id === v.id)) === i); // Remove duplicates
+        default: return inViewWineries;
     }
-  }, [filter, searchState.results, allVisitedWineries]);
+  }, [filter, searchState.results]);
   
   const getVisitedWineryIds = useCallback(() => new Set(allVisitedWineries.map(v => v.id)), [allVisitedWineries]);
   
@@ -288,7 +286,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         }
         const newWinery: Winery = {
             id: placeId, name: placeDetails.displayName || "Unnamed Location", address: placeDetails.formattedAddress || 'N/A',
-            lat: placeDetails.location.lat(), lng: placeDetails.location.lng(), website: placeDetails.websiteURI, phone: place.nationalPhoneNumber,
+            lat: placeDetails.location.lat(), lng: placeDetails.location.lng(), website: placeDetails.websiteURI, phone: placeDetails.nationalPhoneNumber,
             userVisited: getVisitedWineryIds().has(placeId)
         };
         setProposedWinery(newWinery);
@@ -306,9 +304,10 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
   
-  const handleOpenModal = (winery: Winery) => { 
-    setSelectedWinery(winery); 
-  };
+  const handleOpenModal = useCallback((winery: Winery) => {
+    const fullWineryData = allVisitedWineries.find(v => v.id === winery.id);
+    setSelectedWinery({ ...winery, visits: fullWineryData?.visits || [] });
+  }, [allVisitedWineries]);
   
   const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
     const payload = { wineryData: winery, ...visitData };
