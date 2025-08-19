@@ -114,12 +114,12 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
 ));
 SearchUI.displayName = 'SearchUI';
 
-const ResultsUI = memo(({ wineries, onOpenModal, isSearching, filter, allVisited, searchResults }: { wineries: Winery[], onOpenModal: (winery: Winery) => void, isSearching: boolean, filter: string, allVisited: Winery[], searchResults: Winery[] }) => {
+const ResultsUI = memo(({ wineries, onOpenModal, isSearching, filter, allVisited }: { wineries: Winery[], onOpenModal: (winery: Winery) => void, isSearching: boolean, filter: string, allVisited: Winery[]}) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
                 <Card> <CardContent className="p-0 relative"> 
-                    <MapComponent wineries={searchResults} allVisited={allVisited} filter={filter} onMarkerClick={onOpenModal} /> 
+                    <MapComponent wineries={wineries} allVisited={allVisited} filter={filter} onMarkerClick={onOpenModal} /> 
                 </CardContent> </Card>
             </div>
             <div className="space-y-4">
@@ -443,7 +443,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   return (
     <div className="space-y-6">
       <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} dispatch={dispatch} filter={filter} setFilter={setFilter} />
-      <ResultsUI wineries={filteredListWineries} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} searchResults={searchState.results} />
+      <ResultsUI wineries={filteredListWineries} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} />
       {selectedWinery && (<WineryModal 
         winery={selectedWinery} 
         onClose={() => setSelectedWinery(null)} 
