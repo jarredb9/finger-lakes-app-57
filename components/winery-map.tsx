@@ -159,17 +159,14 @@ const ResultsUI = memo(({ wineries, onOpenModal, isSearching, filter, allVisited
 ResultsUI.displayName = 'ResultsUI';
 
 function useWineries() {
-  const [allUserVisits, setAllUserVisits] = useState<any[]>([]);
-  const [wishlistIds, setWishlistIds] = useState<Set<number>>(new Set());
+  const [allUserVisits, setAllUserVisits] = useState<Visit[]>([]);
+  const [wishlist, setWishlist] = useState<{winery_id: number, google_place_id: string}[]>([]);
   const { toast } = useToast();
 
   const fetchWishlist = useCallback(async () => {
     try {
         const response = await fetch('/api/wishlist');
-        if (response.ok) {
-            const ids = await response.json();
-            setWishlistIds(new Set(ids));
-        }
+        if (response.ok) setWishlist(await response.json());
     } catch (error) { console.error("Failed to fetch wishlist", error); }
   }, []);
 
@@ -199,12 +196,12 @@ function useWineries() {
         lat: parseFloat(visit.wineries.latitude),
         lng: parseFloat(visit.wineries.longitude),
         userVisited: true,
-        visits: [{...visit}]
+        visits: allUserVisits.filter(v => v.wineries.id === visit.wineries.id)
       }
-    }).filter(Boolean);
+    }).filter((v, i, a) => a.findIndex(t => t?.dbId === v?.dbId) === i); // Dedupe
   }, [allUserVisits])
 
-  return { fetchUserVisits, allVisitedWineries, wishlistIds, fetchWishlist };
+  return { fetchUserVisits, allVisitedWineries, wishlist, fetchWishlist };
 }
 
 function WineryMapLogic({ userId }: WineryMapProps) {
@@ -213,7 +210,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [searchLocation, setSearchLocation] = useState("");
   const [autoSearch, setAutoSearch] = useState(true);
   const [filter, setFilter] = useState('all');
-  const { fetchUserVisits, allVisitedWineries, wishlistIds, fetchWishlist } = useWineries();
+  const { fetchUserVisits, allVisitedWineries, wishlist, fetchWishlist } = useWineries();
   const { toast } = useToast();
   
   const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
@@ -231,16 +228,17 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 
   useEffect(() => {
     const visitedPlaceIds = new Set(allVisitedWineries.map((v: Winery) => v.id));
+    const wishlistPlaceIds = new Set(wishlist.map(w => w.google_place_id));
+
     const updatedResults = searchState.results.map(winery => ({
       ...winery,
       userVisited: visitedPlaceIds.has(winery.id),
-      onWishlist: wishlistIds.has(winery.dbId!)
+      onWishlist: wishlistPlaceIds.has(winery.id)
     }));
-
     if (JSON.stringify(updatedResults) !== JSON.stringify(searchState.results)) {
         dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
     }
-  }, [allVisitedWineries, searchState.results, wishlistIds]);
+  }, [allVisitedWineries, searchState.results, wishlist]);
 
   const filteredListWineries = useMemo(() => {
     const inViewWineries = searchState.results;
@@ -334,15 +332,17 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   
   const handleOpenModal = useCallback((winery: Winery) => {
     const fullWineryData = allVisitedWineries.find(v => v.id === winery.id);
-    setSelectedWinery({ ...winery, visits: fullWineryData?.visits || [] });
-  }, [allVisitedWineries]);
+    const wineryOnWishlist = wishlist.some(w => w.google_place_id === winery.id);
+    const dbId = fullWineryData?.dbId || wishlist.find(w => w.google_place_id === winery.id)?.winery_id;
+    setSelectedWinery({ ...winery, visits: fullWineryData?.visits || [], onWishlist: wineryOnWishlist, dbId });
+  }, [allVisitedWineries, wishlist]);
   
   const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
     const payload = { wineryData: winery, ...visitData };
     const response = await fetch('/api/visits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (response.ok) { 
         toast({ description: "Visit saved successfully." }); 
-        await fetchUserVisits();
+        await Promise.all([fetchUserVisits(), fetchWishlist()]);
         setSelectedWinery(null); 
     } else { 
         const errorData = await response.json();
@@ -362,29 +362,19 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   };
 
   const handleToggleWishlist = async (winery: Winery, isOnWishlist: boolean) => {
-    if (!winery.dbId) {
-      toast({ variant: 'destructive', description: "Cannot add to wishlist until a visit is logged." });
-      return;
-    }
     const method = isOnWishlist ? 'DELETE' : 'POST';
+    const body = isOnWishlist ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
     try {
-      const response = await fetch('/api/wishlist', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ winery_id: winery.dbId })
-      });
+      const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
       if (response.ok) {
         toast({ description: isOnWishlist ? "Removed from wishlist." : "Added to wishlist." });
         await fetchWishlist();
         setSelectedWinery(prev => prev ? {...prev, onWishlist: !isOnWishlist} : null);
-      } else {
-        throw new Error("Failed to update wishlist");
-      }
+      } else { throw new Error("Failed to update wishlist"); }
     } catch (error) {
       toast({ variant: 'destructive', description: "Could not update wishlist." });
     }
   };
-
 
   if (!places || !geocoder) {
     return (
