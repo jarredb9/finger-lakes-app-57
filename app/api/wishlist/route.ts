@@ -13,15 +13,13 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from("wishlist")
-      .select("wineries(id, google_place_id)")
+      .select("wineries(*)") // Fetch all columns from the joined wineries table
       .eq("user_id", user.id)
 
     if (error) throw error;
 
-    return NextResponse.json(data.map(item => ({ 
-        winery_id: item.wineries.id,
-        google_place_id: item.wineries.google_place_id
-    })))
+    // Return the full winery objects
+    return NextResponse.json(data.map(item => item.wineries).filter(Boolean) || [])
   } catch (error) {
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
