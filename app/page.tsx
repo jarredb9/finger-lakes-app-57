@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation"
+import Link from "next/link"
 import { getUser } from "@/lib/auth"
 import { Suspense } from "react"
 import dynamic from 'next/dynamic'
@@ -50,18 +51,16 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Image src="/placeholder-logo.png" alt="Finger Lakes Winery Tracker" width={32} height={32} />
-              <h1 className="text-xl font-bold text-gray-900 ml-3">FLX Wine Tracker</h1>
+              <Image src="/placeholder-logo.png" alt="Winery Tracker Logo" width={32} height={32} />
+              <h1 className="text-xl font-bold text-gray-900 ml-3">Winery Tracker</h1>
             </div>
             <div className="flex items-center space-x-4">
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-800">Welcome, {user.name}</p>
               </div>
-              <form action="/api/auth/logout" method="post">
-                <button type="submit" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-                  Logout
-                </button>
-              </form>
+              <Link href="/logout" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                Logout
+              </Link>
             </div>
           </div>
         </div>

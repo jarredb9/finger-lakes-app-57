@@ -59,7 +59,7 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 
 const MapComponent = memo(({ searchResults, onMarkerClick }: { searchResults: Winery[], onMarkerClick: (winery: Winery) => void }) => (
     <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
-        <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={10} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
+        <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={9} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
             {searchResults.map(winery => (
                 <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
                     <div className="animate-pop-in">
@@ -74,11 +74,11 @@ MapComponent.displayName = 'MapComponent';
 
 const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch }) => (
     <Card>
-        <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries, or click directly on the map to add a location.</CardDescription> </CardHeader>
+        <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries by location, or click directly on the map to add a new one.</CardDescription> </CardHeader>
         <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-4">
                 <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
-                    <Input placeholder="Enter city or region" value={searchLocation} onChange={e => setSearchLocation(e.target.value)} aria-label="Search Location"/>
+                    <Input placeholder="Enter a city or wine region (e.g., Napa Valley)" value={searchLocation} onChange={e => setSearchLocation(e.target.value)} aria-label="Search Location"/>
                     <Button type="submit" disabled={searchState.isSearching} aria-label="Search"> {searchState.isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />} <span className="ml-2">Search</span> </Button>
                 </form>
                 <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching} aria-label="Search This Area"> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
@@ -120,7 +120,7 @@ const ResultsUI = memo(({ searchState, onOpenModal }: { searchState: SearchState
                           <div className="text-center pt-10 text-muted-foreground">
                             <Wine className="mx-auto h-12 w-12" />
                             <p className="mt-4 text-sm">No wineries found in this area.</p>
-                            <p className="text-xs">Try searching for a different location or zooming out.</p>
+                            <p className="text-xs">Try searching for a location to begin.</p>
                           </div>
                         )}
                         {searchState.isSearching && Array.from({ length: 5 }).map((_, i) => (
@@ -176,7 +176,7 @@ function useWineries() {
 function WineryMapLogic({ userId }: WineryMapProps) {
   const [searchState, dispatch] = useReducer(searchReducer, initialState);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
-  const [searchLocation, setSearchLocation] = useState("Finger Lakes, NY");
+  const [searchLocation, setSearchLocation] = useState("");
   const [autoSearch, setAutoSearch] = useState(true);
   const { allUserVisits, fetchUserVisits } = useWineries();
   const { toast } = useToast();
@@ -184,8 +184,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
   
   const searchFnRef = useRef<((locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => Promise<void>) | null>(null);
-  const initialSearchFired = useRef(false);
-
+  
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
@@ -244,14 +243,9 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     
     useEffect(() => {
         if (!map || !geocoder) return;
-
-        if (!initialSearchFired.current) { 
-            initialSearchFired.current = true; 
-            searchFnRef.current?.("Finger Lakes, NY"); 
-        }
         
         const idleListener = map.addListener('idle', () => {
-            if (autoSearch && initialSearchFired.current) { 
+            if (autoSearch) { 
                 const bounds = map.getBounds(); 
                 if (bounds) { 
                     searchFnRef.current?.(undefined, bounds); 

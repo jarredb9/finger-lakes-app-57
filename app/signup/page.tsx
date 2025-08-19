@@ -14,7 +14,7 @@ export default async function SignupPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Create your account</h2>
-          <p className="mt-2 text-center text-sm text-gray-600">Start tracking your Finger Lakes winery visits</p>
+          <p className="mt-2 text-center text-sm text-gray-600">Start tracking your winery visits</p>
         </div>
         <SignupForm />
       </div>
