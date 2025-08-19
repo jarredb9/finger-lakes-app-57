@@ -218,6 +218,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   
   const searchFnRef = useRef<((locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => Promise<void>) | null>(null);
   
+  const mapsLibrary = useMapsLibrary('maps');
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
@@ -268,7 +269,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
             if (results && results.length > 0 && results[0].geometry.viewport) { searchBounds = results[0].geometry.viewport; map?.fitBounds(searchBounds); } 
             else { toast({ variant: "destructive", description: "Could not find that location." }); dispatch({ type: 'SEARCH_ERROR' }); return; }
         } catch (error) { console.error("Geocoding failed:", error); dispatch({ type: 'SEARCH_ERROR' }); return; }
-    } else if (bounds) { searchBounds = new google.maps.LatLngBounds(bounds); } 
+    } else if (bounds) { searchBounds = new mapsLibrary.LatLngBounds(bounds); } 
     else { dispatch({ type: 'SEARCH_ERROR' }); return; }
 
     const request = { textQuery: "winery OR vineyard OR tasting room OR cellars", fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], locationRestriction: searchBounds };
@@ -291,7 +292,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         });
         dispatch({ type: 'SEARCH_SUCCESS', payload: wineries });
     } catch (error) { console.error("Google Places search error:", error); dispatch({ type: 'SEARCH_ERROR' }); }
-  }, [map, places, geocoder, getVisitedWineryIds, toast, wishlist]);
+  }, [map, places, geocoder, getVisitedWineryIds, toast, wishlist, mapsLibrary]);
 
   useEffect(() => { searchFnRef.current = executeSearch; });
     
