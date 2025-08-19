@@ -250,6 +250,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const { fetchUserVisits, allVisitedWineries, allWishlistWineries, allFavoriteWineries, fetchWishlist, fetchFavorites } = useWineries();
   const { toast } = useToast();
   
+  const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
   const searchFnRef = useRef<((locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => Promise<void>) | null>(null);
   
   const places = useMapsLibrary('places');
@@ -257,9 +258,6 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
   
-  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
-  const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
-
   useEffect(() => { if (geocoding) setGeocoder(new geocoding.Geocoder()); }, [geocoding]);
 
   const allPersistentWineries = useMemo(() => {
@@ -281,19 +279,22 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }
   }, [allPersistentWineries, searchState.results]);
 
-  const filteredListWineries = useMemo(() => {
+  const listResultsInView = useMemo(() => {
     const inViewWineries = searchState.results;
-    const persistentMap = new Map(allPersistentWineries.map(p => [p.id, p]));
-    const combined = [...allPersistentWineries, ...inViewWineries.filter(w => !persistentMap.has(w.id))];
-
     switch (filter) {
-        case 'visited': return combined.filter(w => w.userVisited);
-        case 'favorites': return combined.filter(w => w.isFavorite);
-        case 'wantToGo': return combined.filter(w => w.onWishlist && !w.userVisited);
-        case 'notVisited': return inViewWineries.filter(w => !w.userVisited && !w.onWishlist && !w.isFavorite);
-        case 'all': default: return combined;
+        case 'visited': 
+            return inViewWineries.filter(w => w.userVisited);
+        case 'favorites': 
+            return inViewWineries.filter(w => w.isFavorite);
+        case 'wantToGo': 
+            return inViewWineries.filter(w => w.onWishlist && !w.userVisited);
+        case 'notVisited': 
+            return inViewWineries.filter(w => !w.userVisited && !w.onWishlist && !w.isFavorite);
+        case 'all': 
+        default: 
+            return inViewWineries;
     }
-  }, [filter, searchState.results, allPersistentWineries]);
+  }, [filter, searchState.results]);
   
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
     if (!places || !geocoder) return;
@@ -333,6 +334,46 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     return () => { google.maps.event.removeListener(idleListener); };
   }, [map, geocoder, autoSearch]);
 
+  const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
+    if (!places || !geocoder || !e.latLng || !e.placeId) return;
+
+    // Stop info windows from opening on POIs
+    e.stop();
+
+    // Check if we already have a pin for this place
+    const isKnown = allPersistentWineries.some(w => w.id === e.placeId);
+    if (isKnown) return;
+
+    try {
+        const placeDetails = new places.Place({ id: e.placeId });
+        await placeDetails.fetchFields({ fields: ["displayName", "formattedAddress", "websiteURI", "nationalPhoneNumber", "location"]});
+        if (!placeDetails.location) {
+            toast({ variant: "destructive", description: "Could not get details for this location." }); return;
+        }
+        const newWinery: Winery = {
+            id: e.placeId, 
+            name: placeDetails.displayName || "Unnamed Location", 
+            address: placeDetails.formattedAddress || 'N/A',
+            lat: placeDetails.location.lat(), 
+            lng: placeDetails.location.lng(), 
+            website: placeDetails.websiteURI, 
+            phone: placeDetails.nationalPhoneNumber,
+        };
+        setProposedWinery(newWinery);
+    } catch (error) {
+        toast({ variant: "destructive", description: "An error occurred while fetching location details." });
+    }
+  }, [places, geocoder, toast, allPersistentWineries]);
+
+  useEffect(() => {
+    if (!map) return;
+    const clickListener = map.addListener('click', handleMapClick);
+    return () => { clickListener.remove(); };
+  }, [map, handleMapClick]);
+  
+  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
+  const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
+
   const handleOpenModal = useCallback((winery: Winery) => {
     const fullData = allPersistentWineries.find(p => p.id === winery.id);
     setSelectedWinery({ ...winery, ...fullData });
@@ -369,8 +410,8 @@ function WineryMapLogic({ userId }: WineryMapProps) {
       const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
       if (response.ok) {
         toast({ description: isOnWishlist ? "Removed from wishlist." : "Added to wishlist." });
-        const newItems = await fetchWishlist();
-        setSelectedWinery(prev => prev ? { ...prev, onWishlist: !isOnWishlist, dbId: !isOnWishlist ? newItems.find(i => i.google_place_id === prev.id)?.id : prev.dbId } : null);
+        await fetchWishlist();
+        setSelectedWinery(prev => prev ? { ...prev, onWishlist: !isOnWishlist } : null);
       } else throw new Error();
     } catch (error) { toast({ variant: 'destructive', description: "Could not update wishlist." }); }
   };
@@ -382,8 +423,8 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         const response = await fetch('/api/favorites', { method, headers: { 'Content-Type': 'application/json' }, body });
         if (response.ok) {
           toast({ description: isFavorite ? "Removed from favorites." : "Added to favorites." });
-          const newItems = await fetchFavorites();
-          setSelectedWinery(prev => prev ? { ...prev, isFavorite: !isFavorite, dbId: !isFavorite ? newItems.find(i => i.google_place_id === prev.id)?.id : prev.dbId } : null);
+          await fetchFavorites();
+          setSelectedWinery(prev => prev ? { ...prev, isFavorite: !isFavorite } : null);
         } else throw new Error();
       } catch (error) { toast({ variant: 'destructive', description: "Could not update favorites." }); }
     };
@@ -391,7 +432,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   return (
     <div className="space-y-6">
       <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} dispatch={dispatch} filter={filter} setFilter={setFilter} />
-      <ResultsUI wineries={filteredListWineries} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} allWishlist={allWishlistWineries.filter(w => !allVisitedWineries.some(v => v.id === w.id))} allFavorites={allFavoriteWineries} />
+      <ResultsUI wineries={listResultsInView} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} allWishlist={allWishlistWineries.filter(w => !allVisitedWineries.some(v => v.id === w.id))} allFavorites={allFavoriteWineries} />
       {selectedWinery && (<WineryModal 
         winery={selectedWinery} 
         onClose={() => setSelectedWinery(null)} 
@@ -400,6 +441,26 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         onToggleWishlist={handleToggleWishlist}
         onToggleFavorite={handleToggleFavorite}
       />)}
+      {proposedWinery && (
+        <AlertDialog open={!!proposedWinery} onOpenChange={() => setProposedWinery(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader><AlertDialogTitle>Add this location?</AlertDialogTitle>
+                    <AlertDialogDescription> Do you want to add a visit for the following location?
+                        <Card className="mt-4 text-left">
+                            <CardHeader>
+                                <CardTitle>{proposedWinery.name}</CardTitle>
+                                <CardDescription>{proposedWinery.address}</CardDescription>
+                            </CardHeader>
+                        </Card>
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setProposedWinery(null)}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => { handleOpenModal(proposedWinery); setProposedWinery(null); }}>Add Visit</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
