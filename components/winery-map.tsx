@@ -61,9 +61,9 @@ const MapComponent = memo(({ wineries, allVisited, filter, onMarkerClick }: { wi
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <Map defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 {(filter === 'all' || filter === 'notVisited' || filter === 'wantToGo') && wineries.map(winery => {
-                    if (winery.userVisited) return null; // Visited wineries are handled by the clusterer
+                    if (winery.userVisited) return null;
                     const pinProps = {
-                        background: winery.onWishlist ? '#9333ea' : '#3B82F6', // Purple for wishlist
+                        background: winery.onWishlist ? '#9333ea' : '#3B82F6',
                         borderColor: winery.onWishlist ? '#7e22ce' : '#2563EB',
                         glyphColor: "#fff",
                     };
@@ -227,6 +227,23 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     if (geocoding) setGeocoder(new geocoding.Geocoder());
   }, [geocoding]);
 
+  useEffect(() => {
+    const visitedPlaceIds = new Set(allVisitedWineries.map((v: Winery) => v.id));
+    const wishlistPlaceIds = new Set(wishlist.map(w => w.google_place_id));
+    const wishlistDbIdMap = new Map(wishlist.map(w => [w.google_place_id, w.winery_id]));
+
+    const updatedResults = searchState.results.map(winery => ({
+      ...winery,
+      userVisited: visitedPlaceIds.has(winery.id),
+      onWishlist: wishlistPlaceIds.has(winery.id),
+      dbId: winery.dbId || wishlistDbIdMap.get(winery.id)
+    }));
+
+    if (JSON.stringify(updatedResults) !== JSON.stringify(searchState.results)) {
+        dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
+    }
+  }, [allVisitedWineries, searchState.results, wishlist]);
+
   const filteredListWineries = useMemo(() => {
     const inViewWineries = searchState.results;
     switch (filter) {
@@ -258,17 +275,18 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     try {
         const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
         const visitedIds = getVisitedWineryIds();
-        const wishlistMap = new Map(wishlist.map(w => [w.google_place_id, w.winery_id]));
-        
-        const wineries = foundPlaces.map(place => {
+        const wishlistPlaceIds = new Set(wishlist.map(w => w.google_place_id));
+        const wishlistDbIdMap = new Map(wishlist.map(w => [w.google_place_id, w.winery_id]));
+
+        const wineries: Winery[] = foundPlaces.map(place => {
             const googlePlaceId = place.id!;
             return {
                 id: googlePlaceId,
-                dbId: wishlistMap.get(googlePlaceId),
+                dbId: wishlistDbIdMap.get(googlePlaceId),
                 name: place.displayName!, address: place.formattedAddress!, lat: place.location!.lat(), lng: place.location!.lng(),
                 rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber, 
                 userVisited: visitedIds.has(googlePlaceId),
-                onWishlist: wishlistMap.has(googlePlaceId),
+                onWishlist: wishlistPlaceIds.has(googlePlaceId),
             }
         });
         dispatch({ type: 'SEARCH_SUCCESS', payload: wineries });
@@ -373,7 +391,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   };
 
 
-  if (!places || !geocoder) {
+  if (!places || !geocoding) {
     return (
         <div className="flex justify-center items-center h-[600px] w-full">
             <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
