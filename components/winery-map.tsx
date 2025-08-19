@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState, useCallback, useRef, memo, useReducer } from "react"
+import React, { useEffect, useState, useCallback, useRef, memo, useReducer, useMemo } from "react"
 import dynamic from 'next/dynamic'
 import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,17 +29,15 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useToast } from "@/hooks/use-toast"
 import { Winery, Visit } from "@/lib/types"
 import { Skeleton } from "@/components/ui/skeleton"
+import WineryClusterer from "./winery-clusterer"
 
 const WineryModal = dynamic(() => import('./winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
 });
-
-// Add this animation class to your globals.css
-// @keyframes map-marker-pop-in { 0% { transform: scale(0); } 100% { transform: scale(1); } }
-// .animate-pop-in { animation: map-marker-pop-in 0.3s ease-out; }
 
 interface WineryMapProps { userId: string; }
 
@@ -57,24 +55,32 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     }
 }
 
-const MapComponent = memo(({ searchResults, onMarkerClick }: { searchResults: Winery[], onMarkerClick: (winery: Winery) => void }) => (
-    <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
-        <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={9} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
-            {searchResults.map(winery => (
-                <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
-                    <div className="animate-pop-in">
-                        <Pin background={winery.userVisited ? '#10B981' : '#3B82F6'} borderColor={winery.userVisited ? '#059669' : '#2563EB'} glyphColor="#fff" />
-                    </div>
-                </AdvancedMarker>
-            ))}
-        </Map>
-    </div>
-));
+const MapComponent = memo(({ wineries, onMarkerClick, onClusterClick }: { wineries: Winery[], onMarkerClick: (winery: Winery) => void, onClusterClick: (winery: Winery) => void }) => {
+    const visitedWineries = useMemo(() => wineries.filter(w => w.userVisited), [wineries]);
+    const notVisitedWineries = useMemo(() => wineries.filter(w => !w.userVisited), [wineries]);
+
+    return (
+        <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
+            <Map defaultCenter={{ lat: 42.5, lng: -77.0 }} defaultZoom={9} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
+                {/* Render non-visited wineries as individual pins */}
+                {notVisitedWineries.map(winery => (
+                    <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
+                        <div className="animate-pop-in">
+                            <Pin background={'#3B82F6'} borderColor={'#2563EB'} glyphColor="#fff" />
+                        </div>
+                    </AdvancedMarker>
+                ))}
+                {/* Render visited wineries with the clusterer */}
+                <WineryClusterer wineries={visitedWineries} onClick={onClusterClick} />
+            </Map>
+        </div>
+    );
+});
 MapComponent.displayName = 'MapComponent';
 
-const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch }) => (
+const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch, filter, setFilter }) => (
     <Card>
-        <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries by location, or click directly on the map to add a new one.</CardDescription> </CardHeader>
+        <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries by location, filter your results, or click directly on the map.</CardDescription> </CardHeader>
         <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-4">
                 <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
@@ -83,53 +89,53 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                 </form>
                 <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching} aria-label="Search This Area"> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
             </div>
-            <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200">
-                <Label htmlFor="auto-search" className="flex items-center gap-2 text-sm font-medium cursor-pointer"> <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} aria-label="Auto-discover wineries as you explore" /> Auto-discover wineries as you explore </Label>
-            </div>
-            <div className="h-12">
-              {searchState.hitApiLimit && (<Alert variant="default" className="bg-yellow-50 border-yellow-200"> <Info className="h-4 w-4 text-yellow-700" /> <AlertDescription className="text-yellow-800"> Map results are limited. Zoom in for more wineries. </AlertDescription> </Alert>)}
-            </div>
             <div className="flex items-center justify-between">
-                <Badge variant="secondary">{searchState.isSearching ? 'Searching...' : `${searchState.results.length} wineries in view`}</Badge>
-                {searchState.results.length > 0 && <Button variant="ghost" size="sm" onClick={() => dispatch({ type: 'CLEAR_RESULTS' })} aria-label="Clear Search Results"><RotateCcw className="mr-2 w-4 h-4" /> Clear</Button>}
+                <ToggleGroup type="single" value={filter} onValueChange={(value) => value && setFilter(value)} aria-label="Filter wineries">
+                    <ToggleGroupItem value="all" aria-label="All Wineries">All</ToggleGroupItem>
+                    <ToggleGroupItem value="visited" aria-label="Visited Wineries">Visited</ToggleGroupItem>
+                    <ToggleGroupItem value="notVisited" aria-label="Not Visited Wineries">To Visit</ToggleGroupItem>
+                </ToggleGroup>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200">
+                <Label htmlFor="auto-search" className="flex items-center gap-2 text-sm font-medium cursor-pointer"> <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} aria-label="Auto-discover wineries as you explore" /> Auto-discover as you explore the map </Label>
             </div>
         </CardContent>
     </Card>
 ));
 SearchUI.displayName = 'SearchUI';
 
-const ResultsUI = memo(({ searchState, onOpenModal }: { searchState: SearchState, onOpenModal: (winery: Winery) => void }) => (
+const ResultsUI = memo(({ wineries, onOpenModal, isSearching }: { wineries: Winery[], onOpenModal: (winery: Winery) => void, isSearching: boolean }) => (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
-            <Card> <CardContent className="p-0 relative"> <MapComponent searchResults={searchState.results} onMarkerClick={onOpenModal} /> </CardContent> </Card>
+            <Card> <CardContent className="p-0 relative"> <MapComponent wineries={wineries} onMarkerClick={onOpenModal} onClusterClick={onOpenModal} /> </CardContent> </Card>
         </div>
         <div className="space-y-4">
             <Card>
                 <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
                     <div className="flex items-center gap-2"> <div style={{ backgroundColor: '#10B981', border: '2px solid #059669' }} className="w-4 h-4 rounded-full" /> <span className="text-sm">Visited</span> </div>
-                    <div className="flex items-center gap-2"> <div style={{ backgroundColor: '#3B82F6', border: '2px solid #2563EB' }} className="w-4 h-4 rounded-full" /> <span className="text-sm">Discovered</span> </div>
+                    <div className="flex items-center gap-2"> <div style={{ backgroundColor: '#3B82F6', border: '2px solid #2563EB' }} className="w-4 h-4 rounded-full" /> <span className="text-sm">To Visit</span> </div>
                 </CardContent>
             </Card>
             <Card>
-                <CardHeader><CardTitle className="flex justify-between items-center">Discovered List <Badge>{searchState.results.length}</Badge></CardTitle></CardHeader>
+                <CardHeader><CardTitle className="flex justify-between items-center">Results List <Badge>{wineries.length}</Badge></CardTitle></CardHeader>
                 <CardContent className="relative">
-                    {searchState.isSearching && (<div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 flex items-center justify-center rounded-b-lg z-10"><Loader2 className="animate-spin text-muted-foreground h-8 w-8" /></div>)}
-                    <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto data-[loaded=true]:animate-in data-[loaded=true]:fade-in-50" data-loaded={!searchState.isSearching}>
-                        {searchState.results.length === 0 && !searchState.isSearching && (
+                    {isSearching && (<div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 flex items-center justify-center rounded-b-lg z-10"><Loader2 className="animate-spin text-muted-foreground h-8 w-8" /></div>)}
+                    <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto data-[loaded=true]:animate-in data-[loaded=true]:fade-in-50" data-loaded={!isSearching}>
+                        {wineries.length === 0 && !isSearching && (
                           <div className="text-center pt-10 text-muted-foreground">
                             <Wine className="mx-auto h-12 w-12" />
-                            <p className="mt-4 text-sm">No wineries found in this area.</p>
-                            <p className="text-xs">Try searching for a location to begin.</p>
+                            <p className="mt-4 text-sm">No wineries found.</p>
+                            <p className="text-xs">Try searching or adjusting your filter.</p>
                           </div>
                         )}
-                        {searchState.isSearching && Array.from({ length: 5 }).map((_, i) => (
+                        {isSearching && Array.from({ length: 5 }).map((_, i) => (
                           <div key={i} className="p-2 border rounded">
                             <Skeleton className="h-4 w-3/4 mb-2" />
                             <Skeleton className="h-3 w-1/2" />
                           </div>
                         ))}
-                        {!searchState.isSearching && searchState.results.map(winery => (
+                        {!isSearching && wineries.map(winery => (
                             <div key={winery.id} className="p-3 border rounded-lg cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] transition-all duration-200" onClick={() => onOpenModal(winery)}>
                                 <p className="font-medium text-sm">{winery.name}</p>
                                 <p className="text-xs text-muted-foreground">{winery.address}</p>
@@ -157,11 +163,7 @@ function useWineries() {
       }
     } catch (error) {
       console.error("Failed to fetch user visits:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Could not fetch your visits.",
-      });
+      toast({ variant: "destructive", title: "Error", description: "Could not fetch your visits.", });
     }
   }, [toast]);
 
@@ -178,6 +180,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
   const [autoSearch, setAutoSearch] = useState(true);
+  const [filter, setFilter] = useState('all'); // 'all', 'visited', 'notVisited'
   const { allUserVisits, fetchUserVisits } = useWineries();
   const { toast } = useToast();
   
@@ -191,25 +194,31 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const map = useMap();
 
   useEffect(() => {
-    if (geocoding) {
-      setGeocoder(new geocoding.Geocoder());
-    }
+    if (geocoding) setGeocoder(new geocoding.Geocoder());
   }, [geocoding]);
 
   useEffect(() => {
     if (searchState.results.length === 0 && allUserVisits.length === 0) return;
-
     const visitedPlaceIds = new Set(allUserVisits.map((v: Visit) => v.wineries.google_place_id));
-
-    const updatedResults = searchState.results.map(winery => ({
-        ...winery,
-        userVisited: visitedPlaceIds.has(winery.id)
-    }));
-
+    const updatedResults = searchState.results.map(winery => ({ ...winery, userVisited: visitedPlaceIds.has(winery.id) }));
     if (JSON.stringify(updatedResults) !== JSON.stringify(searchState.results)) {
         dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
     }
   }, [allUserVisits, searchState.results]);
+
+  const filteredWineries = useMemo(() => {
+    switch (filter) {
+        case 'visited': return searchState.results.filter(w => w.userVisited);
+        case 'notVisited': return searchState.results.filter(w => !w.userVisited);
+        case 'all':
+        default: return searchState.results;
+    }
+  }, [filter, searchState.results]);
+
+  const mapWineries = useMemo(() => {
+    if (filter === 'visited') return searchState.results.filter(w => w.userVisited);
+    return searchState.results;
+  }, [filter, searchState.results]);
   
   const getVisitedWineryIds = useCallback(() => new Set(allUserVisits.map(v => v.wineries.google_place_id)), [allUserVisits]);
   
@@ -243,13 +252,10 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     
     useEffect(() => {
         if (!map || !geocoder) return;
-        
         const idleListener = map.addListener('idle', () => {
             if (autoSearch) { 
                 const bounds = map.getBounds(); 
-                if (bounds) { 
-                    searchFnRef.current?.(undefined, bounds); 
-                } 
+                if (bounds) searchFnRef.current?.(undefined, bounds); 
             }
         });
         return () => { google.maps.event.removeListener(idleListener); };
@@ -263,17 +269,14 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 
     let placeId: string | undefined | null = e.placeId;
 
-    if (placeId) {
-      e.stop();
-    } else {
+    if (placeId) e.stop();
+    else {
       const { results } = await geocoder.geocode({ location: e.latLng });
-      if (results && results[0]) {
-        placeId = results[0].place_id;
-      }
+      if (results && results[0]) placeId = results[0].place_id;
     }
 
     if (!placeId) {
-      toast({ variant: "destructive", description: "Could not identify a location at that point. Please click closer to a point of interest." });
+      toast({ variant: "destructive", description: "Could not identify a location at that point." });
       return;
     }
 
@@ -299,16 +302,14 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         setProposedWinery(newWinery);
     } catch (error) {
         console.error("Error fetching place details:", error);
-        toast({ variant: "destructive", description: "An error occurred while fetching details for the location." });
+        toast({ variant: "destructive", description: "An error occurred while fetching location details." });
     }
   }, [places, geocoder, getVisitedWineryIds, toast]);
 
   useEffect(() => {
     if (!map) return;
     const clickListener = map.addListener('click', handleMapClick);
-    return () => {
-        clickListener.remove();
-    };
+    return () => { clickListener.remove(); };
   }, [map, handleMapClick]);
 
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
@@ -320,20 +321,8 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   };
   
   const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
-    const payload = { 
-        wineryData: winery,
-        visit_date: visitData.visit_date, 
-        user_review: visitData.user_review, 
-        rating: visitData.rating, 
-        photos: visitData.photos 
-    };
-
-    const response = await fetch('/api/visits', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(payload), 
-    });
-
+    const payload = { wineryData: winery, ...visitData };
+    const response = await fetch('/api/visits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (response.ok) { 
         toast({ description: "Visit saved successfully." }); 
         await fetchUserVisits();
@@ -366,26 +355,14 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 
   return (
     <div className="space-y-6">
-      <SearchUI 
-        searchState={searchState}
-        searchLocation={searchLocation}
-        setSearchLocation={setSearchLocation}
-        autoSearch={autoSearch}
-        setAutoSearch={setAutoSearch}
-        handleSearchSubmit={handleSearchSubmit}
-        handleManualSearchArea={handleManualSearchArea}
-        dispatch={dispatch}
-      />
-      <ResultsUI searchState={searchState} onOpenModal={handleOpenModal} />
+      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} dispatch={dispatch} filter={filter} setFilter={setFilter} />
+      <ResultsUI wineries={filteredWineries} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} />
       {selectedWinery && (<WineryModal winery={selectedWinery} onClose={() => setSelectedWinery(null)} onSaveVisit={handleSaveVisit} onDeleteVisit={handleDeleteVisit} />)}
-
       {proposedWinery && (
         <AlertDialog open={!!proposedWinery} onOpenChange={() => setProposedWinery(null)}>
             <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Add this location?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Do you want to add a visit for the following location?
+                <AlertDialogHeader><AlertDialogTitle>Add this location?</AlertDialogTitle>
+                    <AlertDialogDescription> Do you want to add a visit for the following location?
                         <Card className="mt-4 text-left">
                             <CardHeader>
                                 <CardTitle>{proposedWinery.name}</CardTitle>
@@ -396,10 +373,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setProposedWinery(null)}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => {
-                        handleOpenModal(proposedWinery);
-                        setProposedWinery(null);
-                    }}>Add Visit</AlertDialogAction>
+                    <AlertDialogAction onClick={() => { handleOpenModal(proposedWinery); setProposedWinery(null); }}>Add Visit</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -413,5 +387,5 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
-    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding']}><WineryMapLogic userId={userId} /></APIProvider>);
+    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} /></APIProvider>);
 }
