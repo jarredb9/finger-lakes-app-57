@@ -40,38 +40,6 @@ const WineryModal = dynamic(() => import('./winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
 });
 
-// A new component to contain all logic that needs access to the map instance
-const MapLogic = ({
-  autoSearch,
-  executeSearch,
-  handleMapClick
-}: {
-  autoSearch: boolean,
-  executeSearch: Function,
-  handleMapClick: Function
-}) => {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!map) return;
-    const idleListener = map.addListener('idle', () => {
-        if (autoSearch) {
-            const bounds = map.getBounds();
-            if (bounds) executeSearch(undefined, bounds);
-        }
-    });
-    const clickListener = map.addListener('click', (e: google.maps.MapMouseEvent) => handleMapClick(e));
-
-    return () => {
-      idleListener.remove();
-      clickListener.remove();
-    };
-  }, [map, autoSearch, executeSearch, handleMapClick]);
-
-  return null; // This component does not render anything itself
-}
-
-
 interface WineryMapProps { userId: string; }
 
 interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
@@ -88,16 +56,16 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     }
 }
 
-const MapComponent = memo(({ wineries, allVisited, filter, onMarkerClick, autoSearch, executeSearch, handleMapClick }: { wineries: Winery[], allVisited: Winery[], filter: string, onMarkerClick: (winery: Winery) => void, autoSearch: boolean, executeSearch: Function, handleMapClick: Function }) => {
+const MapComponent = memo(({ wineries, allVisited, filter, onMarkerClick }: { wineries: Winery[], allVisited: Winery[], filter: string, onMarkerClick: (winery: Winery) => void }) => {
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <Map defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
-                <MapLogic autoSearch={autoSearch} executeSearch={executeSearch} handleMapClick={handleMapClick} />
                 {(filter === 'all' || filter === 'notVisited' || filter === 'wantToGo') && wineries.map(winery => {
-                    if (winery.userVisited) return null;
+                    if (winery.userVisited) return null; // Handled by clusterer
                     const pinProps = {
-                        background: winery.onWishlist ? '#9333ea' : '#3B82F6',
+                        background: winery.onWishlist ? '#9333ea' : '#3B82F6', // Purple for wishlist
                         borderColor: winery.onWishlist ? '#7e22ce' : '#2563EB',
+                        glyph: winery.onWishlist ? <ListPlus size={14} /> : undefined,
                         glyphColor: "#fff",
                     };
                     return (
@@ -108,7 +76,7 @@ const MapComponent = memo(({ wineries, allVisited, filter, onMarkerClick, autoSe
                         </AdvancedMarker>
                     )
                 })}
-
+                
                 {(filter === 'all' || filter === 'visited') && (
                   <WineryClusterer wineries={allVisited} onClick={onMarkerClick} />
                 )}
@@ -145,12 +113,12 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
 ));
 SearchUI.displayName = 'SearchUI';
 
-const ResultsUI = memo(({ wineries, onOpenModal, isSearching, filter, allVisited, searchResults, autoSearch, executeSearch, handleMapClick }: { wineries: Winery[], onOpenModal: (winery: Winery) => void, isSearching: boolean, filter: string, allVisited: Winery[], searchResults: Winery[], autoSearch: boolean, executeSearch: Function, handleMapClick: Function }) => {
+const ResultsUI = memo(({ wineries, onOpenModal, isSearching, filter, allVisited, searchResults }: { wineries: Winery[], onOpenModal: (winery: Winery) => void, isSearching: boolean, filter: string, allVisited: Winery[], searchResults: Winery[] }) => {
     return (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
-                <Card> <CardContent className="p-0 relative">
-                    <MapComponent wineries={searchResults} allVisited={allVisited} filter={filter} onMarkerClick={onOpenModal} autoSearch={autoSearch} executeSearch={executeSearch} handleMapClick={handleMapClick} />
+                <Card> <CardContent className="p-0 relative"> 
+                    <MapComponent wineries={searchResults} allVisited={allVisited} filter={filter} onMarkerClick={onOpenModal} /> 
                 </CardContent> </Card>
             </div>
             <div className="space-y-4">
@@ -191,14 +159,17 @@ const ResultsUI = memo(({ wineries, onOpenModal, isSearching, filter, allVisited
 ResultsUI.displayName = 'ResultsUI';
 
 function useWineries() {
-  const [allUserVisits, setAllUserVisits] = useState<Visit[]>([]);
-  const [wishlist, setWishlist] = useState<{winery_id: number, google_place_id: string}[]>([]);
+  const [allUserVisits, setAllUserVisits] = useState<any[]>([]);
+  const [wishlistIds, setWishlistIds] = useState<Set<number>>(new Set());
   const { toast } = useToast();
 
   const fetchWishlist = useCallback(async () => {
     try {
         const response = await fetch('/api/wishlist');
-        if (response.ok) setWishlist(await response.json());
+        if (response.ok) {
+            const ids = await response.json();
+            setWishlistIds(new Set(ids));
+        }
     } catch (error) { console.error("Failed to fetch wishlist", error); }
   }, []);
 
@@ -215,71 +186,61 @@ function useWineries() {
     fetchUserVisits();
     fetchWishlist();
   }, [fetchUserVisits, fetchWishlist]);
-
+  
   const allVisitedWineries = useMemo(() => {
     if (!allUserVisits) return [];
-    return allUserVisits
-      .map(visit => {
-        if (!visit.wineries) return null;
-        return {
-          id: visit.wineries.google_place_id,
-          dbId: visit.wineries.id,
-          name: visit.wineries.name,
-          address: visit.wineries.address,
-          lat: parseFloat(visit.wineries.latitude),
-          lng: parseFloat(visit.wineries.longitude),
-          userVisited: true,
-          visits: allUserVisits.filter(v => v.wineries.id === visit.wineries.id)
-        };
-      })
-      .filter((v, i, a) => v && a.findIndex(t => t?.dbId === v?.dbId) === i);
-  }, [allUserVisits]);
+    return allUserVisits.map(visit => {
+      if (!visit.wineries) return null;
+      return {
+        id: visit.wineries.google_place_id,
+        dbId: visit.wineries.id,
+        name: visit.wineries.name,
+        address: visit.wineries.address,
+        lat: parseFloat(visit.wineries.latitude),
+        lng: parseFloat(visit.wineries.longitude),
+        userVisited: true,
+        visits: [{...visit}]
+      }
+    }).filter(Boolean);
+  }, [allUserVisits])
 
-  return { fetchUserVisits, allVisitedWineries, wishlist, fetchWishlist };
+  return { fetchUserVisits, allVisitedWineries, wishlistIds, fetchWishlist };
 }
 
-function WineryMapContainer({ userId }: WineryMapProps) {
+function WineryMapLogic({ userId }: WineryMapProps) {
   const [searchState, dispatch] = useReducer(searchReducer, initialState);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
   const [autoSearch, setAutoSearch] = useState(true);
   const [filter, setFilter] = useState('all');
-  const { fetchUserVisits, allVisitedWineries, wishlist, fetchWishlist } = useWineries();
+  const { fetchUserVisits, allVisitedWineries, wishlistIds, fetchWishlist } = useWineries();
   const { toast } = useToast();
-
+  
   const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
-
+  
+  const searchFnRef = useRef<((locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => Promise<void>) | null>(null);
+  
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
-  const [librariesLoaded, setLibrariesLoaded] = useState(false);
-
-  const geocoderRef = useRef<google.maps.Geocoder | null>(null);
+  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
+  const map = useMap();
 
   useEffect(() => {
-      if (places && geocoding) {
-        setLibrariesLoaded(true);
-        if (!geocoderRef.current) {
-          geocoderRef.current = new geocoding.Geocoder();
-        }
-      }
-  }, [places, geocoding]);
+    if (geocoding) setGeocoder(new geocoding.Geocoder());
+  }, [geocoding]);
 
   useEffect(() => {
     const visitedPlaceIds = new Set(allVisitedWineries.map((v: Winery) => v.id));
-    const wishlistPlaceIds = new Set(wishlist.map(w => w.google_place_id));
-    const wishlistDbIdMap = new Map(wishlist.map(w => [w.google_place_id, w.winery_id]));
-
     const updatedResults = searchState.results.map(winery => ({
       ...winery,
       userVisited: visitedPlaceIds.has(winery.id),
-      onWishlist: wishlistPlaceIds.has(winery.id),
-      dbId: winery.dbId || wishlistDbIdMap.get(winery.id)
+      onWishlist: wishlistIds.has(winery.dbId!)
     }));
 
     if (JSON.stringify(updatedResults) !== JSON.stringify(searchState.results)) {
         dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
     }
-  }, [allVisitedWineries, searchState.results, wishlist]);
+  }, [allVisitedWineries, searchState.results, wishlistIds]);
 
   const filteredListWineries = useMemo(() => {
     const inViewWineries = searchState.results;
@@ -291,56 +252,54 @@ function WineryMapContainer({ userId }: WineryMapProps) {
         default: return inViewWineries;
     }
   }, [filter, searchState.results]);
-
+  
   const getVisitedWineryIds = useCallback(() => new Set(allVisitedWineries.map(v => v.id)), [allVisitedWineries]);
-
+  
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
-    if (!librariesLoaded || !places || !geocoderRef.current) {
-      return;
-    }
+    if (!places || !geocoder) return;
     dispatch({ type: 'SEARCH_START' });
 
-    try {
-        let searchBounds: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral;
-        if (locationText) {
-            const { results } = await geocoderRef.current.geocode({ address: locationText });
-            if (results && results.length > 0 && results[0].geometry.viewport) { searchBounds = results[0].geometry.viewport; }
+    let searchBounds: google.maps.LatLngBounds;
+    if (locationText) {
+        try {
+            const { results } = await geocoder.geocode({ address: locationText });
+            if (results && results.length > 0 && results[0].geometry.viewport) { searchBounds = results[0].geometry.viewport; map?.fitBounds(searchBounds); } 
             else { toast({ variant: "destructive", description: "Could not find that location." }); dispatch({ type: 'SEARCH_ERROR' }); return; }
-        } else if (bounds) {
-             searchBounds = bounds;
-        }
-        else { dispatch({ type: 'SEARCH_ERROR' }); return; }
+        } catch (error) { console.error("Geocoding failed:", error); dispatch({ type: 'SEARCH_ERROR' }); return; }
+    } else if (bounds) { searchBounds = new google.maps.LatLngBounds(bounds); } 
+    else { dispatch({ type: 'SEARCH_ERROR' }); return; }
 
-        const request = { textQuery: "winery OR vineyard OR tasting room OR cellars", fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], locationRestriction: searchBounds };
-        const { places: foundPlaces } = await places.Place.searchByText(request);
+    const request = { textQuery: "winery OR vineyard OR tasting room OR cellars", fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], locationRestriction: searchBounds };
+    try {
+        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
         const visitedIds = getVisitedWineryIds();
-        const wishlistPlaceIds = new Set(wishlist.map(w => w.google_place_id));
-        const wishlistDbIdMap = new Map(wishlist.map(w => [w.google_place_id, w.winery_id]));
-
-        const wineries: Winery[] = foundPlaces.map(place => {
-            const googlePlaceId = place.id!;
-            return {
-                id: googlePlaceId,
-                dbId: wishlistDbIdMap.get(googlePlaceId),
-                name: place.displayName!, address: place.formattedAddress!, lat: place.location!.lat(), lng: place.location!.lng(),
-                rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber,
-                userVisited: visitedIds.has(googlePlaceId),
-                onWishlist: wishlistPlaceIds.has(googlePlaceId),
-            }
-        });
+        const wineries = foundPlaces.map(place => ({
+            id: place.id!, name: place.displayName!, address: place.formattedAddress!, lat: place.location!.lat(), lng: place.location!.lng(),
+            rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber, userVisited: visitedIds.has(place.id!),
+        }));
         dispatch({ type: 'SEARCH_SUCCESS', payload: wineries });
-    } catch (error) {
-        console.error("An error occurred during search:", error);
-        dispatch({ type: 'SEARCH_ERROR' });
-    }
-  }, [librariesLoaded, places, getVisitedWineryIds, toast, wishlist]);
+    } catch (error) { console.error("Google Places search error:", error); dispatch({ type: 'SEARCH_ERROR' }); }
+  }, [map, places, geocoder, getVisitedWineryIds, toast]);
+
+  useEffect(() => { searchFnRef.current = executeSearch; });
+    
+  useEffect(() => {
+    if (!map || !geocoder) return;
+    const idleListener = map.addListener('idle', () => {
+        if (autoSearch) { 
+            const bounds = map.getBounds(); 
+            if (bounds) searchFnRef.current?.(undefined, bounds); 
+        }
+    });
+    return () => { google.maps.event.removeListener(idleListener); };
+  }, [map, geocoder, autoSearch]);
 
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
-    if (!librariesLoaded || !places || !geocoderRef.current || !e.latLng) return;
+    if (!places || !geocoder || !e.latLng) return;
     let placeId: string | undefined | null = e.placeId;
     if (placeId) e.stop();
     else {
-      const { results } = await geocoderRef.current.geocode({ location: e.latLng });
+      const { results } = await geocoder.geocode({ location: e.latLng });
       if (results && results[0]) placeId = results[0].place_id;
     }
     if (!placeId) {
@@ -362,59 +321,72 @@ function WineryMapContainer({ userId }: WineryMapProps) {
     } catch (error) {
         toast({ variant: "destructive", description: "An error occurred while fetching location details." });
     }
-  }, [librariesLoaded, places, getVisitedWineryIds, toast]);
+  }, [places, geocoder, getVisitedWineryIds, toast]);
+
+  useEffect(() => {
+    if (!map) return;
+    const clickListener = map.addListener('click', handleMapClick);
+    return () => { clickListener.remove(); };
+  }, [map, handleMapClick]);
 
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
-  const handleManualSearchArea = () => { /* This needs map instance */ };
-
+  const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
+  
   const handleOpenModal = useCallback((winery: Winery) => {
     const fullWineryData = allVisitedWineries.find(v => v.id === winery.id);
-    const wineryOnWishlist = wishlist.some(w => w.google_place_id === winery.id);
-    const dbId = fullWineryData?.dbId || wishlist.find(w => w.google_place_id === winery.id)?.winery_id;
-    setSelectedWinery({ ...winery, visits: fullWineryData?.visits || [], onWishlist: wineryOnWishlist, dbId });
-  }, [allVisitedWineries, wishlist]);
-
+    setSelectedWinery({ ...winery, visits: fullWineryData?.visits || [] });
+  }, [allVisitedWineries]);
+  
   const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
     const payload = { wineryData: winery, ...visitData };
     const response = await fetch('/api/visits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (response.ok) {
-        toast({ description: "Visit saved successfully." });
-        await Promise.all([fetchUserVisits(), fetchWishlist()]);
-        setSelectedWinery(null);
-    } else {
+    if (response.ok) { 
+        toast({ description: "Visit saved successfully." }); 
+        await fetchUserVisits();
+        setSelectedWinery(null); 
+    } else { 
         const errorData = await response.json();
-        toast({ variant: "destructive", description: `Failed to save visit: ${errorData.details || errorData.error}` });
+        toast({ variant: "destructive", description: `Failed to save visit: ${errorData.details || errorData.error}` }); 
     }
   };
 
   const handleDeleteVisit = async (winery: Winery, visitId: string) => {
     const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
-    if (response.ok) {
-      toast({ description: "Visit deleted successfully." });
+    if (response.ok) { 
+      toast({ description: "Visit deleted successfully." }); 
       await fetchUserVisits();
       setSelectedWinery(null);
-    } else {
-      toast({ variant: "destructive", description: "Failed to delete visit." });
+    } else { 
+      toast({ variant: "destructive", description: "Failed to delete visit." }); 
     }
   };
 
   const handleToggleWishlist = async (winery: Winery, isOnWishlist: boolean) => {
+    if (!winery.dbId) {
+      toast({ variant: 'destructive', description: "Cannot add to wishlist until a visit is logged." });
+      return;
+    }
     const method = isOnWishlist ? 'DELETE' : 'POST';
-    const body = isOnWishlist ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
     try {
-      const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
+      const response = await fetch('/api/wishlist', {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ winery_id: winery.dbId })
+      });
       if (response.ok) {
         toast({ description: isOnWishlist ? "Removed from wishlist." : "Added to wishlist." });
         await fetchWishlist();
         setSelectedWinery(prev => prev ? {...prev, onWishlist: !isOnWishlist} : null);
-      } else { throw new Error("Failed to update wishlist"); }
+      } else {
+        throw new Error("Failed to update wishlist");
+      }
     } catch (error) {
       toast({ variant: 'destructive', description: "Could not update wishlist." });
     }
   };
 
 
-  if (!librariesLoaded) {
+  if (!places || !geocoder) {
     return (
         <div className="flex justify-center items-center h-[600px] w-full">
             <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
@@ -426,12 +398,12 @@ function WineryMapContainer({ userId }: WineryMapProps) {
   return (
     <div className="space-y-6">
       <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} dispatch={dispatch} filter={filter} setFilter={setFilter} />
-      <ResultsUI wineries={filteredListWineries} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} searchResults={searchState.results} autoSearch={autoSearch} executeSearch={executeSearch} handleMapClick={handleMapClick}/>
-      {selectedWinery && (<WineryModal
-        winery={selectedWinery}
-        onClose={() => setSelectedWinery(null)}
-        onSaveVisit={handleSaveVisit}
-        onDeleteVisit={handleDeleteVisit}
+      <ResultsUI wineries={filteredListWineries} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} searchResults={searchState.results} />
+      {selectedWinery && (<WineryModal 
+        winery={selectedWinery} 
+        onClose={() => setSelectedWinery(null)} 
+        onSaveVisit={handleSaveVisit} 
+        onDeleteVisit={handleDeleteVisit} 
         onToggleWishlist={handleToggleWishlist}
       />)}
       {proposedWinery && (
@@ -463,6 +435,5 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
-    // Reverted this line to the original, working version. The crash is caused by adding 'maps' here.
-    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapContainer userId={userId} /></APIProvider>);
+    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} /></APIProvider>);
 }
