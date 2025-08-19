@@ -190,6 +190,22 @@ function WineryMapLogic({ userId }: WineryMapProps) {
       setGeocoder(new geocoding.Geocoder());
     }
   }, [geocoding]);
+
+  // THIS IS THE FIX: A new useEffect to synchronize search results with visit status
+  useEffect(() => {
+    // If there are no results, there's nothing to update
+    if (searchState.results.length === 0) return;
+
+    const visitedPlaceIds = new Set(allUserVisits.map((v: Visit) => v.wineries.google_place_id));
+
+    const updatedResults = searchState.results.map(winery => ({
+        ...winery,
+        userVisited: visitedPlaceIds.has(winery.id)
+    }));
+
+    // Dispatch an update to the search results state to trigger a re-render of the map pins
+    dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
+  }, [allUserVisits]); // This effect runs whenever the `allUserVisits` state changes
   
   const getVisitedWineryIds = useCallback(() => new Set(allUserVisits.map(v => v.wineries.google_place_id)), [allUserVisits]);
   
