@@ -61,9 +61,9 @@ const MapComponent = memo(({ wineries, allVisited, filter, onMarkerClick }: { wi
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <Map defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 {(filter === 'all' || filter === 'notVisited' || filter === 'wantToGo') && wineries.map(winery => {
-                    if (winery.userVisited) return null;
+                    if (winery.userVisited) return null; // Visited wineries are handled by the clusterer
                     const pinProps = {
-                        background: winery.onWishlist ? '#9333ea' : '#3B82F6',
+                        background: winery.onWishlist ? '#9333ea' : '#3B82F6', // Purple for wishlist
                         borderColor: winery.onWishlist ? '#7e22ce' : '#2563EB',
                         glyphColor: "#fff",
                     };
@@ -185,20 +185,22 @@ function useWineries() {
   
   const allVisitedWineries = useMemo(() => {
     if (!allUserVisits) return [];
-    return allUserVisits.map(visit => {
-      if (!visit.wineries) return null;
-      return {
-        id: visit.wineries.google_place_id,
-        dbId: visit.wineries.id,
-        name: visit.wineries.name,
-        address: visit.wineries.address,
-        lat: parseFloat(visit.wineries.latitude),
-        lng: parseFloat(visit.wineries.longitude),
-        userVisited: true,
-        visits: allUserVisits.filter(v => v.wineries.id === visit.wineries.id)
-      }
-    }).filter((v, i, a) => v && a.findIndex(t => t?.dbId === v?.dbId) === i);
-  }, [allUserVisits])
+    return allUserVisits
+      .map(visit => {
+        if (!visit.wineries) return null;
+        return {
+          id: visit.wineries.google_place_id,
+          dbId: visit.wineries.id,
+          name: visit.wineries.name,
+          address: visit.wineries.address,
+          lat: parseFloat(visit.wineries.latitude),
+          lng: parseFloat(visit.wineries.longitude),
+          userVisited: true,
+          visits: allUserVisits.filter(v => v.wineries.id === visit.wineries.id)
+        };
+      })
+      .filter((v, i, a) => v && a.findIndex(t => t?.dbId === v?.dbId) === i);
+  }, [allUserVisits]);
 
   return { fetchUserVisits, allVisitedWineries, wishlist, fetchWishlist };
 }
@@ -224,20 +226,6 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   useEffect(() => {
     if (geocoding) setGeocoder(new geocoding.Geocoder());
   }, [geocoding]);
-
-  useEffect(() => {
-    const visitedPlaceIds = new Set(allVisitedWineries.map((v: Winery) => v.id));
-    const wishlistPlaceIds = new Set(wishlist.map(w => w.google_place_id));
-
-    const updatedResults = searchState.results.map(winery => ({
-      ...winery,
-      userVisited: visitedPlaceIds.has(winery.id),
-      onWishlist: wishlistPlaceIds.has(winery.id)
-    }));
-    if (JSON.stringify(updatedResults) !== JSON.stringify(searchState.results)) {
-        dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
-    }
-  }, [allVisitedWineries, searchState.results, wishlist]);
 
   const filteredListWineries = useMemo(() => {
     const inViewWineries = searchState.results;
@@ -270,13 +258,19 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     try {
         const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
         const visitedIds = getVisitedWineryIds();
-        const wishlistPlaceIds = new Set(wishlist.map(w => w.google_place_id));
-        const wineries = foundPlaces.map(place => ({
-            id: place.id!, name: place.displayName!, address: place.formattedAddress!, lat: place.location!.lat(), lng: place.location!.lng(),
-            rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber, 
-            userVisited: visitedIds.has(place.id!),
-            onWishlist: wishlistPlaceIds.has(place.id!),
-        }));
+        const wishlistMap = new Map(wishlist.map(w => [w.google_place_id, w.winery_id]));
+        
+        const wineries = foundPlaces.map(place => {
+            const googlePlaceId = place.id!;
+            return {
+                id: googlePlaceId,
+                dbId: wishlistMap.get(googlePlaceId),
+                name: place.displayName!, address: place.formattedAddress!, lat: place.location!.lat(), lng: place.location!.lng(),
+                rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber, 
+                userVisited: visitedIds.has(googlePlaceId),
+                onWishlist: wishlistMap.has(googlePlaceId),
+            }
+        });
         dispatch({ type: 'SEARCH_SUCCESS', payload: wineries });
     } catch (error) { console.error("Google Places search error:", error); dispatch({ type: 'SEARCH_ERROR' }); }
   }, [map, places, geocoder, getVisitedWineryIds, toast, wishlist]);
@@ -377,6 +371,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
       toast({ variant: 'destructive', description: "Could not update wishlist." });
     }
   };
+
 
   if (!places || !geocoder) {
     return (
