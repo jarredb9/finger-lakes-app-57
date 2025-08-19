@@ -5,7 +5,7 @@ import { Suspense } from "react"
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Wine, MapPin, Star } from "lucide-react"
+import { Wine, MapPin, Star, ListPlus } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
 
 const WineryMap = dynamic(() => import('@/components/winery-map'), { 
@@ -13,27 +13,33 @@ const WineryMap = dynamic(() => import('@/components/winery-map'), {
   loading: () => <div className="h-96 w-full lg:h-[600px] bg-gray-100 rounded-lg animate-pulse" />
 });
 
-// Helper function to fetch user stats
 async function getUserStats(userId: string) {
   const supabase = await createClient();
-  const { data, error } = await supabase
+  
+  const { data: visits, error: visitsError } = await supabase
     .from('visits')
     .select('id, rating, wineries(id)')
     .eq('user_id', userId);
 
-  if (error) {
-    console.error("Error fetching user stats:", error);
-    return { totalVisits: 0, uniqueWineries: 0, averageRating: 0 };
+  const { data: wishlist, error: wishlistError } = await supabase
+    .from('wishlist')
+    .select('id')
+    .eq('user_id', userId);
+
+  if (visitsError || wishlistError) {
+    console.error("Error fetching stats:", visitsError, wishlistError);
+    return { totalVisits: 0, uniqueWineries: 0, averageRating: 0, wishlistCount: 0 };
   }
 
-  const totalVisits = data.length;
-  const uniqueWineries = new Set(data.map(v => v.wineries?.id)).size;
-  const ratedVisits = data.filter(v => v.rating !== null);
+  const totalVisits = visits.length;
+  const uniqueWineries = new Set(visits.map(v => v.wineries?.id)).size;
+  const ratedVisits = visits.filter(v => v.rating !== null);
   const averageRating = ratedVisits.length > 0
     ? (ratedVisits.reduce((acc, v) => acc + (v.rating || 0), 0) / ratedVisits.length).toFixed(1)
     : 0;
+  const wishlistCount = wishlist.length;
 
-  return { totalVisits, uniqueWineries, averageRating };
+  return { totalVisits, uniqueWineries, averageRating, wishlistCount };
 }
 
 export default async function HomePage() {
@@ -67,35 +73,35 @@ export default async function HomePage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* User Stats Section */}
         <div className="mb-8">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Visits</CardTitle>
                         <Wine className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.totalVisits}</div>
-                    </CardContent>
+                    <CardContent><div className="text-2xl font-bold">{stats.totalVisits}</div></CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Unique Wineries</CardTitle>
                         <MapPin className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.uniqueWineries}</div>
-                    </CardContent>
+                    <CardContent><div className="text-2xl font-bold">{stats.uniqueWineries}</div></CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
                         <Star className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{stats.averageRating}</div>
-                    </CardContent>
+                    <CardContent><div className="text-2xl font-bold">{stats.averageRating}</div></CardContent>
+                </Card>
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Want to Go</CardTitle>
+                        <ListPlus className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent><div className="text-2xl font-bold">{stats.wishlistCount}</div></CardContent>
                 </Card>
             </div>
         </div>
