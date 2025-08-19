@@ -256,6 +256,9 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const geocoding = useMapsLibrary('geocoding');
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
+  
+  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
+  const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
 
   useEffect(() => { if (geocoding) setGeocoder(new geocoding.Geocoder()); }, [geocoding]);
 
@@ -347,6 +350,17 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         toast({ variant: "destructive", description: `Failed to save visit: ${errorData.details || errorData.error}` }); 
     }
   };
+  
+  const handleDeleteVisit = async (winery: Winery, visitId: string) => {
+    const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
+    if (response.ok) { 
+      toast({ description: "Visit deleted successfully." }); 
+      await fetchUserVisits();
+      setSelectedWinery(null);
+    } else { 
+      toast({ variant: "destructive", description: "Failed to delete visit." }); 
+    }
+  };
 
   const handleToggleWishlist = async (winery: Winery, isOnWishlist: boolean) => {
     const method = isOnWishlist ? 'DELETE' : 'POST';
@@ -373,22 +387,10 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         } else throw new Error();
       } catch (error) { toast({ variant: 'destructive', description: "Could not update favorites." }); }
     };
-    
-    const handleDeleteVisit = async (winery: Winery, visitId: string) => {
-    const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
-    if (response.ok) { 
-      toast({ description: "Visit deleted successfully." }); 
-      await fetchUserVisits();
-      setSelectedWinery(null);
-    } else { 
-      toast({ variant: "destructive", description: "Failed to delete visit." }); 
-    }
-  };
-
 
   return (
     <div className="space-y-6">
-      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={() => { const bounds = map?.getBounds(); if (bounds) executeSearch(undefined, bounds);}} dispatch={dispatch} filter={filter} setFilter={setFilter} />
+      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} dispatch={dispatch} filter={filter} setFilter={setFilter} />
       <ResultsUI wineries={filteredListWineries} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} allWishlist={allWishlistWineries.filter(w => !allVisitedWineries.some(v => v.id === w.id))} allFavorites={allFavoriteWineries} />
       {selectedWinery && (<WineryModal 
         winery={selectedWinery} 
