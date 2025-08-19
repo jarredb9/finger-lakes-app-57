@@ -84,7 +84,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      {/* Updated DialogContent for responsiveness */}
       <DialogContent className="max-w-4xl w-full max-h-screen sm:max-h-[90vh] p-0 flex flex-col">
         <div className="overflow-y-auto">
           <div className="p-6">
@@ -167,7 +166,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
               </div>
           </div>
           
-          {/* Add Visit Form Section */}
           <div className="bg-gray-50 p-6 border-t">
             <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800 mb-4">
               <Plus className="w-5 h-5" />
@@ -189,6 +187,20 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
               <div className="space-y-2">
                 <Label htmlFor="userReview">Your Review (Optional)</Label>
                 <Textarea id="userReview" placeholder="e.g., 'Loved the dry Riesling! Beautiful view from the patio.'" value={userReview} onChange={(e) => setUserReview(e.target.value)} rows={4} aria-label="Your Review" />
+              </div>
+              {/* Photo Upload Section RE-ADDED HERE */}
+              <div className="space-y-2">
+                <Label>Photos (Optional)</Label>
+                <div className="flex items-center justify-center w-full">
+                  <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+                      <Upload className="w-8 h-8 mb-2 text-gray-500" />
+                      <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span></p>
+                      <p className="text-xs text-gray-500">PNG, JPG, GIF</p>
+                    </div>
+                    <input id="dropzone-file" type="file" className="hidden" multiple aria-label="Upload Photos" />
+                  </label>
+                </div>
               </div>
             </div>
             <DialogFooter className="pt-4 mt-4">
