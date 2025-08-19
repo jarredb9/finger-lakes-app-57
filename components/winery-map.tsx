@@ -189,7 +189,9 @@ function useWineries() {
   
   const allVisitedWineries = useMemo(() => {
     if (!allUserVisits) return [];
-    return allUserVisits.map(visit => ({
+    return allUserVisits.map(visit => {
+      if (!visit.wineries) return null;
+      return {
         id: visit.wineries.google_place_id,
         dbId: visit.wineries.id,
         name: visit.wineries.name,
@@ -198,7 +200,8 @@ function useWineries() {
         lng: parseFloat(visit.wineries.longitude),
         userVisited: true,
         visits: [{...visit}]
-    }));
+      }
+    }).filter(Boolean);
   }, [allUserVisits])
 
   return { fetchUserVisits, allVisitedWineries, wishlistIds, fetchWishlist };
@@ -233,6 +236,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
       userVisited: visitedPlaceIds.has(winery.id),
       onWishlist: wishlistIds.has(winery.dbId!)
     }));
+
     if (JSON.stringify(updatedResults) !== JSON.stringify(searchState.results)) {
         dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
     }
@@ -252,17 +256,71 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const getVisitedWineryIds = useCallback(() => new Set(allVisitedWineries.map(v => v.id)), [allVisitedWineries]);
   
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
-    // ... (rest of the function is the same)
+    if (!places || !geocoder) return;
+    dispatch({ type: 'SEARCH_START' });
+
+    let searchBounds: google.maps.LatLngBounds;
+    if (locationText) {
+        try {
+            const { results } = await geocoder.geocode({ address: locationText });
+            if (results && results.length > 0 && results[0].geometry.viewport) { searchBounds = results[0].geometry.viewport; map?.fitBounds(searchBounds); } 
+            else { toast({ variant: "destructive", description: "Could not find that location." }); dispatch({ type: 'SEARCH_ERROR' }); return; }
+        } catch (error) { console.error("Geocoding failed:", error); dispatch({ type: 'SEARCH_ERROR' }); return; }
+    } else if (bounds) { searchBounds = new google.maps.LatLngBounds(bounds); } 
+    else { dispatch({ type: 'SEARCH_ERROR' }); return; }
+
+    const request = { textQuery: "winery OR vineyard OR tasting room OR cellars", fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], locationRestriction: searchBounds };
+    try {
+        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
+        const visitedIds = getVisitedWineryIds();
+        const wineries = foundPlaces.map(place => ({
+            id: place.id!, name: place.displayName!, address: place.formattedAddress!, lat: place.location!.lat(), lng: place.location!.lng(),
+            rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber, userVisited: visitedIds.has(place.id!),
+        }));
+        dispatch({ type: 'SEARCH_SUCCESS', payload: wineries });
+    } catch (error) { console.error("Google Places search error:", error); dispatch({ type: 'SEARCH_ERROR' }); }
   }, [map, places, geocoder, getVisitedWineryIds, toast]);
 
   useEffect(() => { searchFnRef.current = executeSearch; });
     
   useEffect(() => {
-    // ... (rest of the effect is the same)
+    if (!map || !geocoder) return;
+    const idleListener = map.addListener('idle', () => {
+        if (autoSearch) { 
+            const bounds = map.getBounds(); 
+            if (bounds) searchFnRef.current?.(undefined, bounds); 
+        }
+    });
+    return () => { google.maps.event.removeListener(idleListener); };
   }, [map, geocoder, autoSearch]);
 
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
-    // ... (rest of the function is the same)
+    if (!places || !geocoder || !e.latLng) return;
+    let placeId: string | undefined | null = e.placeId;
+    if (placeId) e.stop();
+    else {
+      const { results } = await geocoder.geocode({ location: e.latLng });
+      if (results && results[0]) placeId = results[0].place_id;
+    }
+    if (!placeId) {
+      toast({ variant: "destructive", description: "Could not identify a location at that point." });
+      return;
+    }
+    try {
+        const placeDetails = new places.Place({ id: placeId });
+        await placeDetails.fetchFields({ fields: ["displayName", "formattedAddress", "websiteURI", "nationalPhoneNumber", "location"]});
+        if (!placeDetails.location) {
+            toast({ variant: "destructive", description: "Could not get details for this location." }); return;
+        }
+        const newWinery: Winery = {
+            id: placeId, name: placeDetails.displayName || "Unnamed Location", address: placeDetails.formattedAddress || 'N/A',
+            lat: placeDetails.location.lat(), lng: placeDetails.location.lng(), website: placeDetails.websiteURI, phone: placeDetails.nationalPhoneNumber,
+            userVisited: getVisitedWineryIds().has(placeId)
+        };
+        setProposedWinery(newWinery);
+    } catch (error) {
+        toast({ variant: "destructive", description: "An error occurred while fetching location details." });
+    }
   }, [places, geocoder, getVisitedWineryIds, toast]);
 
   useEffect(() => {
@@ -280,16 +338,32 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   }, [allVisitedWineries]);
   
   const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
-    // ... (rest of the function is the same)
+    const payload = { wineryData: winery, ...visitData };
+    const response = await fetch('/api/visits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    if (response.ok) { 
+        toast({ description: "Visit saved successfully." }); 
+        await fetchUserVisits();
+        setSelectedWinery(null); 
+    } else { 
+        const errorData = await response.json();
+        toast({ variant: "destructive", description: `Failed to save visit: ${errorData.details || errorData.error}` }); 
+    }
   };
 
   const handleDeleteVisit = async (winery: Winery, visitId: string) => {
-    // ... (rest of the function is the same)
+    const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
+    if (response.ok) { 
+      toast({ description: "Visit deleted successfully." }); 
+      await fetchUserVisits();
+      setSelectedWinery(null);
+    } else { 
+      toast({ variant: "destructive", description: "Failed to delete visit." }); 
+    }
   };
 
   const handleToggleWishlist = async (winery: Winery, isOnWishlist: boolean) => {
     if (!winery.dbId) {
-      toast({ variant: 'destructive', description: "Cannot add to wishlist until it's in our database." });
+      toast({ variant: 'destructive', description: "Cannot add to wishlist until a visit is logged." });
       return;
     }
     const method = isOnWishlist ? 'DELETE' : 'POST';
@@ -310,6 +384,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
       toast({ variant: 'destructive', description: "Could not update wishlist." });
     }
   };
+
 
   if (!places || !geocoder) {
     return (
