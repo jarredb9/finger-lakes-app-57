@@ -35,6 +35,7 @@ import { useToast } from "@/hooks/use-toast"
 import { Winery, Visit } from "@/lib/types"
 import { Skeleton } from "@/components/ui/skeleton"
 import WineryClusterer from "./winery-clusterer"
+import WishlistClusterer from './wishlist-clusterer';
 
 const WineryModal = dynamic(() => import('./winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
@@ -57,30 +58,45 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 }
 
 const MapComponent = memo(({ wineries, allVisited, filter, onMarkerClick }: { wineries: Winery[], allVisited: Winery[], filter: string, onMarkerClick: (winery: Winery) => void }) => {
+    // Separate wineries into wishlist and discovered for rendering
+    const wishlistedWineries = useMemo(() => 
+        wineries.filter(w => w.onWishlist && !w.userVisited), 
+    [wineries]);
+    
+    const discoveredWineries = useMemo(() => 
+        wineries.filter(w => !w.onWishlist && !w.userVisited), 
+    [wineries]);
+
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
-                {(filter === 'all' || filter === 'notVisited' || filter === 'wantToGo') && wineries.map(winery => {
-                    if (winery.userVisited) return null; // Handled by clusterer
+                
+                {/* Render Discovered markers (blue) */}
+                {(filter === 'all' || filter === 'notVisited') && discoveredWineries.map(winery => {
                     return (
                         <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
                             <div className="animate-pop-in">
                                <Pin
-                                    background={winery.onWishlist ? '#9333ea' : '#3B82F6'}
-                                    borderColor={winery.onWishlist ? '#7e22ce' : '#2563EB'}
+                                    background={'#3B82F6'}
+                                    borderColor={'#2563EB'}
                                     glyphColor="#fff"
                                 >
-                                    {/* The icon is now a child of the Pin component */}
-                                    {winery.onWishlist && <ListPlus size={14} />}
                                 </Pin>
                             </div>
                         </AdvancedMarker>
                     )
                 })}
+
+                {/* Render Wishlist Clusterer (purple) */}
+                {(filter === 'all' || filter === 'wantToGo') && (
+                  <WishlistClusterer wineries={wishlistedWineries} onClick={onMarkerClick} />
+                )}
                 
+                {/* Render Visited Clusterer (green) */}
                 {(filter === 'all' || filter === 'visited') && (
                   <WineryClusterer wineries={allVisited} onClick={onMarkerClick} />
                 )}
+
             </GoogleMap>
         </div>
     );
@@ -272,7 +288,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     const inViewWineries = searchState.results;
     switch (filter) {
         case 'visited': return inViewWineries.filter(w => w.userVisited);
-        case 'wantToGo': return inViewWineries.filter(w => w.onWishlist);
+        case 'wantToGo': return inViewWineries.filter(w => w.onWishlist && !w.userVisited); // Exclude visited from this filter
         case 'notVisited': return inViewWineries.filter(w => !w.userVisited && !w.onWishlist);
         case 'all':
         default: return inViewWineries;
