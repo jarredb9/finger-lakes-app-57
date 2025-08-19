@@ -277,7 +277,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         const visitedIds = getVisitedWineryIds();
         const wishlistPlaceIds = new Set(wishlist.map(w => w.google_place_id));
         const wishlistDbIdMap = new Map(wishlist.map(w => [w.google_place_id, w.winery_id]));
-
+        
         const wineries: Winery[] = foundPlaces.map(place => {
             const googlePlaceId = place.id!;
             return {
@@ -391,7 +391,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   };
 
 
-  if (!places || !geocoding) {
+  if (!places || !geocoder) {
     return (
         <div className="flex justify-center items-center h-[600px] w-full">
             <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
