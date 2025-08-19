@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef, memo, useReducer, useMemo } from "react"
 import dynamic from 'next/dynamic'
-import { APIProvider, Map, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps"
+import { APIProvider, Map as GoogleMap, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
@@ -59,7 +59,7 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 const MapComponent = memo(({ wineries, allVisited, filter, onMarkerClick }: { wineries: Winery[], allVisited: Winery[], filter: string, onMarkerClick: (winery: Winery) => void }) => {
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
-            <Map defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
+            <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 {(filter === 'all' || filter === 'notVisited' || filter === 'wantToGo') && wineries.map(winery => {
                     if (winery.userVisited) return null; // Handled by clusterer
                     const pinProps = {
@@ -80,7 +80,7 @@ const MapComponent = memo(({ wineries, allVisited, filter, onMarkerClick }: { wi
                 {(filter === 'all' || filter === 'visited') && (
                   <WineryClusterer wineries={allVisited} onClick={onMarkerClick} />
                 )}
-            </Map>
+            </GoogleMap>
         </div>
     );
 });
