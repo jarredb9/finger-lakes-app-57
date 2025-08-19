@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Info, AlertTriangle } from "lucide-react"
+import { Info, AlertTriangle, Loader2 } from "lucide-react"
 
 export default function SignupForm() {
   const [error, setError] = useState("")
@@ -130,6 +130,7 @@ export default function SignupForm() {
                       disabled={confirming}
                       size="sm"
                       className="mr-2"
+                      aria-label="Try Manual Confirmation"
                     >
                       {confirming ? "Confirming..." : "Try Manual Confirmation"}
                     </Button>
@@ -150,15 +151,15 @@ export default function SignupForm() {
           )}
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
-            <Input id="name" name="name" type="text" placeholder="John Doe" required autoComplete="name" />
+            <Input id="name" name="name" type="text" placeholder="John Doe" required autoComplete="name" aria-label="Full Name" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" placeholder="your@email.com" required autoComplete="email" />
+            <Input id="email" name="email" type="email" placeholder="your@email.com" required autoComplete="email" aria-label="Email Address" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" minLength={6} required autoComplete="new-password" />
+            <Input id="password" name="password" type="password" minLength={6} required autoComplete="new-password" aria-label="Password" />
           </div>
           <div className="space-y-2">
             <Label htmlFor="confirmPassword">Confirm Password</Label>
@@ -169,12 +170,13 @@ export default function SignupForm() {
               minLength={6}
               required
               autoComplete="new-password"
+              aria-label="Confirm Password"
             />
           </div>
         </CardContent>
         <CardFooter className="flex flex-col space-y-4">
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Creating account..." : "Create Account"}
+          <Button type="submit" className="w-full" disabled={loading} aria-label="Create Account">
+            {loading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating account...</> : "Create Account"}
           </Button>
           <p className="text-sm text-center text-gray-600">
             Already have an account?{" "}

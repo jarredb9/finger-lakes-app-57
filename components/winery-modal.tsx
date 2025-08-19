@@ -17,28 +17,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Star, Phone, Globe, MapPin, Calendar, MessageSquare, Plus, Trash2, Upload, Loader2, Camera } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-
-interface Visit {
-  id?: string
-  visit_date: string
-  user_review: string
-  createdAt?: string
-  rating?: number
-  photos?: string[]
-}
-
-interface Winery {
-  id: string
-  name: string
-  address: string
-  lat: number
-  lng: number
-  phone?: string
-  website?: string
-  rating?: number
-  userVisited?: boolean
-  visits?: Visit[]
-}
+import { Winery, Visit } from "@/lib/types"
+import { Skeleton } from "./ui/skeleton"
 
 interface WineryModalProps {
   winery: Winery | null
@@ -56,7 +36,20 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
   const { toast } = useToast()
 
   if (!winery) {
-    return null
+    return (
+      <Dialog open={true} onOpenChange={onClose}>
+        <DialogContent>
+          <DialogHeader>
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </DialogHeader>
+          <div className="space-y-4">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-48 w-full" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
   }
 
   const visits = winery.visits || []
@@ -176,6 +169,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                             size="sm"
                             onClick={() => handleDeleteVisit(visit.id!)}
                             className="text-red-600 hover:text-red-800 hover:bg-red-50"
+                            aria-label={`Delete visit from ${new Date(visit.visit_date).toLocaleDateString()}`}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -194,7 +188,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                         {(visit.photos && visit.photos.length > 0) ? (
                             <div className="grid grid-cols-3 gap-2">
                                 {visit.photos.map((photo, pIndex) => (
-                                    // Using a placeholder image for now
                                     <img key={pIndex} src="https://placehold.co/600x400" alt={`Visit photo ${pIndex + 1}`} className="rounded-md object-cover w-full h-24" />
                                 ))}
                             </div>
@@ -227,6 +220,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                 onChange={(e) => setVisitDate(e.target.value)}
                 max={new Date().toISOString().split("T")[0]}
                 required
+                aria-label="Visit Date"
               />
             </div>
             
@@ -238,6 +232,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                     key={i}
                     className={`w-6 h-6 cursor-pointer ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`}
                     onClick={() => setRating(i + 1)}
+                    aria-label={`Set rating to ${i + 1}`}
                   />
                 ))}
               </div>
@@ -251,6 +246,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                 value={userReview}
                 onChange={(e) => setUserReview(e.target.value)}
                 rows={4}
+                aria-label="Your Review"
               />
             </div>
             
@@ -266,7 +262,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                     <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
                     <p className="text-xs text-gray-500">SVG, PNG, JPG or GIF (MAX. 800x400px)</p>
                   </div>
-                  <input id="dropzone-file" type="file" className="hidden" multiple />
+                  <input id="dropzone-file" type="file" className="hidden" multiple aria-label="Upload Photos" />
                 </label>
               </div>
             </div>
@@ -280,8 +276,9 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
           <Button
             onClick={handleSave}
             disabled={!visitDate.trim() || saving}
+            aria-label="Add Visit"
           >
-            {saving ? <Loader2 className="animate-spin" /> : "Add Visit"}
+            {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding Visit...</> : "Add Visit"}
           </Button>
         </DialogFooter>
       </DialogContent>

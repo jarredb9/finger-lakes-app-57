@@ -2,11 +2,10 @@ import { redirect } from "next/navigation"
 import { getUser } from "@/lib/auth"
 import { Suspense } from "react"
 import dynamic from 'next/dynamic'
+import Image from 'next/image'
 
-// Dynamically import the map component with SSR turned off
 const WineryMap = dynamic(() => import('@/components/winery-map'), { 
   ssr: false,
-  // Provide a loading component to show while the map is loading
   loading: () => <div className="h-96 w-full lg:h-[600px] bg-gray-100 rounded-lg animate-pulse" />
 });
 
@@ -23,7 +22,8 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">Finger Lakes Winery Tracker</h1>
+              <Image src="/placeholder-logo.png" alt="Finger Lakes Winery Tracker" width={40} height={40} />
+              <h1 className="text-xl font-bold text-gray-900 ml-2">Finger Lakes Winery Tracker</h1>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-700">Welcome, {user.name}</span>
