@@ -218,7 +218,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   
   const searchFnRef = useRef<((locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => Promise<void>) | null>(null);
   
-  const mapsLibrary = useMapsLibrary('maps');
+  const maps = useMapsLibrary('maps');
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
@@ -259,7 +259,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const getVisitedWineryIds = useCallback(() => new Set(allVisitedWineries.map(v => v.id)), [allVisitedWineries]);
   
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
-    if (!places || !geocoder) return;
+    if (!places || !geocoder || !maps) return;
     dispatch({ type: 'SEARCH_START' });
 
     let searchBounds: google.maps.LatLngBounds;
@@ -269,7 +269,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
             if (results && results.length > 0 && results[0].geometry.viewport) { searchBounds = results[0].geometry.viewport; map?.fitBounds(searchBounds); } 
             else { toast({ variant: "destructive", description: "Could not find that location." }); dispatch({ type: 'SEARCH_ERROR' }); return; }
         } catch (error) { console.error("Geocoding failed:", error); dispatch({ type: 'SEARCH_ERROR' }); return; }
-    } else if (bounds) { searchBounds = new mapsLibrary.LatLngBounds(bounds); } 
+    } else if (bounds) { searchBounds = new maps.LatLngBounds(bounds); } 
     else { dispatch({ type: 'SEARCH_ERROR' }); return; }
 
     const request = { textQuery: "winery OR vineyard OR tasting room OR cellars", fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], locationRestriction: searchBounds };
@@ -292,7 +292,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         });
         dispatch({ type: 'SEARCH_SUCCESS', payload: wineries });
     } catch (error) { console.error("Google Places search error:", error); dispatch({ type: 'SEARCH_ERROR' }); }
-  }, [map, places, geocoder, getVisitedWineryIds, toast, wishlist, mapsLibrary]);
+  }, [map, places, geocoder, getVisitedWineryIds, toast, wishlist, maps]);
 
   useEffect(() => { searchFnRef.current = executeSearch; });
     
@@ -392,7 +392,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   };
 
 
-  if (!places || !geocoder) {
+  if (!places || !geocoder || !maps) {
     return (
         <div className="flex justify-center items-center h-[600px] w-full">
             <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
@@ -441,5 +441,5 @@ export default function WineryMapWrapper({ userId }: WineryMapProps) {
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
-    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} /></APIProvider>);
+    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker', 'maps']}><WineryMapLogic userId={userId} /></APIProvider>);
 }
