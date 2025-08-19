@@ -23,7 +23,8 @@ import {
   Loader2,
   Info,
   Wine,
-  ListPlus
+  ListPlus,
+  Check
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -167,8 +168,8 @@ function useWineries() {
     try {
         const response = await fetch('/api/wishlist');
         if (response.ok) {
-            const ids = await response.json();
-            setWishlistIds(new Set(ids));
+            const items = await response.json();
+            setWishlistIds(new Set(items.map((item: any) => item.winery_id)));
         }
     } catch (error) { console.error("Failed to fetch wishlist", error); }
   }, []);
@@ -199,10 +200,11 @@ function useWineries() {
         lat: parseFloat(visit.wineries.latitude),
         lng: parseFloat(visit.wineries.longitude),
         userVisited: true,
+        onWishlist: wishlistIds.has(visit.wineries.id),
         visits: [{...visit}]
       }
     }).filter(Boolean);
-  }, [allUserVisits])
+  }, [allUserVisits, wishlistIds])
 
   return { fetchUserVisits, allVisitedWineries, wishlistIds, fetchWishlist };
 }
@@ -231,11 +233,15 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 
   useEffect(() => {
     const visitedPlaceIds = new Set(allVisitedWineries.map((v: Winery) => v.id));
-    const updatedResults = searchState.results.map(winery => ({
-      ...winery,
-      userVisited: visitedPlaceIds.has(winery.id),
-      onWishlist: wishlistIds.has(winery.dbId!)
-    }));
+    const updatedResults = searchState.results.map(winery => {
+        const visitedWinery = allVisitedWineries.find(v => v.id === winery.id);
+        return {
+            ...winery,
+            userVisited: visitedPlaceIds.has(winery.id),
+            onWishlist: wishlistIds.has(visitedWinery?.dbId!),
+            dbId: visitedWinery?.dbId
+        }
+    });
 
     if (JSON.stringify(updatedResults) !== JSON.stringify(searchState.results)) {
         dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
@@ -334,7 +340,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   
   const handleOpenModal = useCallback((winery: Winery) => {
     const fullWineryData = allVisitedWineries.find(v => v.id === winery.id);
-    setSelectedWinery({ ...winery, visits: fullWineryData?.visits || [] });
+    setSelectedWinery({ ...winery, ...fullWineryData, visits: fullWineryData?.visits || [] });
   }, [allVisitedWineries]);
   
   const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
@@ -362,21 +368,32 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   };
 
   const handleToggleWishlist = async (winery: Winery, isOnWishlist: boolean) => {
-    if (!winery.dbId) {
-      toast({ variant: 'destructive', description: "Cannot add to wishlist until a visit is logged." });
+    const method = isOnWishlist ? 'DELETE' : 'POST';
+
+    if (isOnWishlist && !winery.dbId) {
+      toast({ variant: 'destructive', description: "Cannot remove from wishlist as it's not in the database." });
       return;
     }
-    const method = isOnWishlist ? 'DELETE' : 'POST';
+
     try {
+      const body = isOnWishlist
+        ? JSON.stringify({ dbId: winery.dbId })
+        : JSON.stringify({ wineryData: winery });
+
       const response = await fetch('/api/wishlist', {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ winery_id: winery.dbId })
+        body: body
       });
+
       if (response.ok) {
         toast({ description: isOnWishlist ? "Removed from wishlist." : "Added to wishlist." });
         await fetchWishlist();
-        setSelectedWinery(prev => prev ? {...prev, onWishlist: !isOnWishlist} : null);
+        if (!isOnWishlist) {
+          // If we added a winery, we need to get its new dbId
+          await fetchUserVisits();
+        }
+        setSelectedWinery(prev => prev ? { ...prev, onWishlist: !isOnWishlist } : null);
       } else {
         throw new Error("Failed to update wishlist");
       }
@@ -384,7 +401,6 @@ function WineryMapLogic({ userId }: WineryMapProps) {
       toast({ variant: 'destructive', description: "Could not update wishlist." });
     }
   };
-
 
   if (!places || !geocoder) {
     return (
