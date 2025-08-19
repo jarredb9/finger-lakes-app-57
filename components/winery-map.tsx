@@ -247,6 +247,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [searchLocation, setSearchLocation] = useState("");
   const [autoSearch, setAutoSearch] = useState(true);
   const [filter, setFilter] = useState('all');
+  const [mapBounds, setMapBounds] = useState<google.maps.LatLngBounds | null>(null);
   const { fetchUserVisits, allVisitedWineries, allWishlistWineries, allFavoriteWineries, fetchWishlist, fetchFavorites } = useWineries();
   const { toast } = useToast();
   
@@ -280,21 +281,25 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   }, [allPersistentWineries, searchState.results]);
 
   const listResultsInView = useMemo(() => {
-    const inViewWineries = searchState.results;
-    switch (filter) {
-        case 'visited': 
-            return inViewWineries.filter(w => w.userVisited);
-        case 'favorites': 
-            return inViewWineries.filter(w => w.isFavorite);
-        case 'wantToGo': 
-            return inViewWineries.filter(w => w.onWishlist && !w.userVisited);
-        case 'notVisited': 
-            return inViewWineries.filter(w => !w.userVisited && !w.onWishlist && !w.isFavorite);
-        case 'all': 
-        default: 
-            return inViewWineries;
+    if (!mapBounds) {
+        // Before map loads, the list should be based on search results
+        return filter === 'all' ? searchState.results : [];
     }
-  }, [filter, searchState.results]);
+
+    const persistentMap = new Map(allPersistentWineries.map(p => [p.id, p]));
+    const uniqueDynamicWineries = searchState.results.filter(w => !persistentMap.has(w.id));
+    const allWineries = [...allPersistentWineries, ...uniqueDynamicWineries];
+
+    const wineriesInView = allWineries.filter(w => mapBounds.contains({ lat: w.lat, lng: w.lng }));
+
+    switch (filter) {
+        case 'visited': return wineriesInView.filter(w => w.userVisited);
+        case 'favorites': return wineriesInView.filter(w => w.isFavorite);
+        case 'wantToGo': return wineriesInView.filter(w => w.onWishlist && !w.userVisited);
+        case 'notVisited': return wineriesInView.filter(w => !w.userVisited && !w.onWishlist && !w.isFavorite);
+        case 'all': default: return wineriesInView;
+    }
+  }, [filter, searchState.results, allPersistentWineries, mapBounds]);
   
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
     if (!places || !geocoder) return;
@@ -324,23 +329,22 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   useEffect(() => { searchFnRef.current = executeSearch; });
     
   useEffect(() => {
-    if (!map || !geocoder) return;
+    if (!map) return;
     const idleListener = map.addListener('idle', () => {
-        if (autoSearch) { 
-            const bounds = map.getBounds(); 
-            if (bounds) searchFnRef.current?.(undefined, bounds); 
+        const bounds = map.getBounds();
+        if (bounds) {
+            setMapBounds(bounds);
+            if (autoSearch) {
+                searchFnRef.current?.(undefined, bounds);
+            }
         }
     });
     return () => { google.maps.event.removeListener(idleListener); };
-  }, [map, geocoder, autoSearch]);
+  }, [map, autoSearch]);
 
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
     if (!places || !geocoder || !e.latLng || !e.placeId) return;
-
-    // Stop info windows from opening on POIs
     e.stop();
-
-    // Check if we already have a pin for this place
     const isKnown = allPersistentWineries.some(w => w.id === e.placeId);
     if (isKnown) return;
 
