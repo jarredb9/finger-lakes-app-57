@@ -23,7 +23,8 @@ import {
   Loader2,
   Info,
   Wine,
-  ListPlus
+  ListPlus,
+  Star
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -36,6 +37,7 @@ import { Winery, Visit } from "@/lib/types"
 import { Skeleton } from "@/components/ui/skeleton"
 import WineryClusterer from "./winery-clusterer"
 import WishlistClusterer from './wishlist-clusterer';
+import FavoriteClusterer from "./favorite-clusterer"
 
 const WineryModal = dynamic(() => import('./winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
@@ -57,34 +59,29 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     }
 }
 
-const MapComponent = memo(({ discoveredWineries, allVisited, allWishlist, filter, onMarkerClick }: { discoveredWineries: Winery[], allVisited: Winery[], allWishlist: Winery[], filter: string, onMarkerClick: (winery: Winery) => void }) => {
+const MapComponent = memo(({ discoveredWineries, allVisited, allWishlist, allFavorites, filter, onMarkerClick }: { discoveredWineries: Winery[], allVisited: Winery[], allWishlist: Winery[], allFavorites: Winery[], filter: string, onMarkerClick: (winery: Winery) => void }) => {
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 
-                {/* Render Discovered markers (blue) - these are dynamic */}
-                {(filter === 'all' || filter === 'notVisited') && discoveredWineries.map(winery => {
-                    return (
-                        <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
-                            <div className="animate-pop-in">
-                               <Pin
-                                    background={'#3B82F6'}
-                                    borderColor={'#2563EB'}
-                                    glyphColor="#fff"
-                                />
-                            </div>
-                        </AdvancedMarker>
-                    )
-                })}
+                {(filter === 'all' || filter === 'notVisited') && discoveredWineries.map(winery => (
+                    <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
+                        <div className="animate-pop-in">
+                           <Pin background={'#3B82F6'} borderColor={'#2563EB'} glyphColor="#fff" />
+                        </div>
+                    </AdvancedMarker>
+                ))}
 
-                {/* Render Wishlist Clusterer (purple) */}
                 {(filter === 'all' || filter === 'wantToGo') && (
                   <WishlistClusterer wineries={allWishlist} onClick={onMarkerClick} />
                 )}
                 
-                {/* Render Visited Clusterer (green) */}
                 {(filter === 'all' || filter === 'visited') && (
                   <WineryClusterer wineries={allVisited} onClick={onMarkerClick} />
+                )}
+
+                {(filter === 'all' || filter === 'favorites') && (
+                  <FavoriteClusterer wineries={allFavorites} onClick={onMarkerClick} />
                 )}
 
             </GoogleMap>
@@ -108,6 +105,7 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                 <ToggleGroup type="single" value={filter} onValueChange={(value) => value && setFilter(value)} aria-label="Filter wineries">
                     <ToggleGroupItem value="all" aria-label="All">All</ToggleGroupItem>
                     <ToggleGroupItem value="visited" aria-label="Visited">Visited</ToggleGroupItem>
+                    <ToggleGroupItem value="favorites" aria-label="Favorites">Favorites</ToggleGroupItem>
                     <ToggleGroupItem value="wantToGo" aria-label="Want to Go">Want to Go</ToggleGroupItem>
                     <ToggleGroupItem value="notVisited" aria-label="Discovered">Discovered</ToggleGroupItem>
                 </ToggleGroup>
@@ -120,24 +118,24 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
 ));
 SearchUI.displayName = 'SearchUI';
 
-const ResultsUI = memo(({ wineries, onOpenModal, isSearching, filter, allVisited, allWishlist }: { wineries: Winery[], onOpenModal: (winery: Winery) => void, isSearching: boolean, filter: string, allVisited: Winery[], allWishlist: Winery[]}) => {
-    // Discovered wineries are those in the filtered list that are not in the main wishlist
+const ResultsUI = memo(({ wineries, onOpenModal, isSearching, filter, allVisited, allWishlist, allFavorites }: { wineries: Winery[], onOpenModal: (winery: Winery) => void, isSearching: boolean, filter: string, allVisited: Winery[], allWishlist: Winery[], allFavorites: Winery[]}) => {
     const discoveredWineries = useMemo(() => {
-        const wishlistIds = new Set(allWishlist.map(w => w.id));
-        return wineries.filter(w => !wishlistIds.has(w.id));
-    }, [wineries, allWishlist]);
+        const persistentIds = new Set([...allVisited.map(w => w.id), ...allWishlist.map(w => w.id), ...allFavorites.map(w => w.id)]);
+        return wineries.filter(w => !persistentIds.has(w.id));
+    }, [wineries, allVisited, allWishlist, allFavorites]);
 
     return (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             <div className="lg:col-span-3">
                 <Card> <CardContent className="p-0 relative"> 
-                    <MapComponent discoveredWineries={discoveredWineries} allVisited={allVisited} allWishlist={allWishlist} filter={filter} onMarkerClick={onOpenModal} /> 
+                    <MapComponent discoveredWineries={discoveredWineries} allVisited={allVisited} allWishlist={allWishlist} allFavorites={allFavorites} filter={filter} onMarkerClick={onOpenModal} /> 
                 </CardContent> </Card>
             </div>
             <div className="space-y-4">
                 <Card>
                     <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
                     <CardContent className="space-y-2">
+                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#FBBF24] border-2 border-[#F59E0B]" /> <span className="text-sm">Favorite</span> </div>
                         <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#10B981] border-2 border-[#059669]" /> <span className="text-sm">Visited</span> </div>
                         <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#9333ea] border-2 border-[#7e22ce]" /> <span className="text-sm">Want to Go</span> </div>
                         <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#3B82F6] border-2 border-[#2563EB]" /> <span className="text-sm">Discovered</span> </div>
@@ -174,28 +172,40 @@ ResultsUI.displayName = 'ResultsUI';
 function useWineries() {
   const [allUserVisits, setAllUserVisits] = useState<any[]>([]);
   const [allWishlistWineries, setAllWishlistWineries] = useState<Winery[]>([]);
+  const [allFavoriteWineries, setAllFavoriteWineries] = useState<Winery[]>([]);
   const { toast } = useToast();
+  
+  const formatWinery = (w: any, overrides: Partial<Winery> = {}) => ({
+      id: w.google_place_id,
+      dbId: w.id,
+      name: w.name,
+      address: w.address,
+      lat: parseFloat(w.latitude),
+      lng: parseFloat(w.longitude),
+      ...overrides
+  });
 
   const fetchWishlist = useCallback(async () => {
     try {
       const response = await fetch('/api/wishlist');
       if (response.ok) {
         const items = await response.json();
-        const formattedWineries: Winery[] = items.map((w: any) => ({
-            id: w.google_place_id,
-            dbId: w.id,
-            name: w.name,
-            address: w.address,
-            lat: parseFloat(w.latitude),
-            lng: parseFloat(w.longitude),
-            onWishlist: true
-        }));
-        setAllWishlistWineries(formattedWineries);
-        return formattedWineries;
+        setAllWishlistWineries(items.map((w: any) => formatWinery(w, { onWishlist: true })));
+        return items;
       }
-    } catch (error) {
-      console.error("Failed to fetch wishlist", error);
-    }
+    } catch (error) { console.error("Failed to fetch wishlist", error); }
+    return [];
+  }, []);
+
+  const fetchFavorites = useCallback(async () => {
+    try {
+      const response = await fetch('/api/favorites');
+      if (response.ok) {
+        const items = await response.json();
+        setAllFavoriteWineries(items.map((w: any) => formatWinery(w, { isFavorite: true })));
+        return items;
+      }
+    } catch (error) { console.error("Failed to fetch favorites", error); }
     return [];
   }, []);
 
@@ -203,36 +213,32 @@ function useWineries() {
     try {
       const response = await fetch('/api/visits');
       if (response.ok) setAllUserVisits(await response.json());
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Could not fetch your visits." });
-    }
+    } catch (error) { toast({ variant: "destructive", title: "Error", description: "Could not fetch your visits." }); }
   }, [toast]);
 
   useEffect(() => {
     fetchUserVisits();
     fetchWishlist();
-  }, [fetchUserVisits, fetchWishlist]);
+    fetchFavorites();
+  }, [fetchUserVisits, fetchWishlist, fetchFavorites]);
 
   const allVisitedWineries = useMemo(() => {
     if (!allUserVisits) return [];
     const wishlistIds = new Set(allWishlistWineries.map(w => w.dbId));
+    const favoriteIds = new Set(allFavoriteWineries.map(w => w.dbId));
     return allUserVisits.map(visit => {
       if (!visit.wineries) return null;
       return {
-        id: visit.wineries.google_place_id,
-        dbId: visit.wineries.id,
-        name: visit.wineries.name,
-        address: visit.wineries.address,
-        lat: parseFloat(visit.wineries.latitude),
-        lng: parseFloat(visit.wineries.longitude),
+        ...formatWinery(visit.wineries),
         userVisited: true,
         onWishlist: wishlistIds.has(visit.wineries.id),
+        isFavorite: favoriteIds.has(visit.wineries.id),
         visits: [{...visit}]
       }
     }).filter(Boolean);
-  }, [allUserVisits, allWishlistWineries])
+  }, [allUserVisits, allWishlistWineries, allFavoriteWineries])
 
-  return { fetchUserVisits, allVisitedWineries, allWishlistWineries, fetchWishlist };
+  return { fetchUserVisits, allVisitedWineries, allWishlistWineries, allFavoriteWineries, fetchWishlist, fetchFavorites };
 }
 
 function WineryMapLogic({ userId }: WineryMapProps) {
@@ -241,10 +247,8 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [searchLocation, setSearchLocation] = useState("");
   const [autoSearch, setAutoSearch] = useState(true);
   const [filter, setFilter] = useState('all');
-  const { fetchUserVisits, allVisitedWineries, allWishlistWineries, fetchWishlist } = useWineries();
+  const { fetchUserVisits, allVisitedWineries, allWishlistWineries, allFavoriteWineries, fetchWishlist, fetchFavorites } = useWineries();
   const { toast } = useToast();
-  
-  const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
   
   const searchFnRef = useRef<((locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => Promise<void>) | null>(null);
   
@@ -253,54 +257,40 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
 
-  const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
-  const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
-  
-  useEffect(() => {
-    if (geocoding) setGeocoder(new geocoding.Geocoder());
-  }, [geocoding]);
+  useEffect(() => { if (geocoding) setGeocoder(new geocoding.Geocoder()); }, [geocoding]);
 
-  useEffect(() => {
-    const visitedIds = new Set(allVisitedWineries.map(w => w.id));
-    const wishlistIds = new Set(allWishlistWineries.map(w => w.id));
-    
-    const updatedResults = searchState.results.map(winery => {
-        const wishlistedWinery = allWishlistWineries.find(w => w.id === winery.id);
-        const visitedWinery = allVisitedWineries.find(w => w.id === winery.id);
-
-        return {
-            ...winery,
-            userVisited: visitedIds.has(winery.id),
-            onWishlist: wishlistIds.has(winery.id),
-            dbId: visitedWinery?.dbId || wishlistedWinery?.dbId
-        }
+  const allPersistentWineries = useMemo(() => {
+    const wineries = new Map<string, Winery>();
+    [...allFavoriteWineries, ...allWishlistWineries, ...allVisitedWineries].forEach(w => {
+        wineries.set(w.id, { ...wineries.get(w.id), ...w });
     });
+    return Array.from(wineries.values());
+  }, [allVisitedWineries, allWishlistWineries, allFavoriteWineries]);
 
+  useEffect(() => {
+    const persistentMap = new Map(allPersistentWineries.map(w => [w.id, w]));
+    const updatedResults = searchState.results.map(winery => ({
+      ...winery,
+      ...persistentMap.get(winery.id)
+    }));
     if (JSON.stringify(updatedResults) !== JSON.stringify(searchState.results)) {
-        dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
+      dispatch({ type: 'UPDATE_RESULTS', payload: updatedResults });
     }
-  }, [allVisitedWineries, allWishlistWineries, searchState.results]);
+  }, [allPersistentWineries, searchState.results]);
 
   const filteredListWineries = useMemo(() => {
     const inViewWineries = searchState.results;
-    const allPersistentWineries = [...allVisitedWineries, ...allWishlistWineries];
-    
+    const persistentMap = new Map(allPersistentWineries.map(p => [p.id, p]));
+    const combined = [...allPersistentWineries, ...inViewWineries.filter(w => !persistentMap.has(w.id))];
+
     switch (filter) {
-        case 'visited': 
-            return allVisitedWineries;
-        case 'wantToGo': 
-            return allWishlistWineries.filter(w => !allVisitedWineries.some(v => v.id === w.id));
-        case 'notVisited': 
-            const persistentIds = new Set(allPersistentWineries.map(w => w.id));
-            return inViewWineries.filter(w => !persistentIds.has(w.id));
-        case 'all':
-        default: 
-            // Combine persistent wineries with unique dynamic results
-            const persistentIdSet = new Set(allPersistentWineries.map(p => p.id));
-            const uniqueDynamicWineries = inViewWineries.filter(w => !persistentIdSet.has(w.id));
-            return [...allPersistentWineries, ...uniqueDynamicWineries];
+        case 'visited': return combined.filter(w => w.userVisited);
+        case 'favorites': return combined.filter(w => w.isFavorite);
+        case 'wantToGo': return combined.filter(w => w.onWishlist && !w.userVisited);
+        case 'notVisited': return inViewWineries.filter(w => !w.userVisited && !w.onWishlist && !w.isFavorite);
+        case 'all': default: return combined;
     }
-  }, [filter, searchState.results, allVisitedWineries, allWishlistWineries]);
+  }, [filter, searchState.results, allPersistentWineries]);
   
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
     if (!places || !geocoder) return;
@@ -341,19 +331,16 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   }, [map, geocoder, autoSearch]);
 
   const handleOpenModal = useCallback((winery: Winery) => {
-    // Ensure we have the most complete data from all lists
-    const visitedData = allVisitedWineries.find(v => v.id === winery.id);
-    const wishlistData = allWishlistWineries.find(w => w.id === winery.id);
-    setSelectedWinery({ ...winery, ...wishlistData, ...visitedData });
-  }, [allVisitedWineries, allWishlistWineries]);
+    const fullData = allPersistentWineries.find(p => p.id === winery.id);
+    setSelectedWinery({ ...winery, ...fullData });
+  }, [allPersistentWineries]);
   
   const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
     const payload = { wineryData: winery, ...visitData };
     const response = await fetch('/api/visits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     if (response.ok) { 
         toast({ description: "Visit saved successfully." }); 
-        await fetchUserVisits();
-        await fetchWishlist(); // A visit might affect wishlist status
+        await Promise.all([fetchUserVisits(), fetchWishlist(), fetchFavorites()]);
         setSelectedWinery(null); 
     } else { 
         const errorData = await response.json();
@@ -361,7 +348,33 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }
   };
 
-  const handleDeleteVisit = async (winery: Winery, visitId: string) => {
+  const handleToggleWishlist = async (winery: Winery, isOnWishlist: boolean) => {
+    const method = isOnWishlist ? 'DELETE' : 'POST';
+    const body = isOnWishlist ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
+    try {
+      const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
+      if (response.ok) {
+        toast({ description: isOnWishlist ? "Removed from wishlist." : "Added to wishlist." });
+        const newItems = await fetchWishlist();
+        setSelectedWinery(prev => prev ? { ...prev, onWishlist: !isOnWishlist, dbId: !isOnWishlist ? newItems.find(i => i.google_place_id === prev.id)?.id : prev.dbId } : null);
+      } else throw new Error();
+    } catch (error) { toast({ variant: 'destructive', description: "Could not update wishlist." }); }
+  };
+  
+  const handleToggleFavorite = async (winery: Winery, isFavorite: boolean) => {
+      const method = isFavorite ? 'DELETE' : 'POST';
+      const body = isFavorite ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
+      try {
+        const response = await fetch('/api/favorites', { method, headers: { 'Content-Type': 'application/json' }, body });
+        if (response.ok) {
+          toast({ description: isFavorite ? "Removed from favorites." : "Added to favorites." });
+          const newItems = await fetchFavorites();
+          setSelectedWinery(prev => prev ? { ...prev, isFavorite: !isFavorite, dbId: !isFavorite ? newItems.find(i => i.google_place_id === prev.id)?.id : prev.dbId } : null);
+        } else throw new Error();
+      } catch (error) { toast({ variant: 'destructive', description: "Could not update favorites." }); }
+    };
+    
+    const handleDeleteVisit = async (winery: Winery, visitId: string) => {
     const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
     if (response.ok) { 
       toast({ description: "Visit deleted successfully." }); 
@@ -372,67 +385,18 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }
   };
 
-  const handleToggleWishlist = async (winery: Winery, isOnWishlist: boolean) => {
-    const method = isOnWishlist ? 'DELETE' : 'POST';
-
-    if (isOnWishlist && !winery.dbId) {
-      toast({ variant: 'destructive', description: "Cannot remove from wishlist as it's not in the database." });
-      return;
-    }
-
-    try {
-      const body = isOnWishlist
-        ? JSON.stringify({ dbId: winery.dbId })
-        : JSON.stringify({ wineryData: winery });
-
-      const response = await fetch('/api/wishlist', {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: body
-      });
-
-      if (response.ok) {
-        toast({ description: isOnWishlist ? "Removed from wishlist." : "Added to wishlist." });
-        const newWishlist = await fetchWishlist();
-
-        setSelectedWinery(prev => {
-            if (!prev) return null;
-            const updatedWineryState = { ...prev, onWishlist: !isOnWishlist };
-            if (!isOnWishlist) {
-                const newItem = newWishlist.find(item => item.id === prev.id);
-                if (newItem) {
-                    updatedWineryState.dbId = newItem.dbId;
-                }
-            }
-            return updatedWineryState;
-        });
-      } else {
-        throw new Error("Failed to update wishlist");
-      }
-    } catch (error) {
-      toast({ variant: 'destructive', description: "Could not update wishlist." });
-    }
-  };
-
-  if (!places || !geocoder) {
-    return (
-        <div className="flex justify-center items-center h-[600px] w-full">
-            <Loader2 className="animate-spin h-8 w-8 text-muted-foreground" />
-            <span className="ml-2 text-muted-foreground">Loading map services...</span>
-        </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
-      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} dispatch={dispatch} filter={filter} setFilter={setFilter} />
-      <ResultsUI wineries={filteredListWineries} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} allWishlist={allWishlistWineries} />
+      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={() => { const bounds = map?.getBounds(); if (bounds) executeSearch(undefined, bounds);}} dispatch={dispatch} filter={filter} setFilter={setFilter} />
+      <ResultsUI wineries={filteredListWineries} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} allWishlist={allWishlistWineries.filter(w => !allVisitedWineries.some(v => v.id === w.id))} allFavorites={allFavoriteWineries} />
       {selectedWinery && (<WineryModal 
         winery={selectedWinery} 
         onClose={() => setSelectedWinery(null)} 
         onSaveVisit={handleSaveVisit} 
-        onDeleteVisit={handleDeleteVisit} 
+        onDeleteVisit={handleDeleteVisit}
         onToggleWishlist={handleToggleWishlist}
+        onToggleFavorite={handleToggleFavorite}
       />)}
     </div>
   );

@@ -15,10 +15,9 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Star, Phone, Globe, MapPin, Calendar, Plus, Trash2, Upload, Loader2, Camera, ListPlus, Check } from "lucide-react"
+import { Star, Phone, Globe, MapPin, Calendar, Plus, Trash2, Upload, Loader2, ListPlus, Check } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Winery, Visit } from "@/lib/types"
-import { Skeleton } from "./ui/skeleton"
 import { Separator } from "./ui/separator"
 
 interface WineryModalProps {
@@ -27,15 +26,17 @@ interface WineryModalProps {
   onSaveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => Promise<void>
   onDeleteVisit?: (winery: Winery, visitId: string) => void
   onToggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>
+  onToggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>
 }
 
-export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisit, onToggleWishlist }: WineryModalProps) {
+export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisit, onToggleWishlist, onToggleFavorite }: WineryModalProps) {
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0])
   const [userReview, setUserReview] = useState("")
   const [rating, setRating] = useState(0)
   const [photos, setPhotos] = useState<string[]>([])
   const [saving, setSaving] = useState(false)
   const [wishlistLoading, setWishlistLoading] = useState(false)
+  const [favoriteLoading, setFavoriteLoading] = useState(false)
   const { toast } = useToast()
 
   if (!winery) { return null }
@@ -68,6 +69,12 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
     await onToggleWishlist(winery, !!winery.onWishlist);
     setWishlistLoading(false);
   }
+  
+  const handleFavoriteToggle = async () => {
+    setFavoriteLoading(true);
+    await onToggleFavorite(winery, !!winery.isFavorite);
+    setFavoriteLoading(false);
+  }
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -77,16 +84,28 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
               <DialogHeader>
                 <div className="flex justify-between items-start gap-4">
                     <DialogTitle className="text-2xl pr-4">{winery.name}</DialogTitle>
-                    <Button 
-                        size="sm" 
-                        variant={winery.onWishlist ? "secondary" : "outline"} 
-                        onClick={handleWishlistToggle} 
-                        disabled={wishlistLoading || winery.userVisited}
-                        className="shrink-0"
-                    >
-                        {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : winery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
-                        {winery.onWishlist ? "On List" : "Want to Go"}
-                    </Button>
+                    <div className="flex items-center gap-2">
+                        <Button 
+                            size="sm" 
+                            variant={winery.isFavorite ? "default" : "outline"} 
+                            onClick={handleFavoriteToggle} 
+                            disabled={favoriteLoading}
+                            className="shrink-0"
+                        >
+                            {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${winery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
+                            Favorite
+                        </Button>
+                        <Button 
+                            size="sm" 
+                            variant={winery.onWishlist ? "secondary" : "outline"} 
+                            onClick={handleWishlistToggle} 
+                            disabled={wishlistLoading || winery.userVisited}
+                            className="shrink-0"
+                        >
+                            {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : winery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
+                            {winery.onWishlist ? "On List" : "Want to Go"}
+                        </Button>
+                    </div>
                 </div>
                 <DialogDescription className="space-y-2 pt-2 !mt-2">
                     <div className="flex items-start space-x-2">

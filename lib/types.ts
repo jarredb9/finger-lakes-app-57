@@ -26,5 +26,6 @@ export interface Winery {
   rating?: number;
   userVisited?: boolean;
   onWishlist?: boolean;
+  isFavorite?: boolean;
   visits?: Visit[];
 }

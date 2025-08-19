@@ -26,9 +26,14 @@ async function getUserStats(userId: string) {
     .select('id')
     .eq('user_id', userId);
 
-  if (visitsError || wishlistError) {
-    console.error("Error fetching stats:", visitsError, wishlistError);
-    return { totalVisits: 0, uniqueWineries: 0, averageRating: 0, wishlistCount: 0 };
+  const { data: favorites, error: favoritesError } = await supabase
+    .from('favorites')
+    .select('id')
+    .eq('user_id', userId);
+
+  if (visitsError || wishlistError || favoritesError) {
+    console.error("Error fetching stats:", visitsError, wishlistError, favoritesError);
+    return { totalVisits: 0, uniqueWineries: 0, averageRating: 0, wishlistCount: 0, favoritesCount: 0 };
   }
 
   const totalVisits = visits.length;
@@ -38,8 +43,9 @@ async function getUserStats(userId: string) {
     ? (ratedVisits.reduce((acc, v) => acc + (v.rating || 0), 0) / ratedVisits.length).toFixed(1)
     : 0;
   const wishlistCount = wishlist.length;
+  const favoritesCount = favorites.length;
 
-  return { totalVisits, uniqueWineries, averageRating, wishlistCount };
+  return { totalVisits, uniqueWineries, averageRating, wishlistCount, favoritesCount };
 }
 
 export default async function HomePage() {
@@ -74,7 +80,7 @@ export default async function HomePage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">Total Visits</CardTitle>
@@ -95,6 +101,13 @@ export default async function HomePage() {
                         <Star className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent><div className="text-2xl font-bold">{stats.averageRating}</div></CardContent>
+                </Card>
+                 <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Favorites</CardTitle>
+                        <Star className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent><div className="text-2xl font-bold">{stats.favoritesCount}</div></CardContent>
                 </Card>
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
