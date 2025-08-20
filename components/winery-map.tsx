@@ -304,7 +304,6 @@ function WineryMapLogic({ userId }: WineryMapProps) {
             textQuery: term,
             fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"],
             locationRestriction: searchBounds,
-            strictBounds: true,
         };
         
         try {
