@@ -52,15 +52,11 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
     if (tripDate) {
         const fetchTrips = async () => {
             const dateString = tripDate.toISOString().split("T")[0];
-            console.log(`Fetching trips for date: ${dateString}`);
             const response = await fetch(`/api/trips?date=${dateString}`);
             if (response.ok) {
                 const data = await response.json();
-                console.log("Fetched trips for date:", data);
-                // The API can return a single object or an array, so we standardize it
-                const tripsArray = Array.isArray(data) ? data : (data ? [data] : []);
-                setTripsOnDate(tripsArray);
-                setSelectedTripId(""); // Reset selection when date changes
+                setTripsOnDate(Array.isArray(data) ? data : []);
+                setSelectedTripId("");
                 setNewTripName("");
             }
         };
@@ -77,7 +73,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
 
   const handleSaveVisit = async () => {
     if (!visitDate.trim()) {
-      toast({ title: "Error", description: "Visit date is required.", variant: "destructive", })
+      toast({ title: "Error", description: "Visit date is required.", variant: "destructive" })
       return
     }
     setSaving(true)
@@ -109,47 +105,44 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
 
   const handleAddToTrip = async () => {
     if (!tripDate || !winery.dbId) {
-        toast({ title: "Error", description: "Please select a date and ensure winery data is available.", variant: "destructive" });
+        toast({ title: "Error", description: "Please select a date.", variant: "destructive" });
         return;
     }
 
-    let tripIdToAdd: number | null = selectedTripId ? parseInt(selectedTripId, 10) : null;
-    let tripName = "";
+    const payload: { date: string; wineryId: number; name?: string; tripId?: number } = {
+        date: tripDate.toISOString().split("T")[0],
+        wineryId: winery.dbId,
+    };
 
-    // If creating a new trip
     if (selectedTripId === 'new') {
         if (!newTripName.trim()) {
             toast({ variant: 'destructive', description: "Please enter a name for the new trip." });
             return;
         }
-        tripName = newTripName;
-        tripIdToAdd = null; // Signal to backend to create a new trip
-    } else if (!tripIdToAdd) {
+        payload.name = newTripName;
+    } else if (selectedTripId) {
+        payload.tripId = parseInt(selectedTripId, 10);
+    } else {
         toast({ variant: 'destructive', description: "Please select a trip or create a new one." });
         return;
     }
     
-    console.log("Adding to trip with payload:", { date: tripDate.toISOString().split('T')[0], wineryId: winery.dbId, name: tripName, tripId: tripIdToAdd });
-
     try {
         const response = await fetch('/api/trips', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ date: tripDate.toISOString().split('T')[0], wineryId: winery.dbId, name: tripName, tripId: tripIdToAdd })
+            body: JSON.stringify(payload)
         });
 
         if (response.ok) {
             toast({ description: "Winery added to your trip." });
-            setTripDate(undefined); // Reset date picker after successful add
-            setSelectedTripId("");
-            setNewTripName("");
-            setTripsOnDate([]);
+            setTripDate(undefined);
         } else {
              const errorData = await response.json();
              toast({ variant: 'destructive', description: `Failed to add to trip: ${errorData.error}` });
         }
     } catch (error) {
-        toast({ variant: 'destructive', description: "An error occurred while adding to the trip." });
+        toast({ variant: 'destructive', description: "An error occurred." });
     }
   };
 
@@ -172,6 +165,32 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                             </Button>
                         </div>
                     </div>
+                     <DialogDescription className="space-y-2 pt-2 !mt-2">
+                        <div className="flex items-start space-x-2">
+                          <MapPin className="w-4 h-4 mt-1 shrink-0" />
+                          <span>{winery.address}</span>
+                        </div>
+                        {winery.phone && (
+                          <div className="flex items-center space-x-2">
+                            <Phone className="w-4 h-4 shrink-0" />
+                            <span>{winery.phone}</span>
+                          </div>
+                        )}
+                        {winery.website && (
+                          <div className="flex items-center space-x-2">
+                            <Globe className="w-4 h-4 shrink-0" />
+                            <a href={winery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
+                              Visit Website
+                            </a>
+                          </div>
+                        )}
+                        {winery.rating && (
+                          <div className="flex items-center space-x-2">
+                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
+                            <span>{winery.rating}/5.0 (Google Reviews)</span>
+                          </div>
+                        )}
+                    </DialogDescription>
                 </DialogHeader>
                  <Separator className="my-4"/>
                 

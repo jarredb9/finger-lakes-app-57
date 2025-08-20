@@ -6,8 +6,8 @@ import { getUser } from "@/lib/auth";
 const formatWinery = (winery: any) => {
     if (!winery) return null;
     return {
-        id: winery.google_place_id, // google_place_id for frontend consistency
-        dbId: winery.id, // The actual primary key from our DB
+        id: winery.google_place_id,
+        dbId: winery.id,
         name: winery.name,
         address: winery.address,
         lat: parseFloat(winery.latitude),
@@ -22,7 +22,6 @@ export async function GET(request: NextRequest) {
   console.log("GET /api/trips called");
   const user = await getUser();
   if (!user) {
-    console.error("Unauthorized access to /api/trips");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -31,33 +30,35 @@ export async function GET(request: NextRequest) {
   const supabase = await createClient();
 
   if (date) {
-    console.log(`Fetching trip for user ${user.id} on date ${date}`);
-    const { data: trip, error } = await supabase
+    console.log(`Fetching trips for user ${user.id} on date ${date}`);
+    // CORRECTED: Removed .single() to fetch multiple trips for a single day
+    const { data: trips, error } = await supabase
       .from("trips")
       .select("*, trip_wineries(*, wineries(*))")
       .eq("user_id", user.id)
-      .eq("trip_date", date)
-      .single();
+      .eq("trip_date", date);
 
-    if (error && error.code !== 'PGRST116') {
-      console.error("Error fetching trip:", error);
+    if (error) {
+      console.error("Error fetching trips for date:", error);
       throw error;
     }
-    if (!trip) {
-      console.log("No trip found for the specified date.");
-      return NextResponse.json(null);
+    
+    if (!trips) {
+      return NextResponse.json([]);
     }
 
-    const sortedWineries = trip.trip_wineries
-      .sort((a, b) => a.visit_order - b.visit_order)
-      .map(tw => formatWinery(tw.wineries))
-      .filter(Boolean);
+    const formattedTrips = trips.map(trip => {
+        const sortedWineries = trip.trip_wineries
+          .sort((a, b) => a.visit_order - b.visit_order)
+          .map(tw => formatWinery(tw.wineries))
+          .filter(Boolean);
+        return { ...trip, wineries: sortedWineries };
+    });
 
-    console.log("Returning trip data:", { ...trip, wineries: sortedWineries });
-    return NextResponse.json({ ...trip, wineries: sortedWineries });
+    console.log("Returning trips data for date:", formattedTrips);
+    return NextResponse.json(formattedTrips);
 
   } else {
-    // This part is for fetching all trips, which is not currently used in the planner but could be useful.
     console.log(`Fetching all trips for user ${user.id}`);
     const { data: trips, error } = await supabase
       .from("trips")
@@ -70,80 +71,69 @@ export async function GET(request: NextRequest) {
       throw error;
     }
     console.log("Returning all trips:", trips);
-    return NextResponse.json(trips);
+    return NextResponse.json(trips || []);
   }
 }
 
 export async function POST(request: NextRequest) {
     console.log("POST /api/trips called");
     const user = await getUser();
-    if (!user) {
-        console.error("Unauthorized POST to /api/trips");
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { date, wineryId, name } = await request.json();
-    console.log("Request body:", { date, wineryId, name });
-    if (!date) {
-        console.error("Missing date in request body");
-        return NextResponse.json({ error: "Date is required" }, { status: 400 });
-    }
+    const { date, wineryId, name, tripId } = await request.json();
+    if (!date) return NextResponse.json({ error: "Date is required" }, { status: 400 });
 
     const supabase = await createClient();
+    let targetTripId = tripId;
 
-    console.log(`Finding trip for user ${user.id} on date ${date}`);
-    let { data: trip, error: findTripError } = await supabase
-        .from("trips")
-        .select("id, trip_wineries(winery_id, visit_order)")
-        .eq("user_id", user.id)
-        .eq("trip_date", date)
-        .single();
-
-    if (findTripError && findTripError.code !== 'PGRST116') {
-        console.error("Error finding trip:", findTripError);
-        throw findTripError;
-    }
-    
-    if (!trip) {
-        console.log("No trip found, creating a new one.");
+    // If no tripId is provided, we are creating a new trip
+    if (!targetTripId) {
+        console.log("No tripId provided, creating a new trip.");
         const { data: newTrip, error: createTripError } = await supabase
             .from("trips")
             .insert({ user_id: user.id, trip_date: date, name: name || `Trip for ${date}` })
-            .select("id, trip_wineries(winery_id, visit_order)")
+            .select("id")
             .single();
 
         if (createTripError) {
-            console.error("Error creating trip:", createTripError);
+            console.error("Error creating new trip:", createTripError);
             throw createTripError;
         }
-        trip = newTrip;
-        console.log("New trip created:", trip);
+        targetTripId = newTrip.id;
+        console.log("New trip created with ID:", targetTripId);
     }
 
-    if (!trip) {
-        console.error("Failed to create or find trip.");
-        return NextResponse.json({ error: "Failed to create or find trip" }, { status: 500 });
-    }
-
-    // If a wineryId is provided, add it to the trip
+    // If a wineryId is provided, add it to the trip (either the new one or the existing one)
     if (wineryId) {
-        if (trip.trip_wineries.some((tw: any) => tw.winery_id === wineryId)) {
-          console.log("Winery is already in this trip.");
-          return NextResponse.json({ success: true, message: "Winery is already in this trip.", trip });
-        }
+        console.log(`Adding winery ${wineryId} to trip ${targetTripId}`);
         
-        const maxOrder = Math.max(0, ...trip.trip_wineries.map((tw: any) => tw.visit_order));
-        console.log(`Adding winery ${wineryId} to trip ${trip.id} with order ${maxOrder + 1}`);
+        // Get the current max order for this trip to append the new winery
+        const { data: tripWineries, error: orderError } = await supabase
+            .from("trip_wineries")
+            .select("visit_order")
+            .eq("trip_id", targetTripId);
+        
+        if(orderError) {
+            console.error("Error fetching trip wineries for order calculation:", orderError);
+            throw orderError;
+        }
+
+        const maxOrder = Math.max(0, ...tripWineries.map(tw => tw.visit_order));
+
         const { error: addWineryError } = await supabase
             .from("trip_wineries")
-            .insert({ trip_id: trip.id, winery_id: wineryId, visit_order: maxOrder + 1 });
+            .insert({ trip_id: targetTripId, winery_id: wineryId, visit_order: maxOrder + 1 });
 
         if (addWineryError) {
+            // Handle cases where the winery might already be in the trip
+            if (addWineryError.code === '23505') { // unique_violation
+                console.log("Winery already in trip, returning success.");
+                return NextResponse.json({ success: true, message: "Winery is already in this trip." });
+            }
             console.error("Error adding winery to trip:", addWineryError);
             throw addWineryError;
         }
     }
 
-    console.log("Trip processed successfully.");
-    return NextResponse.json({ success: true, trip });
+    return NextResponse.json({ success: true, tripId: targetTripId });
 }
