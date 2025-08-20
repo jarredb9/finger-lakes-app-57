@@ -4,12 +4,14 @@ import { useState, useEffect, useCallback } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Winery, Trip } from "@/lib/types";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Map, Trash2 } from "lucide-react";
+import { GripVertical, Map, Trash2, Edit, Save } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 function SortableWineryItem({ winery, onRemove }: { winery: Winery, onRemove: (wineryId: number) => void }) {
   console.log("SortableWineryItem rendered for winery:", winery.name);
@@ -29,7 +31,9 @@ function SortableWineryItem({ winery, onRemove }: { winery: Winery, onRemove: (w
   return (
     <div ref={setNodeRef} style={style} {...attributes} className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
       <div className="flex items-center gap-3">
-        <span {...listeners} className="cursor-grab text-gray-400"><GripVertical size={16} /></span>
+        <button {...listeners} className="cursor-grab text-gray-400 p-2">
+            <GripVertical size={16} />
+        </button>
         <div>
           <p className="font-medium text-sm">{winery.name}</p>
           <p className="text-xs text-muted-foreground">{winery.address}</p>
@@ -47,6 +51,9 @@ export default function TripPlanner() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [trip, setTrip] = useState<Trip | null>(null);
   const [tripWineries, setTripWineries] = useState<Winery[]>([]);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [tripName, setTripName] = useState("");
+  const { toast } = useToast();
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -64,10 +71,12 @@ export default function TripPlanner() {
         const data = await response.json();
         console.log("Trip data fetched successfully:", data);
         setTrip(data);
+        setTripName(data ? data.name : "");
         setTripWineries(data ? data.wineries : []);
       } else {
         console.log("No trip found for this date.");
         setTrip(null);
+        setTripName("");
         setTripWineries([]);
       }
     } catch (error) {
@@ -81,6 +90,42 @@ export default function TripPlanner() {
       fetchTrip(selectedDate);
     }
   }, [selectedDate, fetchTrip]);
+
+  const handleCreateTrip = async () => {
+    if (!selectedDate) return;
+    console.log("Creating trip for date:", selectedDate);
+    try {
+      const response = await fetch('/api/trips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: selectedDate.toISOString().split('T')[0] })
+      });
+      if (response.ok) {
+        toast({ title: "Success", description: "Trip created. You can now add wineries." });
+        fetchTrip(selectedDate);
+      }
+    } catch (error) {
+      console.error("Failed to create trip", error);
+      toast({ variant: "destructive", title: "Error", description: "Could not create trip." });
+    }
+  };
+
+  const handleSaveTripName = async () => {
+    if (!trip) return;
+    console.log(`Saving new name "${tripName}" for trip ID: ${trip.id}`);
+    try {
+      await fetch(`/api/trips/${trip.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: tripName }),
+      });
+      setIsEditingName(false);
+      setTrip(prev => prev ? { ...prev, name: tripName } : null);
+      toast({ description: "Trip name updated." });
+    } catch (error) {
+      console.error("Failed to save trip name", error);
+    }
+  };
 
   const handleRemoveWinery = async (wineryId: number) => {
     if (!trip) return;
@@ -101,14 +146,16 @@ export default function TripPlanner() {
       console.error("Failed to remove winery", error);
     }
   };
-
+  
   const handleDragEnd = async (event: any) => {
     const { active, over } = event;
+    if (!over) return;
     console.log("Drag ended:", { active, over });
     if (active.id !== over.id) {
       setTripWineries((items) => {
         const oldIndex = items.findIndex((item) => item.dbId === active.id);
         const newIndex = items.findIndex((item) => item.dbId === over.id);
+        if (oldIndex === -1 || newIndex === -1) return items;
         const newOrder = arrayMove(items, oldIndex, newIndex);
         console.log("New winery order:", newOrder);
         updateWineryOrder(newOrder.map(w => w.dbId!));
@@ -126,7 +173,6 @@ export default function TripPlanner() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wineryOrder: wineryIds }),
       });
-      console.log("Winery order updated successfully.");
     } catch (error) {
       console.error("Failed to update winery order", error);
     }
@@ -155,12 +201,31 @@ export default function TripPlanner() {
             <CardTitle>
               Itinerary for {selectedDate ? selectedDate.toLocaleDateString() : "..."}
             </CardTitle>
-            <CardDescription>
-                {trip ? `Trip Name: ${trip.name || 'Unnamed Trip'}` : 'No trip planned for this day.'}
-            </CardDescription>
+            {trip ? (
+              <div className="flex items-center gap-2 mt-2">
+                {isEditingName ? (
+                  <>
+                    <Input value={tripName} onChange={(e) => setTripName(e.target.value)} placeholder="Enter trip name" />
+                    <Button size="icon" onClick={handleSaveTripName}><Save size={16} /></Button>
+                  </>
+                ) : (
+                  <>
+                    <CardDescription>{trip.name || "Unnamed Trip"}</CardDescription>
+                    <Button variant="ghost" size="icon" onClick={() => setIsEditingName(true)}><Edit size={16} /></Button>
+                  </>
+                )}
+              </div>
+            ) : (
+              <CardDescription>No trip planned for this day.</CardDescription>
+            )}
           </CardHeader>
           <CardContent>
-            {tripWineries.length > 0 ? (
+            {!trip ? (
+                <div className="text-center py-8">
+                    <p className="text-muted-foreground mb-4">Create a new trip for this day.</p>
+                    <Button onClick={handleCreateTrip}>Create Trip</Button>
+                </div>
+            ) : tripWineries.length > 0 ? (
               <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                 <SortableContext items={tripWineries.map(w => w.dbId!)} strategy={verticalListSortingStrategy}>
                   <div className="space-y-3">
@@ -171,7 +236,7 @@ export default function TripPlanner() {
                 </SortableContext>
               </DndContext>
             ) : (
-              <p className="text-muted-foreground">Select a date to see your itinerary, or add wineries to a trip from the main map.</p>
+              <p className="text-muted-foreground text-center py-8">This trip has no wineries yet. Add wineries from the main map.</p>
             )}
           </CardContent>
         </Card>

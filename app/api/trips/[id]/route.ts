@@ -11,10 +11,28 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 
   const tripId = parseInt(params.id, 10);
-  const { removeWineryId, wineryOrder } = await request.json();
-  console.log("Request body:", { removeWineryId, wineryOrder });
+  const { removeWineryId, wineryOrder, name } = await request.json();
+  console.log("Request body:", { removeWineryId, wineryOrder, name });
   const supabase = await createClient();
 
+  // Handle updating trip name
+  if (name) {
+    console.log(`Updating name for trip ${tripId} to "${name}"`);
+    const { error } = await supabase
+      .from("trips")
+      .update({ name })
+      .eq("id", tripId)
+      .eq("user_id", user.id);
+    
+    if (error) {
+      console.error("Error updating trip name:", error);
+      throw error;
+    }
+    console.log("Trip name updated successfully.");
+    return NextResponse.json({ success: true });
+  }
+
+  // Handle removing a winery
   if (removeWineryId) {
     console.log(`Removing winery ${removeWineryId} from trip ${tripId}`);
     const { error } = await supabase
@@ -31,6 +49,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ success: true });
   }
 
+  // Handle reordering wineries
   if (wineryOrder) {
     console.log(`Updating winery order for trip ${tripId}:`, wineryOrder);
     const updates = wineryOrder.map((wineryId: number, index: number) =>

@@ -2,6 +2,22 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
 
+// Helper to format winery data consistently
+const formatWinery = (winery: any) => {
+    if (!winery) return null;
+    return {
+        id: winery.google_place_id, // google_place_id for frontend consistency
+        dbId: winery.id, // The actual primary key from our DB
+        name: winery.name,
+        address: winery.address,
+        lat: parseFloat(winery.latitude),
+        lng: parseFloat(winery.longitude),
+        phone: winery.phone,
+        website: winery.website,
+        rating: winery.google_rating,
+    };
+};
+
 export async function GET(request: NextRequest) {
   console.log("GET /api/trips called");
   const user = await getUser();
@@ -12,7 +28,6 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const date = searchParams.get("date");
-
   const supabase = await createClient();
 
   if (date) {
@@ -33,11 +48,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(null);
     }
 
-    const sortedWineries = trip.trip_wineries.sort((a, b) => a.visit_order - b.visit_order).map(tw => tw.wineries);
+    const sortedWineries = trip.trip_wineries
+      .sort((a, b) => a.visit_order - b.visit_order)
+      .map(tw => formatWinery(tw.wineries))
+      .filter(Boolean);
+
     console.log("Returning trip data:", { ...trip, wineries: sortedWineries });
     return NextResponse.json({ ...trip, wineries: sortedWineries });
 
   } else {
+    // This part is for fetching all trips, which is not currently used in the planner but could be useful.
     console.log(`Fetching all trips for user ${user.id}`);
     const { data: trips, error } = await supabase
       .from("trips")
@@ -64,9 +84,9 @@ export async function POST(request: NextRequest) {
 
     const { date, wineryId, name } = await request.json();
     console.log("Request body:", { date, wineryId, name });
-    if (!date || !wineryId) {
-        console.error("Missing date or wineryId in request body");
-        return NextResponse.json({ error: "Date and wineryId are required" }, { status: 400 });
+    if (!date) {
+        console.error("Missing date in request body");
+        return NextResponse.json({ error: "Date is required" }, { status: 400 });
     }
 
     const supabase = await createClient();
@@ -88,7 +108,7 @@ export async function POST(request: NextRequest) {
         console.log("No trip found, creating a new one.");
         const { data: newTrip, error: createTripError } = await supabase
             .from("trips")
-            .insert({ user_id: user.id, trip_date: date, name })
+            .insert({ user_id: user.id, trip_date: date, name: name || `Trip for ${date}` })
             .select("id, trip_wineries(winery_id, visit_order)")
             .single();
 
@@ -105,22 +125,25 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Failed to create or find trip" }, { status: 500 });
     }
 
-    if (trip.trip_wineries.some((tw: any) => tw.winery_id === wineryId)) {
-      console.log("Winery is already in this trip.");
-      return NextResponse.json({ success: true, message: "Winery is already in this trip." });
-    }
-    
-    const maxOrder = Math.max(0, ...trip.trip_wineries.map((tw: any) => tw.visit_order));
-    console.log(`Adding winery ${wineryId} to trip ${trip.id} with order ${maxOrder + 1}`);
-    const { error: addWineryError } = await supabase
-        .from("trip_wineries")
-        .insert({ trip_id: trip.id, winery_id: wineryId, visit_order: maxOrder + 1 });
+    // If a wineryId is provided, add it to the trip
+    if (wineryId) {
+        if (trip.trip_wineries.some((tw: any) => tw.winery_id === wineryId)) {
+          console.log("Winery is already in this trip.");
+          return NextResponse.json({ success: true, message: "Winery is already in this trip.", trip });
+        }
+        
+        const maxOrder = Math.max(0, ...trip.trip_wineries.map((tw: any) => tw.visit_order));
+        console.log(`Adding winery ${wineryId} to trip ${trip.id} with order ${maxOrder + 1}`);
+        const { error: addWineryError } = await supabase
+            .from("trip_wineries")
+            .insert({ trip_id: trip.id, winery_id: wineryId, visit_order: maxOrder + 1 });
 
-    if (addWineryError) {
-        console.error("Error adding winery to trip:", addWineryError);
-        throw addWineryError;
+        if (addWineryError) {
+            console.error("Error adding winery to trip:", addWineryError);
+            throw addWineryError;
+        }
     }
 
-    console.log("Winery added to trip successfully.");
-    return NextResponse.json({ success: true });
+    console.log("Trip processed successfully.");
+    return NextResponse.json({ success: true, trip });
 }
