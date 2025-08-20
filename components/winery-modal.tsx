@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,18 +8,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Card, CardContent } from "@/components/ui/card"
-import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { Winery, Visit, Trip } from "@/lib/types"
-import { Separator } from "./ui/separator"
-import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover"
-import { Calendar } from "./ui/calendar"
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent } from "@/components/ui/card";
+import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Winery, Visit, Trip } from "@/lib/types";
+import { Separator } from "./ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { Calendar } from "./ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 interface WineryModalProps {
@@ -44,7 +44,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
   const [tripDate, setTripDate] = useState<Date | undefined>();
   const [tripsOnDate, setTripsOnDate] = useState<Trip[]>([]);
   const [selectedTripId, setSelectedTripId] = useState<string>("");
-  const [newTripName, setNewTripName] = useState("");
+  const [tripNameOrNote, setTripNameOrNote] = useState(""); // Used for new trip name OR a note
 
   const { toast } = useToast()
 
@@ -57,7 +57,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                 const data = await response.json();
                 setTripsOnDate(Array.isArray(data) ? data : []);
                 setSelectedTripId("");
-                setNewTripName("");
+                setTripNameOrNote("");
             }
         };
         fetchTrips();
@@ -109,17 +109,18 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
         return;
     }
 
-    const payload: { date: string; wineryId: number; name?: string; tripId?: number } = {
+    const payload: { date: string; wineryId: number; name?: string; tripId?: number; notes?: string; } = {
         date: tripDate.toISOString().split("T")[0],
         wineryId: winery.dbId,
+        notes: tripNameOrNote,
     };
 
     if (selectedTripId === 'new') {
-        if (!newTripName.trim()) {
+        if (!tripNameOrNote.trim()) {
             toast({ variant: 'destructive', description: "Please enter a name for the new trip." });
             return;
         }
-        payload.name = newTripName;
+        payload.name = tripNameOrNote;
     } else if (selectedTripId) {
         payload.tripId = parseInt(selectedTripId, 10);
     } else {
@@ -194,7 +195,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                 </DialogHeader>
                  <Separator className="my-4"/>
                 
-                {/* Trip Planner Section */}
                 <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
                     <h4 className="font-semibold">Add to a Trip</h4>
                     <div className="flex flex-col sm:flex-row gap-2 items-center">
@@ -223,14 +223,16 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                         )}
                     </div>
                     {selectedTripId === 'new' && tripDate && (
-                        <Input placeholder="New trip name" value={newTripName} onChange={(e) => setNewTripName(e.target.value)} className="mt-2"/>
+                        <Input placeholder="New trip name" value={tripNameOrNote} onChange={(e) => setTripNameOrNote(e.target.value)} className="mt-2"/>
                     )}
-                    {tripDate && <Button onClick={handleAddToTrip} className="w-full sm:w-auto">Add to Trip</Button>}
+                    {selectedTripId && selectedTripId !== 'new' && tripDate && (
+                        <Textarea placeholder="Add a note for this visit (optional)..." value={tripNameOrNote} onChange={(e) => setTripNameOrNote(e.target.value)} className="mt-2"/>
+                    )}
+                    {tripDate && <Button onClick={handleAddToTrip} className="w-full sm:w-auto mt-2">Add to Trip</Button>}
                 </div>
 
                 <Separator className="my-4"/>
                 
-                {/* Visit History Section */}
                 <div className="space-y-4">
                      <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><CalendarIcon className="w-5 h-5" /><span>Your Visits</span></h3>
                       {sortedVisits.length > 0 ? (
@@ -267,7 +269,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                       )}
                 </div>
             </div>
-            {/* Add New Visit Section */}
             <div className="bg-gray-50 p-6 border-t">
                  <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800 mb-4"><Plus className="w-5 h-5" /><span>Add New Visit</span></h3>
                  <div className="space-y-4">

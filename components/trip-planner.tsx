@@ -5,31 +5,71 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Winery, Trip } from "@/lib/types";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Edit, Save, PlusCircle } from "lucide-react";
+import { GripVertical, Trash2, Edit, Save, PlusCircle, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
-function SortableWineryItem({ winery, onRemove }: { winery: Winery, onRemove: (wineryId: number) => void }) {
+function SortableWineryItem({ trip, winery, onRemove, onNoteSave }: { trip: Trip; winery: Winery & { notes?: string, userVisit?: { rating?: number; user_review?: string } }; onRemove: (wineryId: number) => void; onNoteSave: (wineryId: number, notes: string) => void; }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: winery.dbId! });
   const style = { transform: CSS.Transform.toString(transform), transition };
+  const [notes, setNotes] = useState(winery.notes || "");
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const isPastTrip = new Date(trip.trip_date + 'T00:00:00') < new Date();
+  const { toast } = useToast();
+
+  const handleSaveNote = async () => {
+    setIsSavingNote(true);
+    try {
+        await onNoteSave(winery.dbId!, notes);
+        toast({ description: "Note saved." });
+    } catch (error) {
+        toast({ variant: "destructive", description: "Failed to save note." });
+    } finally {
+        setIsSavingNote(false);
+    }
+  };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
-      <div className="flex items-center gap-3">
-        <button {...listeners} className="cursor-grab text-gray-400 p-2">
-            <GripVertical size={16} />
-        </button>
-        <div>
-          <p className="font-medium text-sm">{winery.name}</p>
-          <p className="text-xs text-muted-foreground">{winery.address}</p>
+    <div ref={setNodeRef} style={style} {...attributes} className="p-3 bg-white rounded-lg shadow-sm space-y-3">
+        <div className="flex items-start justify-between">
+            <div className="flex items-start gap-3">
+                <button {...listeners} className="cursor-grab text-gray-400 p-2 pt-1"><GripVertical size={16} /></button>
+                <div>
+                  <p className="font-medium text-sm">{winery.name}</p>
+                  <p className="text-xs text-muted-foreground">{winery.address}</p>
+                </div>
+            </div>
+            <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => onRemove(winery.dbId!)}><Trash2 size={16} /></Button>
         </div>
-      </div>
-      <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => onRemove(winery.dbId!)}><Trash2 size={16} /></Button>
+        
+        {isPastTrip ? (
+            winery.userVisit ? (
+                <div className="pl-12 space-y-1">
+                    <p className="font-semibold text-xs text-gray-600">Your Review:</p>
+                    <div className="flex items-center">
+                        {[...Array(5)].map((_, i) => (<Star key={i} className={`w-4 h-4 ${i < (winery.userVisit?.rating || 0) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />))}
+                    </div>
+                    {winery.userVisit.user_review && (
+                        <p className="text-sm text-gray-700 italic bg-gray-50 p-2 rounded">"{winery.userVisit.user_review}"</p>
+                    )}
+                </div>
+            ) : (
+                <p className="pl-12 text-xs text-muted-foreground">No review logged for this visit.</p>
+            )
+        ) : (
+            <div className="pl-12 space-y-2">
+                <Textarea placeholder="Add notes for your visit (e.g., Reservation at 2pm)..." value={notes} onChange={(e) => setNotes(e.target.value)} className="text-sm bg-gray-50" />
+                <Button size="sm" onClick={handleSaveNote} disabled={isSavingNote}>
+                    {isSavingNote ? "Saving..." : "Save Note"}
+                </Button>
+            </div>
+        )}
     </div>
   );
 }
@@ -119,6 +159,20 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
         }
     };
 
+     const handleNoteSave = async (wineryId: number, notes: string) => {
+        try {
+            await fetch(`/api/trips/${trip.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ updateNote: { wineryId, notes } }),
+            });
+            onWineriesUpdate();
+        } catch (error) {
+            console.error("Failed to save note", error);
+            throw error;
+        }
+    };
+
     return (
         <Card>
             <CardHeader>
@@ -157,7 +211,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
                         <SortableContext items={tripWineries.map(w => w.dbId!)} strategy={verticalListSortingStrategy}>
                             <div className="space-y-3">
                                 {tripWineries.map((winery) => (
-                                    <SortableWineryItem key={winery.dbId} winery={winery} onRemove={handleRemoveWinery} />
+                                    <SortableWineryItem key={winery.dbId} trip={trip} winery={winery} onRemove={handleRemoveWinery} onNoteSave={handleNoteSave} />
                                 ))}
                             </div>
                         </SortableContext>
