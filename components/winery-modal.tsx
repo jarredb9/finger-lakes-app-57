@@ -1,4 +1,4 @@
-"use client";
+"use client"
 
 import { useState, useEffect } from "react";
 import {
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check } from "lucide-react";
+import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Winery, Visit, Trip } from "@/lib/types";
 import { Separator } from "./ui/separator";
@@ -23,31 +23,39 @@ import { Calendar } from "./ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 
 interface WineryModalProps {
-  winery: Winery | null
-  onClose: () => void
-  onSaveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => Promise<void>
-  onDeleteVisit?: (winery: Winery, visitId: string) => void
-  onToggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>
-  onToggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>
+  winery: Winery | null;
+  onClose: () => void;
+  onSaveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => Promise<void>;
+  onUpdateVisit: (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => Promise<void>;
+  onDeleteVisit?: (winery: Winery, visitId: string) => void;
+  onToggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
+  onToggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
 }
 
-export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisit, onToggleWishlist, onToggleFavorite }: WineryModalProps) {
-  const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0])
-  const [userReview, setUserReview] = useState("")
-  const [rating, setRating] = useState(0)
-  const [photos, setPhotos] = useState<string[]>([])
-  const [saving, setSaving] = useState(false)
-  const [wishlistLoading, setWishlistLoading] = useState(false)
-  const [favoriteLoading, setFavoriteLoading] = useState(false)
-  
+export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisit, onDeleteVisit, onToggleWishlist, onToggleFavorite }: WineryModalProps) {
+  const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
+  const [userReview, setUserReview] = useState("");
+  const [rating, setRating] = useState(0);
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+
   // Trip planning state
   const [tripDate, setTripDate] = useState<Date | undefined>();
   const [tripsOnDate, setTripsOnDate] = useState<Trip[]>([]);
   const [selectedTripId, setSelectedTripId] = useState<string>("");
-  const [tripNameOrNote, setTripNameOrNote] = useState(""); // Used for new trip name OR a note
+  const [tripNameOrNote, setTripNameOrNote] = useState(""); // Used for new trip name OR a note for an existing trip
 
-  const { toast } = useToast()
+  const { toast } = useToast();
 
+  useEffect(() => {
+    // When the modal opens or the winery changes, reset the editing state
+    setEditingVisitId(null);
+    resetForm();
+  }, [winery]);
+  
   useEffect(() => {
     if (tripDate) {
         const fetchTrips = async () => {
@@ -66,42 +74,62 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
     }
   }, [tripDate]);
 
-  if (!winery) { return null }
+  if (!winery) { return null; }
 
-  const visits = winery.visits || []
-  const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
+  const resetForm = () => {
+    setVisitDate(new Date().toISOString().split("T")[0]);
+    setUserReview("");
+    setRating(0);
+    setPhotos([]);
+    setEditingVisitId(null);
+  };
 
-  const handleSaveVisit = async () => {
+  const handleEditClick = (visit: Visit) => {
+    if (!visit.id) return;
+    setEditingVisitId(visit.id);
+    // Ensure correct date formatting for the input field
+    setVisitDate(new Date(visit.visit_date + 'T00:00:00').toISOString().split("T")[0]);
+    setUserReview(visit.user_review || "");
+    setRating(visit.rating || 0);
+  };
+
+  const handleSave = async () => {
     if (!visitDate.trim()) {
-      toast({ title: "Error", description: "Visit date is required.", variant: "destructive" })
-      return
+      toast({ title: "Error", description: "Visit date is required.", variant: "destructive" });
+      return;
     }
-    setSaving(true)
+    setSaving(true);
     try {
-      await onSaveVisit(winery, { visit_date: visitDate, user_review: userReview, rating, photos })
-      setVisitDate(new Date().toISOString().split("T")[0]);
-      setUserReview("");
-      setRating(0);
-      setPhotos([]);
-    } catch (error) { console.error("Save operation failed:", error) } 
-    finally { setSaving(false) }
-  }
-
+      if (editingVisitId) {
+        await onUpdateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
+      } else {
+        await onSaveVisit(winery, { visit_date: visitDate, user_review: userReview, rating, photos });
+      }
+      resetForm();
+    } catch (error) { 
+      console.error("Save/Update operation failed:", error); 
+    } finally { 
+      setSaving(false); 
+    }
+  };
+  
   const handleDeleteVisit = async (visitId: string) => {
-    if (onDeleteVisit && visitId) await onDeleteVisit(winery, visitId)
-  }
+    if (onDeleteVisit && visitId) {
+        await onDeleteVisit(winery, visitId);
+    }
+  };
 
   const handleWishlistToggle = async () => {
     setWishlistLoading(true);
     await onToggleWishlist(winery, !!winery.onWishlist);
     setWishlistLoading(false);
-  }
+  };
   
   const handleFavoriteToggle = async () => {
     setFavoriteLoading(true);
     await onToggleFavorite(winery, !!winery.isFavorite);
     setFavoriteLoading(false);
-  }
+  };
 
   const handleAddToTrip = async () => {
     if (!tripDate || !winery.dbId) {
@@ -112,7 +140,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
     const payload: { date: string; wineryId: number; name?: string; tripId?: number; notes?: string; } = {
         date: tripDate.toISOString().split("T")[0],
         wineryId: winery.dbId,
-        notes: tripNameOrNote,
+        notes: (selectedTripId !== 'new') ? tripNameOrNote : undefined,
     };
 
     if (selectedTripId === 'new') {
@@ -146,6 +174,9 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
         toast({ variant: 'destructive', description: "An error occurred." });
     }
   };
+
+  const visits = winery.visits || [];
+  const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -237,13 +268,13 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                      <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><CalendarIcon className="w-5 h-5" /><span>Your Visits</span></h3>
                       {sortedVisits.length > 0 ? (
                         <div className="space-y-3">
-                          {sortedVisits.map((visit, index) => (
-                            <Card key={visit.id || index} className="bg-slate-50 border-slate-200">
+                          {sortedVisits.map((visit) => (
+                            <Card key={visit.id} className="bg-slate-50 border-slate-200">
                               <CardContent className="p-4 space-y-3">
                                 <div className="flex items-start justify-between">
                                   <div className="flex-1 space-y-1">
                                     <p className="font-semibold text-slate-800">
-                                        {new Date(visit.visit_date).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                                        {new Date(visit.visit_date + 'T00:00:00').toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
                                     </p>
                                     {visit.rating && (
                                       <div className="flex items-center">
@@ -253,11 +284,16 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                                       </div>
                                     )}
                                   </div>
-                                  {onDeleteVisit && visit.id && (
-                                    <Button variant="ghost" size="sm" onClick={() => handleDeleteVisit(visit.id!)} className="text-red-600 hover:text-red-800 hover:bg-red-50" aria-label={`Delete visit`}>
-                                      <Trash2 className="w-4 h-4" />
+                                  <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="sm" onClick={() => handleEditClick(visit)}>
+                                        <Edit className="w-4 h-4" />
                                     </Button>
-                                  )}
+                                    {onDeleteVisit && visit.id && (
+                                      <Button variant="ghost" size="sm" onClick={() => handleDeleteVisit(visit.id!)} className="text-red-600 hover:text-red-800 hover:bg-red-50" aria-label={`Delete visit`}>
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </div>
                                 </div>
                                 {visit.user_review && <p className="text-sm text-slate-700 bg-white p-3 rounded-md border">{visit.user_review}</p>}
                               </CardContent>
@@ -270,7 +306,15 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                 </div>
             </div>
             <div className="bg-gray-50 p-6 border-t">
-                 <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800 mb-4"><Plus className="w-5 h-5" /><span>Add New Visit</span></h3>
+                 <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
+                      {editingVisitId ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                      <span>{editingVisitId ? "Edit Visit" : "Add New Visit"}</span>
+                    </h3>
+                    {editingVisitId && (
+                        <Button variant="outline" size="sm" onClick={resetForm}>Cancel Edit</Button>
+                    )}
+                 </div>
                  <div className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="visitDate">Visit Date *</Label>
@@ -303,8 +347,8 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                     </div>
                  </div>
                  <DialogFooter className="pt-4 mt-4">
-                    <Button onClick={handleSaveVisit} disabled={!visitDate.trim() || saving} className="w-full">
-                        {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Adding Visit...</> : "Add Visit"}
+                    <Button onClick={handleSave} disabled={!visitDate.trim() || saving} className="w-full">
+                        {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : (editingVisitId ? "Save Changes" : "Add Visit")}
                     </Button>
                  </DialogFooter>
             </div>

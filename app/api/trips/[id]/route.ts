@@ -3,62 +3,72 @@ import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-  const user = await getUser();
-  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    console.log(`PUT /api/visits/${params.id} called`);
+    const user = await getUser();
+    if (!user) {
+        console.error("Unauthorized PUT to /api/visits");
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
 
-  const tripId = parseInt(params.id, 10);
-  const { removeWineryId, wineryOrder, name, updateNote } = await request.json();
-  const supabase = await createClient();
+    const visitId = parseInt(params.id, 10);
+    if (isNaN(visitId)) {
+        return NextResponse.json({ error: "Invalid visit ID" }, { status: 400 });
+    }
 
-  // Handle updating trip name
-  if (name) {
-    const { error } = await supabase.from("trips").update({ name }).eq("id", tripId).eq("user_id", user.id);
-    if (error) throw error;
-    return NextResponse.json({ success: true });
-  }
+    try {
+        const { visit_date, user_review, rating } = await request.json();
+        if (!visit_date) {
+            return NextResponse.json({ error: "Visit date is required" }, { status: 400 });
+        }
 
-  // Handle removing a winery
-  if (removeWineryId) {
-    const { error } = await supabase.from("trip_wineries").delete().eq("trip_id", tripId).eq("winery_id", removeWineryId);
-    if (error) throw error;
-    return NextResponse.json({ success: true });
-  }
+        const supabase = await createClient();
 
-  // Handle reordering wineries
-  if (wineryOrder) {
-    const updates = wineryOrder.map((wineryId: number, index: number) =>
-      supabase.from("trip_wineries").update({ visit_order: index + 1 }).eq("trip_id", tripId).eq("winery_id", wineryId)
-    );
-    await Promise.all(updates);
-    return NextResponse.json({ success: true });
-  }
+        const { data, error } = await supabase
+            .from("visits")
+            .update({
+                visit_date,
+                user_review: user_review || null,
+                rating: rating || null,
+            })
+            .eq("id", visitId)
+            .eq("user_id", user.id)
+            .select();
 
-  // Handle updating a note for a winery in a trip
-  if (updateNote && updateNote.wineryId && typeof updateNote.notes === 'string') {
-    const { error } = await supabase
-      .from("trip_wineries")
-      .update({ notes: updateNote.notes })
-      .eq("trip_id", tripId)
-      .eq("winery_id", updateNote.wineryId);
-    if (error) throw error;
-    return NextResponse.json({ success: true });
-  }
+        if (error) {
+            console.error("Error updating visit:", error);
+            throw error;
+        }
 
-  return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+        if (data.length === 0) {
+            return NextResponse.json({ error: "Visit not found or user not authorized" }, { status: 404 });
+        }
+
+        console.log("Visit updated successfully:", data);
+        return NextResponse.json({ success: true, visit: data[0] });
+
+    } catch (error) {
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
     const user = await getUser();
-    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-    const tripId = parseInt(params.id, 10);
-    if (isNaN(tripId)) return NextResponse.json({ error: "Invalid trip ID" }, { status: 400 });
-
-    const supabase = await createClient();
-    const { error } = await supabase.from("trips").delete().eq("id", tripId).eq("user_id", user.id);
-    if (error) {
-      console.error("Error deleting trip:", error);
-      return NextResponse.json({ error: "Failed to delete trip" }, { status: 500 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const visitId = params.id;
+    const supabase = await createClient();
+
+    const { error } = await supabase.from("visits").delete().eq("id", visitId).eq("user_id", user.id);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
     return NextResponse.json({ success: true });
+  } catch (error) {
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
 }

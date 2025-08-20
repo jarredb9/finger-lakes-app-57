@@ -398,6 +398,21 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         toast({ variant: "destructive", description: `Failed to save visit: ${errorData.details || errorData.error}` }); 
     }
   };
+
+  const handleUpdateVisit = async (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => {
+    const response = await fetch(`/api/visits/${visitId}`, { 
+        method: 'PUT', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify(visitData) 
+    });
+    if (response.ok) { 
+        toast({ description: "Visit updated successfully." }); 
+        await Promise.all([fetchUserVisits(), fetchWishlist(), fetchFavorites()]);
+        setSelectedWinery(null); 
+    } else { 
+        toast({ variant: "destructive", description: "Failed to update visit." }); 
+    }
+  };
   
   const handleDeleteVisit = async (winery: Winery, visitId: string) => {
     const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
@@ -509,7 +524,8 @@ function WineryMapLogic({ userId }: WineryMapProps) {
       {selectedWinery && (<WineryModal 
         winery={selectedWinery} 
         onClose={() => setSelectedWinery(null)} 
-        onSaveVisit={handleSaveVisit} 
+        onSaveVisit={handleSaveVisit}
+        onUpdateVisit={handleUpdateVisit}
         onDeleteVisit={handleDeleteVisit}
         onToggleWishlist={handleToggleWishlist}
         onToggleFavorite={handleToggleFavorite}
