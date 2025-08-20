@@ -12,6 +12,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Edit, Save, PlusCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 function SortableWineryItem({ winery, onRemove }: { winery: Winery, onRemove: (wineryId: number) => void }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: winery.dbId! });
@@ -20,7 +21,9 @@ function SortableWineryItem({ winery, onRemove }: { winery: Winery, onRemove: (w
   return (
     <div ref={setNodeRef} style={style} {...attributes} className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
       <div className="flex items-center gap-3">
-        <button {...listeners} className="cursor-grab text-gray-400 p-2"><GripVertical size={16} /></button>
+        <button {...listeners} className="cursor-grab text-gray-400 p-2">
+            <GripVertical size={16} />
+        </button>
         <div>
           <p className="font-medium text-sm">{winery.name}</p>
           <p className="text-xs text-muted-foreground">{winery.address}</p>
@@ -31,24 +34,31 @@ function SortableWineryItem({ winery, onRemove }: { winery: Winery, onRemove: (w
   );
 }
 
-function TripCard({ trip, onWineriesUpdate }: { trip: Trip; onWineriesUpdate: () => void; }) {
+function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; }) {
     const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tripName, setTripName] = useState(trip.name || "");
     const { toast } = useToast();
     const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
 
+    useEffect(() => {
+        setTripWineries(trip.wineries);
+        setTripName(trip.name || "");
+    }, [trip]);
+
     const handleSaveTripName = async () => {
         if (!trip) return;
         try {
-          await fetch(`/api/trips/${trip.id}`, {
+          const response = await fetch(`/api/trips/${trip.id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: tripName }),
           });
-          setIsEditingName(false);
-          toast({ description: "Trip name updated." });
-          onWineriesUpdate();
+          if (response.ok) {
+            setIsEditingName(false);
+            toast({ description: "Trip name updated." });
+            onWineriesUpdate();
+          }
         } catch (error) {
           console.error("Failed to save trip name", error);
         }
@@ -63,6 +73,7 @@ function TripCard({ trip, onWineriesUpdate }: { trip: Trip; onWineriesUpdate: ()
             body: JSON.stringify({ removeWineryId: wineryId }),
           });
           if (response.ok) {
+            toast({ description: "Winery removed from trip." });
             onWineriesUpdate();
           }
         } catch (error) {
@@ -72,7 +83,7 @@ function TripCard({ trip, onWineriesUpdate }: { trip: Trip; onWineriesUpdate: ()
     
     const handleDragEnd = async (event: any) => {
         const { active, over } = event;
-        if (active.id !== over.id) {
+        if (active && over && active.id !== over.id) {
           const oldIndex = tripWineries.findIndex((item) => item.dbId === active.id);
           const newIndex = tripWineries.findIndex((item) => item.dbId === over.id);
           const newOrder = arrayMove(tripWineries, oldIndex, newIndex);
@@ -94,6 +105,20 @@ function TripCard({ trip, onWineriesUpdate }: { trip: Trip; onWineriesUpdate: ()
         }
     };
 
+    const handleDeleteTrip = async () => {
+        try {
+            const response = await fetch(`/api/trips/${trip.id}`, { method: 'DELETE' });
+            if (response.ok) {
+                toast({ description: "Trip deleted successfully." });
+                onTripDeleted();
+            } else {
+                toast({ variant: 'destructive', description: "Failed to delete trip." });
+            }
+        } catch (error) {
+            console.error("Failed to delete trip", error);
+        }
+    };
+
     return (
         <Card>
             <CardHeader>
@@ -109,6 +134,21 @@ function TripCard({ trip, onWineriesUpdate }: { trip: Trip; onWineriesUpdate: ()
                         <Button variant="ghost" size="icon" onClick={() => setIsEditingName(true)}><Edit size={16} /></Button>
                       </div>
                     )}
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="icon"><Trash2 size={16} /></Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                <AlertDialogDescription>This will permanently delete this trip and all its wineries. This action cannot be undone.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteTrip}>Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
                 </div>
             </CardHeader>
             <CardContent>
@@ -123,13 +163,12 @@ function TripCard({ trip, onWineriesUpdate }: { trip: Trip; onWineriesUpdate: ()
                         </SortableContext>
                     </DndContext>
                 ) : (
-                    <p className="text-muted-foreground text-center py-4">This trip has no wineries yet.</p>
+                    <p className="text-muted-foreground text-center py-4">This trip has no wineries yet. Add wineries from the map.</p>
                 )}
             </CardContent>
         </Card>
     );
 }
-
 
 export default function TripPlanner({ initialDate }: { initialDate: Date }) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
@@ -142,12 +181,13 @@ export default function TripPlanner({ initialDate }: { initialDate: Date }) {
       const response = await fetch(`/api/trips?date=${dateString}`);
       if (response.ok) {
         const data = await response.json();
-        setTrips(Array.isArray(data) ? data : (data ? [data] : []));
+        setTrips(Array.isArray(data) ? data : []);
       } else {
         setTrips([]);
       }
     } catch (error) {
       console.error("Failed to fetch trips", error);
+      setTrips([]);
     }
   }, []);
 
@@ -168,6 +208,8 @@ export default function TripPlanner({ initialDate }: { initialDate: Date }) {
       if (response.ok) {
         toast({ title: "Success", description: "New trip created." });
         fetchTripsForDate(selectedDate);
+      } else {
+        toast({ variant: "destructive", title: "Error", description: "Could not create new trip." });
       }
     } catch (error) {
       toast({ variant: "destructive", title: "Error", description: "Could not create trip." });
@@ -200,7 +242,12 @@ export default function TripPlanner({ initialDate }: { initialDate: Date }) {
 
         {trips.length > 0 ? (
             trips.map(trip => (
-                <TripCard key={trip.id} trip={trip} onWineriesUpdate={() => fetchTripsForDate(selectedDate!)} />
+                <TripCard 
+                    key={trip.id} 
+                    trip={trip} 
+                    onTripDeleted={() => fetchTripsForDate(selectedDate!)}
+                    onWineriesUpdate={() => fetchTripsForDate(selectedDate!)} 
+                />
             ))
         ) : (
             <Card>

@@ -67,3 +67,34 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   console.error("Invalid request to PUT /api/trips/[id]");
   return NextResponse.json({ error: "Invalid request" }, { status: 400 });
 }
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+    console.log(`DELETE /api/trips/${params.id} called`);
+    const user = await getUser();
+    if (!user) {
+        console.error(`Unauthorized DELETE to /api/trips/${params.id}`);
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const tripId = parseInt(params.id, 10);
+    if (isNaN(tripId)) {
+        return NextResponse.json({ error: "Invalid trip ID" }, { status: 400 });
+    }
+
+    const supabase = await createClient();
+
+    console.log(`Attempting to delete trip with ID: ${tripId} for user: ${user.id}`);
+    const { error } = await supabase
+        .from("trips")
+        .delete()
+        .eq("id", tripId)
+        .eq("user_id", user.id);
+
+    if (error) {
+        console.error("Error deleting trip:", error);
+        return NextResponse.json({ error: "Failed to delete trip" }, { status: 500 });
+    }
+
+    console.log("Trip deleted successfully.");
+    return NextResponse.json({ success: true });
+}
