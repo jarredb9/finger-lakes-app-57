@@ -12,6 +12,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Map, Trash2 } from "lucide-react";
 
 function SortableWineryItem({ winery, onRemove }: { winery: Winery, onRemove: (wineryId: number) => void }) {
+  console.log("SortableWineryItem rendered for winery:", winery.name);
   const {
     attributes,
     listeners,
@@ -42,6 +43,7 @@ function SortableWineryItem({ winery, onRemove }: { winery: Winery, onRemove: (w
 }
 
 export default function TripPlanner() {
+  console.log("TripPlanner component rendered");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [trip, setTrip] = useState<Trip | null>(null);
   const [tripWineries, setTripWineries] = useState<Winery[]>([]);
@@ -55,13 +57,16 @@ export default function TripPlanner() {
 
   const fetchTrip = useCallback(async (date: Date) => {
     const dateString = date.toISOString().split("T")[0];
+    console.log(`Fetching trip for date: ${dateString}`);
     try {
       const response = await fetch(`/api/trips?date=${dateString}`);
       if (response.ok) {
         const data = await response.json();
+        console.log("Trip data fetched successfully:", data);
         setTrip(data);
         setTripWineries(data ? data.wineries : []);
       } else {
+        console.log("No trip found for this date.");
         setTrip(null);
         setTripWineries([]);
       }
@@ -72,12 +77,14 @@ export default function TripPlanner() {
 
   useEffect(() => {
     if (selectedDate) {
+      console.log("Selected date changed:", selectedDate);
       fetchTrip(selectedDate);
     }
   }, [selectedDate, fetchTrip]);
 
   const handleRemoveWinery = async (wineryId: number) => {
     if (!trip) return;
+    console.log(`Attempting to remove winery with ID: ${wineryId} from trip ID: ${trip.id}`);
     try {
       const response = await fetch(`/api/trips/${trip.id}`, {
         method: 'PUT',
@@ -85,7 +92,10 @@ export default function TripPlanner() {
         body: JSON.stringify({ removeWineryId: wineryId }),
       });
       if (response.ok) {
+        console.log("Winery removed successfully. Refetching trip.");
         fetchTrip(selectedDate!);
+      } else {
+        console.error("Failed to remove winery from trip");
       }
     } catch (error) {
       console.error("Failed to remove winery", error);
@@ -94,11 +104,13 @@ export default function TripPlanner() {
 
   const handleDragEnd = async (event: any) => {
     const { active, over } = event;
+    console.log("Drag ended:", { active, over });
     if (active.id !== over.id) {
       setTripWineries((items) => {
         const oldIndex = items.findIndex((item) => item.dbId === active.id);
         const newIndex = items.findIndex((item) => item.dbId === over.id);
         const newOrder = arrayMove(items, oldIndex, newIndex);
+        console.log("New winery order:", newOrder);
         updateWineryOrder(newOrder.map(w => w.dbId!));
         return newOrder;
       });
@@ -107,12 +119,14 @@ export default function TripPlanner() {
 
   const updateWineryOrder = async (wineryIds: number[]) => {
     if (!trip) return;
+    console.log(`Updating winery order for trip ID: ${trip.id} with order:`, wineryIds);
     try {
         await fetch(`/api/trips/${trip.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ wineryOrder: wineryIds }),
       });
+      console.log("Winery order updated successfully.");
     } catch (error) {
       console.error("Failed to update winery order", error);
     }
