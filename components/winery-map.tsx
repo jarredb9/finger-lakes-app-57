@@ -34,7 +34,7 @@ import { Winery, Visit } from "@/lib/types"
 import WineryClusterer from "./winery-clusterer"
 import WishlistClusterer from './wishlist-clusterer';
 import FavoriteClusterer from "./favorite-clusterer"
-import DiscoveredClusterer from "./discovered-clusterer" // Import the new component
+import DiscoveredClusterer from "./discovered-clusterer"
 
 const WineryModal = dynamic(() => import('./winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
@@ -43,12 +43,13 @@ const WineryModal = dynamic(() => import('./winery-modal'), {
 interface WineryMapProps { userId: string; }
 
 interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
-type SearchAction = | { type: 'SEARCH_START' } | { type: 'SEARCH_SUCCESS'; payload: Winery[] } | { type: 'SEARCH_ERROR' } | { type: 'CLEAR_RESULTS' } | { type: 'UPDATE_RESULTS'; payload: Winery[] };
+type SearchAction = | { type: 'SEARCH_START' } | { type: 'SEARCH_SUCCESS'; payload: { places: Winery[], hitLimit: boolean } } | { type: 'SEARCH_ERROR' } | { type: 'CLEAR_RESULTS' } | { type: 'UPDATE_RESULTS'; payload: Winery[] };
 const initialState: SearchState = { isSearching: false, hitApiLimit: false, results: [], };
+
 function searchReducer(state: SearchState, action: SearchAction): SearchState {
     switch (action.type) {
         case 'SEARCH_START': return { ...state, isSearching: true, hitApiLimit: false };
-        case 'SEARCH_SUCCESS': return { isSearching: false, hitApiLimit: action.payload.length === 20, results: action.payload };
+        case 'SEARCH_SUCCESS': return { isSearching: false, hitApiLimit: action.payload.hitLimit, results: action.payload.places };
         case 'SEARCH_ERROR': return { ...state, isSearching: false, results: [] };
         case 'CLEAR_RESULTS': return { ...state, results: [] };
         case 'UPDATE_RESULTS': return { ...state, results: action.payload };
@@ -83,7 +84,7 @@ const MapComponent = memo(({ trulyDiscoveredWineries, visitedWineries, wishlistW
 });
 MapComponent.displayName = 'MapComponent';
 
-const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch, filter, onFilterChange }: any) => (
+const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, filter, onFilterChange }: any) => (
     <Card>
         <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries by location, filter your results, or click directly on the map.</CardDescription> </CardHeader>
         <CardContent className="space-y-4">
@@ -94,6 +95,14 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                 </form>
                 <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching} aria-label="Search This Area"> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
             </div>
+            {searchState.hitApiLimit && (
+                <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800">
+                    <AlertTriangle className="h-4 w-4 !text-yellow-600" />
+                    <AlertDescription>
+                        This is a popular area! Zoom in to discover more wineries.
+                    </AlertDescription>
+                </Alert>
+            )}
             <div className="flex items-center justify-between">
                 <ToggleGroup type="multiple" value={filter} onValueChange={onFilterChange} aria-label="Filter wineries">
                     <ToggleGroupItem value="all" aria-label="All">All</ToggleGroupItem>
@@ -270,21 +279,62 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     if (locationText) {
         try {
             const { results } = await geocoder.geocode({ address: locationText });
-            if (results && results.length > 0 && results[0].geometry.viewport) { searchBounds = results[0].geometry.viewport; map?.fitBounds(searchBounds); } 
-            else { toast({ variant: "destructive", description: "Could not find that location." }); dispatch({ type: 'SEARCH_ERROR' }); return; }
+            if (results && results.length > 0 && results[0].geometry.viewport) {
+                searchBounds = results[0].geometry.viewport;
+                map?.fitBounds(searchBounds);
+            } else {
+                toast({ variant: "destructive", description: "Could not find that location." });
+                dispatch({ type: 'SEARCH_ERROR' });
+                return;
+            }
         } catch (error) { console.error("Geocoding failed:", error); dispatch({ type: 'SEARCH_ERROR' }); return; }
-    } else if (bounds) { searchBounds = new google.maps.LatLngBounds(bounds); } 
-    else { dispatch({ type: 'SEARCH_ERROR' }); return; }
+    } else if (bounds) {
+        searchBounds = new google.maps.LatLngBounds(bounds);
+    } else {
+        dispatch({ type: 'SEARCH_ERROR' });
+        return;
+    }
 
-    const request = { textQuery: "winery OR vineyard OR tasting room OR cellars", fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"], locationRestriction: searchBounds };
-    try {
-        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-        const wineries = foundPlaces.map(place => ({
-            id: place.id!, name: place.displayName!, address: place.formattedAddress!, lat: place.location!.lat(), lng: place.location!.lng(),
-            rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber,
-        }));
-        dispatch({ type: 'SEARCH_SUCCESS', payload: wineries });
-    } catch (error) { console.error("Google Places search error:", error); dispatch({ type: 'SEARCH_ERROR' }); }
+    const searchTerms = ["winery", "vineyard", "tasting room"];
+    const allFoundPlaces = new Map<string, any>();
+    let hitApiLimit = false;
+
+    console.log("--- Starting New Search in Bounds ---", searchBounds.toJSON());
+
+    for (const term of searchTerms) {
+        const request = {
+            textQuery: term,
+            fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"],
+            locationRestriction: searchBounds,
+            strictBounds: true, // This is the critical fix
+        };
+        
+        console.log(`Searching for term: "${term}"`);
+        try {
+            const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
+            console.log(`Found ${foundPlaces.length} places for term: "${term}"`);
+            
+            if (foundPlaces.length === 20) {
+                hitApiLimit = true;
+            }
+
+            foundPlaces.forEach(place => {
+                if (place.id) {
+                    allFoundPlaces.set(place.id, place);
+                }
+            });
+        } catch (error) {
+            console.error(`Google Places search error for term "${term}":`, error);
+        }
+    }
+
+    const wineries = Array.from(allFoundPlaces.values()).map(place => ({
+        id: place.id!, name: place.displayName!, address: place.formattedAddress!, lat: place.location!.lat(), lng: place.location!.lng(),
+        rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber,
+    }));
+    
+    console.log(`Total unique discovered wineries: ${wineries.length}. API limit was hit: ${hitApiLimit}`);
+    dispatch({ type: 'SEARCH_SUCCESS', payload: { places: wineries, hitLimit: hitApiLimit } });
   }, [map, places, geocoder, toast]);
 
   useEffect(() => { searchFnRef.current = executeSearch; });
@@ -414,7 +464,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 
   return (
     <div className="space-y-6">
-      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} dispatch={dispatch} filter={filter} onFilterChange={handleFilterChange} />
+      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} filter={filter} onFilterChange={handleFilterChange} />
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
               <Card>
