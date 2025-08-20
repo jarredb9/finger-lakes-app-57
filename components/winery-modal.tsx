@@ -51,9 +51,10 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   const { toast } = useToast();
 
   useEffect(() => {
-    // When the modal opens or the winery changes, reset the editing state
+    // When the modal opens or the winery changes, reset everything
     setEditingVisitId(null);
     resetForm();
+    setTripDate(undefined);
   }, [winery]);
   
   useEffect(() => {
@@ -254,7 +255,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                         )}
                     </div>
                     {selectedTripId === 'new' && tripDate && (
-                        <Input placeholder="New trip name" value={tripNameOrNote} onChange={(e) => setTripNameOrNote(e.target.value)} className="mt-2"/>
+                        <Input placeholder="New trip name..." value={tripNameOrNote} onChange={(e) => setTripNameOrNote(e.target.value)} className="mt-2"/>
                     )}
                     {selectedTripId && selectedTripId !== 'new' && tripDate && (
                         <Textarea placeholder="Add a note for this visit (optional)..." value={tripNameOrNote} onChange={(e) => setTripNameOrNote(e.target.value)} className="mt-2"/>
