@@ -299,25 +299,19 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     const allFoundPlaces = new Map<string, any>();
     let hitApiLimit = false;
 
-    console.log("--- Starting New Search in Bounds ---", searchBounds.toJSON());
-
     for (const term of searchTerms) {
         const request = {
             textQuery: term,
             fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"],
             locationRestriction: searchBounds,
-            strictBounds: true, // This is the critical fix
+            strictBounds: true,
         };
         
-        console.log(`Searching for term: "${term}"`);
         try {
             const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-            console.log(`Found ${foundPlaces.length} places for term: "${term}"`);
-            
             if (foundPlaces.length === 20) {
                 hitApiLimit = true;
             }
-
             foundPlaces.forEach(place => {
                 if (place.id) {
                     allFoundPlaces.set(place.id, place);
@@ -333,7 +327,6 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber,
     }));
     
-    console.log(`Total unique discovered wineries: ${wineries.length}. API limit was hit: ${hitApiLimit}`);
     dispatch({ type: 'SEARCH_SUCCESS', payload: { places: wineries, hitLimit: hitApiLimit } });
   }, [map, places, geocoder, toast]);
 
