@@ -90,7 +90,7 @@ const MapComponent = memo(({ discoveredWineries, allVisited, allWishlist, allFav
 });
 MapComponent.displayName = 'MapComponent';
 
-const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch, filter, setFilter }) => (
+const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch, filter, onFilterChange }) => (
     <Card>
         <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries by location, filter your results, or click directly on the map.</CardDescription> </CardHeader>
         <CardContent className="space-y-4">
@@ -102,7 +102,7 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                 <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching} aria-label="Search This Area"> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
             </div>
             <div className="flex items-center justify-between">
-                <ToggleGroup type="multiple" value={filter} onValueChange={(value) => setFilter(value.length > 0 ? value : ['all'])} aria-label="Filter wineries">
+                <ToggleGroup type="multiple" value={filter} onValueChange={onFilterChange} aria-label="Filter wineries">
                     <ToggleGroupItem value="all" aria-label="All">All</ToggleGroupItem>
                     <ToggleGroupItem value="visited" aria-label="Visited">Visited</ToggleGroupItem>
                     <ToggleGroupItem value="favorites" aria-label="Favorites">Favorites</ToggleGroupItem>
@@ -432,10 +432,30 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         } else throw new Error();
       } catch (error) { toast({ variant: 'destructive', description: "Could not update favorites." }); }
     };
+    
+  const handleFilterChange = (newFilter: string[]) => {
+      if (newFilter.length === 0) {
+        setFilter(['all']);
+        return;
+      }
+      if (newFilter.length > 1 && newFilter.includes('all')) {
+        // If user selects another filter while 'all' is active, remove 'all'
+        if(filter.includes('all')) {
+            setFilter(newFilter.filter(f => f !== 'all'));
+            return;
+        }
+        // If user selects 'all' while other filters are active, only select 'all'
+        else {
+            setFilter(['all']);
+            return;
+        }
+      }
+      setFilter(newFilter);
+  };
 
   return (
     <div className="space-y-6">
-      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} dispatch={dispatch} filter={filter} setFilter={setFilter} />
+      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} dispatch={dispatch} filter={filter} onFilterChange={handleFilterChange} />
       <ResultsUI wineries={listResultsInView} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} allWishlist={allWishlistWineries.filter(w => !allVisitedWineries.some(v => v.id === w.id))} allFavorites={allFavoriteWineries} />
       {selectedWinery && (<WineryModal 
         winery={selectedWinery} 
