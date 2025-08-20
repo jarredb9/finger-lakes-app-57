@@ -61,6 +61,7 @@ export default function FavoriteClusterer({ wineries, onClick }: FavoriteCluster
             scale: 1.5,
             anchor: new google.maps.Point(12, 24),
         },
+        zIndex: 10, // Add this line
       });
       marker.addListener('click', () => onClick(winery));
       return marker;
