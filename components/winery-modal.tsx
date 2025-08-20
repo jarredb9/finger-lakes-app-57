@@ -13,12 +13,13 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
-import { Star, Phone, Globe, MapPin, Calendar, Plus, Trash2, Upload, Loader2, ListPlus, Check } from "lucide-react"
+import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { Winery, Visit } from "@/lib/types"
 import { Separator } from "./ui/separator"
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover"
+import { Calendar } from "./ui/calendar"
 
 interface WineryModalProps {
   winery: Winery | null
@@ -37,6 +38,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
   const [saving, setSaving] = useState(false)
   const [wishlistLoading, setWishlistLoading] = useState(false)
   const [favoriteLoading, setFavoriteLoading] = useState(false)
+  const [tripDate, setTripDate] = useState<Date | undefined>();
   const { toast } = useToast()
 
   if (!winery) { return null }
@@ -75,6 +77,28 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
     await onToggleFavorite(winery, !!winery.isFavorite);
     setFavoriteLoading(false);
   }
+
+  const handleAddToTrip = async () => {
+    if (!tripDate || !winery.dbId) {
+        toast({ title: "Error", description: "Please select a date for the trip.", variant: "destructive" });
+        return;
+    }
+    try {
+        const response = await fetch('/api/trips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ date: tripDate.toISOString().split('T')[0], wineryId: winery.dbId })
+        });
+        if (response.ok) {
+            toast({ title: "Success", description: "Winery added to your trip." });
+        } else {
+            const data = await response.json();
+            toast({ title: "Error", description: data.error || "Failed to add winery to trip.", variant: "destructive" });
+        }
+    } catch (error) {
+        toast({ title: "Error", description: "An error occurred.", variant: "destructive" });
+    }
+  };
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -134,10 +158,24 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onDeleteVisi
                     )}
                 </DialogDescription>
               </DialogHeader>
+              <div className="flex items-center gap-2 mt-4">
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline">
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {tripDate ? tripDate.toLocaleDateString() : "Select a trip date"}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar mode="single" selected={tripDate} onSelect={setTripDate} initialFocus />
+                    </PopoverContent>
+                </Popover>
+                <Button onClick={handleAddToTrip}>Add to Trip</Button>
+              </div>
               <Separator className="my-4"/>
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
-                  <Calendar className="w-5 h-5" />
+                  <CalendarIcon className="w-5 h-5" />
                   <span>Your Visits</span>
                 </h3>
                 {sortedVisits.length > 0 ? (

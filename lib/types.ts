@@ -29,3 +29,11 @@ export interface Winery {
   isFavorite?: boolean;
   visits?: Visit[];
 }
+
+export interface Trip {
+    id: number;
+    user_id: string;
+    trip_date: string;
+    name?: string;
+    wineries: Winery[];
+}
