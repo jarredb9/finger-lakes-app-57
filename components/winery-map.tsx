@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef, memo, useReducer, useMemo } from "react"
 import dynamic from 'next/dynamic'
-import { APIProvider, Map as GoogleMap, AdvancedMarker, Pin, useMap, useMapsLibrary } from "@vis.gl/react-google-maps"
+import { APIProvider, Map as GoogleMap, useMap, useMapsLibrary } from "@vis.gl/react-google-maps"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
@@ -19,11 +19,8 @@ import {
   AlertTriangle,
   Search,
   MapPin,
-  RotateCcw,
   Loader2,
-  Info,
   Wine,
-  ListPlus,
   Star
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -34,10 +31,10 @@ import { Label } from "@/components/ui/label"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useToast } from "@/hooks/use-toast"
 import { Winery, Visit } from "@/lib/types"
-import { Skeleton } from "@/components/ui/skeleton"
 import WineryClusterer from "./winery-clusterer"
 import WishlistClusterer from './wishlist-clusterer';
 import FavoriteClusterer from "./favorite-clusterer"
+import DiscoveredClusterer from "./discovered-clusterer" // Import the new component
 
 const WineryModal = dynamic(() => import('./winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
@@ -64,13 +61,9 @@ const MapComponent = memo(({ trulyDiscoveredWineries, visitedWineries, wishlistW
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 
-                {(filter.includes('all') || filter.includes('notVisited')) && trulyDiscoveredWineries.map(winery => (
-                    <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
-                        <div className="animate-pop-in">
-                           <Pin background={'#3B82F6'} borderColor={'#2563EB'} glyphColor="#fff" />
-                        </div>
-                    </AdvancedMarker>
-                ))}
+                {(filter.includes('all') || filter.includes('notVisited')) && (
+                  <DiscoveredClusterer wineries={trulyDiscoveredWineries} onClick={onMarkerClick} />
+                )}
 
                 {(filter.includes('all') || filter.includes('wantToGo')) && (
                   <WishlistClusterer wineries={wishlistWineries} onClick={onMarkerClick} />
@@ -117,52 +110,6 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
     </Card>
 ));
 SearchUI.displayName = 'SearchUI';
-
-const ResultsUI = memo(({ wineries, onOpenModal, isSearching }: { wineries: Winery[], onOpenModal: (winery: Winery) => void, isSearching: boolean }) => {
-    return (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3">
-                <Card> <CardContent className="p-0 relative"> 
-                    {/* The MapComponent will now be rendered inside WineryMapLogic */}
-                </CardContent> </Card>
-            </div>
-            <div className="space-y-4">
-                <Card>
-                    <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
-                    <CardContent className="space-y-2">
-                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#FBBF24] border-2 border-[#F59E0B]" /> <span className="text-sm">Favorite</span> </div>
-                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#10B981] border-2 border-[#059669]" /> <span className="text-sm">Visited</span> </div>
-                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#9333ea] border-2 border-[#7e22ce]" /> <span className="text-sm">Want to Go</span> </div>
-                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#3B82F6] border-2 border-[#2563EB]" /> <span className="text-sm">Discovered</span> </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader><CardTitle className="flex justify-between items-center">Results In View <Badge>{wineries.length}</Badge></CardTitle></CardHeader>
-                    <CardContent className="relative">
-                        {isSearching && (<div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 flex items-center justify-center rounded-b-lg z-10"><Loader2 className="animate-spin text-muted-foreground h-8 w-8" /></div>)}
-                        <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto data-[loaded=true]:animate-in data-[loaded=true]:fade-in-50" data-loaded={!isSearching}>
-                            {wineries.length === 0 && !isSearching && (
-                              <div className="text-center pt-10 text-muted-foreground">
-                                <Wine className="mx-auto h-12 w-12" />
-                                <p className="mt-4 text-sm">No wineries found.</p>
-                                <p className="text-xs">Try searching or adjusting your filter.</p>
-                              </div>
-                            )}
-                            {!isSearching && wineries.map(winery => (
-                                <div key={winery.id} className="p-3 border rounded-lg cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] transition-all duration-200" onClick={() => onOpenModal(winery)}>
-                                    <p className="font-medium text-sm">{winery.name}</p>
-                                    <p className="text-xs text-muted-foreground">{winery.address}</p>
-                                    {winery.rating && <p className="text-xs text-muted-foreground mt-1">★ {winery.rating}/5.0</p>}
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
-    );
-});
-ResultsUI.displayName = 'ResultsUI';
 
 function useWineries() {
   const [allUserVisits, setAllUserVisits] = useState<any[]>([]);
@@ -281,8 +228,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     const visitedIds = new Set(allVisitedWineries.map(w => w.id));
     return { favoriteIds, wishlistIds, visitedIds };
   }, [allFavoriteWineries, allWishlistWineries, allVisitedWineries]);
-  
-  // Create definitive lists for rendering, ensuring no overlaps
+
   const favoritesToRender = allFavoriteWineries;
   const wishlistToRender = allWishlistWineries.filter(w => !favoriteIds.has(w.id));
   const visitedToRender = allVisitedWineries.filter(w => !favoriteIds.has(w.id) && !wishlistIds.has(w.id));
@@ -314,7 +260,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         if (filter.includes('notVisited') && !visitedIds.has(w.id) && !favoriteIds.has(w.id) && !wishlistIds.has(w.id)) return true;
         return false;
     });
-  }, [filter, searchState.results, allPersistentWineries, trulyDiscoveredWineries, mapBounds, visitedIds, favoriteIds, wishlistIds]);
+  }, [filter, allPersistentWineries, trulyDiscoveredWineries, mapBounds, visitedIds, favoriteIds, wishlistIds]);
   
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
     if (!places || !geocoder) return;
@@ -469,55 +415,55 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   return (
     <div className="space-y-6">
       <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} dispatch={dispatch} filter={filter} onFilterChange={handleFilterChange} />
-       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-            <div className="lg:col-span-3">
-                <Card>
-                    <CardContent className="p-0 relative"> 
-                        <MapComponent 
-                            trulyDiscoveredWineries={trulyDiscoveredWineries}
-                            visitedWineries={visitedToRender}
-                            wishlistWineries={wishlistToRender}
-                            favoriteWineries={favoritesToRender}
-                            filter={filter} 
-                            onMarkerClick={handleOpenModal}
-                        /> 
-                    </CardContent>
-                </Card>
-            </div>
-            <div className="space-y-4">
-                <Card>
-                    <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
-                    <CardContent className="space-y-2">
-                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#FBBF24] border-2 border-[#F59E0B]" /> <span className="text-sm">Favorite</span> </div>
-                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#9333ea] border-2 border-[#7e22ce]" /> <span className="text-sm">Want to Go</span> </div>
-                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#10B981] border-2 border-[#059669]" /> <span className="text-sm">Visited</span> </div>
-                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#3B82F6] border-2 border-[#2563EB]" /> <span className="text-sm">Discovered</span> </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader><CardTitle className="flex justify-between items-center">Results In View <Badge>{listResultsInView.length}</Badge></CardTitle></CardHeader>
-                    <CardContent className="relative">
-                        {searchState.isSearching && (<div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 flex items-center justify-center rounded-b-lg z-10"><Loader2 className="animate-spin text-muted-foreground h-8 w-8" /></div>)}
-                        <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto data-[loaded=true]:animate-in data-[loaded=true]:fade-in-50" data-loaded={!searchState.isSearching}>
-                            {listResultsInView.length === 0 && !searchState.isSearching && (
-                              <div className="text-center pt-10 text-muted-foreground">
-                                <Wine className="mx-auto h-12 w-12" />
-                                <p className="mt-4 text-sm">No wineries found.</p>
-                                <p className="text-xs">Try searching or adjusting your filter.</p>
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="lg:col-span-3">
+              <Card>
+                  <CardContent className="p-0 relative"> 
+                      <MapComponent 
+                          trulyDiscoveredWineries={trulyDiscoveredWineries}
+                          visitedWineries={visitedToRender}
+                          wishlistWineries={wishlistToRender}
+                          favoriteWineries={favoritesToRender}
+                          filter={filter} 
+                          onMarkerClick={handleOpenModal}
+                      /> 
+                  </CardContent>
+              </Card>
+          </div>
+          <div className="space-y-4">
+              <Card>
+                  <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
+                  <CardContent className="space-y-2">
+                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#FBBF24] border-2 border-[#F59E0B]" /> <span className="text-sm">Favorite</span> </div>
+                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#9333ea] border-2 border-[#7e22ce]" /> <span className="text-sm">Want to Go</span> </div>
+                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#10B981] border-2 border-[#059669]" /> <span className="text-sm">Visited</span> </div>
+                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#3B82F6] border-2 border-[#2563EB]" /> <span className="text-sm">Discovered</span> </div>
+                  </CardContent>
+              </Card>
+              <Card>
+                  <CardHeader><CardTitle className="flex justify-between items-center">Results In View <Badge>{listResultsInView.length}</Badge></CardTitle></CardHeader>
+                  <CardContent className="relative">
+                      {searchState.isSearching && (<div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 flex items-center justify-center rounded-b-lg z-10"><Loader2 className="animate-spin text-muted-foreground h-8 w-8" /></div>)}
+                      <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto data-[loaded=true]:animate-in data-[loaded=true]:fade-in-50" data-loaded={!searchState.isSearching}>
+                          {listResultsInView.length === 0 && !searchState.isSearching && (
+                            <div className="text-center pt-10 text-muted-foreground">
+                              <Wine className="mx-auto h-12 w-12" />
+                              <p className="mt-4 text-sm">No wineries found.</p>
+                              <p className="text-xs">Try searching or adjusting your filter.</p>
+                            </div>
+                          )}
+                          {!searchState.isSearching && listResultsInView.map(winery => (
+                              <div key={winery.id} className="p-3 border rounded-lg cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] transition-all duration-200" onClick={() => handleOpenModal(winery)}>
+                                  <p className="font-medium text-sm">{winery.name}</p>
+                                  <p className="text-xs text-muted-foreground">{winery.address}</p>
+                                  {winery.rating && <p className="text-xs text-muted-foreground mt-1">★ {winery.rating}/5.0</p>}
                               </div>
-                            )}
-                            {!searchState.isSearching && listResultsInView.map(winery => (
-                                <div key={winery.id} className="p-3 border rounded-lg cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] transition-all duration-200" onClick={() => handleOpenModal(winery)}>
-                                    <p className="font-medium text-sm">{winery.name}</p>
-                                    <p className="text-xs text-muted-foreground">{winery.address}</p>
-                                    {winery.rating && <p className="text-xs text-muted-foreground mt-1">★ {winery.rating}/5.0</p>}
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
+                          ))}
+                      </div>
+                  </CardContent>
+              </Card>
+          </div>
+      </div>
       {selectedWinery && (<WineryModal 
         winery={selectedWinery} 
         onClose={() => setSelectedWinery(null)} 
