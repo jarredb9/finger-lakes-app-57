@@ -65,7 +65,7 @@ const MapComponent = memo(({ discoveredWineries, allVisited, allWishlist, allFav
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 
                 {(filter.includes('all') || filter.includes('notVisited')) && discoveredWineries.map(winery => (
-                    <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)}>
+                    <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)} zIndex={4}>
                         <div className="animate-pop-in">
                            <Pin background={'#3B82F6'} borderColor={'#2563EB'} glyphColor="#fff" />
                         </div>
@@ -90,7 +90,7 @@ const MapComponent = memo(({ discoveredWineries, allVisited, allWishlist, allFav
 });
 MapComponent.displayName = 'MapComponent';
 
-const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch, filter, onFilterChange }) => (
+const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, dispatch, filter, onFilterChange }: any) => (
     <Card>
         <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries by location, filter your results, or click directly on the map.</CardDescription> </CardHeader>
         <CardContent className="space-y-4">
@@ -408,30 +408,14 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   };
 
   const handleToggleWishlist = async (winery: Winery, isOnWishlist: boolean) => {
-    const method = isOnWishlist ? 'DELETE' : 'POST';
-    const body = isOnWishlist ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
-    try {
-      const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
-      if (response.ok) {
-        toast({ description: isOnWishlist ? "Removed from wishlist." : "Added to wishlist." });
-        await fetchWishlist();
-        setSelectedWinery(prev => prev ? { ...prev, onWishlist: !isOnWishlist } : null);
-      } else throw new Error();
-    } catch (error) { toast({ variant: 'destructive', description: "Could not update wishlist." }); }
+    await fetchWishlist(); // Refresh data
+    setSelectedWinery(prev => prev ? { ...prev, onWishlist: !isOnWishlist } : null);
   };
   
   const handleToggleFavorite = async (winery: Winery, isFavorite: boolean) => {
-      const method = isFavorite ? 'DELETE' : 'POST';
-      const body = isFavorite ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
-      try {
-        const response = await fetch('/api/favorites', { method, headers: { 'Content-Type': 'application/json' }, body });
-        if (response.ok) {
-          toast({ description: isFavorite ? "Removed from favorites." : "Added to favorites." });
-          await fetchFavorites();
-          setSelectedWinery(prev => prev ? { ...prev, isFavorite: !isFavorite } : null);
-        } else throw new Error();
-      } catch (error) { toast({ variant: 'destructive', description: "Could not update favorites." }); }
-    };
+    await fetchFavorites(); // Refresh data
+    setSelectedWinery(prev => prev ? { ...prev, isFavorite: !isFavorite } : null);
+  };
     
   const handleFilterChange = (newFilter: string[]) => {
       if (newFilter.length === 0) {
@@ -439,12 +423,10 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         return;
       }
       if (newFilter.length > 1 && newFilter.includes('all')) {
-        // If user selects another filter while 'all' is active, remove 'all'
         if(filter.includes('all')) {
             setFilter(newFilter.filter(f => f !== 'all'));
             return;
         }
-        // If user selects 'all' while other filters are active, only select 'all'
         else {
             setFilter(['all']);
             return;
