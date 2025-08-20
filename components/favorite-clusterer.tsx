@@ -35,7 +35,7 @@ export default function FavoriteClusterer({ wineries, onClick }: FavoriteCluster
                 scaledSize: new google.maps.Size(42, 42),
                 anchor: new google.maps.Point(20, 40),
               },
-              zIndex: google.maps.Marker.MAX_ZINDEX + count,
+              zIndex: 20 + count,
             });
           },
         }
@@ -61,7 +61,7 @@ export default function FavoriteClusterer({ wineries, onClick }: FavoriteCluster
             scale: 1.5,
             anchor: new google.maps.Point(12, 24),
         },
-        zIndex: 10, // Add this line
+        zIndex: 10,
       });
       marker.addListener('click', () => onClick(winery));
       return marker;

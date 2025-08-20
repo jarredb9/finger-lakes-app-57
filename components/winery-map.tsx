@@ -182,6 +182,9 @@ function useWineries() {
       address: w.address,
       lat: parseFloat(w.latitude),
       lng: parseFloat(w.longitude),
+      phone: w.phone,
+      website: w.website,
+      rating: w.google_rating,
       ...overrides
   });
 
@@ -212,8 +215,13 @@ function useWineries() {
   const fetchUserVisits = useCallback(async () => {
     try {
       const response = await fetch('/api/visits');
-      if (response.ok) setAllUserVisits(await response.json());
+      if (response.ok) {
+        const data = await response.json();
+        setAllUserVisits(data);
+        return data;
+      }
     } catch (error) { toast({ variant: "destructive", title: "Error", description: "Could not fetch your visits." }); }
+    return [];
   }, [toast]);
 
   useEffect(() => {
@@ -223,22 +231,33 @@ function useWineries() {
   }, [fetchUserVisits, fetchWishlist, fetchFavorites]);
 
   const allVisitedWineries = useMemo(() => {
-    if (!allUserVisits) return [];
-    const wishlistIds = new Set(allWishlistWineries.map(w => w.dbId));
-    const favoriteIds = new Set(allFavoriteWineries.map(w => w.dbId));
-    return allUserVisits.map(visit => {
-      if (!visit.wineries) return null;
-      return {
-        ...formatWinery(visit.wineries),
-        userVisited: true,
-        onWishlist: wishlistIds.has(visit.wineries.id),
-        isFavorite: favoriteIds.has(visit.wineries.id),
-        visits: [{...visit}]
-      }
-    }).filter(Boolean);
-  }, [allUserVisits, allWishlistWineries, allFavoriteWineries])
+    if (!allUserVisits || allUserVisits.length === 0) return [];
+    
+    const wineriesMap = new Map<number, any>();
+    allUserVisits.forEach(visit => {
+        if (!visit.wineries) return;
+        const wineryId = visit.wineries.id;
+        if (wineriesMap.has(wineryId)) {
+            wineriesMap.get(wineryId).visits.push(visit);
+        } else {
+            wineriesMap.set(wineryId, { ...visit.wineries, visits: [visit] });
+        }
+    });
 
-  return { fetchUserVisits, allVisitedWineries, allWishlistWineries, allFavoriteWineries, fetchWishlist, fetchFavorites };
+    return Array.from(wineriesMap.values()).map(winery => {
+        const onWishlist = allWishlistWineries.some(w => w.dbId === winery.id);
+        const isFavorite = allFavoriteWineries.some(f => f.dbId === winery.id);
+        return {
+            ...formatWinery(winery),
+            userVisited: true,
+            onWishlist,
+            isFavorite,
+            visits: winery.visits
+        };
+    });
+}, [allUserVisits, allWishlistWineries, allFavoriteWineries]);
+
+  return { allVisitedWineries, allWishlistWineries, allFavoriteWineries, fetchUserVisits, fetchWishlist, fetchFavorites };
 }
 
 function WineryMapLogic({ userId }: WineryMapProps) {
@@ -248,7 +267,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const [autoSearch, setAutoSearch] = useState(true);
   const [filter, setFilter] = useState<string[]>(['all']);
   const [mapBounds, setMapBounds] = useState<google.maps.LatLngBounds | null>(null);
-  const { fetchUserVisits, allVisitedWineries, allWishlistWineries, allFavoriteWineries, fetchWishlist, fetchFavorites } = useWineries();
+  const { allVisitedWineries, allWishlistWineries, allFavoriteWineries, fetchUserVisits, fetchWishlist, fetchFavorites } = useWineries();
   const { toast } = useToast();
   
   const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
@@ -400,7 +419,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
     if (response.ok) { 
       toast({ description: "Visit deleted successfully." }); 
-      await fetchUserVisits();
+      await Promise.all([fetchUserVisits(), fetchWishlist(), fetchFavorites()]);
       setSelectedWinery(null);
     } else { 
       toast({ variant: "destructive", description: "Failed to delete visit." }); 
@@ -408,14 +427,30 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   };
 
   const handleToggleWishlist = async (winery: Winery, isOnWishlist: boolean) => {
-    await fetchWishlist(); // Refresh data
-    setSelectedWinery(prev => prev ? { ...prev, onWishlist: !isOnWishlist } : null);
+    const method = isOnWishlist ? 'DELETE' : 'POST';
+    const body = isOnWishlist ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
+    try {
+      const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
+      if (response.ok) {
+        toast({ description: isOnWishlist ? "Removed from wishlist." : "Added to wishlist." });
+        await fetchWishlist();
+        setSelectedWinery(prev => prev ? { ...prev, onWishlist: !isOnWishlist } : null);
+      } else throw new Error();
+    } catch (error) { toast({ variant: 'destructive', description: "Could not update wishlist." }); }
   };
   
   const handleToggleFavorite = async (winery: Winery, isFavorite: boolean) => {
-    await fetchFavorites(); // Refresh data
-    setSelectedWinery(prev => prev ? { ...prev, isFavorite: !isFavorite } : null);
-  };
+      const method = isFavorite ? 'DELETE' : 'POST';
+      const body = isFavorite ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
+      try {
+        const response = await fetch('/api/favorites', { method, headers: { 'Content-Type': 'application/json' }, body });
+        if (response.ok) {
+          toast({ description: isFavorite ? "Removed from favorites." : "Added to favorites." });
+          await fetchFavorites();
+          setSelectedWinery(prev => prev ? { ...prev, isFavorite: !isFavorite } : null);
+        } else throw new Error();
+      } catch (error) { toast({ variant: 'destructive', description: "Could not update favorites." }); }
+    };
     
   const handleFilterChange = (newFilter: string[]) => {
       if (newFilter.length === 0) {

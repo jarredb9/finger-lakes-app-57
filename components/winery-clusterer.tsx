@@ -35,8 +35,7 @@ export default function WineryClusterer({ wineries, onClick }: WineryClustererPr
                 scaledSize: new google.maps.Size(42, 42),
                 anchor: new google.maps.Point(20, 40),
               },
-              // Make sure cluster markers are not clickable to open a modal
-              zIndex: google.maps.Marker.MAX_ZINDEX + count,
+              zIndex: 15 + count,
             });
           },
         }
@@ -62,7 +61,7 @@ export default function WineryClusterer({ wineries, onClick }: WineryClustererPr
             scale: 1.5,
             anchor: new google.maps.Point(12, 24),
         },
-        zIndex: 6, // Add this line
+        zIndex: 6,
       });
       marker.addListener('click', () => onClick(winery));
       return marker;
