@@ -60,11 +60,26 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 }
 
 const MapComponent = memo(({ discoveredWineries, allVisited, allWishlist, allFavorites, filter, onMarkerClick }: { discoveredWineries: Winery[], allVisited: Winery[], allWishlist: Winery[], allFavorites: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void }) => {
+    
+    // Create a Set of all persistent winery IDs for efficient lookup
+    const persistentWineryIds = useMemo(() => {
+        const ids = new Set<string>();
+        allVisited.forEach(w => ids.add(w.id));
+        allWishlist.forEach(w => ids.add(w.id));
+        allFavorites.forEach(w => ids.add(w.id));
+        return ids;
+    }, [allVisited, allWishlist, allFavorites]);
+
+    // Filter discovered wineries to exclude any that are already in a persistent list
+    const trulyDiscoveredWineries = useMemo(() => {
+        return discoveredWineries.filter(w => !persistentWineryIds.has(w.id));
+    }, [discoveredWineries, persistentWineryIds]);
+
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 
-                {(filter.includes('all') || filter.includes('notVisited')) && discoveredWineries.map(winery => (
+                {(filter.includes('all') || filter.includes('notVisited')) && trulyDiscoveredWineries.map(winery => (
                     <AdvancedMarker key={winery.id} position={{lat: winery.lat, lng: winery.lng}} onClick={() => onMarkerClick(winery)} zIndex={4}>
                         <div className="animate-pop-in">
                            <Pin background={'#3B82F6'} borderColor={'#2563EB'} glyphColor="#fff" />
@@ -473,7 +488,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   return (
     <div className="space-y-6">
       <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} dispatch={dispatch} filter={filter} onFilterChange={handleFilterChange} />
-      <ResultsUI wineries={listResultsInView} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} allWishlist={allWishlistWineries.filter(w => !allVisitedWineries.some(v => v.id === w.id))} allFavorites={allFavoriteWineries} />
+      <ResultsUI wineries={listResultsInView} onOpenModal={handleOpenModal} isSearching={searchState.isSearching} filter={filter} allVisited={allVisitedWineries} allWishlist={allWishlistWineries} allFavorites={allFavoriteWineries} />
       {selectedWinery && (<WineryModal 
         winery={selectedWinery} 
         onClose={() => setSelectedWinery(null)} 
