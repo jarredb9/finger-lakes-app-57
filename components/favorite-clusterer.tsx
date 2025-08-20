@@ -35,7 +35,8 @@ export default function FavoriteClusterer({ wineries, onClick }: FavoriteCluster
                 scaledSize: new google.maps.Size(42, 42),
                 anchor: new google.maps.Point(20, 40),
               },
-              zIndex: 20 + count,
+              // Highest zIndex for favorite clusters
+              zIndex: 20 + count, 
             });
           },
         }

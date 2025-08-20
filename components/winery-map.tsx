@@ -61,7 +61,6 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 
 const MapComponent = memo(({ discoveredWineries, allVisited, allWishlist, allFavorites, filter, onMarkerClick }: { discoveredWineries: Winery[], allVisited: Winery[], allWishlist: Winery[], allFavorites: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void }) => {
     
-    // Create a Set of all persistent winery IDs for efficient lookup
     const persistentWineryIds = useMemo(() => {
         const ids = new Set<string>();
         allVisited.forEach(w => ids.add(w.id));
@@ -70,7 +69,6 @@ const MapComponent = memo(({ discoveredWineries, allVisited, allWishlist, allFav
         return ids;
     }, [allVisited, allWishlist, allFavorites]);
 
-    // Filter discovered wineries to exclude any that are already in a persistent list
     const trulyDiscoveredWineries = useMemo(() => {
         return discoveredWineries.filter(w => !persistentWineryIds.has(w.id));
     }, [discoveredWineries, persistentWineryIds]);
@@ -208,8 +206,10 @@ function useWineries() {
       const response = await fetch('/api/wishlist');
       if (response.ok) {
         const items = await response.json();
-        setAllWishlistWineries(items.map((w: any) => formatWinery(w, { onWishlist: true })));
-        return items;
+        const formattedItems = items.map((w: any) => formatWinery(w, { onWishlist: true }));
+        console.log("Fetched Wishlist POIs:", formattedItems.length);
+        setAllWishlistWineries(formattedItems);
+        return formattedItems;
       }
     } catch (error) { console.error("Failed to fetch wishlist", error); }
     return [];
@@ -220,8 +220,10 @@ function useWineries() {
       const response = await fetch('/api/favorites');
       if (response.ok) {
         const items = await response.json();
-        setAllFavoriteWineries(items.map((w: any) => formatWinery(w, { isFavorite: true })));
-        return items;
+        const formattedItems = items.map((w: any) => formatWinery(w, { isFavorite: true }));
+        console.log("Fetched Favorite POIs:", formattedItems.length);
+        setAllFavoriteWineries(formattedItems);
+        return formattedItems;
       }
     } catch (error) { console.error("Failed to fetch favorites", error); }
     return [];
@@ -232,6 +234,7 @@ function useWineries() {
       const response = await fetch('/api/visits');
       if (response.ok) {
         const data = await response.json();
+        console.log("Fetched User Visits:", data.length);
         setAllUserVisits(data);
         return data;
       }
@@ -240,6 +243,7 @@ function useWineries() {
   }, [toast]);
 
   useEffect(() => {
+    console.log("useWineries hook: Initial data fetch started.");
     fetchUserVisits();
     fetchWishlist();
     fetchFavorites();
@@ -248,6 +252,7 @@ function useWineries() {
   const allVisitedWineries = useMemo(() => {
     if (!allUserVisits || allUserVisits.length === 0) return [];
     
+    console.log("Calculating allVisitedWineries...");
     const wineriesMap = new Map<number, any>();
     allUserVisits.forEach(visit => {
         if (!visit.wineries) return;
@@ -259,7 +264,7 @@ function useWineries() {
         }
     });
 
-    return Array.from(wineriesMap.values()).map(winery => {
+    const result = Array.from(wineriesMap.values()).map(winery => {
         const onWishlist = allWishlistWineries.some(w => w.dbId === winery.id);
         const isFavorite = allFavoriteWineries.some(f => f.dbId === winery.id);
         return {
@@ -270,6 +275,8 @@ function useWineries() {
             visits: winery.visits
         };
     });
+    console.log("Finished calculating allVisitedWineries. Count:", result.length);
+    return result;
 }, [allUserVisits, allWishlistWineries, allFavoriteWineries]);
 
   return { allVisitedWineries, allWishlistWineries, allFavoriteWineries, fetchUserVisits, fetchWishlist, fetchFavorites };
