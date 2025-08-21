@@ -10,7 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Star, ArrowUp, ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-// A new component for the mobile card view
 const MobileVisitCard = ({ visit, onWinerySelect }: { visit: Visit; onWinerySelect: (wineryDbId: number) => void; }) => (
     <Card className="mb-4" onClick={() => onWinerySelect(visit.wineries!.id)}>
         <CardHeader>
@@ -63,7 +62,6 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
             if (current.key === key) {
                 return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
             }
-            // Default sort directions for new keys
             return { key, direction: key === 'name' ? 'asc' : 'desc' };
         });
     };

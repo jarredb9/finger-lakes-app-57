@@ -91,7 +91,7 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
         <CardContent className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-4">
                 <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
-                    <Input placeholder="Enter a city or wine region (e.g., Napa Valley)" value={searchLocation} onChange={e => setSearchLocation(e.target.value)} aria-label="Search Location"/>
+                    <Input placeholder="Enter a city or wine region (e.g., Napa Valley)" value={searchLocation} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchLocation(e.target.value)} aria-label="Search Location"/>
                     <Button type="submit" disabled={searchState.isSearching} aria-label="Search"> {searchState.isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />} <span className="ml-2">Search</span> </Button>
                 </form>
                 <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching} aria-label="Search This Area"> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
@@ -208,7 +208,6 @@ function WineryMapLogic({ userId }: { userId: string }) {
             textQuery: term,
             fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"],
             locationRestriction: searchBounds,
-            // strictBounds: true, // REMOVED THIS LINE
         };
         
         try {
@@ -459,7 +458,7 @@ function WineryMapLogic({ userId }: { userId: string }) {
   );
 }
 
-export default function WineryMapWrapper({ userId }: WineryMapProps) {
+export default function WineryMapWrapper({ userId }: { userId: string }) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
