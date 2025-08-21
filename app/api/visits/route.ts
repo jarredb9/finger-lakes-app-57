@@ -9,37 +9,53 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const { searchParams } = new URL(request.url);
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "10", 10);
-    const offset = (page - 1) * limit;
-
     const supabase = await createClient()
+    const { searchParams } = new URL(request.url);
+    const pageParam = searchParams.get("page");
+    const limitParam = searchParams.get("limit");
 
-    // Query to get the paginated data
-    const { data: visits, error } = await supabase
-      .from("visits")
-      .select("*, wineries(*)", { count: "exact" }) // request the total count
-      .eq("user_id", user.id)
-      .order("visit_date", { ascending: false })
-      .range(offset, offset + limit - 1);
+    // Check if pagination parameters are provided
+    if (pageParam && limitParam) {
+        const page = parseInt(pageParam, 10);
+        const limit = parseInt(limitParam, 10);
+        const offset = (page - 1) * limit;
 
-    if (error) {
-      console.error("Error fetching visits:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+        // Query for paginated data
+        const { data: visits, error: visitsError, count } = await supabase
+            .from("visits")
+            .select("*, wineries(*)", { count: "exact" })
+            .eq("user_id", user.id)
+            .order("visit_date", { ascending: false })
+            .range(offset, offset + limit - 1);
+
+        if (visitsError) {
+            console.error("Error fetching paginated visits:", visitsError);
+            return NextResponse.json({ error: visitsError.message }, { status: 500 });
+        }
+
+        return NextResponse.json({
+            visits: visits || [],
+            totalCount: count || 0,
+        });
+
+    } else {
+        // Original behavior: fetch all visits
+        const { data: visits, error } = await supabase
+            .from("visits")
+            .select("*, wineries(*)")
+            .eq("user_id", user.id)
+            .order("visit_date", { ascending: false });
+
+        if (error) {
+            console.error("Error fetching all visits:", error);
+            return NextResponse.json({ error: error.message }, { status: 500 });
+        }
+        
+        return NextResponse.json(visits || []);
     }
-    
-    // The count is returned from the query when { count: 'exact' } is set
-    const { count } = await supabase.from("visits").select("*", { count: "exact", head: true }).eq("user_id", user.id);
-
-
-    return NextResponse.json({
-        visits: visits || [],
-        totalCount: count || 0,
-    });
   } catch (error) {
-    console.error("Internal error fetching visits:", error)
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+    console.error("Internal error fetching visits:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
 

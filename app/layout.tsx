@@ -17,6 +17,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
+      <head>
+        <link rel="icon" href="/placeholder-logo.png" sizes="any" />
+      </head>
       <body>
         {children}
         <Toaster />
