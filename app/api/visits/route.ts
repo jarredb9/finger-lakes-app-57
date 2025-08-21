@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
         const limit = parseInt(limitParam, 10);
         const offset = (page - 1) * limit;
 
-        // Query for paginated data
+        // Efficiently query for paginated data AND the total count in one go
         const { data: visits, error: visitsError, count } = await supabase
             .from("visits")
             .select("*, wineries(*)", { count: "exact" })
@@ -32,14 +32,15 @@ export async function GET(request: NextRequest) {
             console.error("Error fetching paginated visits:", visitsError);
             return NextResponse.json({ error: visitsError.message }, { status: 500 });
         }
-
+        
+        // Return the data and the count from the single query
         return NextResponse.json({
             visits: visits || [],
             totalCount: count || 0,
         });
 
     } else {
-        // Original behavior: fetch all visits
+        // Original behavior: fetch all visits for other parts of the app
         const { data: visits, error } = await supabase
             .from("visits")
             .select("*, wineries(*)")
