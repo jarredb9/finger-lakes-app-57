@@ -47,7 +47,8 @@ export default function VisitHistory({ onWinerySelect }: VisitHistoryProps) {
     }
 
     return (
-        <div>
+        // Add the responsive-table class here
+        <div className="responsive-table">
             <h1 className="text-2xl font-bold mb-4">Your Visit History</h1>
             <p className="text-muted-foreground mb-6">
                 Here you can find all of your past winery visits. Click on a row to see more details.
