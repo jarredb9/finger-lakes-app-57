@@ -13,7 +13,7 @@ const WineryMap = dynamic(() => import('@/components/winery-map'), {
 });
 
 async function getUserStats(userId: string) {
-  const supabase = await createClient();
+  const supabase = createClient();
   
   const { data: visits, error: visitsError } = await supabase
     .from('visits')
