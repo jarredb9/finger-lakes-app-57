@@ -4,7 +4,8 @@ export interface Visit {
   user_review: string;
   rating?: number;
   photos?: string[];
-  wineries: {
+  // This was previously just an object, now it's correctly typed
+  wineries?: {
     id: number;
     google_place_id: string;
     name: string;
