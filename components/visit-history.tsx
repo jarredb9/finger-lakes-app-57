@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { ColumnFiltersState } from "@tanstack/react-table"
 
 const MobileVisitCard = ({ visit, onWinerySelect }: { visit: Visit; onWinerySelect: (wineryDbId: number) => void; }) => (
     <Card className="mb-4" onClick={() => onWinerySelect(visit.wineries!.id)}>
@@ -39,7 +38,7 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
     const [visits, setVisits] = useState<Visit[]>([]);
     const [loading, setLoading] = useState(true);
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
-    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
+    const [filter, setFilter] = useState("");
 
     useEffect(() => {
         async function fetchVisits() {
@@ -67,8 +66,15 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         });
     };
     
-    const sortedVisits = useMemo(() => {
-        return [...visits].sort((a, b) => {
+    const sortedAndFilteredVisits = useMemo(() => {
+        let filtered = visits.filter(visit => {
+            const name = visit.wineries?.name?.toLowerCase() || "";
+            const review = visit.user_review?.toLowerCase() || "";
+            const searchTerm = filter.toLowerCase();
+            return name.includes(searchTerm) || review.includes(searchTerm);
+        });
+
+        return [...filtered].sort((a, b) => {
             if (sortConfig.key === 'date') {
                 const dateA = new Date(a.visit_date).getTime();
                 const dateB = new Date(b.visit_date).getTime();
@@ -86,7 +92,7 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
             }
             return 0;
         });
-    }, [visits, sortConfig]);
+    }, [visits, sortConfig, filter]);
 
     const handleRowClick = (visit: Visit) => {
         if (visit.wineries?.id) {
@@ -94,8 +100,8 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         }
     };
     
-    const clearFilters = () => {
-        setColumnFilters([]);
+    const clearFiltersAndSort = () => {
+        setFilter("");
         setSortConfig({ key: 'date', direction: 'desc' });
     };
 
@@ -110,10 +116,8 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
 
     const SortIcon = ({ sortKey }: { sortKey: SortConfig['key'] }) => {
         if (sortConfig.key !== sortKey) return null;
-        return sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+        return sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />;
     };
-    
-    const filterValue = (columnFilters.find(f => f.id === 'winery_name')?.value as string) || '';
 
     return (
         <div>
@@ -122,14 +126,12 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
                 Here you can find all of your past winery visits. Click on a row to see more details.
             </p>
             
-            <div className="flex flex-col md:flex-row gap-4 mb-4">
+            {/* Mobile-only controls */}
+            <div className="md:hidden space-y-4 mb-4">
                 <Input
                     placeholder="Filter by winery or review..."
-                    value={filterValue}
-                    onChange={(event) =>
-                        setColumnFilters([{ id: 'winery_name', value: event.target.value }])
-                    }
-                    className="max-w-sm"
+                    value={filter}
+                    onChange={(event) => setFilter(event.target.value)}
                 />
                 <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">Sort by:</span>
@@ -137,40 +139,28 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
                         Date <SortIcon sortKey="date" />
                     </Button>
                     <Button variant={sortConfig.key === 'name' ? 'secondary' : 'ghost'} onClick={() => handleSort('name')}>
-                        Winery Name <SortIcon sortKey="name" />
+                        Winery <SortIcon sortKey="name" />
                     </Button>
                     <Button variant={sortConfig.key === 'rating' ? 'secondary' : 'ghost'} onClick={() => handleSort('rating')}>
                         Rating <SortIcon sortKey="rating" />
                     </Button>
-                    <Button variant="ghost" onClick={clearFilters}><XCircle className="h-4 w-4 mr-2" />Clear</Button>
+                     {(filter || sortConfig.key !== 'date') && (
+                        <Button variant="ghost" size="icon" onClick={clearFiltersAndSort}>
+                            <XCircle className="h-4 w-4" />
+                        </Button>
+                    )}
                 </div>
             </div>
 
             {/* Desktop View: Table */}
             <div className="hidden md:block">
-                <DataTable 
-                    columns={columns} 
-                    data={sortedVisits} 
-                    onRowClick={handleRowClick} 
-                    columnFilters={columnFilters}
-                    setColumnFilters={setColumnFilters}
-                />
+                <DataTable columns={columns} data={visits} onRowClick={handleRowClick} />
             </div>
 
             {/* Mobile View: Cards */}
             <div className="block md:hidden">
-                {sortedVisits.filter(visit => {
-                     const name = visit.wineries?.name?.toLowerCase() || "";
-                     const review = visit.user_review?.toLowerCase() || "";
-                     const searchTerm = filterValue.toLowerCase();
-                     return name.includes(searchTerm) || review.includes(searchTerm);
-                }).length > 0 ? (
-                    sortedVisits.filter(visit => {
-                        const name = visit.wineries?.name?.toLowerCase() || "";
-                        const review = visit.user_review?.toLowerCase() || "";
-                        const searchTerm = filterValue.toLowerCase();
-                        return name.includes(searchTerm) || review.includes(searchTerm);
-                   }).map(visit => (
+                {sortedAndFilteredVisits.length > 0 ? (
+                    sortedAndFilteredVisits.map(visit => (
                         <MobileVisitCard key={visit.id} visit={visit} onWinerySelect={handleRowClick} />
                     ))
                 ) : (
