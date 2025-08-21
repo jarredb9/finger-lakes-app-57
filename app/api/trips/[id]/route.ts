@@ -39,7 +39,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             throw error;
         }
 
-        if (data.length === 0) {
+        if (!data || data.length === 0) {
             return NextResponse.json({ error: "Visit not found or user not authorized" }, { status: 404 });
         }
 
@@ -47,6 +47,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         return NextResponse.json({ success: true, visit: data[0] });
 
     } catch (error) {
+        console.error("Internal server error during visit update:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
@@ -64,11 +65,13 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     const { error } = await supabase.from("visits").delete().eq("id", visitId).eq("user_id", user.id);
 
     if (error) {
+      console.error("Error deleting visit:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("Internal error during visit deletion:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }
