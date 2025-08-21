@@ -9,20 +9,34 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "10", 10);
+    const offset = (page - 1) * limit;
+
     const supabase = await createClient()
-    // Updated query to join and select all columns from the wineries table
+
+    // Query to get the paginated data
     const { data: visits, error } = await supabase
       .from("visits")
-      .select("*, wineries(*)")
+      .select("*, wineries(*)", { count: "exact" }) // request the total count
       .eq("user_id", user.id)
       .order("visit_date", { ascending: false })
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error("Error fetching visits:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+    
+    // The count is returned from the query when { count: 'exact' } is set
+    const { count } = await supabase.from("visits").select("*", { count: "exact", head: true }).eq("user_id", user.id);
 
-    return NextResponse.json(visits || [])
+
+    return NextResponse.json({
+        visits: visits || [],
+        totalCount: count || 0,
+    });
   } catch (error) {
     console.error("Internal error fetching visits:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
