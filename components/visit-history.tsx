@@ -31,6 +31,12 @@ export default function VisitHistory({ onWinerySelect }: VisitHistoryProps) {
         fetchVisits();
     }, []);
 
+    const handleRowClick = (visit: Visit) => {
+        if (visit.wineries?.id) {
+            onWinerySelect(visit.wineries.id);
+        }
+    };
+
     if (loading) {
         return (
             <div className="space-y-4">
@@ -44,10 +50,9 @@ export default function VisitHistory({ onWinerySelect }: VisitHistoryProps) {
         <div>
             <h1 className="text-2xl font-bold mb-4">Your Visit History</h1>
             <p className="text-muted-foreground mb-6">
-                Here you can find all of your past winery visits. Use the search bar to filter by winery name or review content, or click the column headers to sort.
+                Here you can find all of your past winery visits. Click on a row to see more details.
             </p>
-            {/* We pass the onWinerySelect function down into the data table through the columns */}
-            <DataTable columns={columns(onWinerySelect)} data={visits} />
+            <DataTable columns={columns} data={visits} onRowClick={handleRowClick} />
         </div>
     )
 }

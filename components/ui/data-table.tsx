@@ -25,11 +25,13 @@ import { Input } from "@/components/ui/input"
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
+  onRowClick: (row: TData) => void; // Add this new prop
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
+  onRowClick, // Destructure the new prop
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -86,6 +88,8 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  onClick={() => onRowClick(row.original)} // Add the onClick handler here
+                  className="cursor-pointer" // Add cursor pointer for better UX
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

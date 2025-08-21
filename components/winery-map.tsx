@@ -208,7 +208,7 @@ function WineryMapLogic({ userId }: { userId: string }) {
             textQuery: term,
             fields: ["displayName", "location", "formattedAddress", "rating", "id", "websiteURI", "nationalPhoneNumber"],
             locationRestriction: searchBounds,
-            strictBounds: true,
+            // strictBounds: true, // REMOVED THIS LINE
         };
         
         try {
