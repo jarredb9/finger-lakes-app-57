@@ -8,7 +8,8 @@ import { Star } from "lucide-react"
 
 export const columns: ColumnDef<Visit>[] = [
   {
-    accessorKey: "winery_name",
+    // CORRECTED: Use dot notation for nested accessor key
+    accessorKey: "wineries.name", 
     header: ({ column }) => {
       return (
         <Button
@@ -22,9 +23,9 @@ export const columns: ColumnDef<Visit>[] = [
     },
     cell: ({ row }) => {
         const name = row.original.wineries?.name;
-        // The 'before' content is for the mobile card label
-        return <div className="font-medium before:content-['Winery:'] before:font-normal before:text-muted-foreground md:before:content-none">{name}</div>
+        return <div className="font-medium">{name}</div>
     },
+    // This enables the global search to filter based on this column
     filterFn: (row, id, value) => {
         const review = row.original.user_review || "";
         const name = row.original.wineries?.name || "";
@@ -45,8 +46,7 @@ export const columns: ColumnDef<Visit>[] = [
       )
     },
     cell: ({ row }) => {
-        const date = new Date(row.original.visit_date + 'T00:00:00').toLocaleDateString();
-        return <div className="before:content-['Date:'] before:font-normal before:text-muted-foreground md:before:content-none">{date}</div>
+        return new Date(row.original.visit_date + 'T00:00:00').toLocaleDateString()
     }
   },
   {
@@ -64,15 +64,13 @@ export const columns: ColumnDef<Visit>[] = [
     },
     cell: ({ row }) => {
         const rating = row.original.rating;
-        if (!rating) return <div className="text-muted-foreground before:content-['Rating:'] before:font-normal md:before:content-none">Unrated</div>
+        if (!rating) return <div className="text-muted-foreground">Unrated</div>
 
         return (
-            <div className="flex items-center gap-x-2 before:content-['Rating:'] before:font-normal before:text-muted-foreground md:before:content-none">
-                <div className="flex">
-                    {[...Array(5)].map((_, i) => (
-                        <Star key={i} className={`w-4 h-4 ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
-                    ))}
-                </div>
+            <div className="flex items-center">
+                {[...Array(5)].map((_, i) => (
+                    <Star key={i} className={`w-4 h-4 ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+                ))}
             </div>
         )
     }
@@ -82,7 +80,7 @@ export const columns: ColumnDef<Visit>[] = [
     header: "Review",
     cell: ({ row }) => {
         const review = row.original.user_review;
-        return <div className="text-sm text-muted-foreground truncate max-w-xs md:before:content-none before:content-['Review:'] before:font-normal before:text-muted-foreground">{review || "No review."}</div>
+        return <div className="text-sm text-muted-foreground truncate max-w-xs">{review || "No review."}</div>
     }
   },
 ]
