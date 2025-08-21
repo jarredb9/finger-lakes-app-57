@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ColumnFiltersState } from "@tanstack/react-table"
 
 const MobileVisitCard = ({ visit, onWinerySelect }: { visit: Visit; onWinerySelect: (wineryDbId: number) => void; }) => (
     <Card className="mb-4" onClick={() => onWinerySelect(visit.wineries!.id)}>
@@ -37,8 +38,9 @@ type SortConfig = {
 export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wineryDbId: number) => void; }) {
     const [visits, setVisits] = useState<Visit[]>([]);
     const [loading, setLoading] = useState(true);
-    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
-    const [filter, setFilter] = useState("");
+    // This state is now for mobile sorting only
+    const [mobileSortConfig, setMobileSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
     useEffect(() => {
         async function fetchVisits() {
@@ -57,42 +59,46 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         fetchVisits();
     }, []);
 
-    const handleSort = (key: SortConfig['key']) => {
-        setSortConfig(current => {
+    const handleMobileSort = (key: SortConfig['key']) => {
+        setMobileSortConfig(current => {
             if (current.key === key) {
                 return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
             }
+            // Default sort directions for new keys
             return { key, direction: key === 'name' ? 'asc' : 'desc' };
         });
     };
     
-    const sortedAndFilteredVisits = useMemo(() => {
+    // This sorting logic is now only for the mobile card view
+    const mobileSortedVisits = useMemo(() => {
+        const filterValue = (columnFilters.find(f => f.id === 'winery_name')?.value as string) || '';
+        
         let filtered = visits.filter(visit => {
             const name = visit.wineries?.name?.toLowerCase() || "";
             const review = visit.user_review?.toLowerCase() || "";
-            const searchTerm = filter.toLowerCase();
+            const searchTerm = filterValue.toLowerCase();
             return name.includes(searchTerm) || review.includes(searchTerm);
         });
 
         return [...filtered].sort((a, b) => {
-            if (sortConfig.key === 'date') {
+            if (mobileSortConfig.key === 'date') {
                 const dateA = new Date(a.visit_date).getTime();
                 const dateB = new Date(b.visit_date).getTime();
-                return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
+                return mobileSortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
             }
-            if (sortConfig.key === 'name') {
+            if (mobileSortConfig.key === 'name') {
                 const nameA = a.wineries?.name || "";
                 const nameB = b.wineries?.name || "";
-                return sortConfig.direction === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+                return mobileSortConfig.direction === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
             }
-            if (sortConfig.key === 'rating') {
+            if (mobileSortConfig.key === 'rating') {
                 const ratingA = a.rating || 0;
                 const ratingB = b.rating || 0;
-                return sortConfig.direction === 'asc' ? ratingA - ratingB : ratingB - ratingA;
+                return mobileSortConfig.direction === 'asc' ? ratingA - ratingB : ratingB - ratingA;
             }
             return 0;
         });
-    }, [visits, sortConfig, filter]);
+    }, [visits, mobileSortConfig, columnFilters]);
 
     const handleRowClick = (visit: Visit) => {
         if (visit.wineries?.id) {
@@ -100,9 +106,9 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         }
     };
     
-    const clearFiltersAndSort = () => {
-        setFilter("");
-        setSortConfig({ key: 'date', direction: 'desc' });
+    const clearFilters = () => {
+        setColumnFilters([]);
+        setMobileSortConfig({ key: 'date', direction: 'desc' });
     };
 
     if (loading) {
@@ -115,9 +121,11 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
     }
 
     const SortIcon = ({ sortKey }: { sortKey: SortConfig['key'] }) => {
-        if (sortConfig.key !== sortKey) return null;
-        return sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />;
+        if (mobileSortConfig.key !== sortKey) return null;
+        return mobileSortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />;
     };
+    
+    const filterValue = (columnFilters.find(f => f.id === 'winery_name')?.value as string) || '';
 
     return (
         <div>
@@ -130,22 +138,24 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
             <div className="md:hidden space-y-4 mb-4">
                 <Input
                     placeholder="Filter by winery or review..."
-                    value={filter}
-                    onChange={(event) => setFilter(event.target.value)}
+                    value={filterValue}
+                    onChange={(event) =>
+                        setColumnFilters([{ id: 'winery_name', value: event.target.value }])
+                    }
                 />
                 <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">Sort by:</span>
-                    <Button variant={sortConfig.key === 'date' ? 'secondary' : 'ghost'} onClick={() => handleSort('date')}>
+                    <Button variant={mobileSortConfig.key === 'date' ? 'secondary' : 'ghost'} onClick={() => handleMobileSort('date')}>
                         Date <SortIcon sortKey="date" />
                     </Button>
-                    <Button variant={sortConfig.key === 'name' ? 'secondary' : 'ghost'} onClick={() => handleSort('name')}>
+                    <Button variant={mobileSortConfig.key === 'name' ? 'secondary' : 'ghost'} onClick={() => handleMobileSort('name')}>
                         Winery <SortIcon sortKey="name" />
                     </Button>
-                    <Button variant={sortConfig.key === 'rating' ? 'secondary' : 'ghost'} onClick={() => handleSort('rating')}>
+                    <Button variant={mobileSortConfig.key === 'rating' ? 'secondary' : 'ghost'} onClick={() => handleMobileSort('rating')}>
                         Rating <SortIcon sortKey="rating" />
                     </Button>
-                     {(filter || sortConfig.key !== 'date') && (
-                        <Button variant="ghost" size="icon" onClick={clearFiltersAndSort}>
+                     {(filterValue || mobileSortConfig.key !== 'date') && (
+                        <Button variant="ghost" size="icon" onClick={clearFilters}>
                             <XCircle className="h-4 w-4" />
                         </Button>
                     )}
@@ -154,13 +164,19 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
 
             {/* Desktop View: Table */}
             <div className="hidden md:block">
-                <DataTable columns={columns} data={visits} onRowClick={handleRowClick} />
+                <DataTable 
+                    columns={columns} 
+                    data={visits} 
+                    onRowClick={handleRowClick} 
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                />
             </div>
 
             {/* Mobile View: Cards */}
             <div className="block md:hidden">
-                {sortedAndFilteredVisits.length > 0 ? (
-                    sortedAndFilteredVisits.map(visit => (
+                {mobileSortedVisits.length > 0 ? (
+                    mobileSortedVisits.map(visit => (
                         <MobileVisitCard key={visit.id} visit={visit} onWinerySelect={handleRowClick} />
                     ))
                 ) : (
