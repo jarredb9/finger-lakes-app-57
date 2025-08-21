@@ -66,7 +66,7 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         });
     };
     
-    const sortedAndFilteredVisits = useMemo(() => {
+    const sortedAndFilteredVisitsForMobile = useMemo(() => {
         let filtered = visits.filter(visit => {
             const name = visit.wineries?.name?.toLowerCase() || "";
             const review = visit.user_review?.toLowerCase() || "";
@@ -119,7 +119,7 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         return sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />;
     };
     
-    const showMobileClear = filter || sortConfig.key !== 'date' || sortConfig.direction !== 'desc';
+    const showMobileClear = filter || !(sortConfig.key === 'date' && sortConfig.direction === 'desc');
 
     return (
         <div>
@@ -161,8 +161,8 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
 
             {/* Mobile View: Cards */}
             <div className="block md:hidden">
-                {sortedAndFilteredVisits.length > 0 ? (
-                    sortedAndFilteredVisits.map(visit => (
+                {sortedAndFilteredVisitsForMobile.length > 0 ? (
+                    sortedAndFilteredVisitsForMobile.map(visit => (
                         <MobileVisitCard key={visit.id} visit={visit} onWinerySelect={handleRowClick} />
                     ))
                 ) : (

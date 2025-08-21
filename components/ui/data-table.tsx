@@ -59,7 +59,6 @@ export function DataTable<TData, TValue>({
         <div className="flex items-center justify-between py-4">
             <Input
                 placeholder="Filter by winery or review..."
-                // CORRECTED: Use the correct accessor key for the filter
                 value={(table.getColumn("wineries.name")?.getFilterValue() as string) ?? ""}
                 onChange={(event) =>
                     table.getColumn("wineries.name")?.setFilterValue(event.target.value)
