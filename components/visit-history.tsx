@@ -5,10 +5,10 @@ import { Visit } from "@/lib/types"
 import { DataTable } from "@/components/ui/data-table"
 import { columns } from "@/components/visits-table-columns"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Star } from "lucide-react"
+import { Star, ArrowUp, ArrowDown } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 // A new component for the mobile card view
 const MobileVisitCard = ({ visit, onWinerySelect }: { visit: Visit; onWinerySelect: (wineryDbId: number) => void; }) => (
@@ -30,10 +30,15 @@ const MobileVisitCard = ({ visit, onWinerySelect }: { visit: Visit; onWinerySele
     </Card>
 );
 
+type SortConfig = {
+    key: 'date' | 'name' | 'rating';
+    direction: 'asc' | 'desc';
+};
+
 export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wineryDbId: number) => void; }) {
     const [visits, setVisits] = useState<Visit[]>([]);
     const [loading, setLoading] = useState(true);
-    const [sortOption, setSortOption] = useState("date-desc");
+    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
     const [filter, setFilter] = useState("");
 
     useEffect(() => {
@@ -53,6 +58,16 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         fetchVisits();
     }, []);
 
+    const handleSort = (key: SortConfig['key']) => {
+        setSortConfig(current => {
+            if (current.key === key) {
+                return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
+            }
+            // Default sort directions for new keys
+            return { key, direction: key === 'name' ? 'asc' : 'desc' };
+        });
+    };
+    
     const sortedAndFilteredVisits = useMemo(() => {
         let filtered = visits.filter(visit => {
             const name = visit.wineries?.name?.toLowerCase() || "";
@@ -61,20 +76,25 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
             return name.includes(searchTerm) || review.includes(searchTerm);
         });
 
-        return filtered.sort((a, b) => {
-            switch (sortOption) {
-                case "date-asc":
-                    return new Date(a.visit_date).getTime() - new Date(b.visit_date).getTime();
-                case "name-asc":
-                    return (a.wineries?.name || "").localeCompare(b.wineries?.name || "");
-                case "rating-desc":
-                    return (b.rating || 0) - (a.rating || 0);
-                case "date-desc":
-                default:
-                    return new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime();
+        return [...filtered].sort((a, b) => {
+            if (sortConfig.key === 'date') {
+                const dateA = new Date(a.visit_date).getTime();
+                const dateB = new Date(b.visit_date).getTime();
+                return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
             }
+            if (sortConfig.key === 'name') {
+                const nameA = a.wineries?.name || "";
+                const nameB = b.wineries?.name || "";
+                return sortConfig.direction === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+            }
+            if (sortConfig.key === 'rating') {
+                const ratingA = a.rating || 0;
+                const ratingB = b.rating || 0;
+                return sortConfig.direction === 'asc' ? ratingA - ratingB : ratingB - ratingA;
+            }
+            return 0;
         });
-    }, [visits, sortOption, filter]);
+    }, [visits, sortConfig, filter]);
 
     const handleRowClick = (visit: Visit) => {
         if (visit.wineries?.id) {
@@ -91,11 +111,16 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         );
     }
 
+    const SortIcon = ({ sortKey }: { sortKey: SortConfig['key'] }) => {
+        if (sortConfig.key !== sortKey) return null;
+        return sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
+    };
+
     return (
         <div>
             <h1 className="text-2xl font-bold mb-4">Your Visit History</h1>
             <p className="text-muted-foreground mb-6">
-                Here you can find all of your past winery visits. Use the search bar to filter, or the dropdown to sort your history.
+                Here you can find all of your past winery visits. Click on a row to see more details.
             </p>
             
             <div className="flex flex-col md:flex-row gap-4 mb-4">
@@ -105,17 +130,18 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
                     onChange={(event) => setFilter(event.target.value)}
                     className="max-w-sm"
                 />
-                 <Select value={sortOption} onValueChange={setSortOption}>
-                    <SelectTrigger className="w-full md:w-[280px]">
-                        <SelectValue placeholder="Sort by..." />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="date-desc">Date (Newest First)</SelectItem>
-                        <SelectItem value="date-asc">Date (Oldest First)</SelectItem>
-                        <SelectItem value="name-asc">Winery Name (A-Z)</SelectItem>
-                        <SelectItem value="rating-desc">Rating (High to Low)</SelectItem>
-                    </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Sort by:</span>
+                    <Button variant={sortConfig.key === 'date' ? 'secondary' : 'ghost'} onClick={() => handleSort('date')}>
+                        Date <SortIcon sortKey="date" />
+                    </Button>
+                    <Button variant={sortConfig.key === 'name' ? 'secondary' : 'ghost'} onClick={() => handleSort('name')}>
+                        Winery Name <SortIcon sortKey="name" />
+                    </Button>
+                    <Button variant={sortConfig.key === 'rating' ? 'secondary' : 'ghost'} onClick={() => handleSort('rating')}>
+                        Rating <SortIcon sortKey="rating" />
+                    </Button>
+                </div>
             </div>
 
             {/* Desktop View: Table */}
