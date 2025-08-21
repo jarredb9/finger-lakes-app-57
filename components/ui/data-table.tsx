@@ -3,7 +3,6 @@
 import * as React from "react"
 import {
   ColumnDef,
-  ColumnFiltersState,
   SortingState,
   flexRender,
   getCoreRowModel,
@@ -36,7 +35,7 @@ export function DataTable<TData, TValue>({
   onRowClick,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([{ id: "visit_date", desc: true }])
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [globalFilter, setGlobalFilter] = React.useState("")
 
   const table = useReactTable({
     data,
@@ -44,31 +43,27 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
-    onColumnFiltersChange: setColumnFilters,
+    onGlobalFilterChange: setGlobalFilter,
     getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,
-      columnFilters,
+      globalFilter,
     },
   })
-
-  const isFiltered = table.getState().columnFilters.length > 0;
 
   return (
     <div>
         <div className="flex items-center justify-between py-4">
             <Input
                 placeholder="Filter by winery or review..."
-                value={(table.getColumn("wineries.name")?.getFilterValue() as string) ?? ""}
-                onChange={(event) =>
-                    table.getColumn("wineries.name")?.setFilterValue(event.target.value)
-                }
+                value={globalFilter ?? ""}
+                onChange={(event) => setGlobalFilter(event.target.value)}
                 className="max-w-sm"
             />
-            {isFiltered && (
+            {globalFilter && (
                 <Button
                     variant="ghost"
-                    onClick={() => table.resetColumnFilters()}
+                    onClick={() => setGlobalFilter("")}
                     className="ml-4"
                 >
                     <XCircle className="h-4 w-4 mr-2" />

@@ -8,7 +8,6 @@ import { Star } from "lucide-react"
 
 export const columns: ColumnDef<Visit>[] = [
   {
-    // CORRECTED: Use dot notation for nested accessor key
     accessorKey: "wineries.name", 
     header: ({ column }) => {
       return (
@@ -25,12 +24,6 @@ export const columns: ColumnDef<Visit>[] = [
         const name = row.original.wineries?.name;
         return <div className="font-medium">{name}</div>
     },
-    // This enables the global search to filter based on this column
-    filterFn: (row, id, value) => {
-        const review = row.original.user_review || "";
-        const name = row.original.wineries?.name || "";
-        return name.toLowerCase().includes(value.toLowerCase()) || review.toLowerCase().includes(value.toLowerCase());
-    }
   },
   {
     accessorKey: "visit_date",
