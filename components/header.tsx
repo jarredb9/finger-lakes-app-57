@@ -1,13 +1,14 @@
+"use client"
+
 import Link from "next/link";
 import Image from "next/image";
+import { useAuth } from "@/components/auth-provider";
 
-interface HeaderProps {
-  user: {
-    name: string;
-  } | null;
-}
+export default function Header() {
+  const { user, loading } = useAuth();
+  
+  const userName = user?.user_metadata?.name || user?.email?.split('@')[0] || "User";
 
-export default function Header({ user }: HeaderProps) {
   return (
     <header className="border-b bg-white/80 backdrop-blur-lg sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -27,12 +28,22 @@ export default function Header({ user }: HeaderProps) {
             </Link>
           </nav>
           <div className="flex items-center space-x-4">
-            <div className="text-right">
-              <p className="text-sm font-medium text-gray-800">Welcome, {user?.name}</p>
-            </div>
-            <Link href="/logout" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-              Logout
-            </Link>
+            {loading ? (
+              <div className="h-5 w-24 bg-gray-200 rounded-md animate-pulse" />
+            ) : user ? (
+              <>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-800">Welcome, {userName}</p>
+                </div>
+                <Link href="/logout" className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                  Logout
+                </Link>
+              </>
+            ) : (
+               <Link href="/login" className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
+                  Login
+                </Link>
+            )}
           </div>
         </div>
       </div>

@@ -11,21 +11,19 @@ import { Winery } from "@/lib/types";
 import { useWineryData } from "@/hooks/use-winery-data";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
+import { useAuth } from "@/components/auth-provider";
 
 const WineryModal = dynamic(() => import('@/components/winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
 });
 
-interface TripsClientPageProps {
-  user: { name: string } | null;
-}
-
-export default function TripsClientPage({ user }: TripsClientPageProps) {
+export default function TripsClientPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth(); // Get user from our hook
   
   const dateFromQuery = searchParams.get('date');
-  const initialTab = dateFromQuery ? 'planner' : 'visit-history'; // Default to visit history now
+  const initialTab = dateFromQuery ? 'planner' : 'visit-history';
   const [activeTab, setActiveTab] = useState(initialTab);
   
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
@@ -68,6 +66,7 @@ export default function TripsClientPage({ user }: TripsClientPageProps) {
   };
 
   if (!user) {
+    // This component is already protected by its parent page, but this is a good safeguard.
     return (
         <div className="min-h-screen flex items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
