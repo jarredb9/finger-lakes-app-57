@@ -1,19 +1,15 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
-import { getUser } from "@/lib/auth";
 
 export const dynamic = 'force-dynamic'; // Ensures this route is not cached
 
 export async function GET() {
-  const user = await getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // NOTE: We are NOT checking for a user. This is for diagnostic purposes only.
 
   const supabase = createClient();
   const results = {
-    complexQuery: { time: 0, error: null as string | null, data: null as any },
-    simpleQuery: { time: 0, error: null as string | null, data: null as any },
+    complexQuery: { time: 0, error: null as string | null, rowCount: 0 },
+    simpleQuery: { time: 0, error: null as string | null, rowCount: 0 },
   };
 
   // --- Test 1: Complex Query with a Join ---
@@ -22,10 +18,9 @@ export async function GET() {
     const { data, error } = await supabase
       .from("visits")
       .select("*, wineries(name)") // Join with wineries table
-      .eq("user_id", user.id)
-      .limit(10);
+      .limit(10); // Limit to 10 rows for a standard performance test
     if (error) throw error;
-    results.complexQuery.data = data;
+    results.complexQuery.rowCount = data?.length || 0;
   } catch (e: any) {
     results.complexQuery.error = e.message;
   }
@@ -38,10 +33,9 @@ export async function GET() {
     const { data, error } = await supabase
       .from("visits")
       .select("id, visit_date, rating") // No join
-      .eq("user_id", user.id)
-      .limit(10);
+      .limit(10); // Limit to 10 rows
     if (error) throw error;
-    results.simpleQuery.data = data;
+    results.simpleQuery.rowCount = data?.length || 0;
   } catch (e: any) {
     results.simpleQuery.error = e.message;
   }
