@@ -6,7 +6,11 @@ import { DataTable } from "@/components/ui/data-table"
 import { columns } from "@/components/visits-table-columns"
 import { Skeleton } from "@/components/ui/skeleton"
 
-export default function VisitHistory() {
+interface VisitHistoryProps {
+    onWinerySelect: (wineryDbId: number) => void;
+}
+
+export default function VisitHistory({ onWinerySelect }: VisitHistoryProps) {
     const [visits, setVisits] = useState<Visit[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -42,7 +46,8 @@ export default function VisitHistory() {
             <p className="text-muted-foreground mb-6">
                 Here you can find all of your past winery visits. Use the search bar to filter by winery name or review content, or click the column headers to sort.
             </p>
-            <DataTable columns={columns} data={visits} />
+            {/* We pass the onWinerySelect function down into the data table through the columns */}
+            <DataTable columns={columns(onWinerySelect)} data={visits} />
         </div>
     )
 }

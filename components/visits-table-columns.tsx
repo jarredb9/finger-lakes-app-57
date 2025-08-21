@@ -3,10 +3,17 @@
 import { ColumnDef } from "@tanstack/react-table"
 import { Visit } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { ArrowUpDown } from "lucide-react"
+import { ArrowUpDown, MoreHorizontal, Eye } from "lucide-react"
 import { Star } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
-export const columns: ColumnDef<Visit>[] = [
+// The columns definition is now a function that accepts the handler
+export const columns = (onWinerySelect: (wineryDbId: number) => void): ColumnDef<Visit>[] => [
   {
     accessorKey: "winery_name",
     header: ({ column }) => {
@@ -21,11 +28,9 @@ export const columns: ColumnDef<Visit>[] = [
       )
     },
     cell: ({ row }) => {
-        // The API returns the winery name nested, so we access it this way
         const name = row.original.wineries?.name;
         return <div className="font-medium">{name}</div>
     },
-    // This enables the global search to filter based on this column
     filterFn: (row, id, value) => {
         const review = row.original.user_review || "";
         const name = row.original.wineries?.name || "";
@@ -80,7 +85,30 @@ export const columns: ColumnDef<Visit>[] = [
     header: "Review",
     cell: ({ row }) => {
         const review = row.original.user_review;
-        return <div className="text-sm text-muted-foreground">{review || "No review."}</div>
+        return <div className="text-sm text-muted-foreground truncate max-w-xs">{review || "No review."}</div>
     }
+  },
+  {
+    id: "actions",
+    cell: ({ row }) => {
+      const visit = row.original
+ 
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 p-0">
+              <span className="sr-only">Open menu</span>
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => onWinerySelect(visit.wineries!.id)}>
+              <Eye className="mr-2 h-4 w-4" />
+              View All Visits
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )
+    },
   },
 ]
