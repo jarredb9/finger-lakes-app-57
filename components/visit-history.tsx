@@ -10,8 +10,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
-const MobileVisitCard = ({ visit, onWinerySelect }: { visit: Visit; onWinerySelect: (wineryDbId: number) => void; }) => (
-    <Card className="mb-4" onClick={() => onWinerySelect(visit.wineries!.id)}>
+const MobileVisitCard = ({ visit, onWinerySelect }: { visit: Visit; onWinerySelect: (visit: Visit) => void; }) => (
+    <Card className="mb-4" onClick={() => onWinerySelect(visit)}>
         <CardHeader>
             <CardTitle>{visit.wineries?.name}</CardTitle>
             <CardDescription>{new Date(visit.visit_date + 'T00:00:00').toLocaleDateString()}</CardDescription>
