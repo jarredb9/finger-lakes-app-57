@@ -8,7 +8,8 @@ import {
   getCoreRowModel,
   getSortedRowModel,
   useReactTable,
-  getFilteredRowModel, // Keep the import
+  getFilteredRowModel,
+  ColumnFiltersState,
 } from "@tanstack/react-table"
 
 import {
@@ -24,12 +25,17 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
   data: TData[]
   onRowClick: (row: TData) => void;
+  // We'll let the parent component manage filtering
+  columnFilters: ColumnFiltersState; 
+  setColumnFilters: React.Dispatch<React.SetStateAction<ColumnFiltersState>>;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   onRowClick,
+  columnFilters,
+  setColumnFilters,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
 
@@ -39,10 +45,11 @@ export function DataTable<TData, TValue>({
     getCoreRowModel: getCoreRowModel(),
     onSortingChange: setSorting,
     getSortedRowModel: getSortedRowModel(),
-    // We keep the filter model so the columns can still be filtered from the parent
-    getFilteredRowModel: getFilteredRowModel(), 
+    onColumnFiltersChange: setColumnFilters,
+    getFilteredRowModel: getFilteredRowModel(),
     state: {
       sorting,
+      columnFilters,
     },
   })
 

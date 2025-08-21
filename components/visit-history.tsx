@@ -7,8 +7,9 @@ import { columns } from "@/components/visits-table-columns"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Star, ArrowUp, ArrowDown } from "lucide-react"
+import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ColumnFiltersState } from "@tanstack/react-table"
 
 const MobileVisitCard = ({ visit, onWinerySelect }: { visit: Visit; onWinerySelect: (wineryDbId: number) => void; }) => (
     <Card className="mb-4" onClick={() => onWinerySelect(visit.wineries!.id)}>
@@ -38,7 +39,7 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
     const [visits, setVisits] = useState<Visit[]>([]);
     const [loading, setLoading] = useState(true);
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
-    const [filter, setFilter] = useState("");
+    const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
 
     useEffect(() => {
         async function fetchVisits() {
@@ -66,15 +67,8 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         });
     };
     
-    const sortedAndFilteredVisits = useMemo(() => {
-        let filtered = visits.filter(visit => {
-            const name = visit.wineries?.name?.toLowerCase() || "";
-            const review = visit.user_review?.toLowerCase() || "";
-            const searchTerm = filter.toLowerCase();
-            return name.includes(searchTerm) || review.includes(searchTerm);
-        });
-
-        return [...filtered].sort((a, b) => {
+    const sortedVisits = useMemo(() => {
+        return [...visits].sort((a, b) => {
             if (sortConfig.key === 'date') {
                 const dateA = new Date(a.visit_date).getTime();
                 const dateB = new Date(b.visit_date).getTime();
@@ -92,12 +86,17 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
             }
             return 0;
         });
-    }, [visits, sortConfig, filter]);
+    }, [visits, sortConfig]);
 
     const handleRowClick = (visit: Visit) => {
         if (visit.wineries?.id) {
             onWinerySelect(visit.wineries.id);
         }
+    };
+    
+    const clearFilters = () => {
+        setColumnFilters([]);
+        setSortConfig({ key: 'date', direction: 'desc' });
     };
 
     if (loading) {
@@ -113,6 +112,8 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         if (sortConfig.key !== sortKey) return null;
         return sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />;
     };
+    
+    const filterValue = (columnFilters.find(f => f.id === 'winery_name')?.value as string) || '';
 
     return (
         <div>
@@ -124,11 +125,13 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
             <div className="flex flex-col md:flex-row gap-4 mb-4">
                 <Input
                     placeholder="Filter by winery or review..."
-                    value={filter}
-                    onChange={(event) => setFilter(event.target.value)}
+                    value={filterValue}
+                    onChange={(event) =>
+                        setColumnFilters([{ id: 'winery_name', value: event.target.value }])
+                    }
                     className="max-w-sm"
                 />
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">Sort by:</span>
                     <Button variant={sortConfig.key === 'date' ? 'secondary' : 'ghost'} onClick={() => handleSort('date')}>
                         Date <SortIcon sortKey="date" />
@@ -139,18 +142,35 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
                     <Button variant={sortConfig.key === 'rating' ? 'secondary' : 'ghost'} onClick={() => handleSort('rating')}>
                         Rating <SortIcon sortKey="rating" />
                     </Button>
+                    <Button variant="ghost" onClick={clearFilters}><XCircle className="h-4 w-4 mr-2" />Clear</Button>
                 </div>
             </div>
 
             {/* Desktop View: Table */}
             <div className="hidden md:block">
-                <DataTable columns={columns} data={sortedAndFilteredVisits} onRowClick={handleRowClick} />
+                <DataTable 
+                    columns={columns} 
+                    data={sortedVisits} 
+                    onRowClick={handleRowClick} 
+                    columnFilters={columnFilters}
+                    setColumnFilters={setColumnFilters}
+                />
             </div>
 
             {/* Mobile View: Cards */}
             <div className="block md:hidden">
-                {sortedAndFilteredVisits.length > 0 ? (
-                    sortedAndFilteredVisits.map(visit => (
+                {sortedVisits.filter(visit => {
+                     const name = visit.wineries?.name?.toLowerCase() || "";
+                     const review = visit.user_review?.toLowerCase() || "";
+                     const searchTerm = filterValue.toLowerCase();
+                     return name.includes(searchTerm) || review.includes(searchTerm);
+                }).length > 0 ? (
+                    sortedVisits.filter(visit => {
+                        const name = visit.wineries?.name?.toLowerCase() || "";
+                        const review = visit.user_review?.toLowerCase() || "";
+                        const searchTerm = filterValue.toLowerCase();
+                        return name.includes(searchTerm) || review.includes(searchTerm);
+                   }).map(visit => (
                         <MobileVisitCard key={visit.id} visit={visit} onWinerySelect={handleRowClick} />
                     ))
                 ) : (
