@@ -92,7 +92,7 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
             <div className="flex flex-col sm:flex-row gap-4">
                 <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
                     <Input placeholder="Enter a city or wine region (e.g., Napa Valley)" value={searchLocation} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchLocation(e.target.value)} aria-label="Search Location"/>
-                    <Button type="submit" disabled={searchState.isSearching} aria-label="Search"> {searchState.isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />} <span className="ml-2">Search</span> </Button>
+                    <Button type="submit" disabled={searchState.isSearching} aria-label="Search"> {searchState.isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />} <span className="ml-2 hidden sm:inline">Search</span> </Button>
                 </form>
                 <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching} aria-label="Search This Area"> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
             </div>

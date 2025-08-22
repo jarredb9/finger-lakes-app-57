@@ -188,7 +188,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
         <div className="overflow-y-auto">
             <div className="p-6">
                 <DialogHeader>
-                    <div className="flex justify-between items-start gap-4">
+                    <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
                         <DialogTitle className="text-2xl pr-4">{winery.name}</DialogTitle>
                         <div className="flex items-center gap-2">
                             <Button size="sm" variant={winery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading}>

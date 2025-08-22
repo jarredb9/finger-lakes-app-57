@@ -18,7 +18,7 @@ export default function Header({ user }: HeaderProps) {
               <h1 className="text-xl font-bold text-gray-900 ml-3">Winery Tracker</h1>
             </Link>
           </div>
-          <nav className="flex items-center space-x-8">
+          <nav className="hidden md:flex items-center space-x-8">
             <Link href="/" className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
                 Map
             </Link>
