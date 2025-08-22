@@ -13,80 +13,16 @@ import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, Pagi
 
 const TRIPS_PER_PAGE = 6;
 
-export default function TripList() {
-    const [allTrips, setAllTrips] = useState<Trip[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-    const router = useRouter();
-    const { toast } = useToast();
-
-    const fetchAllTrips = useCallback(async (page = 1) => {
-        setLoading(true);
-        try {
-            const response = await fetch(`/api/trips?page=${page}&limit=${TRIPS_PER_PAGE}`);
-            if (response.ok) {
-                const { trips, count } = await response.json();
-                console.log("[TripList] Fetched data:", { trips, count });
-                setAllTrips(trips || []); // Ensure we always set an array
-                setTotalPages(Math.ceil(count / TRIPS_PER_PAGE));
-                setCurrentPage(page);
-            } else {
-                 console.error("[TripList] Failed to fetch trips, response not ok.");
-                 setAllTrips([]);
-            }
-        } catch (error) {
-            console.error("Failed to fetch all trips", error);
-            setAllTrips([]);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchAllTrips(1);
-    }, [fetchAllTrips]);
-    
-    // ADDED LOGGING HERE
-    console.log("[TripList] Rendering with allTrips state:", allTrips, `Is it an array? ${Array.isArray(allTrips)}`);
-    if (!Array.isArray(allTrips)) {
-        console.error("[TripList] CRITICAL: `allTrips` is not an array during render. Value:", allTrips);
-    }
-
-
-    const handlePageChange = (page: number) => {
-        if (page > 0 && page <= totalPages && page !== currentPage) {
-            fetchAllTrips(page);
-        }
-    };
-
-    const handleViewTrip = (date: string) => {
-        const tripDate = new Date(date).toISOString();
-        router.push(`/trips?date=${tripDate}`);
-    };
-
-    const handleDeleteTrip = async (tripId: number) => {
-        try {
-            const response = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' });
-            if (response.ok) {
-                toast({ description: "Trip deleted successfully." });
-                fetchAllTrips(currentPage);
-            } else {
-                toast({ variant: 'destructive', description: "Failed to delete trip." });
-            }
-        } catch (error) {
-            console.error("Failed to delete trip", error);
-        }
-    };
-    
-    const renderTripCard = (trip: Trip) => (
-        <Card key={trip.id}>
+// A single, reusable card component for displaying a trip.
+function TripCard({ trip, onView, onDelete }: { trip: Trip; onView: (date: string) => void; onDelete: (id: number) => void; }) {
+    return (
+        <Card>
             <CardHeader>
                 <CardTitle>{trip.name || `Trip for ${new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}`}</CardTitle>
                 <CardDescription>{new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}</CardDescription>
             </CardHeader>
             <CardContent className="flex justify-between items-center">
-                <Button onClick={() => handleViewTrip(trip.trip_date)}>
+                <Button onClick={() => onView(trip.trip_date)}>
                     View Details <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
                 <AlertDialog>
@@ -100,13 +36,74 @@ export default function TripList() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteTrip(trip.id)}>Delete</AlertDialogAction>
+                            <AlertDialogAction onClick={() => onDelete(trip.id)}>Delete</AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
             </CardContent>
         </Card>
     );
+}
+
+
+export default function TripList() {
+    const [trips, setTrips] = useState<Trip[] | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+    const router = useRouter();
+    const { toast } = useToast();
+
+    const fetchTrips = useCallback(async (page: number) => {
+        setLoading(true);
+        try {
+            const response = await fetch(`/api/trips?page=${page}&limit=${TRIPS_PER_PAGE}`);
+            if (!response.ok) {
+                throw new Error("Failed to fetch trips");
+            }
+            const data = await response.json();
+            if (!data || !Array.isArray(data.trips)) {
+                throw new Error("Invalid data format received from API");
+            }
+            setTrips(data.trips);
+            setTotalPages(Math.ceil(data.count / TRIPS_PER_PAGE));
+            setCurrentPage(page);
+        } catch (error) {
+            console.error("Failed to fetch all trips", error);
+            setTrips([]); // Set to empty array on error to prevent crash
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchTrips(1);
+    }, [fetchTrips]);
+
+    const handlePageChange = (page: number) => {
+        if (page > 0 && page <= totalPages && page !== currentPage) {
+            fetchTrips(page);
+        }
+    };
+
+    const handleViewTrip = (date: string) => {
+        const tripDate = new Date(date).toISOString();
+        router.push(`/trips?date=${tripDate}`);
+    };
+
+    const handleDeleteTrip = async (tripId: number) => {
+        try {
+            const response = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' });
+            if (response.ok) {
+                toast({ description: "Trip deleted successfully." });
+                fetchTrips(currentPage); // Refresh the current page
+            } else {
+                toast({ variant: 'destructive', description: "Failed to delete trip." });
+            }
+        } catch (error) {
+            console.error("Failed to delete trip", error);
+        }
+    };
 
     if (loading) {
         return (
@@ -120,9 +117,11 @@ export default function TripList() {
         <div className="space-y-8">
             <div className="space-y-4">
                 <h2 className="text-2xl font-bold mb-4">All Trips</h2>
-                {(allTrips && allTrips.length > 0) ? (
+                {trips && trips.length > 0 ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {allTrips.map(renderTripCard)}
+                        {trips.map(trip => (
+                            <TripCard key={trip.id} trip={trip} onView={handleViewTrip} onDelete={handleDeleteTrip} />
+                        ))}
                     </div>
                 ) : (
                     <p className="text-muted-foreground">You have no trips recorded.</p>
