@@ -14,7 +14,6 @@ const formatWinery = (winery: any, visit?: any) => {
         phone: winery.phone,
         website: winery.website,
         rating: winery.google_rating,
-        // Conditionally add visit details if they exist
         userVisit: visit ? {
             rating: visit.rating,
             user_review: visit.user_review,
@@ -30,6 +29,7 @@ export async function GET(request: NextRequest) {
   const date = searchParams.get("date");
   const supabase = await createClient();
 
+  // This logic is for the Trip Planner and remains unchanged
   if (date) {
     const { data: trips, error } = await supabase
       .from("trips")
@@ -60,22 +60,35 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(formattedTrips);
-
-  } else {
-    // This is the part for the "All Trips" list
+  } 
+  
+  // ** NEW LOGIC FOR PAGINATED "All Trips" page **
+  else {
+    const type = searchParams.get("type") || "upcoming"; // Default to 'upcoming'
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "6", 10);
     const rangeFrom = (page - 1) * limit;
     const rangeTo = rangeFrom + limit - 1;
+    const today = new Date().toISOString().split("T")[0];
 
-    const { data: trips, error, count } = await supabase
+    let query = supabase
       .from("trips")
       .select("*", { count: 'exact' })
-      .eq("user_id", user.id)
-      .order("trip_date", { ascending: false })
-      .range(rangeFrom, rangeTo);
+      .eq("user_id", user.id);
 
-    if (error) throw error;
+    if (type === 'upcoming') {
+        query = query.gte('trip_date', today).order("trip_date", { ascending: true });
+    } else { // 'past'
+        query = query.lt('trip_date', today).order("trip_date", { ascending: false });
+    }
+    
+    const { data: trips, error, count } = await query.range(rangeFrom, rangeTo);
+
+    if (error) {
+        console.error(`Error fetching ${type} trips:`, error);
+        return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+    
     return NextResponse.json({ trips: trips || [], count: count || 0 });
   }
 }
