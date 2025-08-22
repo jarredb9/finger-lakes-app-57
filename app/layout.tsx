@@ -23,8 +23,10 @@ export default function RootLayout({
       </head>
       <body>
         <div className="relative flex min-h-screen flex-col">
+          {/* Main content now has padding-bottom on mobile to avoid overlap */}
           <main className="flex-1 pb-16 md:pb-0">{children}</main>
           <Toaster />
+          {/* The BottomNav component is rendered here */}
           <BottomNav />
         </div>
       </body>

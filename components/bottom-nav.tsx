@@ -14,10 +14,11 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t">
+    // NOTE: Added a temporary red border for debugging. We can remove it once it's working.
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-t-4 border-red-500">
       <div className="grid grid-cols-2 h-16">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/');
           return (
             <Link
               key={item.href}
