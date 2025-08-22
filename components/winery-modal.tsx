@@ -184,7 +184,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl w-full max-h-screen sm:max-h-[90vh] p-0 flex flex-col">
+      <DialogContent className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col">
         <div className="overflow-y-auto">
             <div className="p-6">
                 <DialogHeader>
