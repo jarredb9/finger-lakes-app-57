@@ -54,11 +54,16 @@ export function useWineryData() {
 
     const fetchUserVisits = useCallback(async () => {
         try {
-            const response = await fetch('/api/visits');
+            // Fetching only the first page for the map overview. 
+            // The paginated data is handled in the VisitHistory component itself.
+            const response = await fetch('/api/visits?page=1&limit=1000'); // Fetch up to 1000 visits for the map
             if (response.ok) {
                 const data = await response.json();
-                setAllUserVisits(data);
-                return data;
+                // ** THE FIX IS HERE **
+                // We now correctly extract the 'visits' array from the response object.
+                const visitsArray = data.visits || [];
+                setAllUserVisits(visitsArray);
+                return visitsArray;
             }
         } catch (error) {
             toast({ variant: "destructive", title: "Error", description: "Could not fetch your visits." });
