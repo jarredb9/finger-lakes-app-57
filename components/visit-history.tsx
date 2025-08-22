@@ -51,12 +51,10 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
             const response = await fetch(`/api/visits?page=${page}&limit=${VISITS_PER_PAGE}`);
             if (response.ok) {
                 const { visits, count } = await response.json();
-                console.log("[VisitHistory] Fetched data:", { visits, count });
-                setVisits(visits || []); // Ensure we always set an array
+                setVisits(visits || []);
                 setTotalPages(Math.ceil(count / VISITS_PER_PAGE));
                 setCurrentPage(page);
             } else {
-                console.error("[VisitHistory] Failed to fetch visits, response not ok.");
                 setVisits([]);
             }
         } catch (error) {
@@ -77,12 +75,8 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         }
     };
     
-    // ADDED LOGGING HERE
-    console.log("[VisitHistory] Rendering with visits state:", visits, `Is it an array? ${Array.isArray(visits)}`);
-
     const sortedAndFilteredVisitsForMobile = useMemo(() => {
         if (!Array.isArray(visits)) {
-            console.error("[VisitHistory] CRITICAL: `visits` is not an array in useMemo. Value:", visits);
             return [];
         }
         let filtered = visits.filter(visit => {

@@ -8,6 +8,11 @@ import { cn } from "@/lib/utils";
 export default function BottomNav() {
   const pathname = usePathname();
 
+  // Hide the nav bar on login and signup pages
+  if (pathname === "/login" || pathname === "/signup") {
+    return null;
+  }
+
   const navItems = [
     { href: "/", label: "Map", icon: Map },
     { href: "/trips", label: "Trips", icon: CalendarDays },
