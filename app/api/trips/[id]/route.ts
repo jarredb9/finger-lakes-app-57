@@ -2,55 +2,76 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
 
+// Handles various updates to a trip like changing its name, reordering wineries, removing a winery, or updating a note.
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-    console.log(`PUT /api/visits/${params.id} called`);
     const user = await getUser();
     if (!user) {
-        console.error("Unauthorized PUT to /api/visits");
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const visitId = parseInt(params.id, 10);
-    if (isNaN(visitId)) {
-        return NextResponse.json({ error: "Invalid visit ID" }, { status: 400 });
+    const tripId = parseInt(params.id, 10);
+    if (isNaN(tripId)) {
+        return NextResponse.json({ error: "Invalid trip ID" }, { status: 400 });
     }
 
     try {
-        const { visit_date, user_review, rating } = await request.json();
-        if (!visit_date) {
-            return NextResponse.json({ error: "Visit date is required" }, { status: 400 });
-        }
-
+        const body = await request.json();
         const supabase = await createClient();
 
-        const { data, error } = await supabase
-            .from("visits")
-            .update({
-                visit_date,
-                user_review: user_review || null,
-                rating: rating || null,
-            })
-            .eq("id", visitId)
-            .eq("user_id", user.id)
-            .select();
+        // Verify the user owns the trip first
+        const { data: trip, error: ownerError } = await supabase
+            .from('trips')
+            .select('id')
+            .eq('id', tripId)
+            .eq('user_id', user.id)
+            .single();
 
-        if (error) {
-            console.error("Error updating visit:", error);
-            throw error;
+        if (ownerError || !trip) {
+            return NextResponse.json({ error: "Trip not found or you don't have permission to edit it." }, { status: 404 });
         }
 
-        if (data.length === 0) {
-            return NextResponse.json({ error: "Visit not found or user not authorized" }, { status: 404 });
+        // Scenario 1: Update trip name
+        if (body.name) {
+            const { error } = await supabase.from('trips').update({ name: body.name }).eq('id', tripId);
+            if (error) throw error;
         }
 
-        console.log("Visit updated successfully:", data);
-        return NextResponse.json({ success: true, visit: data[0] });
+        // Scenario 2: Remove a winery from the trip
+        if (body.removeWineryId) {
+            const { error } = await supabase.from('trip_wineries').delete().eq('trip_id', tripId).eq('winery_id', body.removeWineryId);
+            if (error) throw error;
+        }
+        
+        // Scenario 3: Update the order of wineries in the trip
+        if (body.wineryOrder && Array.isArray(body.wineryOrder)) {
+            const updates = body.wineryOrder.map((wineryId, index) => 
+                supabase.from('trip_wineries')
+                        .update({ visit_order: index + 1 })
+                        .eq('trip_id', tripId)
+                        .eq('winery_id', wineryId)
+            );
+            await Promise.all(updates);
+        }
+
+        // Scenario 4: Update a note for a specific winery in the trip
+        if (body.updateNote) {
+            const { wineryId, notes } = body.updateNote;
+            const { error } = await supabase.from('trip_wineries')
+                .update({ notes: notes })
+                .eq('trip_id', tripId)
+                .eq('winery_id', wineryId);
+            if (error) throw error;
+        }
+
+        return NextResponse.json({ success: true });
 
     } catch (error) {
+        console.error(`Error updating trip ${tripId}:`, error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 
+// Handles deleting an entire trip
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const user = await getUser();
@@ -58,17 +79,20 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const visitId = params.id;
+    const tripId = params.id;
     const supabase = await createClient();
 
-    const { error } = await supabase.from("visits").delete().eq("id", visitId).eq("user_id", user.id);
+    // The trip and all associated trip_wineries will be deleted due to CASCADE constraint
+    const { error } = await supabase.from("trips").delete().eq("id", tripId).eq("user_id", user.id);
 
     if (error) {
+      console.error(`Error deleting trip ${tripId}:`, error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error("Internal error during trip deletion:", error);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

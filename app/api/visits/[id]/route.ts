@@ -21,7 +21,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             return NextResponse.json({ error: "Visit date is required" }, { status: 400 });
         }
 
-        const supabase = createClient();
+        const supabase = await createClient();
 
         const { data, error } = await supabase
             .from("visits")
@@ -60,7 +60,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     }
 
     const visitId = params.id;
-    const supabase = createClient();
+    const supabase = await createClient();
 
     const { error } = await supabase.from("visits").delete().eq("id", visitId).eq("user_id", user.id);
 
