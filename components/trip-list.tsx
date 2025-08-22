@@ -27,7 +27,7 @@ export default function TripList() {
             const response = await fetch(`/api/trips?page=${page}&limit=${TRIPS_PER_PAGE}`);
             if (response.ok) {
                 const { trips, count } = await response.json();
-                setAllTrips(trips);
+                setAllTrips(trips); // Correctly use the 'trips' array from the response
                 setTotalPages(Math.ceil(count / TRIPS_PER_PAGE));
                 setCurrentPage(page);
             }
@@ -47,21 +47,6 @@ export default function TripList() {
             fetchAllTrips(page);
         }
     };
-
-    const { pastTrips, upcomingTrips } = useMemo(() => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        return allTrips.reduce((acc, trip) => {
-            const tripDate = new Date(trip.trip_date + 'T00:00:00'); 
-            if (tripDate < today) {
-                acc.pastTrips.push(trip);
-            } else {
-                acc.upcomingTrips.push(trip);
-            }
-            return acc;
-        }, { pastTrips: [] as Trip[], upcomingTrips: [] as Trip[] });
-    }, [allTrips]);
 
     const handleViewTrip = (date: string) => {
         const tripDate = new Date(date).toISOString();

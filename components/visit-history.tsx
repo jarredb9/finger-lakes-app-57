@@ -51,7 +51,7 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
             const response = await fetch(`/api/visits?page=${page}&limit=${VISITS_PER_PAGE}`);
             if (response.ok) {
                 const { visits, count } = await response.json();
-                setVisits(visits);
+                setVisits(visits); // Correctly use the 'visits' array from the response
                 setTotalPages(Math.ceil(count / VISITS_PER_PAGE));
                 setCurrentPage(page);
             }
