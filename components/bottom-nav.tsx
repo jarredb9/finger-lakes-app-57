@@ -14,10 +14,10 @@ export default function BottomNav() {
   ];
 
   return (
-    // NOTE: Added a temporary red border for debugging. We can remove it once it's working.
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t border-t-4 border-red-500">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t">
       <div className="grid grid-cols-2 h-16">
         {navItems.map((item) => {
+          // Highlight "Trips" if the path starts with /trips, but only highlight "Map" for the exact path "/"
           const isActive = pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/');
           return (
             <Link
