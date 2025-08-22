@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo } from "react"
+import { useEffect, useState, useMemo, useCallback } from "react"
 import { Visit } from "@/lib/types"
 import { DataTable } from "@/components/ui/data-table"
 import { columns } from "@/components/visits-table-columns"
@@ -9,6 +9,9 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Star, ArrowUp, ArrowDown, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from "@/components/ui/pagination"
+
+const VISITS_PER_PAGE = 10;
 
 const MobileVisitCard = ({ visit, onWinerySelect }: { visit: Visit; onWinerySelect: (visit: Visit) => void; }) => (
     <Card className="mb-4" onClick={() => onWinerySelect(visit)}>
@@ -39,31 +42,34 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
     const [loading, setLoading] = useState(true);
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
     const [filter, setFilter] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
 
-    useEffect(() => {
-        async function fetchVisits() {
-            try {
-                const response = await fetch('/api/visits');
-                if (response.ok) {
-                    const data = await response.json();
-                    setVisits(data);
-                }
-            } catch (error) {
-                console.error("Failed to fetch visit history", error);
-            } finally {
-                setLoading(false);
+    const fetchVisits = useCallback(async (page = 1) => {
+        setLoading(true);
+        try {
+            const response = await fetch(`/api/visits?page=${page}&limit=${VISITS_PER_PAGE}`);
+            if (response.ok) {
+                const { visits, count } = await response.json();
+                setVisits(visits);
+                setTotalPages(Math.ceil(count / VISITS_PER_PAGE));
+                setCurrentPage(page);
             }
+        } catch (error) {
+            console.error("Failed to fetch visit history", error);
+        } finally {
+            setLoading(false);
         }
-        fetchVisits();
     }, []);
 
-    const handleSort = (key: SortConfig['key']) => {
-        setSortConfig(current => {
-            if (current.key === key) {
-                return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
-            }
-            return { key, direction: key === 'name' ? 'asc' : 'desc' };
-        });
+    useEffect(() => {
+        fetchVisits(1);
+    }, [fetchVisits]);
+
+    const handlePageChange = (page: number) => {
+        if (page > 0 && page <= totalPages) {
+            fetchVisits(page);
+        }
     };
     
     const sortedAndFilteredVisitsForMobile = useMemo(() => {
@@ -100,12 +106,7 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         }
     };
     
-    const clearFiltersAndSort = () => {
-        setFilter("");
-        setSortConfig({ key: 'date', direction: 'desc' });
-    };
-
-    if (loading) {
+    if (loading && visits.length === 0) {
         return (
             <div className="space-y-4">
                 <Skeleton className="h-10 w-1/3" />
@@ -119,8 +120,6 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         return sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />;
     };
     
-    const showMobileClear = filter || !(sortConfig.key === 'date' && sortConfig.direction === 'desc');
-
     return (
         <div>
             <h1 className="text-2xl font-bold mb-4">Your Visit History</h1>
@@ -137,20 +136,15 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
                 />
                 <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">Sort by:</span>
-                    <Button variant={sortConfig.key === 'date' ? 'secondary' : 'ghost'} onClick={() => handleSort('date')}>
+                    <Button variant={sortConfig.key === 'date' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'date', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                         Date <SortIcon sortKey="date" />
                     </Button>
-                    <Button variant={sortConfig.key === 'name' ? 'secondary' : 'ghost'} onClick={() => handleSort('name')}>
+                    <Button variant={sortConfig.key === 'name' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'name', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                         Winery <SortIcon sortKey="name" />
                     </Button>
-                    <Button variant={sortConfig.key === 'rating' ? 'secondary' : 'ghost'} onClick={() => handleSort('rating')}>
+                    <Button variant={sortConfig.key === 'rating' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'rating', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                         Rating <SortIcon sortKey="rating" />
                     </Button>
-                     {showMobileClear && (
-                        <Button variant="ghost" size="icon" onClick={clearFiltersAndSort}>
-                            <XCircle className="h-4 w-4" />
-                        </Button>
-                    )}
                 </div>
             </div>
 
@@ -169,6 +163,26 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
                      <p className="text-center text-muted-foreground py-12">No visits found.</p>
                 )}
             </div>
+
+            {totalPages > 1 && (
+                <Pagination className="mt-8">
+                    <PaginationContent>
+                        <PaginationItem>
+                            <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }} />
+                        </PaginationItem>
+                        {[...Array(totalPages)].map((_, i) => (
+                             <PaginationItem key={i}>
+                                <PaginationLink href="#" isActive={currentPage === i + 1} onClick={(e) => { e.preventDefault(); handlePageChange(i + 1); }}>
+                                    {i + 1}
+                                </PaginationLink>
+                            </PaginationItem>
+                        ))}
+                        <PaginationItem>
+                            <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }} />
+                        </PaginationItem>
+                    </PaginationContent>
+                </Pagination>
+            )}
         </div>
     )
 }

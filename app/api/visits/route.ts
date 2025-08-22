@@ -3,26 +3,34 @@ import { createClient } from "@/utils/supabase/server"
 import { getUser } from "@/lib/auth"
 
 export async function GET(request: NextRequest) {
-  try {
-    const user = await getUser()
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+  const user = await getUser()
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
 
+  const { searchParams } = new URL(request.url);
+  const page = parseInt(searchParams.get("page") || "1", 10);
+  const limit = parseInt(searchParams.get("limit") || "10", 10);
+  const rangeFrom = (page - 1) * limit;
+  const rangeTo = rangeFrom + limit - 1;
+
+  try {
     const supabase = await createClient()
-    // Updated query to join and select all columns from the wineries table
-    const { data: visits, error } = await supabase
+
+    // Fetch the total count and the data in one query
+    const { data: visits, error, count } = await supabase
       .from("visits")
-      .select("*, wineries(*)")
+      .select("*, wineries(*)", { count: 'exact' })
       .eq("user_id", user.id)
       .order("visit_date", { ascending: false })
+      .range(rangeFrom, rangeTo);
 
     if (error) {
       console.error("Error fetching visits:", error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json(visits || [])
+    return NextResponse.json({ visits: visits || [], count: count || 0 });
   } catch (error) {
     console.error("Internal error fetching visits:", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })

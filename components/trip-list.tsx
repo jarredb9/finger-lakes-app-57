@@ -9,20 +9,27 @@ import { useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink, PaginationEllipsis } from '@/components/ui/pagination';
+
+const TRIPS_PER_PAGE = 6;
 
 export default function TripList() {
     const [allTrips, setAllTrips] = useState<Trip[]>([]);
     const [loading, setLoading] = useState(true);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
     const router = useRouter();
     const { toast } = useToast();
 
-    const fetchAllTrips = useCallback(async () => {
+    const fetchAllTrips = useCallback(async (page = 1) => {
         setLoading(true);
         try {
-            const response = await fetch('/api/trips');
+            const response = await fetch(`/api/trips?page=${page}&limit=${TRIPS_PER_PAGE}`);
             if (response.ok) {
-                const data = await response.json();
-                setAllTrips(data);
+                const { trips, count } = await response.json();
+                setAllTrips(trips);
+                setTotalPages(Math.ceil(count / TRIPS_PER_PAGE));
+                setCurrentPage(page);
             }
         } catch (error) {
             console.error("Failed to fetch all trips", error);
@@ -32,15 +39,20 @@ export default function TripList() {
     }, []);
 
     useEffect(() => {
-        fetchAllTrips();
+        fetchAllTrips(1);
     }, [fetchAllTrips]);
+
+    const handlePageChange = (page: number) => {
+        if (page > 0 && page <= totalPages) {
+            fetchAllTrips(page);
+        }
+    };
 
     const { pastTrips, upcomingTrips } = useMemo(() => {
         const today = new Date();
-        today.setHours(0, 0, 0, 0); // Normalize today's date
+        today.setHours(0, 0, 0, 0);
 
         return allTrips.reduce((acc, trip) => {
-            // Ensure date is parsed correctly, especially on the client
             const tripDate = new Date(trip.trip_date + 'T00:00:00'); 
             if (tripDate < today) {
                 acc.pastTrips.push(trip);
@@ -61,7 +73,7 @@ export default function TripList() {
             const response = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' });
             if (response.ok) {
                 toast({ description: "Trip deleted successfully." });
-                fetchAllTrips(); // Refresh the list
+                fetchAllTrips(currentPage);
             } else {
                 toast({ variant: 'destructive', description: "Failed to delete trip." });
             }
@@ -69,7 +81,7 @@ export default function TripList() {
             console.error("Failed to delete trip", error);
         }
     };
-
+    
     const renderTripCard = (trip: Trip) => (
         <Card key={trip.id}>
             <CardHeader>
@@ -109,26 +121,35 @@ export default function TripList() {
 
     return (
         <div className="space-y-8">
-            <div>
-                <h2 className="text-2xl font-bold mb-4">Upcoming Trips</h2>
-                {upcomingTrips.length > 0 ? (
+            <div className="space-y-4">
+                <h2 className="text-2xl font-bold mb-4">All Trips</h2>
+                {allTrips.length > 0 ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {upcomingTrips.map(renderTripCard)}
+                        {allTrips.map(renderTripCard)}
                     </div>
                 ) : (
-                    <p className="text-muted-foreground">You have no upcoming trips planned.</p>
+                    <p className="text-muted-foreground">You have no trips recorded.</p>
                 )}
             </div>
-            <div>
-                <h2 className="text-2xl font-bold mb-4">Past Trips</h2>
-                {pastTrips.length > 0 ? (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {pastTrips.map(renderTripCard)}
-                    </div>
-                ) : (
-                    <p className="text-muted-foreground">You have no past trips recorded.</p>
-                )}
-            </div>
+            {totalPages > 1 && (
+                <Pagination>
+                    <PaginationContent>
+                        <PaginationItem>
+                            <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }} />
+                        </PaginationItem>
+                        {[...Array(totalPages)].map((_, i) => (
+                            <PaginationItem key={i}>
+                                <PaginationLink href="#" isActive={currentPage === i + 1} onClick={(e) => { e.preventDefault(); handlePageChange(i + 1); }}>
+                                    {i + 1}
+                                </PaginationLink>
+                            </PaginationItem>
+                        ))}
+                        <PaginationItem>
+                            <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }} />
+                        </PaginationItem>
+                    </PaginationContent>
+                </Pagination>
+            )}
         </div>
     );
 }

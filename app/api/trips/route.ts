@@ -62,14 +62,21 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedTrips);
 
   } else {
-    const { data: trips, error } = await supabase
+    // This is the part for the "All Trips" list
+    const page = parseInt(searchParams.get("page") || "1", 10);
+    const limit = parseInt(searchParams.get("limit") || "6", 10);
+    const rangeFrom = (page - 1) * limit;
+    const rangeTo = rangeFrom + limit - 1;
+
+    const { data: trips, error, count } = await supabase
       .from("trips")
-      .select("*")
+      .select("*", { count: 'exact' })
       .eq("user_id", user.id)
-      .order("trip_date", { ascending: false });
+      .order("trip_date", { ascending: false })
+      .range(rangeFrom, rangeTo);
 
     if (error) throw error;
-    return NextResponse.json(trips || []);
+    return NextResponse.json({ trips: trips || [], count: count || 0 });
   }
 }
 
