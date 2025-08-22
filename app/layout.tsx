@@ -3,7 +3,6 @@ import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { Toaster } from "@/components/ui/toaster"
-import { AuthProvider } from '@/components/auth-provider'
 
 export const metadata: Metadata = {
   title: 'v0 App',
@@ -14,7 +13,7 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.Node
+  children: React.ReactNode
 }>) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
@@ -22,10 +21,8 @@ export default function RootLayout({
         <link rel="icon" href="/placeholder-logo.png" sizes="any" />
       </head>
       <body>
-        <AuthProvider>
-          {children}
-          <Toaster />
-        </AuthProvider>
+        {children}
+        <Toaster />
       </body>
     </html>
   )

@@ -10,53 +10,22 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = await createClient()
-    const { searchParams } = new URL(request.url);
-    const pageParam = searchParams.get("page");
-    const limitParam = searchParams.get("limit");
+    // Updated query to join and select all columns from the wineries table
+    const { data: visits, error } = await supabase
+      .from("visits")
+      .select("*, wineries(*)")
+      .eq("user_id", user.id)
+      .order("visit_date", { ascending: false })
 
-    // Check if pagination parameters are provided
-    if (pageParam && limitParam) {
-        const page = parseInt(pageParam, 10);
-        const limit = parseInt(limitParam, 10);
-        const offset = (page - 1) * limit;
-
-        // Efficiently query for paginated data AND the total count in one go
-        const { data: visits, error: visitsError, count } = await supabase
-            .from("visits")
-            .select("*, wineries(*)", { count: "exact" })
-            .eq("user_id", user.id)
-            .order("visit_date", { ascending: false })
-            .range(offset, offset + limit - 1);
-
-        if (visitsError) {
-            console.error("Error fetching paginated visits:", visitsError);
-            return NextResponse.json({ error: visitsError.message }, { status: 500 });
-        }
-        
-        // Return the data and the count from the single query
-        return NextResponse.json({
-            visits: visits || [],
-            totalCount: count || 0,
-        });
-
-    } else {
-        // Original behavior: fetch all visits for other parts of the app
-        const { data: visits, error } = await supabase
-            .from("visits")
-            .select("*, wineries(*)")
-            .eq("user_id", user.id)
-            .order("visit_date", { ascending: false });
-
-        if (error) {
-            console.error("Error fetching all visits:", error);
-            return NextResponse.json({ error: error.message }, { status: 500 });
-        }
-        
-        return NextResponse.json(visits || []);
+    if (error) {
+      console.error("Error fetching visits:", error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    return NextResponse.json(visits || [])
   } catch (error) {
-    console.error("Internal error fetching visits:", error);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    console.error("Internal error fetching visits:", error)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
 

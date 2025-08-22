@@ -1,39 +1,29 @@
-"use client" // This page is now a client component to handle auth logic
+// File Location: app/trips/page.tsx
 
 import { Suspense } from 'react';
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/components/auth-provider";
+import { redirect } from "next/navigation";
+import { getUser } from "@/lib/auth";
 import Header from "@/components/header";
-import TripsClientPage from "./trips-client-page";
+import TripsClientPage from "./trips-client-page"; // The new client component
 import { Loader2 } from "lucide-react";
 
-export default function TripsPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-
-  if (loading) {
-      return (
-        <div className="min-h-screen w-full flex items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      );
-  }
+export default async function TripsPage() {
+  const user = await getUser();
 
   if (!user) {
-    router.push("/login");
-    return null; // Return null while redirecting
+    redirect("/login");
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header user={user} />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Suspense fallback={
           <div className="flex justify-center items-center h-64">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         }>
-          <TripsClientPage />
+          <TripsClientPage user={user} />
         </Suspense>
       </main>
     </div>
