@@ -25,7 +25,7 @@ export default function TripsClientPage({ user }: TripsClientPageProps) {
   const searchParams = useSearchParams();
   
   const dateFromQuery = searchParams.get('date');
-  const initialTab = dateFromQuery ? 'planner' : 'visit-history'; // Default to visit history now
+  const initialTab = dateFromQuery ? 'planner' : 'visit-history';
   const [activeTab, setActiveTab] = useState(initialTab);
   
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
@@ -85,7 +85,7 @@ export default function TripsClientPage({ user }: TripsClientPageProps) {
             </TabsList>
             <TabsContent value="planner" className="mt-6">
                 <TripPlanner initialDate={dateFromQuery ? new Date(dateFromQuery) : new Date()} />
-            </TabsContent>
+            </Tabs-Content>
             <TabsContent value="all-trips" className="mt-6">
                 <TripList />
             </TabsContent>
