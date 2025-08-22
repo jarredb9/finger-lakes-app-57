@@ -39,6 +39,7 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave }: { trip: Trip
     <div ref={setNodeRef} style={style} {...attributes} className="p-3 bg-white rounded-lg shadow-sm space-y-3">
         <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
+                {/* FIX #1: Added `touch-none` to the drag handle. This tells the browser to let dnd-kit handle gestures on this specific element. */}
                 <button {...listeners} className="cursor-grab touch-none text-gray-400 p-2 pt-1"><GripVertical size={16} /></button>
                 <div>
                   <p className="font-medium text-sm">{winery.name}</p>
@@ -80,13 +81,11 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
     const [tripName, setTripName] = useState(trip.name || "");
     const { toast } = useToast();
     
-    // ** THE FIX IS HERE **
-    // We are configuring the PointerSensor to only activate a drag after the user has moved their finger by 5 pixels.
-    // This allows the browser to handle scrolling without interference.
+    // FIX #2: Increased activation distance to 10px. This makes it harder to accidentally trigger a drag when scrolling.
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
-                distance: 5,
+                distance: 10,
             },
         }), 
         useSensor(KeyboardSensor, { 
