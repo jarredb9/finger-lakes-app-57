@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Winery, Trip } from "@/lib/types";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+// ** CHANGE #1: Import the TouchSensor **
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -39,7 +40,6 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave }: { trip: Trip
     <div ref={setNodeRef} style={style} {...attributes} className="p-3 bg-white rounded-lg shadow-sm space-y-3">
         <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
-                {/* FIX #1: Added `touch-none` to the drag handle. This tells the browser to let dnd-kit handle gestures on this specific element. */}
                 <button {...listeners} className="cursor-grab touch-none text-gray-400 p-2 pt-1"><GripVertical size={16} /></button>
                 <div>
                   <p className="font-medium text-sm">{winery.name}</p>
@@ -81,13 +81,17 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
     const [tripName, setTripName] = useState(trip.name || "");
     const { toast } = useToast();
     
-    // FIX #2: Increased activation distance to 10px. This makes it harder to accidentally trigger a drag when scrolling.
+    // ** CHANGE #2: Replaced PointerSensor with TouchSensor and PointerSensor with different constraints. **
+    // TouchSensor uses a press-and-hold delay, which is ideal for mobile.
+    // PointerSensor is still used for mouse input on desktop.
     const sensors = useSensors(
-        useSensor(PointerSensor, {
+        useSensor(PointerSensor),
+        useSensor(TouchSensor, {
             activationConstraint: {
-                distance: 10,
+              delay: 250,
+              tolerance: 5,
             },
-        }), 
+        }),
         useSensor(KeyboardSensor, { 
             coordinateGetter: sortableKeyboardCoordinates 
         })
