@@ -3,7 +3,8 @@ import { getUser } from "@/lib/auth"
 import { Suspense } from "react"
 import dynamic from 'next/dynamic'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Wine, MapPin, Star, ListPlus } from "lucide-react"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Wine, MapPin, Star, ListPlus, BarChart2 } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
 import Header from "@/components/header"
 
@@ -47,6 +48,47 @@ async function getUserStats(userId: string) {
   return { totalVisits, uniqueWineries, averageRating, wishlistCount, favoritesCount };
 }
 
+const StatsCards = ({ stats }: { stats: Awaited<ReturnType<typeof getUserStats>> }) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Visits</CardTitle>
+                <Wine className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent><div className="text-2xl font-bold">{stats.totalVisits}</div></CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Unique Wineries</CardTitle>
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent><div className="text-2xl font-bold">{stats.uniqueWineries}</div></CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
+                <Star className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent><div className="text-2xl font-bold">{stats.averageRating}</div></CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Favorites</CardTitle>
+                <Star className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent><div className="text-2xl font-bold">{stats.favoritesCount}</div></CardContent>
+        </Card>
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Want to Go</CardTitle>
+                <ListPlus className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent><div className="text-2xl font-bold">{stats.wishlistCount}</div></CardContent>
+        </Card>
+    </div>
+);
+
+
 export default async function HomePage() {
   const user = await getUser()
 
@@ -62,42 +104,26 @@ export default async function HomePage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Visits</CardTitle>
-                        <Wine className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent><div className="text-2xl font-bold">{stats.totalVisits}</div></CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Unique Wineries</CardTitle>
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent><div className="text-2xl font-bold">{stats.uniqueWineries}</div></CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Average Rating</CardTitle>
-                        <Star className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent><div className="text-2xl font-bold">{stats.averageRating}</div></CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Favorites</CardTitle>
-                        <Star className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent><div className="text-2xl font-bold">{stats.favoritesCount}</div></CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Want to Go</CardTitle>
-                        <ListPlus className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent><div className="text-2xl font-bold">{stats.wishlistCount}</div></CardContent>
-                </Card>
+            {/* Mobile View: Collapsible Stats */}
+            <div className="md:hidden">
+                <Accordion type="single" collapsible className="w-full">
+                    <AccordionItem value="stats">
+                        <AccordionTrigger>
+                            <div className="flex items-center gap-2 text-base font-semibold">
+                                <BarChart2 className="h-5 w-5" />
+                                View My Stats
+                            </div>
+                        </AccordionTrigger>
+                        <AccordionContent>
+                            <StatsCards stats={stats} />
+                        </AccordionContent>
+                    </AccordionItem>
+                </Accordion>
+            </div>
+
+            {/* Desktop View: Always visible stats */}
+            <div className="hidden md:block">
+                <StatsCards stats={stats} />
             </div>
         </div>
         

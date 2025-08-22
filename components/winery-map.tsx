@@ -105,7 +105,7 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                 </Alert>
             )}
             <div className="flex items-center justify-between">
-                <ToggleGroup type="multiple" value={filter} onValueChange={onFilterChange} aria-label="Filter wineries">
+                <ToggleGroup type="multiple" value={filter} onValueChange={onFilterChange} aria-label="Filter wineries" className="flex-wrap justify-start">
                     <ToggleGroupItem value="all" aria-label="All">All</ToggleGroupItem>
                     <ToggleGroupItem value="visited" aria-label="Visited">Visited</ToggleGroupItem>
                     <ToggleGroupItem value="favorites" aria-label="Favorites">Favorites</ToggleGroupItem>
