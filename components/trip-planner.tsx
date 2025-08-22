@@ -39,7 +39,7 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave }: { trip: Trip
     <div ref={setNodeRef} style={style} {...attributes} className="p-3 bg-white rounded-lg shadow-sm space-y-3">
         <div className="flex items-start justify-between">
             <div className="flex items-start gap-3">
-                <button {...listeners} className="cursor-grab text-gray-400 p-2 pt-1"><GripVertical size={16} /></button>
+                <button {...listeners} className="cursor-grab touch-none text-gray-400 p-2 pt-1"><GripVertical size={16} /></button>
                 <div>
                   <p className="font-medium text-sm">{winery.name}</p>
                   <p className="text-xs text-muted-foreground">{winery.address}</p>
@@ -79,7 +79,20 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
     const [isEditingName, setIsEditingName] = useState(false);
     const [tripName, setTripName] = useState(trip.name || "");
     const { toast } = useToast();
-    const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+    
+    // ** THE FIX IS HERE **
+    // We are configuring the PointerSensor to only activate a drag after the user has moved their finger by 5 pixels.
+    // This allows the browser to handle scrolling without interference.
+    const sensors = useSensors(
+        useSensor(PointerSensor, {
+            activationConstraint: {
+                distance: 5,
+            },
+        }), 
+        useSensor(KeyboardSensor, { 
+            coordinateGetter: sortableKeyboardCoordinates 
+        })
+    );
 
     useEffect(() => {
         setTripWineries(trip.wineries);
