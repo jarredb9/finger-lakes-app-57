@@ -85,7 +85,7 @@ export default function TripsClientPage({ user }: TripsClientPageProps) {
             </TabsList>
             <TabsContent value="planner" className="mt-6">
                 <TripPlanner initialDate={dateFromQuery ? new Date(dateFromQuery) : new Date()} />
-            </Tabs-Content>
+            </TabsContent>
             <TabsContent value="all-trips" className="mt-6">
                 <TripList />
             </TabsContent>
