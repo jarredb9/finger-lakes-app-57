@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Trip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink, PaginationEllipsis } from '@/components/ui/pagination';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from '@/components/ui/pagination';
 
 const TRIPS_PER_PAGE = 6;
 
@@ -27,7 +27,7 @@ export default function TripList() {
             const response = await fetch(`/api/trips?page=${page}&limit=${TRIPS_PER_PAGE}`);
             if (response.ok) {
                 const { trips, count } = await response.json();
-                setAllTrips(trips); // Correctly use the 'trips' array from the response
+                setAllTrips(trips);
                 setTotalPages(Math.ceil(count / TRIPS_PER_PAGE));
                 setCurrentPage(page);
             }
@@ -43,7 +43,7 @@ export default function TripList() {
     }, [fetchAllTrips]);
 
     const handlePageChange = (page: number) => {
-        if (page > 0 && page <= totalPages) {
+        if (page > 0 && page <= totalPages && page !== currentPage) {
             fetchAllTrips(page);
         }
     };
@@ -58,6 +58,7 @@ export default function TripList() {
             const response = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' });
             if (response.ok) {
                 toast({ description: "Trip deleted successfully." });
+                // Refresh the current page of trips
                 fetchAllTrips(currentPage);
             } else {
                 toast({ variant: 'destructive', description: "Failed to delete trip." });
