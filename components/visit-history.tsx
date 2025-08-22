@@ -51,12 +51,17 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
             const response = await fetch(`/api/visits?page=${page}&limit=${VISITS_PER_PAGE}`);
             if (response.ok) {
                 const { visits, count } = await response.json();
-                setVisits(visits); // Correctly use the 'visits' array from the response
+                console.log("[VisitHistory] Fetched data:", { visits, count });
+                setVisits(visits || []); // Ensure we always set an array
                 setTotalPages(Math.ceil(count / VISITS_PER_PAGE));
                 setCurrentPage(page);
+            } else {
+                console.error("[VisitHistory] Failed to fetch visits, response not ok.");
+                setVisits([]);
             }
         } catch (error) {
             console.error("Failed to fetch visit history", error);
+            setVisits([]);
         } finally {
             setLoading(false);
         }
@@ -72,7 +77,14 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
         }
     };
     
+    // ADDED LOGGING HERE
+    console.log("[VisitHistory] Rendering with visits state:", visits, `Is it an array? ${Array.isArray(visits)}`);
+
     const sortedAndFilteredVisitsForMobile = useMemo(() => {
+        if (!Array.isArray(visits)) {
+            console.error("[VisitHistory] CRITICAL: `visits` is not an array in useMemo. Value:", visits);
+            return [];
+        }
         let filtered = visits.filter(visit => {
             const name = visit.wineries?.name?.toLowerCase() || "";
             const review = visit.user_review?.toLowerCase() || "";
@@ -127,7 +139,6 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
                 Here you can find all of your past winery visits. Click on a row to see more details.
             </p>
             
-            {/* Mobile-only controls */}
             <div className="md:hidden space-y-4 mb-4">
                 <Input
                     placeholder="Filter by winery or review..."
@@ -148,12 +159,10 @@ export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wine
                 </div>
             </div>
 
-            {/* Desktop View: Table */}
             <div className="hidden md:block">
                 <DataTable columns={columns} data={visits} onRowClick={handleRowClick} />
             </div>
 
-            {/* Mobile View: Cards */}
             <div className="block md:hidden">
                 {sortedAndFilteredVisitsForMobile.length > 0 ? (
                     sortedAndFilteredVisitsForMobile.map(visit => (

@@ -27,12 +27,17 @@ export default function TripList() {
             const response = await fetch(`/api/trips?page=${page}&limit=${TRIPS_PER_PAGE}`);
             if (response.ok) {
                 const { trips, count } = await response.json();
-                setAllTrips(trips);
+                console.log("[TripList] Fetched data:", { trips, count });
+                setAllTrips(trips || []); // Ensure we always set an array
                 setTotalPages(Math.ceil(count / TRIPS_PER_PAGE));
                 setCurrentPage(page);
+            } else {
+                 console.error("[TripList] Failed to fetch trips, response not ok.");
+                 setAllTrips([]);
             }
         } catch (error) {
             console.error("Failed to fetch all trips", error);
+            setAllTrips([]);
         } finally {
             setLoading(false);
         }
@@ -41,6 +46,13 @@ export default function TripList() {
     useEffect(() => {
         fetchAllTrips(1);
     }, [fetchAllTrips]);
+    
+    // ADDED LOGGING HERE
+    console.log("[TripList] Rendering with allTrips state:", allTrips, `Is it an array? ${Array.isArray(allTrips)}`);
+    if (!Array.isArray(allTrips)) {
+        console.error("[TripList] CRITICAL: `allTrips` is not an array during render. Value:", allTrips);
+    }
+
 
     const handlePageChange = (page: number) => {
         if (page > 0 && page <= totalPages && page !== currentPage) {
@@ -58,7 +70,6 @@ export default function TripList() {
             const response = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' });
             if (response.ok) {
                 toast({ description: "Trip deleted successfully." });
-                // Refresh the current page of trips
                 fetchAllTrips(currentPage);
             } else {
                 toast({ variant: 'destructive', description: "Failed to delete trip." });
@@ -109,7 +120,7 @@ export default function TripList() {
         <div className="space-y-8">
             <div className="space-y-4">
                 <h2 className="text-2xl font-bold mb-4">All Trips</h2>
-                {allTrips.length > 0 ? (
+                {(allTrips && allTrips.length > 0) ? (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                         {allTrips.map(renderTripCard)}
                     </div>
