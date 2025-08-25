@@ -9,6 +9,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +28,53 @@ import { Separator } from "./ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { useIsMobile } from "@/hooks/use-mobile";
+
+// New Responsive Date Picker Component
+function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (date: Date | undefined) => void }) {
+    const isMobile = useIsMobile();
+    
+    if (isMobile) {
+        return (
+            <Drawer>
+                <DrawerTrigger asChild>
+                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {date ? date.toLocaleDateString() : <span>Pick a date</span>}
+                    </Button>
+                </DrawerTrigger>
+                <DrawerContent className="p-4">
+                    <Calendar
+                        mode="single"
+                        selected={date}
+                        onSelect={onSelect}
+                        initialFocus
+                    />
+                </DrawerContent>
+            </Drawer>
+        );
+    }
+
+    return (
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {date ? date.toLocaleDateString() : <span>Pick a date</span>}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0">
+                <Calendar
+                    mode="single"
+                    selected={date}
+                    onSelect={onSelect}
+                    initialFocus
+                />
+            </PopoverContent>
+        </Popover>
+    );
+}
+
 
 interface WineryModalProps {
   winery: Winery | null;
@@ -233,16 +287,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                 <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
                     <h4 className="font-semibold">Add to a Trip</h4>
                     <div className="flex flex-col sm:flex-row gap-2 items-center">
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal">
-                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {tripDate ? tripDate.toLocaleDateString() : <span>Pick a date</span>}
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={tripDate} onSelect={setTripDate} initialFocus /></PopoverContent>
-                        </Popover>
-
+                        <DatePicker date={tripDate} onSelect={setTripDate} />
                         {tripDate && (
                             <Select onValueChange={setSelectedTripId} value={selectedTripId}>
                                 <SelectTrigger className="w-full sm:w-[200px]">
