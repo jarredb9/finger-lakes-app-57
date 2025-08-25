@@ -263,7 +263,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                 e.preventDefault();
             }
         }}
-        // ** THE FIX IS HERE: This new handler prevents the focus conflict **
         onFocusOutside={(e) => e.preventDefault()}
       >
         <div className="overflow-y-auto">
