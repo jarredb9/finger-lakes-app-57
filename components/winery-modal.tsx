@@ -40,7 +40,6 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
 
     const handleDateSelect: SelectSingleEventHandler = (selectedDate) => {
         onSelect(selectedDate);
-        // After a date is selected on mobile, programmatically close the drawer.
         if (isMobile) {
             closeButtonRef.current?.click();
         }
@@ -48,7 +47,8 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
     
     if (isMobile) {
         return (
-            <Drawer>
+            // ** THE FIX IS HERE: Added `modal={false}` to the Drawer **
+            <Drawer modal={false}>
                 <DrawerTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal">
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -68,7 +68,6 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
                           initialFocus
                       />
                     </div>
-                    {/* This button is hidden but can be triggered programmatically */}
                     <DrawerClose ref={closeButtonRef} className="sr-only">Close</DrawerClose>
                 </DrawerContent>
             </Drawer>
@@ -359,7 +358,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                                     </Button>
                                     {onDeleteVisit && visit.id && (
                                       <Button variant="ghost" size="sm" onClick={() => handleDeleteVisit(visit.id!)} className="text-red-600 hover:text-red-800 hover:bg-red-50" aria-label={`Delete visit`}>
-                                        <Trash2 className="w-4 w-4" />
+                                        <Trash2 className="w-4 h-4" />
                                       </Button>
                                     )}
                                   </div>
