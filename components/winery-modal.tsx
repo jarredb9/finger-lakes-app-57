@@ -129,15 +129,29 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
     resetForm();
     setTripDate(undefined);
 
-    if (winery) {
+    // ** THE FIX IS HERE **
+    // Only fetch friends' ratings if the winery has a database ID (dbId).
+    // A newly discovered winery won't have a dbId until it's interacted with.
+    if (winery && winery.dbId) {
       const fetchFriendsRatings = async () => {
-        const response = await fetch(`/api/wineries/${winery.dbId}/friends-ratings`);
-        if (response.ok) {
-          const data = await response.json();
-          setFriendsRatings(data);
+        try {
+          const response = await fetch(`/api/wineries/${winery.dbId}/friends-ratings`);
+          if (response.ok) {
+            const data = await response.json();
+            setFriendsRatings(data);
+          } else {
+            console.error("Failed to fetch friends ratings");
+            setFriendsRatings([]);
+          }
+        } catch (error) {
+          console.error("Error fetching friends ratings:", error);
+          setFriendsRatings([]);
         }
       };
       fetchFriendsRatings();
+    } else {
+      // If there's no dbId, clear any previous ratings from the state.
+      setFriendsRatings([]);
     }
   }, [winery]);
   
