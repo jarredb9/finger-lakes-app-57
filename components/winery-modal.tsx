@@ -47,8 +47,7 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
     
     if (isMobile) {
         return (
-            // ** THE FIX IS HERE: Added `modal={false}` to the Drawer **
-            <Drawer modal={false}>
+            <Drawer>
                 <DrawerTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal">
                         <CalendarIcon className="mr-2 h-4 w-4" />
@@ -257,7 +256,17 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col">
+      <DialogContent 
+        className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
+        // ** THE FIX IS HERE **
+        // This event handler prevents the Dialog from closing or trying to manage focus
+        // when the interaction is happening with the Drawer's trigger button.
+        onPointerDownOutside={(e) => {
+            if ((e.target as HTMLElement)?.closest('[vaul-drawer-trigger]')) {
+                e.preventDefault();
+            }
+        }}
+      >
         <div className="overflow-y-auto">
             <div className="p-6">
                 <DialogHeader>
