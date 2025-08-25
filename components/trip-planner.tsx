@@ -12,9 +12,13 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, 
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Edit, Save, PlusCircle, Star } from "lucide-react";
+import { GripVertical, Trash2, Edit, Save, PlusCircle, Star, UserPlus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
+import { Check } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 function SortableWineryItem({ trip, winery, onRemove, onNoteSave }: { trip: Trip; winery: Winery & { notes?: string, userVisit?: { rating?: number; user_review?: string } }; onRemove: (wineryId: number) => void; onNoteSave: (wineryId: number, notes: string) => void; }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: winery.dbId! });
@@ -79,6 +83,8 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
     const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tripName, setTripName] = useState(trip.name || "");
+    const [friends, setFriends] = useState([]);
+    const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
     const { toast } = useToast();
     
     // ** CHANGE #2: Replaced PointerSensor with TouchSensor and PointerSensor with different constraints. **
@@ -100,6 +106,15 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
     useEffect(() => {
         setTripWineries(trip.wineries);
         setTripName(trip.name || "");
+
+        const fetchFriends = async () => {
+            const response = await fetch('/api/friends');
+            if (response.ok) {
+                const data = await response.json();
+                setFriends(data.friends || []);
+            }
+        };
+        fetchFriends();
     }, [trip]);
 
     const handleSaveTripName = async () => {
@@ -188,6 +203,22 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
             throw error;
         }
     };
+    
+    const handleAddFriendsToTrip = async () => {
+        try {
+            const response = await fetch(`/api/trips/${trip.id}/members`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ members: selectedFriends }),
+            });
+            if (response.ok) {
+                toast({ description: "Friends added to trip." });
+                onWineriesUpdate();
+            }
+        } catch (error) {
+            console.error("Failed to add friends to trip", error);
+        }
+    };
 
     return (
         <Card>
@@ -204,21 +235,58 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
                         <Button variant="ghost" size="icon" onClick={() => setIsEditingName(true)}><Edit size={16} /></Button>
                       </div>
                     )}
-                     <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="icon"><Trash2 size={16} /></Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                            <AlertDialogHeader>
-                                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                <AlertDialogDescription>This will permanently delete this trip and all its wineries. This action cannot be undone.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction onClick={handleDeleteTrip}>Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                        </AlertDialogContent>
-                    </AlertDialog>
+                     <div className="flex items-center gap-2">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="icon"><UserPlus size={16} /></Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[200px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Search friends..." className="h-9" />
+                              <CommandEmpty>No friends found.</CommandEmpty>
+                              <CommandGroup>
+                                {friends.map((friend: any) => (
+                                  <CommandItem
+                                    key={friend.id}
+                                    onSelect={() => {
+                                      const newSelection = selectedFriends.includes(friend.id)
+                                        ? selectedFriends.filter(id => id !== friend.id)
+                                        : [...selectedFriends, friend.id];
+                                      setSelectedFriends(newSelection);
+                                    }}
+                                  >
+                                    <div className="flex items-center justify-between w-full">
+                                      <span>{friend.name}</span>
+                                      <Check
+                                        className={cn(
+                                          "h-4 w-4",
+                                          selectedFriends.includes(friend.id) ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </Command>
+                            <Button className="w-full" onClick={handleAddFriendsToTrip}>Add to Trip</Button>
+                          </PopoverContent>
+                        </Popover>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon"><Trash2 size={16} /></Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    <AlertDialogDescription>This will permanently delete this trip and all its wineries. This action cannot be undone.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleDeleteTrip}>Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                     </div>
                 </div>
             </CardHeader>
             <CardContent>

@@ -37,4 +37,5 @@ export interface Trip {
     trip_date: string;
     name?: string;
     wineries: Winery[];
+    members?: string[];
 }

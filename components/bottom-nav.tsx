@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Map, CalendarDays } from "lucide-react";
+import { Map, CalendarDays, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function BottomNav() {
@@ -16,11 +16,12 @@ export default function BottomNav() {
   const navItems = [
     { href: "/", label: "Map", icon: Map },
     { href: "/trips", label: "Trips", icon: CalendarDays },
+    { href: "/friends", label: "Friends", icon: Users },
   ];
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur-sm border-t">
-      <div className="grid grid-cols-2 h-16">
+      <div className="grid grid-cols-3 h-16">
         {navItems.map((item) => {
           // Highlight "Trips" if the path starts with /trips, but only highlight "Map" for the exact path "/"
           const isActive = pathname.startsWith(item.href) && (item.href !== '/' || pathname === '/');

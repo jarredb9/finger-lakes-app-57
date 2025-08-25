@@ -25,6 +25,9 @@ export default function Header({ user }: HeaderProps) {
             <Link href="/trips" className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
                 Trips
             </Link>
+            <Link href="/friends" className="text-sm font-medium text-gray-500 hover:text-gray-700 transition-colors">
+                Friends
+            </Link>
           </nav>
           <div className="flex items-center space-x-4">
             <div className="text-right">

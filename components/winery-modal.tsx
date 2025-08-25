@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check, Edit } from "lucide-react";
+import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check, Edit, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Winery, Visit, Trip } from "@/lib/types";
 import { Separator } from "./ui/separator";
@@ -113,6 +113,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+  const [friendsRatings, setFriendsRatings] = useState([]);
 
   const editFormRef = useRef<HTMLDivElement>(null);
 
@@ -127,6 +128,17 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
     setEditingVisitId(null);
     resetForm();
     setTripDate(undefined);
+
+    if (winery) {
+      const fetchFriendsRatings = async () => {
+        const response = await fetch(`/api/wineries/${winery.dbId}/friends-ratings`);
+        if (response.ok) {
+          const data = await response.json();
+          setFriendsRatings(data);
+        }
+      };
+      fetchFriendsRatings();
+    }
   }, [winery]);
   
   useEffect(() => {
@@ -309,6 +321,30 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                     </DialogDescription>
                 </DialogHeader>
                  <Separator className="my-4"/>
+                
+                 {friendsRatings.length > 0 && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friends' Ratings</span></h3>
+                    <div className="space-y-3">
+                      {friendsRatings.map((rating: any) => (
+                        <Card key={rating.user_id} className="bg-blue-50 border-blue-200">
+                          <CardContent className="p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="font-semibold text-blue-800">{rating.name}</p>
+                              <div className="flex items-center">
+                                {[...Array(5)].map((_, i) => (
+                                  <Star key={i} className={`w-5 h-5 ${i < rating.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+                                ))}
+                              </div>
+                            </div>
+                            {rating.user_review && <p className="text-sm text-blue-700 bg-white p-3 rounded-md border">{rating.user_review}</p>}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                    <Separator className="my-4"/>
+                  </div>
+                )}
                 
                 <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
                     <h4 className="font-semibold">Add to a Trip</h4>
