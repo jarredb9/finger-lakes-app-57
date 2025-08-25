@@ -1,3 +1,4 @@
+// File: app/api/wineries/[id]/friends-ratings/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
@@ -15,49 +16,53 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
     const supabase = await createClient();
 
-    // 1. Get the current user's friends
-    const { data: friendsData, error: friendsError } = await supabase
-        .from('friends')
-        .select('user1_id, user2_id')
-        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-        .eq('status', 'accepted');
+    try {
+        // 1. Get the current user's friends
+        const { data: friendsData, error: friendsError } = await supabase
+            .from('friends')
+            .select('user1_id, user2_id')
+            .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
+            .eq('status', 'accepted');
 
-    if (friendsError) {
-        console.error("Error fetching friends:", friendsError);
-        return NextResponse.json({ error: "Failed to fetch friends." }, { status: 500 });
+        if (friendsError) throw friendsError;
+
+        const friendIds = friendsData.map(f => f.user1_id === user.id ? f.user2_id : f.user1_id);
+
+        if (friendIds.length === 0) {
+            return NextResponse.json([]);
+        }
+
+        // 2. Get visits for that winery from those friends, joining with profiles
+        const { data: ratings, error: ratingsError } = await supabase
+            .from('visits')
+            .select(`
+                rating,
+                user_review,
+                user_id,
+                profiles (
+                    id, name, email
+                )
+            `)
+            .eq('winery_id', wineryId)
+            .in('user_id', friendIds);
+
+        if (ratingsError) {
+            console.error("Error fetching ratings:", ratingsError);
+            throw ratingsError;
+        }
+
+        // Format the response
+        const formattedRatings = ratings.map(r => ({
+            rating: r.rating,
+            user_review: r.user_review,
+            user_id: r.user_id,
+            name: r.profiles?.name || 'A friend'
+        })).filter(r => r.rating); // Only show friends who have actually rated it.
+
+
+        return NextResponse.json(formattedRatings);
+    } catch (error) {
+        console.error("Internal error fetching friend ratings:", error);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
-
-    const friendIds = friendsData.map(f => f.user1_id === user.id ? f.user2_id : f.user1_id);
-
-    if (friendIds.length === 0) {
-        return NextResponse.json([]);
-    }
-
-    // 2. Get visits for that winery from those friends
-    const { data: ratings, error: ratingsError } = await supabase
-        .from('visits')
-        .select(`
-            rating,
-            user_review,
-            user_id,
-            profiles:users (
-                name
-            )
-        `)
-        .eq('winery_id', wineryId)
-        .in('user_id', friendIds);
-
-    if (ratingsError) {
-        console.error("Error fetching ratings:", ratingsError);
-        return NextResponse.json({ error: "Failed to fetch ratings." }, { status: 500 });
-    }
-
-    // Format the response to be more client-friendly
-    const formattedRatings = ratings.map(r => ({
-        ...r,
-        name: Array.isArray(r.profiles) ? r.profiles[0]?.name : r.profiles?.name || 'A friend'
-    }));
-
-
-    return NextResponse.json(formattedRatings);
 }
