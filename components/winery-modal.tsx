@@ -44,6 +44,10 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
                     </Button>
                 </DrawerTrigger>
                 <DrawerContent className="p-4">
+                    {/* FIX: Added DrawerHeader and DrawerTitle for accessibility */}
+                    <DrawerHeader>
+                        <DrawerTitle>Select a date</DrawerTitle>
+                    </DrawerHeader>
                     <Calendar
                         mode="single"
                         selected={date}
