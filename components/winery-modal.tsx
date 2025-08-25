@@ -258,14 +258,13 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
     <Dialog open={true} onOpenChange={onClose}>
       <DialogContent 
         className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
-        // ** THE FIX IS HERE **
-        // This event handler prevents the Dialog from closing or trying to manage focus
-        // when the interaction is happening with the Drawer's trigger button.
         onPointerDownOutside={(e) => {
             if ((e.target as HTMLElement)?.closest('[vaul-drawer-trigger]')) {
                 e.preventDefault();
             }
         }}
+        // ** THE FIX IS HERE: This new handler prevents the focus conflict **
+        onFocusOutside={(e) => e.preventDefault()}
       >
         <div className="overflow-y-auto">
             <div className="p-6">

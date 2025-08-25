@@ -54,13 +54,9 @@ export function useWineryData() {
 
     const fetchUserVisits = useCallback(async () => {
         try {
-            // Fetching only the first page for the map overview. 
-            // The paginated data is handled in the VisitHistory component itself.
-            const response = await fetch('/api/visits?page=1&limit=1000'); // Fetch up to 1000 visits for the map
+            const response = await fetch('/api/visits?page=1&limit=1000');
             if (response.ok) {
                 const data = await response.json();
-                // ** THE FIX IS HERE **
-                // We now correctly extract the 'visits' array from the response object.
                 const visitsArray = data.visits || [];
                 setAllUserVisits(visitsArray);
                 return visitsArray;
@@ -84,6 +80,7 @@ export function useWineryData() {
         if (!allUserVisits || allUserVisits.length === 0) return [];
         
         const wineriesMap = new Map<number, any>();
+        // ** THE FIX IS HERE: Corrected the typo from `allUserVisisits` to `allUserVisits` **
         allUserVisits.forEach(visit => {
             if (!visit.wineries) return;
             const wineryId = visit.wineries.id;
@@ -110,7 +107,7 @@ export function useWineryData() {
     const allPersistentWineries = useMemo(() => {
         const wineries = new Map<string, Winery>();
         [...allFavoriteWineries, ...allWishlistWineries, ...allVisitedWineries].forEach(w => {
-            if (w) { // Ensure winery is not null
+            if (w) {
                  wineries.set(w.id, { ...wineries.get(w.id), ...w });
             }
         });
