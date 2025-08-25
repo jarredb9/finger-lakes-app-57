@@ -206,7 +206,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
     
     const handleAddFriendsToTrip = async () => {
         try {
-            const response = await fetch(`/api/trips/${trip.id}/members`, {
+            const response = await fetch(`/api/trips/${trip.id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ members: selectedFriends }),

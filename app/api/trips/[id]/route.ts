@@ -21,9 +21,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         // Verify the user owns the trip first
         const { data: trip, error: ownerError } = await supabase
             .from('trips')
-            .select('id')
+            .select('id, members')
             .eq('id', tripId)
-            .eq('user_id', user.id)
+            .or(`user_id.eq.${user.id},members.cs.{${user.id}}`)
             .single();
 
         if (ownerError || !trip) {
@@ -60,6 +60,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
                 .update({ notes: notes })
                 .eq('trip_id', tripId)
                 .eq('winery_id', wineryId);
+            if (error) throw error;
+        }
+
+        // Scenario 5: Update trip members
+        if (body.members) {
+            const { error } = await supabase.from('trips').update({ members: body.members }).eq('id', tripId);
             if (error) throw error;
         }
 
