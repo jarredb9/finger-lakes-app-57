@@ -11,7 +11,9 @@ import {
 } from "@/components/ui/dialog";
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
@@ -29,10 +31,20 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { SelectSingleEventHandler } from "react-day-picker";
 
 // New Responsive Date Picker Component
 function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (date: Date | undefined) => void }) {
     const isMobile = useIsMobile();
+    const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+    const handleDateSelect: SelectSingleEventHandler = (selectedDate) => {
+        onSelect(selectedDate);
+        // After a date is selected on mobile, programmatically close the drawer.
+        if (isMobile) {
+            closeButtonRef.current?.click();
+        }
+    };
     
     if (isMobile) {
         return (
@@ -43,17 +55,21 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
                         {date ? date.toLocaleDateString() : <span>Pick a date</span>}
                     </Button>
                 </DrawerTrigger>
-                <DrawerContent className="p-4">
-                    {/* FIX: Added DrawerHeader and DrawerTitle for accessibility */}
-                    <DrawerHeader>
+                <DrawerContent>
+                    <DrawerHeader className="text-left">
                         <DrawerTitle>Select a date</DrawerTitle>
+                        <DrawerDescription>Choose a date for your trip.</DrawerDescription>
                     </DrawerHeader>
-                    <Calendar
-                        mode="single"
-                        selected={date}
-                        onSelect={onSelect}
-                        initialFocus
-                    />
+                    <div className="p-4">
+                      <Calendar
+                          mode="single"
+                          selected={date}
+                          onSelect={handleDateSelect}
+                          initialFocus
+                      />
+                    </div>
+                    {/* This button is hidden but can be triggered programmatically */}
+                    <DrawerClose ref={closeButtonRef} className="sr-only">Close</DrawerClose>
                 </DrawerContent>
             </Drawer>
         );
@@ -343,7 +359,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                                     </Button>
                                     {onDeleteVisit && visit.id && (
                                       <Button variant="ghost" size="sm" onClick={() => handleDeleteVisit(visit.id!)} className="text-red-600 hover:text-red-800 hover:bg-red-50" aria-label={`Delete visit`}>
-                                        <Trash2 className="w-4 h-4" />
+                                        <Trash2 className="w-4 w-4" />
                                       </Button>
                                     )}
                                   </div>
