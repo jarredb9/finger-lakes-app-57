@@ -57,7 +57,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             user_review: r.user_review,
             user_id: r.user_id,
             name: r.profiles?.name || 'A friend'
-        })).filter(r => r.rating); // Only show friends who have actually rated it.
+        }));
 
 
         return NextResponse.json(formattedRatings);
