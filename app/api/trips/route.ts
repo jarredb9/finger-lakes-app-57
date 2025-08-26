@@ -29,12 +29,13 @@ export async function GET(request: NextRequest) {
   const date = searchParams.get("date");
   const supabase = await createClient();
 
-  // This logic is for the Trip Planner and remains unchanged
+  // Logic for the Trip Planner page
   if (date) {
     const { data: trips, error } = await supabase
       .from("trips")
       .select("*, trip_wineries(*, wineries(*))")
-      .eq("user_id", user.id)
+      // ** THE FIX IS HERE (Part 1): Also fetch trips where the user is a member on the planner page **
+      .or(`user_id.eq.${user.id},members.cs.{${user.id}}`)
       .eq("trip_date", date);
 
     if (error) throw error;
@@ -62,9 +63,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(formattedTrips);
   } 
   
-  // ** NEW LOGIC FOR PAGINATED "All Trips" page **
+  // Logic for the paginated "All Trips" page
   else {
-    const type = searchParams.get("type") || "upcoming"; // Default to 'upcoming'
+    const type = searchParams.get("type") || "upcoming";
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "6", 10);
     const rangeFrom = (page - 1) * limit;
@@ -74,7 +75,9 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("trips")
       .select("*", { count: 'exact' })
-      .eq("user_id", user.id);
+      // ** THE FIX IS HERE (Part 2): Fetch all trips the user owns OR is a member of. **
+      .or(`user_id.eq.${user.id},members.cs.{${user.id}}`);
+
 
     if (type === 'upcoming') {
         query = query.gte('trip_date', today).order("trip_date", { ascending: true });
@@ -104,9 +107,10 @@ export async function POST(request: NextRequest) {
     let targetTripId = tripId;
 
     if (!targetTripId) {
+        // When creating a new trip, initialize the members array with the creator's ID.
         const { data: newTrip, error: createTripError } = await supabase
             .from("trips")
-            .insert({ user_id: user.id, trip_date: date, name: name || `Trip for ${date}` })
+            .insert({ user_id: user.id, trip_date: date, name: name || `Trip for ${date}`, members: [user.id] })
             .select("id")
             .single();
         if (createTripError) throw createTripError;
