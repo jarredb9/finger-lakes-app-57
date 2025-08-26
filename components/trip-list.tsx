@@ -50,7 +50,10 @@ function TripSection({ title, type, onTripDeleted }: { title: string; type: 'upc
     };
 
     const handleViewTrip = (date: string) => {
-        router.push(`/trips?date=${new Date(date).toISOString()}`);
+        // ** THE FIX IS HERE: We add 'T00:00:00' to the date string. **
+        // This tells the JavaScript Date constructor to interpret the date in the local timezone
+        // instead of UTC, which prevents the date from rolling back by one day.
+        router.push(`/trips?date=${new Date(date + 'T00:00:00').toISOString()}`);
     };
 
     const handleDeleteTrip = async (tripId: number) => {
