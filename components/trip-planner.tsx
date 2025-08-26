@@ -6,8 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Winery, Trip } from "@/lib/types";
-// ** CHANGE #1: Import the TouchSensor **
+import { Winery, Trip, Visit } from "@/lib/types";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -20,10 +19,11 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-function SortableWineryItem({ trip, winery, onRemove, onNoteSave }: { trip: Trip; winery: Winery & { notes?: string, userVisit?: { rating?: number; user_review?: string } }; onRemove: (wineryId: number) => void; onNoteSave: (wineryId: number, notes: string) => void; }) {
+// This is the updated SortableWineryItem component
+function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { trip: Trip; winery: Winery; onRemove: (wineryId: number) => void; onNoteSave: (wineryId: number, notes: string) => void; userId: string; }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: winery.dbId! });
   const style = { transform: CSS.Transform.toString(transform), transition };
-  const [notes, setNotes] = useState(winery.notes || "");
+  const [notes, setNotes] = useState((winery as any).notes || "");
   const [isSavingNote, setIsSavingNote] = useState(false);
   const isPastTrip = new Date(trip.trip_date + 'T00:00:00') < new Date();
   const { toast } = useToast();
@@ -54,18 +54,24 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave }: { trip: Trip
         </div>
         
         {isPastTrip ? (
-            winery.userVisit ? (
-                <div className="pl-12 space-y-1">
-                    <p className="font-semibold text-xs text-gray-600">Your Review:</p>
-                    <div className="flex items-center">
-                        {[...Array(5)].map((_, i) => (<Star key={i} className={`w-4 h-4 ${i < (winery.userVisit?.rating || 0) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />))}
-                    </div>
-                    {winery.userVisit.user_review && (
-                        <p className="text-sm text-gray-700 italic bg-gray-50 p-2 rounded">"{winery.userVisit.user_review}"</p>
-                    )}
+            winery.visits && winery.visits.length > 0 ? (
+                <div className="pl-12 space-y-3">
+                    {winery.visits.map((visit: any) => (
+                        <div key={visit.id} className="space-y-1">
+                            <p className="font-semibold text-xs text-gray-600">
+                                {visit.user_id === userId ? "Your Review:" : `${visit.profiles?.name || 'A friend'}'s Review:`}
+                            </p>
+                            <div className="flex items-center">
+                                {[...Array(5)].map((_, i) => (<Star key={i} className={`w-4 h-4 ${i < (visit.rating || 0) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />))}
+                            </div>
+                            {visit.user_review && (
+                                <p className="text-sm text-gray-700 italic bg-gray-50 p-2 rounded">"{visit.user_review}"</p>
+                            )}
+                        </div>
+                    ))}
                 </div>
             ) : (
-                <p className="pl-12 text-xs text-muted-foreground">No review logged for this visit.</p>
+                <p className="pl-12 text-xs text-muted-foreground">No reviews logged for this visit.</p>
             )
         ) : (
             <div className="pl-12 space-y-2">
@@ -79,7 +85,7 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave }: { trip: Trip
   );
 }
 
-function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; }) {
+function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; userId: string; }) {
     const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tripName, setTripName] = useState(trip.name || "");
@@ -87,9 +93,6 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
     const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
     const { toast } = useToast();
     
-    // ** CHANGE #2: Replaced PointerSensor with TouchSensor and PointerSensor with different constraints. **
-    // TouchSensor uses a press-and-hold delay, which is ideal for mobile.
-    // PointerSensor is still used for mouse input on desktop.
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(TouchSensor, {
@@ -106,6 +109,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
     useEffect(() => {
         setTripWineries(trip.wineries);
         setTripName(trip.name || "");
+        setSelectedFriends(trip.members || []);
 
         const fetchFriends = async () => {
             const response = await fetch('/api/friends');
@@ -212,7 +216,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
                 body: JSON.stringify({ members: selectedFriends }),
             });
             if (response.ok) {
-                toast({ description: "Friends added to trip." });
+                toast({ description: "Trip members updated." });
                 onWineriesUpdate();
             }
         } catch (error) {
@@ -268,7 +272,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
                                 ))}
                               </CommandGroup>
                             </Command>
-                            <Button className="w-full" onClick={handleAddFriendsToTrip}>Add to Trip</Button>
+                            <Button className="w-full" onClick={handleAddFriendsToTrip}>Update Members</Button>
                           </PopoverContent>
                         </Popover>
                         <AlertDialog>
@@ -295,7 +299,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
                         <SortableContext items={tripWineries.map(w => w.dbId!)} strategy={verticalListSortingStrategy}>
                             <div className="space-y-3">
                                 {tripWineries.map((winery) => (
-                                    <SortableWineryItem key={winery.dbId} trip={trip} winery={winery} onRemove={handleRemoveWinery} onNoteSave={handleNoteSave} />
+                                    <SortableWineryItem key={winery.dbId} trip={trip} winery={winery} onRemove={handleRemoveWinery} onNoteSave={handleNoteSave} userId={userId} />
                                 ))}
                             </div>
                         </SortableContext>
@@ -308,7 +312,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate }: { trip: Trip; onTri
     );
 }
 
-export default function TripPlanner({ initialDate }: { initialDate: Date }) {
+export default function TripPlanner({ initialDate, user }: { initialDate: Date, user: any }) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
   const [trips, setTrips] = useState<Trip[]>([]);
   const { toast } = useToast();
@@ -385,6 +389,7 @@ export default function TripPlanner({ initialDate }: { initialDate: Date }) {
                     trip={trip} 
                     onTripDeleted={() => fetchTripsForDate(selectedDate!)}
                     onWineriesUpdate={() => fetchTripsForDate(selectedDate!)} 
+                    userId={user.id}
                 />
             ))
         ) : (

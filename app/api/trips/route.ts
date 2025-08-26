@@ -2,7 +2,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
 
-const formatWinery = (winery: any, visit?: any) => {
+// This formatWinery function is now simpler as we will attach visits later.
+const formatWinery = (winery: any) => {
     if (!winery) return null;
     return {
         id: winery.google_place_id,
@@ -14,10 +15,6 @@ const formatWinery = (winery: any, visit?: any) => {
         phone: winery.phone,
         website: winery.website,
         rating: winery.google_rating,
-        userVisit: visit ? {
-            rating: visit.rating,
-            user_review: visit.user_review,
-        } : undefined,
     };
 };
 
@@ -31,39 +28,70 @@ export async function GET(request: NextRequest) {
 
   // Logic for the Trip Planner page
   if (date) {
-    const { data: trips, error } = await supabase
+    // 1. Fetch trips for the user (owned or member of) on a specific date
+    const { data: trips, error: tripsError } = await supabase
       .from("trips")
       .select("*, trip_wineries(*, wineries(*))")
-      // ** THE FIX IS HERE (Part 1): Also fetch trips where the user is a member on the planner page **
       .or(`user_id.eq.${user.id},members.cs.{${user.id}}`)
       .eq("trip_date", date);
 
-    if (error) throw error;
+    if (tripsError) throw tripsError;
     if (!trips) return NextResponse.json([]);
+    
+    // 2. Collect all winery IDs and member IDs from the fetched trips
+    const allWineryIds = new Set<number>();
+    const allMemberIds = new Set<string>();
+    trips.forEach(trip => {
+        trip.trip_wineries.forEach(tw => tw.wineries?.id && allWineryIds.add(tw.wineries.id));
+        trip.members?.forEach(memberId => allMemberIds.add(memberId));
+        allMemberIds.add(trip.user_id); // Also include the trip owner
+    });
 
+    if (allWineryIds.size === 0 || allMemberIds.size === 0) {
+        return NextResponse.json(trips);
+    }
+    
+    // 3. Fetch all visits for those wineries from any of the members
     const { data: visits, error: visitsError } = await supabase
         .from("visits")
-        .select("winery_id, rating, user_review")
-        .eq("user_id", user.id);
-    
-    if(visitsError) throw visitsError;
-    const visitsMap = new Map(visits.map(v => [v.winery_id, v]));
+        .select("*, profiles(name)")
+        .in("winery_id", Array.from(allWineryIds))
+        .in("user_id", Array.from(allMemberIds));
 
+    if(visitsError) throw visitsError;
+
+    // 4. Group the visits by winery_id for easy lookup
+    const visitsByWinery = new Map<number, any[]>();
+    visits?.forEach(visit => {
+        if (!visitsByWinery.has(visit.winery_id)) {
+            visitsByWinery.set(visit.winery_id, []);
+        }
+        visitsByWinery.get(visit.winery_id)?.push(visit);
+    });
+
+    // 5. Attach the relevant visits to each winery in each trip
     const formattedTrips = trips.map(trip => {
-        const sortedWineries = trip.trip_wineries
+        const wineriesWithVisits = trip.trip_wineries
           .sort((a, b) => a.visit_order - b.visit_order)
           .map(tw => {
-              const wineryData = formatWinery(tw.wineries, visitsMap.get(tw.winery_id));
-              return { ...wineryData, notes: tw.notes };
+              const wineryData = formatWinery(tw.wineries);
+              if (wineryData) {
+                  return { 
+                      ...wineryData, 
+                      notes: tw.notes,
+                      visits: visitsByWinery.get(wineryData.dbId) || [], // Attach the visits
+                  };
+              }
+              return null;
           })
           .filter(Boolean);
-        return { ...trip, wineries: sortedWineries };
+        return { ...trip, wineries: wineriesWithVisits as any[] };
     });
 
     return NextResponse.json(formattedTrips);
   } 
   
-  // Logic for the paginated "All Trips" page
+  // Logic for the paginated "All Trips" page (remains unchanged)
   else {
     const type = searchParams.get("type") || "upcoming";
     const page = parseInt(searchParams.get("page") || "1", 10);
@@ -75,9 +103,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("trips")
       .select("*", { count: 'exact' })
-      // ** THE FIX IS HERE (Part 2): Fetch all trips the user owns OR is a member of. **
       .or(`user_id.eq.${user.id},members.cs.{${user.id}}`);
-
 
     if (type === 'upcoming') {
         query = query.gte('trip_date', today).order("trip_date", { ascending: true });
@@ -107,7 +133,6 @@ export async function POST(request: NextRequest) {
     let targetTripId = tripId;
 
     if (!targetTripId) {
-        // When creating a new trip, initialize the members array with the creator's ID.
         const { data: newTrip, error: createTripError } = await supabase
             .from("trips")
             .insert({ user_id: user.id, trip_date: date, name: name || `Trip for ${date}`, members: [user.id] })

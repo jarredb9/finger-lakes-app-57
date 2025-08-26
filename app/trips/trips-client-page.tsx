@@ -16,8 +16,9 @@ const WineryModal = dynamic(() => import('@/components/winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
 });
 
+// The user object now includes the ID
 interface TripsClientPageProps {
-  user: { name: string } | null;
+  user: { id: string; name: string } | null;
 }
 
 export default function TripsClientPage({ user }: TripsClientPageProps) {
@@ -84,7 +85,11 @@ export default function TripsClientPage({ user }: TripsClientPageProps) {
                 <TabsTrigger value="visit-history">Visit History</TabsTrigger>
             </TabsList>
             <TabsContent value="planner" className="mt-6">
-                <TripPlanner initialDate={dateFromQuery ? new Date(dateFromQuery) : new Date()} />
+                {/* We now pass the user object to the TripPlanner */}
+                <TripPlanner 
+                    initialDate={dateFromQuery ? new Date(dateFromQuery) : new Date()} 
+                    user={user} 
+                />
             </TabsContent>
             <TabsContent value="all-trips" className="mt-6">
                 <TripList />
