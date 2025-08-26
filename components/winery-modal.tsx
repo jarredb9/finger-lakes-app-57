@@ -115,6 +115,9 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
   const [friendsRatings, setFriendsRatings] = useState([]);
 
+  // This new state holds the winery data and ensures it has a dbId
+  const [internalWinery, setInternalWinery] = useState<Winery | null>(winery);
+
   const editFormRef = useRef<HTMLDivElement>(null);
 
   const [tripDate, setTripDate] = useState<Date | undefined>();
@@ -125,17 +128,44 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   const { toast } = useToast();
 
   useEffect(() => {
+    // This effect runs when the modal opens. Its job is to ensure we have a dbId.
+    const ensureWineryHasDbId = async (wineryToProcess: Winery | null) => {
+      if (wineryToProcess && !wineryToProcess.dbId) {
+        // If dbId is missing, call the API to get or create it.
+        try {
+          const response = await fetch('/api/wineries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(wineryToProcess)
+          });
+          if (response.ok) {
+            const { dbId } = await response.json();
+            // Update the internal state with the new dbId.
+            setInternalWinery(prev => prev ? { ...prev, dbId } : null);
+          } else {
+            toast({ variant: "destructive", description: "Could not retrieve winery details." });
+          }
+        } catch (error) {
+          console.error("Failed to ensure winery dbId", error);
+        }
+      } else {
+        // If the winery prop changes, update our internal state
+        setInternalWinery(wineryToProcess);
+      }
+    };
+    ensureWineryHasDbId(winery);
+  }, [winery, toast]);
+
+  useEffect(() => {
+    // This second effect runs AFTER we have a confirmed dbId from the first effect.
     setEditingVisitId(null);
     resetForm();
     setTripDate(undefined);
 
-    // ** THE FIX IS HERE **
-    // Only fetch friends' ratings if the winery has a database ID (dbId).
-    // A newly discovered winery won't have a dbId until it's interacted with.
-    if (winery && winery.dbId) {
+    if (internalWinery && internalWinery.dbId) {
       const fetchFriendsRatings = async () => {
         try {
-          const response = await fetch(`/api/wineries/${winery.dbId}/friends-ratings`);
+          const response = await fetch(`/api/wineries?wineryId=${internalWinery.dbId}&ratingsFor=friends`);
           if (response.ok) {
             const data = await response.json();
             setFriendsRatings(data);
@@ -150,10 +180,9 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
       };
       fetchFriendsRatings();
     } else {
-      // If there's no dbId, clear any previous ratings from the state.
       setFriendsRatings([]);
     }
-  }, [winery]);
+  }, [internalWinery]);
   
   useEffect(() => {
     if (tripDate) {
@@ -173,7 +202,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
     }
   }, [tripDate]);
 
-  if (!winery) { return null; }
+  if (!internalWinery) { return null; }
 
   const resetForm = () => {
     setVisitDate(new Date().toISOString().split("T")[0]);
@@ -205,7 +234,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
       if (editingVisitId) {
         await onUpdateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
       } else {
-        await onSaveVisit(winery, { visit_date: visitDate, user_review: userReview, rating, photos });
+        await onSaveVisit(internalWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
       }
       resetForm();
     } catch (error) { 
@@ -217,31 +246,31 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   
   const handleDeleteVisit = async (visitId: string) => {
     if (onDeleteVisit && visitId) {
-        await onDeleteVisit(winery, visitId);
+        await onDeleteVisit(internalWinery, visitId);
     }
   };
 
   const handleWishlistToggle = async () => {
     setWishlistLoading(true);
-    await onToggleWishlist(winery, !!winery.onWishlist);
+    await onToggleWishlist(internalWinery, !!internalWinery.onWishlist);
     setWishlistLoading(false);
   };
   
   const handleFavoriteToggle = async () => {
     setFavoriteLoading(true);
-    await onToggleFavorite(winery, !!winery.isFavorite);
+    await onToggleFavorite(internalWinery, !!internalWinery.isFavorite);
     setFavoriteLoading(false);
   };
 
   const handleAddToTrip = async () => {
-    if (!tripDate || !winery.dbId) {
+    if (!tripDate || !internalWinery.dbId) {
         toast({ title: "Error", description: "Please select a date.", variant: "destructive" });
         return;
     }
 
     const payload: { date: string; wineryId: number; name?: string; tripId?: number; notes?: string; } = {
         date: tripDate.toISOString().split("T")[0],
-        wineryId: winery.dbId,
+        wineryId: internalWinery.dbId,
         notes: (selectedTripId !== 'new') ? tripNameOrNote : undefined,
     };
 
@@ -277,7 +306,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
     }
   };
 
-  const visits = winery.visits || [];
+  const visits = internalWinery.visits || [];
   const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
 
   return (
@@ -295,41 +324,41 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
             <div className="p-6">
                 <DialogHeader>
                     <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
-                        <DialogTitle className="text-2xl pr-4">{winery.name}</DialogTitle>
+                        <DialogTitle className="text-2xl pr-4">{internalWinery.name}</DialogTitle>
                         <div className="flex items-center gap-2">
-                            <Button size="sm" variant={winery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading}>
-                                {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${winery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
+                            <Button size="sm" variant={internalWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading}>
+                                {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${internalWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
                                 Favorite
                             </Button>
-                            <Button size="sm" variant={winery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || winery.userVisited}>
-                                {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : winery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
-                                {winery.onWishlist ? "On List" : "Want to Go"}
+                            <Button size="sm" variant={internalWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || internalWinery.userVisited}>
+                                {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : internalWinery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
+                                {internalWinery.onWishlist ? "On List" : "Want to Go"}
                             </Button>
                         </div>
                     </div>
                      <DialogDescription className="space-y-2 pt-2 !mt-2">
                         <div className="flex items-start space-x-2">
                           <MapPin className="w-4 h-4 mt-1 shrink-0" />
-                          <span>{winery.address}</span>
+                          <span>{internalWinery.address}</span>
                         </div>
-                        {winery.phone && (
+                        {internalWinery.phone && (
                           <div className="flex items-center space-x-2">
                             <Phone className="w-4 h-4 shrink-0" />
-                            <span>{winery.phone}</span>
+                            <span>{internalWinery.phone}</span>
                           </div>
                         )}
-                        {winery.website && (
+                        {internalWinery.website && (
                           <div className="flex items-center space-x-2">
                             <Globe className="w-4 h-4 shrink-0" />
-                            <a href={winery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
+                            <a href={internalWinery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
                               Visit Website
                             </a>
                           </div>
                         )}
-                        {winery.rating && (
+                        {internalWinery.rating && (
                           <div className="flex items-center space-x-2">
                             <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
-                            <span>{winery.rating}/5.0 (Google Reviews)</span>
+                            <span>{internalWinery.rating}/5.0 (Google Reviews)</span>
                           </div>
                         )}
                     </DialogDescription>
@@ -426,7 +455,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground">{winery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
+                        <p className="text-sm text-muted-foreground">{internalWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
                       )}
                 </div>
             </div>
