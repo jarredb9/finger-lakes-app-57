@@ -51,12 +51,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(trips);
     }
     
-    // 3. Fetch all visits for those wineries from any of the members
+    // 3. Fetch all visits for those wineries from any of the members THAT OCCURRED ON THE TRIP DATE
     const { data: visits, error: visitsError } = await supabase
         .from("visits")
         .select("*, profiles(name)")
         .in("winery_id", Array.from(allWineryIds))
-        .in("user_id", Array.from(allMemberIds));
+        .in("user_id", Array.from(allMemberIds))
+        // ** THE FIX IS HERE: Only get visits that match the trip's date. **
+        .eq("visit_date", date);
 
     if(visitsError) throw visitsError;
 
