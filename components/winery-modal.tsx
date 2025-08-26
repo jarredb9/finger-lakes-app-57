@@ -23,7 +23,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check, Edit, Users } from "lucide-react";
+import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check, Edit, Users, Heart, Bookmark } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Winery, Visit, Trip } from "@/lib/types";
 import { Separator } from "./ui/separator";
@@ -32,6 +32,8 @@ import { Calendar } from "./ui/calendar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SelectSingleEventHandler } from "react-day-picker";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+
 
 // New Responsive Date Picker Component
 function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (date: Date | undefined) => void }) {
@@ -114,6 +116,8 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
   const [friendsRatings, setFriendsRatings] = useState([]);
+  const [friendsActivity, setFriendsActivity] = useState<{ favoritedBy: any[], wishlistedBy: any[] }>({ favoritedBy: [], wishlistedBy: [] });
+
 
   // This new state holds the winery data and ensures it has a dbId
   const [internalWinery, setInternalWinery] = useState<Winery | null>(winery);
@@ -128,10 +132,8 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   const { toast } = useToast();
 
   useEffect(() => {
-    // This effect runs when the modal opens. Its job is to ensure we have a dbId.
     const ensureWineryHasDbId = async (wineryToProcess: Winery | null) => {
       if (wineryToProcess && !wineryToProcess.dbId) {
-        // If dbId is missing, call the API to get or create it.
         try {
           const response = await fetch('/api/wineries', {
             method: 'POST',
@@ -140,7 +142,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
           });
           if (response.ok) {
             const { dbId } = await response.json();
-            // Update the internal state with the new dbId.
             setInternalWinery(prev => prev ? { ...prev, dbId } : null);
           } else {
             toast({ variant: "destructive", description: "Could not retrieve winery details." });
@@ -149,7 +150,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
           console.error("Failed to ensure winery dbId", error);
         }
       } else {
-        // If the winery prop changes, update our internal state
         setInternalWinery(wineryToProcess);
       }
     };
@@ -157,7 +157,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   }, [winery, toast]);
 
   useEffect(() => {
-    // This second effect runs AFTER we have a confirmed dbId from the first effect.
     setEditingVisitId(null);
     resetForm();
     setTripDate(undefined);
@@ -178,9 +177,28 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
           setFriendsRatings([]);
         }
       };
+      
+      const fetchFriendsActivity = async () => {
+          try {
+              const response = await fetch(`/api/wineries/${internalWinery.dbId}/friends-activity`);
+              if (response.ok) {
+                  const data = await response.json();
+                  setFriendsActivity(data);
+              } else {
+                  console.error("Failed to fetch friends activity");
+                  setFriendsActivity({ favoritedBy: [], wishlistedBy: [] });
+              }
+          } catch (error) {
+              console.error("Error fetching friends activity", error);
+              setFriendsActivity({ favoritedBy: [], wishlistedBy: [] });
+          }
+      };
+
       fetchFriendsRatings();
+      fetchFriendsActivity();
     } else {
       setFriendsRatings([]);
+      setFriendsActivity({ favoritedBy: [], wishlistedBy: [] });
     }
   }, [internalWinery]);
   
@@ -364,29 +382,77 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                     </DialogDescription>
                 </DialogHeader>
                  <Separator className="my-4"/>
-                
-                 {friendsRatings.length > 0 && (
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friends' Ratings</span></h3>
+
+                {/* NEW FRIENDS ACTIVITY SECTION */}
+                {(friendsActivity.favoritedBy.length > 0 || friendsActivity.wishlistedBy.length > 0) && (
+                  <>
                     <div className="space-y-3">
-                      {friendsRatings.map((rating: any) => (
-                        <Card key={rating.user_id} className="bg-blue-50 border-blue-200">
-                          <CardContent className="p-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <p className="font-semibold text-blue-800">{rating.name}</p>
-                              <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star key={i} className={`w-5 h-5 ${i < rating.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+                      <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friend Activity</span></h3>
+                      <Card className="bg-gray-50 border-gray-200">
+                        <CardContent className="p-4 space-y-3">
+                          {friendsActivity.favoritedBy.length > 0 && (
+                            <div>
+                              <p className="font-semibold text-sm text-gray-700 flex items-center gap-2"><Heart className="w-4 h-4 text-red-500 fill-red-500" />Favorited by:</p>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {friendsActivity.favoritedBy.map((friend: any) => (
+                                  <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
+                                      <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs font-medium pr-1">{friend.name}</span>
+                                  </div>
                                 ))}
                               </div>
                             </div>
-                            {rating.user_review && <p className="text-sm text-blue-700 bg-white p-3 rounded-md border">{rating.user_review}</p>}
-                          </CardContent>
-                        </Card>
-                      ))}
+                          )}
+                          {friendsActivity.wishlistedBy.length > 0 && (
+                            <div className={friendsActivity.favoritedBy.length > 0 ? 'mt-3' : ''}>
+                              <p className="font-semibold text-sm text-gray-700 flex items-center gap-2"><Bookmark className="w-4 h-4 text-blue-500 fill-blue-500" />On wishlist for:</p>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {friendsActivity.wishlistedBy.map((friend: any) => (
+                                  <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
+                                      <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs font-medium pr-1">{friend.name}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
                     </div>
                     <Separator className="my-4"/>
-                  </div>
+                  </>
+                )}
+                
+                 {friendsRatings.length > 0 && (
+                  <>
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friends' Ratings</span></h3>
+                      <div className="space-y-3">
+                        {friendsRatings.map((rating: any) => (
+                          <Card key={rating.user_id} className="bg-blue-50 border-blue-200">
+                            <CardContent className="p-4 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <p className="font-semibold text-blue-800">{rating.name}</p>
+                                <div className="flex items-center">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star key={i} className={`w-5 h-5 ${i < rating.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+                                  ))}
+                                </div>
+                              </div>
+                              {rating.user_review && <p className="text-sm text-blue-700 bg-white p-3 rounded-md border">{rating.user_review}</p>}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                    <Separator className="my-4"/>
+                  </>
                 )}
                 
                 <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
