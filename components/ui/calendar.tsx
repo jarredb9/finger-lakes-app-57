@@ -37,7 +37,6 @@ function Calendar({
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
-        // ** FIX: Explicitly set head_cell to be a flex container with centered content. **
         head_cell:
           "text-muted-foreground rounded-md text-[0.8rem] flex-1 flex items-center justify-center",
         row: "flex w-full mt-2",
