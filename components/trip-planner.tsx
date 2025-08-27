@@ -12,7 +12,8 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, 
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Edit, Save, PlusCircle, Star, UserPlus, XCircle, Info } from "lucide-react";
+// ** FIX: Added 'Users' to the import list from 'lucide-react'. **
+import { GripVertical, Trash2, Edit, Save, PlusCircle, Star, UserPlus, XCircle, Info, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -21,6 +22,8 @@ import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from '@/utils/supabase/client';
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 
 // This is the updated SortableWineryItem component
 function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { trip: Trip; winery: Winery; onRemove: (wineryId: number) => void; onNoteSave: (wineryId: number, notes: string) => void; userId: string; }) {
