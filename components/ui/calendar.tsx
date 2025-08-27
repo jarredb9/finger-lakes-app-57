@@ -37,20 +37,17 @@ function Calendar({
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
-        // The original desktop layout was stretched due to 'flex-1' on head_cell and cell.
-        // We've reverted to a fixed width ('w-9') to prevent this, but kept the flex properties
-        // to ensure content remains centered.
+        // ** FIX: Explicitly set head_cell to be a flex container with centered content. **
         head_cell:
-          "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] flex items-center justify-center",
+          "text-muted-foreground rounded-md text-[0.8rem] flex-1 flex items-center justify-center",
         row: "flex w-full mt-2",
-        // The 'flex-1' utility on cell was causing the excess space on desktop.
-        // We now use a fixed width ('w-9') for consistent sizing across all breakpoints.
-        cell: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        // ** FIX: Use flex-1 and flex utilities for perfect alignment. **
+        cell: "h-9 text-sm p-0 relative flex-1 flex items-center justify-center [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          // We have simplified the sizing of the day button to a consistent h-9 w-9
-          // to match the new `cell` width and height, ensuring a clean grid layout.
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100"
+          // ** FIX: Simplified sizing and ensured content is centered. **
+          "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
+          "sm:h-9 sm:w-9"
         ),
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
