@@ -1,4 +1,3 @@
-// file: components/ui/calendar.tsx
 'use client'
 
 import * as React from 'react'
@@ -22,11 +21,11 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      // ** FIX: Re-added the p-2 padding to give the calendar breathing room. **
-      className={cn("p-2", className)}
+      // The extra padding has been removed from here. The parent component will now handle the spacing.
+      className={cn("", className)}
       classNames={{
-        // ** FIX: Re-added space-y-4 and sm:space-x-4 to restore proper spacing between elements. **
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+        // Using a flexbox approach with a gap provides cleaner spacing.
+        months: "flex flex-col sm:flex-row gap-4",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
         caption_label: "text-sm font-medium",
@@ -45,9 +44,9 @@ function Calendar({
         cell: "h-9 text-sm p-0 relative flex-1 flex items-center justify-center [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
+          // Adjusting day padding to be consistent and responsive.
           "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
-          "sm:h-9 sm:w-9",
-          "md:h-7 md:w-7"
+          "md:h-9 md:w-9"
         ),
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
