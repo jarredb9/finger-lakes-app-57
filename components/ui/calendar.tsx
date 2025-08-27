@@ -21,12 +21,12 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      // We are removing the redundant `p-2` class here.
-      // The parent `CardContent` provides the necessary padding.
-      className={cn("", className)}
+      // Removed the redundant padding. The parent `CardContent` now provides the spacing.
+      className={cn(className)}
       classNames={{
-        // Using a single `gap-4` class is cleaner and more effective than `space-y` and `space-x`.
-        months: "flex flex-col sm:flex-row gap-4",
+        // FIX: Replaced flexbox with a responsive grid for a more reliable layout.
+        // It stacks months on mobile and places them side-by-side on medium screens and up.
+        months: "grid grid-cols-1 md:grid-cols-2 gap-4",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
         caption_label: "text-sm font-medium",
@@ -45,7 +45,7 @@ function Calendar({
         cell: "h-9 text-sm p-0 relative flex-1 flex items-center justify-center [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          // This ensures a consistent size for the day buttons across all screen sizes.
+          // Consolidated day button sizing for consistency and simplicity.
           "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
         ),
         day_selected:
