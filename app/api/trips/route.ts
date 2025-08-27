@@ -43,8 +43,12 @@ export async function GET(request: NextRequest) {
     const allWineryIds = new Set<number>();
     const allMemberIds = new Set<string>();
     trips.forEach(trip => {
-        trip.trip_wineries.forEach(tw => tw.wineries?.id && allWineryIds.add(tw.wineries.id));
-        trip.members?.forEach(memberId => allMemberIds.add(memberId));
+        if (trip.trip_wineries) {
+            trip.trip_wineries.forEach(tw => tw.wineries?.id && allWineryIds.add(tw.wineries.id));
+        }
+        if (trip.members) {
+            trip.members.forEach(memberId => allMemberIds.add(memberId));
+        }
         allMemberIds.add(trip.user_id); // Also include the trip owner
     });
 
@@ -139,7 +143,7 @@ export async function POST(request: NextRequest) {
     if (!date) return NextResponse.json({ error: "Date is required" }, { status: 400 });
 
     const supabase = await createClient();
-    let targetTripIds = tripIds;
+    let targetTripIds: number[] = [];
 
     // Handle creation of a new trip if needed
     if (name) {
@@ -149,13 +153,15 @@ export async function POST(request: NextRequest) {
             .select("id")
             .single();
         if (createTripError) throw createTripError;
-        if (!targetTripIds) {
-            targetTripIds = [];
-        }
         targetTripIds.push(newTrip.id);
     }
     
-    if (wineryId && targetTripIds && Array.isArray(targetTripIds)) {
+    // Add existing trips to the target array
+    if (tripIds && Array.isArray(tripIds)) {
+        targetTripIds = [...targetTripIds, ...tripIds];
+    }
+
+    if (wineryId && targetTripIds.length > 0) {
         // Find the winery's current max order for each trip
         const orderPromises = targetTripIds.map((tripId: number) => 
             supabase.from("trip_wineries").select("visit_order").eq("trip_id", tripId)

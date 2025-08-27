@@ -41,13 +41,12 @@ function Calendar({
         head_cell:
           "text-muted-foreground rounded-md text-[0.8rem] flex-1 flex items-center justify-center",
         row: "flex w-full mt-2",
-        // ** FIX: Use flex-1 and flex utilities for perfect alignment. **
         cell: "h-9 text-sm p-0 relative flex-1 flex items-center justify-center [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          // ** FIX: Simplified sizing and ensured content is centered. **
           "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
-          "sm:h-9 sm:w-9"
+          "sm:h-9 sm:w-9",
+          "md:h-7 md:w-7"
         ),
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
