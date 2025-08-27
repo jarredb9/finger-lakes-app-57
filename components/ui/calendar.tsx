@@ -1,3 +1,4 @@
+// file: components/ui/calendar.tsx
 'use client'
 
 import * as React from 'react'
@@ -21,12 +22,9 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      // Removed the redundant padding. The parent `CardContent` now provides the spacing.
-      className={cn(className)}
+      className={cn("p-3", className)}
       classNames={{
-        // FIX: Replaced flexbox with a responsive grid for a more reliable layout.
-        // It stacks months on mobile and places them side-by-side on medium screens and up.
-        months: "grid grid-cols-1 md:grid-cols-2 gap-4",
+        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
         caption_label: "text-sm font-medium",
@@ -45,8 +43,9 @@ function Calendar({
         cell: "h-9 text-sm p-0 relative flex-1 flex items-center justify-center [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          // Consolidated day button sizing for consistency and simplicity.
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
+          "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
+          "sm:h-9 sm:w-9",
+          "md:h-7 md:w-7"
         ),
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
