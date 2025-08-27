@@ -38,17 +38,16 @@ function Calendar({
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
-        // ** FIX: Use flex-1 to make header cells responsive. **
+        // ** FIX: Changed to flex-1 to ensure correct alignment with day cells. **
         head_cell:
-          "flex-1 text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
-        // ** FIX: Use flex-1 to make day cells responsive on all screens. **
+          "text-muted-foreground rounded-md text-[0.8rem] flex-1",
         row: "flex w-full mt-2",
-        cell: "h-9 text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-        // ** FIX: Use w-full for the Day button and adjust padding for responsiveness. **
+        // ** FIX: Added flex-1 to each cell to make them resize dynamically. **
+        cell: "h-9 text-sm p-0 relative flex-1 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
+          // ** FIX: Use w-full for the button inside the flex-1 cell to fill the space. **
           "h-9 w-full p-0 font-normal aria-selected:opacity-100",
-          // ** NEW: Add responsive padding and text size for better mobile display. **
           "sm:h-9 sm:w-9 sm:text-sm md:text-base",
           "h-8 w-8 text-sm"
         ),
