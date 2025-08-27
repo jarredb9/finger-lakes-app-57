@@ -22,7 +22,8 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-2", className)}
+      // ** FIX: Added max-w-[300px] to prevent the calendar from looking too large on desktop. **
+      className={cn("p-2 max-w-[300px] md:max-w-none", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
@@ -43,7 +44,6 @@ function Calendar({
         cell: "h-9 text-sm p-0 relative flex-1 flex items-center justify-center [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          // ** FIX: Adjusted md size to be h-7 w-7 for better fit at the md breakpoint. **
           "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
           "sm:h-9 sm:w-9",
           "md:h-7 md:w-7"
