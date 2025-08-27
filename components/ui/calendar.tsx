@@ -22,7 +22,6 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      // ** FIX: Adjusted p-2 to reduce default padding and prevent overflow. **
       className={cn("p-2", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
@@ -38,18 +37,17 @@ function Calendar({
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
-        // ** FIX: Use flex-1 on head_cell for consistent width. **
         head_cell:
           "text-muted-foreground rounded-md text-[0.8rem] flex-1",
         row: "flex w-full mt-2",
-        // ** FIX: Use flex-1 on each cell to ensure it fills the space correctly. **
         cell: "h-9 text-sm p-0 relative flex-1 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          // ** FIX: Use w-full to make the day button fill its parent container completely. **
+          // ** FIX: Added 'text-center' to ensure the day numbers are perfectly centered. **
           "h-9 w-full p-0 font-normal aria-selected:opacity-100",
           "sm:h-9 sm:w-9 sm:text-sm md:text-base",
-          "h-8 w-8 text-sm"
+          "h-8 w-8 text-sm",
+          "flex justify-center items-center text-center"
         ),
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
