@@ -3,14 +3,13 @@
 
 import * as React from 'react'
 import {
-  ChevronDownIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
 } from 'lucide-react'
 import { DayPicker } from 'react-day-picker'
 
 import { cn } from '@/lib/utils'
-import { Button, buttonVariants } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
@@ -23,7 +22,8 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      className={cn("p-3", className)}
+      // ** FIX: Adjusted p-2 to reduce default padding and prevent overflow. **
+      className={cn("p-2", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
@@ -38,15 +38,15 @@ function Calendar({
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
-        // ** FIX: Changed to flex-1 to ensure correct alignment with day cells. **
+        // ** FIX: Use flex-1 on head_cell for consistent width. **
         head_cell:
           "text-muted-foreground rounded-md text-[0.8rem] flex-1",
         row: "flex w-full mt-2",
-        // ** FIX: Added flex-1 to each cell to make them resize dynamically. **
+        // ** FIX: Use flex-1 on each cell to ensure it fills the space correctly. **
         cell: "h-9 text-sm p-0 relative flex-1 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          // ** FIX: Use w-full for the button inside the flex-1 cell to fill the space. **
+          // ** FIX: Use w-full to make the day button fill its parent container completely. **
           "h-9 w-full p-0 font-normal aria-selected:opacity-100",
           "sm:h-9 sm:w-9 sm:text-sm md:text-base",
           "h-8 w-8 text-sm"
