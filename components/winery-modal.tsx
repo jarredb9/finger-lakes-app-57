@@ -1,3 +1,4 @@
+// file: components/winery-modal.tsx
 "use client"
 
 import { useState, useEffect, useRef } from "react";
@@ -22,8 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
-import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check, Edit, Users, Heart, Bookmark } from "lucide-react";
+import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
+import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check, Edit, Users, Heart, Bookmark, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Winery, Visit, Trip } from "@/lib/types";
 import { Separator } from "./ui/separator";
@@ -33,6 +34,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SelectSingleEventHandler } from "react-day-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Checkbox } from "@/components/ui/checkbox";
+import Link from "next/link";
 
 
 // New Responsive Date Picker Component
@@ -126,8 +129,10 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
 
   const [tripDate, setTripDate] = useState<Date | undefined>();
   const [tripsOnDate, setTripsOnDate] = useState<Trip[]>([]);
-  const [selectedTripId, setSelectedTripId] = useState<string>("");
-  const [tripNameOrNote, setTripNameOrNote] = useState("");
+  const [selectedTrips, setSelectedTrips] = useState<Set<string>>(new Set());
+  const [newTripName, setNewTripName] = useState("");
+  const [addTripNotes, setAddTripNotes] = useState("");
+
 
   const { toast } = useToast();
 
@@ -210,8 +215,9 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
             if (response.ok) {
                 const data = await response.json();
                 setTripsOnDate(Array.isArray(data) ? data : []);
-                setSelectedTripId("");
-                setTripNameOrNote("");
+                setSelectedTrips(new Set());
+                setNewTripName("");
+                setAddTripNotes("");
             }
         };
         fetchTrips();
@@ -219,6 +225,32 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
         setTripsOnDate([]);
     }
   }, [tripDate]);
+  
+  const handleToggleTrip = (tripId: string) => {
+    setSelectedTrips(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(tripId)) {
+            newSet.delete(tripId);
+        } else {
+            newSet.add(tripId);
+        }
+        return newSet;
+    });
+  };
+
+  const handleToggleNewTrip = () => {
+    setSelectedTrips(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has('new')) {
+        newSet.delete('new');
+        setNewTripName('');
+        setAddTripNotes('');
+      } else {
+        newSet.add('new');
+      }
+      return newSet;
+    });
+  };
 
   if (!internalWinery) { return null; }
 
@@ -286,41 +318,46 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
         return;
     }
 
-    const payload: { date: string; wineryId: number; name?: string; tripId?: number; notes?: string; } = {
-        date: tripDate.toISOString().split("T")[0],
-        wineryId: internalWinery.dbId,
-        notes: (selectedTripId !== 'new') ? tripNameOrNote : undefined,
-    };
-
-    if (selectedTripId === 'new') {
-        if (!tripNameOrNote.trim()) {
-            toast({ variant: 'destructive', description: "Please enter a name for the new trip." });
-            return;
-        }
-        payload.name = tripNameOrNote;
-    } else if (selectedTripId) {
-        payload.tripId = parseInt(selectedTripId, 10);
-    } else {
-        toast({ variant: 'destructive', description: "Please select a trip or create a new one." });
+    if (selectedTrips.size === 0) {
+        toast({ variant: 'destructive', description: "Please select at least one trip or create a new one." });
         return;
     }
     
-    try {
-        const response = await fetch('/api/trips', {
+    // Process each selected trip
+    const tripPromises = Array.from(selectedTrips).map(tripId => {
+        const payload: { date: string; wineryId: number; name?: string; tripId?: number; notes?: string; } = {
+            date: tripDate.toISOString().split("T")[0],
+            wineryId: internalWinery.dbId!,
+            notes: addTripNotes,
+        };
+
+        if (tripId === 'new') {
+            if (!newTripName.trim()) {
+                toast({ variant: 'destructive', description: "Please enter a name for the new trip." });
+                return Promise.reject("New trip requires a name.");
+            }
+            payload.name = newTripName;
+        } else {
+            payload.tripId = parseInt(tripId, 10);
+        }
+
+        return fetch('/api/trips', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => { throw new Error(errorData.error || "Failed to add to trip."); });
+            }
         });
+    });
 
-        if (response.ok) {
-            toast({ description: "Winery added to your trip." });
-            setTripDate(undefined);
-        } else {
-             const errorData = await response.json();
-             toast({ variant: 'destructive', description: `Failed to add to trip: ${errorData.error}` });
-        }
-    } catch (error) {
-        toast({ variant: 'destructive', description: "An error occurred." });
+    try {
+        await Promise.all(tripPromises);
+        toast({ description: "Winery added to trip(s)." });
+        setTripDate(undefined);
+    } catch (error: any) {
+        toast({ variant: 'destructive', description: error.message || "An error occurred." });
     }
   };
 
@@ -457,29 +494,53 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                 
                 <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
                     <h4 className="font-semibold">Add to a Trip</h4>
-                    <div className="flex flex-col sm:flex-row gap-2 items-center">
+                    <div className="flex items-center gap-2">
                         <DatePicker date={tripDate} onSelect={setTripDate} />
                         {tripDate && (
-                            <Select onValueChange={setSelectedTripId} value={selectedTripId}>
-                                <SelectTrigger className="w-full sm:w-[200px]">
-                                    <SelectValue placeholder="Select a trip" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {tripsOnDate.map(trip => (
-                                        <SelectItem key={trip.id} value={trip.id.toString()}>{trip.name || `Trip on ${new Date(trip.trip_date).toLocaleDateString()}`}</SelectItem>
-                                    ))}
-                                    <SelectItem value="new">Create a new trip...</SelectItem>
-                                </SelectContent>
-                            </Select>
+                            <Button onClick={handleAddToTrip} disabled={!internalWinery.dbId || selectedTrips.size === 0 || (selectedTrips.has('new') && !newTripName.trim())}>
+                                Add to Trip
+                            </Button>
                         )}
                     </div>
-                    {selectedTripId === 'new' && tripDate && (
-                        <Input placeholder="New trip name..." value={tripNameOrNote} onChange={(e) => setTripNameOrNote(e.target.value)} className="mt-2"/>
+                    {tripDate && (
+                        <>
+                        <div className="space-y-2">
+                            <Label>Choose a trip or create a new one:</Label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {tripsOnDate.map(trip => (
+                                    <div key={trip.id} className="flex items-center gap-2 p-3 border rounded-lg bg-white">
+                                        <Checkbox 
+                                            id={`trip-${trip.id}`} 
+                                            checked={selectedTrips.has(trip.id.toString())}
+                                            onCheckedChange={() => handleToggleTrip(trip.id.toString())}
+                                        />
+                                        <label htmlFor={`trip-${trip.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                            {trip.name || `Trip on ${new Date(trip.trip_date).toLocaleDateString()}`}
+                                        </label>
+                                    </div>
+                                ))}
+                                <div className="flex items-center gap-2 p-3 border rounded-lg bg-white">
+                                    <Checkbox 
+                                        id="new-trip" 
+                                        checked={selectedTrips.has('new')} 
+                                        onCheckedChange={handleToggleNewTrip}
+                                    />
+                                    <label htmlFor="new-trip" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                        Create a new trip...
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        {(selectedTrips.size > 0) && (
+                            <div className="space-y-2">
+                                {(selectedTrips.has('new')) && (
+                                    <Input placeholder="New trip name..." value={newTripName} onChange={(e) => setNewTripName(e.target.value)} />
+                                )}
+                                <Textarea placeholder="Add notes for this visit..." value={addTripNotes} onChange={(e) => setAddTripNotes(e.target.value)} />
+                            </div>
+                        )}
+                        </>
                     )}
-                    {selectedTripId && selectedTripId !== 'new' && tripDate && (
-                        <Textarea placeholder="Add a note for this visit (optional)..." value={tripNameOrNote} onChange={(e) => setTripNameOrNote(e.target.value)} className="mt-2"/>
-                    )}
-                    {tripDate && <Button onClick={handleAddToTrip} className="w-full sm:w-auto mt-2">Add to Trip</Button>}
                 </div>
 
                 <Separator className="my-4"/>

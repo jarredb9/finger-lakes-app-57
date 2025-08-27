@@ -1,3 +1,4 @@
+// file: components/trip-planner.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -11,13 +12,15 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, 
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Edit, Save, PlusCircle, Star, UserPlus } from "lucide-react";
+import { GripVertical, Trash2, Edit, Save, PlusCircle, Star, UserPlus, XCircle, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { createClient } from '@/utils/supabase/client';
+import { Badge } from "@/components/ui/badge";
 
 // This is the updated SortableWineryItem component
 function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { trip: Trip; winery: Winery; onRemove: (wineryId: number) => void; onNoteSave: (wineryId: number, notes: string) => void; userId: string; }) {
@@ -85,6 +88,7 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
   );
 }
 
+// Updated TripCard component with Realtime and UI enhancements
 function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; userId: string; }) {
     const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries);
     const [isEditingName, setIsEditingName] = useState(false);
@@ -93,6 +97,9 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
     const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
     const { toast } = useToast();
     
+    // Setup Supabase Realtime
+    const supabase = createClient();
+
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(TouchSensor, {
@@ -105,6 +112,30 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
             coordinateGetter: sortableKeyboardCoordinates 
         })
     );
+
+    // Subscribe to real-time updates for this specific trip
+    useEffect(() => {
+        const channel = supabase.channel(`trip-updates-${trip.id}`);
+        
+        channel
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'trips', filter: `id=eq.${trip.id}` }, (payload: any) => {
+              console.log('Realtime update received:', payload);
+              if (payload.new) {
+                  setTripName(payload.new.name || "");
+                  setSelectedFriends(payload.new.members || []);
+              }
+              onWineriesUpdate();
+          })
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_wineries', filter: `trip_id=eq.${trip.id}` }, (payload: any) => {
+              console.log('Winery update received:', payload);
+              onWineriesUpdate();
+          })
+          .subscribe();
+
+        return () => {
+          supabase.removeChannel(channel);
+        };
+    }, [trip.id, onWineriesUpdate, supabase]);
 
     useEffect(() => {
         setTripWineries(trip.wineries);
@@ -132,10 +163,11 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
           if (response.ok) {
             setIsEditingName(false);
             toast({ description: "Trip name updated." });
-            onWineriesUpdate();
+            // The onWineriesUpdate call is now handled by the real-time listener
           }
         } catch (error) {
           console.error("Failed to save trip name", error);
+          toast({ variant: "destructive", description: "Failed to save trip name." });
         }
     };
 
@@ -149,10 +181,11 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
           });
           if (response.ok) {
             toast({ description: "Winery removed from trip." });
-            onWineriesUpdate();
+            // The onWineriesUpdate call is now handled by the real-time listener
           }
         } catch (error) {
           console.error("Failed to remove winery", error);
+          toast({ variant: "destructive", description: "Failed to remove winery." });
         }
     };
     
@@ -177,6 +210,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
           });
         } catch (error) {
           console.error("Failed to update winery order", error);
+          toast({ variant: "destructive", description: "Failed to update winery order." });
         }
     };
 
@@ -201,9 +235,10 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ updateNote: { wineryId, notes } }),
             });
-            onWineriesUpdate();
+            // The onWineriesUpdate call is now handled by the real-time listener
         } catch (error) {
             console.error("Failed to save note", error);
+            toast({ variant: "destructive", description: "Failed to save note." });
             throw error;
         }
     };
@@ -217,12 +252,16 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
             });
             if (response.ok) {
                 toast({ description: "Trip members updated." });
-                onWineriesUpdate();
+                // The onWineriesUpdate call is now handled by the real-time listener
             }
         } catch (error) {
             console.error("Failed to add friends to trip", error);
+            toast({ variant: "destructive", description: "Failed to update trip members." });
         }
     };
+
+    // New logic to display current members
+    const currentMembers = friends.filter((f: any) => selectedFriends.includes(f.id));
 
     return (
         <Card>
@@ -235,7 +274,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <CardTitle>{trip.name || "Unnamed Trip"}</CardTitle>
+                        <CardTitle className="text-lg md:text-xl">{trip.name || "Unnamed Trip"}</CardTitle>
                         <Button variant="ghost" size="icon" onClick={() => setIsEditingName(true)}><Edit size={16} /></Button>
                       </div>
                     )}
@@ -292,6 +331,23 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
                         </AlertDialog>
                      </div>
                 </div>
+                {/* Display collaborators */}
+                {currentMembers.length > 0 && (
+                    <div className="flex items-center space-x-2 mt-2">
+                        <Users size={16} className="text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Collaborators:</span>
+                        <div className="flex items-center -space-x-2">
+                             {currentMembers.map((friend: any) => (
+                                  <div key={friend.id} className="relative z-0">
+                                      <Avatar className="h-6 w-6 border-2 border-white">
+                                        <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
+                                        <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                                      </Avatar>
+                                  </div>
+                              ))}
+                        </div>
+                    </div>
+                )}
             </CardHeader>
             <CardContent>
                 {tripWineries.length > 0 ? (
@@ -377,7 +433,7 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
         </Card>
       </div>
       <div className="md:col-span-2 space-y-4">
-        <div className="flex justify-between items-center">
+        <div className="flex justify-between items-center flex-wrap gap-2">
             <h2 className="text-2xl font-bold">Trips for {selectedDate ? selectedDate.toLocaleDateString() : '...'}</h2>
             <Button onClick={handleCreateTrip}><PlusCircle className="mr-2 h-4 w-4" /> Create New Trip</Button>
         </div>

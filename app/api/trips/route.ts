@@ -1,3 +1,4 @@
+// file: app/api/trips/route.ts
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
@@ -104,7 +105,7 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("trips")
-      .select("*", { count: 'exact' })
+      .select("id, name, trip_date, members, count:trip_wineries(count)", { count: 'exact' })
       .or(`user_id.eq.${user.id},members.cs.{${user.id}}`);
 
     if (type === 'upcoming') {
@@ -120,7 +121,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
     
-    return NextResponse.json({ trips: trips || [], count: count || 0 });
+    // We need to re-format the data to get the winery count
+    const formattedTrips = trips?.map(t => ({
+        ...t,
+        wineries_count: t.count?.[0]?.count || 0
+    }));
+
+    return NextResponse.json({ trips: formattedTrips || [], count: count || 0 });
   }
 }
 
@@ -128,36 +135,54 @@ export async function POST(request: NextRequest) {
     const user = await getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { date, wineryId, name, tripId, notes } = await request.json();
+    const { date, wineryId, name, tripIds, notes } = await request.json();
     if (!date) return NextResponse.json({ error: "Date is required" }, { status: 400 });
 
     const supabase = await createClient();
-    let targetTripId = tripId;
+    let targetTripIds = tripIds;
 
-    if (!targetTripId) {
+    // Handle creation of a new trip if needed
+    if (name) {
         const { data: newTrip, error: createTripError } = await supabase
             .from("trips")
-            .insert({ user_id: user.id, trip_date: date, name: name || `Trip for ${date}`, members: [user.id] })
+            .insert({ user_id: user.id, trip_date: date, name: name, members: [user.id] })
             .select("id")
             .single();
         if (createTripError) throw createTripError;
-        targetTripId = newTrip.id;
-    }
-
-    if (wineryId) {
-        const { data: tripWineries, error: orderError } = await supabase
-            .from("trip_wineries").select("visit_order").eq("trip_id", targetTripId);
-        if(orderError) throw orderError;
-        
-        const maxOrder = Math.max(0, ...tripWineries.map(tw => tw.visit_order));
-        
-        const { error: addWineryError } = await supabase
-            .from("trip_wineries")
-            .insert({ trip_id: targetTripId, winery_id: wineryId, visit_order: maxOrder + 1, notes });
-
-        if (addWineryError && addWineryError.code !== '23505') {
-            throw addWineryError;
+        if (!targetTripIds) {
+            targetTripIds = [];
         }
+        targetTripIds.push(newTrip.id);
     }
-    return NextResponse.json({ success: true, tripId: targetTripId });
+    
+    if (wineryId && targetTripIds && Array.isArray(targetTripIds)) {
+        // Find the winery's current max order for each trip
+        const orderPromises = targetTripIds.map((tripId: number) => 
+            supabase.from("trip_wineries").select("visit_order").eq("trip_id", tripId)
+        );
+        const orderResults = await Promise.all(orderPromises);
+        
+        const addWineryPromises = targetTripIds.map((tripId: number, index: number) => {
+            const orderError = orderResults[index].error;
+            const tripWineries = orderResults[index].data || [];
+            if(orderError) throw orderError;
+            
+            const maxOrder = Math.max(0, ...tripWineries.map(tw => tw.visit_order));
+            
+            return supabase
+                .from("trip_wineries")
+                .insert({ trip_id: tripId, winery_id: wineryId, visit_order: maxOrder + 1, notes });
+        });
+        
+        await Promise.all(addWineryPromises).catch(err => {
+             // Handle unique constraint errors gracefully
+            if (err.code === '23505') {
+                 console.warn("Winery already in a trip, skipping...");
+            } else {
+                throw err;
+            }
+        });
+    }
+
+    return NextResponse.json({ success: true, tripIds: targetTripIds });
 }
