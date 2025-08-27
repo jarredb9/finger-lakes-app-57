@@ -43,7 +43,7 @@ function Calendar({
         cell: "h-9 text-sm p-0 relative flex-1 flex items-center justify-center [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          // ** FIX: Updated responsive size for cells on larger screens to prevent overflow. **
+          // ** FIX: Added a smaller size variant for md screens to prevent overflow. **
           "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
           "sm:h-9 sm:w-9",
           "md:h-8 md:w-8"

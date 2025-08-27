@@ -10,9 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Winery, Trip, Visit } from "@/lib/types";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
-import { useSortable } from '@dnd-kit/sortable';
+import { useSortable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-// ** FIX: Added 'Users' to the import list from 'lucide-react'. **
 import { GripVertical, Trash2, Edit, Save, PlusCircle, Star, UserPlus, XCircle, Info, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -420,8 +419,9 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      {/* ** FIX: Add a max-width to the calendar card for large screens. ** */}
       <div className="md:col-span-1">
-        <Card>
+        <Card className="max-w-sm">
           <CardHeader>
             <CardTitle>Select a Date</CardTitle>
           </CardHeader>
