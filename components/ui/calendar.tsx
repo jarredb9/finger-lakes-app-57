@@ -22,12 +22,12 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      // ** FIX: Removed the outer padding (p-2) as the parent component handles it. **
-      className={cn(className)}
+      // ** FIX: Re-added the p-2 padding to give the calendar breathing room. **
+      className={cn("p-2", className)}
       classNames={{
-        // ** FIX: Removed horizontal and vertical spacing to prevent the "purple space" padding issue. **
-        months: "flex flex-col sm:flex-row",
-        month: "space-y-2",
+        // ** FIX: Re-added space-y-4 and sm:space-x-4 to restore proper spacing between elements. **
+        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+        month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
         caption_label: "text-sm font-medium",
         nav: "space-x-1 flex items-center",
