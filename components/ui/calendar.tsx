@@ -37,17 +37,17 @@ function Calendar({
         nav_button_next: "absolute right-1",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
+        // ** FIX: Explicitly set head_cell to be a flex container with centered content. **
         head_cell:
-          "text-muted-foreground rounded-md text-[0.8rem] flex-1",
+          "text-muted-foreground rounded-md text-[0.8rem] flex-1 flex items-center justify-center",
         row: "flex w-full mt-2",
-        cell: "h-9 text-sm p-0 relative flex-1 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        // ** FIX: Use flex-1 and flex utilities for perfect alignment. **
+        cell: "h-9 text-sm p-0 relative flex-1 flex items-center justify-center [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          // ** FIX: Added 'text-center' to ensure the day numbers are perfectly centered. **
-          "h-9 w-full p-0 font-normal aria-selected:opacity-100",
-          "sm:h-9 sm:w-9 sm:text-sm md:text-base",
-          "h-8 w-8 text-sm",
-          "flex justify-center items-center text-center"
+          // ** FIX: Simplified sizing and ensured content is centered. **
+          "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
+          "sm:h-9 sm:w-9"
         ),
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
