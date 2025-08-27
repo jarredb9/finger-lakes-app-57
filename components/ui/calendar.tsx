@@ -22,8 +22,8 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
-      // ** FIX: Added max-w-[300px] to prevent the calendar from looking too large on desktop. **
-      className={cn("p-2 max-w-[300px] md:max-w-none", className)}
+      // ** FIX: Removed max-width classes to allow the component to be fluid. **
+      className={cn("p-2", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",

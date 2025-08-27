@@ -420,7 +420,6 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       <div className="md:col-span-1">
-        {/* ** FIX: Changed max-w-sm to max-w-md for better desktop appearance. ** */}
         <Card className="max-w-md">
           <CardHeader>
             <CardTitle>Select a Date</CardTitle>
