@@ -1,19 +1,15 @@
 // file: app/page.tsx
-"use client" // This is important to allow the use of state and client-side components
-
 import { redirect } from "next/navigation"
-import { getUser } from "@/lib/auth"
-import { Suspense, useState } from "react"
-import dynamic from 'next/dynamic'
+import { Suspense } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Wine, MapPin, Star, ListPlus, BarChart2 } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
+import { getUser } from "@/lib/auth"
 import Header from "@/components/header"
-import WineryMap from '@/components/winery-map';
-import { Trip } from "@/lib/types";
-import { Loader2 } from "lucide-react";
-import React from 'react'; // Import React for useState
+import HomeClientPage from "@/components/home-client-page"
+import { Loader2 } from "lucide-react"
+
 
 async function getUserStats(userId: string) {
   const supabase = await createClient();
@@ -91,12 +87,6 @@ const StatsCards = ({ stats }: { stats: Awaited<ReturnType<typeof getUserStats>>
 );
 
 
-const WineryMapWrapper = dynamic(() => import('@/components/winery-map'), {
-  ssr: false,
-  loading: () => <div className="h-96 bg-gray-100 rounded-lg animate-pulse flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground"/></div>,
-});
-
-
 export default async function HomePage() {
   const user = await getUser()
 
@@ -105,10 +95,6 @@ export default async function HomePage() {
   }
 
   const stats = await getUserStats(user.id);
-  
-  // This state is now managed here and passed down to the client component
-  // to ensure the map and modal are in sync.
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -140,7 +126,8 @@ export default async function HomePage() {
         </div>
         
         <Suspense fallback={<div className="h-96 bg-gray-100 rounded-lg animate-pulse" />}>
-          <WineryMapWrapper userId={user.id} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} />
+          {/* We now render the client-side logic in a separate component */}
+          <HomeClientPage userId={user.id} />
         </Suspense>
       </main>
     </div>
