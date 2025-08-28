@@ -123,10 +123,10 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trips', filter: `id=eq.${trip.id}` }, (payload: any) => {
               console.log('Realtime update received:', payload);
               if (payload.new) {
-                  setTripName(payload.new.name || "");
-                  setSelectedFriends(payload.new.members || []);
+                  // ** FIX: Now using a more explicit update to handle real-time changes
+                  // without causing the flash. The onWineriesUpdate callback is a good way to do this.
+                  onWineriesUpdate();
               }
-              onWineriesUpdate();
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_wineries', filter: `trip_id=eq.${trip.id}` }, (payload: any) => {
               console.log('Winery update received:', payload);
@@ -139,11 +139,14 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
         };
     }, [trip.id, onWineriesUpdate, supabase]);
 
+    // ** FIX: This useEffect now syncs the component's internal state with the props. **
     useEffect(() => {
         setTripWineries(trip.wineries || []);
         setTripName(trip.name || "");
         setSelectedFriends(trip.members || []);
+    }, [trip]);
 
+    useEffect(() => {
         const fetchFriends = async () => {
             const response = await fetch('/api/friends');
             if (response.ok) {
@@ -157,9 +160,13 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
     const handleSaveTripName = async () => {
         if (!trip || !tripName) return;
 
-        // ** FIX: Optimistic UI update. Set the name locally before the API call. **
+        // ** FIX: Optimistic UI update. Set the name locally and then make the API call. **
         const oldName = trip.name;
-        setTripName(tripName);
+        // Update the name immediately
+        const newTrips = trips.map(t => t.id === trip.id ? { ...t, name: tripName } : t);
+        setTrips(newTrips);
+        setIsEditingName(false);
+
 
         try {
           const response = await fetch(`/api/trips/${trip.id}`, {
@@ -168,21 +175,21 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
             body: JSON.stringify({ name: tripName }),
           });
           if (response.ok) {
-            setIsEditingName(false);
-            // We no longer need to call onWineriesUpdate here because the local state is already updated.
-            // The real-time listener will handle updates for other clients.
             toast({ description: "Trip name updated." });
+            // The real-time listener will confirm the change and re-fetch if needed
           } else {
              // If the API call fails, revert the optimistic change.
-             setTripName(oldName || '');
              toast({ variant: "destructive", description: "Failed to save trip name." });
-             onWineriesUpdate(); // Re-fetch to ensure data integrity
+             // Revert the local state
+             const revertedTrips = trips.map(t => t.id === trip.id ? { ...t, name: oldName } : t);
+             setTrips(revertedTrips);
           }
         } catch (error) {
           console.error("Failed to save trip name", error);
-          setTripName(oldName || '');
           toast({ variant: "destructive", description: "Failed to save trip name." });
-          onWineriesUpdate(); // Re-fetch to ensure data integrity
+          // Revert the local state on network error
+          const revertedTrips = trips.map(t => t.id === trip.id ? { ...t, name: oldName } : t);
+          setTrips(revertedTrips);
         }
     };
 
@@ -385,6 +392,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
 
 export default function TripPlanner({ initialDate, user }: { initialDate: Date, user: any }) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
+  // ** FIX: Added trips state here, managed by the parent component. **
   const [trips, setTrips] = useState<Trip[]>([]);
   const { toast } = useToast();
 
