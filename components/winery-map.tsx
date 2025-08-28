@@ -119,6 +119,31 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
     fetchUpcomingTrips();
   }, []);
   
+  // ** FIX: Added a new function to fetch a single trip with full winery details. **
+  const handleTripSelect = async (tripId: string) => {
+    if (tripId === "none") {
+      setSelectedTrip(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/trips?date=${upcomingTrips.find(t => t.id.toString() === tripId)?.trip_date}`);
+      if (response.ok) {
+        const data = await response.json();
+        // The API returns an array, so we need to find the specific trip.
+        const fullTrip = data.find((t: Trip) => t.id.toString() === tripId);
+        if (fullTrip) {
+          setSelectedTrip(fullTrip);
+        }
+      } else {
+        throw new Error("Failed to fetch trip details.");
+      }
+    } catch (error) {
+      console.error("Error fetching trip details:", error);
+      toast({ variant: "destructive", description: "Failed to load trip details." });
+    }
+  };
+  
     return (
         <Card>
             <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries by location, filter your results, or click directly on the map.</CardDescription> </CardHeader>
@@ -162,7 +187,7 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                     <Clock className="w-4 h-4 shrink-0 text-muted-foreground" />
                     <span className="text-sm font-medium">Active Trip:</span>
                     {/* ** FIX: The value is now a non-empty string or null. The onValueChange handler correctly handles the "none" value. ** */}
-                    <Select value={selectedTrip?.id?.toString() || "none"} onValueChange={(tripId) => setSelectedTrip(upcomingTrips.find(t => t.id.toString() === tripId) || null)}>
+                    <Select value={selectedTrip?.id?.toString() || "none"} onValueChange={handleTripSelect}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select an upcoming trip" />
                         </SelectTrigger>
