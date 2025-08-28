@@ -107,9 +107,10 @@ export async function GET(request: NextRequest) {
     const rangeTo = rangeFrom + limit - 1;
     const today = new Date().toISOString().split("T")[0];
 
+    // ** FIX: Fetch the count of wineries using a nested select to optimize performance. **
     let query = supabase
       .from("trips")
-      .select("id, name, trip_date, members, count:trip_wineries(count)", { count: 'exact' })
+      .select("id, name, trip_date, members, wineries_count:trip_wineries(count)", { count: 'exact' })
       .or(`user_id.eq.${user.id},members.cs.{${user.id}}`);
 
     if (type === 'upcoming') {
@@ -128,7 +129,7 @@ export async function GET(request: NextRequest) {
     // We need to re-format the data to get the winery count
     const formattedTrips = trips?.map(t => ({
         ...t,
-        wineries_count: t.count?.[0]?.count || 0
+        wineries_count: t.wineries_count?.[0]?.count || 0
     }));
 
     return NextResponse.json({ trips: formattedTrips || [], count: count || 0 });

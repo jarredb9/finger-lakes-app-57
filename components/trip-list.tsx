@@ -1,15 +1,17 @@
+// file: components/trip-list.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
 import { Trip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowRight, Trash2 } from 'lucide-react';
+import { ArrowRight, Trash2, Wine } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from '@/components/ui/pagination';
+import { Badge } from '@/components/ui/badge';
 
 const TRIPS_PER_PAGE = 6;
 
@@ -90,9 +92,11 @@ function TripSection({ title, type, onTripDeleted }: { title: string; type: 'upc
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {trips.map(trip => (
                     <Card key={trip.id}>
-                        <CardHeader>
-                            <CardTitle>{trip.name || `Trip for ${new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}`}</CardTitle>
+                        <CardHeader className="relative">
+                            <CardTitle className="text-lg">{trip.name || `Trip for ${new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}`}</CardTitle>
                             <CardDescription>{new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}</CardDescription>
+                            {/* ** FIX: Display winery count on the card header. ** */}
+                            <Badge variant="secondary" className="absolute top-4 right-4"><Wine className="w-3 h-3 mr-1" /> {trip.wineries_count} Wineries</Badge>
                         </CardHeader>
                         <CardContent className="flex justify-between items-center">
                             <Button onClick={() => handleViewTrip(trip.trip_date)}>View Details <ArrowRight className="ml-2 h-4 w-4" /></Button>
