@@ -66,7 +66,8 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     }
 }
 
-const MapComponent = memo(({ trulyDiscoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, onMarkerClick, selectedTrip }: { trulyDiscoveredWineries: Winery[], visitedWineries: Winery[], wishlistWineries: Winery[], favoriteWineries: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
+// ** FIX: Added the new props to the MapComponent. **
+const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistToRender, favoriteToRender, filter, onMarkerClick, selectedTrip }: { trulyDiscoveredWineries: Winery[], visitedToRender: Winery[], wishlistToRender: Winery[], favoriteToRender: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
@@ -90,7 +91,7 @@ const MapComponent = memo(({ trulyDiscoveredWineries, visitedWineries, wishlistW
                         )}
 
                         {(filter.includes('all') || filter.includes('favorites')) && (
-                        <FavoriteClusterer wineries={favoriteWineries} onClick={onMarkerClick} />
+                        <FavoriteClusterer wineries={favoriteToRender} onClick={onMarkerClick} />
                         )}
                     </>
                 )}
@@ -475,9 +476,9 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
                   <CardContent className="p-0 relative"> 
                       <MapComponent 
                           trulyDiscoveredWineries={trulyDiscoveredWineries}
-                          visitedWineries={visitedToRender}
-                          wishlistWineries={wishlistToRender}
-                          favoriteWineries={favoritesToRender}
+                          visitedToRender={visitedToRender}
+                          wishlistToRender={wishlistToRender}
+                          favoriteToRender={favoritesToRender}
                           filter={filter} 
                           onMarkerClick={handleOpenModal}
                           selectedTrip={selectedTrip}
