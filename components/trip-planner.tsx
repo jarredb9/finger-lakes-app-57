@@ -26,71 +26,71 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 // This is the updated SortableWineryItem component
 function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { trip: Trip; winery: Winery; onRemove: (wineryId: number) => void; onNoteSave: (wineryId: number, notes: string) => void; userId: string; }) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: winery.dbId! });
-  const style = { transform: CSS.Transform.toString(transform), transition };
-  const [notes, setNotes] = useState((winery as any).notes || "");
-  const [isSavingNote, setIsSavingNote] = useState(false);
-  const isPastTrip = new Date(trip.trip_date + 'T00:00:00') < new Date();
-  const { toast } = useToast();
+    const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: winery.dbId! });
+    const style = { transform: CSS.Transform.toString(transform), transition };
+    const [notes, setNotes] = useState((winery as any).notes || "");
+    const [isSavingNote, setIsSavingNote] = useState(false);
+    const isPastTrip = new Date(trip.trip_date + 'T00:00:00') < new Date();
+    const { toast } = useToast();
 
-  const handleSaveNote = async () => {
-    setIsSavingNote(true);
-    try {
-        await onNoteSave(winery.dbId!, notes);
-        toast({ description: "Note saved." });
-    } catch (error) {
-        toast({ variant: "destructive", description: "Failed to save note." });
-    } finally {
-        setIsSavingNote(false);
-    }
-  };
+    const handleSaveNote = async () => {
+        setIsSavingNote(true);
+        try {
+            await onNoteSave(winery.dbId!, notes);
+            toast({ description: "Note saved." });
+        } catch (error) {
+            toast({ variant: "destructive", description: "Failed to save note." });
+        } finally {
+            setIsSavingNote(false);
+        }
+    };
 
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} className="p-3 bg-white rounded-lg shadow-sm space-y-3">
-        <div className="flex items-start justify-between">
-            <div className="flex items-start gap-3">
-                <button {...listeners} className="cursor-grab touch-none text-gray-400 p-2 pt-1"><GripVertical size={16} /></button>
-                <div>
-                  <p className="font-medium text-sm">{winery.name}</p>
-                  <p className="text-xs text-muted-foreground">{winery.address}</p>
+    return (
+        <div ref={setNodeRef} style={style} {...attributes} className="p-3 bg-white rounded-lg shadow-sm space-y-3">
+            <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                    <button {...listeners} className="cursor-grab touch-none text-gray-400 p-2 pt-1"><GripVertical size={16} /></button>
+                    <div>
+                        <p className="font-medium text-sm">{winery.name}</p>
+                        <p className="text-xs text-muted-foreground">{winery.address}</p>
+                    </div>
                 </div>
+                <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => onRemove(winery.dbId!)}><Trash2 size={16} /></Button>
             </div>
-            <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-700" onClick={() => onRemove(winery.dbId!)}><Trash2 size={16} /></Button>
-        </div>
-        
-        {isPastTrip ? (
-            winery.visits && winery.visits.length > 0 ? (
-                <div className="pl-12 space-y-3">
-                    {winery.visits.map((visit: any) => (
-                        <div key={visit.id} className="space-y-1">
-                            <p className="font-semibold text-xs text-gray-600">
-                                {visit.user_id === userId ? "Your Review:" : `${visit.profiles?.name || 'A friend'}'s Review:`}
-                            </p>
-                            <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (<Star key={i} className={`w-4 h-4 ${i < (visit.rating || 0) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />))}
+            
+            {isPastTrip ? (
+                winery.visits && winery.visits.length > 0 ? (
+                    <div className="pl-12 space-y-3">
+                        {winery.visits.map((visit: any) => (
+                            <div key={visit.id} className="space-y-1">
+                                <p className="font-semibold text-xs text-gray-600">
+                                    {visit.user_id === userId ? "Your Review:" : `${visit.profiles?.name || 'A friend'}'s Review:`}
+                                </p>
+                                <div className="flex items-center">
+                                    {[...Array(5)].map((_, i) => (<Star key={i} className={`w-4 h-4 ${i < (visit.rating || 0) ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />))}
+                                </div>
+                                {visit.user_review && (
+                                    <p className="text-sm text-gray-700 italic bg-gray-50 p-2 rounded">"{visit.user_review}"</p>
+                                )}
                             </div>
-                            {visit.user_review && (
-                                <p className="text-sm text-gray-700 italic bg-gray-50 p-2 rounded">"{visit.user_review}"</p>
-                            )}
-                        </div>
-                    ))}
-                </div>
+                        ))}
+                    </div>
+                ) : (
+                    <p className="pl-12 text-xs text-muted-foreground">No reviews logged for this visit.</p>
+                )
             ) : (
-                <p className="pl-12 text-xs text-muted-foreground">No reviews logged for this visit.</p>
-            )
-        ) : (
-            <div className="pl-12 space-y-2">
-                <Textarea placeholder="Add notes for your visit (e.g., Reservation at 2pm)..." value={notes} onChange={(e) => setNotes(e.target.value)} className="text-sm bg-gray-50" />
-                <Button size="sm" onClick={handleSaveNote} disabled={isSavingNote}>
-                    {isSavingNote ? "Saving..." : "Save Note"}
-                </Button>
-            </div>
-        )}
-    </div>
-  );
+                <div className="pl-12 space-y-2">
+                    <Textarea placeholder="Add notes for your visit (e.g., Reservation at 2pm)..." value={notes} onChange={(e) => setNotes(e.target.value)} className="text-sm bg-gray-50" />
+                    <Button size="sm" onClick={handleSaveNote} disabled={isSavingNote}>
+                        {isSavingNote ? "Saving..." : "Save Note"}
+                    </Button>
+                </div>
+            )}
+        </div>
+    );
 }
 
-// Updated TripCard component with Realtime and UI enhancements
+// Updated TripCard component with Optimistic UI and Realtime
 function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; userId: string; setTrips: React.Dispatch<React.SetStateAction<Trip[]>>; }) {
     const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries || []);
     const [isEditingName, setIsEditingName] = useState(false);
@@ -99,7 +99,6 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: {
     const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
     const { toast } = useToast();
     
-    // Setup Supabase Realtime
     const supabase = createClient();
 
     const sensors = useSensors(
@@ -115,7 +114,6 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: {
         })
     );
 
-    // Subscribe to real-time updates for this specific trip
     useEffect(() => {
         const channel = supabase.channel(`trip-updates-${trip.id}`);
         
@@ -123,10 +121,8 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: {
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trips', filter: `id=eq.${trip.id}` }, (payload: any) => {
               console.log('Realtime update received:', payload);
               if (payload.new) {
-                  setTripName(payload.new.name || "");
-                  setSelectedFriends(payload.new.members || []);
+                  onWineriesUpdate();
               }
-              onWineriesUpdate();
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_wineries', filter: `trip_id=eq.${trip.id}` }, (payload: any) => {
               console.log('Winery update received:', payload);
@@ -169,7 +165,6 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: {
           });
           if (response.ok) {
             toast({ description: "Trip name updated." });
-            // The Realtime listener will handle the final state sync
           } else {
              toast({ variant: "destructive", description: "Failed to save trip name." });
              // Revert the optimistic change on error
