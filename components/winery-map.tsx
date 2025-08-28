@@ -405,31 +405,26 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
 
   const handleOpenModal = useCallback((winery: Winery) => {
-    let fullData;
-    let upcomingTripInfo: { id: number; name: string } | undefined;
+    let wineryDataToDisplay = { ...winery };
 
-    if (selectedTrip) {
-      // If a specific trip is selected, use its data
-      fullData = selectedTrip.wineries.find(w => w.dbId === winery.dbId);
-    } else {
-      // If no specific trip is selected, get data from all persistent wineries
-      fullData = allPersistentWineries.find(p => p.id === winery.id);
-      
-      // ** FIX: Safely check against all upcoming trips. **
-      const foundTrip = allUpcomingTrips.find(trip =>
-        Array.isArray(trip.wineries) && trip.wineries.some(w => w.dbId === winery.dbId)
-      );
-      if (foundTrip) {
-        upcomingTripInfo = { id: foundTrip.id, name: foundTrip.name || "Unnamed Trip" };
+    // If no specific trip is selected, get data from all persistent wineries
+    if (!selectedTrip) {
+      const fullData = allPersistentWineries.find(p => p.id === winery.id);
+      if (fullData) {
+        wineryDataToDisplay = { ...wineryDataToDisplay, ...fullData };
       }
     }
+    
+    // ** FIX: Safely check against all upcoming trips. **
+    const foundTrip = allUpcomingTrips.find(trip =>
+      Array.isArray(trip.wineries) && trip.wineries.some(w => w.id === wineryDataToDisplay.id)
+    );
+    if (foundTrip) {
+      wineryDataToDisplay.trip_id = foundTrip.id;
+      wineryDataToDisplay.trip_name = foundTrip.name || "Unnamed Trip";
+    }
 
-    setSelectedWinery({ 
-      ...winery, 
-      ...fullData,
-      trip_id: upcomingTripInfo?.id, // Use the new properties on the Winery type
-      trip_name: upcomingTripInfo?.name,
-    });
+    setSelectedWinery(wineryDataToDisplay);
   }, [allPersistentWineries, selectedTrip, allUpcomingTrips]);
   
   const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
