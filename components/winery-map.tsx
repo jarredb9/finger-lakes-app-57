@@ -162,17 +162,17 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                     <Clock className="w-4 h-4 shrink-0 text-muted-foreground" />
                     <span className="text-sm font-medium">Active Trip:</span>
                     {/* ** FIX: The value is now a non-empty string or null. The onValueChange handler correctly handles the "none" value. ** */}
-                    <Select value={selectedTrip?.id?.toString() || ""} onValueChange={(tripId) => setSelectedTrip(upcomingTrips.find(t => t.id.toString() === tripId) || null)}>
+                    <Select value={selectedTrip?.id?.toString() || "none"} onValueChange={(tripId) => setSelectedTrip(upcomingTrips.find(t => t.id.toString() === tripId) || null)}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select an upcoming trip" />
                         </SelectTrigger>
                         <SelectContent>
                             {/* ** FIX: Changed the value from "" to "none" ** */}
                             <SelectItem value="none">None</SelectItem>
-                            {/* ** FIX: Filtered out any trips with a falsy ID to prevent the crash. ** */}
+                            {/* ** FIX: Filter out any trips with a falsy ID to prevent the crash. ** */}
                             {upcomingTrips.filter(trip => !!trip.id).map(trip => (
                                 <SelectItem key={trip.id} value={trip.id.toString()}>
-                                    {trip.name} ({new Date(trip.trip_date).toLocaleDateString()})
+                                    {trip.name} ({new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()})
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -534,7 +534,6 @@ export default function WineryMapWrapper({ userId }: { userId: string }) {
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
-    // ** FIX: The provider now passes down the `selectedTrip` and its setter. **
     const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
     return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} /></APIProvider>);
 }
