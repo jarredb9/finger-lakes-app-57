@@ -49,10 +49,6 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 
-const WineryModal = dynamic(() => import('./winery-modal'), {
-  loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
-});
-
 interface WineryMapProps { userId: string; }
 
 interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
@@ -86,7 +82,7 @@ const MapComponent = memo(({ trulyDiscoveredWineries, visitedWineries, wishlistW
                         )}
 
                         {(filter.includes('all') || filter.includes('wantToGo')) && (
-                        <WishlistClusterer wineries={wishlistWineries} onClick={onMarkerClick} />
+                        <WishlistClusterer wineries={wishlistToRender} onClick={onMarkerClick} />
                         )}
                         
                         {(filter.includes('all') || filter.includes('visited')) && (
@@ -135,7 +131,8 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
         const data = await response.json();
         const fullTrip = data.find((t: Trip) => t.id.toString() === tripId);
         if (fullTrip) {
-          setSelectedTrip(fullTrip);
+          // ** FIX: Added a defensive check to ensure wineries is an array. **
+          setSelectedTrip({ ...fullTrip, wineries: fullTrip.wineries || [] });
         }
       } else {
         throw new Error("Failed to fetch trip details.");
