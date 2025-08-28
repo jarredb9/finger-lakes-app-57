@@ -405,23 +405,30 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
 
   const handleOpenModal = useCallback((winery: Winery) => {
-    // ** FIX: When a trip is selected, find the winery data from the trip, not the generic persistent wineries list.
     let fullData;
+    let upcomingTripInfo: { id: number; name: string } | undefined;
+
     if (selectedTrip) {
+      // If a specific trip is selected, use its data
       fullData = selectedTrip.wineries.find(w => w.dbId === winery.dbId);
     } else {
+      // If no specific trip is selected, get data from all persistent wineries
       fullData = allPersistentWineries.find(p => p.id === winery.id);
+      
+      // ** FIX: Check against all upcoming trips. **
+      const foundTrip = allUpcomingTrips.find(trip =>
+        trip.wineries.some(w => w.dbId === winery.dbId)
+      );
+      if (foundTrip) {
+        upcomingTripInfo = { id: foundTrip.id, name: foundTrip.name || "Unnamed Trip" };
+      }
     }
-    
-    // ** FIX: Check if the winery is on any upcoming trips. **
-    const upcomingTripInfo = allUpcomingTrips.find(trip =>
-        trip.wineries.some(w => w.id === winery.id)
-    );
 
     setSelectedWinery({ 
       ...winery, 
       ...fullData,
-      isWineryOnTrip: upcomingTripInfo ? { id: upcomingTripInfo.id, name: upcomingTripInfo.name || "Unnamed Trip" } : undefined
+      trip_id: upcomingTripInfo?.id, // Use the new properties on the Winery type
+      trip_name: upcomingTripInfo?.name,
     });
   }, [allPersistentWineries, selectedTrip, allUpcomingTrips]);
   
