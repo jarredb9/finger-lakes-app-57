@@ -78,7 +78,7 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 }
 
 // ** FIX: Added the new props to the MapComponent. **
-const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistToRender, favoriteToender, filter, onMarkerClick, selectedTrip }: { trulyDiscoveredWineries: Winery[], visitedToRender: Winery[], wishlistToRender: Winery[], favoriteToRender: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
+const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistToRender, favoriteToRender, filter, onMarkerClick, selectedTrip }: { trulyDiscoveredWineries: Winery[], visitedToRender: Winery[], wishlistToRender: Winery[], favoriteToRender: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
@@ -246,7 +246,7 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
   
-  useEffect(() => { if (geocoding) setGeocoder(new geocoding.Geocoder()); }, [geocoding]);
+  useEffect(() => { if (geocoding) setGeocoder(new google.maps.Geocoder()); }, [geocoding]);
 
   // ** FIX: Use a useEffect hook to recenter the map when a trip is selected **
   useEffect(() => {
@@ -349,8 +349,8 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
         rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber,
     }));
     
-    dispatch({ type: 'SEARCH_SUCCESS', payload: { places: wineries, hitLimit: hitApiLimit } });
-  }, [map, places, geocoding, toast]);
+    dispatch({ type: 'SEARCH_SUCCESS', payload: { places: wineries, hitApiLimit: hitApiLimit } });
+  }, [map, places, geocoder, toast]);
 
   useEffect(() => { searchFnRef.current = executeSearch; });
     
