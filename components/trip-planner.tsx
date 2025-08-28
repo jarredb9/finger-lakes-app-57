@@ -92,7 +92,6 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
 
 // Updated TripCard component with Realtime and UI enhancements
 function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; userId: string; }) {
-    // ** FIX: Added a defensive check here to prevent crash on new trip. **
     const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries || []);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tripName, setTripName] = useState(trip.name || "");
@@ -166,7 +165,8 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
           if (response.ok) {
             setIsEditingName(false);
             toast({ description: "Trip name updated." });
-            // The onWineriesUpdate call is now handled by the real-time listener
+            // ** FIX: Manually update the local state after a successful save. **
+            onWineriesUpdate();
           }
         } catch (error) {
           console.error("Failed to save trip name", error);
@@ -421,7 +421,7 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       <div className="md:col-span-1">
-        <Card>
+        <Card className="max-w-md">
           <CardHeader>
             <CardTitle>Select a Date</CardTitle>
           </CardHeader>
