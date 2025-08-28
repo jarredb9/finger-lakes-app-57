@@ -1,31 +1,7 @@
 // File Location: app/trips/page.tsx
-
-import { Suspense } from 'react';
 import { redirect } from "next/navigation";
-import { getUser } from "@/lib/auth";
-import Header from "@/components/header";
-import TripsClientPage from "./trips-client-page"; // The new client component
-import { Loader2 } from "lucide-react";
 
-export default async function TripsPage() {
-  const user = await getUser();
-
-  if (!user) {
-    redirect("/login");
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <Header user={user} />
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Suspense fallback={
-          <div className="flex justify-center items-center h-64">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        }>
-          <TripsClientPage user={user} />
-        </Suspense>
-      </main>
-    </div>
-  );
+// Redirect to the upcoming trips page by default
+export default function TripsPage() {
+  redirect("/trips/upcoming");
 }

@@ -12,17 +12,21 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from '@/components/ui/pagination';
 import { Badge } from '@/components/ui/badge';
+import Link from 'next/link';
 
 const TRIPS_PER_PAGE = 6;
 
-// A self-contained component for rendering a paginated list of trips
-function TripSection({ title, type, onTripDeleted }: { title: string; type: 'upcoming' | 'past'; onTripDeleted: () => void; }) {
+// Refactored TripList component to accept a 'type' prop
+export default function TripList({ type }: { type: 'upcoming' | 'past'; }) {
     const [trips, setTrips] = useState<Trip[] | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
     const router = useRouter();
     const { toast } = useToast();
+    
+    // This state is used to force a re-fetch if a trip is deleted on the same page
+    const [refreshKey, setRefreshKey] = useState(0);
 
     const fetchTrips = useCallback(async (page: number) => {
         setLoading(true);
@@ -42,19 +46,16 @@ function TripSection({ title, type, onTripDeleted }: { title: string; type: 'upc
     }, [type]);
 
     useEffect(() => {
-        fetchTrips(1);
-    }, [fetchTrips]);
+        fetchTrips(currentPage);
+    }, [fetchTrips, currentPage, refreshKey]);
 
     const handlePageChange = (page: number) => {
         if (page > 0 && page <= totalPages) {
-            fetchTrips(page);
+            setCurrentPage(page);
         }
     };
 
     const handleViewTrip = (date: string) => {
-        // ** THE FIX IS HERE: We add 'T00:00:00' to the date string. **
-        // This tells the JavaScript Date constructor to interpret the date in the local timezone
-        // instead of UTC, which prevents the date from rolling back by one day.
         router.push(`/trips?date=${new Date(date + 'T00:00:00').toISOString()}`);
     };
 
@@ -63,8 +64,7 @@ function TripSection({ title, type, onTripDeleted }: { title: string; type: 'upc
             const response = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' });
             if (response.ok) {
                 toast({ description: "Trip deleted successfully." });
-                fetchTrips(currentPage); // Refresh current page
-                onTripDeleted(); // Notify parent if needed
+                setRefreshKey(prev => prev + 1); // Increment key to force a re-fetch
             } else {
                 toast({ variant: 'destructive', description: "Failed to delete trip." });
             }
@@ -79,23 +79,18 @@ function TripSection({ title, type, onTripDeleted }: { title: string; type: 'upc
 
     if (!trips || trips.length === 0) {
         return (
-            <div>
-                <h2 className="text-2xl font-bold mb-4">{title}</h2>
-                <p className="text-muted-foreground">You have no {type} trips.</p>
-            </div>
+            <p className="text-muted-foreground">You have no {type} trips.</p>
         );
     }
 
     return (
         <div className="space-y-4">
-            <h2 className="text-2xl font-bold">{title}</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {trips.map(trip => (
                     <Card key={trip.id}>
                         <CardHeader className="relative">
                             <CardTitle className="text-lg">{trip.name || `Trip for ${new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}`}</CardTitle>
                             <CardDescription>{new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}</CardDescription>
-                            {/* ** FIX: Display winery count on the card header. ** */}
                             <Badge variant="secondary" className="absolute top-4 right-4"><Wine className="w-3 h-3 mr-1" /> {trip.wineries_count} Wineries</Badge>
                         </CardHeader>
                         <CardContent className="flex justify-between items-center">
@@ -126,20 +121,6 @@ function TripSection({ title, type, onTripDeleted }: { title: string; type: 'upc
                     </PaginationContent>
                 </Pagination>
             )}
-        </div>
-    );
-}
-
-
-export default function TripList() {
-    // This key is used to force a re-render of the sections when a trip is deleted.
-    const [key, setKey] = useState(0); 
-    const handleTripDeleted = () => setKey(prev => prev + 1);
-
-    return (
-        <div className="space-y-8">
-            <TripSection key={`upcoming-${key}`} title="Upcoming Trips" type="upcoming" onTripDeleted={handleTripDeleted} />
-            <TripSection key={`past-${key}`} title="Past Trips" type="past" onTripDeleted={handleTripDeleted} />
         </div>
     );
 }
