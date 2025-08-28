@@ -16,12 +16,14 @@ import Link from 'next/link';
 
 const TRIPS_PER_PAGE = 6;
 
-// Refactored TripList component to accept a 'type' prop
-export default function TripList({ type }: { type: 'upcoming' | 'past'; }) {
+// Refactored TripList component to handle both upcoming and past trips
+export default function TripList() {
     const [trips, setTrips] = useState<Trip[] | null>(null);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
+    // ** FIX: State to toggle between 'upcoming' and 'past' trips **
+    const [tripType, setTripType] = useState<'upcoming' | 'past'>('upcoming');
     const router = useRouter();
     const { toast } = useToast();
     
@@ -31,7 +33,7 @@ export default function TripList({ type }: { type: 'upcoming' | 'past'; }) {
     const fetchTrips = useCallback(async (page: number) => {
         setLoading(true);
         try {
-            const response = await fetch(`/api/trips?type=${type}&page=${page}&limit=${TRIPS_PER_PAGE}`);
+            const response = await fetch(`/api/trips?type=${tripType}&page=${page}&limit=${TRIPS_PER_PAGE}`);
             if (response.ok) {
                 const { trips, count } = await response.json();
                 setTrips(trips);
@@ -39,15 +41,15 @@ export default function TripList({ type }: { type: 'upcoming' | 'past'; }) {
                 setCurrentPage(page);
             }
         } catch (error) {
-            console.error(`Failed to fetch ${type} trips`, error);
+            console.error(`Failed to fetch ${tripType} trips`, error);
         } finally {
             setLoading(false);
         }
-    }, [type]);
+    }, [tripType]);
 
     useEffect(() => {
-        fetchTrips(currentPage);
-    }, [fetchTrips, currentPage, refreshKey]);
+        fetchTrips(1); // Always reset to page 1 when the tripType changes
+    }, [fetchTrips, tripType, refreshKey]);
 
     const handlePageChange = (page: number) => {
         if (page > 0 && page <= totalPages) {
@@ -79,12 +81,24 @@ export default function TripList({ type }: { type: 'upcoming' | 'past'; }) {
 
     if (!trips || trips.length === 0) {
         return (
-            <p className="text-muted-foreground">You have no {type} trips.</p>
+            <div className="flex flex-col items-center gap-4">
+                <h2 className="text-2xl font-bold">{tripType === 'upcoming' ? 'Upcoming Trips' : 'Past Trips'}</h2>
+                <Button variant="outline" onClick={() => setTripType(tripType === 'upcoming' ? 'past' : 'upcoming')}>
+                    View {tripType === 'upcoming' ? 'Past' : 'Upcoming'} Trips
+                </Button>
+                <p className="text-muted-foreground">You have no {tripType} trips.</p>
+            </div>
         );
     }
-
+    
     return (
         <div className="space-y-4">
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">{tripType === 'upcoming' ? 'Upcoming Trips' : 'Past Trips'}</h2>
+                <Button variant="default" onClick={() => setTripType(tripType === 'upcoming' ? 'past' : 'upcoming')}>
+                    View {tripType === 'upcoming' ? 'Past' : 'Upcoming'} Trips
+                </Button>
+            </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {trips.map(trip => (
                     <Card key={trip.id}>

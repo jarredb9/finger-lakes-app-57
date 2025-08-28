@@ -90,7 +90,6 @@ export default function TripsClientPage({ user }: TripsClientPageProps) {
                 <TabsTrigger value="visit-history">Visit History</TabsTrigger>
             </TabsList>
             <TabsContent value="planner" className="mt-6">
-                {/* We now pass the user object and selectedTrip to the TripPlanner */}
                 <TripPlanner 
                     initialDate={dateFromQuery ? new Date(dateFromQuery) : new Date()} 
                     user={user}
@@ -115,6 +114,7 @@ export default function TripsClientPage({ user }: TripsClientPageProps) {
                 onDeleteVisit={async () => { /* Can be implemented if needed */}}
                 onToggleWishlist={async () => { /* Can be implemented if needed */}}
                 onToggleFavorite={async () => { /* Can be implemented if needed */}}
+                selectedTrip={selectedTrip}
             />
         )}
     </>
