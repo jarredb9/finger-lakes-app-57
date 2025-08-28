@@ -49,6 +49,10 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 
+const WineryModal = dynamic(() => import('./winery-modal'), {
+  loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
+});
+
 interface WineryMapProps { userId: string; }
 
 interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
@@ -86,7 +90,7 @@ const MapComponent = memo(({ trulyDiscoveredWineries, visitedWineries, wishlistW
                         )}
                         
                         {(filter.includes('all') || filter.includes('visited')) && (
-                        <WineryClusterer wineries={visitedWineries} onClick={onMarkerClick} />
+                        <WineryClusterer wineries={visitedToRender} onClick={onMarkerClick} />
                         )}
 
                         {(filter.includes('all') || filter.includes('favorites')) && (
@@ -119,7 +123,6 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
     fetchUpcomingTrips();
   }, []);
   
-  // ** FIX: Added a new function to fetch a single trip with full winery details. **
   const handleTripSelect = async (tripId: string) => {
     if (tripId === "none") {
       setSelectedTrip(null);
@@ -130,7 +133,6 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
       const response = await fetch(`/api/trips?date=${upcomingTrips.find(t => t.id.toString() === tripId)?.trip_date}`);
       if (response.ok) {
         const data = await response.json();
-        // The API returns an array, so we need to find the specific trip.
         const fullTrip = data.find((t: Trip) => t.id.toString() === tripId);
         if (fullTrip) {
           setSelectedTrip(fullTrip);
