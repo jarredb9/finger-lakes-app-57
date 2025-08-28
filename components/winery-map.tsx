@@ -49,7 +49,11 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 
-interface WineryMapProps { userId: string; }
+const WineryModal = dynamic(() => import('./winery-modal'), {
+  loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
+});
+
+interface WineryMapProps { userId: string; selectedTrip?: Trip | null; }
 
 interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
 type SearchAction = | { type: 'SEARCH_START' } | { type: 'SEARCH_SUCCESS'; payload: { places: Winery[], hitLimit: boolean } } | { type: 'SEARCH_ERROR' } | { type: 'CLEAR_RESULTS' } | { type: 'UPDATE_RESULTS'; payload: Winery[] };
@@ -66,8 +70,7 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     }
 }
 
-// ** FIX: Added the new props to the MapComponent. **
-const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistToRender, favoriteToRender, filter, onMarkerClick, selectedTrip }: { trulyDiscoveredWineries: Winery[], visitedToRender: Winery[], wishlistToRender: Winery[], favoriteToRender: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
+const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistToRender, favoritesToRender, filter, onMarkerClick, selectedTrip }: { trulyDiscoveredWineries: Winery[], visitedToRender: Winery[], wishlistToRender: Winery[], favoritesToRender: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
@@ -91,7 +94,7 @@ const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistT
                         )}
 
                         {(filter.includes('all') || filter.includes('favorites')) && (
-                        <FavoriteClusterer wineries={favoriteToRender} onClick={onMarkerClick} />
+                        <FavoriteClusterer wineries={favoritesToRender} onClick={onMarkerClick} />
                         )}
                     </>
                 )}
@@ -132,7 +135,6 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
         const data = await response.json();
         const fullTrip = data.find((t: Trip) => t.id.toString() === tripId);
         if (fullTrip) {
-          // ** FIX: Added a defensive check to ensure wineries is an array. **
           setSelectedTrip({ ...fullTrip, wineries: fullTrip.wineries || [] });
         }
       } else {
@@ -212,6 +214,7 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
 });
 SearchUI.displayName = 'SearchUI';
 
+// ** FIX: Now renders the modal in this scope. **
 function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: string; selectedTrip?: Trip | null; setSelectedTrip: (trip: Trip | null) => void; }) {
   const [searchState, dispatch] = useReducer(searchReducer, initialState);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
@@ -468,89 +471,90 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   };
 
   return (
-    <div className="space-y-6">
-      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} filter={filter} onFilterChange={handleFilterChange} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} />
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          <div className="lg:col-span-3">
-              <Card>
-                  <CardContent className="p-0 relative"> 
-                      <MapComponent 
-                          trulyDiscoveredWineries={trulyDiscoveredWineries}
-                          visitedToRender={visitedToRender}
-                          wishlistToRender={wishlistToRender}
-                          favoriteToRender={favoritesToRender}
-                          filter={filter} 
-                          onMarkerClick={handleOpenModal}
-                          selectedTrip={selectedTrip}
-                      /> 
-                  </CardContent>
-              </Card>
-          </div>
-          <div className="space-y-4">
-              <Card>
-                  <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
-                  <CardContent className="space-y-2">
-                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#f17e3a] border-2 border-[#d26e32]" /> <span className="text-sm">Trip Stop</span> </div>
-                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#FBBF24] border-2 border-[#F59E0B]" /> <span className="text-sm">Favorite</span> </div>
-                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#9333ea] border-2 border-[#7e22ce]" /> <span className="text-sm">Want to Go</span> </div>
-                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#10B981] border-2 border-[#059669]" /> <span className="text-sm">Visited</span> </div>
-                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#3B82F6] border-2 border-[#2563EB]" /> <span className="text-sm">Discovered</span> </div>
-                  </CardContent>
-              </Card>
-              <Card>
-                  <CardHeader><CardTitle className="flex justify-between items-center">Results In View <Badge>{listResultsInView.length}</Badge></CardTitle></CardHeader>
-                  <CardContent className="relative">
-                      {searchState.isSearching && (<div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 flex items-center justify-center rounded-b-lg z-10"><Loader2 className="animate-spin text-muted-foreground h-8 w-8" /></div>)}
-                      <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto data-[loaded=true]:animate-in data-[loaded=true]:fade-in-50" data-loaded={!searchState.isSearching}>
-                          {listResultsInView.length === 0 && !searchState.isSearching && (
-                            <div className="text-center pt-10 text-muted-foreground">
-                              <Wine className="mx-auto h-12 w-12" />
-                              <p className="mt-4 text-sm">No wineries found.</p>
-                              <p className="text-xs">Try searching or adjusting your filter.</p>
-                            </div>
-                          )}
-                          {!searchState.isSearching && listResultsInView.map(winery => (
-                              <div key={winery.id} className="p-3 border rounded-lg cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] transition-all duration-200" onClick={() => handleOpenModal(winery)}>
-                                  <p className="font-medium text-sm">{winery.name}</p>
-                                  <p className="text-xs text-muted-foreground">{winery.address}</p>
-                                  {winery.rating && <p className="text-xs text-muted-foreground mt-1">★ {winery.rating}/5.0</p>}
+    <>
+      <div className="space-y-6">
+        <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} filter={filter} onFilterChange={handleFilterChange} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} />
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <div className="lg:col-span-3">
+                <Card>
+                    <CardContent className="p-0 relative"> 
+                        <MapComponent 
+                            trulyDiscoveredWineries={trulyDiscoveredWineries}
+                            visitedToRender={visitedToRender}
+                            wishlistToRender={wishlistToRender}
+                            favoritesToRender={favoritesToRender}
+                            filter={filter} 
+                            onMarkerClick={handleOpenModal}
+                            selectedTrip={selectedTrip}
+                        /> 
+                    </CardContent>
+                </Card>
+            </div>
+            <div className="space-y-4">
+                <Card>
+                    <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
+                    <CardContent className="space-y-2">
+                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#f17e3a] border-2 border-[#d26e32]" /> <span className="text-sm">Trip Stop</span> </div>
+                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#FBBF24] border-2 border-[#F59E0B]" /> <span className="text-sm">Favorite</span> </div>
+                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#9333ea] border-2 border-[#7e22ce]" /> <span className="text-sm">Want to Go</span> </div>
+                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#10B981] border-2 border-[#059669]" /> <span className="text-sm">Visited</span> </div>
+                        <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#3B82F6] border-2 border-[#2563EB]" /> <span className="text-sm">Discovered</span> </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardHeader><CardTitle className="flex justify-between items-center">Results In View <Badge>{listResultsInView.length}</Badge></CardTitle></CardHeader>
+                    <CardContent className="relative">
+                        {searchState.isSearching && (<div className="absolute inset-0 bg-white/70 dark:bg-zinc-900/70 flex items-center justify-center rounded-b-lg z-10"><Loader2 className="animate-spin text-muted-foreground h-8 w-8" /></div>)}
+                        <div className="space-y-2 max-h-[450px] min-h-[400px] overflow-y-auto data-[loaded=true]:animate-in data-[loaded=true]:fade-in-50" data-loaded={!searchState.isSearching}>
+                            {listResultsInView.length === 0 && !searchState.isSearching && (
+                              <div className="text-center pt-10 text-muted-foreground">
+                                <Wine className="mx-auto h-12 w-12" />
+                                <p className="mt-4 text-sm">No wineries found.</p>
+                                <p className="text-xs">Try searching or adjusting your filter.</p>
                               </div>
-                          ))}
-                      </div>
-                  </CardContent>
-              </Card>
-          </div>
-      </div>
-      {selectedWinery && (<WineryModal 
-        winery={selectedWinery} 
-        onClose={() => setSelectedWinery(null)} 
-        onSaveVisit={handleSaveVisit}
-        onUpdateVisit={handleUpdateVisit}
-        onDeleteVisit={handleDeleteVisit}
-        onToggleWishlist={handleToggleWishlist}
-        onToggleFavorite={handleToggleFavorite}
-      />)}
-      {proposedWinery && (
-        <AlertDialog open={!!proposedWinery} onOpenChange={() => setProposedWinery(null)}>
-            <AlertDialogContent>
-                <AlertDialogHeader><AlertDialogTitle>Add this location?</AlertDialogTitle>
-                    <AlertDialogDescription> Do you want to add a visit for the following location?
-                        <Card className="mt-4 text-left">
-                            <CardHeader>
-                                <CardTitle>{proposedWinery.name}</CardTitle>
-                                <CardDescription>{proposedWinery.address}</CardDescription>
-                            </CardHeader>
-                        </Card>
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setProposedWinery(null)}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => { handleOpenModal(proposedWinery); setProposedWinery(null); }}>Add Visit</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-      )}
-    </div>
+                            )}
+                            {!searchState.isSearching && listResultsInView.map(winery => (
+                                <div key={winery.id} className="p-3 border rounded-lg cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] transition-all duration-200" onClick={() => handleOpenModal(winery)}>
+                                    <p className="font-medium text-sm">{winery.name}</p>
+                                    <p className="text-xs text-muted-foreground">{winery.address}</p>
+                                    {winery.rating && <p className="text-xs text-muted-foreground mt-1">★ {winery.rating}/5.0</p>}
+                                </div>
+                            ))}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        </div>
+        {selectedWinery && (<WineryModal 
+          winery={selectedWinery} 
+          onClose={() => setSelectedWinery(null)} 
+          onSaveVisit={handleSaveVisit}
+          onUpdateVisit={handleUpdateVisit}
+          onDeleteVisit={handleDeleteVisit}
+          onToggleWishlist={handleToggleWishlist}
+          onToggleFavorite={handleToggleFavorite}
+        />)}
+        {proposedWinery && (
+          <AlertDialog open={!!proposedWinery} onOpenChange={() => setProposedWinery(null)}>
+              <AlertDialogContent>
+                  <AlertDialogHeader><AlertDialogTitle>Add this location?</AlertDialogTitle>
+                      <AlertDialogDescription> Do you want to add a visit for the following location?
+                          <Card className="mt-4 text-left">
+                              <CardHeader>
+                                  <CardTitle>{proposedWinery.name}</CardTitle>
+                                  <CardDescription>{proposedWinery.address}</CardDescription>
+                              </CardHeader>
+                          </Card>
+                      </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                      <AlertDialogCancel onClick={() => setProposedWinery(null)}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => { handleOpenModal(proposedWinery); setProposedWinery(null); }}>Add Visit</AlertDialogAction>
+                  </AlertDialogFooter>
+              </AlertDialogContent>
+          </AlertDialog>
+        )}
+    </>
   );
 }
 
@@ -560,5 +564,12 @@ export default function WineryMapWrapper({ userId }: { userId: string }) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
     const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
-    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} /></APIProvider>);
+    const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
+    const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
+
+    return (
+        <APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}>
+            <WineryMapLogic userId={userId} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} selectedWinery={selectedWinery} setSelectedWinery={setSelectedWinery} proposedWinery={proposedWinery} setProposedWinery={setProposedWinery} />
+        </APIProvider>
+    );
 }
