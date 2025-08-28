@@ -72,7 +72,8 @@ export function useWineryData() {
     
     const fetchUpcomingTrips = useCallback(async () => {
       try {
-        const response = await fetch('/api/trips?type=upcoming&page=1&limit=1000');
+        // ** FIX: Add the 'full=true' query parameter to get the full winery list **
+        const response = await fetch('/api/trips?type=upcoming&page=1&limit=1000&full=true');
         if (response.ok) {
           const { trips } = await response.json();
           setAllUpcomingTrips(trips);

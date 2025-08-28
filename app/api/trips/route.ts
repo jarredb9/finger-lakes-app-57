@@ -103,14 +103,22 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type") || "upcoming";
     const page = parseInt(searchParams.get("page") || "1", 10);
     const limit = parseInt(searchParams.get("limit") || "6", 10);
+    const fullData = searchParams.get("full"); // ** FIX: Read the new 'full' query param **
     const rangeFrom = (page - 1) * limit;
     const rangeTo = rangeFrom + limit - 1;
     const today = new Date().toISOString().split("T")[0];
 
     // ** FIX: Fetch the count of wineries using a nested select to optimize performance. **
+    // ** FIX: Dynamically adjust the query based on the 'full' parameter **
     let query = supabase
       .from("trips")
-      .select("id, name, trip_date, members, wineries_count:trip_wineries(count)", { count: 'exact' })
+      .select(`
+          id,
+          name,
+          trip_date,
+          members,
+          ${fullData ? 'wineries:trip_wineries(*, wineries(*))' : 'wineries_count:trip_wineries(count)'}
+      `, { count: 'exact' })
       .or(`user_id.eq.${user.id},members.cs.{${user.id}}`);
 
     if (type === 'upcoming') {
@@ -127,10 +135,12 @@ export async function GET(request: NextRequest) {
     }
     
     // We need to re-format the data to get the winery count
-    const formattedTrips = trips?.map(t => ({
-        ...t,
-        wineries_count: t.wineries_count?.[0]?.count || 0
-    }));
+    const formattedTrips = trips?.map(t => {
+      // ** FIX: Handle the `wineries_count` vs `wineries` data structure **
+      const wineries_count = fullData ? t.wineries?.length || 0 : t.wineries_count?.[0]?.count || 0;
+      const wineries = fullData ? t.wineries.map(tw => formatWinery(tw.wineries)) : [];
+      return { ...t, wineries_count, wineries };
+    });
 
     return NextResponse.json({ trips: formattedTrips || [], count: count || 0 });
   }
