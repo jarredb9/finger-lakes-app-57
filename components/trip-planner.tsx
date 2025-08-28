@@ -92,7 +92,8 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
 
 // Updated TripCard component with Realtime and UI enhancements
 function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; userId: string; }) {
-    const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries);
+    // ** FIX: Added a defensive check here to prevent crash on new trip. **
+    const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries || []);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tripName, setTripName] = useState(trip.name || "");
     const [friends, setFriends] = useState([]);
@@ -140,7 +141,6 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
     }, [trip.id, onWineriesUpdate, supabase]);
 
     useEffect(() => {
-        // ** FIX: Add a defensive check for trip.wineries to prevent crash on new trip. **
         setTripWineries(trip.wineries || []);
         setTripName(trip.name || "");
         setSelectedFriends(trip.members || []);
@@ -421,7 +421,7 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       <div className="md:col-span-1">
-        <Card className="max-w-md">
+        <Card>
           <CardHeader>
             <CardTitle>Select a Date</CardTitle>
           </CardHeader>

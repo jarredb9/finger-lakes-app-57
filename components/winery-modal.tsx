@@ -325,10 +325,10 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
     
     // Process each selected trip
     const tripPromises = Array.from(selectedTrips).map(tripId => {
-        const payload: { date: string; wineryId: number; name?: string; tripId?: number; notes?: string; } = {
+        // ** FIX: Correctly construct the payload to send to the API endpoint. **
+        const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
             date: tripDate.toISOString().split("T")[0],
             wineryId: internalWinery.dbId!,
-            notes: addTripNotes,
         };
 
         if (tripId === 'new') {
@@ -337,8 +337,10 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                 return Promise.reject("New trip requires a name.");
             }
             payload.name = newTripName;
+            payload.notes = addTripNotes;
         } else {
-            payload.tripId = parseInt(tripId, 10);
+            payload.tripIds = [parseInt(tripId, 10)];
+            payload.notes = addTripNotes;
         }
 
         return fetch('/api/trips', {
