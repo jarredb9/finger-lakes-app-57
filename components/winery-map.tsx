@@ -49,12 +49,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 
-const WineryModal = dynamic(() => import('./winery-modal'), {
-  loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
-});
-
-// ** FIX: Added selectedTrip prop to the component props. **
-interface WineryMapProps { userId: string; selectedTrip?: Trip | null; }
+interface WineryMapProps { userId: string; }
 
 interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
 type SearchAction = | { type: 'SEARCH_START' } | { type: 'SEARCH_SUCCESS'; payload: { places: Winery[], hitLimit: boolean } } | { type: 'SEARCH_ERROR' } | { type: 'CLEAR_RESULTS' } | { type: 'UPDATE_RESULTS'; payload: Winery[] };
@@ -76,12 +71,10 @@ const MapComponent = memo(({ trulyDiscoveredWineries, visitedWineries, wishlistW
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 
-                {/* ** FIX: Conditionally render the trip-specific clusterer. ** */}
                 {selectedTrip && (
                     <TripWineryClusterer wineries={selectedTrip.wineries} onClick={onMarkerClick} />
                 )}
 
-                {/* ** FIX: Conditionally render default clusters if no trip is selected. ** */}
                 {!selectedTrip && (
                     <>
                         {(filter.includes('all') || filter.includes('notVisited')) && (
@@ -145,8 +138,8 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                         </AlertDescription>
                     </Alert>
                 )}
-                {/* ** FIX: Conditionally render the filter or the trip selector. ** */}
                 <div className="flex items-center justify-between">
+                     {/* ** FIX: Conditionally render the filter or the trip selector. ** */}
                     {selectedTrip ? (
                         <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer" onClick={() => setSelectedTrip(null)}>
                             Viewing: {selectedTrip.name} <XCircle className="w-3 h-3 ml-1" />
@@ -174,7 +167,8 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="">None</SelectItem>
-                            {upcomingTrips.map(trip => (
+                            {/* ** FIX: Filter out any trips with a falsy ID to prevent the crash. ** */}
+                            {upcomingTrips.filter(trip => !!trip.id).map(trip => (
                                 <SelectItem key={trip.id} value={trip.id.toString()}>
                                     {trip.name} ({new Date(trip.trip_date).toLocaleDateString()})
                                 </SelectItem>
@@ -446,7 +440,6 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
       setFilter(newFilter);
   };
 
-  // ** FIX: Now accepts and destructures the setSelectedTrip prop. **
   return (
     <div className="space-y-6">
       <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} filter={filter} onFilterChange={handleFilterChange} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} />
@@ -470,7 +463,6 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
               <Card>
                   <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
                   <CardContent className="space-y-2">
-                      {/* ** FIX: Updated color and added 'Trip Stop' legend item. ** */}
                       <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#f17e3a] border-2 border-[#d26e32]" /> <span className="text-sm">Trip Stop</span> </div>
                       <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#FBBF24] border-2 border-[#F59E0B]" /> <span className="text-sm">Favorite</span> </div>
                       <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#9333ea] border-2 border-[#7e22ce]" /> <span className="text-sm">Want to Go</span> </div>
@@ -535,11 +527,12 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   );
 }
 
-export default function WineryMapWrapper({ userId, selectedTrip, setSelectedTrip }: WineryMapProps) {
+export default function WineryMapWrapper({ userId }: { userId: string }) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
     // ** FIX: The provider now passes down the `selectedTrip` and its setter. **
+    const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
     return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} /></APIProvider>);
 }
