@@ -1,3 +1,4 @@
+// file: components/winery-map.tsx
 "use client"
 
 import React, { useEffect, useState, useCallback, useRef, memo, useReducer, useMemo } from "react"
@@ -30,18 +31,19 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useToast } from "@/hooks/use-toast"
-import { Winery, Visit } from "@/lib/types"
+import { Winery, Visit, Trip } from "@/lib/types"
 import { useWineryData } from "@/hooks/use-winery-data"
 import WineryClusterer from "./winery-clusterer"
 import WishlistClusterer from './wishlist-clusterer';
 import FavoriteClusterer from "./favorite-clusterer"
 import DiscoveredClusterer from "./discovered-clusterer"
+import TripWineryClusterer from "./trip-winery-clusterer"
 
 const WineryModal = dynamic(() => import('./winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
 });
 
-interface WineryMapProps { userId: string; }
+interface WineryMapProps { userId: string; selectedTrip?: Trip | null; }
 
 interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
 type SearchAction = | { type: 'SEARCH_START' } | { type: 'SEARCH_SUCCESS'; payload: { places: Winery[], hitLimit: boolean } } | { type: 'SEARCH_ERROR' } | { type: 'CLEAR_RESULTS' } | { type: 'UPDATE_RESULTS'; payload: Winery[] };
@@ -58,25 +60,34 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     }
 }
 
-const MapComponent = memo(({ trulyDiscoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, onMarkerClick }: { trulyDiscoveredWineries: Winery[], visitedWineries: Winery[], wishlistWineries: Winery[], favoriteWineries: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void }) => {
+const MapComponent = memo(({ trulyDiscoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, onMarkerClick, selectedTrip }: { trulyDiscoveredWineries: Winery[], visitedWineries: Winery[], wishlistWineries: Winery[], favoriteWineries: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 
-                {(filter.includes('all') || filter.includes('notVisited')) && (
-                  <DiscoveredClusterer wineries={trulyDiscoveredWineries} onClick={onMarkerClick} />
+                {selectedTrip && (
+                    <TripWineryClusterer wineries={selectedTrip.wineries} onClick={onMarkerClick} />
                 )}
 
-                {(filter.includes('all') || filter.includes('wantToGo')) && (
-                  <WishlistClusterer wineries={wishlistWineries} onClick={onMarkerClick} />
-                )}
-                
-                {(filter.includes('all') || filter.includes('visited')) && (
-                  <WineryClusterer wineries={visitedWineries} onClick={onMarkerClick} />
-                )}
+                {/* Conditionally render default clusters if no trip is selected */}
+                {!selectedTrip && (
+                    <>
+                        {(filter.includes('all') || filter.includes('notVisited')) && (
+                        <DiscoveredClusterer wineries={trulyDiscoveredWineries} onClick={onMarkerClick} />
+                        )}
 
-                {(filter.includes('all') || filter.includes('favorites')) && (
-                  <FavoriteClusterer wineries={favoriteWineries} onClick={onMarkerClick} />
+                        {(filter.includes('all') || filter.includes('wantToGo')) && (
+                        <WishlistClusterer wineries={wishlistWineries} onClick={onMarkerClick} />
+                        )}
+                        
+                        {(filter.includes('all') || filter.includes('visited')) && (
+                        <WineryClusterer wineries={visitedWineries} onClick={onMarkerClick} />
+                        )}
+
+                        {(filter.includes('all') || filter.includes('favorites')) && (
+                        <FavoriteClusterer wineries={favoriteWineries} onClick={onMarkerClick} />
+                        )}
+                    </>
                 )}
 
             </GoogleMap>
@@ -121,7 +132,7 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
 ));
 SearchUI.displayName = 'SearchUI';
 
-function WineryMapLogic({ userId }: { userId: string }) {
+function WineryMapLogic({ userId, selectedTrip }: { userId: string; selectedTrip?: Trip | null; }) {
   const [searchState, dispatch] = useReducer(searchReducer, initialState);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
@@ -250,7 +261,7 @@ function WineryMapLogic({ userId }: { userId: string }) {
   }, [map, autoSearch]);
 
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
-    if (!places || !geocoder || !e.latLng || !e.placeId) return;
+    if (!places || !geocoding || !e.latLng || !e.placeId) return;
     e.stop();
     const isKnown = allPersistentWineries.some(w => w.id === e.placeId);
     if (isKnown) return;
@@ -274,7 +285,7 @@ function WineryMapLogic({ userId }: { userId: string }) {
     } catch (error) {
         toast({ variant: "destructive", description: "An error occurred while fetching location details." });
     }
-  }, [places, geocoder, toast, allPersistentWineries]);
+  }, [places, geocoding, toast, allPersistentWineries]);
 
   useEffect(() => {
     if (!map) return;
@@ -387,6 +398,7 @@ function WineryMapLogic({ userId }: { userId: string }) {
                           favoriteWineries={favoritesToRender}
                           filter={filter} 
                           onMarkerClick={handleOpenModal}
+                          selectedTrip={selectedTrip}
                       /> 
                   </CardContent>
               </Card>
@@ -395,6 +407,7 @@ function WineryMapLogic({ userId }: { userId: string }) {
               <Card>
                   <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
                   <CardContent className="space-y-2">
+                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#0284c7] border-2 border-[#0369a1]" /> <span className="text-sm">Trip Stop</span> </div>
                       <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#FBBF24] border-2 border-[#F59E0B]" /> <span className="text-sm">Favorite</span> </div>
                       <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#9333ea] border-2 border-[#7e22ce]" /> <span className="text-sm">Want to Go</span> </div>
                       <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#10B981] border-2 border-[#059669]" /> <span className="text-sm">Visited</span> </div>
@@ -458,10 +471,10 @@ function WineryMapLogic({ userId }: { userId: string }) {
   );
 }
 
-export default function WineryMapWrapper({ userId }: { userId: string }) {
+export default function WineryMapWrapper({ userId, selectedTrip }: WineryMapProps) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
-    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} /></APIProvider>);
+    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} selectedTrip={selectedTrip} /></APIProvider>);
 }

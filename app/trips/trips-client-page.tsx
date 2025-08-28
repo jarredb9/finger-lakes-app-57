@@ -1,3 +1,4 @@
+// file: app/trips/trips-client-page.tsx
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
@@ -7,7 +8,7 @@ import VisitHistory from "@/components/visit-history";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useEffect, useState, useCallback } from "react";
 import { Loader2 } from "lucide-react";
-import { Winery } from "@/lib/types";
+import { Winery, Trip } from "@/lib/types";
 import { useWineryData } from "@/hooks/use-winery-data";
 import { useToast } from "@/hooks/use-toast";
 import dynamic from "next/dynamic";
@@ -32,6 +33,8 @@ export default function TripsClientPage({ user }: TripsClientPageProps) {
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const { allPersistentWineries, refreshAllData } = useWineryData();
   const { toast } = useToast();
+  // ** FIX: Added state for the currently selected trip **
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
 
   useEffect(() => {
       if (dateFromQuery) {
@@ -85,10 +88,12 @@ export default function TripsClientPage({ user }: TripsClientPageProps) {
                 <TabsTrigger value="visit-history">Visit History</TabsTrigger>
             </TabsList>
             <TabsContent value="planner" className="mt-6">
-                {/* We now pass the user object to the TripPlanner */}
+                {/* We now pass the user object and selectedTrip to the TripPlanner */}
                 <TripPlanner 
                     initialDate={dateFromQuery ? new Date(dateFromQuery) : new Date()} 
-                    user={user} 
+                    user={user}
+                    selectedTrip={selectedTrip}
+                    setSelectedTrip={setSelectedTrip}
                 />
             </TabsContent>
             <TabsContent value="all-trips" className="mt-6">
