@@ -1,3 +1,4 @@
+// file: app/page.tsx
 import { redirect } from "next/navigation"
 import { getUser } from "@/lib/auth"
 import { Suspense } from "react"
@@ -7,11 +8,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Wine, MapPin, Star, ListPlus, BarChart2 } from "lucide-react"
 import { createClient } from "@/utils/supabase/server"
 import Header from "@/components/header"
-
-const WineryMap = dynamic(() => import('@/components/winery-map'), { 
-  ssr: false,
-  loading: () => <div className="h-96 w-full lg:h-[600px] bg-gray-100 rounded-lg animate-pulse" />
-});
+import WineryMap from '@/components/winery-map';
+import { Trip } from "@/lib/types";
 
 async function getUserStats(userId: string) {
   const supabase = await createClient();

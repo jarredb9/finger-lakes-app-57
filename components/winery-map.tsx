@@ -22,7 +22,10 @@ import {
   MapPin,
   Loader2,
   Wine,
-  Star
+  Star,
+  XCircle,
+  Clock,
+  ListPlus
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -38,11 +41,19 @@ import WishlistClusterer from './wishlist-clusterer';
 import FavoriteClusterer from "./favorite-clusterer"
 import DiscoveredClusterer from "./discovered-clusterer"
 import TripWineryClusterer from "./trip-winery-clusterer"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 
 const WineryModal = dynamic(() => import('./winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
 });
 
+// ** FIX: Added selectedTrip prop to the component props. **
 interface WineryMapProps { userId: string; selectedTrip?: Trip | null; }
 
 interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
@@ -65,11 +76,12 @@ const MapComponent = memo(({ trulyDiscoveredWineries, visitedWineries, wishlistW
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
                 
+                {/* ** FIX: Conditionally render the trip-specific clusterer. ** */}
                 {selectedTrip && (
                     <TripWineryClusterer wineries={selectedTrip.wineries} onClick={onMarkerClick} />
                 )}
 
-                {/* Conditionally render default clusters if no trip is selected */}
+                {/* ** FIX: Conditionally render default clusters if no trip is selected. ** */}
                 {!selectedTrip && (
                     <>
                         {(filter.includes('all') || filter.includes('notVisited')) && (
@@ -96,43 +108,90 @@ const MapComponent = memo(({ trulyDiscoveredWineries, visitedWineries, wishlistW
 });
 MapComponent.displayName = 'MapComponent';
 
-const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, filter, onFilterChange }: any) => (
-    <Card>
-        <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries by location, filter your results, or click directly on the map.</CardDescription> </CardHeader>
-        <CardContent className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-4">
-                <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
-                    <Input placeholder="Enter a city or wine region (e.g., Napa Valley)" value={searchLocation} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchLocation(e.target.value)} aria-label="Search Location"/>
-                    <Button type="submit" disabled={searchState.isSearching} aria-label="Search"> {searchState.isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />} <span className="ml-2 hidden sm:inline">Search</span> </Button>
-                </form>
-                <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching} aria-label="Search This Area"> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
-            </div>
-            {searchState.hitApiLimit && (
-                <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800">
-                    <AlertTriangle className="h-4 w-4 !text-yellow-600" />
-                    <AlertDescription>
-                        This is a popular area! Zoom in to discover more wineries.
-                    </AlertDescription>
-                </Alert>
-            )}
-            <div className="flex items-center justify-between">
-                <ToggleGroup type="multiple" value={filter} onValueChange={onFilterChange} aria-label="Filter wineries" className="flex-wrap justify-start">
-                    <ToggleGroupItem value="all" aria-label="All">All</ToggleGroupItem>
-                    <ToggleGroupItem value="visited" aria-label="Visited">Visited</ToggleGroupItem>
-                    <ToggleGroupItem value="favorites" aria-label="Favorites">Favorites</ToggleGroupItem>
-                    <ToggleGroupItem value="wantToGo" aria-label="Want to Go">Want to Go</ToggleGroupItem>
-                    <ToggleGroupItem value="notVisited" aria-label="Discovered">Discovered</ToggleGroupItem>
-                </ToggleGroup>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200">
-                <Label htmlFor="auto-search" className="flex items-center gap-2 text-sm font-medium cursor-pointer"> <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} aria-label="Auto-discover wineries as you explore" /> Auto-discover as you explore the map </Label>
-            </div>
-        </CardContent>
-    </Card>
-));
+const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, filter, onFilterChange, selectedTrip, setSelectedTrip }: any) => {
+  const [upcomingTrips, setUpcomingTrips] = useState<Trip[]>([]);
+
+  useEffect(() => {
+    const fetchUpcomingTrips = async () => {
+      try {
+        const response = await fetch('/api/trips?type=upcoming');
+        if (response.ok) {
+          const { trips } = await response.json();
+          setUpcomingTrips(trips);
+        }
+      } catch (error) {
+        console.error("Failed to fetch upcoming trips", error);
+      }
+    };
+    fetchUpcomingTrips();
+  }, []);
+  
+    return (
+        <Card>
+            <CardHeader> <CardTitle className="flex items-center gap-2"><Search /> Discover Wineries</CardTitle> <CardDescription>Search for wineries by location, filter your results, or click directly on the map.</CardDescription> </CardHeader>
+            <CardContent className="space-y-4">
+                <div className="flex flex-col sm:flex-row gap-4">
+                    <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
+                        <Input placeholder="Enter a city or wine region (e.g., Napa Valley)" value={searchLocation} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearchLocation(e.target.value)} aria-label="Search Location"/>
+                        <Button type="submit" disabled={searchState.isSearching} aria-label="Search"> {searchState.isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />} <span className="ml-2 hidden sm:inline">Search</span> </Button>
+                    </form>
+                    <Button variant="outline" onClick={handleManualSearchArea} disabled={searchState.isSearching} aria-label="Search This Area"> <MapPin className="mr-2 w-4 h-4" /> Search This Area </Button>
+                </div>
+                {searchState.hitApiLimit && (
+                    <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800">
+                        <AlertTriangle className="h-4 w-4 !text-yellow-600" />
+                        <AlertDescription>
+                            This is a popular area! Zoom in to discover more wineries.
+                        </AlertDescription>
+                    </Alert>
+                )}
+                {/* ** FIX: Conditionally render the filter or the trip selector. ** */}
+                <div className="flex items-center justify-between">
+                    {selectedTrip ? (
+                        <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer" onClick={() => setSelectedTrip(null)}>
+                            Viewing: {selectedTrip.name} <XCircle className="w-3 h-3 ml-1" />
+                        </Badge>
+                    ) : (
+                        <div className="flex items-center space-x-2 w-full">
+                            <span className="text-sm font-medium">Filter:</span>
+                            <ToggleGroup type="multiple" value={filter} onValueChange={onFilterChange} aria-label="Filter wineries" className="flex-wrap justify-start">
+                                <ToggleGroupItem value="all" aria-label="All">All</ToggleGroupItem>
+                                <ToggleGroupItem value="visited" aria-label="Visited">Visited</ToggleGroupItem>
+                                <ToggleGroupItem value="favorites" aria-label="Favorites">Favorites</ToggleGroupItem>
+                                <ToggleGroupItem value="wantToGo" aria-label="Want to Go">Want to Go</ToggleGroupItem>
+                                <ToggleGroupItem value="notVisited" aria-label="Discovered">Discovered</ToggleGroupItem>
+                            </ToggleGroup>
+                        </div>
+                    )}
+                </div>
+                {/* ** FIX: New trip selector UI element. ** */}
+                <div className="flex items-center space-x-2">
+                    <Clock className="w-4 h-4 shrink-0 text-muted-foreground" />
+                    <span className="text-sm font-medium">Active Trip:</span>
+                    <Select value={selectedTrip?.id?.toString() || ""} onValueChange={(tripId) => setSelectedTrip(upcomingTrips.find(t => t.id.toString() === tripId) || null)}>
+                        <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select an upcoming trip" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="">None</SelectItem>
+                            {upcomingTrips.map(trip => (
+                                <SelectItem key={trip.id} value={trip.id.toString()}>
+                                    {trip.name} ({new Date(trip.trip_date).toLocaleDateString()})
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="flex items-center justify-between p-3 bg-blue-50/50 rounded-lg border border-blue-200">
+                    <Label htmlFor="auto-search" className="flex items-center gap-2 text-sm font-medium cursor-pointer"> <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} aria-label="Auto-discover wineries as you explore" /> Auto-discover as you explore the map </Label>
+                </div>
+            </CardContent>
+        </Card>
+    );
+});
 SearchUI.displayName = 'SearchUI';
 
-function WineryMapLogic({ userId, selectedTrip }: { userId: string; selectedTrip?: Trip | null; }) {
+function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: string; selectedTrip?: Trip | null; setSelectedTrip: (trip: Trip | null) => void; }) {
   const [searchState, dispatch] = useReducer(searchReducer, initialState);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
@@ -173,6 +232,9 @@ function WineryMapLogic({ userId, selectedTrip }: { userId: string; selectedTrip
   const listResultsInView = useMemo(() => {
     if (!mapBounds) return [];
     
+    // ** FIX: Only show all wineries if no trip is selected **
+    if (selectedTrip) return [];
+
     const wineriesInView = [...allPersistentWineries, ...trulyDiscoveredWineries].filter(w => mapBounds.contains({ lat: w.lat, lng: w.lng }));
 
     if (filter.includes('all')) return wineriesInView;
@@ -184,7 +246,7 @@ function WineryMapLogic({ userId, selectedTrip }: { userId: string; selectedTrip
         if (filter.includes('notVisited') && !visitedIds.has(w.id) && !favoriteIds.has(w.id) && !wishlistIds.has(w.id)) return true;
         return false;
     });
-  }, [filter, allPersistentWineries, trulyDiscoveredWineries, mapBounds, visitedIds, favoriteIds, wishlistIds]);
+  }, [filter, allPersistentWineries, trulyDiscoveredWineries, mapBounds, visitedIds, favoriteIds, wishlistIds, selectedTrip]);
   
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
     if (!places || !geocoder) return;
@@ -384,9 +446,10 @@ function WineryMapLogic({ userId, selectedTrip }: { userId: string; selectedTrip
       setFilter(newFilter);
   };
 
+  // ** FIX: Now accepts and destructures the setSelectedTrip prop. **
   return (
     <div className="space-y-6">
-      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} filter={filter} onFilterChange={handleFilterChange} />
+      <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} filter={filter} onFilterChange={handleFilterChange} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} />
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3">
               <Card>
@@ -407,7 +470,8 @@ function WineryMapLogic({ userId, selectedTrip }: { userId: string; selectedTrip
               <Card>
                   <CardHeader><CardTitle>Legend</CardTitle></CardHeader>
                   <CardContent className="space-y-2">
-                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#0284c7] border-2 border-[#0369a1]" /> <span className="text-sm">Trip Stop</span> </div>
+                      {/* ** FIX: Updated color and added 'Trip Stop' legend item. ** */}
+                      <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#f17e3a] border-2 border-[#d26e32]" /> <span className="text-sm">Trip Stop</span> </div>
                       <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#FBBF24] border-2 border-[#F59E0B]" /> <span className="text-sm">Favorite</span> </div>
                       <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#9333ea] border-2 border-[#7e22ce]" /> <span className="text-sm">Want to Go</span> </div>
                       <div className="flex items-center gap-2"> <div className="w-4 h-4 rounded-full bg-[#10B981] border-2 border-[#059669]" /> <span className="text-sm">Visited</span> </div>
@@ -471,10 +535,11 @@ function WineryMapLogic({ userId, selectedTrip }: { userId: string; selectedTrip
   );
 }
 
-export default function WineryMapWrapper({ userId, selectedTrip }: WineryMapProps) {
+export default function WineryMapWrapper({ userId, selectedTrip, setSelectedTrip }: WineryMapProps) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
-    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} selectedTrip={selectedTrip} /></APIProvider>);
+    // ** FIX: The provider now passes down the `selectedTrip` and its setter. **
+    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} /></APIProvider>);
 }
