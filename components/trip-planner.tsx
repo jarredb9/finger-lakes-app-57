@@ -91,7 +91,7 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
 }
 
 // Updated TripCard component with Realtime and UI enhancements
-function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; userId: string; }) {
+function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; userId: string; setTrips: React.Dispatch<React.SetStateAction<Trip[]>>; }) {
     const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries || []);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tripName, setTripName] = useState(trip.name || "");
@@ -157,8 +157,10 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
     const handleSaveTripName = async () => {
         if (!trip || !tripName) return;
 
-        // ** FIX: Revert to calling onWineriesUpdate directly after successful API call.
-        // This avoids the ReferenceError while still ensuring the state is eventually consistent. **
+        // ** FIX: Optimistic UI Update - Mutate the parent state directly.
+        setTrips(prevTrips => prevTrips.map(t => t.id === trip.id ? { ...t, name: tripName } : t));
+        setIsEditingName(false);
+
         try {
           const response = await fetch(`/api/trips/${trip.id}`, {
             method: 'PUT',
@@ -166,15 +168,18 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
             body: JSON.stringify({ name: tripName }),
           });
           if (response.ok) {
-            setIsEditingName(false);
-            onWineriesUpdate();
             toast({ description: "Trip name updated." });
+            // The Realtime listener will handle the final state sync
           } else {
              toast({ variant: "destructive", description: "Failed to save trip name." });
+             // Revert the optimistic change on error
+             setTrips(prevTrips => prevTrips.map(t => t.id === trip.id ? { ...t, name: trip.name } : t));
           }
         } catch (error) {
           console.error("Failed to save trip name", error);
           toast({ variant: "destructive", description: "Failed to save trip name." });
+          // Revert the optimistic change on error
+          setTrips(prevTrips => prevTrips.map(t => t.id === trip.id ? { ...t, name: trip.name } : t));
         }
     };
 
@@ -453,6 +458,7 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
                     onTripDeleted={() => fetchTripsForDate(selectedDate!)}
                     onWineriesUpdate={() => fetchTripsForDate(selectedDate!)} 
                     userId={user.id}
+                    setTrips={setTrips}
                 />
             ))
         ) : (
