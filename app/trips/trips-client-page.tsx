@@ -15,6 +15,7 @@ import dynamic from "next/dynamic";
 
 const WineryModal = dynamic(() => import('@/components/winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
+  ssr: false, // Ensure this is a client-side component
 });
 
 // The user object now includes the ID
@@ -33,7 +34,8 @@ export default function TripsClientPage({ user }: TripsClientPageProps) {
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const { allPersistentWineries, refreshAllData } = useWineryData();
   const { toast } = useToast();
-  // ** FIX: Added state for the currently selected trip **
+  // ** FIX: Added state for the currently selected trip. This is now managed locally
+  // in the trips page, which makes sense for the trip planner tab.
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
 
   useEffect(() => {

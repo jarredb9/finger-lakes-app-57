@@ -48,8 +48,19 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { useRouter } from 'next/navigation';
 
-interface WineryMapProps { userId: string; }
+// Fix: Add ssr: false to the dynamic import to prevent ReferenceError
+const WineryModal = dynamic(() => import('@/components/winery-modal'), {
+  loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
+  ssr: false, 
+});
+
+interface WineryMapProps { 
+  userId: string;
+  selectedTrip: Trip | null;
+  setSelectedTrip: (trip: Trip | null) => void;
+}
 
 interface SearchState { isSearching: boolean; hitApiLimit: boolean; results: Winery[]; }
 type SearchAction = | { type: 'SEARCH_START' } | { type: 'SEARCH_SUCCESS'; payload: { places: Winery[], hitLimit: boolean } } | { type: 'SEARCH_ERROR' } | { type: 'CLEAR_RESULTS' } | { type: 'UPDATE_RESULTS'; payload: Winery[] };
@@ -104,6 +115,7 @@ MapComponent.displayName = 'MapComponent';
 
 const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, filter, onFilterChange, selectedTrip, setSelectedTrip }: any) => {
   const [upcomingTrips, setUpcomingTrips] = useState<Trip[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchUpcomingTrips = async () => {
@@ -212,7 +224,7 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
 });
 SearchUI.displayName = 'SearchUI';
 
-function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: string; selectedTrip?: Trip | null; setSelectedTrip: (trip: Trip | null) => void; }) {
+function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: string; selectedTrip: Trip | null; setSelectedTrip: (trip: Trip | null) => void; }) {
   const [searchState, dispatch] = useReducer(searchReducer, initialState);
   const [selectedWinery, setSelectedWinery] = useState<Winery | null>(null);
   const [searchLocation, setSearchLocation] = useState("");
@@ -229,10 +241,22 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
+  const core = useMapsLibrary('core'); // ** FIX: Get the core library for LatLngBounds **
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
   
   useEffect(() => { if (geocoding) setGeocoder(new geocoding.Geocoder()); }, [geocoding]);
+
+  // ** FIX: Use a useEffect hook to recenter the map when a trip is selected **
+  useEffect(() => {
+    if (map && core && selectedTrip && selectedTrip.wineries && selectedTrip.wineries.length > 0) {
+        const bounds = new core.LatLngBounds();
+        selectedTrip.wineries.forEach(winery => {
+            bounds.extend(new core.LatLng(winery.lat, winery.lng));
+        });
+        map.fitBounds(bounds);
+    }
+  }, [map, core, selectedTrip]);
 
   const { favoriteIds, wishlistIds, visitedIds } = useMemo(() => {
     const favoriteIds = new Set(allFavoriteWineries.map(w => w.id));
@@ -380,9 +404,16 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
 
   const handleOpenModal = useCallback((winery: Winery) => {
-    const fullData = allPersistentWineries.find(p => p.id === winery.id);
+    // ** FIX: When a trip is selected, find the winery data from the trip, not the generic persistent wineries list.
+    let fullData;
+    if (selectedTrip) {
+      fullData = selectedTrip.wineries.find(w => w.dbId === winery.dbId);
+    } else {
+      fullData = allPersistentWineries.find(p => p.id === winery.id);
+    }
+    
     setSelectedWinery({ ...winery, ...fullData });
-  }, [allPersistentWineries]);
+  }, [allPersistentWineries, selectedTrip]);
   
   const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
     const payload = { wineryData: winery, ...visitData };
@@ -529,6 +560,7 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
         onDeleteVisit={handleDeleteVisit}
         onToggleWishlist={handleToggleWishlist}
         onToggleFavorite={handleToggleFavorite}
+        selectedTrip={selectedTrip} // ** FIX: Pass selectedTrip to the modal **
       />)}
       {proposedWinery && (
         <AlertDialog open={!!proposedWinery} onOpenChange={() => setProposedWinery(null)}>
@@ -554,11 +586,10 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   );
 }
 
-export default function WineryMapWrapper({ userId }: { userId: string }) {
+export default function WineryMapWrapper({ userId, selectedTrip, setSelectedTrip }: WineryMapProps) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
-    const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
     return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} /></APIProvider>);
 }

@@ -107,9 +107,11 @@ interface WineryModalProps {
   onDeleteVisit?: (winery: Winery, visitId: string) => void;
   onToggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
   onToggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
+  // ** FIX: Add selectedTrip to the props **
+  selectedTrip?: Trip | null;
 }
 
-export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisit, onDeleteVisit, onToggleWishlist, onToggleFavorite }: WineryModalProps) {
+export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisit, onDeleteVisit, onToggleWishlist, onToggleFavorite, selectedTrip }: WineryModalProps) {
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(0);
@@ -363,8 +365,55 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
     }
   };
 
+  // ** FIX: New handler to add/remove from the selected trip **
+  const handleToggleWineryOnActiveTrip = async () => {
+    if (!selectedTrip || !internalWinery.dbId) return;
+
+    const isOnTrip = selectedTrip.wineries.some(w => w.dbId === internalWinery.dbId);
+    
+    try {
+      if (isOnTrip) {
+        // Remove winery from trip
+        const response = await fetch(`/api/trips/${selectedTrip.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ removeWineryId: internalWinery.dbId }),
+        });
+        if (response.ok) {
+          toast({ description: "Winery removed from trip." });
+          // Update the local state to reflect the change
+          onClose(); // Close the modal to refresh the map view
+        } else {
+          toast({ variant: "destructive", description: "Failed to remove winery from trip." });
+        }
+      } else {
+        // Add winery to trip
+        const response = await fetch('/api/trips', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: selectedTrip.trip_date.split('T')[0],
+            wineryId: internalWinery.dbId,
+            tripIds: [selectedTrip.id]
+          }),
+        });
+        if (response.ok) {
+          toast({ description: `Added to ${selectedTrip.name || 'trip'}.` });
+          onClose(); // Close the modal to refresh the map view
+        } else {
+          toast({ variant: "destructive", description: "Failed to add winery to trip." });
+        }
+      }
+    } catch (error) {
+      toast({ variant: "destructive", description: "An error occurred while updating the trip." });
+    }
+  };
+
   const visits = internalWinery.visits || [];
   const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+
+  // ** FIX: Determine if the winery is on the selected trip **
+  const isOnActiveTrip = selectedTrip?.wineries.some(w => w.dbId === internalWinery.dbId) || false;
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -494,57 +543,77 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                   </>
                 )}
                 
-                <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
-                    <h4 className="font-semibold">Add to a Trip</h4>
-                    <div className="flex items-center gap-2">
-                        <DatePicker date={tripDate} onSelect={setTripDate} />
-                        {tripDate && (
-                            <Button onClick={handleAddToTrip} disabled={!internalWinery.dbId || selectedTrips.size === 0 || (selectedTrips.has('new') && !newTripName.trim())}>
-                                Add to Trip
-                            </Button>
-                        )}
+                {/* ** FIX: Conditionally render the trip planning section ** */}
+                {selectedTrip ? (
+                    <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+                        <h4 className="font-semibold">Active Trip: {selectedTrip.name}</h4>
+                        <p className="text-sm text-muted-foreground">This trip is for {new Date(selectedTrip.trip_date + 'T00:00:00').toLocaleDateString()}.</p>
+                        <Button 
+                            onClick={handleToggleWineryOnActiveTrip}
+                            variant={isOnActiveTrip ? 'destructive' : 'default'}
+                            className="w-full"
+                        >
+                            {isOnActiveTrip ? 'Remove from Trip' : 'Add to This Trip'}
+                        </Button>
+                        <Link href={`/trips?date=${new Date(selectedTrip.trip_date).toISOString()}`} passHref>
+                          <Button variant="outline" className="w-full">
+                            <ArrowRight className="mr-2 h-4 w-4" /> Go to Trip Planner
+                          </Button>
+                        </Link>
                     </div>
-                    {tripDate && (
-                        <>
-                        <div className="space-y-2">
-                            <Label>Choose a trip or create a new one:</Label>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                {tripsOnDate.map(trip => (
-                                    <div key={trip.id} className="flex items-center gap-2 p-3 border rounded-lg bg-white">
+                ) : (
+                    <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+                        <h4 className="font-semibold">Add to a Trip</h4>
+                        <div className="flex items-center gap-2">
+                            <DatePicker date={tripDate} onSelect={setTripDate} />
+                            {tripDate && (
+                                <Button onClick={handleAddToTrip} disabled={!internalWinery.dbId || selectedTrips.size === 0 || (selectedTrips.has('new') && !newTripName.trim())}>
+                                    Add to Trip
+                                </Button>
+                            )}
+                        </div>
+                        {tripDate && (
+                            <>
+                            <div className="space-y-2">
+                                <Label>Choose a trip or create a new one:</Label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {tripsOnDate.map(trip => (
+                                        <div key={trip.id} className="flex items-center gap-2 p-3 border rounded-lg bg-white">
+                                            <Checkbox 
+                                                id={`trip-${trip.id}`} 
+                                                checked={selectedTrips.has(trip.id.toString())}
+                                                onCheckedChange={() => handleToggleTrip(trip.id.toString())}
+                                            />
+                                            <label htmlFor={`trip-${trip.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                {trip.name || `Trip on ${new Date(trip.trip_date).toLocaleDateString()}`}
+                                            </label>
+                                        </div>
+                                    ))}
+                                    <div className="flex items-center gap-2 p-3 border rounded-lg bg-white">
                                         <Checkbox 
-                                            id={`trip-${trip.id}`} 
-                                            checked={selectedTrips.has(trip.id.toString())}
-                                            onCheckedChange={() => handleToggleTrip(trip.id.toString())}
+                                            id="new-trip" 
+                                            checked={selectedTrips.has('new')} 
+                                            onCheckedChange={handleToggleNewTrip}
                                         />
-                                        <label htmlFor={`trip-${trip.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                            {trip.name || `Trip on ${new Date(trip.trip_date).toLocaleDateString()}`}
+                                        <label htmlFor="new-trip" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                            Create a new trip...
                                         </label>
                                     </div>
-                                ))}
-                                <div className="flex items-center gap-2 p-3 border rounded-lg bg-white">
-                                    <Checkbox 
-                                        id="new-trip" 
-                                        checked={selectedTrips.has('new')} 
-                                        onCheckedChange={handleToggleNewTrip}
-                                    />
-                                    <label htmlFor="new-trip" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                        Create a new trip...
-                                    </label>
                                 </div>
                             </div>
-                        </div>
-                        {(selectedTrips.size > 0) && (
-                            <div className="space-y-2">
-                                {(selectedTrips.has('new')) && (
-                                    <Input placeholder="New trip name..." value={newTripName} onChange={(e) => setNewTripName(e.target.value)} />
-                                )}
-                                <Textarea placeholder="Add notes for this visit..." value={addTripNotes} onChange={(e) => setAddTripNotes(e.target.value)} />
-                            </div>
+                            {(selectedTrips.size > 0) && (
+                                <div className="space-y-2">
+                                    {(selectedTrips.has('new')) && (
+                                        <Input placeholder="New trip name..." value={newTripName} onChange={(e) => setNewTripName(e.target.value)} />
+                                    )}
+                                    <Textarea placeholder="Add notes for this visit..." value={addTripNotes} onChange={(e) => setAddTripNotes(e.target.value)} />
+                                </div>
+                            )}
+                            </>
                         )}
-                        </>
-                    )}
-                </div>
-
+                    </div>
+                )}
+                
                 <Separator className="my-4"/>
                 
                 <div className="space-y-4">
