@@ -155,7 +155,13 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
     }, [trip]);
 
     const handleSaveTripName = async () => {
-        if (!trip) return;
+        if (!trip || !tripName) return;
+
+        // ** FIX: Optimistic UI update. Set the name locally before the API call. **
+        const oldName = trip.name;
+        // The `onWineriesUpdate` will handle the final state sync, so we don't need a separate local state for the name.
+        // We just need to trigger the re-fetch on success.
+
         try {
           const response = await fetch(`/api/trips/${trip.id}`, {
             method: 'PUT',
@@ -165,11 +171,16 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
           if (response.ok) {
             setIsEditingName(false);
             toast({ description: "Trip name updated." });
-            // ** FIX: Manually update the local state after a successful save. **
             onWineriesUpdate();
+          } else {
+             // If the API call fails, revert the optimistic change.
+             // This can be done by re-fetching, or setting the name back to the old value.
+             setTripName(oldName || '');
+             toast({ variant: "destructive", description: "Failed to save trip name." });
           }
         } catch (error) {
           console.error("Failed to save trip name", error);
+          setTripName(oldName || '');
           toast({ variant: "destructive", description: "Failed to save trip name." });
         }
     };
