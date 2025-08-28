@@ -78,7 +78,7 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 }
 
 // ** FIX: Added the new props to the MapComponent. **
-const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistToRender, favoriteToRender, filter, onMarkerClick, selectedTrip }: { trulyDiscoveredWineries: Winery[], visitedToRender: Winery[], wishlistToRender: Winery[], favoriteToRender: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
+const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistToRender, favoriteToender, filter, onMarkerClick, selectedTrip }: { trulyDiscoveredWineries: Winery[], visitedToRender: Winery[], wishlistToRender: Winery[], favoriteToRender: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
@@ -349,8 +349,8 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
         rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber,
     }));
     
-    dispatch({ type: 'SEARCH_SUCCESS', payload: { places: wineries, hitApiLimit: hitApiLimit } });
-  }, [map, places, geocoder, toast]);
+    dispatch({ type: 'SEARCH_SUCCESS', payload: { places: wineries, hitLimit: hitApiLimit } });
+  }, [map, places, geocoding, toast]);
 
   useEffect(() => { searchFnRef.current = executeSearch; });
     
@@ -415,9 +415,9 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
       // If no specific trip is selected, get data from all persistent wineries
       fullData = allPersistentWineries.find(p => p.id === winery.id);
       
-      // ** FIX: Check against all upcoming trips. **
+      // ** FIX: Safely check against all upcoming trips. **
       const foundTrip = allUpcomingTrips.find(trip =>
-        trip.wineries.some(w => w.dbId === winery.dbId)
+        Array.isArray(trip.wineries) && trip.wineries.some(w => w.dbId === winery.dbId)
       );
       if (foundTrip) {
         upcomingTripInfo = { id: foundTrip.id, name: foundTrip.name || "Unnamed Trip" };
