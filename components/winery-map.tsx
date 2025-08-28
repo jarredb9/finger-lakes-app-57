@@ -232,7 +232,8 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const [filter, setFilter] = useState<string[]>(['all']);
   const [mapBounds, setMapBounds] = useState<google.maps.LatLngBounds | null>(null);
   
-  const { allVisitedWineries, allWishlistWineries, allFavoriteWineries, allPersistentWineries, refreshAllData } = useWineryData();
+  // ** FIX: Fetch all upcoming trips as well **
+  const { allVisitedWineries, allWishlistWineries, allFavoriteWineries, allPersistentWineries, allUpcomingTrips, refreshAllData } = useWineryData();
   
   const { toast } = useToast();
   
@@ -348,7 +349,7 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
         rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber,
     }));
     
-    dispatch({ type: 'SEARCH_SUCCESS', payload: { places: wineries, hitLimit: hitApiLimit } });
+    dispatch({ type: 'SEARCH_SUCCESS', payload: { places: wineries, hitApiLimit: hitApiLimit } });
   }, [map, places, geocoder, toast]);
 
   useEffect(() => { searchFnRef.current = executeSearch; });
@@ -412,8 +413,17 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
       fullData = allPersistentWineries.find(p => p.id === winery.id);
     }
     
-    setSelectedWinery({ ...winery, ...fullData });
-  }, [allPersistentWineries, selectedTrip]);
+    // ** FIX: Check if the winery is on any upcoming trips. **
+    const upcomingTripInfo = allUpcomingTrips.find(trip =>
+        trip.wineries.some(w => w.id === winery.id)
+    );
+
+    setSelectedWinery({ 
+      ...winery, 
+      ...fullData,
+      isWineryOnTrip: upcomingTripInfo ? { id: upcomingTripInfo.id, name: upcomingTripInfo.name || "Unnamed Trip" } : undefined
+    });
+  }, [allPersistentWineries, selectedTrip, allUpcomingTrips]);
   
   const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
     const payload = { wineryData: winery, ...visitData };
@@ -560,7 +570,7 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
         onDeleteVisit={handleDeleteVisit}
         onToggleWishlist={handleToggleWishlist}
         onToggleFavorite={handleToggleFavorite}
-        selectedTrip={selectedTrip} // ** FIX: Pass selectedTrip to the modal **
+        selectedTrip={selectedTrip}
       />)}
       {proposedWinery && (
         <AlertDialog open={!!proposedWinery} onOpenChange={() => setProposedWinery(null)}>

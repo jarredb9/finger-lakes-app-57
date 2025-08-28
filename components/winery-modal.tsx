@@ -107,7 +107,6 @@ interface WineryModalProps {
   onDeleteVisit?: (winery: Winery, visitId: string) => void;
   onToggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
   onToggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
-  // ** FIX: Add selectedTrip to the props **
   selectedTrip?: Trip | null;
 }
 
@@ -365,7 +364,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
     }
   };
 
-  // ** FIX: New handler to add/remove from the selected trip **
   const handleToggleWineryOnActiveTrip = async () => {
     if (!selectedTrip || !internalWinery.dbId) return;
 
@@ -381,7 +379,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
         });
         if (response.ok) {
           toast({ description: "Winery removed from trip." });
-          // Update the local state to reflect the change
           onClose(); // Close the modal to refresh the map view
         } else {
           toast({ variant: "destructive", description: "Failed to remove winery from trip." });
@@ -411,8 +408,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
 
   const visits = internalWinery.visits || [];
   const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
-
-  // ** FIX: Determine if the winery is on the selected trip **
   const isOnActiveTrip = selectedTrip?.wineries.some(w => w.dbId === internalWinery.dbId) || false;
 
   return (
@@ -430,7 +425,15 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
             <div className="p-6">
                 <DialogHeader>
                     <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
-                        <DialogTitle className="text-2xl pr-4">{internalWinery.name}</DialogTitle>
+                        <div className="flex items-center gap-2">
+                           <DialogTitle className="text-2xl pr-4">{internalWinery.name}</DialogTitle>
+                           {/* ** FIX: Add badge to show if the winery is on an upcoming trip ** */}
+                           {internalWinery.trip_name && (
+                                <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
+                                    <Clock className="w-3 h-3 mr-1"/>On Trip: {internalWinery.trip_name}
+                                </Badge>
+                           )}
+                        </div>
                         <div className="flex items-center gap-2">
                             <Button size="sm" variant={internalWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading}>
                                 {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${internalWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}

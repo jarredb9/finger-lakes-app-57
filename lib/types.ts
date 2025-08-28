@@ -1,3 +1,4 @@
+// file: lib/types.ts
 export interface Visit {
   id?: string;
   visit_date: string;
@@ -29,6 +30,9 @@ export interface Winery {
   onWishlist?: boolean;
   isFavorite?: boolean;
   visits?: Visit[];
+  // ** FIX: Add new optional properties for trip information **
+  trip_id?: number;
+  trip_name?: string;
 }
 
 export interface Trip {

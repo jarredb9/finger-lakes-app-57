@@ -1,7 +1,8 @@
+// file: hooks/use-winery-data.ts
 "use client"
 
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { Winery } from "@/lib/types";
+import { Winery, Trip } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
 const formatWinery = (w: any, overrides: Partial<Winery> = {}) => {
@@ -24,6 +25,8 @@ export function useWineryData() {
     const [allUserVisits, setAllUserVisits] = useState<any[]>([]);
     const [allWishlistWineries, setAllWishlistWineries] = useState<Winery[]>([]);
     const [allFavoriteWineries, setAllFavoriteWineries] = useState<Winery[]>([]);
+    // ** FIX: Add a new state for all upcoming trips. **
+    const [allUpcomingTrips, setAllUpcomingTrips] = useState<Trip[]>([]);
     const { toast } = useToast();
 
     const fetchWishlist = useCallback(async () => {
@@ -66,10 +69,25 @@ export function useWineryData() {
         }
         return [];
     }, [toast]);
+    
+    const fetchUpcomingTrips = useCallback(async () => {
+      try {
+        const response = await fetch('/api/trips?type=upcoming&page=1&limit=1000');
+        if (response.ok) {
+          const { trips } = await response.json();
+          setAllUpcomingTrips(trips);
+        }
+      } catch (error) {
+        console.error("Failed to fetch upcoming trips", error);
+      }
+      return [];
+    }, []);
+
 
     const refreshAllData = useCallback(async () => {
-        await Promise.all([fetchUserVisits(), fetchWishlist(), fetchFavorites()]);
-    }, [fetchUserVisits, fetchWishlist, fetchFavorites]);
+        // ** FIX: Call the new fetchUpcomingTrips function as well. **
+        await Promise.all([fetchUserVisits(), fetchWishlist(), fetchFavorites(), fetchUpcomingTrips()]);
+    }, [fetchUserVisits, fetchWishlist, fetchFavorites, fetchUpcomingTrips]);
 
 
     useEffect(() => {
@@ -115,5 +133,5 @@ export function useWineryData() {
     }, [allVisitedWineries, allWishlistWineries, allFavoriteWineries]);
 
 
-    return { allVisitedWineries, allWishlistWineries, allFavoriteWineries, allPersistentWineries, refreshAllData };
+    return { allVisitedWineries, allWishlistWineries, allFavoriteWineries, allPersistentWineries, allUpcomingTrips, refreshAllData };
 }
