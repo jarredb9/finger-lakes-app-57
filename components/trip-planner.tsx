@@ -159,8 +159,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
 
         // ** FIX: Optimistic UI update. Set the name locally before the API call. **
         const oldName = trip.name;
-        // The `onWineriesUpdate` will handle the final state sync, so we don't need a separate local state for the name.
-        // We just need to trigger the re-fetch on success.
+        setTripName(tripName);
 
         try {
           const response = await fetch(`/api/trips/${trip.id}`, {
@@ -170,18 +169,20 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId }: { trip: Tri
           });
           if (response.ok) {
             setIsEditingName(false);
+            // We no longer need to call onWineriesUpdate here because the local state is already updated.
+            // The real-time listener will handle updates for other clients.
             toast({ description: "Trip name updated." });
-            onWineriesUpdate();
           } else {
              // If the API call fails, revert the optimistic change.
-             // This can be done by re-fetching, or setting the name back to the old value.
              setTripName(oldName || '');
              toast({ variant: "destructive", description: "Failed to save trip name." });
+             onWineriesUpdate(); // Re-fetch to ensure data integrity
           }
         } catch (error) {
           console.error("Failed to save trip name", error);
           setTripName(oldName || '');
           toast({ variant: "destructive", description: "Failed to save trip name." });
+          onWineriesUpdate(); // Re-fetch to ensure data integrity
         }
     };
 
@@ -432,7 +433,7 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
       <div className="md:col-span-1">
-        <Card className="max-w-md">
+        <Card>
           <CardHeader>
             <CardTitle>Select a Date</CardTitle>
           </CardHeader>
