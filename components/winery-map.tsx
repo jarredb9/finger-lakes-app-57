@@ -405,25 +405,38 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
 
   const handleOpenModal = useCallback((winery: Winery) => {
+    console.log("handleOpenModal called with winery:", winery);
+
     let wineryDataToDisplay = { ...winery };
 
-    // If no specific trip is selected, get data from all persistent wineries
-    if (!selectedTrip) {
-      const fullData = allPersistentWineries.find(p => p.id === winery.id);
-      if (fullData) {
-        wineryDataToDisplay = { ...wineryDataToDisplay, ...fullData };
-      }
+    // Find the full persistent data, whether a trip is selected or not
+    const fullData = allPersistentWineries.find(p => p.id === winery.id);
+    if (fullData) {
+      console.log("Found full persistent data:", fullData);
+      wineryDataToDisplay = { ...wineryDataToDisplay, ...fullData };
+    } else {
+      console.log("Did not find full persistent data for this winery.");
     }
     
+    console.log("wineryDataToDisplay before trip check:", wineryDataToDisplay);
+
     // ** FIX: Safely check against all upcoming trips. **
-    const foundTrip = allUpcomingTrips.find(trip =>
-      Array.isArray(trip.wineries) && trip.wineries.some(w => w.id === wineryDataToDisplay.id)
-    );
+    const foundTrip = allUpcomingTrips.find(trip => {
+      console.log(`Checking trip ${trip.id} for winery ID ${wineryDataToDisplay.id}`);
+      const isWineryOnTrip = Array.isArray(trip.wineries) && trip.wineries.some(w => w.id === wineryDataToDisplay.id);
+      console.log(`- Is on trip? ${isWineryOnTrip}`);
+      return isWineryOnTrip;
+    });
+
     if (foundTrip) {
+      console.log("Found trip for winery:", foundTrip);
       wineryDataToDisplay.trip_id = foundTrip.id;
       wineryDataToDisplay.trip_name = foundTrip.name || "Unnamed Trip";
+    } else {
+      console.log("Winery not found in any upcoming trips.");
     }
 
+    console.log("Final winery data for modal:", wineryDataToDisplay);
     setSelectedWinery(wineryDataToDisplay);
   }, [allPersistentWineries, selectedTrip, allUpcomingTrips]);
   
