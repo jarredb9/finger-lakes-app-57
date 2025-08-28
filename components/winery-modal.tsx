@@ -24,7 +24,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
-// ** FIX: Add Clock to the import statement **
 import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check, Edit, Users, Heart, Bookmark, ArrowRight, Clock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Winery, Visit, Trip } from "@/lib/types";
@@ -442,7 +441,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                                 {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${internalWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
                                 Favorite
                             </Button>
-                            <Button size="sm" variant={internalWinery.onWishlist ? "secondary" : "outline"} onClick={handleToggleWishlist} disabled={wishlistLoading || internalWinery.userVisited}>
+                            <Button size="sm" variant={internalWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || internalWinery.userVisited}>
                                 {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : internalWinery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
                                 {internalWinery.onWishlist ? "On List" : "Want to Go"}
                             </Button>
