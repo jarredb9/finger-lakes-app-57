@@ -569,7 +569,6 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
         onDeleteVisit={handleDeleteVisit}
         onToggleWishlist={handleToggleWishlist}
         onToggleFavorite={handleToggleFavorite}
-        selectedTrip={selectedTrip}
       />)}
       {proposedWinery && (
         <AlertDialog open={!!proposedWinery} onOpenChange={() => setProposedWinery(null)}>
@@ -595,10 +594,11 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   );
 }
 
-export default function WineryMapWrapper({ userId, selectedTrip, setSelectedTrip }: WineryMapProps) {
+export default function WineryMapWrapper({ userId }: { userId: string }) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
+    const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
     return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} /></APIProvider>);
 }

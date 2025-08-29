@@ -33,6 +33,7 @@ export interface Winery {
   // ** FIX: Add new optional properties for trip information **
   trip_id?: number;
   trip_name?: string;
+  trip_date?: string;
 }
 
 export interface Trip {
