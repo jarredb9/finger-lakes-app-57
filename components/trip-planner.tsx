@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from '@/utils/supabase/client';
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 // This is the updated SortableWineryItem component
@@ -351,10 +352,17 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
                       </div>
                     )}
                      <div className="flex items-center gap-2">
-                        {/* NEW: Export to Google Maps Button */}
-                        <Button size="icon" variant="outline" onClick={handleExportToMaps} disabled={!tripWineries || tripWineries.length === 0}>
-                            <Share2 size={16} />
-                        </Button>
+                        {/* NEW: Export to Google Maps Button with Tooltip */}
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button size="icon" variant="outline" onClick={handleExportToMaps} disabled={!tripWineries || tripWineries.length === 0}>
+                                    <Share2 size={16} />
+                                </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>Export to Google Maps</p>
+                            </TooltipContent>
+                        </Tooltip>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button variant="outline" size="icon"><UserPlus size={16} /></Button>
