@@ -91,7 +91,7 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
 }
 
 // Updated TripCard component with Optimistic UI and Realtime
-function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; userId: string; setTrips: React.Dispatch<React.SetStateAction<Trip[]>>; }) {
+function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onDateChange }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; userId: string; setTrips: React.Dispatch<React.SetStateAction<Trip[]>>; onDateChange: (newDate: Date | undefined) => void; }) {
     const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries || []);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tripName, setTripName] = useState(trip.name || "");
@@ -99,6 +99,10 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: {
     const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
     const { toast } = useToast();
     const [activity, setActivity] = useState<string[]>([]);
+    
+    // State for the date picker
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date(trip.trip_date));
+    const [isEditingDate, setIsEditingDate] = useState(false);
     
     const supabase = createClient();
 
@@ -141,6 +145,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: {
         setTripWineries(trip.wineries || []);
         setTripName(trip.name || "");
         setSelectedFriends(trip.members || []);
+        setSelectedDate(new Date(trip.trip_date));
 
         const fetchFriends = async () => {
             const response = await fetch('/api/friends');
@@ -179,6 +184,37 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: {
           setTrips(prevTrips => prevTrips.map(t => t.id === trip.id ? { ...t, name: trip.name } : t));
         }
     };
+    
+    // New function to update the trip date
+    const handleSaveTripDate = async (newDate: Date) => {
+        const newDateString = newDate.toISOString().split('T')[0];
+        if (!trip || !newDateString) return;
+
+        // Optimistic UI Update for the date
+        onDateChange(newDate);
+
+        try {
+            const response = await fetch(`/api/trips/${trip.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trip_date: newDateString }),
+            });
+
+            if (response.ok) {
+                toast({ description: "Trip date updated." });
+            } else {
+                toast({ variant: "destructive", description: "Failed to save trip date." });
+                // Revert on error
+                onDateChange(new Date(trip.trip_date));
+            }
+        } catch (error) {
+            console.error("Failed to save trip date", error);
+            toast({ variant: "destructive", description: "Failed to save trip date." });
+            // Revert on error
+            onDateChange(new Date(trip.trip_date));
+        }
+    };
+
 
     const handleRemoveWinery = async (wineryId: number) => {
         if (!trip) return;
@@ -271,6 +307,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: {
 
     // New logic to display current members
     const currentMembers = friends.filter((f: any) => selectedFriends.includes(f.id));
+    const isPastTrip = new Date(trip.trip_date + 'T00:00:00') < new Date();
 
     return (
         <Card>
@@ -284,7 +321,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: {
                     ) : (
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-lg md:text-xl">{trip.name || "Unnamed Trip"}</CardTitle>
-                        <Button variant="ghost" size="icon" onClick={() => setIsEditingName(true)}><Edit size={16} /></Button>
+                        {!isPastTrip && <Button variant="ghost" size="icon" onClick={() => setIsEditingName(true)}><Edit size={16} /></Button>}
                       </div>
                     )}
                      <div className="flex items-center gap-2">
@@ -339,6 +376,32 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips }: {
                             </AlertDialogContent>
                         </AlertDialog>
                      </div>
+                </div>
+                <div className="flex items-center gap-4">
+                    {/* Date Picker for the trip date */}
+                    <div className="flex items-center gap-2">
+                        <CalendarIcon size={16} className="text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">{new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}</p>
+                        {!isPastTrip && (
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button variant="ghost" size="icon"><Edit size={16} /></Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={selectedDate}
+                                        onSelect={(newDate) => {
+                                            if (newDate) {
+                                                handleSaveTripDate(newDate);
+                                            }
+                                        }}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        )}
+                    </div>
                 </div>
                 {/* Display collaborators */}
                 {currentMembers.length > 0 && (
@@ -456,6 +519,7 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
                     onWineriesUpdate={() => fetchTripsForDate(selectedDate!)} 
                     userId={user.id}
                     setTrips={setTrips}
+                    onDateChange={setSelectedDate}
                 />
             ))
         ) : (

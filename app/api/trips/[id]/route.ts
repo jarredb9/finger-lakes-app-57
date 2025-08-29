@@ -35,6 +35,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             const { error } = await supabase.from('trips').update({ name: body.name }).eq('id', tripId);
             if (error) throw error;
         }
+        
+        // Scenario 1a: Update trip date
+        if (body.trip_date) {
+            const { error } = await supabase.from('trips').update({ trip_date: body.trip_date }).eq('id', tripId);
+            if (error) throw error;
+        }
 
         // Scenario 2: Remove a winery from the trip
         if (body.removeWineryId) {
