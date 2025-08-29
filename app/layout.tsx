@@ -4,6 +4,7 @@ import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { Toaster } from "@/components/ui/toaster"
 import BottomNav from '@/components/bottom-nav'
+import { TooltipProvider } from '@/components/ui/tooltip'
 
 export const metadata: Metadata = {
   title: 'v0 App',
@@ -22,13 +23,15 @@ export default function RootLayout({
         <link rel="icon" href="/placeholder-logo.png" sizes="any" />
       </head>
       <body>
-        <div className="relative flex min-h-screen flex-col">
-          {/* Main content now has padding-bottom on mobile to avoid overlap */}
-          <main className="flex-1 pb-16 md:pb-0">{children}</main>
-          <Toaster />
-          {/* The BottomNav component is rendered here */}
-          <BottomNav />
-        </div>
+        <TooltipProvider>
+          <div className="relative flex min-h-screen flex-col">
+            {/* Main content now has padding-bottom on mobile to avoid overlap */}
+            <main className="flex-1 pb-16 md:pb-0">{children}</main>
+            <Toaster />
+            {/* The BottomNav component is rendered here */}
+            <BottomNav />
+          </div>
+        </TooltipProvider>
       </body>
     </html>
   )

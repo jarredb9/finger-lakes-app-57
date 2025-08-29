@@ -318,26 +318,17 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
 
         const encodedWineries = tripWineries.map(w => encodeURIComponent(`${w.name}, ${w.address}`));
         
-        let url = `https://www.google.com/maps/dir/?api=1&travelmode=driving`;
-        
-        // We set the origin to "Current Location" so Google Maps uses the user's device location.
-        url += `&origin=Current+Location`;
+        let url = `https://www.google.com/maps/dir/Current+Location/`;
 
         // If there's only one winery, it becomes the destination.
         if (encodedWineries.length === 1) {
-            url += `&destination=${encodedWineries[0]}`;
+            url += `${encodedWineries[0]}`;
         } else {
-            // For multiple wineries, the last one is the destination.
-            const destination = encodedWineries[encodedWineries.length - 1];
-            url += `&destination=${destination}`;
-
-            // All other wineries become waypoints.
-            const waypoints = encodedWineries.slice(0, -1).join('|');
-            if (waypoints) {
-                url += `&waypoints=${waypoints}`;
-            }
+            // All wineries are waypoints.
+            const waypoints = encodedWineries.join('/');
+            url += `${waypoints}`;
         }
-
+        
         window.open(url, '_blank');
     };
 
