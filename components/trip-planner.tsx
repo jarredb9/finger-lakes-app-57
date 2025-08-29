@@ -310,29 +310,34 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
     const currentMembers = friends.filter((f: any) => selectedFriends.includes(f.id));
     const isPastTrip = new Date(trip.trip_date + 'T00:00:00') < new Date();
     
-    // NEW: Function to generate the Google Maps URL
+    // Updated: Function to generate the Google Maps URL with current location as origin.
     const handleExportToMaps = () => {
         if (!tripWineries || tripWineries.length === 0) {
             return;
         }
-    
+
         const encodedWineries = tripWineries.map(w => encodeURIComponent(`${w.name}, ${w.address}`));
-        const origin = encodedWineries[0];
-        const destination = encodedWineries[encodedWineries.length - 1];
         
         let url = `https://www.google.com/maps/dir/?api=1&travelmode=driving`;
         
-        // Handle a single winery as just a destination
+        // We set the origin to "Current Location" so Google Maps uses the user's device location.
+        url += `&origin=Current+Location`;
+
+        // If there's only one winery, it becomes the destination.
         if (encodedWineries.length === 1) {
-            url += `&destination=${destination}`;
+            url += `&destination=${encodedWineries[0]}`;
         } else {
-            const waypoints = encodedWineries.slice(1, -1).join('|');
-            url += `&origin=${origin}&destination=${destination}`;
+            // For multiple wineries, the last one is the destination.
+            const destination = encodedWineries[encodedWineries.length - 1];
+            url += `&destination=${destination}`;
+
+            // All other wineries become waypoints.
+            const waypoints = encodedWineries.slice(0, -1).join('|');
             if (waypoints) {
                 url += `&waypoints=${waypoints}`;
             }
         }
-        
+
         window.open(url, '_blank');
     };
 
