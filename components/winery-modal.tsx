@@ -432,7 +432,9 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                            <DialogTitle className="text-2xl pr-4">{internalWinery.name}</DialogTitle>
                            {internalWinery.trip_name && (
                                 <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
-                                    <Clock className="w-3 h-3 mr-1"/>On Trip: {internalWinery.trip_name}
+                                    <Link href={`/trips?date=${new Date(selectedTrip.trip_date).toISOString()}`} passHref>
+                                        <Clock className="w-3 h-3 mr-1"/>On Trip: {internalWinery.trip_name}
+                                    </Link>
                                 </Badge>
                            )}
                         </div>
