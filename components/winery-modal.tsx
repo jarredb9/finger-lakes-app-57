@@ -430,10 +430,17 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                     <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
                         <div className="flex items-center gap-2">
                            <DialogTitle className="text-2xl pr-4">{internalWinery.name}</DialogTitle>
-                           {internalWinery.trip_name && (
-                                <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
-                                    <Clock className="w-3 h-3 mr-1"/>On Trip: {internalWinery.trip_name}
-                                </Badge>
+                           {/* The fix is here: Make the badge a clickable link to the trip planner page for this specific trip */}
+                           {internalWinery.trip_name && internalWinery.trip_date && internalWinery.trip_id && (
+                                <Link
+                                    href={`/trips?date=${internalWinery.trip_date.split('T')[0]}&tripId=${internalWinery.trip_id}`}
+                                    passHref
+                                    onClick={onClose}
+                                >
+                                    <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
+                                        <Clock className="w-3 h-3 mr-1"/>On Trip: {internalWinery.trip_name}
+                                    </Badge>
+                                </Link>
                            )}
                         </div>
                         <div className="flex items-center gap-2">
