@@ -432,6 +432,8 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
       console.log("Found trip for winery:", foundTrip);
       wineryDataToDisplay.trip_id = foundTrip.id;
       wineryDataToDisplay.trip_name = foundTrip.name || "Unnamed Trip";
+      // ** FIX: Add the trip_date to the winery object. This was the missing piece. **
+      wineryDataToDisplay.trip_date = foundTrip.trip_date;
     } else {
       console.log("Winery not found in any upcoming trips.");
     }
