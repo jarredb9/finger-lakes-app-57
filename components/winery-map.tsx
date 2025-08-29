@@ -49,6 +49,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 // Fix: Add ssr: false to the dynamic import to prevent ReferenceError
 const WineryModal = dynamic(() => import('@/components/winery-modal'), {
@@ -232,7 +233,6 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const [filter, setFilter] = useState<string[]>(['all']);
   const [mapBounds, setMapBounds] = useState<google.maps.LatLngBounds | null>(null);
   
-  // ** FIX: Fetch all upcoming trips as well **
   const { allVisitedWineries, allWishlistWineries, allFavoriteWineries, allPersistentWineries, allUpcomingTrips, refreshAllData } = useWineryData();
   
   const { toast } = useToast();
@@ -242,13 +242,12 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
-  const core = useMapsLibrary('core'); // ** FIX: Get the core library for LatLngBounds **
+  const core = useMapsLibrary('core');
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
   
   useEffect(() => { if (geocoding) setGeocoder(new google.maps.Geocoder()); }, [geocoding]);
 
-  // ** FIX: Use a useEffect hook to recenter the map when a trip is selected **
   useEffect(() => {
     if (map && core && selectedTrip && selectedTrip.wineries && selectedTrip.wineries.length > 0) {
         const bounds = new core.LatLngBounds();
@@ -278,7 +277,6 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const listResultsInView = useMemo(() => {
     if (!mapBounds) return [];
     
-    // ** FIX: Only show all wineries if no trip is selected **
     if (selectedTrip) return [];
 
     const wineriesInView = [...allPersistentWineries, ...trulyDiscoveredWineries].filter(w => mapBounds.contains({ lat: w.lat, lng: w.lng }));
@@ -349,7 +347,7 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
         rating: place.rating, website: place.websiteURI, phone: place.nationalPhoneNumber,
     }));
     
-    dispatch({ type: 'SEARCH_SUCCESS', payload: { places: wineries, hitApiLimit: hitApiLimit } });
+    dispatch({ type: 'SEARCH_SUCCESS', payload: { places: wineries, hitLimit: hitApiLimit } });
   }, [map, places, geocoder, toast]);
 
   useEffect(() => { searchFnRef.current = executeSearch; });
@@ -405,40 +403,26 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
 
   const handleOpenModal = useCallback((winery: Winery) => {
-    console.log("handleOpenModal called with winery:", winery);
-
     let wineryDataToDisplay = { ...winery };
-
-    // Find the full persistent data, whether a trip is selected or not
+    
+    // Find the full persistent data
     const fullData = allPersistentWineries.find(p => p.id === winery.id);
     if (fullData) {
-      console.log("Found full persistent data:", fullData);
       wineryDataToDisplay = { ...wineryDataToDisplay, ...fullData };
-    } else {
-      console.log("Did not find full persistent data for this winery.");
     }
     
-    console.log("wineryDataToDisplay before trip check:", wineryDataToDisplay);
-
-    // ** FIX: Safely check against all upcoming trips. **
-    const foundTrip = allUpcomingTrips.find(trip => {
-      console.log(`Checking trip ${trip.id} for winery ID ${wineryDataToDisplay.id}`);
-      const isWineryOnTrip = Array.isArray(trip.wineries) && trip.wineries.some(w => w.id === wineryDataToDisplay.id);
-      console.log(`- Is on trip? ${isWineryOnTrip}`);
-      return isWineryOnTrip;
-    });
-
+    // Check against all upcoming trips for a badge
+    const foundTrip = allUpcomingTrips.find(trip =>
+      Array.isArray(trip.wineries) && trip.wineries.some(w => w.id === wineryDataToDisplay.id)
+    );
     if (foundTrip) {
-      console.log("Found trip for winery:", foundTrip);
       wineryDataToDisplay.trip_id = foundTrip.id;
       wineryDataToDisplay.trip_name = foundTrip.name || "Unnamed Trip";
-    } else {
-      console.log("Winery not found in any upcoming trips.");
+      wineryDataToDisplay.trip_date = foundTrip.trip_date;
     }
 
-    console.log("Final winery data for modal:", wineryDataToDisplay);
     setSelectedWinery(wineryDataToDisplay);
-  }, [allPersistentWineries, selectedTrip, allUpcomingTrips]);
+  }, [allPersistentWineries, allUpcomingTrips]);
   
   const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
     const payload = { wineryData: winery, ...visitData };
