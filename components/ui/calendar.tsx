@@ -44,8 +44,10 @@ function Calendar({
         day: cn(
           buttonVariants({ variant: "ghost" }),
           "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
-          "sm:h-9 sm:w-9",
-          "md:h-7 md:w-7"
+          // The fix is here: adjusting the size of the day cells responsively
+          "h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7",
+          "hover:bg-accent hover:text-accent-foreground",
+          "aria-selected:bg-primary aria-selected:text-primary-foreground aria-selected:hover:bg-primary aria-selected:hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground"
         ),
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
