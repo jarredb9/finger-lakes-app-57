@@ -24,7 +24,9 @@ function Calendar({
       showOutsideDays={showOutsideDays}
       className={cn("p-2", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+        // The fix is here: On small screens, the layout is vertical. On medium and larger,
+        // it's a centered row with a single month displayed.
+        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 md:justify-center",
         month: "space-y-4",
         caption: "flex justify-center pt-1 relative items-center",
         caption_label: "text-sm font-medium",
