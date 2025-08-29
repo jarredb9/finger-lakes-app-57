@@ -78,7 +78,6 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     }
 }
 
-// ** FIX: Added the new props to the MapComponent. **
 const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistToRender, favoriteToRender, filter, onMarkerClick, selectedTrip }: { trulyDiscoveredWineries: Winery[], visitedToRender: Winery[], wishlistToRender: Winery[], favoriteToRender: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
@@ -145,7 +144,6 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
         const data = await response.json();
         const fullTrip = data.find((t: Trip) => t.id.toString() === tripId);
         if (fullTrip) {
-          // ** FIX: Added a defensive check to ensure wineries is an array. **
           setSelectedTrip({ ...fullTrip, wineries: fullTrip.wineries || [] });
         }
       } else {
@@ -177,7 +175,6 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                     </Alert>
                 )}
                 <div className="flex items-center justify-between">
-                     {/* ** FIX: Conditionally render the filter or the trip selector. ** */}
                     {selectedTrip ? (
                         <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer" onClick={() => setSelectedTrip(null)}>
                             Viewing: {selectedTrip.name} <XCircle className="w-3 h-3 ml-1" />
@@ -195,19 +192,15 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                         </div>
                     )}
                 </div>
-                {/* ** FIX: New trip selector UI element. ** */}
                 <div className="flex items-center space-x-2">
                     <Clock className="w-4 h-4 shrink-0 text-muted-foreground" />
                     <span className="text-sm font-medium">Active Trip:</span>
-                    {/* ** FIX: The value is now a non-empty string or null. The onValueChange handler correctly handles the "none" value. ** */}
                     <Select value={selectedTrip?.id?.toString() || "none"} onValueChange={handleTripSelect}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select an upcoming trip" />
                         </SelectTrigger>
                         <SelectContent>
-                            {/* ** FIX: Changed the value from "" to "none" ** */}
                             <SelectItem value="none">None</SelectItem>
-                            {/* ** FIX: Filter out any trips with a falsy ID to prevent the crash. ** */}
                             {upcomingTrips.filter(trip => !!trip.id).map(trip => (
                                 <SelectItem key={trip.id} value={trip.id.toString()}>
                                     {trip.name} ({new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()})
@@ -569,6 +562,7 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
         onDeleteVisit={handleDeleteVisit}
         onToggleWishlist={handleToggleWishlist}
         onToggleFavorite={handleToggleFavorite}
+        selectedTrip={selectedTrip}
       />)}
       {proposedWinery && (
         <AlertDialog open={!!proposedWinery} onOpenChange={() => setProposedWinery(null)}>
@@ -594,11 +588,10 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   );
 }
 
-export default function WineryMapWrapper({ userId }: { userId: string }) {
+export default function WineryMapWrapper({ userId, selectedTrip, setSelectedTrip }: WineryMapProps) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
-    const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
     return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} /></APIProvider>);
 }
