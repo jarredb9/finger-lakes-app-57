@@ -40,14 +40,10 @@ function Calendar({
         head_cell:
           "text-muted-foreground rounded-md text-[0.8rem] flex-1 flex items-center justify-center",
         row: "flex w-full mt-2",
-        cell: "h-9 text-sm p-0 relative flex-1 flex items-center justify-center [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        cell: "h-9 w-full text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
         day: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-8 w-8 p-0 font-normal aria-selected:opacity-100",
-          // The fix is here: adjusting the size of the day cells responsively
-          "h-9 w-9 md:h-8 md:w-8 lg:h-7 lg:w-7",
-          "hover:bg-accent hover:text-accent-foreground",
-          "aria-selected:bg-primary aria-selected:text-primary-foreground aria-selected:hover:bg-primary aria-selected:hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground"
+          "h-9 w-9 p-0 font-normal aria-selected:opacity-100"
         ),
         day_selected:
           "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
