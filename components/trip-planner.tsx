@@ -12,7 +12,7 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, 
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Trash2, Edit, Save, PlusCircle, Star, UserPlus, XCircle, Info, Users, Clock, Calendar as CalendarIcon } from "lucide-react";
+import { GripVertical, Trash2, Edit, Save, PlusCircle, Star, UserPlus, XCircle, Info, Users, Clock, Calendar as CalendarIcon, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -90,7 +90,7 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
     );
 }
 
-// Updated TripCard component with Optimistic UI and Realtime
+// Updated TripCard component with Optimistic UI, Realtime, and new export feature.
 function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onDateChange }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; userId: string; setTrips: React.Dispatch<React.SetStateAction<Trip[]>>; onDateChange: (newDate: Date | undefined) => void; }) {
     const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries || []);
     const [isEditingName, setIsEditingName] = useState(false);
@@ -308,6 +308,32 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
     // New logic to display current members
     const currentMembers = friends.filter((f: any) => selectedFriends.includes(f.id));
     const isPastTrip = new Date(trip.trip_date + 'T00:00:00') < new Date();
+    
+    // NEW: Function to generate the Google Maps URL
+    const handleExportToMaps = () => {
+        if (!tripWineries || tripWineries.length === 0) {
+            return;
+        }
+    
+        const encodedWineries = tripWineries.map(w => encodeURIComponent(`${w.name}, ${w.address}`));
+        const origin = encodedWineries[0];
+        const destination = encodedWineries[encodedWineries.length - 1];
+        
+        let url = `https://www.google.com/maps/dir/?api=1&travelmode=driving`;
+        
+        // Handle a single winery as just a destination
+        if (encodedWineries.length === 1) {
+            url += `&destination=${destination}`;
+        } else {
+            const waypoints = encodedWineries.slice(1, -1).join('|');
+            url += `&origin=${origin}&destination=${destination}`;
+            if (waypoints) {
+                url += `&waypoints=${waypoints}`;
+            }
+        }
+        
+        window.open(url, '_blank');
+    };
 
     return (
         <Card>
@@ -325,6 +351,10 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
                       </div>
                     )}
                      <div className="flex items-center gap-2">
+                        {/* NEW: Export to Google Maps Button */}
+                        <Button size="icon" variant="outline" onClick={handleExportToMaps} disabled={!tripWineries || tripWineries.length === 0}>
+                            <Share2 size={16} />
+                        </Button>
                         <Popover>
                           <PopoverTrigger asChild>
                             <Button variant="outline" size="icon"><UserPlus size={16} /></Button>
