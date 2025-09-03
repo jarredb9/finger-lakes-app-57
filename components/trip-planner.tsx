@@ -14,7 +14,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripVertical, Trash2, Edit, Save, PlusCircle, Star, UserPlus, XCircle, Info, Users, Clock, Calendar as CalendarIcon, Share2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Check } from "lucide-react";
@@ -104,10 +104,6 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
     // State for the date picker
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date(trip.trip_date));
     const [isEditingDate, setIsEditingDate] = useState(false);
-
-    // NEW: State for manually controlling dialogs
-    const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
-    const [isCollaboratorsPopoverOpen, setIsCollaboratorsPopoverOpen] = useState(false);
     
     const supabase = createClient();
 
@@ -377,7 +373,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
                                 <p>Export to Google Maps</p>
                             </TooltipContent>
                         </Tooltip>
-                        <Popover open={isCollaboratorsPopoverOpen} onOpenChange={setIsCollaboratorsPopoverOpen}>
+                        <Popover>
                           <PopoverTrigger asChild>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -421,17 +417,19 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
                             <Button className="w-full" onClick={handleAddFriendsToTrip}>Update Members</Button>
                           </PopoverContent>
                         </Popover>
-                        <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="destructive" size="icon" onClick={() => setIsDeleteAlertOpen(true)}>
-                                        <Trash2 size={16} />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Delete Trip</p>
-                                </TooltipContent>
-                            </Tooltip>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button variant="destructive" size="icon">
+                                            <Trash2 size={16} />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>Delete Trip</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
