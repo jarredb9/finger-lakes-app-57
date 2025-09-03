@@ -148,7 +148,7 @@ export default function FriendsManager({ userId }: FriendsManagerProps) {
             <div className="space-y-2">
               {friendRequests.map(request => (
                 <div key={request.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
                     <Avatar>
                       <AvatarImage src={`https://i.pravatar.cc/150?u=${request.email}`} />
                       <AvatarFallback>{request.name.charAt(0)}</AvatarFallback>
