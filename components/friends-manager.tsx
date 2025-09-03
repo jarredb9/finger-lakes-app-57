@@ -8,6 +8,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserPlus, Check, X, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 interface Friend {
   id: string;
@@ -114,9 +116,16 @@ export default function FriendsManager({ userId }: FriendsManagerProps) {
                 onChange={(e) => setEmail(e.target.value)}
                 className="flex-grow"
               />
-              <Button type="submit" size="icon">
-                <UserPlus className="h-4 w-4" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button type="submit" size="icon">
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Add Friend</p>
+                </TooltipContent>
+              </Tooltip>
             </form>
             <div className="space-y-2">
               {friends.map(friend => (
@@ -150,12 +159,26 @@ export default function FriendsManager({ userId }: FriendsManagerProps) {
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Button size="icon" variant="outline" onClick={() => handleFriendRequest(request.id, true)}>
-                      <Check className="h-4 w-4 text-green-500" />
-                    </Button>
-                    <Button size="icon" variant="outline" onClick={() => handleFriendRequest(request.id, false)}>
-                      <X className="h-4 w-4 text-red-500" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" onClick={() => handleFriendRequest(request.id, true)}>
+                          <Check className="h-4 w-4 text-green-500" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Accept Request</p>
+                      </TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button size="icon" variant="outline" onClick={() => handleFriendRequest(request.id, false)}>
+                          <X className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Decline Request</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
                 </div>
               ))}
