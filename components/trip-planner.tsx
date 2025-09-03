@@ -299,7 +299,6 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
             if (response.ok) {
                 toast({ description: "Trip members updated." });
                 // The onWineriesUpdate call is now handled by the real-time listener
-                setIsCollaboratorsPopoverOpen(false);
             }
         } catch (error) {
             console.error("Failed to add friends to trip", error);
@@ -340,29 +339,16 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
                     {isEditingName ? (
                       <div className="flex items-center gap-2 flex-grow">
                         <Input value={tripName} onChange={(e) => setTripName(e.target.value)} />
-                        <Button size="icon" onClick={handleSaveTripName}>
-                            <Save size={16} />
-                        </Button>
+                        <Button size="icon" onClick={handleSaveTripName}><Save size={16} /></Button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-lg md:text-xl">{trip.name || "Unnamed Trip"}</CardTitle>
-                        {!isPastTrip && (
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="ghost" size="icon" onClick={() => setIsEditingName(true)}>
-                                        <Edit size={16} />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Edit Trip Name</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        )}
+                        {!isPastTrip && <Button variant="ghost" size="icon" onClick={() => setIsEditingName(true)}><Edit size={16} /></Button>}
                       </div>
                     )}
                      <div className="flex items-center gap-2">
-                        {/* Export to Google Maps Button with Tooltip */}
+                        {/* NEW: Export to Google Maps Button with Tooltip */}
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button size="icon" variant="outline" onClick={handleExportToMaps} disabled={!tripWineries || tripWineries.length === 0}>
@@ -375,16 +361,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
                         </Tooltip>
                         <Popover>
                           <PopoverTrigger asChild>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button variant="outline" size="icon">
-                                        <UserPlus size={16} />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Add Collaborators</p>
-                                </TooltipContent>
-                            </Tooltip>
+                            <Button variant="outline" size="icon"><UserPlus size={16} /></Button>
                           </PopoverTrigger>
                           <PopoverContent className="w-[200px] p-0">
                             <Command>
@@ -419,16 +396,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
                         </Popover>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Tooltip>
-                                    <TooltipTrigger asChild>
-                                        <Button variant="destructive" size="icon">
-                                            <Trash2 size={16} />
-                                        </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>Delete Trip</p>
-                                    </TooltipContent>
-                                </Tooltip>
+                                <Button variant="destructive" size="icon"><Trash2 size={16} /></Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
@@ -451,16 +419,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
                         {!isPastTrip && (
                             <Popover>
                                 <PopoverTrigger asChild>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Button variant="ghost" size="icon">
-                                                <Edit size={16} />
-                                            </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Change Trip Date</p>
-                                        </TooltipContent>
-                                    </Tooltip>
+                                    <Button variant="ghost" size="icon"><Edit size={16} /></Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
                                     <Calendar
