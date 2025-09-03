@@ -303,6 +303,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
             if (response.ok) {
                 toast({ description: "Trip members updated." });
                 // The onWineriesUpdate call is now handled by the real-time listener
+                setIsCollaboratorsPopoverOpen(false);
             }
         } catch (error) {
             console.error("Failed to add friends to trip", error);
@@ -380,7 +381,7 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
                           <PopoverTrigger asChild>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button variant="outline" size="icon" onClick={() => setIsCollaboratorsPopoverOpen(true)}>
+                                    <Button variant="outline" size="icon">
                                         <UserPlus size={16} />
                                     </Button>
                                 </TooltipTrigger>
