@@ -324,7 +324,7 @@ function TripCard({ trip, userId }: { trip: Trip; userId: string; }) {
                     ) : (
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-lg md:text-xl">{trip.name || "Unnamed Trip"}</CardTitle>
-                        {!isPastTrip && <Button variant="ghost" size="icon" onClick={() => setIsEditingName(true)}><Edit size={16} /></Button>}
+                        {<Button variant="ghost" size="icon" onClick={() => setIsEditingName(true)}><Edit size={16} /></Button>}
                       </div>
                     )}
                      <div className="flex items-center gap-2">
