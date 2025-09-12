@@ -43,7 +43,9 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       const { visits: rawVisits, wishlist: wishlistWineries, favorites: favoriteWineries, trips: upcoming } = { visits: visitedJson.visits || [], wishlist: wishlistJson.wishlist || [], favorites: favoritesJson.favorites || [], trips: upcomingTripsJson.trips || [] };
 
       // The /api/visits endpoint returns visit objects, so we need to extract the winery from each one.
-      const visitedWineries = Array.isArray(rawVisits) ? rawVisits.map((v: any) => ({ ...v.wineries, visits: [v] })) : [];
+      // This ensures that we safely spread the winery properties (lat, lng, etc.) and then attach the visit itself.
+      // The `v.wineries || {}` prevents an error if `v.wineries` is null.
+      const visitedWineries = Array.isArray(rawVisits) ? rawVisits.map((v: any) => ({ ...(v.wineries || {}), visits: [v] })) : [];
 
       const persistent = new Map<string, Winery>();
       // Combine all wineries into a single list for consistent data handling.
