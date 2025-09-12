@@ -47,8 +47,8 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         trips: upcomingTripsJson.trips || [] 
       };
       // Assign directly since they are arrays, not nested objects.
-      const wishlistWineries = wishlistJson.wishlist || [];
-      const favoriteWineries = favoritesJson.favorites || [];
+      const wishlistWineries = Array.isArray(wishlistJson) ? wishlistJson : [];
+      const favoriteWineries = Array.isArray(favoritesJson) ? favoritesJson : [];
 
       // --- NEW DETAILED LOGGING ---
       console.log('%c[wineryStore] API JSON Responses:', 'color: orange; font-weight: bold;', { visitedJson, wishlistJson, favoritesJson, upcomingTripsJson });
