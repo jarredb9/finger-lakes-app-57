@@ -43,6 +43,10 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       const upcomingTripsJson = await upcomingTripsRes.json();
       const { visits: rawVisits, wishlist: wishlistWineries, favorites: favoriteWineries, trips: upcoming } = { visits: visitedJson.visits || [], wishlist: wishlistJson.wishlist || [], favorites: favoritesJson.favorites || [], trips: upcomingTripsJson.trips || [] };
 
+      // --- NEW DETAILED LOGGING ---
+      console.log('%c[wineryStore] API JSON Responses:', 'color: orange; font-weight: bold;', { visitedJson, wishlistJson, favoritesJson, upcomingTripsJson });
+      // --- END NEW LOGGING ---
+
       console.log('[wineryStore] Raw data from API:', {
         rawVisitsCount: rawVisits.length,
         wishlistWineriesCount: wishlistWineries.length,
@@ -55,11 +59,21 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       const visitedWineriesRaw = Array.isArray(rawVisits) 
         ? rawVisits.map((v: any) => v.wineries ? { ...v.wineries, visits: [v] } : null).filter(Boolean)
         : [];
+      
+      // --- NEW DETAILED LOGGING ---
+      console.log('%c[wineryStore] Processed & Raw Data (first 5 items):', 'color: orange; font-weight: bold;', {
+        visitedWineriesRaw: visitedWineriesRaw.slice(0, 5),
+        favoriteWineries: favoriteWineries.slice(0, 5),
+        wishlistWineries: wishlistWineries.slice(0, 5),
+      });
+      // --- END NEW LOGGING ---
 
       // A robust validation function to ensure a winery object is safe for the map.
       const isValidWinery = (w: any): w is Winery => w && w.id && typeof w.lat === 'number' && typeof w.lng === 'number';
 
       // Filter each list to guarantee data integrity. The favorite and wishlist APIs return a direct array of wineries.
+      // --- UPDATED WITH LOGGING ---
+      const logInvalid = (listName: string) => (w: any) => { if (!isValidWinery(w)) { console.warn(`%c[wineryStore] Invalid ${listName} winery removed:`, 'color: red;', w); } return isValidWinery(w); };
       const validVisitedWineries = visitedWineriesRaw.filter(isValidWinery);
       const validFavoriteWineries = favoriteWineries.filter(isValidWinery);
       const validWishlistWineries = wishlistWineries.filter(isValidWinery);
