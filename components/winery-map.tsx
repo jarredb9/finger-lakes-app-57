@@ -278,12 +278,28 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
     return { favoriteIds, wishlistIds, visitedIds };
   }, [allFavoriteWineries, allWishlistWineries, allVisitedWineries]);
 
+  // --- DIAGNOSTIC LOGGING START ---
+  console.log("%c[WineryMap] Data from store:", "color: blue; font-weight: bold;", {
+    allFavoriteWineries: allFavoriteWineries.length,
+    allWishlistWineries: allWishlistWineries.length,
+    allVisitedWineries: allVisitedWineries.length,
+    allPersistentWineries: allPersistentWineries.length,
+  });
+  console.log("%c[WineryMap] ID sets created:", "color: blue; font-weight: bold;", {
+    favoriteIds: favoriteIds.size,
+    wishlistIds: wishlistIds.size,
+    visitedIds: visitedIds.size,
+  });
+
   // Correctly categorize each winery based on a hierarchy: Favorite > Wishlist > Visited.
   // This ensures a winery only appears in one category on the map, preventing duplicate pins.
   const favoritesToRender = allPersistentWineries.filter(w => favoriteIds.has(w.id));
   const wishlistToRender = allPersistentWineries.filter(w => wishlistIds.has(w.id) && !favoriteIds.has(w.id));
   const visitedToRender = allPersistentWineries.filter(w => visitedIds.has(w.id) && !favoriteIds.has(w.id) && !wishlistIds.has(w.id));
   
+  console.log("%c[WineryMap] FINAL data to render:", "color: green; font-weight: bold;", { favoritesToRender: favoritesToRender.length, wishlistToRender: wishlistToRender.length, visitedToRender: visitedToRender.length });
+  // --- DIAGNOSTIC LOGGING END ---
+
   const trulyDiscoveredWineries = useMemo(() => {
       // Discovered wineries are those from search results that are not in any of our persistent lists.
       const persistentIds = new Set(allPersistentWineries.map(w => w.id));

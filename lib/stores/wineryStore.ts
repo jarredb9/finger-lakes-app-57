@@ -25,6 +25,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   isLoading: false,
 
   fetchWineryData: async () => {
+    console.log('[wineryStore] Starting fetchWineryData...');
     set({ isLoading: true });
     try {
       const [visitedRes, wishlistRes, favoritesRes, upcomingTripsRes] = await Promise.all([
@@ -42,6 +43,13 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       const upcomingTripsJson = await upcomingTripsRes.json();
       const { visits: rawVisits, wishlist: wishlistWineries, favorites: favoriteWineries, trips: upcoming } = { visits: visitedJson.visits || [], wishlist: wishlistJson.wishlist || [], favorites: favoritesJson.favorites || [], trips: upcomingTripsJson.trips || [] };
 
+      console.log('[wineryStore] Raw data from API:', {
+        rawVisitsCount: rawVisits.length,
+        wishlistWineriesCount: wishlistWineries.length,
+        favoriteWineriesCount: favoriteWineries.length,
+        upcomingTripsCount: upcoming.length,
+      });
+
       // The /api/visits endpoint returns visit objects, so we need to extract the winery from each one.
       const visitedWineriesRaw = Array.isArray(rawVisits) ? rawVisits.map((v: any) => ({ ...(v.wineries || {}), visits: [v] })) : [];
 
@@ -53,11 +61,20 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       const validFavoriteWineries = favoriteWineries.filter(isValidWinery);
       const validWishlistWineries = wishlistWineries.filter(isValidWinery);
 
+      console.log('[wineryStore] Validated data counts:', {
+        validVisited: validVisitedWineries.length,
+        validFavorites: validFavoriteWineries.length,
+        validWishlist: validWishlistWineries.length,
+      });
+
       const persistent = new Map<string, Winery>();
       // Combine all wineries into a single list for consistent data handling.
       // Now we can safely combine the already-validated lists.
       [...validFavoriteWineries, ...validWishlistWineries, ...validVisitedWineries]
         .forEach(w => persistent.set(w.id, { ...persistent.get(w.id), ...w }));
+
+      const persistentWineriesArray = Array.from(persistent.values());
+      console.log(`[wineryStore] Created ${persistentWineriesArray.length} unique persistent wineries.`);
 
       set({
         visitedWineries: validVisitedWineries,
@@ -68,6 +85,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         isLoading: false,
       });
     } catch (error) {
+      console.error("[wineryStore] FATAL ERROR in fetchWineryData:", error);
       console.error("Failed to fetch winery data", error);
       set({ isLoading: false });
     }
