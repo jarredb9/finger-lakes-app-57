@@ -34,18 +34,23 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         fetch('/api/trips?type=upcoming&full=true')
       ]);
 
-      const visited = await visitedRes.json();
-      const wishlist = await wishlistRes.json();
-      const favorites = await favoritesRes.json();
+      // Extract the nested winery arrays from the API responses.
+      const { visits: rawVisits } = await visitedRes.json();
+      const { wishlist: wishlistWineries } = await wishlistRes.json();
+      const { favorites: favoriteWineries } = await favoritesRes.json();
       const { trips: upcoming } = await upcomingTripsRes.json();
 
+      // The /api/visits endpoint returns visit objects, so we need to extract the winery from each one.
+      const visitedWineries = Array.isArray(rawVisits) ? rawVisits.map((v: any) => ({ ...v.wineries, visits: [v] })) : [];
+
       const persistent = new Map<string, Winery>();
-      [...favorites, ...wishlist, ...visited].forEach(w => persistent.set(w.id, { ...persistent.get(w.id), ...w }));
+      // Combine all wineries into a single list for consistent data handling.
+      [...favoriteWineries, ...wishlistWineries, ...visitedWineries].forEach(w => persistent.set(w.id, { ...persistent.get(w.id), ...w }));
 
       set({
-        visitedWineries: visited,
-        wishlistWineries: wishlist,
-        favoriteWineries: favorites,
+        visitedWineries: visitedWineries,
+        wishlistWineries: wishlistWineries,
+        favoriteWineries: favoriteWineries,
         persistentWineries: Array.from(persistent.values()),
         upcomingTrips: upcoming || [],
         isLoading: false,
