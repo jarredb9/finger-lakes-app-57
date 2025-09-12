@@ -57,9 +57,13 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       const isValidWinery = (w: any): w is Winery => w && w.id && typeof w.lat === 'number' && typeof w.lng === 'number';
 
       // Filter each list individually to guarantee data integrity before setting state.
+      // The favorites and wishlist APIs return an array of objects with a nested `wineries` property. We need to extract it.
+      const mappedFavoriteWineries = favoriteWineries.map((fav: any) => fav.wineries);
+      const mappedWishlistWineries = wishlistWineries.map((wish: any) => wish.wineries);
+
       const validVisitedWineries = visitedWineriesRaw.filter(isValidWinery);
-      const validFavoriteWineries = favoriteWineries.filter(isValidWinery);
-      const validWishlistWineries = wishlistWineries.filter(isValidWinery);
+      const validFavoriteWineries = mappedFavoriteWineries.filter(isValidWinery);
+      const validWishlistWineries = mappedWishlistWineries.filter(isValidWinery);
 
       console.log('[wineryStore] Validated data counts:', {
         validVisited: validVisitedWineries.length,
