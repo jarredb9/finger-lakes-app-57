@@ -45,9 +45,17 @@ export const useTripStore = create<TripState>((set, get) => ({
       body: JSON.stringify({ date: date.toISOString().split('T')[0], name: "New Trip" })
     });
     if (response.ok) {
-      const newTrip = await response.json();
-      set(state => ({ trips: [...state.trips, newTrip] }));
-      return newTrip;
+      // After successfully creating a trip, refetch the trips for that date.
+      // This ensures the new trip, with its database-generated ID, is correctly
+      // loaded into the state, preventing errors when you try to update it.
+      await get().fetchTripsForDate(date);
+
+      // You can still return the response JSON if you need it for UI feedback (e.g., toasts).
+      try {
+        return await response.json();
+      } catch (e) {
+        return { success: true } as any; // Handle cases with no JSON response body.
+      }
     }
     return null;
   },
@@ -88,4 +96,3 @@ export const useTripStore = create<TripState>((set, get) => ({
     get().updateTrip(tripId, { members: memberIds });
   },
 }));
-
