@@ -23,7 +23,7 @@ import { createClient } from '@/utils/supabase/client';
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useTripStore } from "@/tripStore";
+import { useTripStore } from "@/lib/stores/tripStore";
 
 
 // This is the updated SortableWineryItem component

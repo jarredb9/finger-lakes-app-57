@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useFriendStore } from '@/lib/stores/friendStore'; // Import the new store
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserPlus, Check, X, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -24,27 +25,10 @@ interface FriendsManagerProps {
 }
 
 export default function FriendsManager({ userId }: FriendsManagerProps) {
-  const [friends, setFriends] = useState<Friend[]>([]);
-  const [friendRequests, setFriendRequests] = useState<Friend[]>([]);
+  // Get state and actions from the friend store
+  const { friends, requests, isLoading, fetchFriends, addFriend, respondToRequest } = useFriendStore();
   const [email, setEmail] = useState('');
-  const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-
-  const fetchFriends = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/api/friends');
-      if (response.ok) {
-        const data = await response.json();
-        setFriends(data.friends || []);
-        setFriendRequests(data.requests || []);
-      }
-    } catch (error) {
-      toast({ variant: 'destructive', description: 'Failed to fetch friends.' });
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
 
   useEffect(() => {
     fetchFriends();
@@ -52,44 +36,22 @@ export default function FriendsManager({ userId }: FriendsManagerProps) {
 
   const handleAddFriend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email) return;
-
+    if (!email.trim()) return;
     try {
-      const response = await fetch('/api/friends', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      if (response.ok) {
-        toast({ description: 'Friend request sent.' });
-        setEmail('');
-        fetchFriends();
-      } else {
-        const { error } = await response.json();
-        toast({ variant: 'destructive', description: error });
-      }
-    } catch (error) {
-      toast({ variant: 'destructive', description: 'Failed to send friend request.' });
+      await addFriend(email);
+      toast({ description: 'Friend request sent.' });
+      setEmail('');
+    } catch (error: any) {
+      toast({ variant: 'destructive', description: error.message });
     }
   };
 
   const handleFriendRequest = async (requesterId: string, accept: boolean) => {
     try {
-      const response = await fetch('/api/friends', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requesterId, accept }),
-      });
-
-      if (response.ok) {
-        toast({ description: `Friend request ${accept ? 'accepted' : 'declined'}.` });
-        fetchFriends();
-      } else {
-        toast({ variant: 'destructive', description: 'Failed to update friend request.' });
-      }
-    } catch (error) {
-      toast({ variant: 'destructive', description: 'Failed to update friend request.' });
+      await respondToRequest(requesterId, accept);
+      toast({ description: `Friend request ${accept ? 'accepted' : 'declined'}.` });
+    } catch (error: any) {
+      toast({ variant: 'destructive', description: error.message });
     }
   };
 
@@ -103,8 +65,8 @@ export default function FriendsManager({ userId }: FriendsManagerProps) {
         <Tabs defaultValue="friends">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="friends">My Friends</TabsTrigger>
-            <TabsTrigger value="requests">
-              Friend Requests {friendRequests.length > 0 && `(${friendRequests.length})`}
+            <TabsTrigger value="requests" disabled={isLoading}>
+              Friend Requests {requests.length > 0 && `(${requests.length})`}
             </TabsTrigger>
           </TabsList>
           <TabsContent value="friends" className="mt-4">
@@ -128,7 +90,7 @@ export default function FriendsManager({ userId }: FriendsManagerProps) {
               </Tooltip>
             </form>
             <div className="space-y-2">
-              {friends.map(friend => (
+              {isLoading ? <p>Loading...</p> : friends.map(friend => (
                 <div key={friend.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-3">
                     <Avatar>
@@ -146,7 +108,7 @@ export default function FriendsManager({ userId }: FriendsManagerProps) {
           </TabsContent>
           <TabsContent value="requests" className="mt-4">
             <div className="space-y-2">
-              {friendRequests.map(request => (
+              {isLoading ? <p>Loading...</p> : requests.map(request => (
                 <div key={request.id} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
                   <div className="flex items-center gap-2">
                     <Avatar>
