@@ -49,7 +49,11 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
       const persistent = new Map<string, Winery>();
       // Combine all wineries into a single list for consistent data handling.
-      [...favoriteWineries, ...wishlistWineries, ...visitedWineries].forEach(w => persistent.set(w.id, { ...persistent.get(w.id), ...w }));
+      // Add a filter to ensure every winery has a valid ID and location before being added to the map data.
+      [...favoriteWineries, ...wishlistWineries, ...visitedWineries]
+        .filter(w => w && w.id && typeof w.lat === 'number' && typeof w.lng === 'number')
+        .forEach(w => persistent.set(w.id, { ...persistent.get(w.id), ...w }));
+
 
       set({
         visitedWineries: visitedWineries,
