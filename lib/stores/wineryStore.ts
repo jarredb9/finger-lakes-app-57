@@ -37,11 +37,13 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
       // Extract the nested winery arrays from the API responses.
       // Use `|| []` to provide a fallback for both null and undefined API responses, making this more robust.
-      const visitedJson = await visitedRes.json();
-      const wishlistJson = await wishlistRes.json();
-      const favoritesJson = await favoritesRes.json();
-      const upcomingTripsJson = await upcomingTripsRes.json();
-      // FIX: Correctly destructure the API responses. Wishlist and Favorites APIs return a direct array.
+      const [visitedJson, wishlistJson, favoritesJson, upcomingTripsJson] = await Promise.all([
+        visitedRes.json(),
+        wishlistRes.json(),
+        favoritesRes.json(),
+        upcomingTripsRes.json()
+      ]);
+
       const { visits: rawVisits, trips: upcoming } = { 
         visits: visitedJson.visits || [], 
         trips: upcomingTripsJson.trips || [] 
