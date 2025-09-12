@@ -80,7 +80,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         visitedWineries: validVisitedWineries,
         wishlistWineries: validWishlistWineries,
         favoriteWineries: validFavoriteWineries,
-        persistentWineries: Array.from(persistent.values()),
+        persistentWineries: persistentWineriesArray,
         upcomingTrips: upcoming || [],
         isLoading: false,
       });
