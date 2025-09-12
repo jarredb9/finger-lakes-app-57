@@ -41,7 +41,14 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       const wishlistJson = await wishlistRes.json();
       const favoritesJson = await favoritesRes.json();
       const upcomingTripsJson = await upcomingTripsRes.json();
-      const { visits: rawVisits, wishlist: wishlistWineries, favorites: favoriteWineries, trips: upcoming } = { visits: visitedJson.visits || [], wishlist: wishlistJson.wishlist || [], favorites: favoritesJson.favorites || [], trips: upcomingTripsJson.trips || [] };
+      // FIX: Correctly destructure the API responses. Wishlist and Favorites APIs return a direct array.
+      const { visits: rawVisits, trips: upcoming } = { 
+        visits: visitedJson.visits || [], 
+        trips: upcomingTripsJson.trips || [] 
+      };
+      // Assign directly since they are arrays, not nested objects.
+      const wishlistWineries = wishlistJson || [];
+      const favoriteWineries = favoritesJson || [];
 
       // --- NEW DETAILED LOGGING ---
       console.log('%c[wineryStore] API JSON Responses:', 'color: orange; font-weight: bold;', { visitedJson, wishlistJson, favoritesJson, upcomingTripsJson });
@@ -69,7 +76,12 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       // --- END NEW LOGGING ---
 
       // A robust validation function to ensure a winery object is safe for the map.
-      const isValidWinery = (w: any): w is Winery => w && w.id && typeof w.lat === 'number' && typeof w.lng === 'number';
+      // FIX: Coerce lat/lng to numbers for validation, as they may come from the DB as strings.
+      const isValidWinery = (w: any): w is Winery => {
+        const lat = typeof w.lat === 'string' ? parseFloat(w.lat) : w.lat;
+        const lng = typeof w.lng === 'string' ? parseFloat(w.lng) : w.lng;
+        return w && w.id && typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng);
+      };
 
       // Filter each list to guarantee data integrity. The favorite and wishlist APIs return a direct array of wineries.
       // --- UPDATED WITH LOGGING ---
