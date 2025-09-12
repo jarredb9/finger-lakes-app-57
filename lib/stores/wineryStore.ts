@@ -77,10 +77,14 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
       // A robust validation function to ensure a winery object is safe for the map.
       // FIX: Coerce lat/lng to numbers for validation, as they may come from the DB as strings.
-      const isValidWinery = (w: any): w is Winery => {
+      const isValidWinery = (w: any): w is Winery => { 
+        // Ensure the ID is a string for consistency (DB uses numbers, Google Places uses strings)
+        if (w && typeof w.id === 'number') {
+          w.id = String(w.id);
+        }
         const lat = typeof w.lat === 'string' ? parseFloat(w.lat) : w.lat;
         const lng = typeof w.lng === 'string' ? parseFloat(w.lng) : w.lng;
-        return w && w.id && typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng);
+        return w && typeof w.id === 'string' && w.id && typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng);
       };
 
       // Filter each list to guarantee data integrity. The favorite and wishlist APIs return a direct array of wineries.
