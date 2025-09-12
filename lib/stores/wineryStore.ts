@@ -67,13 +67,16 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         validWishlist: validWishlistWineries.length,
       });
 
-      const persistent = new Map<string, Winery>();
-      // Combine all wineries into a single list for consistent data handling.
-      // Now we can safely combine the already-validated lists.
-      [...validFavoriteWineries, ...validWishlistWineries, ...validVisitedWineries]
-        .forEach(w => persistent.set(w.id, { ...persistent.get(w.id), ...w }));
+      const persistentWineriesMap = new Map<string, Winery>();
 
-      const persistentWineriesArray = Array.from(persistent.values());
+      const allWineries = [...validFavoriteWineries, ...validWishlistWineries, ...validVisitedWineries];
+
+      for (const winery of allWineries) {
+        const existing = persistentWineriesMap.get(winery.id) || {};
+        persistentWineriesMap.set(winery.id, { ...existing, ...winery });
+      }
+
+      const persistentWineriesArray = Array.from(persistentWineriesMap.values());
       console.log(`[wineryStore] Created ${persistentWineriesArray.length} unique persistent wineries.`);
 
       set({
