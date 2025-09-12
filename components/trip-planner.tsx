@@ -23,6 +23,7 @@ import { createClient } from '@/utils/supabase/client';
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTripStore } from "@/lib/stores/tripStore";
 
 
 // This is the updated SortableWineryItem component
@@ -92,18 +93,27 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
 }
 
 // Updated TripCard component with Optimistic UI, Realtime, and new export feature.
-function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onDateChange }: { trip: Trip; onTripDeleted: () => void; onWineriesUpdate: () => void; userId: string; setTrips: React.Dispatch<React.SetStateAction<Trip[]>>; onDateChange: (newDate: Date | undefined) => void; }) {
+function TripCard({ trip, userId }: { trip: Trip; userId: string; }) {
     const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries || []);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tripName, setTripName] = useState(trip.name || "");
     const [friends, setFriends] = useState([]);
     const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
     const { toast } = useToast();
-    const [activity, setActivity] = useState<string[]>([]);
     
     // State for the date picker
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date(trip.trip_date));
-    const [isEditingDate, setIsEditingDate] = useState(false);
+    
+    // Zustand store actions
+    const { 
+        fetchTripsForDate, 
+        deleteTrip, 
+        updateTrip, 
+        updateWineryOrder, 
+        removeWineryFromTrip, 
+        saveWineryNote,
+        addMembersToTrip
+    } = useTripStore();
     
     const supabase = createClient();
 
@@ -127,20 +137,20 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
         channel
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trips', filter: `id=eq.${trip.id}` }, (payload: any) => {
               console.log('Realtime update received:', payload);
-              if (payload.new) {
-                  onWineriesUpdate();
+              if (payload.new && selectedDate) {
+                  fetchTripsForDate(selectedDate);
               }
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_wineries', filter: `trip_id=eq.${trip.id}` }, (payload: any) => {
               console.log('Winery update received:', payload);
-              onWineriesUpdate();
+              if (selectedDate) fetchTripsForDate(selectedDate);
           })
           .subscribe();
 
         return () => {
           supabase.removeChannel(channel);
         };
-    }, [trip.id, onWineriesUpdate, supabase]);
+    }, [trip.id, supabase, fetchTripsForDate, selectedDate]);
 
     useEffect(() => {
         setTripWineries(trip.wineries || []);
@@ -161,28 +171,22 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
     const handleSaveTripName = async () => {
         if (!trip || !tripName) return;
 
-        // ** FIX: Optimistic UI Update - Mutate the parent state directly.
-        setTrips(prevTrips => prevTrips.map(t => t.id === trip.id ? { ...t, name: tripName } : t));
+        const originalName = trip.name;
+        useTripStore.setState(state => ({
+            trips: state.trips.map(t => t.id === trip.id ? { ...t, name: tripName } : t)
+        }));
         setIsEditingName(false);
 
         try {
-          const response = await fetch(`/api/trips/${trip.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: tripName }),
-          });
-          if (response.ok) {
-            toast({ description: "Trip name updated." });
-          } else {
-             toast({ variant: "destructive", description: "Failed to save trip name." });
-             // Revert the optimistic change on error
-             setTrips(prevTrips => prevTrips.map(t => t.id === trip.id ? { ...t, name: trip.name } : t));
-          }
+          await updateTrip(trip.id, { name: tripName });
+          toast({ description: "Trip name updated." });
         } catch (error) {
           console.error("Failed to save trip name", error);
           toast({ variant: "destructive", description: "Failed to save trip name." });
           // Revert the optimistic change on error
-          setTrips(prevTrips => prevTrips.map(t => t.id === trip.id ? { ...t, name: trip.name } : t));
+          useTripStore.setState(state => ({
+            trips: state.trips.map(t => t.id === trip.id ? { ...t, name: originalName } : t)
+          }));
         }
     };
     
@@ -191,44 +195,33 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
         const newDateString = newDate.toISOString().split('T')[0];
         if (!trip || !newDateString) return;
 
+        const originalDate = new Date(trip.trip_date);
         // Optimistic UI Update for the date
-        onDateChange(newDate);
+        // This will cause the trip to disappear from the current view.
+        useTripStore.setState(state => ({
+            trips: state.trips.filter(t => t.id !== trip.id)
+        }));
 
         try {
-            const response = await fetch(`/api/trips/${trip.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ trip_date: newDateString }),
-            });
-
-            if (response.ok) {
-                toast({ description: "Trip date updated." });
-            } else {
-                toast({ variant: "destructive", description: "Failed to save trip date." });
-                // Revert on error
-                onDateChange(new Date(trip.trip_date));
-            }
+            await updateTrip(trip.id, { trip_date: newDateString });
+            toast({ description: "Trip date updated." });
         } catch (error) {
             console.error("Failed to save trip date", error);
             toast({ variant: "destructive", description: "Failed to save trip date." });
             // Revert on error
-            onDateChange(new Date(trip.trip_date));
+            if (selectedDate && new Date(selectedDate).toDateString() === originalDate.toDateString()) {
+                fetchTripsForDate(originalDate);
+            }
         }
     };
 
 
     const handleRemoveWinery = async (wineryId: number) => {
         if (!trip) return;
+        // Optimistic UI handled by real-time subscription + fetch
         try {
-          const response = await fetch(`/api/trips/${trip.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ removeWineryId: wineryId }),
-          });
-          if (response.ok) {
-            toast({ description: "Winery removed from trip." });
-            // The onWineriesUpdate call is now handled by the real-time listener
-          }
+          await removeWineryFromTrip(trip.id, wineryId);
+          toast({ description: "Winery removed from trip." });
         } catch (error) {
           console.error("Failed to remove winery", error);
           toast({ variant: "destructive", description: "Failed to remove winery." });
@@ -238,50 +231,37 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
     const handleDragEnd = async (event: any) => {
         const { active, over } = event;
         if (active && over && active.id !== over.id) {
-          const oldIndex = tripWineries.findIndex((item) => item.dbId === active.id);
-          const newIndex = tripWineries.findIndex((item) => item.dbId === over.id);
-          const newOrder = arrayMove(tripWineries, oldIndex, newIndex);
-          setTripWineries(newOrder);
-          updateWineryOrder(newOrder.map(w => w.dbId!));
-        }
-    };
-
-    const updateWineryOrder = async (wineryIds: number[]) => {
-        if (!trip) return;
-        try {
-            await fetch(`/api/trips/${trip.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ wineryOrder: wineryIds }),
-          });
-        } catch (error) {
-          console.error("Failed to update winery order", error);
-          toast({ variant: "destructive", description: "Failed to update winery order." });
+            const oldIndex = tripWineries.findIndex((item) => item.dbId === active.id);
+            const newIndex = tripWineries.findIndex((item) => item.dbId === over.id);
+            const newOrder = arrayMove(tripWineries, oldIndex, newIndex);
+            
+            // Optimistic UI for drag-and-drop
+            setTripWineries(newOrder);
+            
+            try {
+                await updateWineryOrder(trip.id, newOrder.map(w => w.dbId!));
+            } catch (error) {
+                console.error("Failed to update winery order", error);
+                toast({ variant: "destructive", description: "Failed to update winery order." });
+                // Revert on failure
+                setTripWineries(tripWineries);
+            }
         }
     };
 
     const handleDeleteTrip = async () => {
         try {
-            const response = await fetch(`/api/trips/${trip.id}`, { method: 'DELETE' });
-            if (response.ok) {
-                toast({ description: "Trip deleted successfully." });
-                onTripDeleted();
-            } else {
-                toast({ variant: 'destructive', description: "Failed to delete trip." });
-            }
+            await deleteTrip(trip.id);
+            toast({ description: "Trip deleted successfully." });
         } catch (error) {
             console.error("Failed to delete trip", error);
+            toast({ variant: 'destructive', description: "Failed to delete trip." });
         }
     };
 
      const handleNoteSave = async (wineryId: number, notes: string) => {
         try {
-            await fetch(`/api/trips/${trip.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ updateNote: { wineryId, notes } }),
-            });
-            // The onWineriesUpdate call is now handled by the real-time listener
+            await saveWineryNote(trip.id, wineryId, notes);
         } catch (error) {
             console.error("Failed to save note", error);
             toast({ variant: "destructive", description: "Failed to save note." });
@@ -291,15 +271,8 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
     
     const handleAddFriendsToTrip = async () => {
         try {
-            const response = await fetch(`/api/trips/${trip.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ members: selectedFriends }),
-            });
-            if (response.ok) {
-                toast({ description: "Trip members updated." });
-                // The onWineriesUpdate call is now handled by the real-time listener
-            }
+            await addMembersToTrip(trip.id, selectedFriends);
+            toast({ description: "Trip members updated." });
         } catch (error) {
             console.error("Failed to add friends to trip", error);
             toast({ variant: "destructive", description: "Failed to update trip members." });
@@ -475,51 +448,33 @@ function TripCard({ trip, onTripDeleted, onWineriesUpdate, userId, setTrips, onD
 }
 
 export default function TripPlanner({ initialDate, user }: { initialDate: Date, user: any }) {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
-  const [trips, setTrips] = useState<Trip[]>([]);
-  const { toast } = useToast();
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
+    const { toast } = useToast();
 
-  const fetchTripsForDate = useCallback(async (date: Date) => {
-    const dateString = date.toISOString().split("T")[0];
-    try {
-      const response = await fetch(`/api/trips?date=${dateString}`);
-      if (response.ok) {
-        const data = await response.json();
-        setTrips(Array.isArray(data) ? data : []);
-      } else {
-        setTrips([]);
-      }
-    } catch (error) {
-      console.error("Failed to fetch trips", error);
-      setTrips([]);
-    }
-  }, []);
+    // Get state and actions from the Zustand store
+    const { trips, isLoading, fetchTripsForDate, createTrip } = useTripStore();
 
-  useEffect(() => {
-    if (selectedDate) {
-      fetchTripsForDate(selectedDate);
-    }
-  }, [selectedDate, fetchTripsForDate]);
+    const fetchCallback = useCallback(fetchTripsForDate, [fetchTripsForDate]);
 
-  const handleCreateTrip = async () => {
-    if (!selectedDate) return;
-    try {
-      const response = await fetch('/api/trips', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: selectedDate.toISOString().split('T')[0], name: "New Trip" })
-      });
-      if (response.ok) {
-        toast({ title: "Success", description: "New trip created." });
-        fetchTripsForDate(selectedDate);
-      } else {
-        toast({ variant: "destructive", title: "Error", description: "Could not create new trip." });
-      }
-    } catch (error) {
-      toast({ variant: "destructive", title: "Error", description: "Could not create trip." });
-    }
-  };
+    useEffect(() => {
+        if (selectedDate) {
+            fetchCallback(selectedDate);
+        }
+    }, [selectedDate, fetchCallback]);
 
+    const handleCreateTrip = async () => {
+        if (!selectedDate) return;
+        try {
+            const newTrip = await createTrip(selectedDate);
+            if (newTrip) {
+                toast({ title: "Success", description: "New trip created." });
+            } else {
+                toast({ variant: "destructive", title: "Error", description: "Could not create new trip." });
+            }
+        } catch (error) {
+            toast({ variant: "destructive", title: "Error", description: "Could not create trip." });
+        }
+    };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -544,16 +499,12 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
             <Button onClick={handleCreateTrip}><PlusCircle className="mr-2 h-4 w-4" /> Create New Trip</Button>
         </div>
 
-        {trips.length > 0 ? (
+        {isLoading ? <p>Loading trips...</p> : trips.length > 0 ? (
             trips.map(trip => (
                 <TripCard 
                     key={trip.id} 
                     trip={trip} 
-                    onTripDeleted={() => fetchTripsForDate(selectedDate!)}
-                    onWineriesUpdate={() => fetchTripsForDate(selectedDate!)} 
                     userId={user.id}
-                    setTrips={setTrips}
-                    onDateChange={setSelectedDate}
                 />
             ))
         ) : (
