@@ -75,24 +75,28 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       });
       // --- END NEW LOGGING ---
 
-      // A robust validation function to ensure a winery object is safe for the map.
-      // FIX: Coerce lat/lng to numbers for validation, as they may come from the DB as strings.
-      const isValidWinery = (w: any): w is Winery => { 
-        // Ensure the ID is a string for consistency (DB uses numbers, Google Places uses strings)
-        if (w && typeof w.id === 'number') {
-          w.id = String(w.id);
-        }
-        const lat = typeof w.lat === 'string' ? parseFloat(w.lat) : w.lat;
-        const lng = typeof w.lng === 'string' ? parseFloat(w.lng) : w.lng;
-        return w && typeof w.id === 'string' && w.id && typeof lat === 'number' && !isNaN(lat) && typeof lng === 'number' && !isNaN(lng);
+      // 1. Standardize the data format first. This creates new objects and avoids mutation.
+      const standardizeWinery = (w: any) => ({
+        ...w,
+        id: String(w.id), // Ensure ID is always a string
+        lat: typeof w.lat === 'string' ? parseFloat(w.lat) : w.lat,
+        lng: typeof w.lng === 'string' ? parseFloat(w.lng) : w.lng,
+      });
+
+      const standardizedVisited = visitedWineriesRaw.map(standardizeWinery);
+      const standardizedFavorites = favoriteWineries.map(standardizeWinery);
+      const standardizedWishlist = wishlistWineries.map(standardizeWinery);
+
+      // 2. Now, create a clean, non-mutating validation function.
+      const isValidWinery = (w: any): w is Winery => {
+        return w && typeof w.id === 'string' && w.id.length > 0 &&
+               typeof w.lat === 'number' && !isNaN(w.lat) &&
+               typeof w.lng === 'number' && !isNaN(w.lng);
       };
 
-      // Filter each list to guarantee data integrity. The favorite and wishlist APIs return a direct array of wineries.
-      // --- UPDATED WITH LOGGING ---
-      const logInvalid = (listName: string) => (w: any) => { if (!isValidWinery(w)) { console.warn(`%c[wineryStore] Invalid ${listName} winery removed:`, 'color: red;', w); } return isValidWinery(w); };
-      const validVisitedWineries = visitedWineriesRaw.filter(logInvalid('Visited'));
-      const validFavoriteWineries = favoriteWineries.filter(logInvalid('Favorite'));
-      const validWishlistWineries = wishlistWineries.filter(logInvalid('Wishlist'));
+      const validVisitedWineries = standardizedVisited.filter(isValidWinery);
+      const validFavoriteWineries = standardizedFavorites.filter(isValidWinery);
+      const validWishlistWineries = standardizedWishlist.filter(isValidWinery);
 
       console.log('[wineryStore] Validated data counts:', {
         validVisited: validVisitedWineries.length,
