@@ -281,7 +281,14 @@ function TripCard({ trip, userId }: { trip: Trip; userId: string; }) {
 
     // New logic to display current members
     const currentMembers = friends.filter((f: any) => selectedFriends.includes(f.id));
-    const isPastTrip = new Date(trip.trip_date + 'T00:00:00') < new Date();
+    
+    // Correctly determine if a trip is in the past by comparing dates only, ignoring time.
+    // This prevents timezone issues from incorrectly hiding the edit buttons for today's trips.
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Set today's date to midnight.
+    // The trip date from Supabase is YYYY-MM-DD. Adding 'T00:00:00' makes it UTC midnight.
+    // We need to compare it against today's date at midnight.
+    const isPastTrip = new Date(trip.trip_date + 'T00:00:00') < today;
     
     // Updated: Function to generate the Google Maps URL with current location as origin.
     const handleExportToMaps = () => {
