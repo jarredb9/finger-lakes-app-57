@@ -50,8 +50,11 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         upcomingTripsCount: upcoming.length,
       });
 
-      // The /api/visits endpoint returns visit objects, so we need to extract the winery from each one.
-      const visitedWineriesRaw = Array.isArray(rawVisits) ? rawVisits.map((v: any) => ({ ...(v.wineries || {}), visits: [v] })) : [];
+      // The /api/visits endpoint returns visit objects. We need to extract the nested winery 
+      // from each visit and combine it with the visit data itself.
+      const visitedWineriesRaw = Array.isArray(rawVisits) 
+        ? rawVisits.map((v: any) => v.wineries ? { ...v.wineries, visits: [v] } : null).filter(Boolean)
+        : [];
 
       // A robust validation function to ensure a winery object is safe for the map.
       const isValidWinery = (w: any): w is Winery => w && w.id && typeof w.lat === 'number' && typeof w.lng === 'number';
