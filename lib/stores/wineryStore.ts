@@ -90,9 +90,9 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       // Filter each list to guarantee data integrity. The favorite and wishlist APIs return a direct array of wineries.
       // --- UPDATED WITH LOGGING ---
       const logInvalid = (listName: string) => (w: any) => { if (!isValidWinery(w)) { console.warn(`%c[wineryStore] Invalid ${listName} winery removed:`, 'color: red;', w); } return isValidWinery(w); };
-      const validVisitedWineries = visitedWineriesRaw.filter(isValidWinery);
-      const validFavoriteWineries = favoriteWineries.filter(isValidWinery);
-      const validWishlistWineries = wishlistWineries.filter(isValidWinery);
+      const validVisitedWineries = visitedWineriesRaw.filter(logInvalid('Visited'));
+      const validFavoriteWineries = favoriteWineries.filter(logInvalid('Favorite'));
+      const validWishlistWineries = wishlistWineries.filter(logInvalid('Wishlist'));
 
       console.log('[wineryStore] Validated data counts:', {
         validVisited: validVisitedWineries.length,
