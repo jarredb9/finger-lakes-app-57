@@ -36,6 +36,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useToast } from "@/hooks/use-toast"
 import { Winery, Visit, Trip } from "@/lib/types"
 import { useWineryData } from "@/hooks/use-winery-data"
+import { useWineryStore } from "@/lib/stores/wineryStore"
 import WineryClusterer from "./winery-clusterer"
 import WishlistClusterer from './wishlist-clusterer';
 import FavoriteClusterer from "./favorite-clusterer"
@@ -233,8 +234,15 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const [mapBounds, setMapBounds] = useState<google.maps.LatLngBounds | null>(null);
   
   // ** FIX: Fetch all upcoming trips as well **
-  const { allVisitedWineries, allWishlistWineries, allFavoriteWineries, allPersistentWineries, allUpcomingTrips, refreshAllData } = useWineryData();
-  
+  const {
+    visitedWineries: allVisitedWineries,
+    wishlistWineries: allWishlistWineries,
+    favoriteWineries: allFavoriteWineries,
+    persistentWineries: allPersistentWineries,
+    upcomingTrips: allUpcomingTrips,
+    fetchWineryData: refreshAllData,
+  } = useWineryStore();
+
   const { toast } = useToast();
   
   const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
@@ -247,6 +255,10 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const map = useMap();
   
   useEffect(() => { if (geocoding) setGeocoder(new google.maps.Geocoder()); }, [geocoding]);
+
+  useEffect(() => {
+    refreshAllData();
+  }, [refreshAllData]);
 
   // ** FIX: Use a useEffect hook to recenter the map when a trip is selected **
   useEffect(() => {
@@ -442,71 +454,6 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
     setSelectedWinery(wineryDataToDisplay);
   }, [allPersistentWineries, selectedTrip, allUpcomingTrips]);
   
-  const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
-    const payload = { wineryData: winery, ...visitData };
-    const response = await fetch('/api/visits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (response.ok) { 
-        toast({ description: "Visit saved successfully." }); 
-        await refreshAllData();
-        setSelectedWinery(null); 
-    } else { 
-        const errorData = await response.json();
-        toast({ variant: "destructive", description: `Failed to save visit: ${errorData.details || errorData.error}` }); 
-    }
-  };
-
-  const handleUpdateVisit = async (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => {
-    const response = await fetch(`/api/visits/${visitId}`, { 
-        method: 'PUT', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(visitData) 
-    });
-    if (response.ok) { 
-        toast({ description: "Visit updated successfully." }); 
-        await refreshAllData();
-        setSelectedWinery(null); 
-    } else { 
-        toast({ variant: "destructive", description: "Failed to update visit." }); 
-    }
-  };
-  
-  const handleDeleteVisit = async (winery: Winery, visitId: string) => {
-    const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
-    if (response.ok) { 
-      toast({ description: "Visit deleted successfully." }); 
-      await refreshAllData();
-      setSelectedWinery(null);
-    } else { 
-      toast({ variant: "destructive", description: "Failed to delete visit." }); 
-    }
-  };
-
-  const handleToggleWishlist = async (winery: Winery, isOnWishlist: boolean) => {
-    const method = isOnWishlist ? 'DELETE' : 'POST';
-    const body = isOnWishlist ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
-    try {
-      const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
-      if (response.ok) {
-        toast({ description: isOnWishlist ? "Removed from wishlist." : "Added to wishlist." });
-        await refreshAllData();
-        setSelectedWinery(prev => prev ? { ...prev, onWishlist: !isOnWishlist } : null);
-      } else throw new Error();
-    } catch (error) { toast({ variant: 'destructive', description: "Could not update wishlist." }); }
-  };
-  
-  const handleToggleFavorite = async (winery: Winery, isFavorite: boolean) => {
-      const method = isFavorite ? 'DELETE' : 'POST';
-      const body = isFavorite ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
-      try {
-        const response = await fetch('/api/favorites', { method, headers: { 'Content-Type': 'application/json' }, body });
-        if (response.ok) {
-          toast({ description: isFavorite ? "Removed from favorites." : "Added to favorites." });
-          await refreshAllData();
-          setSelectedWinery(prev => prev ? { ...prev, isFavorite: !isFavorite } : null);
-        } else throw new Error();
-      } catch (error) { toast({ variant: 'destructive', description: "Could not update favorites." }); }
-    };
-    
   const handleFilterChange = (newFilter: string[]) => {
       if (newFilter.length === 0) {
         setFilter(['all']);
@@ -582,11 +529,6 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
       {selectedWinery && (<WineryModal 
         winery={selectedWinery} 
         onClose={() => setSelectedWinery(null)} 
-        onSaveVisit={handleSaveVisit}
-        onUpdateVisit={handleUpdateVisit}
-        onDeleteVisit={handleDeleteVisit}
-        onToggleWishlist={handleToggleWishlist}
-        onToggleFavorite={handleToggleFavorite}
         selectedTrip={selectedTrip}
       />)}
       {proposedWinery && (

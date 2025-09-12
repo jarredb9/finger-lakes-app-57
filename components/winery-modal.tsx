@@ -36,6 +36,7 @@ import { SelectSingleEventHandler } from "react-day-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
+import { useWineryStore } from "@/lib/stores/wineryStore";
 import { Badge } from "@/components/ui/badge";
 
 
@@ -103,15 +104,10 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
 interface WineryModalProps {
   winery: Winery | null;
   onClose: () => void;
-  onSaveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => Promise<void>;
-  onUpdateVisit: (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => Promise<void>;
-  onDeleteVisit?: (winery: Winery, visitId: string) => void;
-  onToggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
-  onToggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
   selectedTrip?: Trip | null;
 }
 
-export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisit, onDeleteVisit, onToggleWishlist, onToggleFavorite, selectedTrip }: WineryModalProps) {
+export default function WineryModal({ winery, onClose, selectedTrip }: WineryModalProps) {
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(0);
@@ -123,6 +119,8 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   const [friendsRatings, setFriendsRatings] = useState([]);
   const [friendsActivity, setFriendsActivity] = useState<{ favoritedBy: any[], wishlistedBy: any[] }>({ favoritedBy: [], wishlistedBy: [] });
 
+  // Get actions from the winery store
+  const { saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite } = useWineryStore();
 
   // This new state holds the winery data and ensures it has a dbId
   const [internalWinery, setInternalWinery] = useState<Winery | null>(winery);
@@ -283,34 +281,50 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
     }
     setSaving(true);
     try {
-      if (editingVisitId) {
-        await onUpdateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
-      } else {
-        await onSaveVisit(internalWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
-      }
+        if (editingVisitId) {
+            await updateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
+            toast({ description: "Visit updated successfully." });
+        } else {
+            await saveVisit(internalWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
+            toast({ description: "Visit saved successfully." });
+        }
       resetForm();
+      onClose(); // Close modal on success
     } catch (error) { 
-      console.error("Save/Update operation failed:", error); 
+      console.error("Save/Update operation failed:", error);
+      toast({ variant: "destructive", description: (error as Error).message || "An error occurred." });
     } finally { 
       setSaving(false); 
     }
   };
   
   const handleDeleteVisit = async (visitId: string) => {
-    if (onDeleteVisit && visitId) {
-        await onDeleteVisit(internalWinery, visitId);
+    if (visitId) {
+        try {
+            await deleteVisit(visitId);
+            toast({ description: "Visit deleted successfully." });
+            onClose();
+        } catch (error) {
+            toast({ variant: "destructive", description: "Failed to delete visit." });
+        }
     }
   };
 
   const handleWishlistToggle = async () => {
     setWishlistLoading(true);
-    await onToggleWishlist(internalWinery, !!internalWinery.onWishlist);
+    try {
+        await toggleWishlist(internalWinery, !!internalWinery.onWishlist);
+        toast({ description: internalWinery.onWishlist ? "Removed from wishlist." : "Added to wishlist." });
+        setInternalWinery(prev => prev ? { ...prev, onWishlist: !prev.onWishlist } : null);
+    } catch (error) { toast({ variant: 'destructive', description: "Could not update wishlist." }); }
     setWishlistLoading(false);
   };
   
   const handleFavoriteToggle = async () => {
     setFavoriteLoading(true);
-    await onToggleFavorite(internalWinery, !!internalWinery.isFavorite);
+    await toggleFavorite(internalWinery, !!internalWinery.isFavorite);
+    toast({ description: internalWinery.isFavorite ? "Removed from favorites." : "Added to favorites." });
+    setInternalWinery(prev => prev ? { ...prev, isFavorite: !prev.isFavorite } : null);
     setFavoriteLoading(false);
   };
 
