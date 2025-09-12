@@ -47,8 +47,8 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         trips: upcomingTripsJson.trips || [] 
       };
       // Assign directly since they are arrays, not nested objects.
-      const wishlistWineries = wishlistJson || [];
-      const favoriteWineries = favoritesJson || [];
+      const wishlistWineries = wishlistJson.wishlist || [];
+      const favoriteWineries = favoritesJson.favorites || [];
 
       // --- NEW DETAILED LOGGING ---
       console.log('%c[wineryStore] API JSON Responses:', 'color: orange; font-weight: bold;', { visitedJson, wishlistJson, favoritesJson, upcomingTripsJson });
@@ -60,6 +60,10 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         favoriteWineriesCount: favoriteWineries.length,
         upcomingTripsCount: upcoming.length,
       });
+
+      // --- NEW DIAGNOSTIC LOG ---
+      console.log('%c[wineryStore] Initial Array Population Check:', 'color: purple; font-weight: bold;', { rawVisits, wishlistWineries, favoriteWineries });
+      // --- END NEW LOG ---
 
       // The /api/visits endpoint returns visit objects. We need to extract the nested winery 
       // from each visit and combine it with the visit data itself.
