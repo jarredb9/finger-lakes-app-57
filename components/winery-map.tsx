@@ -278,14 +278,14 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
     return { favoriteIds, wishlistIds, visitedIds };
   }, [allFavoriteWineries, allWishlistWineries, allVisitedWineries]);
 
-  const favoritesToRender = allFavoriteWineries;
-  const wishlistToRender = allWishlistWineries.filter(w => !favoriteIds.has(w.id));
-  // The `allVisitedWineries` list from the store only contains visited wineries.
-  // We only need to filter out wineries that are also favorites to prevent duplicate pins.
-  // The check against `wishlistIds` was incorrect and was preventing visited pins from showing.
-  const visitedToRender = allVisitedWineries.filter(w => !favoriteIds.has(w.id));
+  // Correctly categorize each winery based on a hierarchy: Favorite > Wishlist > Visited.
+  // This ensures a winery only appears in one category on the map, preventing duplicate pins.
+  const favoritesToRender = allPersistentWineries.filter(w => favoriteIds.has(w.id));
+  const wishlistToRender = allPersistentWineries.filter(w => wishlistIds.has(w.id) && !favoriteIds.has(w.id));
+  const visitedToRender = allPersistentWineries.filter(w => visitedIds.has(w.id) && !favoriteIds.has(w.id) && !wishlistIds.has(w.id));
   
   const trulyDiscoveredWineries = useMemo(() => {
+      // Discovered wineries are those from search results that are not in any of our persistent lists.
       const persistentIds = new Set(allPersistentWineries.map(w => w.id));
       return searchState.results.filter(w => !persistentIds.has(w.id));
   }, [searchState.results, allPersistentWineries]);
