@@ -280,7 +280,10 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
 
   const favoritesToRender = allFavoriteWineries;
   const wishlistToRender = allWishlistWineries.filter(w => !favoriteIds.has(w.id));
-  const visitedToRender = allVisitedWineries.filter(w => !favoriteIds.has(w.id) && !wishlistIds.has(w.id));
+  // The `allVisitedWineries` list from the store only contains visited wineries.
+  // We only need to filter out wineries that are also favorites to prevent duplicate pins.
+  // The check against `wishlistIds` was incorrect and was preventing visited pins from showing.
+  const visitedToRender = allVisitedWineries.filter(w => !favoriteIds.has(w.id));
   
   const trulyDiscoveredWineries = useMemo(() => {
       const persistentIds = new Set(allPersistentWineries.map(w => w.id));
