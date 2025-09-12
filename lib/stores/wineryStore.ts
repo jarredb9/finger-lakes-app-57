@@ -43,22 +43,26 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       const { visits: rawVisits, wishlist: wishlistWineries, favorites: favoriteWineries, trips: upcoming } = { visits: visitedJson.visits || [], wishlist: wishlistJson.wishlist || [], favorites: favoritesJson.favorites || [], trips: upcomingTripsJson.trips || [] };
 
       // The /api/visits endpoint returns visit objects, so we need to extract the winery from each one.
-      // This ensures that we safely spread the winery properties (lat, lng, etc.) and then attach the visit itself.
-      // The `v.wineries || {}` prevents an error if `v.wineries` is null.
-      const visitedWineries = Array.isArray(rawVisits) ? rawVisits.map((v: any) => ({ ...(v.wineries || {}), visits: [v] })) : [];
+      const visitedWineriesRaw = Array.isArray(rawVisits) ? rawVisits.map((v: any) => ({ ...(v.wineries || {}), visits: [v] })) : [];
+
+      // A robust validation function to ensure a winery object is safe for the map.
+      const isValidWinery = (w: any): w is Winery => w && w.id && typeof w.lat === 'number' && typeof w.lng === 'number';
+
+      // Filter each list individually to guarantee data integrity before setting state.
+      const validVisitedWineries = visitedWineriesRaw.filter(isValidWinery);
+      const validFavoriteWineries = favoriteWineries.filter(isValidWinery);
+      const validWishlistWineries = wishlistWineries.filter(isValidWinery);
 
       const persistent = new Map<string, Winery>();
       // Combine all wineries into a single list for consistent data handling.
-      // Add a filter to ensure every winery has a valid ID and location before being added to the map data.
-      [...favoriteWineries, ...wishlistWineries, ...visitedWineries]
-        .filter(w => w && w.id && typeof w.lat === 'number' && typeof w.lng === 'number')
+      // Now we can safely combine the already-validated lists.
+      [...validFavoriteWineries, ...validWishlistWineries, ...validVisitedWineries]
         .forEach(w => persistent.set(w.id, { ...persistent.get(w.id), ...w }));
 
-
       set({
-        visitedWineries: visitedWineries,
-        wishlistWineries: wishlistWineries,
-        favoriteWineries: favoriteWineries,
+        visitedWineries: validVisitedWineries,
+        wishlistWineries: validWishlistWineries,
+        favoriteWineries: validFavoriteWineries,
         persistentWineries: Array.from(persistent.values()),
         upcomingTrips: upcoming || [],
         isLoading: false,
