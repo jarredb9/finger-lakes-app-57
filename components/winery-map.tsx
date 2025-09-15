@@ -251,32 +251,63 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
     }
   }, [map, core, selectedTrip]);
 
-  const discoveredWineries = useMemo(() => {
-      const persistentIds = new Set(persistentWineries.map(w => w.id));
-      return searchState.results.filter(w => !persistentIds.has(w.id));
-  }, [searchState.results, persistentWineries]);
+  const mapWineries = useMemo(() => {
+    const wineriesMap = new Map<string, Winery>();
+    // All unique wineries from search and store
+    [...searchState.results, ...persistentWineries].forEach(w => {
+        if (w && w.id) {
+            wineriesMap.set(w.id, w)
+        }
+    });
+
+    const favoriteIds = new Set(favoriteWineries.map(w => w.id));
+    const visitedIds = new Set(visitedWineries.map(w => w.id));
+    const wishlistIds = new Set(wishlistWineries.map(w => w.id));
+
+    const categorizedWineries = {
+        favorites: [] as Winery[],
+        visited: [] as Winery[],
+        wishlist: [] as Winery[],
+        discovered: [] as Winery[],
+    };
+
+    wineriesMap.forEach(winery => {
+        if (favoriteIds.has(winery.id)) {
+            categorizedWineries.favorites.push(winery);
+        } else if (visitedIds.has(winery.id)) {
+            categorizedWineries.visited.push(winery);
+        } else if (wishlistIds.has(winery.id)) {
+            categorizedWineries.wishlist.push(winery);
+        } else {
+            categorizedWineries.discovered.push(winery);
+        }
+    });
+
+    return categorizedWineries;
+  }, [searchState.results, persistentWineries, favoriteWineries, visitedWineries, wishlistWineries]);
 
   const listResultsInView = useMemo(() => {
     if (!mapBounds) return [];
-    
     if (selectedTrip) return [];
 
-    const wineriesInView = [...persistentWineries, ...discoveredWineries].filter(w => mapBounds.contains({ lat: w.lat, lng: w.lng }));
-
-    if (filter.includes('all')) return wineriesInView;
+    let wineriesToFilter: Winery[] = [];
+    if (filter.includes('all')) {
+        wineriesToFilter = [
+            ...mapWineries.favorites, 
+            ...mapWineries.visited, 
+            ...mapWineries.wishlist, 
+            ...mapWineries.discovered
+        ];
+    } else {
+        if (filter.includes('favorites')) wineriesToFilter.push(...mapWineries.favorites);
+        if (filter.includes('visited')) wineriesToFilter.push(...mapWineries.visited);
+        if (filter.includes('wantToGo')) wineriesToFilter.push(...mapWineries.wishlist);
+        if (filter.includes('notVisited')) wineriesToFilter.push(...mapWineries.discovered);
+    }
     
-    const favoriteIds = new Set(favoriteWineries.map(w => w.id));
-    const wishlistIds = new Set(wishlistWineries.map(w => w.id));
-    const visitedIds = new Set(visitedWineries.map(w => w.id));
+    return wineriesToFilter.filter(w => w && w.lat && w.lng && mapBounds.contains({ lat: w.lat, lng: w.lng }));
 
-    return wineriesInView.filter(w => {
-        if (filter.includes('visited') && visitedIds.has(w.id)) return true;
-        if (filter.includes('favorites') && favoriteIds.has(w.id)) return true;
-        if (filter.includes('wantToGo') && wishlistIds.has(w.id)) return true;
-        if (filter.includes('notVisited') && !visitedIds.has(w.id) && !favoriteIds.has(w.id) && !wishlistIds.has(w.id)) return true;
-        return false;
-    });
-  }, [filter, persistentWineries, discoveredWineries, mapBounds, visitedWineries, favoriteWineries, wishlistWineries, selectedTrip]);
+  }, [filter, mapWineries, mapBounds, selectedTrip]);
   
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
     if (!places || !geocoder) return;
@@ -444,10 +475,10 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
               <Card>
                   <CardContent className="p-0 relative"> 
                       <MapComponent 
-                          discoveredWineries={discoveredWineries}
-                          visitedWineries={visitedWineries}
-                          wishlistWineries={wishlistWineries}
-                          favoriteWineries={favoriteWineries}
+                          discoveredWineries={mapWineries.discovered}
+                          visitedWineries={mapWineries.visited}
+                          wishlistWineries={mapWineries.wishlist}
+                          favoriteWineries={mapWineries.favorites}
                           filter={filter} 
                           onMarkerClick={handleOpenModal}
                           selectedTrip={selectedTrip}
