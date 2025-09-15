@@ -6,16 +6,14 @@ import TripPlanner from "@/components/trip-planner"
 import VisitHistory from "@/components/visit-history"
 import { User } from "@supabase/supabase-js"
 
-export default function TripsClientPage({ user, initialDate }: { user: User, initialDate?: string }) {
+export default function TripsClientPage({ user }: { user: User }) {
 
   const handleWinerySelect = (wineryDbId: number) => {
     console.log("Winery selected:", wineryDbId)
   }
 
-  const plannerInitialDate = initialDate ? new Date(initialDate) : new Date();
-
   return (
-    <Tabs defaultValue={initialDate ? "planner" : "trips"}>
+    <Tabs defaultValue="trips">
       <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="trips">My Trips</TabsTrigger>
         <TabsTrigger value="planner">Plan a Trip</TabsTrigger>
@@ -25,7 +23,7 @@ export default function TripsClientPage({ user, initialDate }: { user: User, ini
         <TripList />
       </TabsContent>
       <TabsContent value="planner">
-        <TripPlanner initialDate={plannerInitialDate} user={user} />
+        <TripPlanner initialDate={new Date()} user={user} />
       </TabsContent>
       <TabsContent value="history">
         <VisitHistory onWinerySelect={handleWinerySelect} />

@@ -57,8 +57,8 @@ export default function TripList() {
         }
     };
 
-    const handleViewTrip = (date: string) => {
-        router.push(`/trips?date=${new Date(date + 'T00:00:00').toISOString()}`);
+    const handleViewTrip = (tripId: string) => {
+        router.push(`/trips/${tripId}`);
     };
 
     const handleDeleteTrip = async (tripId: number) => {
@@ -108,10 +108,7 @@ export default function TripList() {
                             <Badge variant="secondary" className="absolute top-4 right-4"><Wine className="w-3 h-3 mr-1" /> {trip.wineries_count} Wineries</Badge>
                         </CardHeader>
                         <CardContent className="flex justify-between items-center">
-                            <Button onClick={() => {
-    console.log('Button clicked for trip date:', trip.trip_date);
-    handleViewTrip(trip.trip_date);
-}}>View Details <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                            <Button onClick={() => handleViewTrip(trip.id)}>View Details <ArrowRight className="ml-2 h-4 w-4" /></Button>
                             <AlertDialog>
                                 <AlertDialogTrigger asChild><Button variant="destructive" size="icon"><Trash2 size={16} /></Button></AlertDialogTrigger>
                                 <AlertDialogContent>
