@@ -255,9 +255,14 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const map = useMap();
   
   useEffect(() => { 
-    if (geocoding) setGeocoder(new google.maps.Geocoder()); 
-    // Only fetch data if we have a valid user ID.
-    if (userId) refreshAllData();
+    if (geocoding) {
+      setGeocoder(new google.maps.Geocoder()); 
+    }
+    // ** FIX: Defer data fetching until the user is authenticated (userId is present). **
+    // This prevents race conditions where the component renders before the user session is available.
+    if (userId) {
+      refreshAllData();
+    }
   }, [geocoding, userId, refreshAllData]);
 
   // ** FIX: Use a useEffect hook to recenter the map when a trip is selected **
