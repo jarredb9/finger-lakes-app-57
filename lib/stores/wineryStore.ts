@@ -77,30 +77,34 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
       const standardizeWinery = (item: any): Winery | null => {
         if (!item) return null;
-
+      
         const wineryData = item.wineries ? item.wineries : item;
         if (!wineryData) return null;
-
-        const id = typeof wineryData.id === "number" ? String(wineryData.id) : wineryData.id;
-        const lat = typeof wineryData.lat === "string" ? parseFloat(wineryData.lat) : wineryData.lat;
-        const lng = typeof wineryData.lng === "string" ? parseFloat(wineryData.lng) : wineryData.lng;
-
+      
+        const id = String(wineryData.id);
+        const lat = wineryData.latitude ?? wineryData.lat;
+        const lng = wineryData.longitude ?? wineryData.lng;
+      
         const standardized = {
           ...wineryData,
           id,
-          lat,
-          lng,
-          ...(item.wineries && { 
-            visit_id: item.id, 
-            visit_date: item.visit_date, 
-            user_review: item.user_review, 
-            rating: item.rating 
+          lat: typeof lat === 'string' ? parseFloat(lat) : lat,
+          lng: typeof lng === 'string' ? parseFloat(lng) : lng,
+          ...(item.wineries && {
+            visit_id: item.id,
+            visit_date: item.visit_date,
+            user_review: item.user_review,
+            rating: item.rating,
           }),
         };
-
+      
         if (isValidWinery(standardized)) {
           return standardized;
         }
+        
+        console.warn('[Validation] Winery failed validation. Standardized object:', standardized);
+        console.warn(`[Validation] Breakdown: id=${typeof standardized.id}, name=${typeof standardized.name}, lat=${typeof standardized.lat}, lng=${typeof standardized.lng}`);
+      
         return null;
       };
       
