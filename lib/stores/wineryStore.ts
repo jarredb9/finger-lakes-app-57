@@ -79,6 +79,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         if (!item) return null;
 
         const wineryData = item.wineries ? item.wineries : item;
+        if (!wineryData) return null;
 
         const id = typeof wineryData.id === "number" ? String(wineryData.id) : wineryData.id;
         const lat = typeof wineryData.lat === "string" ? parseFloat(wineryData.lat) : wineryData.lat;
@@ -175,12 +176,13 @@ export const useWineryStore = create<WineryState>((set, get) => ({
     const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
     if (!response.ok) throw new Error("Could not update wishlist.");
     
+    // Optimistic update
     set(state => ({
         wishlistWineries: isOnWishlist
             ? state.wishlistWineries.filter(w => w.id !== winery.id)
             : [...state.wishlistWineries, { ...winery, onWishlist: true }]
     }));
-    await get().fetchWineryData(); 
+    await get().fetchWineryData(); // Re-sync with DB
   },
 
   toggleFavorite: async (winery, isFavorite) => {
@@ -189,11 +191,12 @@ export const useWineryStore = create<WineryState>((set, get) => ({
     const response = await fetch('/api/favorites', { method, headers: { 'Content-Type': 'application/json' }, body });
     if (!response.ok) throw new Error("Could not update favorites.");
 
+    // Optimistic update
     set(state => ({
         favoriteWineries: isFavorite
             ? state.favoriteWineries.filter(w => w.id !== winery.id)
             : [...state.favoriteWineries, { ...winery, isFavorite: true }]
     }));
-    await get().fetchWineryData(); 
+    await get().fetchWineryData(); // Re-sync with DB
   },
 }));
