@@ -82,12 +82,20 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       // --- END NEW LOGGING ---
 
       // 1. Standardize the data format first. This creates new objects and avoids mutation.
-      const standardizeWinery = (w: any) => ({
-        ...w,
-        id: String(w.id), // Ensure ID is always a string
-        lat: typeof w.lat === 'string' ? parseFloat(w.lat) : w.lat,
-        lng: typeof w.lng === 'string' ? parseFloat(w.lng) : w.lng,
-      });
+      // This function now handles two cases:
+      // a) Visited wineries, which are nested under a `wineries` property.
+      // b) Favorite/Wishlist wineries, where the data is at the top level.
+      const standardizeWinery = (w: any) => {
+        const wineryData = w.wineries || w; // Use nested `wineries` object if it exists, otherwise use the object itself.
+        return {
+          ...wineryData,
+          id: String(wineryData.id), // Ensure the primary ID (from Google Places or your DB) is a string.
+          dbId: w.id, // For favorites/wishlist, the top-level `id` is the database ID. Preserve it.
+          lat: typeof wineryData.lat === 'string' ? parseFloat(wineryData.lat) : wineryData.lat,
+          lng: typeof wineryData.lng === 'string' ? parseFloat(wineryData.lng) : wineryData.lng,
+          visits: w.visits // Carry over visits data if it exists
+        };
+      };
 
       const standardizedVisited = visitedWineriesRaw.map(standardizeWinery);
       const standardizedFavorites = favoriteWineries.map(standardizeWinery);
