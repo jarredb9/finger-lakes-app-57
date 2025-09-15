@@ -69,9 +69,20 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
       // The /api/visits endpoint returns visit objects. We need to extract the nested winery 
       // from each visit and combine it with the visit data itself.
-      const visitedWineriesRaw = Array.isArray(rawVisits) 
-        ? rawVisits.map((v: any) => v.wineries ? { ...v.wineries, visits: [v] } : null).filter(Boolean)
-        : [];
+      const visitedWineriesRaw = Array.isArray(rawVisits)
+        ? rawVisits.map((v: any) => {
+            if (!v.wineries) return null;
+
+            // ** FIX: Prevent circular references by creating a clean visit object. **
+            // The original `v` (the visit object) contains a `wineries` property. Attaching the whole `v` object
+            // back onto the extracted `v.wineries` object creates a circular dependency (winery.visits[0].wineries...).
+            // This causes silent failures in standardization and validation.
+            // We create a new `cleanVisit` object that has all properties of the original visit *except* for the nested `wineries`.
+            const { wineries, ...cleanVisit } = v;
+            
+            // Now, we spread the winery data and attach the clean visit object.
+            return { ...wineries, visits: [cleanVisit] };
+        }).filter(Boolean) : [];
       
       // --- NEW DETAILED LOGGING ---
       console.log('%c[wineryStore] Processed & Raw Data (first 5 items):', 'color: orange; font-weight: bold;', {
