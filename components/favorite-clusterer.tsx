@@ -36,20 +36,7 @@ export default function FavoriteClusterer({ wineries, onClick }: FavoriteCluster
                 anchor: new google.maps.Point(20, 40),
               },
               // Highest zIndex for favorite clusters
-              zIndex: 20 + count, 
-            });
-          },
-        }
-      });
-    }
-  }, [map]);
-
-  // Update markers
-  useEffect(() => {
-    if (!clusterer.current) return;
-    
-    // Higher zIndex for favorite clusters
-              zIndex: 400 + count,
+              zIndex: 400 + count, 
             });
           },
         }
@@ -68,7 +55,7 @@ export default function FavoriteClusterer({ wineries, onClick }: FavoriteCluster
         position: { lat: winery.lat, lng: winery.lng },
         icon: {
             path: `M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z`,
-            fillColor: '#FBBF24',
+            fillColor: '#FBBF24', // Gold color for favorites
             fillOpacity: 1,
             strokeColor: '#F59E0B',
             strokeWeight: 1,

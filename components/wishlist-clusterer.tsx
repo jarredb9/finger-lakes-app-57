@@ -35,20 +35,7 @@ export default function WishlistClusterer({ wineries, onClick }: WishlistCluster
                 scaledSize: new google.maps.Size(42, 42),
                 anchor: new google.maps.Point(20, 40),
               },
-              // Mid-level zIndex for wishlist clusters
-              zIndex: 18 + count,
-            });
-          },
-        }
-      });
-    }
-  }, [map]);
-
-  // Update markers
-  useEffect(() => {
-    if (!clusterer.current) return;
-    
-    // zIndex for wishlist clusters
+              // zIndex for wishlist clusters
               zIndex: 200 + count,
             });
           },
