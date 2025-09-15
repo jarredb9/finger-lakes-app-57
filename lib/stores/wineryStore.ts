@@ -46,6 +46,14 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         fetch("/api/trips?type=upcoming"),
       ]);
 
+      console.log('%c[wineryStore] API Responses:', 'color: blue; font-weight: bold;', {
+        wineriesRes,
+        visitsRes,
+        favoritesRes,
+        wishlistRes,
+        tripsRes,
+      });
+
       const [
         wineriesData,
         visitsData,
@@ -60,27 +68,45 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         tripsRes.json(),
       ]);
 
+      console.log('%c[wineryStore] API JSON Data:', 'color: blue; font-weight: bold;', {
+        wineriesData,
+        visitsData,
+        favoritesData,
+        wishlistData,
+        tripsData,
+      });
+
       const { wineries } = wineriesData;
       const { visits } = visitsData;
       const favorites = favoritesData.favorites || favoritesData;
       const wishlist = wishlistData.wishlist || wishlistData;
       const { trips: upcomingTrips } = tripsData;
 
+      console.log('%c[wineryStore] Extracted Data:', 'color: purple; font-weight: bold;', {
+        wineries,
+        visits,
+        favorites,
+        wishlist,
+        upcomingTrips,
+      });
+
       const isValidWinery = (winery: any): winery is Winery => {
-        return (
+        const result = (
           winery &&
           typeof winery.id === "string" &&
           typeof winery.name === "string" &&
           typeof winery.lat === "number" &&
           typeof winery.lng === "number"
         );
+        if (!result) {
+          console.warn('[Validation] Invalid winery detected:', winery);
+        }
+        return result;
       };
 
       const standardizeWinery = (winery: any): Winery | null => {
         if (!winery) return null;
 
-        // If the winery data is nested inside a `wineries` property (like in the `visits` table),
-        // we need to extract it.
         const wineryData = winery.wineries ? winery.wineries : winery;
 
         const id =
@@ -99,7 +125,6 @@ export const useWineryStore = create<WineryState>((set, get) => ({
           id,
           lat,
           lng,
-          // Keep visit-specific data if it exists
           visit_id: winery.id,
           visit_date: winery.visit_date,
         };
@@ -110,23 +135,35 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         return null;
       };
       
-      const processWineries = (wineryData: any[]): Winery[] => {
+      const processWineries = (wineryData: any[], type: string): Winery[] => {
+        console.log(`%c[processWineries] Processing ${type} data:`, 'color: green;', wineryData);
         if (!Array.isArray(wineryData)) {
-          console.warn("Expected an array of wineries, but received:", wineryData);
+          console.warn(`Expected an array for ${type}, but received:`, wineryData);
           return [];
         }
-        return wineryData.map(standardizeWinery).filter(Boolean) as Winery[];
+        const processed = wineryData.map(standardizeWinery).filter(Boolean) as Winery[];
+        console.log(`%c[processWineries] Processed ${type} results:`, 'color: green; font-weight: bold;', processed);
+        return processed;
       };
 
-      const visitedWineries = processWineries(visits);
-      const favoriteWineries = processWineries(favorites);
-      const wishlistWineries = processWineries(wishlist);
+      const visitedWineries = processWineries(visits, 'visited');
+      const favoriteWineries = processWineries(favorites, 'favorites');
+      const wishlistWineries = processWineries(wishlist, 'wishlist');
 
       const persistentWineries = [
         ...visitedWineries,
         ...favoriteWineries,
         ...wishlistWineries,
       ];
+
+      console.log('%c[wineryStore] Final State Update:', 'color: red; font-weight: bold;', {
+        wineries,
+        visitedWineries,
+        favoriteWineries,
+        wishlistWineries,
+        persistentWineries,
+        upcomingTrips,
+      });
 
       set({
         wineries,
