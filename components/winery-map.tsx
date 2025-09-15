@@ -242,14 +242,6 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   }, [geocoding, userId, fetchWineryData]);
 
   useEffect(() => {
-    console.log('%c[WineryMap] Data received from store:', 'color: orange; font-weight: bold;', {
-      visitedWineries,
-      favoriteWineries,
-      wishlistWineries,
-    });
-  }, [visitedWineries, favoriteWineries, wishlistWineries]);
-
-  useEffect(() => {
     if (map && core && selectedTrip && selectedTrip.wineries && selectedTrip.wineries.length > 0) {
         const bounds = new core.LatLngBounds();
         selectedTrip.wineries.forEach(winery => {
@@ -391,7 +383,7 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
     if (!map) return;
     const clickListener = map.addListener('click', handleMapClick);
     return () => { clickListener.remove(); };
-  }, [map, handleMapClick]);
+  }, [map, handleMapC-lick]);
   
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };

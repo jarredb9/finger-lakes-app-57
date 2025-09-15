@@ -29,79 +29,45 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   error: null,
 
   fetchWineryData: async () => {
-    console.log('[wineryStore] Starting fetchWineryData...');
     set({ isLoading: true, error: null });
     try {
       const [
-        wineriesRes,
         visitsRes,
         favoritesRes,
         wishlistRes,
         tripsRes,
       ] = await Promise.all([
-        fetch("/api/wineries"),
         fetch("/api/visits"),
         fetch("/api/favorites"),
         fetch("/api/wishlist"),
         fetch("/api/trips?type=upcoming"),
       ]);
 
-      console.log('%c[wineryStore] API Responses:', 'color: blue; font-weight: bold;', {
-        wineriesRes,
-        visitsRes,
-        favoritesRes,
-        wishlistRes,
-        tripsRes,
-      });
-
       const [
-        wineriesData,
         visitsData,
         favoritesData,
         wishlistData,
         tripsData,
       ] = await Promise.all([
-        wineriesRes.json(),
         visitsRes.json(),
         favoritesRes.json(),
         wishlistRes.json(),
         tripsRes.json(),
       ]);
 
-      console.log('%c[wineryStore] API JSON Data:', 'color: blue; font-weight: bold;', {
-        wineriesData,
-        visitsData,
-        favoritesData,
-        wishlistData,
-        tripsData,
-      });
-
-      const { wineries } = wineriesData;
       const { visits } = visitsData;
       const favorites = favoritesData.favorites || favoritesData;
       const wishlist = wishlistData.wishlist || wishlistData;
       const { trips: upcomingTrips } = tripsData;
 
-      console.log('%c[wineryStore] Extracted Data:', 'color: purple; font-weight: bold;', {
-        wineries,
-        visits,
-        favorites,
-        wishlist,
-        upcomingTrips,
-      });
-
       const isValidWinery = (winery: any): winery is Winery => {
-        const result = (
+        return (
           winery &&
           typeof winery.id === "string" &&
           typeof winery.name === "string" &&
           typeof winery.lat === "number" &&
           typeof winery.lng === "number"
         );
-        if (!result) {
-          console.warn('[Validation] Invalid winery detected:', winery);
-        }
-        return result;
       };
 
       const standardizeWinery = (winery: any): Winery | null => {
@@ -135,20 +101,16 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         return null;
       };
       
-      const processWineries = (wineryData: any[], type: string): Winery[] => {
-        console.log(`%c[processWineries] Processing ${type} data:`, 'color: green;', wineryData);
+      const processWineries = (wineryData: any[]): Winery[] => {
         if (!Array.isArray(wineryData)) {
-          console.warn(`Expected an array for ${type}, but received:`, wineryData);
           return [];
         }
-        const processed = wineryData.map(standardizeWinery).filter(Boolean) as Winery[];
-        console.log(`%c[processWineries] Processed ${type} results:`, 'color: green; font-weight: bold;', processed);
-        return processed;
+        return wineryData.map(standardizeWinery).filter(Boolean) as Winery[];
       };
 
-      const visitedWineries = processWineries(visits, 'visited');
-      const favoriteWineries = processWineries(favorites, 'favorites');
-      const wishlistWineries = processWineries(wishlist, 'wishlist');
+      const visitedWineries = processWineries(visits);
+      const favoriteWineries = processWineries(favorites);
+      const wishlistWineries = processWineries(wishlist);
 
       const persistentWineries = [
         ...visitedWineries,
@@ -156,17 +118,8 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         ...wishlistWineries,
       ];
 
-      console.log('%c[wineryStore] Final State Update:', 'color: red; font-weight: bold;', {
-        wineries,
-        visitedWineries,
-        favoriteWineries,
-        wishlistWineries,
-        persistentWineries,
-        upcomingTrips,
-      });
-
       set({
-        wineries,
+        wineries: [], // Set wineries to empty array since the API is failing
         visitedWineries,
         favoriteWineries,
         wishlistWineries,
