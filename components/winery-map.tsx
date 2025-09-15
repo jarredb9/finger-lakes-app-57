@@ -383,7 +383,7 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
     if (!map) return;
     const clickListener = map.addListener('click', handleMapClick);
     return () => { clickListener.remove(); };
-  }, [map, handleMapC-lick]);
+  }, [map, handleMapClick]);
   
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
