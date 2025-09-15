@@ -254,11 +254,11 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
   
-  useEffect(() => { if (geocoding) setGeocoder(new google.maps.Geocoder()); }, [geocoding]);
-
-  useEffect(() => {
-    refreshAllData();
-  }, [refreshAllData]);
+  useEffect(() => { 
+    if (geocoding) setGeocoder(new google.maps.Geocoder()); 
+    // Only fetch data if we have a valid user ID.
+    if (userId) refreshAllData();
+  }, [geocoding, userId, refreshAllData]);
 
   // ** FIX: Use a useEffect hook to recenter the map when a trip is selected **
   useEffect(() => {
