@@ -6,7 +6,7 @@ import Header from "@/components/header";
 import TripsClientPage from "./trips-client-page";
 import { Loader2 } from "lucide-react";
 
-export default async function TripsPage() {
+export default async function TripsPage({ searchParams }: { searchParams: { date?: string } }) {
   const user = await getUser();
 
   if (!user) {
@@ -22,7 +22,7 @@ export default async function TripsPage() {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         }>
-          <TripsClientPage user={user} />
+          <TripsClientPage user={user} initialDate={searchParams.date} />
         </Suspense>
       </main>
     </div>
