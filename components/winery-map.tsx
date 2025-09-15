@@ -35,7 +35,7 @@ import { Label } from "@/components/ui/label"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { useToast } from "@/hooks/use-toast"
 import { Winery, Visit, Trip } from "@/lib/types"
-import { useWineryData } from "@/hooks/use-winery-data"
+import { useWineryStore } from "@/lib/stores/wineryStore"
 import WineryClusterer from "./winery-clusterer"
 import WishlistClusterer from './wishlist-clusterer';
 import FavoriteClusterer from "./favorite-clusterer"
@@ -50,7 +50,6 @@ import {
 } from "@/components/ui/select"
 import { useRouter } from 'next/navigation';
 
-// Fix: Add ssr: false to the dynamic import to prevent ReferenceError
 const WineryModal = dynamic(() => import('@/components/winery-modal'), {
   loading: () => <div className="fixed inset-0 bg-black/50 flex items-center justify-center"><Loader2 className="h-8 w-8 text-white animate-spin" /></div>,
   ssr: false, 
@@ -77,8 +76,7 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
     }
 }
 
-// ** FIX: Added the new props to the MapComponent. **
-const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistToRender, favoriteToRender, filter, onMarkerClick, selectedTrip }: { trulyDiscoveredWineries: Winery[], visitedToRender: Winery[], wishlistToRender: Winery[], favoriteToRender: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
+const MapComponent = memo(({ discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, onMarkerClick, selectedTrip }: { discoveredWineries: Winery[], visitedWineries: Winery[], wishlistWineries: Winery[], favoriteWineries: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
     return (
         <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
             <GoogleMap defaultCenter={{ lat: 40, lng: -98 }} defaultZoom={4} gestureHandling={'greedy'} disableDefaultUI={true} mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID} clickableIcons={true}>
@@ -90,19 +88,19 @@ const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistT
                 {!selectedTrip && (
                     <>
                         {(filter.includes('all') || filter.includes('notVisited')) && (
-                        <DiscoveredClusterer wineries={trulyDiscoveredWineries} onClick={onMarkerClick} />
+                        <DiscoveredClusterer wineries={discoveredWineries} onClick={onMarkerClick} />
                         )}
 
                         {(filter.includes('all') || filter.includes('wantToGo')) && (
-                        <WishlistClusterer wineries={wishlistToRender} onClick={onMarkerClick} />
+                        <WishlistClusterer wineries={wishlistWineries} onClick={onMarkerClick} />
                         )}
                         
                         {(filter.includes('all') || filter.includes('visited')) && (
-                        <WineryClusterer wineries={visitedToRender} onClick={onMarkerClick} />
+                        <WineryClusterer wineries={visitedWineries} onClick={onMarkerClick} />
                         )}
 
                         {(filter.includes('all') || filter.includes('favorites')) && (
-                        <FavoriteClusterer wineries={favoriteToRender} onClick={onMarkerClick} />
+                        <FavoriteClusterer wineries={favoriteWineries} onClick={onMarkerClick} />
                         )}
                     </>
                 )}
@@ -114,23 +112,8 @@ const MapComponent = memo(({ trulyDiscoveredWineries, visitedToRender, wishlistT
 MapComponent.displayName = 'MapComponent';
 
 const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, filter, onFilterChange, selectedTrip, setSelectedTrip }: any) => {
-  const [upcomingTrips, setUpcomingTrips] = useState<Trip[]>([]);
+  const { upcomingTrips } = useWineryStore();
   const { toast } = useToast();
-
-  useEffect(() => {
-    const fetchUpcomingTrips = async () => {
-      try {
-        const response = await fetch('/api/trips?type=upcoming');
-        if (response.ok) {
-          const { trips } = await response.json();
-          setUpcomingTrips(trips);
-        }
-      } catch (error) {
-        console.error("Failed to fetch upcoming trips", error);
-      }
-    };
-    fetchUpcomingTrips();
-  }, []);
   
   const handleTripSelect = async (tripId: string) => {
     if (tripId === "none") {
@@ -144,7 +127,6 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
         const data = await response.json();
         const fullTrip = data.find((t: Trip) => t.id.toString() === tripId);
         if (fullTrip) {
-          // ** FIX: Added a defensive check to ensure wineries is an array. **
           setSelectedTrip({ ...fullTrip, wineries: fullTrip.wineries || [] });
         }
       } else {
@@ -176,7 +158,6 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                     </Alert>
                 )}
                 <div className="flex items-center justify-between">
-                     {/* ** FIX: Conditionally render the filter or the trip selector. ** */}
                     {selectedTrip ? (
                         <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer" onClick={() => setSelectedTrip(null)}>
                             Viewing: {selectedTrip.name} <XCircle className="w-3 h-3 ml-1" />
@@ -194,19 +175,15 @@ const SearchUI = memo(({ searchState, searchLocation, setSearchLocation, autoSea
                         </div>
                     )}
                 </div>
-                {/* ** FIX: New trip selector UI element. ** */}
                 <div className="flex items-center space-x-2">
                     <Clock className="w-4 h-4 shrink-0 text-muted-foreground" />
                     <span className="text-sm font-medium">Active Trip:</span>
-                    {/* ** FIX: The value is now a non-empty string or null. The onValueChange handler correctly handles the "none" value. ** */}
                     <Select value={selectedTrip?.id?.toString() || "none"} onValueChange={handleTripSelect}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Select an upcoming trip" />
                         </SelectTrigger>
                         <SelectContent>
-                            {/* ** FIX: Changed the value from "" to "none" ** */}
                             <SelectItem value="none">None</SelectItem>
-                            {/* ** FIX: Filter out any trips with a falsy ID to prevent the crash. ** */}
                             {upcomingTrips.filter(trip => !!trip.id).map(trip => (
                                 <SelectItem key={trip.id} value={trip.id.toString()}>
                                     {trip.name} ({new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()})
@@ -232,9 +209,18 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const [filter, setFilter] = useState<string[]>(['all']);
   const [mapBounds, setMapBounds] = useState<google.maps.LatLngBounds | null>(null);
   
-  // ** FIX: Fetch all upcoming trips as well **
-  const { allVisitedWineries, allWishlistWineries, allFavoriteWineries, allPersistentWineries, allUpcomingTrips, refreshAllData } = useWineryData();
-  
+  const {
+    wineries,
+    visitedWineries,
+    wishlistWineries,
+    favoriteWineries,
+    persistentWineries,
+    upcomingTrips,
+    loading,
+    error,
+    fetchWineryData,
+  } = useWineryStore();
+
   const { toast } = useToast();
   
   const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
@@ -242,13 +228,19 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   
   const places = useMapsLibrary('places');
   const geocoding = useMapsLibrary('geocoding');
-  const core = useMapsLibrary('core'); // ** FIX: Get the core library for LatLngBounds **
+  const core = useMapsLibrary('core');
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
   const map = useMap();
   
-  useEffect(() => { if (geocoding) setGeocoder(new google.maps.Geocoder()); }, [geocoding]);
+  useEffect(() => { 
+    if (geocoding) {
+      setGeocoder(new google.maps.Geocoder()); 
+    }
+    if (userId) {
+      fetchWineryData();
+    }
+  }, [geocoding, userId, fetchWineryData]);
 
-  // ** FIX: Use a useEffect hook to recenter the map when a trip is selected **
   useEffect(() => {
     if (map && core && selectedTrip && selectedTrip.wineries && selectedTrip.wineries.length > 0) {
         const bounds = new core.LatLngBounds();
@@ -259,32 +251,24 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
     }
   }, [map, core, selectedTrip]);
 
-  const { favoriteIds, wishlistIds, visitedIds } = useMemo(() => {
-    const favoriteIds = new Set(allFavoriteWineries.map(w => w.id));
-    const wishlistIds = new Set(allWishlistWineries.map(w => w.id));
-    const visitedIds = new Set(allVisitedWineries.map(w => w.id));
-    return { favoriteIds, wishlistIds, visitedIds };
-  }, [allFavoriteWineries, allWishlistWineries, allVisitedWineries]);
-
-  const favoritesToRender = allFavoriteWineries;
-  const wishlistToRender = allWishlistWineries.filter(w => !favoriteIds.has(w.id));
-  const visitedToRender = allVisitedWineries.filter(w => !favoriteIds.has(w.id) && !wishlistIds.has(w.id));
-  
-  const trulyDiscoveredWineries = useMemo(() => {
-      const persistentIds = new Set(allPersistentWineries.map(w => w.id));
+  const discoveredWineries = useMemo(() => {
+      const persistentIds = new Set(persistentWineries.map(w => w.id));
       return searchState.results.filter(w => !persistentIds.has(w.id));
-  }, [searchState.results, allPersistentWineries]);
+  }, [searchState.results, persistentWineries]);
 
   const listResultsInView = useMemo(() => {
     if (!mapBounds) return [];
     
-    // ** FIX: Only show all wineries if no trip is selected **
     if (selectedTrip) return [];
 
-    const wineriesInView = [...allPersistentWineries, ...trulyDiscoveredWineries].filter(w => mapBounds.contains({ lat: w.lat, lng: w.lng }));
+    const wineriesInView = [...persistentWineries, ...discoveredWineries].filter(w => mapBounds.contains({ lat: w.lat, lng: w.lng }));
 
     if (filter.includes('all')) return wineriesInView;
     
+    const favoriteIds = new Set(favoriteWineries.map(w => w.id));
+    const wishlistIds = new Set(wishlistWineries.map(w => w.id));
+    const visitedIds = new Set(visitedWineries.map(w => w.id));
+
     return wineriesInView.filter(w => {
         if (filter.includes('visited') && visitedIds.has(w.id)) return true;
         if (filter.includes('favorites') && favoriteIds.has(w.id)) return true;
@@ -292,7 +276,7 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
         if (filter.includes('notVisited') && !visitedIds.has(w.id) && !favoriteIds.has(w.id) && !wishlistIds.has(w.id)) return true;
         return false;
     });
-  }, [filter, allPersistentWineries, trulyDiscoveredWineries, mapBounds, visitedIds, favoriteIds, wishlistIds, selectedTrip]);
+  }, [filter, persistentWineries, discoveredWineries, mapBounds, visitedWineries, favoriteWineries, wishlistWineries, selectedTrip]);
   
   const executeSearch = useCallback(async (locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
     if (!places || !geocoder) return;
@@ -371,7 +355,7 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const handleMapClick = useCallback(async (e: google.maps.MapMouseEvent) => {
     if (!places || !geocoding || !e.latLng || !e.placeId) return;
     e.stop();
-    const isKnown = allPersistentWineries.some(w => w.id === e.placeId);
+    const isKnown = persistentWineries.some(w => w.id === e.placeId);
     if (isKnown) return;
 
     try {
@@ -393,7 +377,7 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
     } catch (error) {
         toast({ variant: "destructive", description: "An error occurred while fetching location details." });
     }
-  }, [places, geocoding, toast, allPersistentWineries]);
+  }, [places, geocoding, toast, persistentWineries]);
 
   useEffect(() => {
     if (!map) return;
@@ -405,108 +389,27 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
   const handleManualSearchArea = () => { const bounds = map?.getBounds(); if (bounds) { executeSearch(undefined, bounds); } };
 
   const handleOpenModal = useCallback((winery: Winery) => {
-    console.log("handleOpenModal called with winery:", winery);
-
     let wineryDataToDisplay = { ...winery };
 
-    // Find the full persistent data, whether a trip is selected or not
-    const fullData = allPersistentWineries.find(p => p.id === winery.id);
+    const fullData = persistentWineries.find(p => p.id === winery.id);
     if (fullData) {
-      console.log("Found full persistent data:", fullData);
       wineryDataToDisplay = { ...wineryDataToDisplay, ...fullData };
-    } else {
-      console.log("Did not find full persistent data for this winery.");
     }
     
-    console.log("wineryDataToDisplay before trip check:", wineryDataToDisplay);
-
-    // ** FIX: Safely check against all upcoming trips. **
-    const foundTrip = allUpcomingTrips.find(trip => {
-      console.log(`Checking trip ${trip.id} for winery ID ${wineryDataToDisplay.id}`);
+    const foundTrip = upcomingTrips.find(trip => {
       const isWineryOnTrip = Array.isArray(trip.wineries) && trip.wineries.some(w => w.id === wineryDataToDisplay.id);
-      console.log(`- Is on trip? ${isWineryOnTrip}`);
       return isWineryOnTrip;
     });
 
     if (foundTrip) {
-      console.log("Found trip for winery:", foundTrip);
       wineryDataToDisplay.trip_id = foundTrip.id;
       wineryDataToDisplay.trip_name = foundTrip.name || "Unnamed Trip";
-      // ** FIX: Add the trip_date to the winery object. This was the missing piece. **
       wineryDataToDisplay.trip_date = foundTrip.trip_date;
-    } else {
-      console.log("Winery not found in any upcoming trips.");
     }
 
-    console.log("Final winery data for modal:", wineryDataToDisplay);
     setSelectedWinery(wineryDataToDisplay);
-  }, [allPersistentWineries, selectedTrip, allUpcomingTrips]);
+  }, [persistentWineries, upcomingTrips]);
   
-  const handleSaveVisit = async (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => {
-    const payload = { wineryData: winery, ...visitData };
-    const response = await fetch('/api/visits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (response.ok) { 
-        toast({ description: "Visit saved successfully." }); 
-        await refreshAllData();
-        setSelectedWinery(null); 
-    } else { 
-        const errorData = await response.json();
-        toast({ variant: "destructive", description: `Failed to save visit: ${errorData.details || errorData.error}` }); 
-    }
-  };
-
-  const handleUpdateVisit = async (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => {
-    const response = await fetch(`/api/visits/${visitId}`, { 
-        method: 'PUT', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify(visitData) 
-    });
-    if (response.ok) { 
-        toast({ description: "Visit updated successfully." }); 
-        await refreshAllData();
-        setSelectedWinery(null); 
-    } else { 
-        toast({ variant: "destructive", description: "Failed to update visit." }); 
-    }
-  };
-  
-  const handleDeleteVisit = async (winery: Winery, visitId: string) => {
-    const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
-    if (response.ok) { 
-      toast({ description: "Visit deleted successfully." }); 
-      await refreshAllData();
-      setSelectedWinery(null);
-    } else { 
-      toast({ variant: "destructive", description: "Failed to delete visit." }); 
-    }
-  };
-
-  const handleToggleWishlist = async (winery: Winery, isOnWishlist: boolean) => {
-    const method = isOnWishlist ? 'DELETE' : 'POST';
-    const body = isOnWishlist ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
-    try {
-      const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
-      if (response.ok) {
-        toast({ description: isOnWishlist ? "Removed from wishlist." : "Added to wishlist." });
-        await refreshAllData();
-        setSelectedWinery(prev => prev ? { ...prev, onWishlist: !isOnWishlist } : null);
-      } else throw new Error();
-    } catch (error) { toast({ variant: 'destructive', description: "Could not update wishlist." }); }
-  };
-  
-  const handleToggleFavorite = async (winery: Winery, isFavorite: boolean) => {
-      const method = isFavorite ? 'DELETE' : 'POST';
-      const body = isFavorite ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
-      try {
-        const response = await fetch('/api/favorites', { method, headers: { 'Content-Type': 'application/json' }, body });
-        if (response.ok) {
-          toast({ description: isFavorite ? "Removed from favorites." : "Added to favorites." });
-          await refreshAllData();
-          setSelectedWinery(prev => prev ? { ...prev, isFavorite: !isFavorite } : null);
-        } else throw new Error();
-      } catch (error) { toast({ variant: 'destructive', description: "Could not update favorites." }); }
-    };
-    
   const handleFilterChange = (newFilter: string[]) => {
       if (newFilter.length === 0) {
         setFilter(['all']);
@@ -525,6 +428,14 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
       setFilter(newFilter);
   };
 
+  if (loading) {
+    return <div className="flex items-center justify-center h-[600px]"><Loader2 className="h-12 w-12 animate-spin text-muted-foreground" /></div>;
+  }
+
+  if (error) {
+    return <Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>{error}</AlertDescription></Alert>;
+  }
+
   return (
     <div className="space-y-6">
       <SearchUI searchState={searchState} searchLocation={searchLocation} setSearchLocation={setSearchLocation} autoSearch={autoSearch} setAutoSearch={setAutoSearch} handleSearchSubmit={handleSearchSubmit} handleManualSearchArea={handleManualSearchArea} filter={filter} onFilterChange={handleFilterChange} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} />
@@ -533,10 +444,10 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
               <Card>
                   <CardContent className="p-0 relative"> 
                       <MapComponent 
-                          trulyDiscoveredWineries={trulyDiscoveredWineries}
-                          visitedToRender={visitedToRender}
-                          wishlistToRender={wishlistToRender}
-                          favoriteToRender={favoritesToRender}
+                          discoveredWineries={discoveredWineries}
+                          visitedWineries={visitedWineries}
+                          wishlistWineries={wishlistWineries}
+                          favoriteWineries={favoriteWineries}
                           filter={filter} 
                           onMarkerClick={handleOpenModal}
                           selectedTrip={selectedTrip}
@@ -582,11 +493,6 @@ function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: { userId: str
       {selectedWinery && (<WineryModal 
         winery={selectedWinery} 
         onClose={() => setSelectedWinery(null)} 
-        onSaveVisit={handleSaveVisit}
-        onUpdateVisit={handleUpdateVisit}
-        onDeleteVisit={handleDeleteVisit}
-        onToggleWishlist={handleToggleWishlist}
-        onToggleFavorite={handleToggleFavorite}
         selectedTrip={selectedTrip}
       />)}
       {proposedWinery && (

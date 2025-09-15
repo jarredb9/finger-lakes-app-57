@@ -2,12 +2,14 @@ import { create } from 'zustand';
 import { Winery, Visit, Trip } from '@/lib/types';
 
 interface WineryState {
+  wineries: Winery[];
   visitedWineries: Winery[];
   wishlistWineries: Winery[];
   favoriteWineries: Winery[];
   persistentWineries: Winery[];
   upcomingTrips: Trip[];
   isLoading: boolean;
+  error: string | null;
   fetchWineryData: () => Promise<void>;
   saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => Promise<void>;
   updateVisit: (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => Promise<void>;
@@ -17,142 +19,127 @@ interface WineryState {
 }
 
 export const useWineryStore = create<WineryState>((set, get) => ({
+  wineries: [],
   visitedWineries: [],
   wishlistWineries: [],
   favoriteWineries: [],
   persistentWineries: [],
   upcomingTrips: [],
   isLoading: false,
+  error: null,
 
   fetchWineryData: async () => {
     console.log('[wineryStore] Starting fetchWineryData...');
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
-      const [visitedRes, wishlistRes, favoritesRes, upcomingTripsRes] = await Promise.all([
-        fetch('/api/visits'),
-        fetch('/api/wishlist'),
-        fetch('/api/favorites'),
-        fetch('/api/trips?type=upcoming&full=true')
+      const [
+        wineriesRes,
+        visitsRes,
+        favoritesRes,
+        wishlistRes,
+        tripsRes,
+      ] = await Promise.all([
+        fetch("/api/wineries"),
+        fetch("/api/visits"),
+        fetch("/api/favorites"),
+        fetch("/api/wishlist"),
+        fetch("/api/trips?type=upcoming"),
       ]);
 
-      // Extract the nested winery arrays from the API responses.
-      // Use `|| []` to provide a fallback for both null and undefined API responses, making this more robust.
-      const [visitedJson, wishlistJson, favoritesJson, upcomingTripsJson] = await Promise.all([
-        visitedRes.json(),
-        wishlistRes.json(),
+      const [
+        wineriesData,
+        visitsData,
+        favoritesData,
+        wishlistData,
+        tripsData,
+      ] = await Promise.all([
+        wineriesRes.json(),
+        visitsRes.json(),
         favoritesRes.json(),
-        upcomingTripsRes.json()
+        wishlistRes.json(),
+        tripsRes.json(),
       ]);
 
-      const { visits: rawVisits, trips: upcoming } = { 
-        visits: visitedJson.visits || [], 
-        trips: upcomingTripsJson.trips || [] 
+      const { wineries } = wineriesData;
+      const { visits } = visitsData;
+      const favorites = favoritesData.favorites || favoritesData;
+      const wishlist = wishlistData.wishlist || wishlistData;
+      const { trips: upcomingTrips } = tripsData;
+
+      const isValidWinery = (winery: any): winery is Winery => {
+        return (
+          winery &&
+          typeof winery.id === "string" &&
+          typeof winery.name === "string" &&
+          typeof winery.lat === "number" &&
+          typeof winery.lng === "number"
+        );
       };
-      // Assign directly since they are arrays, not nested objects.
-      const wishlistWineries = Array.isArray(wishlistJson) ? wishlistJson : [];
-      const favoriteWineries = Array.isArray(favoritesJson) ? favoritesJson : [];
 
-      // --- NEW DETAILED LOGGING ---
-      console.log('%c[wineryStore] API JSON Responses:', 'color: orange; font-weight: bold;', { visitedJson, wishlistJson, favoritesJson, upcomingTripsJson });
-      // --- END NEW LOGGING ---
+      const standardizeWinery = (winery: any): Winery | null => {
+        if (!winery) return null;
 
-      console.log('[wineryStore] Raw data from API:', {
-        rawVisitsCount: rawVisits.length,
-        wishlistWineriesCount: wishlistWineries.length,
-        favoriteWineriesCount: favoriteWineries.length,
-        upcomingTripsCount: upcoming.length,
-      });
+        // If the winery data is nested inside a `wineries` property (like in the `visits` table),
+        // we need to extract it.
+        const wineryData = winery.wineries ? winery.wineries : winery;
 
-      // --- NEW DIAGNOSTIC LOG ---
-      console.log('%c[wineryStore] Initial Array Population Check:', 'color: purple; font-weight: bold;', { rawVisits, wishlistWineries, favoriteWineries });
-      // --- END NEW LOG ---
+        const id =
+          typeof wineryData.id === "number" ? String(wineryData.id) : wineryData.id;
+        const lat =
+          typeof wineryData.lat === "string"
+            ? parseFloat(wineryData.lat)
+            : wineryData.lat;
+        const lng =
+          typeof wineryData.lng === "string"
+            ? parseFloat(wineryData.lng)
+            : wineryData.lng;
 
-      // The /api/visits endpoint returns visit objects. We need to extract the nested winery 
-      // from each visit and combine it with the visit data itself.
-      const visitedWineriesRaw = Array.isArray(rawVisits)
-        ? rawVisits.map((v: any) => {
-            if (!v.wineries) return null;
-
-            // ** FIX: Prevent circular references by creating a clean visit object. **
-            // The original `v` (the visit object) contains a `wineries` property. Attaching the whole `v` object
-            // back onto the extracted `v.wineries` object creates a circular dependency (winery.visits[0].wineries...).
-            // This causes silent failures in standardization and validation.
-            // We create a new `cleanVisit` object that has all properties of the original visit *except* for the nested `wineries`.
-            const { wineries, ...cleanVisit } = v;
-            
-            // Now, we spread the winery data and attach the clean visit object.
-            return { ...wineries, visits: [cleanVisit] };
-        }).filter(Boolean) : [];
-      
-      // --- NEW DETAILED LOGGING ---
-      console.log('%c[wineryStore] Processed & Raw Data (first 5 items):', 'color: orange; font-weight: bold;', {
-        visitedWineriesRaw: visitedWineriesRaw.slice(0, 5),
-        favoriteWineries: favoriteWineries.slice(0, 5),
-        wishlistWineries: wishlistWineries.slice(0, 5),
-      });
-      // --- END NEW LOGGING ---
-
-      // 1. Standardize the data format first. This creates new objects and avoids mutation.
-      // This function now handles two cases:
-      // a) Visited wineries, which are nested under a `wineries` property.
-      // b) Favorite/Wishlist wineries, where the data is at the top level.
-      const standardizeWinery = (w: any) => {
-        const wineryData = w.wineries || w; // Use nested `wineries` object if it exists, otherwise use the object itself.
-        return {
+        const standardized = {
           ...wineryData,
-          id: String(wineryData.id), // Ensure the primary ID (from Google Places or your DB) is a string.
-          dbId: w.id, // For favorites/wishlist, the top-level `id` is the database ID. Preserve it.
-          lat: typeof wineryData.lat === 'string' ? parseFloat(wineryData.lat) : wineryData.lat,
-          lng: typeof wineryData.lng === 'string' ? parseFloat(wineryData.lng) : wineryData.lng,
-          visits: w.visits // Carry over visits data if it exists
+          id,
+          lat,
+          lng,
+          // Keep visit-specific data if it exists
+          visit_id: winery.id,
+          visit_date: winery.visit_date,
         };
+
+        if (isValidWinery(standardized)) {
+          return standardized;
+        }
+        return null;
+      };
+      
+      const processWineries = (wineryData: any[]): Winery[] => {
+        if (!Array.isArray(wineryData)) {
+          console.warn("Expected an array of wineries, but received:", wineryData);
+          return [];
+        }
+        return wineryData.map(standardizeWinery).filter(Boolean) as Winery[];
       };
 
-      const standardizedVisited = visitedWineriesRaw.map(standardizeWinery);
-      const standardizedFavorites = favoriteWineries.map(standardizeWinery);
-      const standardizedWishlist = wishlistWineries.map(standardizeWinery);
+      const visitedWineries = processWineries(visits);
+      const favoriteWineries = processWineries(favorites);
+      const wishlistWineries = processWineries(wishlist);
 
-      // 2. Now, create a clean, non-mutating validation function.
-      const isValidWinery = (w: any): w is Winery => {
-        return w && typeof w.id === 'string' && w.id.length > 0 &&
-               typeof w.lat === 'number' && !isNaN(w.lat) &&
-               typeof w.lng === 'number' && !isNaN(w.lng);
-      };
-
-      const validVisitedWineries = standardizedVisited.filter(isValidWinery);
-      const validFavoriteWineries = standardizedFavorites.filter(isValidWinery);
-      const validWishlistWineries = standardizedWishlist.filter(isValidWinery);
-
-      console.log('[wineryStore] Validated data counts:', {
-        validVisited: validVisitedWineries.length,
-        validFavorites: validFavoriteWineries.length,
-        validWishlist: validWishlistWineries.length,
-      });
-
-      const persistentWineriesMap = new Map<string, Winery>();
-
-      const allWineries = [...validFavoriteWineries, ...validWishlistWineries, ...validVisitedWineries];
-
-      for (const winery of allWineries) {
-        const existing = persistentWineriesMap.get(winery.id) || {};
-        persistentWineriesMap.set(winery.id, { ...existing, ...winery });
-      }
-
-      const persistentWineriesArray = Array.from(persistentWineriesMap.values());
-      console.log(`[wineryStore] Created ${persistentWineriesArray.length} unique persistent wineries.`);
+      const persistentWineries = [
+        ...visitedWineries,
+        ...favoriteWineries,
+        ...wishlistWineries,
+      ];
 
       set({
-        visitedWineries: validVisitedWineries,
-        wishlistWineries: validWishlistWineries,
-        favoriteWineries: validFavoriteWineries,
-        persistentWineries: persistentWineriesArray,
-        upcomingTrips: upcoming || [],
+        wineries,
+        visitedWineries,
+        favoriteWineries,
+        wishlistWineries,
+        persistentWineries,
+        upcomingTrips,
         isLoading: false,
       });
     } catch (error) {
-      console.error("[wineryStore] FATAL ERROR in fetchWineryData:", error);
-      console.error("Failed to fetch winery data", error);
-      set({ isLoading: false });
+      console.error("Failed to fetch winery data:", error);
+      set({ error: "Failed to load winery data.", isLoading: false });
     }
   },
 
