@@ -36,7 +36,7 @@ export default function DiscoveredClusterer({ wineries, onClick }: DiscoveredClu
                 anchor: new google.maps.Point(20, 40),
               },
               // Lowest zIndex for discovered clusters
-              zIndex: 10 + count,
+              zIndex: 100 + count,
             });
           },
         }
@@ -62,14 +62,14 @@ export default function DiscoveredClusterer({ wineries, onClick }: DiscoveredClu
             scale: 1.5,
             anchor: new google.maps.Point(12, 24),
         },
-        zIndex: 4, // Lowest zIndex for individual markers
+        zIndex: 10, // Lowest zIndex for individual markers
       });
       marker.addListener('click', () => onClick(winery));
       return marker;
     });
 
     clusterer.current.addMarkers(newMarkers);
-  }, [wineries, onClick]);
+  }, [wineries, onClick, clusterer.current]);
   
   // Cleanup on unmount
   useEffect(() => {

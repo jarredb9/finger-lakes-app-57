@@ -48,6 +48,19 @@ export default function WishlistClusterer({ wineries, onClick }: WishlistCluster
   useEffect(() => {
     if (!clusterer.current) return;
     
+    // zIndex for wishlist clusters
+              zIndex: 200 + count,
+            });
+          },
+        }
+      });
+    }
+  }, [map]);
+
+  // Update markers
+  useEffect(() => {
+    if (!clusterer.current) return;
+    
     clusterer.current.clearMarkers();
     
     const newMarkers = wineries.map(winery => {
@@ -57,19 +70,19 @@ export default function WishlistClusterer({ wineries, onClick }: WishlistCluster
             path: `M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z`,
             fillColor: '#9333ea', // Purple color for wishlist
             fillOpacity: 1,
-            strokeColor: '#7e22ce', // Darker purple border
+            strokeColor: '#7e22ce',
             strokeWeight: 1,
             scale: 1.5,
             anchor: new google.maps.Point(12, 24),
         },
-        zIndex: 8,
+        zIndex: 20,
       });
       marker.addListener('click', () => onClick(winery));
       return marker;
     });
 
     clusterer.current.addMarkers(newMarkers);
-  }, [wineries, onClick]);
+  }, [wineries, onClick, clusterer.current]);
   
   // Cleanup on unmount
   useEffect(() => {
