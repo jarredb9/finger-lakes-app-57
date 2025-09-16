@@ -106,12 +106,16 @@ export const useTripStore = create<TripState>((set, get) => ({
   },
 
   updateTrip: async (tripId: string, updates: Partial<Trip>) => {
+    console.log(`[tripStore] Attempting to update trip ${tripId} with:`, updates);
     const originalTrips = get().trips;
-    set(state => ({
-      trips: state.trips.map(trip =>
+    
+    set(state => {
+      const newTrips = state.trips.map(trip =>
         trip.id === tripId ? { ...trip, ...updates } : trip
-      ),
-    }));
+      );
+      console.log(`[tripStore] Optimistically updated trips state:`, newTrips);
+      return { trips: newTrips };
+    });
 
     try {
       const response = await fetch(`/api/trips/${tripId}`, {
@@ -121,13 +125,13 @@ export const useTripStore = create<TripState>((set, get) => ({
       });
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("API update failed, reverting state:", errorData);
+        console.error("[tripStore] API update failed, reverting state:", errorData);
         set({ trips: originalTrips }); // Revert on API failure
         throw new Error(errorData.message || "Failed to update trip");
       }
-      console.log(`Trip ${tripId} updated successfully with:`, updates);
+      console.log(`[tripStore] Trip ${tripId} updated successfully via API with:`, updates);
     } catch (error) {
-      console.error("Error updating trip, reverting state:", error);
+      console.error("[tripStore] Error updating trip, reverting state:", error);
       set({ trips: originalTrips }); // Revert on network error
       throw error;
     }
