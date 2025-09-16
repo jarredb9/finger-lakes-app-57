@@ -109,7 +109,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         }
         
         // Scenario 3: Update the order of wineries in the trip
-.DS_Store
         if (body.wineryOrder && Array.isArray(body.wineryOrder)) {
             const updates = body.wineryOrder.map((wineryId, index) => 
                 supabase.from('trip_wineries')
