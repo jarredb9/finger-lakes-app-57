@@ -4,8 +4,10 @@ import { createClient } from '@/utils/supabase/client';
 
 interface TripState {
   trips: Trip[];
+  upcomingTrips: Trip[];
   isLoading: boolean;
   fetchAllTrips: () => Promise<void>;
+  fetchUpcomingTrips: () => Promise<void>;
   fetchTripsForDate: (date: Date) => Promise<void>;
   createTrip: (date: Date) => Promise<Trip | null>;
   deleteTrip: (tripId: string) => Promise<void>;
@@ -20,6 +22,7 @@ const supabase = createClient();
 
 export const useTripStore = create<TripState>((set, get) => ({
   trips: [],
+  upcomingTrips: [],
   isLoading: false,
 
   fetchAllTrips: async () => {
@@ -35,6 +38,22 @@ export const useTripStore = create<TripState>((set, get) => ({
     } catch (error) {
       console.error("Failed to fetch trips", error);
       set({ trips: [], isLoading: false });
+    }
+  },
+
+  fetchUpcomingTrips: async () => {
+    set({ isLoading: true });
+    try {
+      const response = await fetch(`/api/trips?type=upcoming`);
+      if (response.ok) {
+        const data = await response.json();
+        set({ upcomingTrips: Array.isArray(data.trips) ? data.trips : [], isLoading: false });
+      } else {
+        set({ upcomingTrips: [], isLoading: false });
+      }
+    } catch (error) {
+      console.error("Failed to fetch upcoming trips", error);
+      set({ upcomingTrips: [], isLoading: false });
     }
   },
 

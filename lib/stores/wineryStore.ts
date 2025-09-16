@@ -7,7 +7,7 @@ interface WineryState {
   wishlistWineries: Winery[];
   favoriteWineries: Winery[];
   persistentWineries: Winery[];
-  upcomingTrips: Trip[];
+  
   isLoading: boolean;
   error: string | null;
   fetchWineryData: () => Promise<void>;
@@ -24,7 +24,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   wishlistWineries: [],
   favoriteWineries: [],
   persistentWineries: [],
-  upcomingTrips: [],
+  
   isLoading: false,
   error: null,
 
@@ -36,30 +36,30 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         visitsRes,
         favoritesRes,
         wishlistRes,
-        tripsRes,
+        
       ] = await Promise.all([
         fetch("/api/visits"),
         fetch("/api/favorites"),
         fetch("/api/wishlist"),
-        fetch("/api/trips?type=upcoming"),
+        
       ]);
 
       const [
         visitsData,
         favoritesData,
         wishlistData,
-        tripsData,
+        
       ] = await Promise.all([
         visitsRes.json(),
         favoritesRes.json(),
         wishlistRes.json(),
-        tripsRes.json(),
+        
       ]);
 
       const { visits } = visitsData;
       const favorites = favoritesData.favorites || favoritesData;
       const wishlist = wishlistData.wishlist || wishlistData;
-      const { trips: upcomingTrips } = tripsData;
+      
 
       const isValidWinery = (winery: any): winery is Winery => {
         const result = (
@@ -134,7 +134,6 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         favoriteWineries,
         wishlistWineries,
         persistentWineries,
-        upcomingTrips,
       });
 
       set({
@@ -143,7 +142,6 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         favoriteWineries,
         wishlistWineries,
         persistentWineries,
-        upcomingTrips,
         isLoading: false,
       });
     } catch (error) {
