@@ -49,12 +49,28 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             return NextResponse.json({ error: "Trip not found or you don't have permission to view it." }, { status: 404 });
         }
         
-        // Sort the wineries by visit_order
+        let wineries = [];
         if (trip.trip_wineries) {
-            trip.trip_wineries.sort((a, b) => a.visit_order - b.visit_order);
+            wineries = trip.trip_wineries
+                .sort((a, b) => a.visit_order - b.visit_order)
+                .map((tw: any) => ({
+                    ...tw.wineries,
+                    dbId: tw.wineries.id,
+                    lat: parseFloat(tw.wineries.latitude),
+                    lng: parseFloat(tw.wineries.longitude),
+                    notes: tw.notes,
+                    visit_order: tw.visit_order,
+                }));
         }
 
-        return NextResponse.json(trip);
+        const responseTrip = {
+            ...trip,
+            wineries,
+        };
+        
+        delete responseTrip.trip_wineries;
+
+        return NextResponse.json(responseTrip);
 
     } catch (error) {
         console.error(`Error fetching trip ${tripId}:`, error);
