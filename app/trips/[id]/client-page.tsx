@@ -7,12 +7,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useTripStore } from '@/lib/stores/tripStore';
 
 export default function TripDetailClientPage({ tripId, user }: { tripId: string, user: User }) {
-  const { trips, fetchAllTrips, isLoading } = useTripStore();
-  
-  console.log("[TripDetailClientPage] Received tripId:", tripId);
-  console.log("[TripDetailClientPage] Current trips from store:", trips);
+  const fetchAllTrips = useTripStore(state => state.fetchAllTrips);
+  const isLoading = useTripStore(state => state.isLoading);
+  const trip = useTripStore(state => state.trips.find(t => t.id === tripId));
 
-  const trip = trips.find(t => t.id === tripId);
+  console.log("[TripDetailClientPage] Received tripId:", tripId, "(type:", typeof tripId, ")");
+  if (trip) {
+    console.log("[TripDetailClientPage] Found trip ID:", trip.id, "(type:", typeof trip.id, ")");
+  }
 
   useEffect(() => {
     console.log("[TripDetailClientPage] Initializing fetchAllTrips");
