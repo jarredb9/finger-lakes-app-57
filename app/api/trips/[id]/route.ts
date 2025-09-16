@@ -2,6 +2,66 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
 
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+    const user = await getUser();
+    if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const tripId = parseInt(params.id, 10);
+    if (isNaN(tripId)) {
+        return NextResponse.json({ error: "Invalid trip ID" }, { status: 400 });
+    }
+
+    try {
+        const supabase = await createClient();
+
+        const { data: trip, error: tripError } = await supabase
+            .from('trips')
+            .select(`
+                id,
+                name,
+                trip_date,
+                user_id,
+                members,
+                trip_wineries (
+                    winery_id,
+                    visit_order,
+                    notes,
+                    wineries (
+                        id,
+                        name,
+                        latitude,
+                        longitude
+                    )
+                )
+            `)
+            .eq('id', tripId)
+            .or(`user_id.eq.${user.id},members.cs.{${user.id}}`)
+            .single();
+
+        if (tripError) {
+            console.error(`Error fetching trip ${tripId}:`, tripError);
+            throw tripError;
+        }
+
+        if (!trip) {
+            return NextResponse.json({ error: "Trip not found or you don't have permission to view it." }, { status: 404 });
+        }
+        
+        // Sort the wineries by visit_order
+        if (trip.trip_wineries) {
+            trip.trip_wineries.sort((a, b) => a.visit_order - b.visit_order);
+        }
+
+        return NextResponse.json(trip);
+
+    } catch (error) {
+        console.error(`Error fetching trip ${tripId}:`, error);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+}
+
 // Handles various updates to a trip like changing its name, reordering wineries, removing a winery, or updating a note.
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     const user = await getUser();
@@ -49,6 +109,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         }
         
         // Scenario 3: Update the order of wineries in the trip
+.DS_Store
         if (body.wineryOrder && Array.isArray(body.wineryOrder)) {
             const updates = body.wineryOrder.map((wineryId, index) => 
                 supabase.from('trip_wineries')
