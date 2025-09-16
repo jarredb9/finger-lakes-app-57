@@ -26,17 +26,20 @@ export const useTripStore = create<TripState>((set, get) => ({
   isLoading: false,
 
   fetchAllTrips: async () => {
+    console.log("[tripStore] fetchAllTrips: Starting fetch.");
     set({ isLoading: true });
     try {
       const response = await fetch(`/api/trips`);
       if (response.ok) {
         const data = await response.json();
+        console.log("[tripStore] fetchAllTrips: Data fetched successfully.", data);
         set({ trips: Array.isArray(data) ? data : [], isLoading: false });
       } else {
+        console.error("[tripStore] fetchAllTrips: Failed to fetch data.", response.status, response.statusText);
         set({ trips: [], isLoading: false });
       }
     } catch (error) {
-      console.error("Failed to fetch trips", error);
+      console.error("[tripStore] fetchAllTrips: Error during fetch.", error);
       set({ trips: [], isLoading: false });
     }
   },
