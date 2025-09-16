@@ -108,6 +108,7 @@ export const useTripStore = create<TripState>((set, get) => ({
   updateTrip: async (tripId: string, updates: Partial<Trip>) => {
     console.log(`[tripStore] Attempting to update trip ${tripId} with:`, updates);
     const originalTrips = get().trips;
+    console.log(`[tripStore] Current trips state before optimistic update:`, originalTrips);
     
     set(state => {
       const newTrips = state.trips.map(trip =>
