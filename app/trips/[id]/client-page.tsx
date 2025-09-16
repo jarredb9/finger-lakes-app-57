@@ -8,6 +8,10 @@ import { useTripStore } from '@/lib/stores/tripStore';
 
 export default function TripDetailClientPage({ tripId, user }: { tripId: string, user: User }) {
   const { trips, fetchAllTrips, isLoading } = useTripStore();
+  
+  console.log("[TripDetailClientPage] Received tripId:", tripId);
+  console.log("[TripDetailClientPage] Current trips from store:", trips);
+
   const trip = trips.find(t => t.id === tripId);
 
   useEffect(() => {
