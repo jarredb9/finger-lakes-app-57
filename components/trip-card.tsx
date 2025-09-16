@@ -89,25 +89,18 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
     );
 }
 
-export default function TripCard({ trip, userId }: { trip: Trip; userId: string; }) {
-    const [tripWineries, setTripWineries] = useState<Winery[]>(trip.wineries || []);
+export default function TripCard({ tripId, userId }: { tripId: string; userId: string; }) {
+    const { trips, fetchTripsForDate, deleteTrip, updateTrip, updateWineryOrder, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
+    const trip = trips.find(t => t.id === tripId);
+
+    const [tripWineries, setTripWineries] = useState<Winery[]>([]);
     const [isEditingName, setIsEditingName] = useState(false);
-    const [tripName, setTripName] = useState(trip.name || "");
+    const [tripName, setTripName] = useState("");
     const [friends, setFriends] = useState<any[]>([]);
-    const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
+    const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
     const { toast } = useToast();
     
-    const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date(trip.trip_date));
-    
-    const { 
-        fetchTripsForDate, 
-        deleteTrip, 
-        updateTrip, 
-        updateWineryOrder, 
-        removeWineryFromTrip, 
-        saveWineryNote,
-        addMembersToTrip
-    } = useTripStore();
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
     
     const supabase = createClient();
 
@@ -125,6 +118,26 @@ export default function TripCard({ trip, userId }: { trip: Trip; userId: string;
     );
 
     useEffect(() => {
+        if (!trip) return;
+
+        setTripWineries(trip.wineries || []);
+        setTripName(trip.name || "");
+        setSelectedFriends(trip.members || []);
+        setSelectedDate(new Date(trip.trip_date));
+
+        const fetchFriends = async () => {
+            const response = await fetch('/api/friends');
+            if (response.ok) {
+                const data = await response.json();
+                setFriends(data.friends || []);
+            }
+        };
+        fetchFriends();
+    }, [trip, fetchTripsForDate]);
+
+    useEffect(() => {
+        if (!trip) return;
+
         const channel = supabase.channel(`trip-updates-${trip.id}`);
         
         channel
@@ -143,23 +156,11 @@ export default function TripCard({ trip, userId }: { trip: Trip; userId: string;
         return () => {
           supabase.removeChannel(channel);
         };
-    }, [trip.id, supabase, fetchTripsForDate, selectedDate]);
+    }, [trip?.id, supabase, fetchTripsForDate, selectedDate]);
 
-    useEffect(() => {
-        setTripWineries(trip.wineries || []);
-        setTripName(trip.name || "");
-        setSelectedFriends(trip.members || []);
-        setSelectedDate(new Date(trip.trip_date));
-
-        const fetchFriends = async () => {
-            const response = await fetch('/api/friends');
-            if (response.ok) {
-                const data = await response.json();
-                setFriends(data.friends || []);
-            }
-        };
-        fetchFriends();
-    }, [trip]);
+    if (!trip) {
+        return null; // Or a loading spinner
+    }
 
     const handleSaveTripName = async () => {
         if (!trip || !tripName) return;

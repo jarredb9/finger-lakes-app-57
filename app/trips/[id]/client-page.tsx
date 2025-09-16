@@ -1,47 +1,24 @@
 'use client'
 
-import { useState, useEffect } from 'react';
-import { Trip } from '@/lib/types';
+import { useEffect } from 'react';
 import { User } from '@supabase/supabase-js';
 import TripCard from '@/components/trip-card';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useTripStore } from '@/lib/stores/tripStore';
 
 export default function TripDetailClientPage({ tripId, user }: { tripId: string, user: User }) {
-  const [trip, setTrip] = useState<Trip | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { trips, fetchAllTrips, isLoading } = useTripStore();
+  const trip = trips.find(t => t.id === tripId);
 
   useEffect(() => {
-    const fetchTrip = async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(`/api/trips/${tripId}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch trip details');
-        }
-        const data = await response.json();
-        setTrip(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (trips.length === 0 && !isLoading) {
+      fetchAllTrips();
+    }
+  }, [trips.length, isLoading, fetchAllTrips]);
 
-    fetchTrip();
-  }, [tripId]);
-
-  if (loading) {
+  if (isLoading || !trip) {
     return <Skeleton className="h-96 w-full" />;
   }
 
-  if (error) {
-    return <div className="text-red-500">Error: {error}</div>;
-  }
-
-  if (!trip) {
-    return <div>Trip not found.</div>;
-  }
-
-  return <TripCard trip={trip} userId={user.id} />;
+  return <TripCard tripId={trip.id} userId={user.id} />;
 }
