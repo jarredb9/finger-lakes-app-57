@@ -32,7 +32,16 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
                         id,
                         name,
                         latitude,
-                        longitude
+                        longitude,
+                        visits (
+                            id,
+                            user_id,
+                            rating,
+                            user_review,
+                            profiles (
+                                name
+                            )
+                        )
                     )
                 )
             `)
