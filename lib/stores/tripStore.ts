@@ -33,6 +33,11 @@ export const useTripStore = create<TripState>((set, get) => ({
       if (response.ok) {
         const data = await response.json();
         console.log("[tripStore] fetchAllTrips: Data fetched successfully.", data);
+        if (Array.isArray(data)) {
+          data.forEach(trip => console.log("[tripStore] Fetched trip ID:", trip.id, "(type:", typeof trip.id, ")"));
+        } else if (data.trips && Array.isArray(data.trips)) {
+          data.trips.forEach((trip: any) => console.log("[tripStore] Fetched trip ID:", trip.id, "(type:", typeof trip.id, ")"));
+        }
         set({ trips: Array.isArray(data) ? data : [], isLoading: false });
       } else {
         console.error("[tripStore] fetchAllTrips: Failed to fetch data.", response.status, response.statusText);
