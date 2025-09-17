@@ -58,9 +58,9 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         
       ]);
 
-      console.log("[wineryStore] Raw visitsData:", visitsData.visits.map((v: any) => ({ id: v.wineries?.google_place_id, name: v.wineries?.name, phone: v.wineries?.phone, website: v.wineries?.website, rating: v.wineries?.google_rating })));
-      console.log("[wineryStore] Raw favoritesData:", favoritesData.map((f: any) => ({ id: f.wineries?.google_place_id ?? f.id, name: f.wineries?.name ?? f.name, phone: f.wineries?.phone ?? f.phone, website: f.wineries?.website ?? f.website, rating: f.wineries?.google_rating ?? f.rating })));
-      console.log("[wineryStore] Raw wishlistData:", wishlistData.map((w: any) => ({ id: w.wineries?.google_place_id ?? w.id, name: w.wineries?.name ?? w.name, phone: w.wineries?.phone ?? w.phone, website: w.wineries?.website ?? w.website, rating: w.wineries?.google_rating ?? w.rating })));
+      console.log("[wineryStore] Raw visitsData (stringified):", JSON.stringify(visitsData.visits.map((v: any) => ({ id: v.wineries?.google_place_id, name: v.wineries?.name, phone: v.wineries?.phone, website: v.wineries?.website, rating: v.wineries?.google_rating }))));
+      console.log("[wineryStore] Raw favoritesData (stringified):", JSON.stringify(favoritesData.map((f: any) => ({ id: f.wineries?.google_place_id ?? f.id, name: f.wineries?.name ?? f.name, phone: f.wineries?.phone ?? f.phone, website: f.wineries?.website ?? f.website, rating: f.wineries?.google_rating ?? f.rating }))));
+      console.log("[wineryStore] Raw wishlistData (stringified):", JSON.stringify(wishlistData.map((w: any) => ({ id: w.wineries?.google_place_id ?? w.id, name: w.wineries?.name ?? w.name, phone: w.wineries?.phone ?? w.phone, website: w.wineries?.website ?? w.website, rating: w.wineries?.rating ?? w.rating }))));
 
       const { visits } = visitsData;
       const favorites = favoritesData.favorites || favoritesData;
