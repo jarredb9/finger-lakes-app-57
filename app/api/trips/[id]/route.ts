@@ -41,13 +41,60 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
     return NextResponse.json({ error: "Trip not found" }, { status: 404 });
   }
 
-  const formattedTrip = {
-    ...trip,
-    wineries: trip.trip_wineries
-      .sort((a, b) => a.visit_order - b.visit_order)
-      .map(tw => formatWinery(tw.wineries))
-      .filter(Boolean),
-  };
+  const allWineryIds = new Set<number>();
+  const allMemberIds = new Set<string>();
+  if (trip.trip_wineries) {
+      trip.trip_wineries.forEach(tw => tw.wineries?.id && allWineryIds.add(tw.wineries.id));
+  }
+  if (trip.members) {
+      trip.members.forEach(memberId => allMemberIds.add(memberId));
+  }
+  allMemberIds.add(trip.user_id);
+
+  if (allWineryIds.size === 0 || allMemberIds.size === 0) {
+      const formattedTrip = {
+        ...trip,
+        wineries: trip.trip_wineries
+          .sort((a, b) => a.visit_order - b.visit_order)
+          .map(tw => formatWinery(tw.wineries))
+          .filter(Boolean),
+      };
+      return NextResponse.json(formattedTrip);
+  }
+
+  const { data: visits, error: visitsError } = await supabase
+      .from("visits")
+      .select("*, profiles(name)")
+      .in("winery_id", Array.from(allWineryIds))
+      .in("user_id", Array.from(allMemberIds))
+      .eq("visit_date", trip.trip_date);
+
+  if(visitsError) throw visitsError;
+
+  const visitsByWinery = new Map<number, any[]>();
+  visits?.forEach(visit => {
+      if (!visitsByWinery.has(visit.winery_id)) {
+          visitsByWinery.set(visit.winery_id, []);
+      }
+      visitsByWinery.get(visit.winery_id)?.push(visit);
+  });
+
+  const wineriesWithVisits = trip.trip_wineries
+    .sort((a, b) => a.visit_order - b.visit_order)
+    .map(tw => {
+        const wineryData = formatWinery(tw.wineries);
+        if (wineryData) {
+            return {
+                ...wineryData,
+                notes: tw.notes,
+                visits: visitsByWinery.get(wineryData.dbId) || [],
+            };
+        }
+        return null;
+    })
+    .filter(Boolean);
+
+  const formattedTrip = { ...trip, wineries: wineriesWithVisits as any[] };
 
   return NextResponse.json(formattedTrip);
 }
