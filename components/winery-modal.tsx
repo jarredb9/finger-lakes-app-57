@@ -127,15 +127,28 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
 
       const wineryFromStore = persistentWineries.find(w => w.id === winery.id);
 
-      return {
-          ...winery, // Start with the full details from the prop
-          ...wineryFromStore, // Overlay with status and visits from the store
-          // Ensure visits array is correctly merged if both exist
-          visits: wineryFromStore?.visits || winery.visits || [],
-          userVisited: wineryFromStore?.userVisited || winery.userVisited || false,
-          onWishlist: wineryFromStore?.onWishlist || winery.onWishlist || false,
-          isFavorite: wineryFromStore?.isFavorite || winery.isFavorite || false,
-      };
+      // Start with the complete winery object from the prop
+      const mergedWinery: Winery = { ...winery };
+
+      if (wineryFromStore) {
+          // Overlay status flags and visits array from the store, as these are managed by the store
+          mergedWinery.userVisited = wineryFromStore.userVisited;
+          mergedWinery.onWishlist = wineryFromStore.onWishlist;
+          mergedWinery.isFavorite = wineryFromStore.isFavorite;
+          mergedWinery.visits = wineryFromStore.visits;
+          mergedWinery.dbId = wineryFromStore.dbId; // Ensure dbId is also carried over from store if available
+      }
+
+      // Explicitly ensure core Google Maps details are from the 'winery' prop
+      mergedWinery.phone = winery.phone;
+      mergedWinery.website = winery.website;
+      mergedWinery.rating = winery.rating;
+      mergedWinery.address = winery.address;
+      mergedWinery.name = winery.name;
+      mergedWinery.lat = winery.lat;
+      mergedWinery.lng = winery.lng;
+
+      return mergedWinery;
   }, [winery, persistentWineries]);
 
   const editFormRef = useRef<HTMLDivElement>(null);
