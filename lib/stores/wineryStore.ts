@@ -58,9 +58,9 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         
       ]);
 
-      console.log("[wineryStore] Raw visitsData:", visitsData);
-      console.log("[wineryStore] Raw favoritesData:", favoritesData);
-      console.log("[wineryStore] Raw wishlistData:", wishlistData);
+      console.log("[wineryStore] Raw visitsData:", visitsData.visits.map((v: any) => ({ id: v.wineries.google_place_id, name: v.wineries.name, phone: v.wineries.phone, website: v.wineries.website, rating: v.wineries.google_rating })));
+      console.log("[wineryStore] Raw favoritesData:", favoritesData.map((f: any) => ({ id: f.wineries.google_place_id, name: f.wineries.name, phone: f.wineries.phone, website: f.wineries.website, rating: f.wineries.google_rating })));
+      console.log("[wineryStore] Raw wishlistData:", wishlistData.map((w: any) => ({ id: w.wineries.google_place_id, name: w.wineries.name, phone: w.wineries.phone, website: w.wineries.website, rating: w.wineries.google_rating })));
 
       const { visits } = visitsData;
       const favorites = favoritesData.favorites || favoritesData;
