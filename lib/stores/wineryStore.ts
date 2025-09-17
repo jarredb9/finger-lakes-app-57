@@ -97,7 +97,6 @@ export const useWineryStore = create<WineryState>((set, get) => ({
             visit_id: item.id,
             visit_date: item.visit_date,
             user_review: item.user_review,
-            rating: item.rating,
           }),
         };
       
