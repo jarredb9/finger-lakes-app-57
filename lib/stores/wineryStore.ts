@@ -68,7 +68,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       
       
 
-      const standardizeWineryData = (rawWinery: any): Winery | null => {
+      const standardizeWineryData = (rawWinery: any, existingWinery?: Winery): Winery | null => {
         if (!rawWinery) return null;
 
         const id = String(rawWinery.id);
@@ -82,16 +82,16 @@ export const useWineryStore = create<WineryState>((set, get) => ({
             address: rawWinery.address,
             lat: typeof lat === 'string' ? parseFloat(lat) : lat,
             lng: typeof lng === 'string' ? parseFloat(lng) : lng,
-            phone: rawWinery.phone,
-            website: rawWinery.website,
-            rating: rawWinery.google_rating ?? rawWinery.rating,
-            userVisited: false,
-            onWishlist: false,
-            isFavorite: false,
-            visits: [],
-            trip_id: rawWinery.trip_id,
-            trip_name: rawWinery.trip_name,
-            trip_date: rawWinery.trip_date,
+            phone: rawWinery.phone ?? existingWinery?.phone,
+            website: rawWinery.website ?? existingWinery?.website,
+            rating: rawWinery.google_rating ?? rawWinery.rating ?? existingWinery?.rating,
+            userVisited: existingWinery?.userVisited || false,
+            onWishlist: existingWinery?.onWishlist || false,
+            isFavorite: existingWinery?.isFavorite || false,
+            visits: existingWinery?.visits || [],
+            trip_id: rawWinery.trip_id ?? existingWinery?.trip_id,
+            trip_name: rawWinery.trip_name ?? existingWinery?.trip_name,
+            trip_date: rawWinery.trip_date ?? existingWinery?.trip_date,
         };
 
         if (!standardized.id || !standardized.name || typeof standardized.lat !== 'number' || typeof standardized.lng !== 'number') {
@@ -138,11 +138,11 @@ export const useWineryStore = create<WineryState>((set, get) => ({
           const wineryGoogleId = String(visit.wineries.google_place_id);
           let wineryInMap = wineriesMap.get(wineryGoogleId);
 
-          if (!wineryInMap) {
-              wineryInMap = standardizeWineryData(visit.wineries);
-              if (!wineryInMap) return;
-              wineriesMap.set(wineryGoogleId, wineryInMap);
-          }
+          // Pass existing winery to standardizeWineryData for merging
+          const newWineryData = standardizeWineryData(visit.wineries, wineryInMap || undefined);
+          if (!newWineryData) return;
+          wineryInMap = newWineryData;
+          wineriesMap.set(wineryGoogleId, wineryInMap);
 
           wineryInMap.userVisited = true;
           wineryInMap.visits?.push(visit);
@@ -155,11 +155,12 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
           let wineryInMap = wineriesMap.get(wineryGoogleId);
 
-          if (!wineryInMap) {
-              wineryInMap = standardizeWineryData(wineryData);
-              if (!wineryInMap) return;
-              wineriesMap.set(wineryGoogleId, wineryInMap);
-          }
+          // Pass existing winery to standardizeWineryData for merging
+          const newWineryData = standardizeWineryData(wineryData, wineryInMap || undefined);
+          if (!newWineryData) return;
+          wineryInMap = newWineryData;
+          wineriesMap.set(wineryGoogleId, wineryInMap);
+
           wineryInMap.isFavorite = true;
           console.log("[wineryStore] After processing favorite, wineryInMap:", wineryInMap);
       });
@@ -170,11 +171,12 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
           let wineryInMap = wineriesMap.get(wineryGoogleId);
 
-          if (!wineryInMap) {
-              wineryInMap = standardizeWineryData(wineryData);
-              if (!wineryInMap) return;
-              wineriesMap.set(wineryGoogleId, wineryInMap);
-          }
+          // Pass existing winery to standardizeWineryData for merging
+          const newWineryData = standardizeWineryData(wineryData, wineryInMap || undefined);
+          if (!newWineryData) return;
+          wineryInMap = newWineryData;
+          wineriesMap.set(wineryGoogleId, wineryInMap);
+
           wineryInMap.onWishlist = true;
           console.log("[wineryStore] After processing wishlist, wineryInMap:", wineryInMap);
       });

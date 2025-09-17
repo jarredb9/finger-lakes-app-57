@@ -134,14 +134,18 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
       console.log("[WineryModal] wineryFromStore:", wineryFromStore);
 
       const finalWinery: Winery = {
-          ...winery, // Start with all details from the prop
-          ...(wineryFromStore ? { // Only apply properties from store if wineryFromStore exists
-              userVisited: wineryFromStore.userVisited,
-              onWishlist: wineryFromStore.onWishlist,
-              isFavorite: wineryFromStore.isFavorite,
-              visits: wineryFromStore.visits,
-              dbId: wineryFromStore.dbId,
-          } : {}),
+          ...(wineryFromStore || {}), // Start with all details from the store (if available)
+          ...winery, // Then overlay with details from the prop (which might have more up-to-date map data)
+          // Explicitly ensure boolean flags and visits are taken from the store if available
+          userVisited: wineryFromStore?.userVisited ?? winery.userVisited,
+          onWishlist: wineryFromStore?.onWishlist ?? winery.onWishlist,
+          isFavorite: wineryFromStore?.isFavorite ?? winery.isFavorite,
+          visits: wineryFromStore?.visits ?? winery.visits,
+          dbId: wineryFromStore?.dbId ?? winery.dbId,
+          // Ensure phone, website, rating are taken from store if prop is undefined
+          phone: wineryFromStore?.phone ?? winery.phone,
+          website: wineryFromStore?.website ?? winery.website,
+          rating: wineryFromStore?.rating ?? winery.rating,
       };
 
       console.log("[WineryModal] Final mergedWinery:", finalWinery);
