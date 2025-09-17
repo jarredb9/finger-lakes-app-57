@@ -14,7 +14,7 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
     const { toast } = useToast();
 
-    const { trips, isLoading, fetchTripsForDate, createTrip } = useTripStore();
+    const { tripsForDate, isLoading, fetchTripsForDate, createTrip } = useTripStore();
 
     const fetchCallback = useCallback(fetchTripsForDate, [fetchTripsForDate]);
 
@@ -61,8 +61,8 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
             <Button onClick={handleCreateTrip}><PlusCircle className="mr-2 h-4 w-4" /> Create New Trip</Button>
         </div>
 
-        {isLoading ? <p>Loading trips...</p> : trips.length > 0 ? (
-            trips.map(trip => (
+        {isLoading ? <p>Loading trips...</p> : tripsForDate.length > 0 ? (
+            tripsForDate.map(trip => (
                 <TripCard 
                     key={trip.id} 
                     trip={trip} 

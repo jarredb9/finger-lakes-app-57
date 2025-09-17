@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/client';
 
 interface TripState {
   trips: Trip[];
+  tripsForDate: Trip[];
   upcomingTrips: Trip[];
   isLoading: boolean;
   fetchTripById: (tripId: string) => Promise<void>;
@@ -23,6 +24,7 @@ const supabase = createClient();
 
 export const useTripStore = create<TripState>((set, get) => ({
   trips: [],
+  tripsForDate: [],
   upcomingTrips: [],
   isLoading: false,
 
@@ -91,17 +93,20 @@ export const useTripStore = create<TripState>((set, get) => ({
   fetchTripsForDate: async (date: Date) => {
     set({ isLoading: true });
     const dateString = date.toISOString().split("T")[0];
+    console.log(`[tripStore] fetchTripsForDate: Starting fetch for date ${dateString}.`);
     try {
       const response = await fetch(`/api/trips?date=${dateString}`);
       if (response.ok) {
         const data = await response.json();
-        set({ trips: data.trips || (Array.isArray(data) ? data : []), isLoading: false });
+        console.log(`[tripStore] fetchTripsForDate: Data fetched successfully for date ${dateString}.`, data);
+        set({ tripsForDate: data.trips || (Array.isArray(data) ? data : []), isLoading: false });
       } else {
-        set({ trips: [], isLoading: false });
+        console.error(`[tripStore] fetchTripsForDate: Failed to fetch data for date ${dateString}.`, response.status, response.statusText);
+        set({ tripsForDate: [], isLoading: false });
       }
     } catch (error) {
-      console.error("Failed to fetch trips", error);
-      set({ trips: [], isLoading: false });
+      console.error(`[tripStore] fetchTripsForDate: Error during fetch for date ${dateString}.`, error);
+      set({ tripsForDate: [], isLoading: false });
     }
   },
 
