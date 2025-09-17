@@ -6,6 +6,7 @@ interface TripState {
   trips: Trip[];
   upcomingTrips: Trip[];
   isLoading: boolean;
+  fetchTripById: (tripId: string) => Promise<void>;
   fetchAllTrips: () => Promise<void>;
   fetchUpcomingTrips: () => Promise<void>;
   fetchTripsForDate: (date: Date) => Promise<void>;
@@ -24,6 +25,28 @@ export const useTripStore = create<TripState>((set, get) => ({
   trips: [],
   upcomingTrips: [],
   isLoading: false,
+
+  fetchTripById: async (tripId: string) => {
+    console.log(`[tripStore] fetchTripById: Starting fetch for trip ${tripId}.`);
+    set({ isLoading: true });
+    try {
+      const response = await fetch(`/api/trips/${tripId}`);
+      if (response.ok) {
+        const trip = await response.json();
+        console.log(`[tripStore] fetchTripById: Data fetched successfully for trip ${tripId}.`, trip);
+        set(state => ({
+          trips: [...state.trips.filter(t => t.id !== trip.id), trip],
+          isLoading: false
+        }));
+      } else {
+        console.error(`[tripStore] fetchTripById: Failed to fetch data for trip ${tripId}.`, response.status, response.statusText);
+        set({ isLoading: false });
+      }
+    } catch (error) {
+      console.error(`[tripStore] fetchTripById: Error during fetch for trip ${tripId}.`, error);
+      set({ isLoading: false });
+    }
+  },
 
   fetchAllTrips: async () => {
     console.log("[tripStore] fetchAllTrips: Starting fetch.");
