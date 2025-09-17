@@ -90,8 +90,8 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
 }
 
 export default function TripCard({ tripId, userId }: { tripId: string; userId: string; }) {
-    const { trips, fetchTripsForDate, deleteTrip, updateTrip, updateWineryOrder, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
-    const trip = trips.find(t => t.id === tripId);
+    const { tripsForDate, fetchTripsForDate, deleteTrip, updateTrip, updateWineryOrder, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
+    const trip = tripsForDate.find(t => t.id === tripId);
 
     const [tripWineries, setTripWineries] = useState<Winery[]>([]);
     const [isEditingName, setIsEditingName] = useState(false);
@@ -167,7 +167,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
 
         const originalName = trip.name;
         useTripStore.setState(state => ({
-            trips: state.trips.map(t => t.id === trip.id ? { ...t, name: tripName } : t)
+            tripsForDate: state.tripsForDate.map(t => t.id === trip.id ? { ...t, name: tripName } : t)
         }));
         setIsEditingName(false);
 
@@ -178,7 +178,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
           console.error("Failed to save trip name", error);
           toast({ variant: "destructive", description: "Failed to save trip name." });
           useTripStore.setState(state => ({
-            trips: state.trips.map(t => t.id === trip.id ? { ...t, name: originalName } : t)
+            tripsForDate: state.tripsForDate.map(t => t.id === trip.id ? { ...t, name: originalName } : t)
           }));
         }
     };
@@ -189,7 +189,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
 
         const originalDate = new Date(trip.trip_date);
         useTripStore.setState(state => ({
-            trips: state.trips.filter(t => t.id !== trip.id)
+            tripsForDate: state.tripsForDate.filter(t => t.id !== trip.id)
         }));
 
         try {

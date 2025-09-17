@@ -65,7 +65,7 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
             tripsForDate.map(trip => (
                 <TripCard 
                     key={trip.id} 
-                    trip={trip} 
+                    tripId={trip.id} 
                     userId={user.id}
                 />
             ))
