@@ -25,8 +25,7 @@ export function useWineryData() {
     const [allUserVisits, setAllUserVisits] = useState<any[]>([]);
     const [allWishlistWineries, setAllWishlistWineries] = useState<Winery[]>([]);
     const [allFavoriteWineries, setAllFavoriteWineries] = useState<Winery[]>([]);
-    // ** FIX: Add a new state for all upcoming trips. **
-    const [allUpcomingTrips, setAllUpcomingTrips] = useState<Trip[]>([]);
+    
     const { toast } = useToast();
 
     const fetchWishlist = useCallback(async () => {
@@ -70,25 +69,13 @@ export function useWineryData() {
         return [];
     }, [toast]);
     
-    const fetchUpcomingTrips = useCallback(async () => {
-      try {
-        // ** FIX: Add the 'full=true' query parameter to get the full winery list **
-        const response = await fetch('/api/trips?type=upcoming&page=1&limit=1000&full=true');
-        if (response.ok) {
-          const { trips } = await response.json();
-          setAllUpcomingTrips(trips);
-        }
-      } catch (error) {
-        console.error("Failed to fetch upcoming trips", error);
-      }
-      return [];
-    }, []);
+    
 
 
     const refreshAllData = useCallback(async () => {
         // ** FIX: Call the new fetchUpcomingTrips function as well. **
-        await Promise.all([fetchUserVisits(), fetchWishlist(), fetchFavorites(), fetchUpcomingTrips()]);
-    }, [fetchUserVisits, fetchWishlist, fetchFavorites, fetchUpcomingTrips]);
+        await Promise.all([fetchUserVisits(), fetchWishlist(), fetchFavorites()]);
+    }, [fetchUserVisits, fetchWishlist, fetchFavorites]);
 
 
     useEffect(() => {
@@ -134,5 +121,5 @@ export function useWineryData() {
     }, [allVisitedWineries, allWishlistWineries, allFavoriteWineries]);
 
 
-    return { allVisitedWineries, allWishlistWineries, allFavoriteWineries, allPersistentWineries, allUpcomingTrips, refreshAllData };
+    return { allVisitedWineries, allWishlistWineries, allFavoriteWineries, allPersistentWineries, refreshAllData };
 }

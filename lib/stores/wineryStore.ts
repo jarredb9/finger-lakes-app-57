@@ -8,6 +8,7 @@ interface WineryState {
   favoriteWineries: Winery[];
   persistentWineries: Winery[];
   
+  
   isLoading: boolean;
   error: string | null;
   fetchWineryData: () => Promise<void>;
@@ -24,6 +25,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   wishlistWineries: [],
   favoriteWineries: [],
   persistentWineries: [],
+  
   
   isLoading: false,
   error: null,
@@ -59,6 +61,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       const { visits } = visitsData;
       const favorites = favoritesData.favorites || favoritesData;
       const wishlist = wishlistData.wishlist || wishlistData;
+      
       
 
       const isValidWinery = (winery: any): winery is Winery => {
@@ -134,6 +137,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         favoriteWineries,
         wishlistWineries,
         persistentWineries,
+        
       });
 
       set({
@@ -142,6 +146,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
         favoriteWineries,
         wishlistWineries,
         persistentWineries,
+        
         isLoading: false,
       });
     } catch (error) {
