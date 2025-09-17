@@ -1,7 +1,7 @@
 // file: components/winery-modal.tsx
 "use client"
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
