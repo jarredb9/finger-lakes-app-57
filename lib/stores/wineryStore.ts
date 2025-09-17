@@ -64,89 +64,126 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       
       
 
-      const isValidWinery = (winery: any): winery is Winery => {
-        const result = (
-          winery &&
-          typeof winery.id === "string" &&
-          typeof winery.name === "string" &&
-          typeof winery.lat === "number" &&
-          typeof winery.lng === "number"
-        );
-        if (!result) {
-          console.warn('[Validation] Invalid winery detected:', winery);
-        }
-        return result;
-      };
+      const standardizeWineryData = (rawWinery: any): Winery | null => {
+        if (!rawWinery) return null;
 
-      const standardizeWinery = (item: any): Winery | null => {
-        if (!item) return null;
-      
-        const wineryData = item.wineries ? item.wineries : item;
-        if (!wineryData) return null;
-      
-        const id = String(wineryData.id);
-        const lat = wineryData.latitude ?? wineryData.lat;
-        const lng = wineryData.longitude ?? wineryData.lng;
-      
-        const standardized = {
-          ...wineryData,
-          id,
-          lat: typeof lat === 'string' ? parseFloat(lat) : lat,
-          lng: typeof lng === 'string' ? parseFloat(lng) : lng,
-          rating: wineryData.google_rating ?? wineryData.rating, // Explicitly map google_rating to rating
-          ...(item.wineries && {
-            visit_id: item.id,
-            visit_date: item.visit_date,
-            user_review: item.user_review,
-          }),
+        const id = String(rawWinery.id);
+        const lat = rawWinery.latitude ?? rawWinery.lat;
+        const lng = rawWinery.longitude ?? rawWinery.lng;
+
+        const standardized: Winery = {
+            id,
+            dbId: rawWinery.dbId,
+            name: rawWinery.name,
+            address: rawWinery.address,
+            lat: typeof lat === 'string' ? parseFloat(lat) : lat,
+            lng: typeof lng === 'string' ? parseFloat(lng) : lng,
+            phone: rawWinery.phone,
+            website: rawWinery.website,
+            rating: rawWinery.google_rating ?? rawWinery.rating,
+            userVisited: false,
+            onWishlist: false,
+            isFavorite: false,
+            visits: [],
+            trip_id: rawWinery.trip_id,
+            trip_name: rawWinery.trip_name,
+            trip_date: rawWinery.trip_date,
         };
-      
-        if (isValidWinery(standardized)) {
+
+        if (!standardized.id || !standardized.name || typeof standardized.lat !== 'number' || typeof standardized.lng !== 'number') {
+            console.warn('[Validation] Invalid winery data after standardization:', rawWinery, standardized);
+            return null;
+        }
+        return standardized;
+      };
+
+      const standardizeVisitData = (rawVisit: any): Visit | null => {
+          if (!rawVisit || !rawVisit.wineries) return null;
+
+          const standardized: Visit = {
+              id: rawVisit.id,
+              visit_date: rawVisit.visit_date,
+              user_review: rawVisit.user_review,
+              rating: rawVisit.rating,
+              photos: rawVisit.photos,
+              wineries: {
+                  id: rawVisit.wineries.id,
+                  google_place_id: rawVisit.wineries.google_place_id,
+                  name: rawVisit.wineries.name,
+                  address: rawVisit.wineries.address,
+                  latitude: rawVisit.wineries.latitude,
+                  longitude: rawVisit.wineries.longitude,
+              }
+          };
+
+          if (!standardized.id || !standardized.visit_date || !standardized.wineries.id) {
+              console.warn('[Validation] Invalid visit data after standardization:', rawVisit, standardized);
+              return null;
+          }
           return standardized;
-        }
-        
-        console.warn('[Validation] Winery failed validation. Standardized object:', standardized);
-        console.warn(`[Validation] Breakdown: id=${typeof standardized.id}, name=${typeof standardized.name}, lat=${typeof standardized.lat}, lng=${typeof standardized.lng}`);
-      
-        return null;
-      };
-      
-      const processWineries = (wineryData: any[], type: string): Winery[] => {
-        console.log(`%c[processWineries] Processing ${type} data:`, 'color: green;', wineryData);
-        if (!Array.isArray(wineryData)) {
-          console.warn(`Expected an array for ${type}, but received:`, wineryData);
-          return [];
-        }
-        const processed = wineryData.map(standardizeWinery).filter(Boolean) as Winery[];
-        console.log(`%c[processWineries] Processed ${type} results:`, 'color: green; font-weight: bold;', processed);
-        return processed;
       };
 
-      const visitedWineries = processWineries(visits, 'visited');
-      const favoriteWineries = processWineries(favorites, 'favorites');
-      const wishlistWineries = processWineries(wishlist, 'wishlist');
+      const wineriesMap = new Map<string, Winery>();
 
-      const persistentWineries = [
-        ...visitedWineries,
-        ...favoriteWineries,
-        ...wishlistWineries,
-      ];
+      visits.forEach((rawVisit: any) => {
+          const visit = standardizeVisitData(rawVisit);
+          if (!visit || !visit.wineries) return;
+
+          const wineryGoogleId = String(visit.wineries.google_place_id);
+          let wineryInMap = wineriesMap.get(wineryGoogleId);
+
+          if (!wineryInMap) {
+              wineryInMap = standardizeWineryData(visit.wineries);
+              if (!wineryInMap) return;
+              wineriesMap.set(wineryGoogleId, wineryInMap);
+          }
+
+          wineryInMap.userVisited = true;
+          wineryInMap.visits?.push(visit);
+      });
+
+      favorites.forEach((rawFavorite: any) => {
+          const wineryData = rawFavorite.wineries || rawFavorite;
+          const winery = standardizeWineryData(wineryData);
+          if (!winery) return;
+
+          const wineryGoogleId = winery.id;
+          let wineryInMap = wineriesMap.get(wineryGoogleId);
+
+          if (!wineryInMap) {
+              wineryInMap = winery;
+              wineriesMap.set(wineryGoogleId, wineryInMap);
+          }
+          wineryInMap.isFavorite = true;
+      });
+
+      wishlist.forEach((rawWishlist: any) => {
+          const wineryData = rawWishlist.wineries || rawWishlist;
+          const winery = standardizeWineryData(wineryData);
+          if (!winery) return;
+
+          const wineryGoogleId = winery.id;
+          let wineryInMap = wineriesMap.get(wineryGoogleId);
+
+          if (!wineryInMap) {
+              wineryInMap = winery;
+              wineriesMap.set(wineryGoogleId, wineryInMap);
+          }
+          wineryInMap.onWishlist = true;
+      });
+
+      const persistentWineries = Array.from(wineriesMap.values());
 
       console.log('%c[wineryStore] Final State Update:', 'color: red; font-weight: bold;', {
-        visitedWineries,
-        favoriteWineries,
-        wishlistWineries,
         persistentWineries,
-        
       });
 
       set({
         wineries: [],
-        visitedWineries,
-        favoriteWineries,
-        wishlistWineries,
+        visitedWineries: persistentWineries.filter(w => w.userVisited),
+        favoriteWineries: persistentWineries.filter(w => w.isFavorite),
+        wishlistWineries: persistentWineries.filter(w => w.onWishlist),
         persistentWineries,
-        
         isLoading: false,
       });
     } catch (error) {
