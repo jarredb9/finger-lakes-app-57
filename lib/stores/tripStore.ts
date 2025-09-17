@@ -99,7 +99,12 @@ export const useTripStore = create<TripState>((set, get) => ({
       if (response.ok) {
         const data = await response.json();
         console.log(`[tripStore] fetchTripsForDate: Data fetched successfully for date ${dateString}.`, data);
-        set({ tripsForDate: data.trips || (Array.isArray(data) ? data : []), isLoading: false });
+        const tripsForDate = data.trips || (Array.isArray(data) ? data : []);
+        set(state => ({
+          tripsForDate: tripsForDate,
+          trips: [...state.trips.filter(t => !tripsForDate.some(tfd => tfd.id === t.id)), ...tripsForDate],
+          isLoading: false
+        }));
       } else {
         console.error(`[tripStore] fetchTripsForDate: Failed to fetch data for date ${dateString}.`, response.status, response.statusText);
         set({ tripsForDate: [], isLoading: false });
