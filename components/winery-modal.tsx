@@ -128,10 +128,10 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
           return null;
       }
 
-      console.log("[WineryModal] Initial winery prop:", winery);
+      console.log("[WineryModal] Initial winery prop:", { id: winery.id, name: winery.name, phone: winery.phone, website: winery.website, rating: winery.rating });
 
       const wineryFromStore = persistentWineries.find(w => w.id === winery.id);
-      console.log("[WineryModal] wineryFromStore:", wineryFromStore);
+      console.log("[WineryModal] wineryFromStore:", wineryFromStore ? { id: wineryFromStore.id, name: wineryFromStore.name, phone: wineryFromStore.phone, website: wineryFromStore.website, rating: wineryFromStore.rating } : null);
 
       const finalWinery: Winery = {
           ...(wineryFromStore || {}), // Start with all details from the store (if available)
@@ -148,7 +148,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
           rating: wineryFromStore?.rating ?? winery.rating,
       };
 
-      console.log("[WineryModal] Final mergedWinery:", finalWinery);
+      console.log("[WineryModal] Final mergedWinery:", { id: finalWinery.id, name: finalWinery.name, phone: finalWinery.phone, website: finalWinery.website, rating: finalWinery.rating });
 
       return finalWinery;
   }, [winery, persistentWineries]);

@@ -69,6 +69,8 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       
 
       const standardizeWineryData = (rawWinery: any, existingWinery?: Winery): Winery | null => {
+        console.log("[wineryStore] standardizeWineryData - rawWinery:", rawWinery);
+        console.log("[wineryStore] standardizeWineryData - existingWinery:", existingWinery);
         if (!rawWinery) return null;
 
         const id = String(rawWinery.id);
@@ -98,7 +100,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
             console.warn('[Validation] Invalid winery data after standardization:', rawWinery, standardized);
             return null;
         }
-        console.log("[wineryStore] Standardized Winery Data:", standardized);
+        console.log("[wineryStore] Standardized Winery Data:", standardized.id, standardized.name, { phone: standardized.phone, website: standardized.website, rating: standardized.rating });
         return standardized;
       };
 
