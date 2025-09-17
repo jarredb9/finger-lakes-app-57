@@ -123,32 +123,30 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   const { saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite, persistentWineries } = useWineryStore();
 
   const currentWinery = useMemo(() => {
-      if (!winery) return null;
-
-      const wineryFromStore = persistentWineries.find(w => w.id === winery.id);
-
-      // Start with the complete winery object from the prop
-      const mergedWinery: Winery = { ...winery };
-
-      if (wineryFromStore) {
-          // Overlay status flags and visits array from the store, as these are managed by the store
-          mergedWinery.userVisited = wineryFromStore.userVisited;
-          mergedWinery.onWishlist = wineryFromStore.onWishlist;
-          mergedWinery.isFavorite = wineryFromStore.isFavorite;
-          mergedWinery.visits = wineryFromStore.visits;
-          mergedWinery.dbId = wineryFromStore.dbId; // Ensure dbId is also carried over from store if available
+      if (!winery) {
+          console.log("[WineryModal] winery prop is null, returning null.");
+          return null;
       }
 
-      // Explicitly ensure core Google Maps details are from the 'winery' prop
-      mergedWinery.phone = winery.phone;
-      mergedWinery.website = winery.website;
-      mergedWinery.rating = winery.rating;
-      mergedWinery.address = winery.address;
-      mergedWinery.name = winery.name;
-      mergedWinery.lat = winery.lat;
-      mergedWinery.lng = winery.lng;
+      console.log("[WineryModal] Initial winery prop:", winery);
 
-      return mergedWinery;
+      const wineryFromStore = persistentWineries.find(w => w.id === winery.id);
+      console.log("[WineryModal] wineryFromStore:", wineryFromStore);
+
+      const finalWinery: Winery = {
+          ...winery, // Start with all details from the prop
+          ...(wineryFromStore ? { // Only apply properties from store if wineryFromStore exists
+              userVisited: wineryFromStore.userVisited,
+              onWishlist: wineryFromStore.onWishlist,
+              isFavorite: wineryFromStore.isFavorite,
+              visits: wineryFromStore.visits,
+              dbId: wineryFromStore.dbId,
+          } : {}),
+      };
+
+      console.log("[WineryModal] Final mergedWinery:", finalWinery);
+
+      return finalWinery;
   }, [winery, persistentWineries]);
 
   const editFormRef = useRef<HTMLDivElement>(null);
