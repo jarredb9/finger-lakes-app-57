@@ -124,7 +124,18 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
 
   const currentWinery = useMemo(() => {
       if (!winery) return null;
-      return persistentWineries.find(w => w.id === winery.id) || winery;
+
+      const wineryFromStore = persistentWineries.find(w => w.id === winery.id);
+
+      return {
+          ...winery, // Start with the full details from the prop
+          ...wineryFromStore, // Overlay with status and visits from the store
+          // Ensure visits array is correctly merged if both exist
+          visits: wineryFromStore?.visits || winery.visits || [],
+          userVisited: wineryFromStore?.userVisited || winery.userVisited || false,
+          onWishlist: wineryFromStore?.onWishlist || winery.onWishlist || false,
+          isFavorite: wineryFromStore?.isFavorite || winery.isFavorite || false,
+      };
   }, [winery, persistentWineries]);
 
   const editFormRef = useRef<HTMLDivElement>(null);
