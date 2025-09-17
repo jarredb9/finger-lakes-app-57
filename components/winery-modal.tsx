@@ -120,10 +120,12 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   const [friendsActivity, setFriendsActivity] = useState<{ favoritedBy: any[], wishlistedBy: any[] }>({ favoritedBy: [], wishlistedBy: [] });
 
   // Get actions from the winery store
-  const { saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite } = useWineryStore();
+  const { saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite, persistentWineries } = useWineryStore();
 
-  // This new state holds the winery data and ensures it has a dbId
-  const [internalWinery, setInternalWinery] = useState<Winery | null>(winery);
+  const currentWinery = useMemo(() => {
+      if (!winery) return null;
+      return persistentWineries.find(w => w.id === winery.id) || winery;
+  }, [winery, persistentWineries]);
 
   const editFormRef = useRef<HTMLDivElement>(null);
 
@@ -135,77 +137,6 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
 
 
   const { toast } = useToast();
-
-  useEffect(() => {
-    const ensureWineryHasDbId = async (wineryToProcess: Winery | null) => {
-      if (wineryToProcess && !wineryToProcess.dbId) {
-        try {
-          const response = await fetch('/api/wineries', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(wineryToProcess)
-          });
-          if (response.ok) {
-            const { dbId } = await response.json();
-            setInternalWinery(prev => prev ? { ...prev, dbId } : null);
-          } else {
-            toast({ variant: "destructive", description: "Could not retrieve winery details." });
-          }
-        } catch (error) {
-          console.error("Failed to ensure winery dbId", error);
-        }
-      } else {
-        setInternalWinery(wineryToProcess);
-      }
-    };
-    ensureWineryHasDbId(winery);
-  }, [winery, toast]);
-
-  useEffect(() => {
-    setEditingVisitId(null);
-    resetForm();
-    setTripDate(undefined);
-
-    if (internalWinery && internalWinery.dbId) {
-      const fetchFriendsRatings = async () => {
-        try {
-          const response = await fetch(`/api/wineries?wineryId=${internalWinery.dbId}&ratingsFor=friends`);
-          if (response.ok) {
-            const data = await response.json();
-            setFriendsRatings(data);
-          } else {
-            console.error("Failed to fetch friends ratings");
-            setFriendsRatings([]);
-          }
-        } catch (error) {
-          console.error("Error fetching friends ratings:", error);
-          setFriendsRatings([]);
-        }
-      };
-      
-      const fetchFriendsActivity = async () => {
-          try {
-              const response = await fetch(`/api/wineries/${internalWinery.dbId}/friends-activity`);
-              if (response.ok) {
-                  const data = await response.json();
-                  setFriendsActivity(data);
-              } else {
-                  console.error("Failed to fetch friends activity");
-                  setFriendsActivity({ favoritedBy: [], wishlistedBy: [] });
-              }
-          } catch (error) {
-              console.error("Error fetching friends activity", error);
-              setFriendsActivity({ favoritedBy: [], wishlistedBy: [] });
-          }
-      };
-
-      fetchFriendsRatings();
-      fetchFriendsActivity();
-    } else {
-      setFriendsRatings([]);
-      setFriendsActivity({ favoritedBy: [], wishlistedBy: [] });
-    }
-  }, [internalWinery]);
   
   useEffect(() => {
     if (tripDate) {
@@ -252,7 +183,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
     });
   };
 
-  if (!internalWinery) { return null; }
+  if (!currentWinery) { return null; }
 
   const resetForm = () => {
     setVisitDate(new Date().toISOString().split("T")[0]);
@@ -285,7 +216,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
             await updateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
             toast({ description: "Visit updated successfully." });
         } else {
-            await saveVisit(internalWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
+            await saveVisit(currentWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
             toast({ description: "Visit saved successfully." });
         }
       resetForm();
@@ -313,23 +244,21 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   const handleWishlistToggle = async () => {
     setWishlistLoading(true);
     try {
-        await toggleWishlist(internalWinery, !!internalWinery.onWishlist);
-        toast({ description: internalWinery.onWishlist ? "Removed from wishlist." : "Added to wishlist." });
-        setInternalWinery(prev => prev ? { ...prev, onWishlist: !prev.onWishlist } : null);
+        await toggleWishlist(currentWinery, !!currentWinery.onWishlist);
+        toast({ description: currentWinery.onWishlist ? "Removed from wishlist." : "Added to wishlist." });
     } catch (error) { toast({ variant: 'destructive', description: "Could not update wishlist." }); }
     setWishlistLoading(false);
   };
   
   const handleFavoriteToggle = async () => {
     setFavoriteLoading(true);
-    await toggleFavorite(internalWinery, !!internalWinery.isFavorite);
-    toast({ description: internalWinery.isFavorite ? "Removed from favorites." : "Added to favorites." });
-    setInternalWinery(prev => prev ? { ...prev, isFavorite: !prev.isFavorite } : null);
+    await toggleFavorite(currentWinery, !!currentWinery.isFavorite);
+    toast({ description: currentWinery.isFavorite ? "Removed from favorites." : "Added to favorites." });
     setFavoriteLoading(false);
   };
 
   const handleAddToTrip = async () => {
-    if (!tripDate || !internalWinery.dbId) {
+    if (!tripDate || !currentWinery.dbId) {
         toast({ title: "Error", description: "Please select a date.", variant: "destructive" });
         return;
     }
@@ -344,7 +273,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
         // ** FIX: Correctly construct the payload to send to the API endpoint. **
         const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
             date: tripDate.toISOString().split("T")[0],
-            wineryId: internalWinery.dbId!,
+            wineryId: currentWinery.dbId!,
         };
 
         if (tripId === 'new') {
@@ -380,9 +309,9 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   };
 
   const handleToggleWineryOnActiveTrip = async () => {
-    if (!selectedTrip || !internalWinery.dbId) return;
+    if (!selectedTrip || !currentWinery.dbId) return;
 
-    const isOnTrip = selectedTrip.wineries.some(w => w.dbId === internalWinery.dbId);
+    const isOnTrip = selectedTrip.wineries.some(w => w.dbId === currentWinery.dbId);
     
     try {
       if (isOnTrip) {
@@ -390,7 +319,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
         const response = await fetch(`/api/trips/${selectedTrip.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ removeWineryId: internalWinery.dbId }),
+          body: JSON.stringify({ removeWineryId: currentWinery.dbId }),
         });
         if (response.ok) {
           toast({ description: "Winery removed from trip." });
@@ -405,7 +334,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             date: selectedTrip.trip_date.split('T')[0],
-            wineryId: internalWinery.dbId,
+            wineryId: currentWinery.dbId,
             tripIds: [selectedTrip.id]
           }),
         });
@@ -421,11 +350,11 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
     }
   };
 
-  const visits = internalWinery.visits || [];
+  const visits = currentWinery.visits || [];
   const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
   
   // ** FIX: Determine if the winery is on the currently selected trip **
-  const isOnActiveTrip = selectedTrip?.wineries.some(w => w.dbId === internalWinery.dbId) || false;
+  const isOnActiveTrip = selectedTrip?.wineries.some(w => w.dbId === currentWinery.dbId) || false;
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
@@ -443,54 +372,54 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
                 <DialogHeader>
                     <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
                         <div className="flex items-center gap-2">
-                           <DialogTitle className="text-2xl pr-4">{internalWinery.name}</DialogTitle>
+                           <DialogTitle className="text-2xl pr-4">{currentWinery.name}</DialogTitle>
                            {/* The fix is here: Make the badge a clickable link to the trip planner page for this specific trip */}
-                           {internalWinery.trip_name && internalWinery.trip_date && internalWinery.trip_id && (
+                           {currentWinery.trip_name && currentWinery.trip_date && currentWinery.trip_id && (
                                 <Link
-                                    href={`/trips?date=${internalWinery.trip_date.split('T')[0]}&tripId=${internalWinery.trip_id}`}
+                                                                        href={`/trips?date=${currentWinery.trip_date.split('T')[0]}&tripId=${currentWinery.trip_id}`}
                                     passHref
                                     onClick={onClose}
                                 >
                                     <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
-                                        <Clock className="w-3 h-3 mr-1"/>On Trip: {internalWinery.trip_name}
+                                        <Clock className="w-3 h-3 mr-1"/>On Trip: {currentWinery.trip_name}
                                     </Badge>
                                 </Link>
                            )}
                         </div>
                         <div className="flex items-center gap-2">
-                            <Button size="sm" variant={internalWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading}>
-                                {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${internalWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
+                            <Button size="sm" variant={currentWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading}>
+                                {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${currentWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
                                 Favorite
                             </Button>
-                            <Button size="sm" variant={internalWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || internalWinery.userVisited}>
-                                {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : internalWinery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
-                                {internalWinery.onWishlist ? "On List" : "Want to Go"}
+                            <Button size="sm" variant={currentWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || currentWinery.userVisited}>
+                                {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : currentWinery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
+                                {currentWinery.onWishlist ? "On List" : "Want to Go"}
                             </Button>
                         </div>
                     </div>
                      <DialogDescription className="space-y-2 pt-2 !mt-2">
                         <div className="flex items-start space-x-2">
                           <MapPin className="w-4 h-4 mt-1 shrink-0" />
-                          <span>{internalWinery.address}</span>
+                          <span>{currentWinery.address}</span>
                         </div>
-                        {internalWinery.phone && (
+                        {currentWinery.phone && (
                           <div className="flex items-center space-x-2">
                             <Phone className="w-4 h-4 shrink-0" />
-                            <span>{internalWinery.phone}</span>
+                            <span>{currentWinery.phone}</span>
                           </div>
                         )}
-                        {internalWinery.website && (
+                        {currentWinery.website && (
                           <div className="flex items-center space-x-2">
                             <Globe className="w-4 h-4 shrink-0" />
-                            <a href={internalWinery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
+                            <a href={currentWinery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
                               Visit Website
                             </a>
                           </div>
                         )}
-                        {internalWinery.rating && (
+                        {currentWinery.rating && (
                           <div className="flex items-center space-x-2">
                             <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
-                            <span>{internalWinery.rating}/5.0 (Google Reviews)</span>
+                            <span>{currentWinery.rating}/5.0 (Google Reviews)</span>
                           </div>
                         )}
                     </DialogDescription>
@@ -592,7 +521,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
                         <div className="flex items-center gap-2">
                             <DatePicker date={tripDate} onSelect={setTripDate} />
                             {tripDate && (
-                                <Button onClick={handleAddToTrip} disabled={!internalWinery.dbId || selectedTrips.size === 0 || (selectedTrips.has('new') && !newTripName.trim())}>
+                                <Button onClick={handleAddToTrip} disabled={!currentWinery.dbId || selectedTrips.size === 0 || (selectedTrips.has('new') && !newTripName.trim())}>
                                     Add to Trip
                                 </Button>
                             )}
@@ -678,7 +607,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground">{internalWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
+                        <p className="text-sm text-muted-foreground">{currentWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
                       )}
                 </div>
             </div>

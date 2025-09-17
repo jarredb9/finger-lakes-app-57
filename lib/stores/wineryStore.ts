@@ -93,6 +93,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
           id,
           lat: typeof lat === 'string' ? parseFloat(lat) : lat,
           lng: typeof lng === 'string' ? parseFloat(lng) : lng,
+          rating: wineryData.google_rating ?? wineryData.rating, // Explicitly map google_rating to rating
           ...(item.wineries && {
             visit_id: item.id,
             visit_date: item.visit_date,
