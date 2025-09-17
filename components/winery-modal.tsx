@@ -594,7 +594,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
                                     <Button variant="ghost" size="sm" onClick={() => handleEditClick(visit)}>
                                         <Edit className="w-4 w-4" />
                                     </Button>
-                                    {onDeleteVisit && visit.id && (
+                                    {visit.id && (
                                       <Button variant="ghost" size="sm" onClick={() => handleDeleteVisit(visit.id!)} className="text-red-600 hover:text-red-800 hover:bg-red-50" aria-label={`Delete visit`}>
                                         <Trash2 className="w-4 h-4" />
                                       </Button>
