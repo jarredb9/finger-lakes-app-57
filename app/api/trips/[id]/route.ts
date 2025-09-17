@@ -98,3 +98,104 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 
   return NextResponse.json(formattedTrip);
 }
+
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tripId = params.id;
+  const supabase = await createClient();
+  const updates = await request.json();
+
+  // Check if the user is authorized to update this trip
+  const { data: existingTrip, error: fetchError } = await supabase
+    .from("trips")
+    .select("user_id, members")
+    .eq("id", tripId)
+    .single();
+
+  if (fetchError || !existingTrip) {
+    return NextResponse.json({ error: "Trip not found or unauthorized" }, { status: 404 });
+  }
+
+  const isOwner = existingTrip.user_id === user.id;
+  const isMember = existingTrip.members && existingTrip.members.includes(user.id);
+
+  if (!isOwner && !isMember) {
+    return NextResponse.json({ error: "Unauthorized to update this trip" }, { status: 403 });
+  }
+
+  // Handle general trip updates (name, trip_date, members)
+  const tripUpdate: { name?: string; trip_date?: string; members?: string[] } = {};
+  if (updates.name !== undefined) tripUpdate.name = updates.name;
+  if (updates.trip_date !== undefined) tripUpdate.trip_date = updates.trip_date;
+  if (updates.members !== undefined) tripUpdate.members = updates.members;
+
+  if (Object.keys(tripUpdate).length > 0) {
+    const { error } = await supabase
+      .from("trips")
+      .update(tripUpdate)
+      .eq("id", tripId);
+    if (error) {
+      console.error("Error updating trip:", error);
+      return NextResponse.json({ error: "Failed to update trip" }, { status: 500 });
+    }
+  }
+
+  // Handle winery order update
+  if (updates.wineryOrder !== undefined && Array.isArray(updates.wineryOrder)) {
+    const updatesToPerform = updates.wineryOrder.map((wineryId: number, index: number) => ({
+      winery_id: wineryId,
+      visit_order: index,
+      trip_id: tripId,
+    }));
+
+    // Delete existing trip_wineries for this trip and re-insert
+    const { error: deleteError } = await supabase
+      .from("trip_wineries")
+      .delete()
+      .eq("trip_id", tripId);
+
+    if (deleteError) {
+      console.error("Error deleting existing trip_wineries:", deleteError);
+      return NextResponse.json({ error: "Failed to update winery order" }, { status: 500 });
+    }
+
+    const { error: insertError } = await supabase
+      .from("trip_wineries")
+      .insert(updatesToPerform);
+
+    if (insertError) {
+      console.error("Error inserting new trip_wineries order:", insertError);
+      return NextResponse.json({ error: "Failed to update winery order" }, { status: 500 });
+    }
+  }
+
+  // Handle remove winery from trip
+  if (updates.removeWineryId !== undefined) {
+    const { error } = await supabase
+      .from("trip_wineries")
+      .delete()
+      .eq("trip_id", tripId)
+      .eq("winery_id", updates.removeWineryId);
+    if (error) {
+      console.error("Error removing winery:", error);
+      return NextResponse.json({ error: "Failed to remove winery" }, { status: 500 });
+    }
+  }
+
+  // Handle update winery note
+  if (updates.updateNote !== undefined && updates.updateNote.wineryId !== undefined && updates.updateNote.notes !== undefined) {
+    const { error } = await supabase
+      .from("trip_wineries")
+      .update({ notes: updates.updateNote.notes })
+      .eq("trip_id", tripId)
+      .eq("winery_id", updates.updateNote.wineryId);
+    if (error) {
+      console.error("Error updating winery note:", error);
+      return NextResponse.json({ error: "Failed to update winery note" }, { status: 500 });
+    }
+  }
+
+  return NextResponse.json({ message: "Trip updated successfully" });
+}
