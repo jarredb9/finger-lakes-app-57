@@ -38,7 +38,7 @@ export const useTripStore = create<TripState>((set, get) => ({
         } else if (data.trips && Array.isArray(data.trips)) {
           data.trips.forEach((trip: any) => console.log("[tripStore] Fetched trip ID:", trip.id, "(type:", typeof trip.id, ")"));
         }
-        set({ trips: Array.isArray(data) ? data : [], isLoading: false });
+        set({ trips: data.trips || (Array.isArray(data) ? data : []), isLoading: false });
       } else {
         console.error("[tripStore] fetchAllTrips: Failed to fetch data.", response.status, response.statusText);
         set({ trips: [], isLoading: false });
@@ -72,7 +72,7 @@ export const useTripStore = create<TripState>((set, get) => ({
       const response = await fetch(`/api/trips?date=${dateString}`);
       if (response.ok) {
         const data = await response.json();
-        set({ trips: Array.isArray(data) ? data : [], isLoading: false });
+        set({ trips: data.trips || (Array.isArray(data) ? data : []), isLoading: false });
       } else {
         set({ trips: [], isLoading: false });
       }
