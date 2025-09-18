@@ -1,10 +1,10 @@
 "use client";
 
 import { useUIStore } from "@/lib/stores/uiStore";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export function GlobalModalRenderer() {
-  const { isModalOpen, modalContent, closeModal } = useUIStore();
+  const { isModalOpen, modalContent, modalTitle, modalDescription, closeModal } = useUIStore();
 
   return (
     <Dialog open={isModalOpen} onOpenChange={(isOpen) => !isOpen && closeModal()}>
@@ -17,6 +17,12 @@ export function GlobalModalRenderer() {
             }}
             onFocusOutside={(e) => e.preventDefault()}
         >
+            {(modalTitle || modalDescription) && (
+                <DialogHeader className="p-6 pb-0">
+                    {modalTitle && <DialogTitle>{modalTitle}</DialogTitle>}
+                    {modalDescription && <DialogDescription>{modalDescription}</DialogDescription>}
+                </DialogHeader>
+            )}
             {modalContent}
         </DialogContent>
     </Dialog>

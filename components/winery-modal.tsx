@@ -362,61 +362,32 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   return (
     <div className="overflow-y-auto">
         <div className="p-6">
-            <DialogHeader>
-                <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
-                    <div className="flex items-center gap-2">
-                       <DialogTitle className="text-2xl pr-4">{currentWinery.name}</DialogTitle>
-                       {/* The fix is here: Make the badge a clickable link to the trip planner page for this specific trip */}
-                       {currentWinery.trip_name && currentWinery.trip_date && currentWinery.trip_id && (
-                            <Link
-                                                                    href={`/trips?date=${currentWinery.trip_date.split('T')[0]}&tripId=${currentWinery.trip_id}`}
-                                passHref
-                                onClick={onClose}
-                            >
-                                <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
-                                    <Clock className="w-3 h-3 mr-1"/>On Trip: {currentWinery.trip_name}
-                                </Badge>
-                            </Link>
-                       )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <Button size="sm" variant={currentWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading}>
-                            {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${currentWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
-                            Favorite
-                        </Button>
-                        <Button size="sm" variant={currentWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || currentWinery.userVisited}>
-                            {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : currentWinery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
-                            {currentWinery.onWishlist ? "On List" : "Want to Go"}
-                        </Button>
-                    </div>
+            <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
+                <div className="flex items-center gap-2">
+                   {/* The fix is here: Make the badge a clickable link to the trip planner page for this specific trip */}
+                   {currentWinery.trip_name && currentWinery.trip_date && currentWinery.trip_id && (
+                        <Link
+                                                                href={`/trips?date=${currentWinery.trip_date.split('T')[0]}&tripId=${currentWinery.trip_id}`}
+                            passHref
+                            onClick={onClose}
+                        >
+                            <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
+                                <Clock className="w-3 h-3 mr-1"/>On Trip: {currentWinery.trip_name}
+                            </Badge>
+                        </Link>
+                   )}
                 </div>
-                 <DialogDescription className="space-y-2 pt-2 !mt-2">
-                    <div className="flex items-start space-x-2">
-                      <MapPin className="w-4 h-4 mt-1 shrink-0" />
-                      <span>{currentWinery.address}</span>
-                    </div>
-                    {currentWinery.phone && (
-                      <div className="flex items-center space-x-2">
-                        <Phone className="w-4 h-4 shrink-0" />
-                        <span>{currentWinery.phone}</span>
-                      </div>
-                    )}
-                    {currentWinery.website && (
-                      <div className="flex items-center space-x-2">
-                        <Globe className="w-4 h-4 shrink-0" />
-                        <a href={currentWinery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
-                          Visit Website
-                        </a>
-                      </div>
-                    )}
-                    {currentWinery.rating && (
-                      <div className="flex items-center space-x-2">
-                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
-                        <span>{currentWinery.rating}/5.0 (Google Reviews)</span>
-                      </div>
-                    )}
-                </DialogDescription>
-            </DialogHeader>
+                <div className="flex items-center gap-2">
+                    <Button size="sm" variant={currentWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading}>
+                        {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${currentWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
+                        Favorite
+                    </Button>
+                    <Button size="sm" variant={currentWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || currentWinery.userVisited}>
+                        {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : currentWinery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
+                        {currentWinery.onWishlist ? "On List" : "Want to Go"}
+                    </Button>
+                </div>
+            </div>
              <Separator className="my-4"/>
 
             {/* NEW FRIENDS ACTIVITY SECTION */}
