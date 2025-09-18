@@ -3,11 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   const { placeId } = await request.json();
-  const supabase = createClient();
+  const supabase = await createClient();
 
   console.log(`[API] /api/wineries/details: Received request for placeId: ${placeId}`);
-  console.log('[API] /api/wineries/details: Supabase client:', supabase);
-  console.log('[API] /api/wineries/details: Type of supabase.from:', typeof supabase.from);
 
   if (!placeId) {
     console.error('[API] /api/wineries/details: placeId is missing.');
