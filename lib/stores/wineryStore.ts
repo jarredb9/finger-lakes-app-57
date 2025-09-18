@@ -21,10 +21,10 @@ const standardizeWineryData = (rawWinery: any, existingWinery?: Winery): Winery 
       phone: rawWinery.phone ?? existingWinery?.phone,
       website: rawWinery.website ?? existingWinery?.website,
       rating: rawWinery.google_rating ?? rawWinery.rating ?? existingWinery?.rating,
-      userVisited: existingWinery?.userVisited || false,
-      onWishlist: existingWinery?.onWishlist || false,
-      isFavorite: existingWinery?.isFavorite || false,
-      visits: existingWinery?.visits || [],
+      userVisited: existingWinery?.userVisited || rawWinery.userVisited || false,
+      onWishlist: existingWinery?.onWishlist || rawWinery.onWishlist || false,
+      isFavorite: existingWinery?.isFavorite || rawWinery.isFavorite || false,
+      visits: existingWinery?.visits || rawWinery.visits || [],
       trip_id: rawWinery.trip_id ?? existingWinery?.trip_id,
       trip_name: rawWinery.trip_name ?? existingWinery?.trip_name,
       trip_date: rawWinery.trip_date ?? existingWinery?.trip_date,
@@ -157,7 +157,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       if (!response.ok) throw new Error('Failed to fetch details');
       
       const detailedWineryData = await response.json();
-      const standardized = standardizeWineryData(detailedWineryData);
+      const standardized = standardizeWineryData(detailedWineryData, existing);
 
       if (standardized) {
         set(state => {

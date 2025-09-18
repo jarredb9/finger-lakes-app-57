@@ -214,7 +214,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
 
   const { openModal, closeModal } = useUIStore();
 
-  const { upcomingTrips, fetchUpcomingTrips } = useTripStore();
+  const { trips, upcomingTrips, fetchAllTrips } = useTripStore();
 
   const { toast } = useToast();
 
@@ -233,9 +233,9 @@ function WineryMapLogic({ userId }: { userId: string; }) {
     }
     if (userId) {
       fetchWineryData();
-      fetchUpcomingTrips(); // Fetch upcoming trips when component mounts
+      fetchAllTrips(); // Fetch all trips when component mounts
     }
-  }, [geocoding, userId, fetchWineryData, fetchUpcomingTrips]);
+  }, [geocoding, userId, fetchWineryData, fetchAllTrips]);
 
   useEffect(() => {
     if (googleMapInstance) {
@@ -438,7 +438,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
       wineryDataToDisplay = { ...wineryDataToDisplay, ...fullData };
     }
 
-    const foundTrip = upcomingTrips.find(trip => {
+    const foundTrip = trips.find(trip => {
       const isWineryOnTrip = Array.isArray(trip.wineries) && trip.wineries.some(w => w.id === wineryDataToDisplay.id);
       return isWineryOnTrip;
     });
