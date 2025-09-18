@@ -4,6 +4,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Winery, Trip } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { useTripStore } from "@/lib/stores/tripStore";
 
 const formatWinery = (w: any, overrides: Partial<Winery> = {}) => {
     if (!w) return null;
@@ -72,10 +73,55 @@ export function useWineryData() {
     
 
 
+    const { toast } = useToast();
+    const { fetchUpcomingTrips } = useTripStore();
+
+    const fetchWishlist = useCallback(async () => {
+        try {
+            const response = await fetch('/api/wishlist');
+            if (response.ok) {
+                const items = await response.json();
+                const formatted = items.map((w: any) => formatWinery(w, { onWishlist: true }));
+                setAllWishlistWineries(formatted);
+                return formatted;
+            }
+        } catch (error) { console.error("Failed to fetch wishlist", error); }
+        return [];
+    }, []);
+
+    const fetchFavorites = useCallback(async () => {
+        try {
+            const response = await fetch('/api/favorites');
+            if (response.ok) {
+                const items = await response.json();
+                const formatted = items.map((w: any) => formatWinery(w, { isFavorite: true }));
+                setAllFavoriteWineries(formatted);
+                return formatted;
+            }
+        } catch (error) { console.error("Failed to fetch favorites", error); }
+        return [];
+    }, []);
+
+    const fetchUserVisits = useCallback(async () => {
+        try {
+            const response = await fetch('/api/visits?page=1&limit=1000');
+            if (response.ok) {
+                const data = await response.json();
+                const visitsArray = data.visits || [];
+                setAllUserVisits(visitsArray);
+                return visitsArray;
+            }
+        } catch (error) {
+            toast({ variant: "destructive", title: "Error", description: "Could not fetch your visits." });
+        }
+        return [];
+    }, [toast]);
+
+
     const refreshAllData = useCallback(async () => {
         // ** FIX: Call the new fetchUpcomingTrips function as well. **
-        await Promise.all([fetchUserVisits(), fetchWishlist(), fetchFavorites()]);
-    }, [fetchUserVisits, fetchWishlist, fetchFavorites]);
+        await Promise.all([fetchUserVisits(), fetchWishlist(), fetchFavorites(), fetchUpcomingTrips()]);
+    }, [fetchUserVisits, fetchWishlist, fetchFavorites, fetchUpcomingTrips]);
 
 
     useEffect(() => {

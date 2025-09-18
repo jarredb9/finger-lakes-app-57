@@ -35,6 +35,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { useWineryStore } from "@/lib/stores/wineryStore";
+import { useUserStore } from "@/lib/stores/userStore";
 import { Badge } from "@/components/ui/badge";
 
 
@@ -118,6 +119,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   const [friendsActivity, setFriendsActivity] = useState<{ favoritedBy: any[], wishlistedBy: any[] }>({ favoritedBy: [], wishlistedBy: [] });
 
   const { saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite, persistentWineries, ensureWineryDetails } = useWineryStore();
+  const { isAuthenticated } = useUserStore();
 
   useEffect(() => {
     if (winery?.id) {
@@ -209,6 +211,10 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   };
 
   const handleSave = async () => {
+    if (!isAuthenticated) {
+      toast({ variant: 'destructive', description: "Please log in to add a visit." });
+      return;
+    }
     if (!visitDate.trim()) {
       toast({ title: "Error", description: "Visit date is required.", variant: "destructive" });
       return;
@@ -245,6 +251,10 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   };
 
   const handleWishlistToggle = async () => {
+    if (!isAuthenticated) {
+      toast({ variant: 'destructive', description: "Please log in to add to your wishlist." });
+      return;
+    }
     setWishlistLoading(true);
     try {
         await toggleWishlist(currentWinery, !!currentWinery.onWishlist);
@@ -254,6 +264,10 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   };
   
   const handleFavoriteToggle = async () => {
+    if (!isAuthenticated) {
+      toast({ variant: 'destructive', description: "Please log in to add to your favorites." });
+      return;
+    }
     setFavoriteLoading(true);
     await toggleFavorite(currentWinery, !!currentWinery.isFavorite);
     toast({ description: currentWinery.isFavorite ? "Removed from favorites." : "Added to favorites." });
@@ -261,6 +275,10 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   };
 
   const handleAddToTrip = async () => {
+    if (!isAuthenticated) {
+      toast({ variant: 'destructive', description: "Please log in to add to a trip." });
+      return;
+    }
     if (!tripDate || !currentWinery.dbId) {
         toast({ title: "Error", description: "Please select a date.", variant: "destructive" });
         return;
@@ -378,11 +396,11 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
                    )}
                 </div>
                 <div className="flex items-center gap-2">
-                    <Button size="sm" variant={currentWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading}>
+                    <Button size="sm" variant={currentWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading || !isAuthenticated}>
                         {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${currentWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
                         Favorite
                     </Button>
-                    <Button size="sm" variant={currentWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || currentWinery.userVisited}>
+                    <Button size="sm" variant={currentWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || currentWinery.userVisited || !isAuthenticated}>
                         {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : currentWinery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
                         {currentWinery.onWishlist ? "On List" : "Want to Go"}
                     </Button>
@@ -588,19 +606,19 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
              <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="visitDate">Visit Date *</Label>
-                  <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} max={new Date().toISOString().split("T")[0]} required aria-label="Visit Date" />
+                  <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} max={new Date().toISOString().split("T")[0]} required aria-label="Visit Date" disabled={!isAuthenticated} />
                 </div>
                 <div className="space-y-2">
                   <Label>Your Rating</Label>
                   <div className="flex items-center space-x-1">
                     {[...Array(5)].map((_, i) => (
-                      <Star key={i} className={`w-6 h-6 cursor-pointer transition-colors ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"}`} onClick={() => setRating(i + 1)} aria-label={`Set rating to ${i + 1}`} />
+                      <Star key={i} className={`w-6 h-6 cursor-pointer transition-colors ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"}`} onClick={() => isAuthenticated && setRating(i + 1)} aria-label={`Set rating to ${i + 1}`} />
                     ))}
                   </div>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="userReview">Your Review (Optional)</Label>
-                  <Textarea id="userReview" placeholder="e.g., 'Loved the dry Riesling! Beautiful view from the patio.'" value={userReview} onChange={(e) => setUserReview(e.target.value)} rows={4} aria-label="Your Review" />
+                  <Textarea id="userReview" placeholder="e.g., 'Loved the dry Riesling! Beautiful view from the patio.'" value={userReview} onChange={(e) => setUserReview(e.target.value)} rows={4} aria-label="Your Review" disabled={!isAuthenticated} />
                 </div>
                 <div className="space-y-2">
                   <Label>Photos (Optional)</Label>
@@ -617,7 +635,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
                 </div>
              </div>
              <DialogFooter className="pt-4 mt-4">
-                <Button onClick={handleSave} disabled={!visitDate.trim() || saving} className="w-full">
+                <Button onClick={handleSave} disabled={!visitDate.trim() || saving || !isAuthenticated} className="w-full">
                     {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : (editingVisitId ? "Save Changes" : "Add Visit")}
                 </Button>
              </DialogFooter>

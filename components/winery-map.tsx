@@ -214,7 +214,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
 
   const { openModal, closeModal } = useUIStore();
 
-  const { trips, fetchAllTrips } = useTripStore();
+  const { trips, fetchAllTrips, fetchUpcomingTrips } = useTripStore();
 
   const { toast } = useToast();
 
