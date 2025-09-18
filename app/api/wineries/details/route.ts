@@ -6,6 +6,8 @@ export async function POST(request: NextRequest) {
   const supabase = createClient();
 
   console.log(`[API] /api/wineries/details: Received request for placeId: ${placeId}`);
+  console.log('[API] /api/wineries/details: Supabase client:', supabase);
+  console.log('[API] /api/wineries/details: Type of supabase.from:', typeof supabase.from);
 
   if (!placeId) {
     console.error('[API] /api/wineries/details: placeId is missing.');
