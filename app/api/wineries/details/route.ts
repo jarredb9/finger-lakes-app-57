@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     if (upsertError) {
       console.error('Error upserting winery:', upsertError);
-      return NextResponse.json({ error: 'Failed to save winery details' }, { status: 500 });
+      return NextResponse.json({ error: 'Failed to save winery details', details: upsertError }, { status: 500 });
     }
 
     return NextResponse.json(upsertedWinery);
