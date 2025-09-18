@@ -36,6 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useUserStore } from "@/lib/stores/userStore";
+import { useTripStore } from "@/lib/stores/tripStore";
 import { Badge } from "@/components/ui/badge";
 
 
@@ -142,25 +143,22 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
 
 
   const { toast } = useToast();
+  const { tripsForDate, fetchTripsForDate, createTrip, updateTrip } = useTripStore();
   
   useEffect(() => {
     if (tripDate) {
-        const fetchTrips = async () => {
-            const dateString = tripDate.toISOString().split("T")[0];
-            const response = await fetch(`/api/trips?date=${dateString}`);
-            if (response.ok) {
-                const data = await response.json();
-                setTripsOnDate(Array.isArray(data) ? data : []);
-                setSelectedTrips(new Set());
-                setNewTripName("");
-                setAddTripNotes("");
-            }
-        };
-        fetchTrips();
+        fetchTripsForDate(tripDate);
+        setSelectedTrips(new Set());
+        setNewTripName("");
+        setAddTripNotes("");
     } else {
         setTripsOnDate([]);
     }
-  }, [tripDate]);
+  }, [tripDate, fetchTripsForDate]);
+
+  useEffect(() => {
+    setTripsOnDate(tripsForDate);
+  }, [tripsForDate]);
   
   const handleToggleTrip = (tripId: string) => {
     setSelectedTrips(prev => {
@@ -280,7 +278,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
       return;
     }
     if (!tripDate || !currentWinery.dbId) {
-        toast({ title: "Error", description: "Please select a date.", variant: "destructive" });
+        toast({ title: "Error", description: "Please select a date and ensure winery has a database ID.", variant: "destructive" });
         return;
     }
 
@@ -289,42 +287,29 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
         return;
     }
     
-    // Process each selected trip
-    const tripPromises = Array.from(selectedTrips).map(tripId => {
-        // ** FIX: Correctly construct the payload to send to the API endpoint. **
-        const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
-            date: tripDate.toISOString().split("T")[0],
-            wineryId: currentWinery.dbId!,
-        };
-
-        if (tripId === 'new') {
-            if (!newTripName.trim()) {
-                toast({ variant: 'destructive', description: "Please enter a name for the new trip." });
-                return Promise.reject("New trip requires a name.");
-            }
-            payload.name = newTripName;
-            payload.notes = addTripNotes;
-        } else {
-            payload.tripIds = [parseInt(tripId, 10)];
-            payload.notes = addTripNotes;
-        }
-
-        return fetch('/api/trips', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).then(response => {
-            if (!response.ok) {
-                return response.json().then(errorData => { throw new Error(errorData.error || "Failed to add to trip."); });
-            }
-        });
-    });
-
     try {
-        await Promise.all(tripPromises);
+        await Promise.all(Array.from(selectedTrips).map(async (tripId) => {
+            if (tripId === 'new') {
+                if (!newTripName.trim()) {
+                    toast({ variant: 'destructive', description: "Please enter a name for the new trip." });
+                    throw new Error("New trip requires a name.");
+                }
+                const newTrip = await createTrip(tripDate, newTripName, addTripNotes, currentWinery.dbId!);
+                if (!newTrip) {
+                    throw new Error("Failed to create new trip.");
+                }
+            } else {
+                await updateTrip(tripId, { addWineryId: currentWinery.dbId! });
+                if (addTripNotes) {
+                    await saveWineryNote(tripId, currentWinery.dbId!, addTripNotes);
+                }
+            }
+        }));
         toast({ description: "Winery added to trip(s)." });
         setTripDate(undefined);
+        onClose();
     } catch (error: any) {
+        console.error("Error adding winery to trip:", error);
         toast({ variant: 'destructive', description: error.message || "An error occurred." });
     }
   };
@@ -336,37 +321,16 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
     
     try {
       if (isOnTrip) {
-        // Remove winery from trip
-        const response = await fetch(`/api/trips/${selectedTrip.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ removeWineryId: currentWinery.dbId }),
-        });
-        if (response.ok) {
-          toast({ description: "Winery removed from trip." });
-          onClose(); // Close the modal to refresh the map view
-        } else {
-          toast({ variant: "destructive", description: "Failed to remove winery from trip." });
-        }
+        await removeWineryFromTrip(selectedTrip.id, currentWinery.dbId);
+        toast({ description: "Winery removed from trip." });
+        onClose(); // Close the modal to refresh the map view
       } else {
-        // Add winery to trip
-        const response = await fetch('/api/trips', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: selectedTrip.trip_date.split('T')[0],
-            wineryId: currentWinery.dbId,
-            tripIds: [selectedTrip.id]
-          }),
-        });
-        if (response.ok) {
-          toast({ description: `Added to ${selectedTrip.name || 'trip'}.` });
-          onClose(); // Close the modal to refresh the map view
-        } else {
-          toast({ variant: "destructive", description: "Failed to add winery to trip." });
-        }
+        await updateTrip(selectedTrip.id, { addWineryId: currentWinery.dbId });
+        toast({ description: `Added to ${selectedTrip.name || 'trip'}.` });
+        onClose(); // Close the modal to refresh the map view
       }
     } catch (error) {
+      console.error("Error updating trip:", error);
       toast({ variant: "destructive", description: "An error occurred while updating the trip." });
     }
   };

@@ -113,11 +113,11 @@ export const useTripStore = create<TripState>((set, get) => ({
     }
   },
 
-  createTrip: async (date: Date) => {
+  createTrip: async (date: Date, name: string = "New Trip", notes: string = "", wineryId?: number) => {
     const response = await fetch('/api/trips', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: date.toISOString().split('T')[0], name: "New Trip" })
+      body: JSON.stringify({ date: date.toISOString().split('T')[0], name, notes, wineryId })
     });
     if (response.ok) {
       // After successfully creating a trip, refetch the trips for that date.
