@@ -51,7 +51,6 @@ export const useTripStore = create<TripState>((set, get) => ({
   },
 
   fetchAllTrips: async () => {
-    console.log("[tripStore] fetchAllTrips: Starting fetch.");
     set({ isLoading: true });
     try {
       const response = await fetch(`/api/trips`);
