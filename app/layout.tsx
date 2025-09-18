@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster"
 import BottomNav from '@/components/bottom-nav'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from '@/components/auth-provider'
+import { GlobalModalRenderer } from '@/components/global-modal-renderer'
 
 export const metadata: Metadata = {
   title: 'v0 App',
@@ -31,6 +32,7 @@ export default function RootLayout({
             <Toaster />
             {/* The BottomNav component is rendered here */}
             <BottomNav />
+            <GlobalModalRenderer />
           </div>
         </TooltipProvider>
       </body>

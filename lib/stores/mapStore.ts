@@ -6,7 +6,6 @@ interface MapState {
   center: { lat: number; lng: number };
   zoom: number;
   bounds: google.maps.LatLngBounds | null;
-  selectedWinery: Winery | null;
   isSearching: boolean;
   hitApiLimit: boolean;
   searchResults: Winery[];
@@ -18,7 +17,6 @@ interface MapState {
   setCenter: (center: { lat: number; lng: number }) => void;
   setZoom: (zoom: number) => void;
   setBounds: (bounds: google.maps.LatLngBounds | null) => void;
-  setSelectedWinery: (winery: Winery | null) => void;
   setIsSearching: (isSearching: boolean) => void;
   setHitApiLimit: (hitApiLimit: boolean) => void;
   setSearchResults: (results: Winery[]) => void;
@@ -33,7 +31,6 @@ export const useMapStore = create<MapState>((set) => ({
   center: { lat: 40, lng: -98 },
   zoom: 4,
   bounds: null,
-  selectedWinery: null,
   isSearching: false,
   hitApiLimit: false,
   searchResults: [],
@@ -45,7 +42,6 @@ export const useMapStore = create<MapState>((set) => ({
   setCenter: (center) => set({ center }),
   setZoom: (zoom) => set({ zoom }),
   setBounds: (bounds) => set({ bounds }),
-  setSelectedWinery: (winery) => set({ selectedWinery: winery }),
   setIsSearching: (isSearching) => set({ isSearching }),
   setHitApiLimit: (hitApiLimit) => set({ hitApiLimit }),
   setSearchResults: (results) => set({ searchResults: results }),

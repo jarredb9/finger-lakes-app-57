@@ -194,7 +194,6 @@ function WineryMapLogic({ userId }: { userId: string; }) {
     center, setCenter,
     zoom, setZoom,
     bounds, setBounds,
-    selectedWinery, setSelectedWinery,
     isSearching, setIsSearching,
     searchResults, setSearchResults,
     filter, setFilter,
@@ -213,6 +212,8 @@ function WineryMapLogic({ userId }: { userId: string; }) {
     error,
     fetchWineryData,
   } = useWineryStore();
+
+  const { openModal, closeModal } = useUIStore();
 
   const { upcomingTrips, fetchUpcomingTrips } = useTripStore();
 
@@ -449,8 +450,8 @@ function WineryMapLogic({ userId }: { userId: string; }) {
       wineryDataToDisplay.trip_date = foundTrip.trip_date;
     }
 
-    setSelectedWinery(wineryDataToDisplay);
-  }, [persistentWineries, upcomingTrips, setSelectedWinery]);
+    openModal(<WineryModal winery={wineryDataToDisplay} onClose={closeModal} selectedTrip={selectedTrip} />);
+  }, [persistentWineries, upcomingTrips, openModal, closeModal, selectedTrip]);
 
   const handleFilterChange = (newFilter: string[]) => {
     if (newFilter.length === 0) {
@@ -546,11 +547,6 @@ function WineryMapLogic({ userId }: { userId: string; }) {
           </Card>
         </div>
       </div>
-      {selectedWinery && (<WineryModal
-        winery={selectedWinery}
-        onClose={() => setSelectedWinery(null)}
-        selectedTrip={selectedTrip}
-      />)}
       {proposedWinery && (
         <AlertDialog open={!!proposedWinery} onOpenChange={() => setProposedWinery(null)}>
           <AlertDialogContent>
@@ -565,7 +561,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setProposedWinery(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogCancel onClick={() => setProposedWinery(null)}>Cancel</Cancel>
               <AlertDialogAction onClick={() => { handleOpenModal(proposedWinery); setProposedWinery(null); }}>Add Visit</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
