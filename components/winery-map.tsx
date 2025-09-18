@@ -38,6 +38,7 @@ import { Winery, Visit, Trip } from "@/lib/types"
 import { useWineryStore } from "@/lib/stores/wineryStore"
 import { useMapStore } from "@/lib/stores/mapStore"
 import { useTripStore } from "@/lib/stores/tripStore"
+import { useUIStore } from "@/lib/stores/uiStore"
 import WineryClusterer from "./winery-clusterer"
 import WishlistClusterer from './wishlist-clusterer';
 import FavoriteClusterer from "./favorite-clusterer"
@@ -60,8 +61,6 @@ const WineryModal = dynamic(() => import('@/components/winery-modal'), {
 interface WineryMapProps { 
   userId: string;
 }
-
-
 
 const MapComponent = memo(({ discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, onMarkerClick, selectedTrip }: { discoveredWineries: Winery[], visitedWineries: Winery[], wishlistWineries: Winery[], favoriteWineries: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
     return (
@@ -561,7 +560,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setProposedWinery(null)}>Cancel</Cancel>
+              <AlertDialogCancel onClick={() => setProposedWinery(null)}>Cancel</AlertDialogCancel>
               <AlertDialogAction onClick={() => { handleOpenModal(proposedWinery); setProposedWinery(null); }}>Add Visit</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
