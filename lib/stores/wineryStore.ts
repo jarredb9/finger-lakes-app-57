@@ -1,5 +1,41 @@
 import { create } from 'zustand';
-import { Winery, Visit, Trip } from '@/lib/types';
+import { Winery, Visit } from '@/lib/types';
+
+// Moved standardizeWineryData outside of the create call to be reusable
+const standardizeWineryData = (rawWinery: any, existingWinery?: Winery): Winery | null => {
+  if (!rawWinery) return null;
+
+  const id = String(rawWinery.google_place_id || rawWinery.id);
+  const dbId = rawWinery.google_place_id ? rawWinery.id : (rawWinery.dbId || existingWinery?.dbId);
+
+  const lat = rawWinery.latitude ?? rawWinery.lat;
+  const lng = rawWinery.longitude ?? rawWinery.lng;
+
+  const standardized: Winery = {
+      id,
+      dbId,
+      name: rawWinery.name,
+      address: rawWinery.address,
+      lat: typeof lat === 'string' ? parseFloat(lat) : (lat || 0),
+      lng: typeof lng === 'string' ? parseFloat(lng) : (lng || 0),
+      phone: rawWinery.phone ?? existingWinery?.phone,
+      website: rawWinery.website ?? existingWinery?.website,
+      rating: rawWinery.google_rating ?? rawWinery.rating ?? existingWinery?.rating,
+      userVisited: existingWinery?.userVisited || false,
+      onWishlist: existingWinery?.onWishlist || false,
+      isFavorite: existingWinery?.isFavorite || false,
+      visits: existingWinery?.visits || [],
+      trip_id: rawWinery.trip_id ?? existingWinery?.trip_id,
+      trip_name: rawWinery.trip_name ?? existingWinery?.trip_name,
+      trip_date: rawWinery.trip_date ?? existingWinery?.trip_date,
+  };
+
+  if (!standardized.id || !standardized.name || typeof standardized.lat !== 'number' || isNaN(standardized.lat) || typeof standardized.lng !== 'number' || isNaN(standardized.lng)) {
+      console.warn('[Validation] Invalid winery data after standardization:', { rawWinery, standardized });
+      return null;
+  }
+  return standardized;
+};
 
 interface WineryState {
   wineries: Winery[];
@@ -7,11 +43,10 @@ interface WineryState {
   wishlistWineries: Winery[];
   favoriteWineries: Winery[];
   persistentWineries: Winery[];
-  
-  
   isLoading: boolean;
   error: string | null;
   fetchWineryData: () => Promise<void>;
+  ensureWineryDetails: (placeId: string) => Promise<Winery | null>;
   saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => Promise<void>;
   updateVisit: (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
@@ -25,191 +60,122 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   wishlistWineries: [],
   favoriteWineries: [],
   persistentWineries: [],
-  
-  
   isLoading: false,
   error: null,
 
   fetchWineryData: async () => {
-    console.log('[wineryStore] Starting fetchWineryData...');
     set({ isLoading: true, error: null });
     try {
-      const [
-        visitsRes,
-        favoritesRes,
-        wishlistRes,
-        
-      ] = await Promise.all([
+      const [visitsRes, favoritesRes, wishlistRes] = await Promise.all([
         fetch("/api/visits"),
         fetch("/api/favorites"),
         fetch("/api/wishlist"),
-        
       ]);
 
-      const [
-        visitsData,
-        favoritesData,
-        wishlistData,
-        
-      ] = await Promise.all([
+      const [visitsData, favoritesData, wishlistData] = await Promise.all([
         visitsRes.json(),
         favoritesRes.json(),
         wishlistRes.json(),
-        
       ]);
-
-      console.log("[wineryStore] Raw visitsData (stringified):", JSON.stringify(visitsData.visits.map((v: any) => ({ id: v.wineries?.google_place_id, name: v.wineries?.name, phone: v.wineries?.phone, website: v.wineries?.website, rating: v.wineries?.google_place_id }))));
-      console.log("[wineryStore] Raw favoritesData (stringified):", JSON.stringify(favoritesData.map((f: any) => ({ id: f.wineries?.google_place_id ?? f.id, name: f.wineries?.name ?? f.name, phone: f.wineries?.phone ?? f.phone, website: f.wineries?.website ?? f.website, rating: f.wineries?.google_place_id ?? f.rating }))));
-            console.log("[wineryStore] Raw visitsData (stringified):", JSON.stringify(visitsData.visits.map((v: any) => ({ id: v.wineries?.google_place_id, name: v.wineries?.name, phone: v.wineries?.phone, website: v.wineries?.website, rating: v.wineries?.google_place_id }))));
-      console.log("[wineryStore] Raw favoritesData (stringified):", JSON.stringify(favoritesData.map((f: any) => ({ id: f.wineries?.google_place_id ?? f.id, name: f.wineries?.name ?? f.name, phone: f.wineries?.phone ?? f.phone, website: f.wineries?.website ?? f.website, rating: f.wineries?.google_place_id ?? f.rating }))));
-      console.log("[wineryStore] Raw wishlistData (stringified):", JSON.stringify(wishlistData.map((w: any) => ({ id: w.wineries?.google_place_id ?? w.id, name: w.wineries?.name ?? w.name, phone: w.wineries?.phone ?? w.phone, website: w.wineries?.website ?? w.website, rating: w.wineries?.rating ?? w.rating }))));
 
       const { visits } = visitsData;
       const favorites = favoritesData.favorites || favoritesData;
       const wishlist = wishlistData.wishlist || wishlistData;
-      
-      
-
-      const standardizeWineryData = (rawWinery: any, existingWinery?: Winery): Winery | null => {
-        if (!rawWinery) return null;
-
-        // The main ID for a winery is its Google Place ID.
-        const id = String(rawWinery.google_place_id || rawWinery.id);
-        // The dbId is the database's serial ID.
-        const dbId = rawWinery.google_place_id ? rawWinery.id : (rawWinery.dbId || existingWinery?.dbId);
-
-        const lat = rawWinery.latitude ?? rawWinery.lat;
-        const lng = rawWinery.longitude ?? rawWinery.lng;
-
-        const standardized: Winery = {
-            // Base properties
-            id,
-            dbId,
-            name: rawWinery.name,
-            address: rawWinery.address,
-            lat: typeof lat === 'string' ? parseFloat(lat) : parseFloat(lat),
-            lng: typeof lng === 'string' ? parseFloat(lng) : parseFloat(lng),
-
-            // Details that might be missing from some sources
-            phone: rawWinery.phone ?? existingWinery?.phone,
-            website: rawWinery.website ?? existingWinery?.website,
-            rating: rawWinery.google_rating ?? rawWinery.rating ?? existingWinery?.rating,
-
-            // State flags
-            userVisited: existingWinery?.userVisited || false,
-            onWishlist: existingWinery?.onWishlist || false,
-            isFavorite: existingWinery?.isFavorite || false,
-            visits: existingWinery?.visits || [],
-
-            // Trip details
-            trip_id: rawWinery.trip_id ?? existingWinery?.trip_id,
-            trip_name: rawWinery.trip_name ?? existingWinery?.trip_name,
-            trip_date: rawWinery.trip_date ?? existingWinery?.trip_date,
-        };
-
-        if (!standardized.id || !standardized.name || typeof standardized.lat !== 'number' || isNaN(standardized.lat) || typeof standardized.lng !== 'number' || isNaN(standardized.lng)) {
-            console.warn('[Validation] Invalid winery data after standardization:', { rawWinery, standardized });
-            return null;
-        }
-        return standardized;
-      };
-
-      const standardizeVisitData = (rawVisit: any): Visit | null => {
-          if (!rawVisit || !rawVisit.wineries) return null;
-
-          const standardized: Visit = {
-              id: rawVisit.id,
-              visit_date: rawVisit.visit_date,
-              user_review: rawVisit.user_review,
-              rating: rawVisit.rating,
-              photos: rawVisit.photos,
-              wineries: {
-                  id: rawVisit.wineries.id,
-                  google_place_id: rawVisit.wineries.google_place_id,
-                  name: rawVisit.wineries.name,
-                  address: rawVisit.wineries.address,
-                  latitude: rawVisit.wineries.latitude,
-                  longitude: rawVisit.wineries.longitude,
-              }
-          };
-
-          if (!standardized.id || !standardized.visit_date || !standardized.wineries.id) {
-              console.warn('[Validation] Invalid visit data after standardization:', rawVisit, standardized);
-              return null;
-          }
-          console.log("[wineryStore] Standardized Visit Data:", standardized);
-          return standardized;
-      };
 
       const wineriesMap = new Map<string, Winery>();
 
+      const processWinery = (rawWinery: any, updates: Partial<Winery>) => {
+        const googleId = String(rawWinery.google_place_id || rawWinery.id);
+        if (!googleId) return;
+
+        const existing = wineriesMap.get(googleId);
+        const standardized = standardizeWineryData(rawWinery, existing);
+        if (!standardized) return;
+
+        const merged = { ...standardized, ...updates };
+        wineriesMap.set(googleId, merged);
+        return merged;
+      };
+
       visits.forEach((rawVisit: any) => {
-          const visit = standardizeVisitData(rawVisit);
-          if (!visit || !visit.wineries) return;
-
-          const wineryGoogleId = String(visit.wineries.google_place_id);
-          let wineryInMap = wineriesMap.get(wineryGoogleId);
-
-          // Pass existing winery to standardizeWineryData for merging
-          const newWineryData = standardizeWineryData(visit.wineries, wineryInMap || undefined);
-          if (!newWineryData) return;
-          wineryInMap = newWineryData;
-          wineriesMap.set(wineryGoogleId, wineryInMap);
-
-          wineryInMap.userVisited = true;
-          wineryInMap.visits?.push(visit);
-          console.log("[wineryStore] After processing visit, wineryInMap:", wineryInMap);
+        if (!rawVisit.wineries) return;
+        const winery = processWinery(rawVisit.wineries, { userVisited: true });
+        if (winery) {
+          winery.visits = [...(winery.visits || []), rawVisit];
+        }
       });
 
       favorites.forEach((rawFavorite: any) => {
-          const wineryData = rawFavorite.wineries || rawFavorite;
-          const wineryGoogleId = String(wineryData.id);
-
-          let wineryInMap = wineriesMap.get(wineryGoogleId);
-
-          // Pass existing winery to standardizeWineryData for merging
-          const newWineryData = standardizeWineryData(wineryData, wineryInMap || undefined);
-          if (!newWineryData) return;
-          wineryInMap = newWineryData;
-          wineriesMap.set(wineryGoogleId, wineryInMap);
-
-          wineryInMap.isFavorite = true;
-          console.log("[wineryStore] After processing favorite, wineryInMap:", wineryInMap);
+        const wineryData = rawFavorite.wineries || rawFavorite;
+        processWinery(wineryData, { isFavorite: true });
       });
 
       wishlist.forEach((rawWishlist: any) => {
-          const wineryData = rawWishlist.wineries || rawWishlist;
-          const wineryGoogleId = String(wineryData.id);
-
-          let wineryInMap = wineriesMap.get(wineryGoogleId);
-
-          // Pass existing winery to standardizeWineryData for merging
-          const newWineryData = standardizeWineryData(wineryData, wineryInMap || undefined);
-          if (!newWineryData) return;
-          wineryInMap = newWineryData;
-          wineriesMap.set(wineryGoogleId, wineryInMap);
-
-          wineryInMap.onWishlist = true;
-          console.log("[wineryStore] After processing wishlist, wineryInMap:", wineryInMap);
+        const wineryData = rawWishlist.wineries || rawWishlist;
+        processWinery(wineryData, { onWishlist: true });
       });
 
-      const persistentWineries = Array.from(wineriesMap.values());
+      const initialWineries = Array.from(wineriesMap.values());
 
-      console.log('%c[wineryStore] Final State Update:', 'color: red; font-weight: bold;', {
-        persistentWineries,
-      });
+      const detailedWineries = await Promise.all(
+        initialWineries.map(async (winery) => {
+          if (winery.id && (!winery.phone || !winery.website || !winery.rating)) {
+            const details = await get().ensureWineryDetails(winery.id);
+            return details ? { ...winery, ...details } : winery;
+          }
+          return winery;
+        })
+      );
 
       set({
-        wineries: [],
-        visitedWineries: persistentWineries.filter(w => w.userVisited),
-        favoriteWineries: persistentWineries.filter(w => w.isFavorite),
-        wishlistWineries: persistentWineries.filter(w => w.onWishlist),
-        persistentWineries,
+        persistentWineries: detailedWineries,
+        visitedWineries: detailedWineries.filter(w => w.userVisited),
+        favoriteWineries: detailedWineries.filter(w => w.isFavorite),
+        wishlistWineries: detailedWineries.filter(w => w.onWishlist),
         isLoading: false,
       });
+
     } catch (error) {
       console.error("Failed to fetch winery data:", error);
       set({ error: "Failed to load winery data.", isLoading: false });
+    }
+  },
+
+  ensureWineryDetails: async (placeId: string) => {
+    const existing = get().persistentWineries.find(w => w.id === placeId);
+    if (existing && existing.phone && existing.website && existing.rating) {
+      return existing;
+    }
+
+    try {
+      const response = await fetch('/api/wineries/details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ placeId }),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch details');
+      
+      const detailedWineryData = await response.json();
+      const standardized = standardizeWineryData(detailedWineryData);
+
+      if (standardized) {
+        set(state => {
+          const index = state.persistentWineries.findIndex(w => w.id === placeId);
+          if (index !== -1) {
+            const updatedWineries = [...state.persistentWineries];
+            updatedWineries[index] = { ...updatedWineries[index], ...standardized };
+            return { persistentWineries: updatedWineries };
+          } else {
+            return { persistentWineries: [...state.persistentWineries, standardized] };
+          }
+        });
+        return standardized;
+      }
+      return null;
+    } catch (error) {
+      console.error(`Failed to ensure details for winery ${placeId}:`, error);
+      return null;
     }
   },
 
@@ -236,32 +202,24 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   },
 
   toggleWishlist: async (winery, isOnWishlist) => {
+    await get().ensureWineryDetails(winery.id);
+    const dbId = get().persistentWineries.find(w => w.id === winery.id)?.dbId;
+
     const method = isOnWishlist ? 'DELETE' : 'POST';
-    const body = isOnWishlist ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
+    const body = isOnWishlist ? JSON.stringify({ dbId }) : JSON.stringify({ wineryData: winery });
     const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
     if (!response.ok) throw new Error("Could not update wishlist.");
-    
-    // Optimistic update
-    set(state => ({
-        wishlistWineries: isOnWishlist
-            ? state.wishlistWineries.filter(w => w.id !== winery.id)
-            : [...state.wishlistWineries, { ...winery, onWishlist: true }]
-    }));
-    await get().fetchWineryData(); // Re-sync with DB
+    await get().fetchWineryData();
   },
 
   toggleFavorite: async (winery, isFavorite) => {
+    await get().ensureWineryDetails(winery.id);
+    const dbId = get().persistentWineries.find(w => w.id === winery.id)?.dbId;
+
     const method = isFavorite ? 'DELETE' : 'POST';
-    const body = isFavorite ? JSON.stringify({ dbId: winery.dbId }) : JSON.stringify({ wineryData: winery });
+    const body = isFavorite ? JSON.stringify({ dbId }) : JSON.stringify({ wineryData: winery });
     const response = await fetch('/api/favorites', { method, headers: { 'Content-Type': 'application/json' }, body });
     if (!response.ok) throw new Error("Could not update favorites.");
-
-    // Optimistic update
-    set(state => ({
-        favoriteWineries: isFavorite
-            ? state.favoriteWineries.filter(w => w.id !== winery.id)
-            : [...state.favoriteWineries, { ...winery, isFavorite: true }]
-    }));
-    await get().fetchWineryData(); // Re-sync with DB
+    await get().fetchWineryData();
   },
 }));
