@@ -71,38 +71,46 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       
 
       const standardizeWineryData = (rawWinery: any, existingWinery?: Winery): Winery | null => {
-        console.log("[wineryStore] standardizeWineryData - rawWinery:", rawWinery);
-        console.log("[wineryStore] standardizeWineryData - existingWinery:", existingWinery);
         if (!rawWinery) return null;
 
-        const id = String(rawWinery.id);
+        // The main ID for a winery is its Google Place ID.
+        const id = String(rawWinery.google_place_id || rawWinery.id);
+        // The dbId is the database's serial ID.
+        const dbId = rawWinery.google_place_id ? rawWinery.id : (rawWinery.dbId || existingWinery?.dbId);
+
         const lat = rawWinery.latitude ?? rawWinery.lat;
         const lng = rawWinery.longitude ?? rawWinery.lng;
 
         const standardized: Winery = {
+            // Base properties
             id,
-            dbId: rawWinery.dbId,
+            dbId,
             name: rawWinery.name,
             address: rawWinery.address,
-            lat: typeof lat === 'string' ? parseFloat(lat) : lat,
-            lng: typeof lng === 'string' ? parseFloat(lng) : lng,
+            lat: typeof lat === 'string' ? parseFloat(lat) : parseFloat(lat),
+            lng: typeof lng === 'string' ? parseFloat(lng) : parseFloat(lng),
+
+            // Details that might be missing from some sources
             phone: rawWinery.phone ?? existingWinery?.phone,
             website: rawWinery.website ?? existingWinery?.website,
             rating: rawWinery.google_rating ?? rawWinery.rating ?? existingWinery?.rating,
+
+            // State flags
             userVisited: existingWinery?.userVisited || false,
             onWishlist: existingWinery?.onWishlist || false,
             isFavorite: existingWinery?.isFavorite || false,
             visits: existingWinery?.visits || [],
+
+            // Trip details
             trip_id: rawWinery.trip_id ?? existingWinery?.trip_id,
             trip_name: rawWinery.trip_name ?? existingWinery?.trip_name,
             trip_date: rawWinery.trip_date ?? existingWinery?.trip_date,
         };
 
-        if (!standardized.id || !standardized.name || typeof standardized.lat !== 'number' || typeof standardized.lng !== 'number') {
-            console.warn('[Validation] Invalid winery data after standardization:', rawWinery, standardized);
+        if (!standardized.id || !standardized.name || typeof standardized.lat !== 'number' || isNaN(standardized.lat) || typeof standardized.lng !== 'number' || isNaN(standardized.lng)) {
+            console.warn('[Validation] Invalid winery data after standardization:', { rawWinery, standardized });
             return null;
         }
-        console.log("[wineryStore] Standardized Winery Data:", standardized.id, standardized.name, { phone: standardized.phone, website: standardized.website, rating: standardized.rating });
         return standardized;
       };
 
