@@ -98,7 +98,7 @@ const MapComponent = memo(({ discoveredWineries, visitedWineries, wishlistWineri
 MapComponent.displayName = 'MapComponent';
 
 const SearchUI = memo(({ isSearching, searchResults, hitApiLimit, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, filter, onFilterChange, selectedTrip, setSelectedTrip }: { isSearching: boolean; searchResults: Winery[]; hitApiLimit: boolean; searchLocation: string; setSearchLocation: (location: string) => void; autoSearch: boolean; setAutoSearch: (auto: boolean) => void; handleSearchSubmit: (e: React.FormEvent) => void; handleManualSearchArea: () => void; filter: string[]; onFilterChange: (filter: string[]) => void; selectedTrip: Trip | null; setSelectedTrip: (trip: Trip | null) => void; }) => {
-  const { upcomingTrips } = useTripStore(); // Changed from useWineryStore
+  const { trips } = useTripStore(); // Changed from useWineryStore
   const { toast } = useToast();
   
   const handleTripSelect = async (tripId: string) => {
@@ -108,7 +108,7 @@ const SearchUI = memo(({ isSearching, searchResults, hitApiLimit, searchLocation
     }
 
     try {
-      const response = await fetch(`/api/trips?date=${upcomingTrips.find(t => t.id.toString() === tripId)?.trip_date}`);
+      const response = await fetch(`/api/trips?date=${trips.find(t => t.id.toString() === tripId)?.trip_date}`);
       if (response.ok) {
         const data = await response.json();
         const fullTrip = data.find((t: Trip) => t.id.toString() === tripId);
@@ -170,7 +170,7 @@ const SearchUI = memo(({ isSearching, searchResults, hitApiLimit, searchLocation
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="none">None</SelectItem>
-                            {upcomingTrips.filter(trip => !!trip.id).map(trip => (
+                            {trips.filter(trip => !!trip.id).map(trip => (
                                 <SelectItem key={trip.id} value={trip.id.toString()}>
                                     {trip.name} ({new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()})
                                 </SelectItem>
@@ -214,7 +214,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
 
   const { openModal, closeModal } = useUIStore();
 
-  const { trips, upcomingTrips, fetchAllTrips } = useTripStore();
+  const { trips, fetchAllTrips } = useTripStore();
 
   const { toast } = useToast();
 
@@ -235,7 +235,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
       fetchWineryData();
       fetchAllTrips(); // Fetch all trips when component mounts
     }
-  }, [geocoding, userId, fetchWineryData, fetchAllTrips]);
+  }, [geocoding, userId, fetchWineryData, fetchUpcomingTrips]);
 
   useEffect(() => {
     if (googleMapInstance) {

@@ -65,7 +65,6 @@ export const useTripStore = create<TripState>((set, get) => ({
         }
         set({ trips: data.trips || (Array.isArray(data) ? data : []), isLoading: false });
       } else {
-        console.error("[tripStore] fetchAllTrips: Failed to fetch data.", response.status, response.statusText);
         set({ trips: [], isLoading: false });
       }
     } catch (error) {
@@ -187,7 +186,7 @@ export const useTripStore = create<TripState>((set, get) => ({
     get().updateTrip(tripId, { removeWineryId: wineryId });
   },
 
-  saveWineryNote: async (tripId: string, wineryId: number, notes: string) => {
+  saveWineryNote: (tripId: string, wineryId: number, notes: string) => {
     get().updateTrip(tripId, { updateNote: { wineryId, notes } });
   },
   

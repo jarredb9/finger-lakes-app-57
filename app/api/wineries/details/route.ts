@@ -27,6 +27,10 @@ export async function POST(request: NextRequest) {
 
   // Fetch from Google Places API
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  if (!apiKey) {
+    console.error('Google Maps API Key is not set.');
+    return NextResponse.json({ error: 'Google Maps API Key is not configured.' }, { status: 500 });
+  }
   const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,website,rating&key=${apiKey}`;
 
   try {
