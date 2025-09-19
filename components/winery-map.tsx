@@ -446,7 +446,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
 
     console.log("Current trips data:", trips);
     const foundTrip = trips.find(trip => {
-      const isWineryOnTrip = Array.isArray(trip.wineries) && trip.wineries.some(w => w.id === wineryDataToDisplay.id);
+      const isWineryOnTrip = Array.isArray(trip.wineries) && trip.wineries.some(w => w.dbId === wineryDataToDisplay.dbId);
       return isWineryOnTrip;
     });
     console.log("Found trip for winery:", foundTrip);

@@ -112,7 +112,6 @@ interface WineryModalProps {
 }
 
 export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisit, onDeleteVisit, onToggleWishlist, onToggleFavorite, selectedTrip }: WineryModalProps) {
-  console.log("WineryModal received winery prop:", winery);
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(0);
