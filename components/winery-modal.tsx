@@ -448,7 +448,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
               </>
             )}
             
-             {friendsRatings.length >  qc && (
+             {friendsRatings.length > 0 && (
               <>
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friends' Ratings</span></h3>
