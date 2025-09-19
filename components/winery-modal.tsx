@@ -134,10 +134,10 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   const currentWinery = useMemo(() => {
     if (!winery) return null;
     const detailedWinery = persistentWineries.find(w => w.id === winery.id);
-    console.log("[WineryModal] detailedWinery from persistentWineries:", detailedWinery);
+    console.log("[WineryModal] detailedWinery from persistentWineries:", detailedWinery, "Phone:", detailedWinery?.phone, "Website:", detailedWinery?.website, "Rating:", detailedWinery?.rating);
     const finalWinery = detailedWinery ? { ...winery, ...detailedWinery } : winery;
-    console.log("[WineryModal] currentWinery (final):", finalWinery);
-    return detailedWinery ? { ...winery, ...detailedWinery } : winery;
+    console.log("[WineryModal] currentWinery (final):", finalWinery, "Phone:", finalWinery?.phone, "Website:", finalWinery?.website, "Rating:", finalWinery?.rating);
+    return finalWinery;
   }, [winery, persistentWineries]);
 
   const editFormRef = useRef<HTMLDivElement>(null);
