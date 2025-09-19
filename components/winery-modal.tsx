@@ -604,7 +604,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
                   <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
                     {editingVisitId ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}                    <span>{editingVisitId ? "Edit Visit" : "Add New Visit"}</span>
                   </h3>
-                  {editingVisitId && (
+                  {editingVisiId && (
                       <Button variant="outline" size="sm" onClick={resetForm}>Cancel Edit</Button>
                   )}
                </div>
@@ -648,3 +648,4 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
       </div>
     </DialogContent>
   )
+}
