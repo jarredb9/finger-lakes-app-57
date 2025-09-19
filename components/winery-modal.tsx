@@ -346,64 +346,61 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   return (
     <div className="overflow-y-auto">
         <div className="p-6">
-            <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
-                <div className="flex items-center gap-2">
-                   {/* The fix is here: Make the badge a clickable link to the trip planner page for this specific trip */}
-                   {currentWinery.trip_name && currentWinery.trip_date && currentWinery.trip_id && (
-                        <Link
-                                                                href={`/trips?date=${currentWinery.trip_date.split('T')[0]}&tripId=${currentWinery.trip_id}`}
-                            passHref
-                            onClick={onClose}
-                        >
-                            <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
-                                <Clock className="w-3 h-3 mr-1"/>On Trip: {currentWinery.trip_name}
-                            </Badge>
-                        </Link>
-                   )}
+            <DialogHeader>
+                <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
+                    <div className="flex items-center gap-2">
+                       <DialogTitle className="text-2xl pr-4">{currentWinery.name}</DialogTitle>
+                       {currentWinery.trip_name && currentWinery.trip_date && currentWinery.trip_id && (
+                            <Link
+                                href={`/trips?date=${currentWinery.trip_date.split('T')[0]}&tripId=${currentWinery.trip_id}`}
+                                passHref
+                                onClick={onClose}
+                            >
+                                <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
+                                    <Clock className="w-3 h-3 mr-1"/>On Trip: {currentWinery.trip_name}
+                                </Badge>
+                            </Link>
+                       )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button size="sm" variant={currentWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading || !isAuthenticated}>
+                            {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${currentWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
+                            Favorite
+                        </Button>
+                        <Button size="sm" variant={currentWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || currentWinery.userVisited || !isAuthenticated}>
+                            {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : currentWinery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
+                            {currentWinery.onWishlist ? "On List" : "Want to Go"}
+                        </Button>
+                    </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button size="sm" variant={currentWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading || !isAuthenticated}>
-                        {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${currentWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
-                        Favorite
-                    </Button>
-                    <Button size="sm" variant={currentWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || currentWinery.userVisited || !isAuthenticated}>
-                        {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : currentWinery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
-                        {currentWinery.onWishlist ? "On List" : "Want to Go"}
-                    </Button>
-                </div>
-            </div>
+                 <DialogDescription className="space-y-2 pt-2 !mt-2">
+                    <div className="flex items-start space-x-2">
+                      <MapPin className="w-4 h-4 mt-1 shrink-0" />
+                      <span>{currentWinery.address}</span>
+                    </div>
+                    {currentWinery.phone && (
+                      <div className="flex items-center space-x-2">
+                        <Phone className="w-4 h-4 shrink-0" />
+                        <span>{currentWinery.phone}</span>
+                      </div>
+                    )}
+                    {currentWinery.website && (
+                      <div className="flex items-center space-x-2">
+                        <Globe className="w-4 h-4 shrink-0" />
+                        <a href={currentWinery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
+                          Visit Website
+                        </a>
+                      </div>
+                    )}
+                    {currentWinery.rating && (
+                      <div className="flex items-center space-x-2">
+                        <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
+                        <span>{currentWinery.rating}/5.0 ({currentWinery.user_ratings_total} Google Reviews)</span>
+                      </div>
+                    )}
+                </DialogDescription>
+            </DialogHeader>
              <Separator className="my-4"/>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
-              {currentWinery?.website && (
-                <div className="flex items-center gap-2">
-                  <Globe className="w-4 h-4 text-gray-500" />
-                  <a href={currentWinery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
-                    {currentWinery.website.replace(/^(https?:\/\/)?(www\.)?/, '')}
-                  </a>
-                </div>
-              )}
-              {currentWinery?.phone && (
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4 text-gray-500" />
-                  <span>{currentWinery.phone}</span>
-                </div>
-              )}
-              {currentWinery?.rating && (
-                <div className="flex items-center gap-2">
-                  <Star className="w-4 h-4 text-gray-500" />
-                  <span>
-                    {currentWinery.rating} ({currentWinery.user_ratings_total} reviews)
-                  </span>
-                </div>
-              )}
-               <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-gray-500" />
-                  <span>{currentWinery.address}</span>
-                </div>
-            </div>
-
-            <Separator className="my-4"/>
 
             {/* NEW FRIENDS ACTIVITY SECTION */}
             {(friendsActivity.favoritedBy.length > 0 || friendsActivity.wishlistedBy.length > 0) && (
@@ -451,7 +448,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
               </>
             )}
             
-             {friendsRatings.length > 0 && (
+             {friendsRatings.length >  qc && (
               <>
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friends' Ratings</span></h3>
