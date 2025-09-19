@@ -108,6 +108,7 @@ interface WineryModalProps {
 }
 
 export default function WineryModal({ winery, onClose, selectedTrip }: WineryModalProps) {
+  console.log("[WineryModal] Initial winery prop:", winery);
   
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
@@ -121,7 +122,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   const [friendsActivity, setFriendsActivity] = useState<{ favoritedBy: any[], wishlistedBy: any[] }>({ favoritedBy: [], wishlistedBy: [] });
 
   const { saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite, persistentWineries, ensureWineryDetails } = useWineryStore();
-  
+  console.log("[WineryModal] persistentWineries from store:", persistentWineries);
   const { isAuthenticated } = useUserStore();
 
   useEffect(() => {
@@ -133,6 +134,9 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   const currentWinery = useMemo(() => {
     if (!winery) return null;
     const detailedWinery = persistentWineries.find(w => w.id === winery.id);
+    console.log("[WineryModal] detailedWinery from persistentWineries:", detailedWinery);
+    const finalWinery = detailedWinery ? { ...winery, ...detailedWinery } : winery;
+    console.log("[WineryModal] currentWinery (final):", finalWinery);
     return detailedWinery ? { ...winery, ...detailedWinery } : winery;
   }, [winery, persistentWineries]);
 
