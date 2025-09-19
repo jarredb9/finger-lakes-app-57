@@ -264,13 +264,14 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   };
   
   const handleFavoriteToggle = async () => {
+    console.log("handleFavoriteToggle called");
     if (!isAuthenticated) {
       toast({ variant: 'destructive', description: "Please log in to add to your favorites." });
       return;
     }
     setFavoriteLoading(true);
     await toggleFavorite(currentWinery, !!currentWinery.isFavorite);
-    toast({ description: currentWinery.isFavorite ? "Removed from favorites." : "Added to favorites." });
+    toast({ description: !currentWinery.isFavorite ? "Added to favorites." : "Removed from favorites." });
     setFavoriteLoading(false);
   };
 
