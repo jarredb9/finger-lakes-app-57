@@ -1,8 +1,9 @@
 // file: components/winery-modal.tsx
 "use client"
 
-import { useState, useEffect, useRef, useMemo } from "react";
-import { 
+import { useState, useEffect, useRef } from "react";
+import {
+  Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -35,9 +36,6 @@ import { SelectSingleEventHandler } from "react-day-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
-import { useWineryStore } from "@/lib/stores/wineryStore";
-import { useUserStore } from "@/lib/stores/userStore";
-import { useTripStore } from "@/lib/stores/tripStore";
 import { Badge } from "@/components/ui/badge";
 
 
@@ -105,10 +103,15 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
 interface WineryModalProps {
   winery: Winery | null;
   onClose: () => void;
+  onSaveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => Promise<void>;
+  onUpdateVisit: (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => Promise<void>;
+  onDeleteVisit?: (winery: Winery, visitId: string) => void;
+  onToggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
+  onToggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
   selectedTrip?: Trip | null;
 }
 
-export default function WineryModal({ winery, onClose, selectedTrip }: WineryModalProps) {
+export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisit, onDeleteVisit, onToggleWishlist, onToggleFavorite, selectedTrip }: WineryModalProps) {
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(0);
@@ -120,21 +123,9 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   const [friendsRatings, setFriendsRatings] = useState([]);
   const [friendsActivity, setFriendsActivity] = useState<{ favoritedBy: any[], wishlistedBy: any[] }>({ favoritedBy: [], wishlistedBy: [] });
 
-  const { saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite, persistentWineries, ensureWineryDetails } = useWineryStore();
-  const { isAuthenticated } = useUserStore();
 
-  useEffect(() => {
-    if (winery?.id) {
-      ensureWineryDetails(winery.id);
-    }
-  }, [winery?.id, ensureWineryDetails]);
-
-  const currentWinery = useMemo(() => {
-    if (!winery) return null;
-    const detailedWinery = persistentWineries.find(w => w.id === winery.id);
-    const finalWinery = detailedWinery ? { ...winery, ...detailedWinery } : winery;
-    return finalWinery;
-  }, [winery, persistentWineries]);
+  // This new state holds the winery data and ensures it has a dbId
+  const [internalWinery, setInternalWinery] = useState<Winery | null>(winery);
 
   const editFormRef = useRef<HTMLDivElement>(null);
 
@@ -146,22 +137,96 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
 
 
   const { toast } = useToast();
-  const { tripsForDate, fetchTripsForDate, createTrip, updateTrip } = useTripStore();
+
+  useEffect(() => {
+    const ensureWineryHasDbId = async (wineryToProcess: Winery | null) => {
+      if (wineryToProcess && !wineryToProcess.dbId) {
+        try {
+          const response = await fetch('/api/wineries', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(wineryToProcess)
+          });
+          if (response.ok) {
+            const { dbId } = await response.json();
+            setInternalWinery(prev => prev ? { ...prev, dbId } : null);
+          } else {
+            toast({ variant: "destructive", description: "Could not retrieve winery details." });
+          }
+        } catch (error) {
+          console.error("Failed to ensure winery dbId", error);
+        }
+      } else {
+        setInternalWinery(wineryToProcess);
+      }
+    };
+    ensureWineryHasDbId(winery);
+  }, [winery, toast]);
+
+  useEffect(() => {
+    setEditingVisitId(null);
+    resetForm();
+    setTripDate(undefined);
+
+    if (internalWinery && internalWinery.dbId) {
+      const fetchFriendsRatings = async () => {
+        try {
+          const response = await fetch(`/api/wineries?wineryId=${internalWinery.dbId}&ratingsFor=friends`);
+          if (response.ok) {
+            const data = await response.json();
+            setFriendsRatings(data);
+          } else {
+            console.error("Failed to fetch friends ratings");
+            setFriendsRatings([]);
+          }
+        } catch (error) {
+          console.error("Error fetching friends ratings:", error);
+          setFriendsRatings([]);
+        }
+      };
+      
+      const fetchFriendsActivity = async () => {
+          try {
+              const response = await fetch(`/api/wineries/${internalWinery.dbId}/friends-activity`);
+              if (response.ok) {
+                  const data = await response.json();
+                  setFriendsActivity(data);
+              } else {
+                  console.error("Failed to fetch friends activity");
+                  setFriendsActivity({ favoritedBy: [], wishlistedBy: [] });
+              }
+          } catch (error) {
+              console.error("Error fetching friends activity", error);
+              setFriendsActivity({ favoritedBy: [], wishlistedBy: [] });
+          }
+      };
+
+      fetchFriendsRatings();
+      fetchFriendsActivity();
+    } else {
+      setFriendsRatings([]);
+      setFriendsActivity({ favoritedBy: [], wishlistedBy: [] });
+    }
+  }, [internalWinery]);
   
   useEffect(() => {
     if (tripDate) {
-        fetchTripsForDate(tripDate);
-        setSelectedTrips(new Set());
-        setNewTripName("");
-        setAddTripNotes("");
+        const fetchTrips = async () => {
+            const dateString = tripDate.toISOString().split("T")[0];
+            const response = await fetch(`/api/trips?date=${dateString}`);
+            if (response.ok) {
+                const data = await response.json();
+                setTripsOnDate(Array.isArray(data) ? data : []);
+                setSelectedTrips(new Set());
+                setNewTripName("");
+                setAddTripNotes("");
+            }
+        };
+        fetchTrips();
     } else {
         setTripsOnDate([]);
     }
-  }, [tripDate, fetchTripsForDate]);
-
-  useEffect(() => {
-    setTripsOnDate(tripsForDate);
-  }, [tripsForDate]);
+  }, [tripDate]);
   
   const handleToggleTrip = (tripId: string) => {
     setSelectedTrips(prev => {
@@ -189,7 +254,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
     });
   };
 
-  if (!currentWinery) { return null; }
+  if (!internalWinery) { return null; }
 
   const resetForm = () => {
     setVisitDate(new Date().toISOString().split("T")[0]);
@@ -212,86 +277,46 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   };
 
   const handleSave = async () => {
-    if (!isAuthenticated) {
-      toast({ variant: 'destructive', description: "Please log in to add a visit." });
-      return;
-    }
     if (!visitDate.trim()) {
       toast({ title: "Error", description: "Visit date is required.", variant: "destructive" });
       return;
     }
     setSaving(true);
     try {
-        if (editingVisitId) {
-            await updateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
-            toast({ description: "Visit updated successfully." });
-        } else {
-            await saveVisit(currentWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
-            toast({ description: "Visit saved successfully." });
-        }
+      if (editingVisitId) {
+        await onUpdateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
+      } else {
+        await onSaveVisit(internalWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
+      }
       resetForm();
-      onClose(); // Close modal on success
     } catch (error) { 
-      console.error("Save/Update operation failed:", error);
-      toast({ variant: "destructive", description: (error as Error).message || "An error occurred." });
+      console.error("Save/Update operation failed:", error); 
     } finally { 
       setSaving(false); 
     }
   };
   
   const handleDeleteVisit = async (visitId: string) => {
-    if (visitId) {
-        try {
-            await deleteVisit(visitId);
-            toast({ description: "Visit deleted successfully." });
-            onClose();
-        } catch (error) {
-            toast({ variant: "destructive", description: "Failed to delete visit." });
-        }
+    if (onDeleteVisit && visitId) {
+        await onDeleteVisit(internalWinery, visitId);
     }
   };
 
   const handleWishlistToggle = async () => {
-    if (!isAuthenticated) {
-      toast({ variant: 'destructive', description: "Please log in to add to your wishlist." });
-      return;
-    }
     setWishlistLoading(true);
-    const isOnWishlist = !!currentWinery.onWishlist;
-    try {
-        await toggleWishlist(currentWinery, isOnWishlist);
-        toast({ description: !isOnWishlist ? "Added to wishlist." : "Removed from wishlist." });
-    } catch (error) { 
-        toast({ variant: 'destructive', description: "Could not update wishlist." }); 
-    } finally {
-        setWishlistLoading(false);
-    }
+    await onToggleWishlist(internalWinery, !!internalWinery.onWishlist);
+    setWishlistLoading(false);
   };
   
   const handleFavoriteToggle = async () => {
-    if (!isAuthenticated) {
-      toast({ variant: 'destructive', description: "Please log in to add to your favorites." });
-      return;
-    }
     setFavoriteLoading(true);
-    const isFavorite = !!currentWinery.isFavorite;
-    try {
-        await toggleFavorite(currentWinery, isFavorite);
-        toast({ description: !isFavorite ? "Added to favorites." : "Removed from favorites." });
-    } catch (error) {
-        toast({ variant: 'destructive', description: "Could not update favorites." });
-    } finally {
-        setFavoriteLoading(false);
-    }
+    await onToggleFavorite(internalWinery, !!internalWinery.isFavorite);
+    setFavoriteLoading(false);
   };
 
   const handleAddToTrip = async () => {
-    if (!isAuthenticated) {
-      toast({ variant: 'destructive', description: "Please log in to add to a trip." });
-      return;
-    }
-    if (!tripDate || !currentWinery.dbId) {
-        toast({ title: "Error", description: "Please select a date and ensure winery has a database ID.", variant: "destructive" });
+    if (!tripDate || !internalWinery.dbId) {
+        toast({ title: "Error", description: "Please select a date.", variant: "destructive" });
         return;
     }
 
@@ -300,642 +325,398 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
         return;
     }
     
-    try {
-        await Promise.all(Array.from(selectedTrips).map(async (tripId) => {
-            if (tripId === 'new') {
-                if (!newTripName.trim()) {
-                    toast({ variant: 'destructive', description: "Please enter a name for the new trip." });
-                    throw new Error("New trip requires a name.");
-                }
-                const newTrip = await createTrip(tripDate, newTripName, addTripNotes, currentWinery.dbId!);
-                if (!newTrip) {
-                    throw new Error("Failed to create new trip.");
-                }
-            } else {
-                await updateTrip(tripId, { addWineryId: currentWinery.dbId! });
-                if (addTripNotes) {
-                    await saveWineryNote(tripId, currentWinery.dbId!, addTripNotes);
-                }
+    // Process each selected trip
+    const tripPromises = Array.from(selectedTrips).map(tripId => {
+        // ** FIX: Correctly construct the payload to send to the API endpoint. **
+        const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
+            date: tripDate.toISOString().split("T")[0],
+            wineryId: internalWinery.dbId!,
+        };
+
+        if (tripId === 'new') {
+            if (!newTripName.trim()) {
+                toast({ variant: 'destructive', description: "Please enter a name for the new trip." });
+                return Promise.reject("New trip requires a name.");
             }
-        }));
+            payload.name = newTripName;
+            payload.notes = addTripNotes;
+        } else {
+            payload.tripIds = [parseInt(tripId, 10)];
+            payload.notes = addTripNotes;
+        }
+
+        return fetch('/api/trips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => { throw new Error(errorData.error || "Failed to add to trip."); });
+            }
+        });
+    });
+
+    try {
+        await Promise.all(tripPromises);
         toast({ description: "Winery added to trip(s)." });
         setTripDate(undefined);
-        onClose();
     } catch (error: any) {
-        console.error("Error adding winery to trip:", error);
         toast({ variant: 'destructive', description: error.message || "An error occurred." });
     }
   };
 
   const handleToggleWineryOnActiveTrip = async () => {
-    if (!selectedTrip || !currentWinery.dbId) return;
+    if (!selectedTrip || !internalWinery.dbId) return;
 
-    const isOnTrip = selectedTrip.wineries.some(w => w.dbId === currentWinery.dbId);
+    const isOnTrip = selectedTrip.wineries.some(w => w.dbId === internalWinery.dbId);
     
     try {
       if (isOnTrip) {
-        await removeWineryFromTrip(selectedTrip.id, currentWinery.dbId);
-        toast({ description: "Winery removed from trip." });
-        onClose(); // Close the modal to refresh the map view
+        // Remove winery from trip
+        const response = await fetch(`/api/trips/${selectedTrip.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ removeWineryId: internalWinery.dbId }),
+        });
+        if (response.ok) {
+          toast({ description: "Winery removed from trip." });
+          onClose(); // Close the modal to refresh the map view
+        } else {
+          toast({ variant: "destructive", description: "Failed to remove winery from trip." });
+        }
       } else {
-        await updateTrip(selectedTrip.id, { addWineryId: currentWinery.dbId });
-        toast({ description: `Added to ${selectedTrip.name || 'trip'}.` });
-        onClose(); // Close the modal to refresh the map view
+        // Add winery to trip
+        const response = await fetch('/api/trips', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            date: selectedTrip.trip_date.split('T')[0],
+            wineryId: internalWinery.dbId,
+            tripIds: [selectedTrip.id]
+          }),
+        });
+        if (response.ok) {
+          toast({ description: `Added to ${selectedTrip.name || 'trip'}.` });
+          onClose(); // Close the modal to refresh the map view
+        } else {
+          toast({ variant: "destructive", description: "Failed to add winery to trip." });
+        }
       }
     } catch (error) {
-      console.error("Error updating trip:", error);
       toast({ variant: "destructive", description: "An error occurred while updating the trip." });
     }
   };
 
-  const visits = currentWinery.visits || [];
+  const visits = internalWinery.visits || [];
   const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
   
   // ** FIX: Determine if the winery is on the currently selected trip **
-  const isOnActiveTrip = selectedTrip?.wineries.some(w => w.dbId === currentWinery.dbId) || false;
+  const isOnActiveTrip = selectedTrip?.wineries.some(w => w.dbId === internalWinery.dbId) || false;
 
   return (
-    <DialogContent className="max-w-3xl p-0">
-      <div className="overflow-y-auto">
-          <div className="p-6">
-              <DialogHeader>
-                  <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
-                      <div className="flex items-center gap-2">
-                         <DialogTitle className="text-2xl pr-4">{currentWinery.name}</DialogTitle>
-                         {currentWinery.trip_name && currentWinery.trip_date && currentWinery.trip_id && (
-                              <Link
-                                  href={`/trips?date=${currentWinery.trip_date.split('T')[0]}&tripId=${currentWinery.trip_id}`}
-                                  passHref
-                                  onClick={onClose}
-                              >
-                                  <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
-                                      <Clock className="w-3 h-3 mr-1"/>On Trip: {currentWinery.trip_name}
-                                  </Badge>
-                              </Link>
-                         )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                          <Button size="sm" variant={currentWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading || !isAuthenticated}>
-                              {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${currentWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
-                              Favorite
-                          </Button>
-                          return (
-    <DialogContent className="max-w-3xl p-0">
-      <DialogHeader className="p-6">
-        <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
-            <div className="flex items-center gap-2">
-                <DialogTitle className="text-2xl pr-4">{currentWinery.name}</DialogTitle>
-                {currentWinery.trip_name && currentWinery.trip_date && currentWinery.trip_id && (
-                    <Link
-                        href={`/trips?date=${currentWinery.trip_date.split('T')[0]}&tripId=${currentWinery.trip_id}`}
-                        passHref
-                        onClick={onClose}
-                    >
-                        <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
-                            <Clock className="w-3 h-3 mr-1"/>On Trip: {currentWinery.trip_name}
-                        </Badge>
-                    </Link>
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent 
+        className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
+        onPointerDownOutside={(e) => {
+            if ((e.target as HTMLElement)?.closest('[vaul-drawer-trigger]')) {
+                e.preventDefault();
+            }
+        }}
+        onFocusOutside={(e) => e.preventDefault()}
+      >
+        <div className="overflow-y-auto">
+            <div className="p-6">
+                <DialogHeader>
+                    <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
+                        <div className="flex items-center gap-2">
+                           <DialogTitle className="text-2xl pr-4">{internalWinery.name}</DialogTitle>
+                           {/* The fix is here: Make the badge a clickable link to the trip planner page for this specific trip */}
+                           {internalWinery.trip_name && internalWinery.trip_date && internalWinery.trip_id && (
+                                <Link
+                                    href={`/trips?date=${internalWinery.trip_date.split('T')[0]}&tripId=${internalWinery.trip_id}`}
+                                    passHref
+                                    onClick={onClose}
+                                >
+                                    <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
+                                        <Clock className="w-3 h-3 mr-1"/>On Trip: {internalWinery.trip_name}
+                                    </Badge>
+                                </Link>
+                           )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button size="sm" variant={internalWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading}>
+                                {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${internalWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
+                                Favorite
+                            </Button>
+                            <Button size="sm" variant={internalWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || internalWinery.userVisited}>
+                                {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : internalWinery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
+                                {internalWinery.onWishlist ? "On List" : "Want to Go"}
+                            </Button>
+                        </div>
+                    </div>
+                     <DialogDescription className="space-y-2 pt-2 !mt-2">
+                        <div className="flex items-start space-x-2">
+                          <MapPin className="w-4 h-4 mt-1 shrink-0" />
+                          <span>{internalWinery.address}</span>
+                        </div>
+                        {internalWinery.phone && (
+                          <div className="flex items-center space-x-2">
+                            <Phone className="w-4 h-4 shrink-0" />
+                            <span>{internalWinery.phone}</span>
+                          </div>
+                        )}
+                        {internalWinery.website && (
+                          <div className="flex items-center space-x-2">
+                            <Globe className="w-4 h-4 shrink-0" />
+                            <a href={internalWinery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
+                              Visit Website
+                            </a>
+                          </div>
+                        )}
+                        {internalWinery.rating && (
+                          <div className="flex items-center space-x-2">
+                            <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
+                            <span>{internalWinery.rating}/5.0 (Google Reviews)</span>
+                          </div>
+                        )}
+                    </DialogDescription>
+                </DialogHeader>
+                 <Separator className="my-4"/>
+
+                {/* NEW FRIENDS ACTIVITY SECTION */}
+                {(friendsActivity.favoritedBy.length > 0 || friendsActivity.wishlistedBy.length > 0) && (
+                  <>
+                    <div className="space-y-3">
+                      <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friend Activity</span></h3>
+                      <Card className="bg-gray-50 border-gray-200">
+                        <CardContent className="p-4 space-y-3">
+                          {friendsActivity.favoritedBy.length > 0 && (
+                            <div>
+                              <p className="font-semibold text-sm text-gray-700 flex items-center gap-2"><Heart className="w-4 h-4 text-red-500 fill-red-500" />Favorited by:</p>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {friendsActivity.favoritedBy.map((friend: any) => (
+                                  <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
+                                      <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs font-medium pr-1">{friend.name}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {friendsActivity.wishlistedBy.length > 0 && (
+                            <div className={friendsActivity.favoritedBy.length > 0 ? 'mt-3' : ''}>
+                              <p className="font-semibold text-sm text-gray-700 flex items-center gap-2"><Bookmark className="w-4 h-4 text-blue-500 fill-blue-500" />On wishlist for:</p>
+                              <div className="flex flex-wrap gap-2 mt-2">
+                                {friendsActivity.wishlistedBy.map((friend: any) => (
+                                  <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
+                                    <Avatar className="h-6 w-6">
+                                      <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
+                                      <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <span className="text-xs font-medium pr-1">{friend.name}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </div>
+                    <Separator className="my-4"/>
+                  </>
                 )}
+                
+                 {friendsRatings.length > 0 && (
+                  <>
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friends' Ratings</span></h3>
+                      <div className="space-y-3">
+                        {friendsRatings.map((rating: any) => (
+                          <Card key={rating.user_id} className="bg-blue-50 border-blue-200">
+                            <CardContent className="p-4 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <p className="font-semibold text-blue-800">{rating.name}</p>
+                                <div className="flex items-center">
+                                  {[...Array(5)].map((_, i) => (
+                                    <Star key={i} className={`w-5 h-5 ${i < rating.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+                                  ))}
+                                </div>
+                              </div>
+                              {rating.user_review && <p className="text-sm text-blue-700 bg-white p-3 rounded-md border">{rating.user_review}</p>}
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                    <Separator className="my-4"/>
+                  </>
+                )}
+                
+                {selectedTrip ? (
+                    <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+                        <h4 className="font-semibold">Active Trip: {selectedTrip.name}</h4>
+                        <p className="text-sm text-muted-foreground">This trip is for {new Date(selectedTrip.trip_date + 'T00:00:00').toLocaleDateString()}.</p>
+                        <Button 
+                            onClick={handleToggleWineryOnActiveTrip}
+                            variant={isOnActiveTrip ? 'destructive' : 'default'}
+                            className="w-full"
+                        >
+                            {isOnActiveTrip ? 'Remove from Trip' : 'Add to This Trip'}
+                        </Button>
+                        <Link href={`/trips?date=${new Date(selectedTrip.trip_date).toISOString()}`} passHref>
+                          <Button variant="outline" className="w-full">
+                            <ArrowRight className="mr-2 h-4 w-4" /> Go to Trip Planner
+                          </Button>
+                        </Link>
+                    </div>
+                ) : (
+                    <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+                        <h4 className="font-semibold">Add to a Trip</h4>
+                        <div className="flex items-center gap-2">
+                            <DatePicker date={tripDate} onSelect={setTripDate} />
+                            {tripDate && (
+                                <Button onClick={handleAddToTrip} disabled={!internalWinery.dbId || selectedTrips.size === 0 || (selectedTrips.has('new') && !newTripName.trim())}>
+                                    Add to Trip
+                                </Button>
+                            )}
+                        </div>
+                        {tripDate && (
+                            <>
+                            <div className="space-y-2">
+                                <Label>Choose a trip or create a new one:</Label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                    {tripsOnDate.map(trip => (
+                                        <div key={trip.id} className="flex items-center gap-2 p-3 border rounded-lg bg-white">
+                                            <Checkbox 
+                                                id={`trip-${trip.id}`} 
+                                                checked={selectedTrips.has(trip.id.toString())}
+                                                onCheckedChange={() => handleToggleTrip(trip.id.toString())}
+                                            />
+                                            <label htmlFor={`trip-${trip.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                {trip.name || `Trip on ${new Date(trip.trip_date).toLocaleDateString()}`}
+                                            </label>
+                                        </div>
+                                    ))}
+                                    <div className="flex items-center gap-2 p-3 border rounded-lg bg-white">
+                                        <Checkbox 
+                                            id="new-trip" 
+                                            checked={selectedTrips.has('new')} 
+                                            onCheckedChange={handleToggleNewTrip}
+                                        />
+                                        <label htmlFor="new-trip" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                            Create a new trip...
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            {(selectedTrips.size > 0) && (
+                                <div className="space-y-2">
+                                    {(selectedTrips.has('new')) && (
+                                        <Input placeholder="New trip name..." value={newTripName} onChange={(e) => setNewTripName(e.target.value)} />
+                                    )}
+                                    <Textarea placeholder="Add notes for this visit..." value={addTripNotes} onChange={(e) => setAddTripNotes(e.target.value)} />
+                                </div>
+                            )}
+                            </>
+                        )}
+                    </div>
+                )}
+                
+                <Separator className="my-4"/>
+                
+                <div className="space-y-4">
+                     <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><CalendarIcon className="w-5 h-5" /><span>Your Visits</span></h3>
+                      {sortedVisits.length > 0 ? (
+                        <div className="space-y-3">
+                          {sortedVisits.map((visit) => (
+                            <Card key={visit.id} className="bg-slate-50 border-slate-200">
+                              <CardContent className="p-4 space-y-3">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1 space-y-1">
+                                    <p className="font-semibold text-slate-800">
+                                        {new Date(visit.visit_date + 'T00:00:00').toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                                    </p>
+                                    {visit.rating && (
+                                      <div className="flex items-center">
+                                        {[...Array(5)].map((_, i) => (
+                                          <Star key={i} className={`w-5 h-5 ${i < visit.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="sm" onClick={() => handleEditClick(visit)}>
+                                        <Edit className="w-4 w-4" />
+                                    </Button>
+                                    {onDeleteVisit && visit.id && (
+                                      <Button variant="ghost" size="sm" onClick={() => handleDeleteVisit(visit.id!)} className="text-red-600 hover:text-red-800 hover:bg-red-50" aria-label={`Delete visit`}>
+                                        <Trash2 className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                                {visit.user_review && <p className="text-sm text-slate-700 bg-white p-3 rounded-md border">{visit.user_review}</p>}
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">{internalWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
+                      )}
+                </div>
             </div>
-            <div className="flex items-center gap-2">
-                <Button size="sm" variant={currentWinery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle} disabled={favoriteLoading || !isAuthenticated}>
-                    {favoriteLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Star className={`mr-2 h-4 w-4 ${currentWinery.isFavorite ? 'text-yellow-400 fill-yellow-400' : ''}`}/>}
-                    Favorite
-                </Button>
-                <Button size="sm" variant={currentWinery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={wishlistLoading || currentWinery.userVisited || !isAuthenticated}>
-                    {wishlistLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : currentWinery.onWishlist ? <Check className="mr-2 h-4 w-4"/> : <ListPlus className="mr-2 h-4 w-4"/>}
-                    {currentWinery.onWishlist ? "On List" : "Want to Go"}
-                </Button>
+            <div ref={editFormRef} className="bg-gray-50 p-6 border-t scroll-mt-4">
+                 <div className="flex justify-between items-center mb-4">
+                    <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
+                      {editingVisitId ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
+                      <span>{editingVisitId ? "Edit Visit" : "Add New Visit"}</span>
+                    </h3>
+                    {editingVisitId && (
+                        <Button variant="outline" size="sm" onClick={resetForm}>Cancel Edit</Button>
+                    )}
+                 </div>
+                 <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="visitDate">Visit Date *</Label>
+                      <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} max={new Date().toISOString().split("T")[0]} required aria-label="Visit Date" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Your Rating</Label>
+                      <div className="flex items-center space-x-1">
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} className={`w-6 h-6 cursor-pointer transition-colors ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"}`} onClick={() => setRating(i + 1)} aria-label={`Set rating to ${i + 1}`} />
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="userReview">Your Review (Optional)</Label>
+                      <Textarea id="userReview" placeholder="e.g., 'Loved the dry Riesling! Beautiful view from the patio.'" value={userReview} onChange={(e) => setUserReview(e.target.value)} rows={4} aria-label="Your Review" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Photos (Optional)</Label>
+                      <div className="flex items-center justify-center w-full">
+                        <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100">
+                          <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
+                            <Upload className="w-8 h-8 mb-2 text-gray-500" />
+                            <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span></p>
+                            <p className="text-xs text-gray-500">PNG, JPG, GIF</p>
+                          </div>
+                          <input id="dropzone-file" type="file" className="hidden" multiple aria-label="Upload Photos" />
+                        </label>
+                      </div>
+                    </div>
+                 </div>
+                 <DialogFooter className="pt-4 mt-4">
+                    <Button onClick={handleSave} disabled={!visitDate.trim() || saving} className="w-full">
+                        {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : (editingVisitId ? "Save Changes" : "Add Visit")}
+                    </Button>
+                 </DialogFooter>
             </div>
         </div>
-        <DialogDescription className="space-y-2 pt-2 !mt-2">
-            <div className="flex items-start space-x-2">
-              <MapPin className="w-4 h-4 mt-1 shrink-0" />
-              <span>{currentWinery.address}</span>
-            </div>
-            {currentWinery.phone && (
-              <div className="flex items-center space-x-2">
-                <Phone className="w-4 h-4 shrink-0" />
-                <span>{currentWinery.phone}</span>
-              </div>
-            )}
-            {currentWinery.website && (
-              <div className="flex items-center space-x-2">
-                <Globe className="w-4 h-4 shrink-0" />
-                <a href={currentWinery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
-                  Visit Website
-                </a>
-              </div>
-            )}
-            {currentWinery.rating && (
-              <div className="flex items-center space-x-2">
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
-                <span>{currentWinery.rating}/5.0 ({currentWinery.user_ratings_total} Google Reviews)</span>
-              </div>
-            )}
-        </DialogDescription>
-      </DialogHeader>
-      <div className="overflow-y-auto max-h-[calc(100vh-12rem)]">
-          <div className="p-6 pt-0">
-               <Separator className="my-4"/>
-
-              {/* NEW FRIENDS ACTIVITY SECTION */}
-              {(friendsActivity.favoritedBy.length > 0 || friendsActivity.wishlistedBy.length > 0) && (
-                <>
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friend Activity</span></h3>
-                    <Card className="bg-gray-50 border-gray-200">
-                      <CardContent className="p-4 space-y-3">
-                        {friendsActivity.favoritedBy.length > 0 && (
-                          <div>
-                            <p className="font-semibold text-sm text-gray-700 flex items-center gap-2"><Heart className="w-4 h-4 text-red-500 fill-red-500" />Favorited by:</p>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {friendsActivity.favoritedBy.map((friend: any) => (
-                                <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
-                                    <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-xs font-medium pr-1">{friend.name}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {friendsActivity.wishlistedBy.length > 0 && (
-                          <div className={friendsActivity.favoritedBy.length > 0 ? 'mt-3' : ''}>
-                            <p className="font-semibold text-sm text-gray-700 flex items-center gap-2"><Bookmark className="w-4 h-4 text-blue-500 fill-blue-500" />On wishlist for:</p>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {friendsActivity.wishlistedBy.map((friend: any) => (
-                                <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
-                                    <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-xs font-medium pr-1">{friend.name}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-                  <Separator className="my-4"/>
-                </>
-              )}
-              
-               {friendsRatings.length > 0 && (
-                <>
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friends' Ratings</span></h3>
-                    <div className="space-y-3">
-                      {friendsRatings.map((rating: any) => (
-                        <Card key={rating.user_id} className="bg-blue-50 border-blue-200">
-                          <CardContent className="p-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <p className="font-semibold text-blue-800">{rating.name}</p>
-                              <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star key={i} className={`w-5 h-5 ${i < rating.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
-                                ))}
-                              </div>
-                            </div>
-                            {rating.user_review && <p className="text-sm text-blue-700 bg-white p-3 rounded-md border">{rating.user_review}</p>}
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                  <Separator className="my-4"/>
-                </>
-              )}
-              
-              {selectedTrip ? (
-                  <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
-                      <h4 className="font-semibold">Active Trip: {selectedTrip.name}</h4>
-                      <p className="text-sm text-muted-foreground">This trip is for {new Date(selectedTrip.trip_date + 'T00:00:00').toLocaleDateString()}.</p>
-                      <Button 
-                          onClick={handleToggleWineryOnActiveTrip}
-                          variant={isOnActiveTrip ? 'destructive' : 'default'}
-                          className="w-full"
-                      >
-                          {isOnActiveTrip ? 'Remove from Trip' : 'Add to This Trip'}
-                      </Button>
-                      <Link href={`/trips?date=${new Date(selectedTrip.trip_date).toISOString()}`} passHref>
-                        <Button variant="outline" className="w-full">
-                          <ArrowRight className="mr-2 h-4 w-4" /> Go to Trip Planner
-                        </Button>
-                      </Link>
-                  </div>
-              ) : (
-                  <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
-                      <h4 className="font-semibold">Add to a Trip</h4>
-                      <div className="flex items-center gap-2">
-                          <DatePicker date={tripDate} onSelect={setTripDate} />
-                          {tripDate && (
-                              <Button onClick={handleAddToTrip} disabled={!currentWinery.dbId || selectedTrips.size === 0 || (selectedTrips.has('new') && !newTripName.trim())}>
-                                  Add to Trip
-                              </Button>
-                          )}
-                      </div>
-                      {tripDate && (
-                          <>
-                          <div className="space-y-2">
-                              <Label>Choose a trip or create a new one:</Label>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  {tripsOnDate.map(trip => (
-                                      <div key={trip.id} className="flex items-center gap-2 p-3 border rounded-lg bg-white">
-                                          <Checkbox 
-                                              id={`trip-${trip.id}`} 
-                                              checked={selectedTrips.has(trip.id.toString())}
-                                              onCheckedChange={() => handleToggleTrip(trip.id.toString())}
-                                          />
-                                          <label htmlFor={`trip-${trip.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                              {trip.name || `Trip on ${new Date(trip.trip_date).toLocaleDateString()}`}
-                                          </label>
-                                      </div>
-                                  ))}
-                                  <div className="flex items-center gap-2 p-3 border rounded-lg bg-white">
-                                      <Checkbox 
-                                          id="new-trip" 
-                                          checked={selectedTrips.has('new')} 
-                                          onCheckedChange={handleToggleNewTrip}
-                                      />
-                                      <label htmlFor="new-trip" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                          Create a new trip...
-                                      </label>
-                                  </div>
-                              </div>
-                          </div>
-                          {(selectedTrips.size > 0) && (
-                              <div className="space-y-2">
-                                  {(selectedTrips.has('new')) && (
-                                      <Input placeholder="New trip name..." value={newTripName} onChange={(e) => setNewTripName(e.target.value)} />
-                                  )}
-                                  <Textarea placeholder="Add notes for this visit..." value={addTripNotes} onChange={(e) => setAddTripNotes(e.target.value)} />
-                              </div>
-                          )}
-                          </>
-                      )}
-                  </div>
-              )}
-              
-              <Separator className="my-4"/>
-              
-              <div className="space-y-4">
-                   <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><CalendarIcon className="w-5 h-5" /><span>Your Visits</span></h3>
-                    {sortedVisits.length > 0 ? (
-                      <div className="space-y-3">
-                        {sortedVisits.map((visit) => (
-                          <Card key={visit.id} className="bg-slate-50 border-slate-200">
-                            <CardContent className="p-4 space-y-3">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 space-y-1">
-                                  <p className="font-semibold text-slate-800">
-                                      {new Date(visit.visit_date + 'T00:00:00').toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-                                  </p>
-                                  {visit.rating && (
-                                    <div className="flex items-center">
-                                      {[...Array(5)].map((_, i) => (
-                                        <Star key={i} className={`w-5 h-5 ${i < visit.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Button variant="ghost" size="sm" onClick={() => handleEditClick(visit)}>
-                                      <Edit className="w-4 w-4" />
-                                  </Button>
-                                  {visit.id && (
-                                    <Button variant="ghost" size="sm" onClick={() => handleDeleteVisit(visit.id!)} className="text-red-600 hover:text-red-800 hover:bg-red-50" aria-label={`Delete visit`}>
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                              {visit.user_review && <p className="text-sm text-slate-700 bg-white p-3 rounded-md border">{visit.user_review}</p>}
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">{currentWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
-                    )}
-              </div>
-          </div>
-          <div ref={editFormRef} className="bg-gray-50 p-6 border-t scroll-mt-4">
-               <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
-                    {editingVisitId ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}                    <span>{editingVisitId ? "Edit Visit" : "Add New Visit"}</span>
-                  </h3>
-                  {editingVisitId && (
-                      <Button variant="outline" size="sm" onClick={resetForm}>Cancel Edit</Button>
-                  )}
-               </div>
-               <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="visitDate">Visit Date *</Label>
-                    <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} max={new Date().toISOString().split("T")[0]} required aria-label="Visit Date" disabled={!isAuthenticated} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Your Rating</Label>
-                    <div className="flex items-center space-x-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className={`w-6 h-6 cursor-pointer transition-colors ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"}`} onClick={() => isAuthenticated && setRating(i + 1)} aria-label={`Set rating to ${i + 1}`} />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="userReview">Your Review (Optional)</Label>
-                    <Textarea id="userReview" placeholder="e.g., 'Loved the dry Riesling! Beautiful view from the patio.'" value={userReview} onChange={(e) => setUserReview(e.target.value)} rows={4} aria-label="Your Review" disabled={!isAuthenticated} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Photos (Optional)</Label>
-                    <div className="flex items-center justify-center w-full">
-                      <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100">
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
-                          <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                          <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span></p>
-                          <p className="text-xs text-gray-500">PNG, JPG, GIF</p>
-                        </div>
-                        <input id="dropzone-file" type="file" className="hidden" multiple aria-label="Upload Photos" />
-                      </label>
-                    </div>
-                  </div>
-               </div>
-               <DialogFooter className="pt-4 mt-4">
-                  <Button onClick={handleSave} disabled={!visitDate.trim() || saving || !isAuthenticated} className="w-full">
-                      {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : (editingVisitId ? "Save Changes" : "Add Visit")}
-                  </Button>
-               </DialogFooter>
-          </div>
-      </div>
-    </DialogContent>
-  )
-                      </div>
-                  </div>
-                   <DialogDescription className="space-y-2 pt-2 !mt-2">
-                      <div className="flex items-start space-x-2">
-                        <MapPin className="w-4 h-4 mt-1 shrink-0" />
-                        <span>{currentWinery.address}</span>
-                      </div>
-                      {currentWinery.phone && (
-                        <div className="flex items-center space-x-2">
-                          <Phone className="w-4 h-4 shrink-0" />
-                          <span>{currentWinery.phone}</span>
-                        </div>
-                      )}
-                      {currentWinery.website && (
-                        <div className="flex items-center space-x-2">
-                          <Globe className="w-4 h-4 shrink-0" />
-                          <a href={currentWinery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
-                            Visit Website
-                          </a>
-                        </div>
-                      )}
-                      {currentWinery.rating && (
-                        <div className="flex items-center space-x-2">
-                          <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
-                          <span>{currentWinery.rating}/5.0 ({currentWinery.user_ratings_total} Google Reviews)</span>
-                        </div>
-                      )}
-                  </DialogDescription>
-              </DialogHeader>
-               <Separator className="my-4"/>
-
-              {/* NEW FRIENDS ACTIVITY SECTION */}
-              {(friendsActivity.favoritedBy.length > 0 || friendsActivity.wishlistedBy.length > 0) && (
-                <>
-                  <div className="space-y-3">
-                    <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friend Activity</span></h3>
-                    <Card className="bg-gray-50 border-gray-200">
-                      <CardContent className="p-4 space-y-3">
-                        {friendsActivity.favoritedBy.length > 0 && (
-                          <div>
-                            <p className="font-semibold text-sm text-gray-700 flex items-center gap-2"><Heart className="w-4 h-4 text-red-500 fill-red-500" />Favorited by:</p>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {friendsActivity.favoritedBy.map((friend: any) => (
-                                <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
-                                    <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-xs font-medium pr-1">{friend.name}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {friendsActivity.wishlistedBy.length > 0 && (
-                          <div className={friendsActivity.favoritedBy.length > 0 ? 'mt-3' : ''}>
-                            <p className="font-semibold text-sm text-gray-700 flex items-center gap-2"><Bookmark className="w-4 h-4 text-blue-500 fill-blue-500" />On wishlist for:</p>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {friendsActivity.wishlistedBy.map((friend: any) => (
-                                <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
-                                    <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-xs font-medium pr-1">{friend.name}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-                  <Separator className="my-4"/>
-                </>
-              )}
-              
-               {friendsRatings.length > 0 && (
-                <>
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friends' Ratings</span></h3>
-                    <div className="space-y-3">
-                      {friendsRatings.map((rating: any) => (
-                        <Card key={rating.user_id} className="bg-blue-50 border-blue-200">
-                          <CardContent className="p-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <p className="font-semibold text-blue-800">{rating.name}</p>
-                              <div className="flex items-center">
-                                {[...Array(5)].map((_, i) => (
-                                  <Star key={i} className={`w-5 h-5 ${i < rating.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
-                                ))}
-                              </div>
-                            </div>
-                            {rating.user_review && <p className="text-sm text-blue-700 bg-white p-3 rounded-md border">{rating.user_review}</p>}
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                  <Separator className="my-4"/>
-                </>
-              )}
-              
-              {selectedTrip ? (
-                  <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
-                      <h4 className="font-semibold">Active Trip: {selectedTrip.name}</h4>
-                      <p className="text-sm text-muted-foreground">This trip is for {new Date(selectedTrip.trip_date + 'T00:00:00').toLocaleDateString()}.</p>
-                      <Button 
-                          onClick={handleToggleWineryOnActiveTrip}
-                          variant={isOnActiveTrip ? 'destructive' : 'default'}
-                          className="w-full"
-                      >
-                          {isOnActiveTrip ? 'Remove from Trip' : 'Add to This Trip'}
-                      </Button>
-                      <Link href={`/trips?date=${new Date(selectedTrip.trip_date).toISOString()}`} passHref>
-                        <Button variant="outline" className="w-full">
-                          <ArrowRight className="mr-2 h-4 w-4" /> Go to Trip Planner
-                        </Button>
-                      </Link>
-                  </div>
-              ) : (
-                  <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
-                      <h4 className="font-semibold">Add to a Trip</h4>
-                      <div className="flex items-center gap-2">
-                          <DatePicker date={tripDate} onSelect={setTripDate} />
-                          {tripDate && (
-                              <Button onClick={handleAddToTrip} disabled={!currentWinery.dbId || selectedTrips.size === 0 || (selectedTrips.has('new') && !newTripName.trim())}>
-                                  Add to Trip
-                              </Button>
-                          )}
-                      </div>
-                      {tripDate && (
-                          <>
-                          <div className="space-y-2">
-                              <Label>Choose a trip or create a new one:</Label>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                  {tripsOnDate.map(trip => (
-                                      <div key={trip.id} className="flex items-center gap-2 p-3 border rounded-lg bg-white">
-                                          <Checkbox 
-                                              id={`trip-${trip.id}`} 
-                                              checked={selectedTrips.has(trip.id.toString())}
-                                              onCheckedChange={() => handleToggleTrip(trip.id.toString())}
-                                          />
-                                          <label htmlFor={`trip-${trip.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                              {trip.name || `Trip on ${new Date(trip.trip_date).toLocaleDateString()}`}
-                                          </label>
-                                      </div>
-                                  ))}
-                                  <div className="flex items-center gap-2 p-3 border rounded-lg bg-white">
-                                      <Checkbox 
-                                          id="new-trip" 
-                                          checked={selectedTrips.has('new')} 
-                                          onCheckedChange={handleToggleNewTrip}
-                                      />
-                                      <label htmlFor="new-trip" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                                          Create a new trip...
-                                      </label>
-                                  </div>
-                              </div>
-                          </div>
-                          {(selectedTrips.size > 0) && (
-                              <div className="space-y-2">
-                                  {(selectedTrips.has('new')) && (
-                                      <Input placeholder="New trip name..." value={newTripName} onChange={(e) => setNewTripName(e.target.value)} />
-                                  )}
-                                  <Textarea placeholder="Add notes for this visit..." value={addTripNotes} onChange={(e) => setAddTripNotes(e.target.value)} />
-                              </div>
-                          )}
-                          </>
-                      )}
-                  </div>
-              )}
-              
-              <Separator className="my-4"/>
-              
-              <div className="space-y-4">
-                   <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><CalendarIcon className="w-5 h-5" /><span>Your Visits</span></h3>
-                    {sortedVisits.length > 0 ? (
-                      <div className="space-y-3">
-                        {sortedVisits.map((visit) => (
-                          <Card key={visit.id} className="bg-slate-50 border-slate-200">
-                            <CardContent className="p-4 space-y-3">
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 space-y-1">
-                                  <p className="font-semibold text-slate-800">
-                                      {new Date(visit.visit_date + 'T00:00:00').toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
-                                  </p>
-                                  {visit.rating && (
-                                    <div className="flex items-center">
-                                      {[...Array(5)].map((_, i) => (
-                                        <Star key={i} className={`w-5 h-5 ${i < visit.rating! ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Button variant="ghost" size="sm" onClick={() => handleEditClick(visit)}>
-                                      <Edit className="w-4 w-4" />
-                                  </Button>
-                                  {visit.id && (
-                                    <Button variant="ghost" size="sm" onClick={() => handleDeleteVisit(visit.id!)} className="text-red-600 hover:text-red-800 hover:bg-red-50" aria-label={`Delete visit`}>
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  )}
-                                </div>
-                              </div>
-                              {visit.user_review && <p className="text-sm text-slate-700 bg-white p-3 rounded-md border">{visit.user_review}</p>}
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">{currentWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
-                    )}
-              </div>
-          </div>
-          <div ref={editFormRef} className="bg-gray-50 p-6 border-t scroll-mt-4">
-               <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
-                    {editingVisitId ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}                    <span>{editingVisitId ? "Edit Visit" : "Add New Visit"}</span>
-                  </h3>
-                  {editingVisitId && (
-                      <Button variant="outline" size="sm" onClick={resetForm}>Cancel Edit</Button>
-                  )}
-               </div>
-               <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="visitDate">Visit Date *</Label>
-                    <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} max={new Date().toISOString().split("T")[0]} required aria-label="Visit Date" disabled={!isAuthenticated} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Your Rating</Label>
-                    <div className="flex items-center space-x-1">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className={`w-6 h-6 cursor-pointer transition-colors ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"}`} onClick={() => isAuthenticated && setRating(i + 1)} aria-label={`Set rating to ${i + 1}`} />
-                      ))}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="userReview">Your Review (Optional)</Label>
-                    <Textarea id="userReview" placeholder="e.g., 'Loved the dry Riesling! Beautiful view from the patio.'" value={userReview} onChange={(e) => setUserReview(e.target.value)} rows={4} aria-label="Your Review" disabled={!isAuthenticated} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Photos (Optional)</Label>
-                    <div className="flex items-center justify-center w-full">
-                      <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100">
-                        <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
-                          <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                          <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span></p>
-                          <p className="text-xs text-gray-500">PNG, JPG, GIF</p>
-                        </div>
-                        <input id="dropzone-file" type="file" className="hidden" multiple aria-label="Upload Photos" />
-                      </label>
-                    </div>
-                  </div>
-               </div>
-               <DialogFooter className="pt-4 mt-4">
-                  <Button onClick={handleSave} disabled={!visitDate.trim() || saving || !isAuthenticated} className="w-full">
-                      {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : (editingVisitId ? "Save Changes" : "Add Visit")}
-                  </Button>
-               </DialogFooter>
-          </div>
-      </div>
-    </DialogContent>
+      </DialogContent>
+    </Dialog>
   )
 }
