@@ -108,8 +108,6 @@ interface WineryModalProps {
 }
 
 export default function WineryModal({ winery, onClose, selectedTrip }: WineryModalProps) {
-  console.log("[WineryModal] Initial winery prop:", winery);
-  
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(0);
@@ -122,7 +120,6 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   const [friendsActivity, setFriendsActivity] = useState<{ favoritedBy: any[], wishlistedBy: any[] }>({ favoritedBy: [], wishlistedBy: [] });
 
   const { saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite, persistentWineries, ensureWineryDetails } = useWineryStore();
-  console.log("[WineryModal] persistentWineries from store:", persistentWineries);
   const { isAuthenticated } = useUserStore();
 
   useEffect(() => {
@@ -134,9 +131,7 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
   const currentWinery = useMemo(() => {
     if (!winery) return null;
     const detailedWinery = persistentWineries.find(w => w.id === winery.id);
-    console.log("[WineryModal] detailedWinery from persistentWineries:", detailedWinery, "Phone:", detailedWinery?.phone, "Website:", detailedWinery?.website, "Rating:", detailedWinery?.rating);
     const finalWinery = detailedWinery ? { ...winery, ...detailedWinery } : winery;
-    console.log("[WineryModal] currentWinery (final):", finalWinery, "Phone:", finalWinery?.phone, "Website:", finalWinery?.website, "Rating:", finalWinery?.rating);
     return finalWinery;
   }, [winery, persistentWineries]);
 
@@ -378,6 +373,37 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
                 </div>
             </div>
              <Separator className="my-4"/>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm text-gray-700">
+              {currentWinery?.website && (
+                <div className="flex items-center gap-2">
+                  <Globe className="w-4 h-4 text-gray-500" />
+                  <a href={currentWinery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
+                    {currentWinery.website.replace(/^(https?:\/\/)?(www\.)?/, '')}
+                  </a>
+                </div>
+              )}
+              {currentWinery?.phone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-gray-500" />
+                  <span>{currentWinery.phone}</span>
+                </div>
+              )}
+              {currentWinery?.rating && (
+                <div className="flex items-center gap-2">
+                  <Star className="w-4 h-4 text-gray-500" />
+                  <span>
+                    {currentWinery.rating} ({currentWinery.user_ratings_total} reviews)
+                  </span>
+                </div>
+              )}
+               <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-gray-500" />
+                  <span>{currentWinery.address}</span>
+                </div>
+            </div>
+
+            <Separator className="my-4"/>
 
             {/* NEW FRIENDS ACTIVITY SECTION */}
             {(friendsActivity.favoritedBy.length > 0 || friendsActivity.wishlistedBy.length > 0) && (
