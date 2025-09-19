@@ -466,7 +466,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
         onToggleFavorite={toggleFavorite}
       />
     );
-  }, [persistentWineries, upcomingTrips, openModal, closeModal, selectedTrip, saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite]);
+  }, [persistentWineries, trips, upcomingTrips, openModal, closeModal, selectedTrip, saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite]);
 
   const handleFilterChange = (newFilter: string[]) => {
     if (newFilter.length === 0) {
