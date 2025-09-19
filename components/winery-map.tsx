@@ -436,6 +436,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
   const handleManualSearchArea = () => { if (map) { executeSearch(undefined, map.getBounds()); } };
 
   const handleOpenModal = useCallback((winery: Winery) => {
+    console.log("Opening modal for winery:", winery);
     let wineryDataToDisplay = { ...winery };
 
     const fullData = persistentWineries.find(p => p.id === winery.id);
@@ -443,16 +444,20 @@ function WineryMapLogic({ userId }: { userId: string; }) {
       wineryDataToDisplay = { ...wineryDataToDisplay, ...fullData };
     }
 
+    console.log("Current trips data:", trips);
     const foundTrip = trips.find(trip => {
       const isWineryOnTrip = Array.isArray(trip.wineries) && trip.wineries.some(w => w.id === wineryDataToDisplay.id);
       return isWineryOnTrip;
     });
+    console.log("Found trip for winery:", foundTrip);
 
     if (foundTrip) {
       wineryDataToDisplay.trip_id = foundTrip.id;
       wineryDataToDisplay.trip_name = foundTrip.name || "Unnamed Trip";
       wineryDataToDisplay.trip_date = foundTrip.trip_date;
     }
+
+    console.log("Data passed to modal:", wineryDataToDisplay);
 
         openModal(
       <WineryModal 
