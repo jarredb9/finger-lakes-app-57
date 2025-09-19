@@ -450,9 +450,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
     }
 
         openModal(
-      <WineryModal winery={wineryDataToDisplay} onClose={closeModal} selectedTrip={selectedTrip} />,
-      wineryDataToDisplay.name,
-      wineryDataToDisplay.address
+      <WineryModal winery={wineryDataToDisplay} onClose={closeModal} selectedTrip={selectedTrip} />
     );
   }, [persistentWineries, upcomingTrips, openModal, closeModal, selectedTrip]);
 

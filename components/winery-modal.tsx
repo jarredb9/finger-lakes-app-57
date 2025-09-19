@@ -258,13 +258,12 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
     setWishlistLoading(true);
     try {
         await toggleWishlist(currentWinery, !!currentWinery.onWishlist);
-        toast({ description: currentWinery.onWishlist ? "Removed from wishlist." : "Added to wishlist." });
+        toast({ description: !currentWinery.onWishlist ? "Added to wishlist." : "Removed from wishlist." });
     } catch (error) { toast({ variant: 'destructive', description: "Could not update wishlist." }); }
     setWishlistLoading(false);
   };
   
   const handleFavoriteToggle = async () => {
-    console.log("handleFavoriteToggle called");
     if (!isAuthenticated) {
       toast({ variant: 'destructive', description: "Please log in to add to your favorites." });
       return;
