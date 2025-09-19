@@ -210,6 +210,11 @@ function WineryMapLogic({ userId }: { userId: string; }) {
     loading,
     error,
     fetchWineryData,
+    saveVisit,
+    updateVisit,
+    deleteVisit,
+    toggleWishlist,
+    toggleFavorite,
   } = useWineryStore();
 
   const { openModal, closeModal } = useUIStore();
@@ -450,9 +455,18 @@ function WineryMapLogic({ userId }: { userId: string; }) {
     }
 
         openModal(
-      <WineryModal winery={wineryDataToDisplay} onClose={closeModal} selectedTrip={selectedTrip} />
+      <WineryModal 
+        winery={wineryDataToDisplay} 
+        onClose={closeModal} 
+        selectedTrip={selectedTrip} 
+        onSaveVisit={saveVisit}
+        onUpdateVisit={updateVisit}
+        onDeleteVisit={deleteVisit}
+        onToggleWishlist={toggleWishlist}
+        onToggleFavorite={toggleFavorite}
+      />
     );
-  }, [persistentWineries, upcomingTrips, openModal, closeModal, selectedTrip]);
+  }, [persistentWineries, upcomingTrips, openModal, closeModal, selectedTrip, saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite]);
 
   const handleFilterChange = (newFilter: string[]) => {
     if (newFilter.length === 0) {
