@@ -53,7 +53,7 @@ export const useTripStore = create<TripState>((set, get) => ({
   fetchAllTrips: async () => {
     set({ isLoading: true });
     try {
-      const response = await fetch(`/api/trips`);
+      const response = await fetch(`/api/trips?full=true`);
       if (response.ok) {
         const data = await response.json();
         console.log("[tripStore] fetchAllTrips: Data fetched successfully.", data);
@@ -75,7 +75,7 @@ export const useTripStore = create<TripState>((set, get) => ({
   fetchUpcomingTrips: async () => {
     set({ isLoading: true });
     try {
-      const response = await fetch(`/api/trips?type=upcoming`);
+      const response = await fetch(`/api/trips?type=upcoming&full=true`);
       if (response.ok) {
         const data = await response.json();
         set({ upcomingTrips: Array.isArray(data.trips) ? data.trips : [], isLoading: false });
