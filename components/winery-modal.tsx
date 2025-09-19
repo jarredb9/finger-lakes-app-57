@@ -303,12 +303,14 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   };
 
   const handleWishlistToggle = async () => {
+    console.log('onToggleWishlist prop:', onToggleWishlist);
     setWishlistLoading(true);
     await onToggleWishlist(internalWinery, !!internalWinery.onWishlist);
     setWishlistLoading(false);
   };
   
   const handleFavoriteToggle = async () => {
+    console.log('onToggleFavorite prop:', onToggleFavorite);
     setFavoriteLoading(true);
     await onToggleFavorite(internalWinery, !!internalWinery.isFavorite);
     setFavoriteLoading(false);
