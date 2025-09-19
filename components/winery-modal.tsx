@@ -2,7 +2,8 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import {
+import { 
+  DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
