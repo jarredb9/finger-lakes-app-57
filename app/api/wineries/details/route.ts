@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (existingWinery && existingWinery.phone && existingWinery.website && existingWinery.google_rating) {
-    console.log(`[API] /api/wineries/details: Returning existing winery details for ${placeId}. Data:`, existingWinery);
+    console.log(`[API] /api/wineries/details: Returning existing winery details for ${placeId}.`);
     return NextResponse.json(existingWinery);
   }
 
