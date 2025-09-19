@@ -303,14 +303,34 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   };
 
   const handleWishlistToggle = async () => {
+    if (!internalWinery) return;
+
+    const originalOnWishlist = internalWinery.onWishlist;
+    setInternalWinery(prev => prev ? { ...prev, onWishlist: !prev.onWishlist } : null);
     setWishlistLoading(true);
-    await onToggleWishlist(internalWinery, !!internalWinery.onWishlist);
+
+    try {
+      await onToggleWishlist(internalWinery, originalOnWishlist);
+    } catch (error) {
+      setInternalWinery(prev => prev ? { ...prev, onWishlist: originalOnWishlist } : null);
+      toast({ variant: "destructive", description: "Failed to update wishlist." });
+    }
     setWishlistLoading(false);
   };
   
   const handleFavoriteToggle = async () => {
+    if (!internalWinery) return;
+
+    const originalIsFavorite = internalWinery.isFavorite;
+    setInternalWinery(prev => prev ? { ...prev, isFavorite: !prev.isFavorite } : null);
     setFavoriteLoading(true);
-    await onToggleFavorite(internalWinery, !!internalWinery.isFavorite);
+
+    try {
+      await onToggleFavorite(internalWinery, originalIsFavorite);
+    } catch (error) {
+      setInternalWinery(prev => prev ? { ...prev, isFavorite: originalIsFavorite } : null);
+      toast({ variant: "destructive", description: "Failed to update favorites." });
+    }
     setFavoriteLoading(false);
   };
 
