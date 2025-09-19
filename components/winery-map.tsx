@@ -444,7 +444,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
       wineryDataToDisplay = { ...wineryDataToDisplay, ...fullData };
     }
 
-    console.log("Current trips data:", trips);
+    console.log("Current trips data:", JSON.stringify(trips, null, 2));
     const foundTrip = trips.find(trip => {
       const isWineryOnTrip = Array.isArray(trip.wineries) && trip.wineries.some(w => w.dbId === wineryDataToDisplay.dbId);
       return isWineryOnTrip;
