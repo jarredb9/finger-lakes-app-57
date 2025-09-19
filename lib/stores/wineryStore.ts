@@ -202,24 +202,54 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   },
 
   toggleWishlist: async (winery, isOnWishlist) => {
-    await get().ensureWineryDetails(winery.id);
-    const dbId = get().persistentWineries.find(w => w.id === winery.id)?.dbId;
+    const originalWineries = get().persistentWineries;
+    const updatedWineries = originalWineries.map(w =>
+      w.id === winery.id ? { ...w, onWishlist: !isOnWishlist } : w
+    );
+    set({ persistentWineries: updatedWineries, wishlistWineries: updatedWineries.filter(w => w.onWishlist) });
 
-    const method = isOnWishlist ? 'DELETE' : 'POST';
-    const body = isOnWishlist ? JSON.stringify({ dbId }) : JSON.stringify({ wineryData: winery });
-    const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
-    if (!response.ok) throw new Error("Could not update wishlist.");
-    await get().fetchWineryData();
+    try {
+      await get().ensureWineryDetails(winery.id);
+      const dbId = get().persistentWineries.find(w => w.id === winery.id)?.dbId;
+
+      const method = isOnWishlist ? 'DELETE' : 'POST';
+      const body = isOnWishlist ? JSON.stringify({ dbId }) : JSON.stringify({ wineryData: { ...winery, onWishlist: !isOnWishlist } });
+      const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
+
+      if (!response.ok) throw new Error("Could not update wishlist.");
+      
+      // Optional: Re-fetch in the background to ensure full consistency
+      get().fetchWineryData(); 
+
+    } catch (error) {
+      set({ persistentWineries: originalWineries, wishlistWineries: originalWineries.filter(w => w.onWishlist) }); // Revert on error
+      throw error;
+    }
   },
 
   toggleFavorite: async (winery, isFavorite) => {
-    await get().ensureWineryDetails(winery.id);
-    const dbId = get().persistentWineries.find(w => w.id === winery.id)?.dbId;
+    const originalWineries = get().persistentWineries;
+    const updatedWineries = originalWineries.map(w =>
+      w.id === winery.id ? { ...w, isFavorite: !isFavorite } : w
+    );
+    set({ persistentWineries: updatedWineries, favoriteWineries: updatedWineries.filter(w => w.isFavorite) });
 
-    const method = isFavorite ? 'DELETE' : 'POST';
-    const body = isFavorite ? JSON.stringify({ dbId }) : JSON.stringify({ wineryData: winery });
-    const response = await fetch('/api/favorites', { method, headers: { 'Content-Type': 'application/json' }, body });
-    if (!response.ok) throw new Error("Could not update favorites.");
-    await get().fetchWineryData();
+    try {
+      await get().ensureWineryDetails(winery.id);
+      const dbId = get().persistentWineries.find(w => w.id === winery.id)?.dbId;
+
+      const method = isFavorite ? 'DELETE' : 'POST';
+      const body = isFavorite ? JSON.stringify({ dbId }) : JSON.stringify({ wineryData: { ...winery, isFavorite: !isFavorite } });
+      const response = await fetch('/api/favorites', { method, headers: { 'Content-Type': 'application/json' }, body });
+      
+      if (!response.ok) throw new Error("Could not update favorites.");
+
+      // Optional: Re-fetch in the background to ensure full consistency
+      get().fetchWineryData();
+
+    } catch (error) {
+      set({ persistentWineries: originalWineries, favoriteWineries: originalWineries.filter(w => w.isFavorite) }); // Revert on error
+      throw error;
+    }
   },
 }));

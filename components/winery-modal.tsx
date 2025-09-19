@@ -256,11 +256,15 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
       return;
     }
     setWishlistLoading(true);
+    const isOnWishlist = !!currentWinery.onWishlist;
     try {
-        await toggleWishlist(currentWinery, !!currentWinery.onWishlist);
-        toast({ description: !currentWinery.onWishlist ? "Added to wishlist." : "Removed from wishlist." });
-    } catch (error) { toast({ variant: 'destructive', description: "Could not update wishlist." }); }
-    setWishlistLoading(false);
+        await toggleWishlist(currentWinery, isOnWishlist);
+        toast({ description: !isOnWishlist ? "Added to wishlist." : "Removed from wishlist." });
+    } catch (error) { 
+        toast({ variant: 'destructive', description: "Could not update wishlist." }); 
+    } finally {
+        setWishlistLoading(false);
+    }
   };
   
   const handleFavoriteToggle = async () => {
@@ -269,9 +273,15 @@ export default function WineryModal({ winery, onClose, selectedTrip }: WineryMod
       return;
     }
     setFavoriteLoading(true);
-    await toggleFavorite(currentWinery, !!currentWinery.isFavorite);
-    toast({ description: !currentWinery.isFavorite ? "Added to favorites." : "Removed from favorites." });
-    setFavoriteLoading(false);
+    const isFavorite = !!currentWinery.isFavorite;
+    try {
+        await toggleFavorite(currentWinery, isFavorite);
+        toast({ description: !isFavorite ? "Added to favorites." : "Removed from favorites." });
+    } catch (error) {
+        toast({ variant: 'destructive', description: "Could not update favorites." });
+    } finally {
+        setFavoriteLoading(false);
+    }
   };
 
   const handleAddToTrip = async () => {
