@@ -139,17 +139,18 @@ export default function WineryModal() {
     if (activeWineryId) {
       const wineryFromStore = getWineryById(activeWineryId);
       if (wineryFromStore) {
+        const enrichedWinery = { ...wineryFromStore };
         // Data enrichment that was in winery-map
         const foundTrip = upcomingTrips.find(trip => 
-          trip.wineries.some(w => w.dbId === wineryFromStore.dbId)
+          trip.wineries.some(w => w.dbId === enrichedWinery.dbId)
         );
 
         if (foundTrip) {
-          wineryFromStore.trip_id = foundTrip.id;
-          wineryFromStore.trip_name = foundTrip.name || "Unnamed Trip";
-          wineryFromStore.trip_date = foundTrip.trip_date;
+          enrichedWinery.trip_id = foundTrip.id;
+          enrichedWinery.trip_name = foundTrip.name || "Unnamed Trip";
+          enrichedWinery.trip_date = foundTrip.trip_date;
         }
-        setInternalWinery(wineryFromStore);
+        setInternalWinery(enrichedWinery);
       }
     } else {
       setInternalWinery(null);
