@@ -38,6 +38,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useWineryStore } from "@/lib/stores/wineryStore";
 
 // New Responsive Date Picker Component
 function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (date: Date | undefined) => void }) {
@@ -101,16 +102,12 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
 
 
 interface WineryModalProps {
-  onSaveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => Promise<void>;
-  onUpdateVisit: (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => Promise<void>;
-  onDeleteVisit?: (visitId: string) => Promise<void>;
-  onToggleWishlist: (winery: Winery, onWishlist: boolean) => Promise<void>;
-  onToggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
   selectedTrip?: Trip | null;
 }
 
-export default function WineryModal({ onSaveVisit, onUpdateVisit, onDeleteVisit, onToggleWishlist, onToggleFavorite, selectedTrip }: WineryModalProps) {
+export default function WineryModal({ selectedTrip }: WineryModalProps) {
   const { isWineryModalOpen, wineryModalContent, closeWineryModal } = useUIStore();
+  const { toggleWishlist, toggleFavorite, saveVisit, updateVisit, deleteVisit: deleteVisitAction } = useWineryStore();
   
   const [internalWinery, setInternalWinery] = useState<Winery | null>(wineryModalContent);
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
@@ -263,11 +260,9 @@ export default function WineryModal({ onSaveVisit, onUpdateVisit, onDeleteVisit,
     setSaving(true);
     try {
       if (editingVisitId) {
-        await onUpdateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
-        const updatedVisits = internalWinery.visits?.map(v => v.id === editingVisitId ? { ...v, visit_date: visitDate, user_review: userReview, rating } : v) || [];
-        setInternalWinery(prev => prev ? { ...prev, visits: updatedVisits } : null);
+        await updateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
       } else {
-        await onSaveVisit(internalWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
+        await saveVisit(internalWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
       }
       resetForm();
     } catch (error) { 
@@ -279,10 +274,9 @@ export default function WineryModal({ onSaveVisit, onUpdateVisit, onDeleteVisit,
   };
   
   const handleDeleteVisit = async (visitId: string) => {
-    if (!onDeleteVisit || !visitId) return;
+    if (!deleteVisitAction || !visitId) return;
     try {
-        await onDeleteVisit(visitId);
-        setInternalWinery(prev => prev ? { ...prev, visits: prev.visits?.filter(v => v.id !== visitId) } : null);
+        await deleteVisitAction(visitId);
         toast({ description: "Visit deleted successfully." });
     } catch (error) {
         console.error("Failed to delete visit:", error);
@@ -295,7 +289,7 @@ export default function WineryModal({ onSaveVisit, onUpdateVisit, onDeleteVisit,
     setInternalWinery(prev => prev ? { ...prev, onWishlist: !prev.onWishlist } : null);
     setWishlistLoading(true);
     try {
-      await onToggleWishlist(internalWinery, originalOnWishlist);
+      await toggleWishlist(internalWinery, originalOnWishlist);
     } catch (error) {
       setInternalWinery(prev => prev ? { ...prev, onWishlist: originalOnWishlist } : null);
       toast({ variant: "destructive", description: "Failed to update wishlist." });
@@ -311,7 +305,7 @@ export default function WineryModal({ onSaveVisit, onUpdateVisit, onDeleteVisit,
     setFavoriteLoading(true);
 
     try {
-      await onToggleFavorite(internalWinery, originalIsFavorite);
+      await toggleFavorite(internalWinery, originalIsFavorite);
     } catch (error) {
       setInternalWinery(prev => prev ? { ...prev, isFavorite: originalIsFavorite } : null);
       toast({ variant: "destructive", description: "Failed to update favorites." });
@@ -649,7 +643,7 @@ export default function WineryModal({ onSaveVisit, onUpdateVisit, onDeleteVisit,
                                     <Button variant="ghost" size="sm" onClick={() => handleEditClick(visit)}>
                                         <Edit className="w-4 w-4" />
                                     </Button>
-                                    {onDeleteVisit && visit.id && (
+                                    {deleteVisitAction && visit.id && (
                                       <Button variant="ghost" size="sm" onClick={() => handleDeleteVisit(visit.id!)} className="text-red-600 hover:text-red-800 hover:bg-red-50" aria-label={`Delete visit`}>
                                         <Trash2 className="w-4 h-4" />
                                       </Button>

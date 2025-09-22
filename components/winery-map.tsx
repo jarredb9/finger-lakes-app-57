@@ -76,7 +76,7 @@ const MapComponent = memo(({ discoveredWineries, visitedWineries, wishlistWineri
 
                         {(filter.includes('all') || filter.includes('wantToGo')) && (
                         <WishlistClusterer wineries={wishlistWineries} onClick={onMarkerClick} />
-                        ) }
+                        ) } 
                         
                         {(filter.includes('all') || filter.includes('visited')) && (
                         <WineryClusterer wineries={visitedWineries} onClick={onMarkerClick} />
@@ -196,11 +196,6 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     loading,
     error,
     fetchWineryData,
-    saveVisit,
-    updateVisit,
-    deleteVisit,
-    toggleWishlist,
-    toggleFavorite,
   } = useWineryStore();
 
   const { openWineryModal } = useUIStore();
@@ -559,11 +554,6 @@ function WineryMapLogic({ userId }: WineryMapProps) {
       )}
       <WineryModal 
         selectedTrip={selectedTrip} 
-        onSaveVisit={saveVisit}
-        onUpdateVisit={updateVisit}
-        onDeleteVisit={deleteVisit}
-        onToggleWishlist={toggleWishlist}
-        onToggleFavorite={toggleFavorite}
       />
     </div>
   );
