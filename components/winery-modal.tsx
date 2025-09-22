@@ -256,18 +256,65 @@ export default function WineryModal() {
       return;
     }
     setSaving(true);
-    try {
-      if (editingVisitId) {
+
+    const originalWinery = internalWinery;
+
+    if (editingVisitId) {
+      const originalVisits = originalWinery?.visits || [];
+      // Optimistic update for editing a visit
+      const updatedVisit = {
+        id: editingVisitId,
+        visit_date: visitDate,
+        user_review: userReview,
+        rating: rating,
+      };
+      setInternalWinery(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          visits: prev.visits?.map(v => v.id === editingVisitId ? { ...v, ...updatedVisit } : v) || [updatedVisit],
+        };
+      });
+      
+      try {
         await updateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
-      } else {
-        await saveVisit(internalWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
+        resetForm(); // Resets editing state
+      } catch (error) {
+        console.error("Update operation failed:", error);
+        toast({ variant: "destructive", description: "Failed to update visit." });
+        setInternalWinery(prev => prev ? { ...prev, visits: originalVisits } : null); // Revert
+      } finally {
+        setSaving(false);
       }
-      resetForm();
-    } catch (error) { 
-      console.error("Save/Update operation failed:", error); 
-      toast({ variant: "destructive", description: "Failed to save/update visit." });
-    } finally { 
-      setSaving(false); 
+    } else {
+      // Optimistic update for new visit
+      const tempId = `temp-${Date.now()}`;
+      const newVisit: Visit = {
+        id: tempId,
+        visit_date: visitDate,
+        user_review: userReview,
+        rating: rating,
+        photos: [],
+      };
+      setInternalWinery(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          visits: [newVisit, ...(prev.visits || [])],
+          userVisited: true,
+        };
+      });
+      
+      try {
+        await saveVisit(internalWinery!, { visit_date: visitDate, user_review: userReview, rating, photos });
+        resetForm();
+      } catch (error) {
+        console.error("Save operation failed:", error);
+        toast({ variant: "destructive", description: "Failed to save visit." });
+        setInternalWinery(originalWinery); // Revert
+      } finally {
+        setSaving(false);
+      }
     }
   };
   
@@ -320,12 +367,51 @@ export default function WineryModal() {
         toast({ variant: 'destructive', description: "Please select at least one trip or create a new one." });
         return;
     }
+
+    const originalWinery = internalWinery;
+    
+    // Simplified optimistic update: show the name of the first selected/new trip
+    const firstTripId = Array.from(selectedTrips)[0];
+    let tripName = "";
+    let tripId = ""; // This will be empty for a new trip initially
+    const dateOfTrip = tripDate.toISOString().split('T')[0];
+
+    if (firstTripId === 'new') {
+        tripName = newTripName.trim() || "New Trip";
+    } else {
+        const trip = tripsOnDate.find(t => t.id.toString() === firstTripId);
+        if (trip) {
+            tripName = trip.name || `Trip on ${new Date(trip.trip_date).toLocaleDateString()}`;
+            tripId = trip.id.toString();
+        }
+    }
+
+    if (tripName) {
+        setInternalWinery(prev => prev ? {
+            ...prev,
+            trip_name: tripName,
+            trip_date: dateOfTrip,
+            trip_id: tripId,
+        } : null);
+    }
+
+    // Hide the trip form immediately
+    const currentTripDate = tripDate;
+    const currentSelectedTrips = new Set(selectedTrips);
+    const currentNewTripName = newTripName;
+    const currentAddTripNotes = addTripNotes;
+
+    setTripDate(undefined);
+    setSelectedTrips(new Set());
+    setNewTripName('');
+    setAddTripNotes('');
+
     try {
-        await addWineryToTrips(internalWinery, tripDate, selectedTrips, newTripName, addTripNotes);
+        await addWineryToTrips(originalWinery!, currentTripDate, currentSelectedTrips, currentNewTripName, currentAddTripNotes);
         toast({ description: "Winery added to trip(s)." });
-        setTripDate(undefined);
     } catch (error: any) {
         toast({ variant: 'destructive', description: error.message || "An error occurred." });
+        setInternalWinery(originalWinery); // Revert on failure
     }
   };
 
@@ -362,7 +448,7 @@ export default function WineryModal() {
                     <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
                         <div className="flex items-center gap-2">
                            <DialogTitle className="text-2xl pr-4">{internalWinery.name}</DialogTitle>
-                           {internalWinery.trip_name && internalWinery.trip_date && internalWinery.trip_id && (
+                           {internalWinery.trip_name && internalWinery.trip_date && (
                                 <Link
                                     href={`/trips?date=${internalWinery.trip_date.split('T')[0]}&tripId=${internalWinery.trip_id}`}
                                     passHref
