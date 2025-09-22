@@ -1,7 +1,7 @@
 // file: components/winery-map.tsx
 "use client"
 
-import React, { useEffect, useState, useCallback, useRef, memo } from "react"
+import React, { useEffect, useState, useCallback, useRef, memo, useMemo } from "react"
 import dynamic from 'next/dynamic'
 import { APIProvider, Map as GoogleMap, useMap, useMapsLibrary } from "@vis.gl/react-google-maps"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
