@@ -203,36 +203,48 @@ export const useTripStore = create<TripState>((set, get) => ({
       throw new Error("Could not save winery. Please try again.");
     }
 
-    const tripPromises = Array.from(selectedTrips).map(tripId => {
-        const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
-            date: tripDate.toISOString().split("T")[0],
-            wineryId: wineryDbId,
-        };
+    const tripPromises = Array.from(selectedTrips).map(async (tripId) => {
+      const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
+        date: tripDate.toISOString().split("T")[0],
+        wineryId: wineryDbId,
+      };
 
-        if (tripId === 'new') {
-            if (!newTripName.trim()) {
-                return Promise.reject("New trip requires a name.");
-            }
-            payload.name = newTripName;
-            payload.notes = addTripNotes;
-        } else {
-            payload.tripIds = [parseInt(tripId, 10)];
-            payload.notes = addTripNotes;
+      if (tripId === 'new') {
+        if (!newTripName.trim()) {
+          throw new Error("New trip requires a name.");
         }
+        payload.name = newTripName;
+        payload.notes = addTripNotes;
+      } else {
+        payload.tripIds = [parseInt(tripId, 10)];
+        payload.notes = addTripNotes;
+      }
 
-        return fetch('/api/trips', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).then(response => {
-            if (!response.ok) {
-                return response.json().then(errorData => { throw new Error(errorData.error || "Failed to add to trip."); });
-            }
-        });
+      const response = await fetch('/api/trips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        try {
+          const errorData = await response.json();
+          throw new Error(errorData.error || `Failed to add to trip ${tripId}.`);
+        } catch (e) {
+          throw new Error(`Failed to add to trip ${tripId} with status ${response.status}.`);
+        }
+      }
+      return response.json();
     });
 
-    await Promise.all(tripPromises);
-    get().fetchUpcomingTrips();
+    try {
+      await Promise.all(tripPromises);
+      get().fetchUpcomingTrips();
+      get().fetchTripsForDate(tripDate);
+    } catch (error) {
+      console.error("Error adding winery to one or more trips:", error);
+      throw error; // Re-throw to be caught by the UI
+    }
   },
 
   toggleWineryOnTrip: async (winery, trip) => {

@@ -53,6 +53,7 @@ interface WineryState {
   toggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
   toggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
   getWineryById: (id: string) => Winery | undefined;
+  ensureWineryInDb: (winery: Winery) => Promise<number | null>;
 }
 
 export const useWineryStore = create<WineryState>((set, get) => ({
@@ -267,6 +268,52 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
   getWineryById: (id: string) => {
     return get().persistentWineries.find(w => w.id === id);
+  },
+  
+  ensureWineryInDb: async (winery: Winery) => {
+    if (winery.dbId) {
+      return winery.dbId;
+    }
+    const existing = get().persistentWineries.find(w => w.id === winery.id);
+    if (existing?.dbId) {
+      return existing.dbId;
+    }
+
+    try {
+      const response = await fetch('/api/wineries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(winery),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Failed to ensure winery in DB. Server response:', errorText);
+        throw new Error('Failed to ensure winery in DB');
+      }
+
+      const { dbId } = await response.json();
+
+      if (dbId) {
+        set(state => {
+          const updateWinery = (w: Winery) => w.id === winery.id ? { ...w, dbId } : w;
+          
+          const persistentWineries = state.persistentWineries.map(updateWinery);
+          const isNew = !state.persistentWineries.some(w => w.id === winery.id);
+
+          return { 
+            persistentWineries: isNew ? [...persistentWineries, { ...winery, dbId }] : persistentWineries,
+            visitedWineries: state.visitedWineries.map(updateWinery),
+            favoriteWineries: state.favoriteWineries.map(updateWinery),
+            wishlistWineries: state.wishlistWineries.map(updateWinery),
+          };
+        });
+      }
+      return dbId;
+    } catch (error) {
+      console.error(`Failed to ensure winery in DB for ${winery.name}:`, error);
+      return null;
+    }
   },
 }));
 
