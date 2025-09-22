@@ -52,6 +52,7 @@ interface WineryState {
   deleteVisit: (visitId: string) => Promise<void>;
   toggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
   toggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
+  getWineryById: (id: string) => Winery | undefined;
 }
 
 export const useWineryStore = create<WineryState>((set, get) => ({
@@ -251,5 +252,9 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       set({ persistentWineries: originalWineries, favoriteWineries: originalWineries.filter(w => w.isFavorite) }); // Revert on error
       throw error;
     }
+  },
+
+  getWineryById: (id: string) => {
+    return get().persistentWineries.find(w => w.id === id);
   },
 }));
