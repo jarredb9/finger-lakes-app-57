@@ -210,14 +210,9 @@ function WineryMapLogic({ userId }: { userId: string; }) {
     loading,
     error,
     fetchWineryData,
-    saveVisit,
-    updateVisit,
-    deleteVisit,
-    toggleWishlist,
-    toggleFavorite,
   } = useWineryStore();
 
-  const { openModal, closeModal } = useUIStore();
+  const { openWineryModal } = useUIStore();
 
   const { trips, upcomingTrips, fetchAllTrips, fetchUpcomingTrips } = useTripStore();
 
@@ -230,7 +225,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
   const geocoding = useMapsLibrary('geocoding');
   const core = useMapsLibrary('core');
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
-  const googleMapInstance = useMap(); // This is the actual Google Map instance from @vis.gl/react-google-maps
+  const googleMapInstance = useMap();
 
   useEffect(() => {
     if (geocoding) {
@@ -245,7 +240,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
 
   useEffect(() => {
     if (googleMapInstance) {
-      setMap(googleMapInstance); // Set the map instance in the store
+      setMap(googleMapInstance);
     }
   }, [googleMapInstance, setMap]);
 
@@ -261,7 +256,6 @@ function WineryMapLogic({ userId }: { userId: string; }) {
 
   const mapWineries = useMemo(() => {
     const wineriesMap = new Map<string, Winery>();
-    // All unique wineries from search and store
     [...searchResults, ...persistentWineries].forEach(w => {
       if (w && w.id) {
         wineriesMap.set(w.id, w)
@@ -320,7 +314,7 @@ function WineryMapLogic({ userId }: { userId: string; }) {
   const executeSearch = useCallback(async (locationText?: string, searchBounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => {
     if (!places || !geocoder) return;
     setIsSearching(true);
-    setSearchResults([]); // Clear previous results
+    setSearchResults([]);
 
     let finalSearchBounds: google.maps.LatLngBounds;
     if (locationText) {
@@ -445,12 +439,9 @@ function WineryMapLogic({ userId }: { userId: string; }) {
       wineryDataToDisplay = { ...wineryDataToDisplay, ...fullData };
     }
 
-    console.log("Current upcoming trips data:", JSON.stringify(upcomingTrips, null, 2));
-    const foundTrip = upcomingTrips.find(trip => {
-      const isWineryOnTrip = Array.isArray(trip.wineries) && trip.wineries.some(w => w.dbId === wineryDataToDisplay.dbId);
-      return isWineryOnTrip;
-    });
-    console.log("Found trip for winery:", foundTrip);
+    const foundTrip = upcomingTrips.find(trip => 
+      trip.wineries.some(w => w.dbId === wineryDataToDisplay.dbId)
+    );
 
     if (foundTrip) {
       wineryDataToDisplay.trip_id = foundTrip.id;
@@ -459,20 +450,8 @@ function WineryMapLogic({ userId }: { userId: string; }) {
     }
 
     console.log("Data passed to modal:", wineryDataToDisplay);
-
-        openModal(
-      <WineryModal 
-        winery={wineryDataToDisplay} 
-        onClose={closeModal} 
-        selectedTrip={selectedTrip} 
-        onSaveVisit={saveVisit}
-        onUpdateVisit={updateVisit}
-        onDeleteVisit={deleteVisit}
-        onToggleWishlist={toggleWishlist}
-        onToggleFavorite={toggleFavorite}
-      />
-    );
-  }, [persistentWineries, trips, upcomingTrips, openModal, closeModal, selectedTrip, saveVisit, updateVisit, deleteVisit, toggleWishlist, toggleFavorite]);
+    openWineryModal(wineryDataToDisplay);
+  }, [persistentWineries, upcomingTrips, openWineryModal]);
 
   const handleFilterChange = (newFilter: string[]) => {
     if (newFilter.length === 0) {
@@ -588,9 +567,11 @@ function WineryMapLogic({ userId }: { userId: string; }) {
           </AlertDialogContent>
         </AlertDialog>
       )}
+      <WineryModal />
     </div>
   );
 }
+
 
 export default function WineryMapWrapper({ userId }: { userId: string }) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
