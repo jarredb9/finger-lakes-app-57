@@ -30,7 +30,6 @@ import { Winery, Visit, Trip } from "@/lib/types";
 import { Separator } from "./ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Calendar } from "./ui/calendar";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SelectSingleEventHandler } from "react-day-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
@@ -40,8 +39,6 @@ import { Badge } from "@/components/ui/badge";
 import { useWineryStore } from '@/lib/stores/wineryStore';
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useTripStore } from "@/lib/stores/tripStore";
-import { useMapStore } from "@/lib/stores/mapStore";
-
 
 // New Responsive Date Picker Component
 function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (date: Date | undefined) => void }) {
@@ -103,35 +100,37 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
     );
 }
 
-export default function WineryModal() {
+interface WineryModalProps {
+  selectedTrip: Trip | null;
+}
+
+export default function WineryModal({ selectedTrip }: WineryModalProps) {
   const { toast } = useToast();
-  const { 
-    isWineryModalOpen, 
-    closeWineryModal, 
-    wineryModalContent: winery 
+  const {
+    isWineryModalOpen,
+    closeWineryModal,
+    wineryModalContent: winery
   } = useUIStore(state => ({
     isWineryModalOpen: state.isWineryModalOpen,
     closeWineryModal: state.closeWineryModal,
     wineryModalContent: state.wineryModalContent
   }));
-  
-  const selectedTrip = useMapStore(state => state.selectedTrip);
 
-  const { 
-    ensureWineryDetails, 
-    saveVisit, 
-    updateVisit, 
-    deleteVisit, 
-    toggleWishlist, 
+  const {
+    ensureWineryDetails,
+    saveVisit,
+    updateVisit,
+    deleteVisit,
+    toggleWishlist,
     toggleFavorite,
     getWineryById
   } = useWineryStore();
 
-  const { 
-    tripsForDate, 
-    fetchTripsForDate, 
-    createTrip, 
-    updateTrip 
+  const {
+    tripsForDate,
+    fetchTripsForDate,
+    createTrip,
+    updateTrip
   } = useTripStore();
 
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
@@ -198,7 +197,7 @@ export default function WineryModal() {
       setFriendsActivity({ favoritedBy: [], wishlistedBy: [] });
     }
   }, [currentWinery]);
-  
+
   useEffect(() => {
     if (tripDate) {
         fetchTripsForDate(tripDate);
@@ -207,7 +206,7 @@ export default function WineryModal() {
         setAddTripNotes("");
     }
   }, [tripDate, fetchTripsForDate]);
-  
+
   const handleToggleTrip = (tripId: string) => {
     setSelectedTrips(prev => {
         const newSet = new Set(prev);
@@ -273,14 +272,14 @@ export default function WineryModal() {
         await saveVisit(currentWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
       }
       resetForm();
-    } catch (error) { 
-      console.error("Save/Update operation failed:", error); 
+    } catch (error) {
+      console.error("Save/Update operation failed:", error);
       toast({ variant: "destructive", description: "Failed to save/update visit." });
-    } finally { 
+    } finally {
       setSaving(false);
     }
   };
-  
+
   const handleDeleteVisit = async (visitId: string) => {
     if (!visitId) return;
     try {
@@ -304,7 +303,7 @@ export default function WineryModal() {
     }
     setWishlistLoading(false);
   };
-  
+
   const handleFavoriteToggle = async () => {
     if (!currentWinery) return;
     setFavoriteLoading(true);
@@ -328,7 +327,7 @@ export default function WineryModal() {
         toast({ variant: 'destructive', description: "Please select at least one trip or create a new one." });
         return;
     }
-    
+
     const tripPromises = Array.from(selectedTrips).map(async (tripId) => {
         if (tripId === 'new') {
             if (!newTripName.trim()) {
@@ -355,7 +354,7 @@ export default function WineryModal() {
     if (!selectedTrip || !currentWinery.dbId) return;
 
     const isOnTrip = selectedTrip.wineries.some(w => w.dbId === currentWinery.dbId);
-    
+
     try {
       if (isOnTrip) {
         await updateTrip(selectedTrip.id, { removeWineryId: currentWinery.dbId });
@@ -372,12 +371,12 @@ export default function WineryModal() {
 
   const visits = currentWinery.visits || [];
   const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
-  
+
   const isOnActiveTrip = selectedTrip?.wineries.some(w => w.dbId === currentWinery.dbId) || false;
 
   return (
     <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
-      <DialogContent 
+      <DialogContent
         className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
         onPointerDownOutside={(e) => {
             if ((e.target as HTMLElement)?.closest('[vaul-drawer-trigger]')) {

@@ -1,8 +1,10 @@
 // file: components/home-client-page.tsx
 "use client"
 
+import { useState } from "react";
 import dynamic from 'next/dynamic'
 import { Loader2 } from "lucide-react";
+import { Trip } from "@/lib/types";
 
 // Dynamically import components that are client-side only
 const WineryMapWrapper = dynamic(() => import('@/components/winery-map'), {
@@ -16,10 +18,16 @@ const WineryModal = dynamic(() => import('@/components/winery-modal'), {
 });
 
 export default function HomeClientPage({ userId }: { userId: string }) {
+    const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+
     return (
       <>
-        <WineryMapWrapper userId={userId} />
-        <WineryModal />
+        <WineryMapWrapper
+          userId={userId}
+          selectedTrip={selectedTrip}
+          setSelectedTrip={setSelectedTrip}
+        />
+        <WineryModal selectedTrip={selectedTrip} />
       </>
     );
 }

@@ -52,8 +52,10 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 
-interface WineryMapProps { 
+interface WineryMapProps {
   userId: string;
+  selectedTrip: Trip | null;
+  setSelectedTrip: (trip: Trip | null) => void;
 }
 
 const MapComponent = memo(({ discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, onMarkerClick, selectedTrip }: { discoveredWineries: Winery[], visitedWineries: Winery[], wishlistWineries: Winery[], favoriteWineries: Winery[], filter: string[], onMarkerClick: (winery: Winery) => void; selectedTrip?: Trip | null; }) => {
@@ -91,9 +93,8 @@ const MapComponent = memo(({ discoveredWineries, visitedWineries, wishlistWineri
 });
 MapComponent.displayName = 'MapComponent';
 
-const SearchUI = memo(({ isSearching, searchResults, hitApiLimit, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, filter, onFilterChange }: { isSearching: boolean; searchResults: Winery[]; hitApiLimit: boolean; searchLocation: string; setSearchLocation: (location: string) => void; autoSearch: boolean; setAutoSearch: (auto: boolean) => void; handleSearchSubmit: (e: React.FormEvent) => void; handleManualSearchArea: () => void; filter: string[]; onFilterChange: (filter: string[]) => void; }) => {
+const SearchUI = memo(({ isSearching, searchResults, hitApiLimit, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, filter, onFilterChange, selectedTrip, setSelectedTrip }: { isSearching: boolean; searchResults: Winery[]; hitApiLimit: boolean; searchLocation: string; setSearchLocation: (location: string) => void; autoSearch: boolean; setAutoSearch: (auto: boolean) => void; handleSearchSubmit: (e: React.FormEvent) => void; handleManualSearchArea: () => void; filter: string[]; onFilterChange: (filter: string[]) => void; selectedTrip: Trip | null; setSelectedTrip: (trip: Trip | null) => void; }) => {
   const { trips, fetchTripById } = useTripStore();
-  const { selectedTrip, setSelectedTrip } = useMapStore();
   const { toast } = useToast();
   
   const handleTripSelect = async (tripId: string) => {
@@ -101,14 +102,13 @@ const SearchUI = memo(({ isSearching, searchResults, hitApiLimit, searchLocation
       setSelectedTrip(null);
       return;
     }
-    // The full trip might already be in the main `trips` array from the initial fetch
     const existingTrip = trips.find(t => t.id.toString() === tripId);
     if (existingTrip && existingTrip.wineries) {
         setSelectedTrip(existingTrip);
     } else {
-        // If not, or if it doesn't have winery data, fetch it specifically.
         await fetchTripById(tripId);
-        // The store will be updated, and a `useEffect` can listen to changes in the main `trips` array to set the selected trip.
+        const updatedTrip = useTripStore.getState().trips.find(t => t.id.toString() === tripId);
+        if(updatedTrip) setSelectedTrip(updatedTrip);
     }
   };
   
@@ -175,7 +175,7 @@ const SearchUI = memo(({ isSearching, searchResults, hitApiLimit, searchLocation
 });
 SearchUI.displayName = 'SearchUI';
 
-function WineryMapLogic({ userId }: { userId: string; }) {
+function WineryMapLogic({ userId, selectedTrip, setSelectedTrip }: WineryMapProps) {
   const {
     map, setMap,
     bounds, setBounds,
@@ -183,7 +183,6 @@ function WineryMapLogic({ userId }: { userId: string; }) {
     searchResults, setSearchResults,
     filter, setFilter,
     autoSearch, setAutoSearch,
-    selectedTrip,
     hitApiLimit, setHitApiLimit,
     searchLocation, setSearchLocation,
   } = useMapStore();
@@ -479,6 +478,8 @@ function WineryMapLogic({ userId }: { userId: string; }) {
         handleManualSearchArea={handleManualSearchArea}
         filter={filter}
         onFilterChange={handleFilterChange}
+        selectedTrip={selectedTrip}
+        setSelectedTrip={setSelectedTrip}
       />
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
@@ -556,10 +557,10 @@ function WineryMapLogic({ userId }: { userId: string; }) {
 }
 
 
-export default function WineryMapWrapper({ userId }: { userId: string }) {
+export default function WineryMapWrapper({ userId, selectedTrip, setSelectedTrip }: WineryMapProps) {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey) {
         return (<Alert variant="destructive"><AlertTriangle className="h-4 w-4" /><AlertDescription>Google Maps API key is not configured.</AlertDescription></Alert>);
     }
-    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} /></APIProvider>);
+    return (<APIProvider apiKey={apiKey} libraries={['places', 'geocoding', 'marker']}><WineryMapLogic userId={userId} selectedTrip={selectedTrip} setSelectedTrip={setSelectedTrip} /></APIProvider>);
 }

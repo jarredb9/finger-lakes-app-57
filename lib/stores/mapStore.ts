@@ -11,8 +11,7 @@ interface MapState {
   searchResults: Winery[];
   filter: string[];
   autoSearch: boolean;
-  selectedTrip: Trip | null;
-  searchLocation: string; // Add searchLocation to the store
+  searchLocation: string;
   setMap: (map: google.maps.Map | null) => void;
   setCenter: (center: { lat: number; lng: number }) => void;
   setZoom: (zoom: number) => void;
@@ -22,8 +21,7 @@ interface MapState {
   setSearchResults: (results: Winery[]) => void;
   setFilter: (filter: string[]) => void;
   setAutoSearch: (autoSearch: boolean) => void;
-  setSelectedTrip: (trip: Trip | null) => void;
-  setSearchLocation: (searchLocation: string) => void; // Add setter for searchLocation
+  setSearchLocation: (searchLocation: string) => void;
 }
 
 export const useMapStore = create<MapState>((set) => ({
@@ -36,8 +34,7 @@ export const useMapStore = create<MapState>((set) => ({
   searchResults: [],
   filter: ['all'],
   autoSearch: true,
-  selectedTrip: null,
-  searchLocation: "", // Initialize searchLocation
+  searchLocation: "",
   setMap: (map) => set({ map }),
   setCenter: (center) => set({ center }),
   setZoom: (zoom) => set({ zoom }),
@@ -47,6 +44,5 @@ export const useMapStore = create<MapState>((set) => ({
   setSearchResults: (results) => set({ searchResults: results }),
   setFilter: (filter) => set({ filter }),
   setAutoSearch: (autoSearch) => set({ autoSearch }),
-  setSelectedTrip: (trip) => set({ selectedTrip: trip }),
   setSearchLocation: (searchLocation) => set({ searchLocation }),
 }));
