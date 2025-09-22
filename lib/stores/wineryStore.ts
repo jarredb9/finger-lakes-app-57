@@ -67,21 +67,24 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   fetchWineryData: async () => {
     set({ isLoading: true, error: null });
     try {
-      const [visitsRes, favoritesRes, wishlistRes] = await Promise.all([
+      const [visitsRes, favoritesRes, wishlistRes, tripsRes] = await Promise.all([
         fetch("/api/visits"),
         fetch("/api/favorites"),
         fetch("/api/wishlist"),
+        fetch("/api/trips?type=upcoming&full=true"),
       ]);
 
-      const [visitsData, favoritesData, wishlistData] = await Promise.all([
+      const [visitsData, favoritesData, wishlistData, tripsData] = await Promise.all([
         visitsRes.json(),
         favoritesRes.json(),
         wishlistRes.json(),
+        tripsRes.json(),
       ]);
 
       const { visits } = visitsData;
       const favorites = favoritesData.favorites || favoritesData;
       const wishlist = wishlistData.wishlist || wishlistData;
+      const upcomingTrips = tripsData.trips || [];
 
       const wineriesMap = new Map<string, Winery>();
 
@@ -114,6 +117,14 @@ export const useWineryStore = create<WineryState>((set, get) => ({
       wishlist.forEach((rawWishlist: any) => {
         const wineryData = rawWishlist.wineries || rawWishlist;
         processWinery(wineryData, { onWishlist: true });
+      });
+
+      upcomingTrips.forEach((trip: Trip) => {
+        if (trip.wineries) {
+          trip.wineries.forEach((winery: Winery) => {
+            processWinery(winery, {});
+          });
+        }
       });
 
       const initialWineries = Array.from(wineriesMap.values());
@@ -257,42 +268,10 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   getWineryById: (id: string) => {
     return get().persistentWineries.find(w => w.id === id);
   },
-
-  ensureWineryInDb: async (winery) => {
-    if (winery.dbId) {
-      return winery.dbId;
-    }
-    try {
-      const response = await fetch('/api/wineries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(winery),
-      });
-      if (!response.ok) {
-        throw new Error('Failed to ensure winery in DB');
-      }
-      const { dbId } = await response.json();
-      if (!dbId) {
-        throw new Error('API did not return a dbId');
-      }
-      set(state => {
-        const updatedWineries = state.persistentWineries.map(w =>
-          w.id === winery.id ? { ...w, dbId: dbId } : w
-        );
-        if (!updatedWineries.some(w => w.id === winery.id)) {
-            updatedWineries.push({ ...winery, dbId: dbId });
-        }
-        return { 
-            persistentWineries: updatedWineries,
-            visitedWineries: updatedWineries.filter(w => w.userVisited),
-            favoriteWineries: updatedWineries.filter(w => w.isFavorite),
-            wishlistWineries: updatedWineries.filter(w => w.onWishlist),
-        };
-      });
-      return dbId;
-    } catch (error) {
-      console.error("Error in ensureWineryInDb:", error);
-      throw error;
-    }
-  },
 }));
+
+// Helper function to find a winery by its database ID
+export const findWineryByDbId = (dbId: number) => {
+  const state = useWineryStore.getState();
+  return state.persistentWineries.find(w => w.dbId === dbId);
+};
