@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { ReactNode } from 'react';
+import { Winery } from '@/lib/types';
 
 interface Notification {
   id: number;
@@ -9,14 +10,14 @@ interface Notification {
 
 interface UIState {
   isSidebarOpen: boolean;
-  isModalOpen: boolean;
-  modalContent: ReactNode | null;
+  isWineryModalOpen: boolean;
+  wineryModalContent: Winery | null;
   theme: 'light' | 'dark';
   notifications: Notification[];
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
-  openModal: (content: ReactNode) => void;
-  closeModal: () => void;
+  openWineryModal: (winery: Winery) => void;
+  closeWineryModal: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
   addNotification: (message: string, type: 'success' | 'error' | 'info') => void;
   removeNotification: (id: number) => void;
@@ -24,14 +25,14 @@ interface UIState {
 
 export const useUIStore = create<UIState>((set) => ({
   isSidebarOpen: false,
-  isModalOpen: false,
-  modalContent: null,
+  isWineryModalOpen: false,
+  wineryModalContent: null,
   theme: 'light',
   notifications: [],
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
-  openModal: (content) => set({ isModalOpen: true, modalContent: content }),
-  closeModal: () => set({ isModalOpen: false, modalContent: null }),
+  openWineryModal: (winery) => set({ isWineryModalOpen: true, wineryModalContent: winery }),
+  closeWineryModal: () => set({ isWineryModalOpen: false, wineryModalContent: null }),
   setTheme: (theme) => set({ theme }),
   addNotification: (message, type) =>
     set((state) => ({

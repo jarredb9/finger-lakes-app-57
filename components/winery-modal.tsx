@@ -37,6 +37,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { useUIStore } from "@/lib/stores/uiStore";
 
 // New Responsive Date Picker Component
 function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (date: Date | undefined) => void }) {
@@ -100,8 +101,6 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
 
 
 interface WineryModalProps {
-  winery: Winery;
-  onClose: () => void;
   onSaveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => Promise<void>;
   onUpdateVisit: (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => Promise<void>;
   onDeleteVisit?: (visitId: string) => Promise<void>;
@@ -110,8 +109,10 @@ interface WineryModalProps {
   selectedTrip?: Trip | null;
 }
 
-export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisit, onDeleteVisit, onToggleWishlist, onToggleFavorite, selectedTrip }: WineryModalProps) {
-  const [internalWinery, setInternalWinery] = useState(winery);
+export default function WineryModal({ onSaveVisit, onUpdateVisit, onDeleteVisit, onToggleWishlist, onToggleFavorite, selectedTrip }: WineryModalProps) {
+  const { isWineryModalOpen, wineryModalContent, closeWineryModal } = useUIStore();
+  
+  const [internalWinery, setInternalWinery] = useState<Winery | null>(wineryModalContent);
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(0);
@@ -123,7 +124,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   const [friendsRatings, setFriendsRatings] = useState([]);
   const [friendsActivity, setFriendsActivity] = useState<{ favoritedBy: any[], wishlistedBy: any[] }>({ favoritedBy: [], wishlistedBy: [] });
 
-
   const editFormRef = useRef<HTMLDivElement>(null);
 
   const [tripDate, setTripDate] = useState<Date | undefined>();
@@ -132,19 +132,20 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   const [newTripName, setNewTripName] = useState("");
   const [addTripNotes, setAddTripNotes] = useState("");
 
-
   const { toast } = useToast();
 
   useEffect(() => {
-    setInternalWinery(winery);
-  }, [winery]);
+    setInternalWinery(wineryModalContent);
+  }, [wineryModalContent]);
 
   useEffect(() => {
+    if (!internalWinery) return;
+
     setEditingVisitId(null);
     resetForm();
     setTripDate(undefined);
 
-    if (internalWinery && internalWinery.dbId) {
+    if (internalWinery.dbId) {
       const fetchFriendsRatings = async () => {
         try {
           const response = await fetch(`/api/wineries?wineryId=${internalWinery.dbId}&ratingsFor=friends`);
@@ -230,7 +231,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
     });
   };
 
-  if (!internalWinery) {
+  if (!isWineryModalOpen || !internalWinery) {
     return null;
   }
 
@@ -267,7 +268,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
         setInternalWinery(prev => prev ? { ...prev, visits: updatedVisits } : null);
       } else {
         await onSaveVisit(internalWinery, { visit_date: visitDate, user_review: userReview, rating, photos });
-        // The parent component will refetch and pass down the new winery object
       }
       resetForm();
     } catch (error) { 
@@ -330,9 +330,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
         return;
     }
     
-    // Process each selected trip
     const tripPromises = Array.from(selectedTrips).map(tripId => {
-        // ** FIX: Correctly construct the payload to send to the API endpoint. **
         const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
             date: tripDate.toISOString().split("T")[0],
             wineryId: internalWinery.dbId!,
@@ -377,7 +375,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
     
     try {
       if (isOnTrip) {
-        // Remove winery from trip
         const response = await fetch(`/api/trips/${selectedTrip.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -385,12 +382,11 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
         });
         if (response.ok) {
           toast({ description: "Winery removed from trip." });
-          onClose(); // Close the modal to refresh the map view
+          closeWineryModal();
         } else {
           toast({ variant: "destructive", description: "Failed to remove winery from trip." });
         }
       } else {
-        // Add winery to trip
         const response = await fetch('/api/trips', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -402,7 +398,7 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
         });
         if (response.ok) {
           toast({ description: `Added to ${selectedTrip.name || 'trip'}.` });
-          onClose(); // Close the modal to refresh the map view
+          closeWineryModal();
         } else {
           toast({ variant: "destructive", description: "Failed to add winery to trip." });
         }
@@ -415,11 +411,10 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
   const visits = internalWinery.visits || [];
   const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
   
-  // ** FIX: Determine if the winery is on the currently selected trip **
   const isOnActiveTrip = selectedTrip?.wineries.some(w => w.dbId === internalWinery.dbId) || false;
 
   return (
-    <Dialog open={true} onOpenChange={onClose}>
+    <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
       <DialogContent 
         className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
         onPointerDownOutside={(e) => {
@@ -435,12 +430,11 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                     <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
                         <div className="flex items-center gap-2">
                            <DialogTitle className="text-2xl pr-4">{internalWinery.name}</DialogTitle>
-                           {/* The fix is here: Make the badge a clickable link to the trip planner page for this specific trip */}
                            {internalWinery.trip_name && internalWinery.trip_date && internalWinery.trip_id && (
                                 <Link
                                     href={`/trips?date=${internalWinery.trip_date.split('T')[0]}&tripId=${internalWinery.trip_id}`}
                                     passHref
-                                    onClick={onClose}
+                                    onClick={closeWineryModal}
                                 >
                                     <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
                                         <Clock className="w-3 h-3 mr-1"/>On Trip: {internalWinery.trip_name}
@@ -488,7 +482,6 @@ export default function WineryModal({ winery, onClose, onSaveVisit, onUpdateVisi
                 </DialogHeader>
                  <Separator className="my-4"/>
 
-                {/* NEW FRIENDS ACTIVITY SECTION */}
                 {(friendsActivity.favoritedBy.length > 0 || friendsActivity.wishlistedBy.length > 0) && (
                   <>
                     <div className="space-y-3">
