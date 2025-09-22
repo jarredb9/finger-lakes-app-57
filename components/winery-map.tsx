@@ -416,26 +416,10 @@ function WineryMapLogic({ userId }: WineryMapProps) {
   const handleSearchSubmit = (e: React.FormEvent) => { e.preventDefault(); if (searchLocation.trim()) { executeSearch(searchLocation.trim()); } };
   const handleManualSearchArea = () => { if (map) { executeSearch(undefined, map.getBounds()); } };
 
-  const handleOpenModal = useCallback((winery: Winery) => {
-    let wineryDataToDisplay = { ...winery };
-
-    const fullData = persistentWineries.find(p => p.id === winery.id);
-    if (fullData) {
-      wineryDataToDisplay = { ...wineryDataToDisplay, ...fullData };
-    }
-
-    const foundTrip = upcomingTrips.find(trip => 
-      trip.wineries.some(w => w.dbId === wineryDataToDisplay.dbId)
-    );
-
-    if (foundTrip) {
-      wineryDataToDisplay.trip_id = foundTrip.id;
-      wineryDataToDisplay.trip_name = foundTrip.name || "Unnamed Trip";
-      wineryDataToDisplay.trip_date = foundTrip.trip_date;
-    }
-
-    openWineryModal(wineryDataToDisplay);
-  }, [persistentWineries, upcomingTrips, openWineryModal]);
+  const handleOpenModal = useCallback(async (winery: Winery) => {
+    await ensureWineryDetails(winery.id);
+    openWineryModal(winery.id);
+  }, [openWineryModal, ensureWineryDetails]);
 
   const handleFilterChange = (newFilter: string[]) => {
     if (newFilter.length === 0) {

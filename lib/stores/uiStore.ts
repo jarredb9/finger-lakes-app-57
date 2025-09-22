@@ -11,12 +11,12 @@ interface Notification {
 interface UIState {
   isSidebarOpen: boolean;
   isWineryModalOpen: boolean;
-  wineryModalContent: Winery | null;
+  activeWineryId: string | null;
   theme: 'light' | 'dark';
   notifications: Notification[];
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
-  openWineryModal: (winery: Winery) => void;
+  openWineryModal: (wineryId: string) => void;
   closeWineryModal: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
   addNotification: (message: string, type: 'success' | 'error' | 'info') => void;
@@ -26,13 +26,13 @@ interface UIState {
 export const useUIStore = create<UIState>((set) => ({
   isSidebarOpen: false,
   isWineryModalOpen: false,
-  wineryModalContent: null,
+  activeWineryId: null,
   theme: 'light',
   notifications: [],
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
-  openWineryModal: (winery) => set({ isWineryModalOpen: true, wineryModalContent: winery }),
-  closeWineryModal: () => set({ isWineryModalOpen: false, wineryModalContent: null }),
+  openWineryModal: (wineryId) => set({ isWineryModalOpen: true, activeWineryId: wineryId }),
+  closeWineryModal: () => set({ isWineryModalOpen: false, activeWineryId: null }),
   setTheme: (theme) => set({ theme }),
   addNotification: (message, type) =>
     set((state) => ({

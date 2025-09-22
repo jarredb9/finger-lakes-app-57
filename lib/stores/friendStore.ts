@@ -8,19 +8,40 @@ interface Friend {
   requester_id?: string;
 }
 
+interface FriendRating {
+  user_id: string;
+  username: string;
+  avatar_url: string;
+  rating: number;
+  comment: string;
+}
+
+interface FriendActivity {
+  user_id: string;
+  username: string;
+  avatar_url: string;
+  visited_at: string;
+  comment: string;
+}
+
 interface FriendState {
   friends: Friend[];
   requests: Friend[];
   isLoading: boolean;
+  friendsRatings: FriendRating[];
+  friendsActivity: FriendActivity[];
   fetchFriends: () => Promise<void>;
   addFriend: (email: string) => Promise<void>;
   respondToRequest: (requesterId: string, accept: boolean) => Promise<void>;
+  fetchFriendDataForWinery: (wineryId: number) => Promise<void>;
 }
 
 export const useFriendStore = create<FriendState>((set, get) => ({
   friends: [],
   requests: [],
   isLoading: false,
+  friendsRatings: [],
+  friendsActivity: [],
 
   fetchFriends: async () => {
     set({ isLoading: true });
@@ -59,5 +80,36 @@ export const useFriendStore = create<FriendState>((set, get) => ({
     });
     if (!response.ok) throw new Error("Failed to update friend request.");
     await get().fetchFriends(); // Refetch to update lists
+  },
+
+  fetchFriendDataForWinery: async (wineryId: number) => {
+    set({ isLoading: true });
+    try {
+      const [ratingsResponse, activityResponse] = await Promise.all([
+        fetch(`/api/wineries/${wineryId}/friends-ratings`),
+        fetch(`/api/wineries/${wineryId}/friends-activity`)
+      ]);
+
+      if (ratingsResponse.ok) {
+        const ratings = await ratingsResponse.json();
+        set({ friendsRatings: ratings });
+      } else {
+        console.error('Failed to fetch friends ratings');
+        set({ friendsRatings: [] });
+      }
+
+      if (activityResponse.ok) {
+        const activity = await activityResponse.json();
+        set({ friendsActivity: activity });
+      } else {
+        console.error('Failed to fetch friends activity');
+        set({ friendsActivity: [] });
+      }
+    } catch (error) {
+      console.error('Error fetching friend data for winery:', error);
+      set({ friendsRatings: [], friendsActivity: [] });
+    } finally {
+      set({ isLoading: false });
+    }
   },
 }));

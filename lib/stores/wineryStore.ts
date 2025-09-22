@@ -44,6 +44,9 @@ interface WineryState {
   favoriteWineries: Winery[];
   persistentWineries: Winery[];
   isLoading: boolean;
+  isSavingVisit: boolean;
+  isTogglingWishlist: boolean;
+  isTogglingFavorite: boolean;
   error: string | null;
   fetchWineryData: () => Promise<void>;
   ensureWineryDetails: (placeId: string) => Promise<Winery | null>;
@@ -63,6 +66,9 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   favoriteWineries: [],
   persistentWineries: [],
   isLoading: false,
+  isSavingVisit: false,
+  isTogglingWishlist: false,
+  isTogglingFavorite: false,
   error: null,
 
   fetchWineryData: async () => {
@@ -193,19 +199,29 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   },
 
   saveVisit: async (winery, visitData) => {
-    const payload = { wineryData: winery, ...visitData };
-    const response = await fetch('/api/visits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`Failed to save visit: ${errorData.details || errorData.error}`);
+    set({ isSavingVisit: true });
+    try {
+      const payload = { wineryData: winery, ...visitData };
+      const response = await fetch('/api/visits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Failed to save visit: ${errorData.details || errorData.error}`);
+      }
+      await get().fetchWineryData();
+    } finally {
+      set({ isSavingVisit: false });
     }
-    await get().fetchWineryData();
   },
 
   updateVisit: async (visitId, visitData) => {
-    const response = await fetch(`/api/visits/${visitId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(visitData) });
-    if (!response.ok) throw new Error("Failed to update visit.");
-    await get().fetchWineryData();
+    set({ isSavingVisit: true });
+    try {
+      const response = await fetch(`/api/visits/${visitId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(visitData) });
+      if (!response.ok) throw new Error("Failed to update visit.");
+      await get().fetchWineryData();
+    } finally {
+      set({ isSavingVisit: false });
+    }
   },
 
   deleteVisit: async (visitId) => {
@@ -215,6 +231,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   },
 
   toggleWishlist: async (winery, isOnWishlist) => {
+    set({ isTogglingWishlist: true });
     const originalWineries = get().persistentWineries;
     const updatedWineries = originalWineries.map(w =>
       w.id === winery.id ? { ...w, onWishlist: !isOnWishlist } : w
@@ -237,10 +254,13 @@ export const useWineryStore = create<WineryState>((set, get) => ({
     } catch (error) {
       set({ persistentWineries: originalWineries, wishlistWineries: originalWineries.filter(w => w.onWishlist) }); // Revert on error
       throw error;
+    } finally {
+      set({ isTogglingWishlist: false });
     }
   },
 
   toggleFavorite: async (winery, isFavorite) => {
+    set({ isTogglingFavorite: true });
     const originalWineries = get().persistentWineries;
     const updatedWineries = originalWineries.map(w =>
       w.id === winery.id ? { ...w, isFavorite: !isFavorite } : w
@@ -263,6 +283,8 @@ export const useWineryStore = create<WineryState>((set, get) => ({
     } catch (error) {
       set({ persistentWineries: originalWineries, favoriteWineries: originalWineries.filter(w => w.isFavorite) }); // Revert on error
       throw error;
+    } finally {
+      set({ isTogglingFavorite: false });
     }
   },
 
