@@ -171,6 +171,82 @@ CREATE POLICY "Authenticated users can insert wineries" ON public.wineries FOR I
 -- wishlist
 CREATE POLICY "Users can delete their own wishlist items" ON public.wishlist FOR DELETE USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert their own wishlist items" ON public.wishlist FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+
+-- Storage Policies
+
+-- Don't forget to create the 'visit-photos' bucket in your Supabase storage!
+
+CREATE POLICY "User can upload a photo to a visit"
+ON storage.objects FOR INSERT
+TO authenticated
+WITH CHECK (
+  bucket_id = 'visit-photos' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+CREATE POLICY "User can see their own photos"
+ON storage.objects FOR SELECT
+TO authenticated
+USING (
+  bucket_id = 'visit-photos' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+CREATE POLICY "User can delete their own photos"
+ON storage.objects FOR DELETE
+TO authenticated
+USING (
+  bucket_id = 'visit-photos' AND
+  (storage.foldername(name))[1] = auth.uid()::text
+);
+
+-- RPC Functions
+
+CREATE OR REPLACE FUNCTION get_friends_activity_for_winery(winery_id_param integer)
+RETURNS json
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    friends_list UUID[];
+    favorited_by_list JSON[];
+    wishlisted_by_list JSON[];
+BEGIN
+    -- Get the current user's friends
+    SELECT ARRAY(
+        SELECT
+            CASE
+                WHEN f.user1_id = auth.uid() THEN f.user2_id
+                ELSE f.user1_id
+            END
+        FROM friends f
+        WHERE (f.user1_id = auth.uid() OR f.user2_id = auth.uid()) AND f.status = 'accepted'
+    ) INTO friends_list;
+
+    -- Get friends who favorited the winery
+    SELECT COALESCE(json_agg(json_build_object('id', p.id, 'name', p.name, 'email', p.email)), '[]')
+    INTO favorited_by_list
+    FROM profiles p
+    JOIN favorites f ON p.id = f.user_id
+    WHERE f.winery_id = winery_id_param AND p.id = ANY(friends_list);
+
+    -- Get friends who have the winery on their wishlist
+    SELECT COALESCE(json_agg(json_build_object('id', p.id, 'name', p.name, 'email', p.email)), '[]')
+    INTO wishlisted_by_list
+    FROM profiles p
+    JOIN wishlist w ON p.id = w.user_id
+    WHERE w.winery_id = winery_id_param AND p.id = ANY(friends_list);
+
+    -- Return the result as JSON
+    RETURN json_build_object(
+        'favoritedBy', favorited_by_list,
+        'wishlistedBy', wishlisted_by_list
+    );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION get_friends_activity_for_winery(integer) TO authenticated;
+
 CREATE OR REPLACE FUNCTION get_friends_ratings_for_winery(winery_id_param integer)
 RETURNS TABLE(user_id uuid, name text, email text, rating integer, user_review text, photos text[])
 LANGUAGE plpgsql
@@ -194,3 +270,311 @@ BEGIN
         AND (v.rating IS NOT NULL OR v.user_review IS NOT NULL);
 END;
 $$;
+
+GRANT EXECUTE ON FUNCTION get_friends_ratings_for_winery(integer) TO authenticated;
+
+CREATE OR REPLACE FUNCTION get_wineries_for_trip_planner(trip_date_param date)
+RETURNS TABLE (
+    id integer,
+    google_place_id text,
+    name character varying(255),
+    address text,
+    latitude numeric,
+    longitude numeric,
+    phone character varying(20),
+    website character varying(255),
+    google_rating numeric,
+    is_favorite boolean,
+    on_wishlist boolean,
+    user_visited boolean,
+    trip_id integer,
+    trip_name character varying(255),
+    trip_date date,
+    visit_order integer,
+    notes text
+) AS $$
+BEGIN
+    RETURN QUERY
+    WITH user_trips AS (
+        SELECT t.id, t.name, t.trip_date
+        FROM trips t
+        WHERE t.user_id = auth.uid() AND t.trip_date = trip_date_param
+    ),
+    wineries_in_trips AS (
+        SELECT
+            tw.winery_id,
+            ut.id as trip_id,
+            ut.name as trip_name,
+            ut.trip_date,
+            tw.visit_order,
+            tw.notes
+        FROM trip_wineries tw
+        JOIN user_trips ut ON tw.trip_id = ut.id
+    )
+    SELECT
+        w.id,
+        w.google_place_id,
+        w.name,
+        w.address,
+        w.latitude,
+        w.longitude,
+        w.phone,
+        w.website,
+        w.google_rating,
+        EXISTS(SELECT 1 FROM favorites f WHERE f.winery_id = w.id AND f.user_id = auth.uid()) as is_favorite,
+        EXISTS(SELECT 1 FROM wishlist wl WHERE wl.winery_id = w.id AND wl.user_id = auth.uid()) as on_wishlist,
+        EXISTS(SELECT 1 FROM visits v WHERE v.winery_id = w.id AND v.user_id = auth.uid()) as user_visited,
+        wit.trip_id,
+        wit.trip_name,
+        wit.trip_date,
+        wit.visit_order,
+        wit.notes
+    FROM wineries w
+    JOIN wineries_in_trips wit ON w.id = wit.winery_id;
+END;
+$$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION get_wineries_for_trip_planner(date) TO authenticated;
+
+CREATE OR REPLACE FUNCTION get_winery_details(winery_id_param integer)
+RETURNS TABLE (
+    id integer,
+    google_place_id text,
+    name character varying(255),
+    address text,
+    latitude numeric,
+    longitude numeric,
+    phone character varying(20),
+    website character varying(255),
+    google_rating numeric,
+    is_favorite boolean,
+    on_wishlist boolean,
+    user_visited boolean,
+    visits jsonb
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        w.id,
+        w.google_place_id,
+        w.name,
+        w.address,
+        w.latitude,
+        w.longitude,
+        w.phone,
+        w.website,
+        w.google_rating,
+        EXISTS(SELECT 1 FROM favorites f WHERE f.winery_id = w.id AND f.user_id = auth.uid()) as is_favorite,
+        EXISTS(SELECT 1 FROM wishlist wl WHERE wl.winery_id = w.id AND wl.user_id = auth.uid()) as on_wishlist,
+        EXISTS(SELECT 1 FROM visits v WHERE v.winery_id = w.id AND v.user_id = auth.uid()) as user_visited,
+        (SELECT jsonb_agg(v_agg) FROM (
+            SELECT v.id, v.visit_date, v.user_review, v.rating, v.photos
+            FROM visits v
+            WHERE v.winery_id = w.id AND v.user_id = auth.uid()
+            ORDER BY v.visit_date DESC
+        ) AS v_agg) AS visits
+    FROM wineries w
+    WHERE w.id = winery_id_param;
+END;
+$$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION get_winery_details(integer) TO authenticated;
+
+CREATE OR REPLACE FUNCTION search_wineries_by_name_and_location(
+    search_query text,
+    user_lat double precision,
+    user_lng double precision
+)
+RETURNS TABLE (
+    id integer,
+    google_place_id text,
+    name character varying(255),
+    address text,
+    latitude numeric,
+    longitude numeric,
+    phone character varying(20),
+    website character varying(255),
+    google_rating numeric,
+    is_favorite boolean,
+    on_wishlist boolean,
+    user_visited boolean,
+    distance_meters double precision
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        w.id,
+        w.google_place_id,
+        w.name,
+        w.address,
+        w.latitude,
+        w.longitude,
+        w.phone,
+        w.website,
+        w.google_rating,
+        EXISTS(SELECT 1 FROM favorites f WHERE f.winery_id = w.id AND f.user_id = auth.uid()) as is_favorite,
+        EXISTS(SELECT 1 FROM wishlist wl WHERE wl.winery_id = w.id AND wl.user_id = auth.uid()) as on_wishlist,
+        EXISTS(SELECT 1 FROM visits v WHERE v.winery_id = w.id AND v.user_id = auth.uid()) as user_visited,
+        ST_Distance(
+            ST_MakePoint(w.longitude::double precision, w.latitude::double precision)::geography,
+            ST_MakePoint(user_lng, user_lat)::geography
+        ) as distance_meters
+    FROM wineries w
+    WHERE w.name ILIKE '%' || search_query || '%'
+    ORDER BY distance_meters;
+END;
+$$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION search_wineries_by_name_and_location(text, double precision, double precision) TO authenticated;
+
+CREATE OR REPLACE FUNCTION get_all_wineries_with_user_data()
+RETURNS TABLE (
+    id integer,
+    google_place_id text,
+    name character varying(255),
+    address text,
+    latitude numeric,
+    longitude numeric,
+    phone character varying(20),
+    website character varying(255),
+    google_rating numeric,
+    is_favorite boolean,
+    on_wishlist boolean,
+    user_visited boolean
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        w.id,
+        w.google_place_id,
+        w.name,
+        w.address,
+        w.latitude,
+        w.longitude,
+        w.phone,
+        w.website,
+        w.google_rating,
+        EXISTS(SELECT 1 FROM favorites f WHERE f.winery_id = w.id AND f.user_id = auth.uid()) as is_favorite,
+        EXISTS(SELECT 1 FROM wishlist wl WHERE wl.winery_id = w.id AND wl.user_id = auth.uid()) as on_wishlist,
+        EXISTS(SELECT 1 FROM visits v WHERE v.winery_id = w.id AND v.user_id = auth.uid()) as user_visited
+    FROM wineries w;
+END;
+$$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION get_all_wineries_with_user_data() TO authenticated;
+
+CREATE OR REPLACE FUNCTION get_user_trips_with_wineries()
+RETURNS TABLE (
+    id integer,
+    user_id uuid,
+    trip_date date,
+    name character varying(255),
+    created_at timestamp with time zone,
+    members uuid[],
+    wineries jsonb
+) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        t.id,
+        t.user_id,
+        t.trip_date,
+        t.name,
+        t.created_at,
+        t.members,
+        (
+            SELECT jsonb_agg(
+                jsonb_build_object(
+                    'id', w.id,
+                    'google_place_id', w.google_place_id,
+                    'name', w.name,
+                    'address', w.address,
+                    'latitude', w.latitude,
+                    'longitude', w.longitude,
+                    'phone', w.phone,
+                    'website', w.website,
+                    'google_rating', w.google_rating,
+                    'visit_order', tw.visit_order,
+                    'notes', tw.notes,
+                    'dbId', w.id
+                ) ORDER BY tw.visit_order
+            )
+            FROM trip_wineries tw
+            JOIN wineries w ON tw.winery_id = w.id
+            WHERE tw.trip_id = t.id
+        ) as wineries
+    FROM trips t
+    WHERE t.user_id = auth.uid() OR auth.uid() = ANY(t.members)
+    ORDER BY t.trip_date DESC;
+END;
+$$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION get_user_trips_with_wineries() TO authenticated;
+
+CREATE OR REPLACE FUNCTION get_paginated_visits_with_winery_and_friends(
+    page_number int,
+    page_size int
+)
+RETURNS TABLE (
+    visit_id integer,
+    visit_date date,
+    user_review text,
+    rating integer,
+    photos text[],
+    winery_id integer,
+    winery_name character varying(255),
+    winery_address text,
+    friend_visits jsonb
+) AS $$
+BEGIN
+    RETURN QUERY
+    WITH user_and_friends_visits AS (
+        SELECT
+            v.id as visit_id,
+            v.visit_date,
+            v.user_review,
+            v.rating,
+            v.photos,
+            v.winery_id,
+            w.name as winery_name,
+            w.address as winery_address,
+            v.user_id
+        FROM visits v
+        JOIN wineries w ON v.winery_id = w.id
+        WHERE v.user_id = auth.uid() OR v.user_id IN (SELECT friend_id FROM get_friends_ids())
+    ),
+    aggregated_friend_visits AS (
+        SELECT
+            fv.winery_id,
+            fv.visit_date,
+            jsonb_agg(jsonb_build_object(
+                'user_id', fv.user_id,
+                'name', p.name,
+                'rating', fv.rating,
+                'user_review', fv.user_review
+            )) as friend_visits
+        FROM user_and_friends_visits fv
+        JOIN profiles p ON fv.user_id = p.id
+        WHERE fv.user_id != auth.uid()
+        GROUP BY fv.winery_id, fv.visit_date
+    )
+    SELECT
+        uv.visit_id,
+        uv.visit_date,
+        uv.user_review,
+        uv.rating,
+        uv.photos,
+        uv.winery_id,
+        uv.winery_name,
+        uv.winery_address,
+        afv.friend_visits
+    FROM user_and_friends_visits uv
+    LEFT JOIN aggregated_friend_visits afv ON uv.winery_id = afv.winery_id AND uv.visit_date = afv.visit_date
+    WHERE uv.user_id = auth.uid()
+    ORDER BY uv.visit_date DESC, uv.visit_id DESC
+    LIMIT page_size
+    OFFSET (page_number - 1) * page_size;
+END;
+$$ LANGUAGE plpgsql;
+
+GRANT EXECUTE ON FUNCTION get_paginated_visits_with_winery_and_friends(int, int) TO authenticated;
