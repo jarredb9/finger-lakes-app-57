@@ -299,7 +299,7 @@ export default function WineryModal() {
         toast({ description: "Visit deleted successfully." });
     } catch (error) {
         console.error("Failed to delete visit:", error);
-        toast({ variant: "destructive",.description: "Failed to delete visit." });
+        toast({ variant: "destructive", description: "Failed to delete visit." });
     }
   };
 
