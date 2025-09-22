@@ -196,6 +196,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     loading,
     error,
     fetchWineryData,
+    ensureWineryDetails,
   } = useWineryStore();
 
   const { openWineryModal } = useUIStore();
