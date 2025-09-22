@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { Winery, Visit } from '@/lib/types';
+import { createClient } from '@/utils/supabase/client';
 
 // Moved standardizeWineryData outside of the create call to be reusable
 const standardizeWineryData = (rawWinery: any, existingWinery?: Winery): Winery | null => {
@@ -50,7 +51,7 @@ interface WineryState {
   error: string | null;
   fetchWineryData: () => Promise<void>;
   ensureWineryDetails: (placeId: string) => Promise<Winery | null>;
-  saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: string[] }) => Promise<void>;
+  saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[] }) => Promise<void>;
   updateVisit: (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
   toggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
@@ -200,14 +201,91 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
   saveVisit: async (winery, visitData) => {
     set({ isSavingVisit: true });
+    const supabase = createClient();
     try {
-      const payload = { wineryData: winery, ...visitData };
-      const response = await fetch('/api/visits', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to save visit: ${errorData.details || errorData.error}`);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated.");
+
+      const dbId = await get().ensureWineryInDb(winery);
+      if (!dbId) throw new Error("Could not ensure winery exists in database.");
+
+      // 1. Save visit without photos
+      const visitPayload = { 
+        winery_id: dbId, 
+        user_id: user.id, 
+        visit_date: visitData.visit_date, 
+        user_review: visitData.user_review, 
+        rating: visitData.rating 
+      };
+      const { data: visit, error: visitError } = await supabase
+        .from('visits')
+        .insert(visitPayload)
+        .select()
+        .single();
+
+      if (visitError) throw visitError;
+
+      let photoUrls: string[] = [];
+
+      // 2. Upload photos if they exist
+      if (visitData.photos.length > 0) {
+        const uploadPromises = visitData.photos.map(async (photoFile) => {
+          const fileName = `${Date.now()}-${photoFile.name}`;
+          const filePath = `${user.id}/${visit.id}/${fileName}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('visit-photos')
+            .upload(filePath, photoFile);
+
+          if (uploadError) {
+            console.error('Error uploading photo:', uploadError);
+            return null; // Or throw, depending on desired behavior
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('visit-photos')
+            .getPublicUrl(filePath);
+            
+          return publicUrl;
+        });
+
+        const uploadedUrls = await Promise.all(uploadPromises);
+        photoUrls = uploadedUrls.filter((url): url is string => url !== null);
+
+        // 3. Update visit with photo URLs
+        if (photoUrls.length > 0) {
+          const { error: updateError } = await supabase
+            .from('visits')
+            .update({ photos: photoUrls })
+            .eq('id', visit.id);
+
+          if (updateError) console.error('Error updating visit with photos:', updateError);
+        }
       }
-      await get().fetchWineryData();
+
+      // 4. Update local state
+      const newVisit: Visit = { ...visit, photos: photoUrls };
+      set(state => {
+        const updatedWineries = state.persistentWineries.map(w => {
+          if (w.id === winery.id) {
+            return {
+              ...w,
+              userVisited: true,
+              visits: [newVisit, ...(w.visits || [])]
+            };
+          }
+          return w;
+        });
+        return { 
+          persistentWineries: updatedWineries,
+          visitedWineries: updatedWineries.filter(w => w.userVisited)
+        };
+      });
+
+    } catch (error) {
+      console.error("Failed to save visit:", error);
+      // Optionally, add more robust error handling and rollback logic
+      throw error;
     } finally {
       set({ isSavingVisit: false });
     }

@@ -1,7 +1,9 @@
 // file: components/winery-modal.tsx
 "use client"
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, ChangeEvent } from "react";
+import { createClient } from "@/utils/supabase/client";
+import { useUserStore } from "@/lib/stores/userStore";
 import {
   Dialog,
   DialogContent,
@@ -24,7 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardTitle, CardDescription } from "@/components/ui/card";
-import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check, Edit, Users, Heart, Bookmark, ArrowRight, Clock } from "lucide-react";
+import { Star, Phone, Globe, MapPin, Calendar as CalendarIcon, Plus, Trash2, Upload, Loader2, ListPlus, Check, Edit, Users, Heart, Bookmark, ArrowRight, Clock, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Winery, Visit, Trip } from "@/lib/types";
 import { Separator } from "./ui/separator";
@@ -123,7 +125,7 @@ export default function WineryModal() {
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(0);
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<File[]>([]);
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
 
   const editFormRef = useRef<HTMLDivElement>(null);
@@ -223,6 +225,7 @@ export default function WineryModal() {
     setVisitDate(new Date(visit.visit_date + 'T00:00:00').toISOString().split("T")[0]);
     setUserReview(visit.user_review || "");
     setRating(visit.rating || 0);
+    setPhotos([]); // Clear photo uploads when editing
 
     setTimeout(() => {
         editFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -235,60 +238,13 @@ export default function WineryModal() {
       return;
     }
 
-    const originalWinery = internalWinery;
-
     if (editingVisitId) {
-      const originalVisits = originalWinery?.visits || [];
-      // Optimistic update for editing a visit
-      const updatedVisit = {
-        id: editingVisitId,
-        visit_date: visitDate,
-        user_review: userReview,
-        rating: rating,
-      };
-      setInternalWinery(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          visits: prev.visits?.map(v => v.id === editingVisitId ? { ...v, ...updatedVisit } : v) || [updatedVisit],
-        };
-      });
-      
-      try {
-        await updateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
-        resetForm(); // Resets editing state
-      } catch (error) {
-        console.error("Update operation failed:", error);
-        toast({ variant: "destructive", description: "Failed to update visit." });
-        setInternalWinery(prev => prev ? { ...prev, visits: originalVisits } : null); // Revert
-      }
+      // TODO: Implement photo updates for existing visits if needed
+      await updateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
+      resetForm();
     } else {
-      // Optimistic update for new visit
-      const tempId = `temp-${Date.now()}`;
-      const newVisit: Visit = {
-        id: tempId,
-        visit_date: visitDate,
-        user_review: userReview,
-        rating: rating,
-        photos: [],
-      };
-      setInternalWinery(prev => {
-        if (!prev) return null;
-        return {
-          ...prev,
-          visits: [newVisit, ...(prev.visits || [])],
-          userVisited: true,
-        };
-      });
-      
-      try {
-        await saveVisit(internalWinery!, { visit_date: visitDate, user_review: userReview, rating, photos });
-        resetForm();
-      } catch (error) {
-        console.error("Save operation failed:", error);
-        toast({ variant: "destructive", description: "Failed to save visit." });
-        setInternalWinery(originalWinery); // Revert
-      }
+      await saveVisit(internalWinery!, { visit_date: visitDate, user_review: userReview, rating, photos });
+      resetForm();
     }
   };
   
@@ -394,6 +350,17 @@ export default function WineryModal() {
     } catch (error: any) {
         toast({ variant: "destructive", description: error.message || "An error occurred while updating the trip." });
     }
+  };
+
+  const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const filesArray = Array.from(e.target.files);
+      setPhotos(prevPhotos => [...prevPhotos, ...filesArray]);
+    }
+  };
+
+  const handleRemovePhoto = (index: number) => {
+    setPhotos(prevPhotos => prevPhotos.filter((_, i) => i !== index));
   };
 
   const visits = internalWinery.visits || [];
@@ -532,6 +499,13 @@ export default function WineryModal() {
                                 </div>
                               </div>
                               {rating.user_review && <p className="text-sm text-blue-700 bg-white p-3 rounded-md border">{rating.user_review}</p>}
+                              {rating.photos && rating.photos.length > 0 && (
+                                <div className="flex gap-2 mt-2">
+                                  {rating.photos.map((photo: string, index: number) => (
+                                    <img key={index} src={photo} alt={`Friend photo ${index + 1}`} className="w-20 h-20 rounded-md object-cover"/>
+                                  ))}
+                                </div>
+                              )}
                             </CardContent>
                           </Card>
                         ))}
@@ -645,6 +619,13 @@ export default function WineryModal() {
                                   </div>
                                 </div>
                                 {visit.user_review && <p className="text-sm text-slate-700 bg-white p-3 rounded-md border">{visit.user_review}</p>}
+                                {visit.photos && visit.photos.length > 0 && (
+                                  <div className="flex gap-2 mt-2 flex-wrap">
+                                    {visit.photos.map((photo, index) => (
+                                      <img key={index} src={photo} alt={`Visit photo ${index + 1}`} className="w-24 h-24 rounded-md object-cover"/>
+                                    ))}
+                                  </div>
+                                )}
                               </CardContent>
                             </Card>
                           ))}
@@ -683,14 +664,36 @@ export default function WineryModal() {
                     </div>
                     <div className="space-y-2">
                       <Label>Photos (Optional)</Label>
+                      {photos.length > 0 && (
+                        <div className="flex gap-2 mb-2 flex-wrap">
+                          {photos.map((file, index) => (
+                            <div key={index} className="relative">
+                              <img 
+                                src={URL.createObjectURL(file)}
+                                alt={`Preview ${index + 1}`}
+                                className="w-24 h-24 rounded-md object-cover"
+                                onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)} // Clean up object URLs
+                              />
+                              <Button 
+                                variant="destructive" 
+                                size="icon" 
+                                className="absolute top-1 right-1 h-6 w-6"
+                                onClick={() => handleRemovePhoto(index)}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                       <div className="flex items-center justify-center w-full">
                         <label htmlFor="dropzone-file" className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-white hover:bg-gray-100">
                           <div className="flex flex-col items-center justify-center pt-5 pb-6 text-center">
                             <Upload className="w-8 h-8 mb-2 text-gray-500" />
-                            <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span></p>
-                            <p className="text-xs text-gray-500">PNG, JPG, GIF</p>
+                            <p className="mb-2 text-sm text-gray-500"><span className="font-semibold">Click to upload</span> or drag and drop</p>
+                            <p className="text-xs text-gray-500">PNG, JPG, GIF (MAX. 5MB)</p>
                           </div>
-                          <input id="dropzone-file" type="file" className="hidden" multiple aria-label="Upload Photos" />
+                          <input id="dropzone-file" type="file" className="hidden" multiple onChange={handlePhotoChange} accept="image/png, image/jpeg, image/gif"/>
                         </label>
                       </div>
                     </div>
