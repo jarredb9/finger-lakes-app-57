@@ -39,6 +39,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
+import { useTripStore } from "@/lib/stores/tripStore";
 
 // New Responsive Date Picker Component
 function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (date: Date | undefined) => void }) {
@@ -108,6 +109,7 @@ interface WineryModalProps {
 export default function WineryModal({ selectedTrip }: WineryModalProps) {
   const { isWineryModalOpen, wineryModalContent, closeWineryModal } = useUIStore();
   const { toggleWishlist, toggleFavorite, saveVisit, updateVisit, deleteVisit: deleteVisitAction, ensureWineryInDb } = useWineryStore();
+  const { fetchUpcomingTrips, fetchTripById } = useTripStore();
   
   const [internalWinery, setInternalWinery] = useState<Winery | null>(wineryModalContent);
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
@@ -363,6 +365,7 @@ export default function WineryModal({ selectedTrip }: WineryModalProps) {
         await Promise.all(tripPromises);
         toast({ description: "Winery added to trip(s)." });
         setTripDate(undefined);
+        fetchUpcomingTrips();
     } catch (error: any) {
         toast({ variant: 'destructive', description: error.message || "An error occurred." });
     }
@@ -387,10 +390,11 @@ export default function WineryModal({ selectedTrip }: WineryModalProps) {
             body: JSON.stringify({ removeWineryId: wineryDbId }),
             });
             if (response.ok) {
-            toast({ description: "Winery removed from trip." });
-            closeWineryModal();
+                toast({ description: "Winery removed from trip." });
+                closeWineryModal();
+                fetchTripById(selectedTrip.id);
             } else {
-            toast({ variant: "destructive", description: "Failed to remove winery from trip." });
+                toast({ variant: "destructive", description: "Failed to remove winery from trip." });
             }
         } else {
             const response = await fetch('/api/trips', {
@@ -403,10 +407,11 @@ export default function WineryModal({ selectedTrip }: WineryModalProps) {
             }),
             });
             if (response.ok) {
-            toast({ description: `Added to ${selectedTrip.name || 'trip'}.` });
-            closeWineryModal();
+                toast({ description: `Added to ${selectedTrip.name || 'trip'}.` });
+                closeWineryModal();
+                fetchTripById(selectedTrip.id);
             } else {
-            toast({ variant: "destructive", description: "Failed to add winery to trip." });
+                toast({ variant: "destructive", description: "Failed to add winery to trip." });
             }
         }
     } catch (error) {
