@@ -16,12 +16,9 @@ interface FriendRating {
   comment: string;
 }
 
-interface FriendActivity {
-  user_id: string;
-  username: string;
-  avatar_url: string;
-  visited_at: string;
-  comment: string;
+interface FriendActivityData {
+  favoritedBy: Friend[];
+  wishlistedBy: Friend[];
 }
 
 interface FriendState {
@@ -29,7 +26,7 @@ interface FriendState {
   requests: Friend[];
   isLoading: boolean;
   friendsRatings: FriendRating[];
-  friendsActivity: FriendActivity[];
+  friendsActivity: FriendActivityData;
   fetchFriends: () => Promise<void>;
   addFriend: (email: string) => Promise<void>;
   respondToRequest: (requesterId: string, accept: boolean) => Promise<void>;
@@ -41,7 +38,7 @@ export const useFriendStore = create<FriendState>((set, get) => ({
   requests: [],
   isLoading: false,
   friendsRatings: [],
-  friendsActivity: [],
+  friendsActivity: { favoritedBy: [], wishlistedBy: [] },
 
   fetchFriends: async () => {
     set({ isLoading: true });
@@ -92,7 +89,7 @@ export const useFriendStore = create<FriendState>((set, get) => ({
 
       if (ratingsResponse.ok) {
         const ratings = await ratingsResponse.json();
-        set({ friendsRatings: ratings });
+        set({ friendsRatings: ratings || [] });
       } else {
         console.error('Failed to fetch friends ratings');
         set({ friendsRatings: [] });
@@ -100,14 +97,14 @@ export const useFriendStore = create<FriendState>((set, get) => ({
 
       if (activityResponse.ok) {
         const activity = await activityResponse.json();
-        set({ friendsActivity: activity });
+        set({ friendsActivity: activity || { favoritedBy: [], wishlistedBy: [] } });
       } else {
         console.error('Failed to fetch friends activity');
-        set({ friendsActivity: [] });
+        set({ friendsActivity: { favoritedBy: [], wishlistedBy: [] } });
       }
     } catch (error) {
       console.error('Error fetching friend data for winery:', error);
-      set({ friendsRatings: [], friendsActivity: [] });
+      set({ friendsRatings: [], friendsActivity: { favoritedBy: [], wishlistedBy: [] } });
     } finally {
       set({ isLoading: false });
     }
