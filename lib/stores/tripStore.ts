@@ -1,23 +1,28 @@
 import { create } from 'zustand';
-import { Trip } from '@/lib/types';
+import { Trip, Winery } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
+import { useWineryStore } from './wineryStore';
 
 interface TripState {
   trips: Trip[];
   tripsForDate: Trip[];
   upcomingTrips: Trip[];
   isLoading: boolean;
+  selectedTrip: Trip | null;
   fetchTripById: (tripId: string) => Promise<void>;
   fetchAllTrips: () => Promise<void>;
   fetchUpcomingTrips: () => Promise<void>;
   fetchTripsForDate: (date: Date) => Promise<void>;
-  createTrip: (date: Date) => Promise<Trip | null>;
+  createTrip: (date: Date, name?: string, notes?: string, wineryId?: number) => Promise<any | null>;
   deleteTrip: (tripId: string) => Promise<void>;
   updateTrip: (tripId: string, updates: Partial<Trip>) => Promise<void>;
   updateWineryOrder: (tripId: string, wineryIds: number[]) => Promise<void>;
   removeWineryFromTrip: (tripId: string, wineryId: number) => Promise<void>;
   saveWineryNote: (tripId: string, wineryId: number, notes: string) => Promise<void>;
   addMembersToTrip: (tripId: string, memberIds: string[]) => Promise<void>;
+  setSelectedTrip: (trip: Trip | null) => void;
+  addWineryToTrips: (winery: Winery, tripDate: Date, selectedTrips: Set<string>, newTripName: string, addTripNotes: string) => Promise<void>;
+  toggleWineryOnTrip: (winery: Winery, trip: Trip) => Promise<void>;
 }
 
 const supabase = createClient();
@@ -27,6 +32,7 @@ export const useTripStore = create<TripState>((set, get) => ({
   tripsForDate: [],
   upcomingTrips: [],
   isLoading: false,
+  selectedTrip: null,
 
   fetchTripById: async (tripId: string) => {
     console.log(`[tripStore] fetchTripById: Starting fetch for trip ${tripId}.`);
@@ -120,16 +126,11 @@ export const useTripStore = create<TripState>((set, get) => ({
       body: JSON.stringify({ date: date.toISOString().split('T')[0], name, notes, wineryId })
     });
     if (response.ok) {
-      // After successfully creating a trip, refetch the trips for that date.
-      // This ensures the new trip, with its database-generated ID, is correctly
-      // loaded into the state, preventing errors when you try to update it.
       await get().fetchTripsForDate(date);
-
-      // You can still return the response JSON if you need it for UI feedback (e.g., toasts).
       try {
         return await response.json();
       } catch (e) {
-        return { success: true } as any; // Handle cases with no JSON response body.
+        return { success: true } as any;
       }
     }
     return null;
@@ -191,5 +192,81 @@ export const useTripStore = create<TripState>((set, get) => ({
   
   addMembersToTrip: async (tripId: string, memberIds: string[]) => {
     get().updateTrip(tripId, { members: memberIds });
+  },
+
+  setSelectedTrip: (trip) => set({ selectedTrip: trip }),
+
+  addWineryToTrips: async (winery, tripDate, selectedTrips, newTripName, addTripNotes) => {
+    const { ensureWineryInDb } = useWineryStore.getState();
+    const wineryDbId = await ensureWineryInDb(winery);
+    if (!wineryDbId) {
+      throw new Error("Could not save winery. Please try again.");
+    }
+
+    const tripPromises = Array.from(selectedTrips).map(tripId => {
+        const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
+            date: tripDate.toISOString().split("T")[0],
+            wineryId: wineryDbId,
+        };
+
+        if (tripId === 'new') {
+            if (!newTripName.trim()) {
+                return Promise.reject("New trip requires a name.");
+            }
+            payload.name = newTripName;
+            payload.notes = addTripNotes;
+        } else {
+            payload.tripIds = [parseInt(tripId, 10)];
+            payload.notes = addTripNotes;
+        }
+
+        return fetch('/api/trips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(errorData => { throw new Error(errorData.error || "Failed to add to trip."); });
+            }
+        });
+    });
+
+    await Promise.all(tripPromises);
+    get().fetchUpcomingTrips();
+  },
+
+  toggleWineryOnTrip: async (winery, trip) => {
+    const { ensureWineryInDb } = useWineryStore.getState();
+    const wineryDbId = await ensureWineryInDb(winery);
+    if (!wineryDbId) {
+        throw new Error("Could not save winery for trip. Please try again.");
+    }
+
+    const isOnTrip = trip.wineries.some(w => w.dbId === wineryDbId);
+    
+    if (isOnTrip) {
+        const response = await fetch(`/api/trips/${trip.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ removeWineryId: wineryDbId }),
+        });
+        if (!response.ok) {
+            throw new Error("Failed to remove winery from trip.");
+        }
+    } else {
+        const response = await fetch('/api/trips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                date: trip.trip_date.split('T')[0],
+                wineryId: wineryDbId,
+                tripIds: [trip.id]
+            }),
+        });
+        if (!response.ok) {
+            throw new Error("Failed to add winery to trip.");
+        }
+    }
+    get().fetchTripById(trip.id);
   },
 }));

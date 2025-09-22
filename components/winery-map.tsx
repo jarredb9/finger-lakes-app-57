@@ -94,8 +94,8 @@ const MapComponent = memo(({ discoveredWineries, visitedWineries, wishlistWineri
 });
 MapComponent.displayName = 'MapComponent';
 
-const SearchUI = memo(({ isSearching, searchResults, hitApiLimit, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, filter, onFilterChange, selectedTrip, setSelectedTrip }: { isSearching: boolean; searchResults: Winery[]; hitApiLimit: boolean; searchLocation: string; setSearchLocation: (location: string) => void; autoSearch: boolean; setAutoSearch: (auto: boolean) => void; handleSearchSubmit: (e: React.FormEvent) => void; handleManualSearchArea: () => void; filter: string[]; onFilterChange: (filter: string[]) => void; selectedTrip: Trip | null; setSelectedTrip: (trip: Trip | null) => void; }) => {
-  const { trips, fetchTripById } = useTripStore();
+const SearchUI = memo(({ isSearching, searchResults, hitApiLimit, searchLocation, setSearchLocation, autoSearch, setAutoSearch, handleSearchSubmit, handleManualSearchArea, filter, onFilterChange }: { isSearching: boolean; searchResults: Winery[]; hitApiLimit: boolean; searchLocation: string; setSearchLocation: (location: string) => void; autoSearch: boolean; setAutoSearch: (auto: boolean) => void; handleSearchSubmit: (e: React.FormEvent) => void; handleManualSearchArea: () => void; filter: string[]; onFilterChange: (filter: string[]) => void; }) => {
+  const { trips, fetchTripById, selectedTrip, setSelectedTrip } = useTripStore();
   const { toast } = useToast();
   
   const handleTripSelect = async (tripId: string) => {
@@ -200,12 +200,11 @@ function WineryMapLogic({ userId }: WineryMapProps) {
 
   const { openWineryModal } = useUIStore();
 
-  const { trips, upcomingTrips, fetchAllTrips, fetchUpcomingTrips } = useTripStore();
+  const { trips, upcomingTrips, fetchAllTrips, fetchUpcomingTrips, selectedTrip, setSelectedTrip } = useTripStore();
 
   const { toast } = useToast();
 
   const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
-  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
   const searchFnRef = useRef<((locationText?: string, bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral) => Promise<void>) | null>(null);
 
   const places = useMapsLibrary('places');
@@ -478,8 +477,6 @@ function WineryMapLogic({ userId }: WineryMapProps) {
         handleManualSearchArea={handleManualSearchArea}
         filter={filter}
         onFilterChange={handleFilterChange}
-        selectedTrip={selectedTrip}
-        setSelectedTrip={setSelectedTrip}
       />
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3">
@@ -552,9 +549,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
           </AlertDialogContent>
         </AlertDialog>
       )}
-      <WineryModal 
-        selectedTrip={selectedTrip} 
-      />
+      <WineryModal />
     </div>
   );
 }
