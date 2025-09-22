@@ -257,4 +257,42 @@ export const useWineryStore = create<WineryState>((set, get) => ({
   getWineryById: (id: string) => {
     return get().persistentWineries.find(w => w.id === id);
   },
+
+  ensureWineryInDb: async (winery) => {
+    if (winery.dbId) {
+      return winery.dbId;
+    }
+    try {
+      const response = await fetch('/api/wineries', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(winery),
+      });
+      if (!response.ok) {
+        throw new Error('Failed to ensure winery in DB');
+      }
+      const { dbId } = await response.json();
+      if (!dbId) {
+        throw new Error('API did not return a dbId');
+      }
+      set(state => {
+        const updatedWineries = state.persistentWineries.map(w =>
+          w.id === winery.id ? { ...w, dbId: dbId } : w
+        );
+        if (!updatedWineries.some(w => w.id === winery.id)) {
+            updatedWineries.push({ ...winery, dbId: dbId });
+        }
+        return { 
+            persistentWineries: updatedWineries,
+            visitedWineries: updatedWineries.filter(w => w.userVisited),
+            favoriteWineries: updatedWineries.filter(w => w.isFavorite),
+            wishlistWineries: updatedWineries.filter(w => w.onWishlist),
+        };
+      });
+      return dbId;
+    } catch (error) {
+      console.error("Error in ensureWineryInDb:", error);
+      throw error;
+    }
+  },
 }));

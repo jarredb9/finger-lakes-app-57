@@ -107,7 +107,7 @@ interface WineryModalProps {
 
 export default function WineryModal({ selectedTrip }: WineryModalProps) {
   const { isWineryModalOpen, wineryModalContent, closeWineryModal } = useUIStore();
-  const { toggleWishlist, toggleFavorite, saveVisit, updateVisit, deleteVisit: deleteVisitAction } = useWineryStore();
+  const { toggleWishlist, toggleFavorite, saveVisit, updateVisit, deleteVisit: deleteVisitAction, ensureWineryInDb } = useWineryStore();
   
   const [internalWinery, setInternalWinery] = useState<Winery | null>(wineryModalContent);
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
@@ -314,7 +314,7 @@ export default function WineryModal({ selectedTrip }: WineryModalProps) {
   };
 
   const handleAddToTrip = async () => {
-    if (!tripDate || !internalWinery.dbId) {
+    if (!tripDate || !internalWinery) {
         toast({ title: "Error", description: "Please select a date.", variant: "destructive" });
         return;
     }
@@ -323,37 +323,43 @@ export default function WineryModal({ selectedTrip }: WineryModalProps) {
         toast({ variant: 'destructive', description: "Please select at least one trip or create a new one." });
         return;
     }
-    
-    const tripPromises = Array.from(selectedTrips).map(tripId => {
-        const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
-            date: tripDate.toISOString().split("T")[0],
-            wineryId: internalWinery.dbId!,
-        };
-
-        if (tripId === 'new') {
-            if (!newTripName.trim()) {
-                toast({ variant: 'destructive', description: "Please enter a name for the new trip." });
-                return Promise.reject("New trip requires a name.");
-            }
-            payload.name = newTripName;
-            payload.notes = addTripNotes;
-        } else {
-            payload.tripIds = [parseInt(tripId, 10)];
-            payload.notes = addTripNotes;
-        }
-
-        return fetch('/api/trips', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        }).then(response => {
-            if (!response.ok) {
-                return response.json().then(errorData => { throw new Error(errorData.error || "Failed to add to trip."); });
-            }
-        });
-    });
 
     try {
+        const wineryDbId = await ensureWineryInDb(internalWinery);
+        if (!wineryDbId) {
+            toast({ variant: 'destructive', description: "Could not save winery. Please try again." });
+            return;
+        }
+    
+        const tripPromises = Array.from(selectedTrips).map(tripId => {
+            const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
+                date: tripDate.toISOString().split("T")[0],
+                wineryId: wineryDbId,
+            };
+
+            if (tripId === 'new') {
+                if (!newTripName.trim()) {
+                    toast({ variant: 'destructive', description: "Please enter a name for the new trip." });
+                    return Promise.reject("New trip requires a name.");
+                }
+                payload.name = newTripName;
+                payload.notes = addTripNotes;
+            } else {
+                payload.tripIds = [parseInt(tripId, 10)];
+                payload.notes = addTripNotes;
+            }
+
+            return fetch('/api/trips', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(response => {
+                if (!response.ok) {
+                    return response.json().then(errorData => { throw new Error(errorData.error || "Failed to add to trip."); });
+                }
+            });
+        });
+
         await Promise.all(tripPromises);
         toast({ description: "Winery added to trip(s)." });
         setTripDate(undefined);
@@ -363,42 +369,48 @@ export default function WineryModal({ selectedTrip }: WineryModalProps) {
   };
 
   const handleToggleWineryOnActiveTrip = async () => {
-    if (!selectedTrip || !internalWinery.dbId) return;
+    if (!selectedTrip || !internalWinery) return;
 
-    const isOnTrip = selectedTrip.wineries.some(w => w.dbId === internalWinery.dbId);
-    
     try {
-      if (isOnTrip) {
-        const response = await fetch(`/api/trips/${selectedTrip.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ removeWineryId: internalWinery.dbId }),
-        });
-        if (response.ok) {
-          toast({ description: "Winery removed from trip." });
-          closeWineryModal();
-        } else {
-          toast({ variant: "destructive", description: "Failed to remove winery from trip." });
+        const wineryDbId = await ensureWineryInDb(internalWinery);
+        if (!wineryDbId) {
+            toast({ variant: 'destructive', description: "Could not save winery for trip. Please try again." });
+            return;
         }
-      } else {
-        const response = await fetch('/api/trips', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            date: selectedTrip.trip_date.split('T')[0],
-            wineryId: internalWinery.dbId,
-            tripIds: [selectedTrip.id]
-          }),
-        });
-        if (response.ok) {
-          toast({ description: `Added to ${selectedTrip.name || 'trip'}.` });
-          closeWineryModal();
+
+        const isOnTrip = selectedTrip.wineries.some(w => w.dbId === wineryDbId);
+        
+        if (isOnTrip) {
+            const response = await fetch(`/api/trips/${selectedTrip.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ removeWineryId: wineryDbId }),
+            });
+            if (response.ok) {
+            toast({ description: "Winery removed from trip." });
+            closeWineryModal();
+            } else {
+            toast({ variant: "destructive", description: "Failed to remove winery from trip." });
+            }
         } else {
-          toast({ variant: "destructive", description: "Failed to add winery to trip." });
+            const response = await fetch('/api/trips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                date: selectedTrip.trip_date.split('T')[0],
+                wineryId: wineryDbId,
+                tripIds: [selectedTrip.id]
+            }),
+            });
+            if (response.ok) {
+            toast({ description: `Added to ${selectedTrip.name || 'trip'}.` });
+            closeWineryModal();
+            } else {
+            toast({ variant: "destructive", description: "Failed to add winery to trip." });
+            }
         }
-      }
     } catch (error) {
-      toast({ variant: "destructive", description: "An error occurred while updating the trip." });
+        toast({ variant: "destructive", description: "An error occurred while updating the trip." });
     }
   };
 
@@ -570,7 +582,7 @@ export default function WineryModal({ selectedTrip }: WineryModalProps) {
                         <div className="flex items-center gap-2">
                             <DatePicker date={tripDate} onSelect={setTripDate} />
                             {tripDate && (
-                                <Button onClick={handleAddToTrip} disabled={!internalWinery.dbId || selectedTrips.size === 0 || (selectedTrips.has('new') && !newTripName.trim())}>
+                                <Button onClick={handleAddToTrip} disabled={selectedTrips.size === 0 || (selectedTrips.has('new') && !newTripName.trim())}>
                                     Add to Trip
                                 </Button>
                             )}
