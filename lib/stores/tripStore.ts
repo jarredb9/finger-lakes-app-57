@@ -12,7 +12,7 @@ interface TripState {
   fetchTripById: (tripId: string) => Promise<void>;
   fetchAllTrips: () => Promise<void>;
   fetchUpcomingTrips: () => Promise<void>;
-  fetchTripsForDate: (date: Date) => Promise<void>;
+  fetchTripsForDate: (date: string) => Promise<void>;
   createTrip: (date: Date, name?: string, notes?: string, wineryId?: number) => Promise<any | null>;
   deleteTrip: (tripId: string) => Promise<void>;
   updateTrip: (tripId: string, updates: Partial<Trip>) => Promise<void>;
@@ -94,9 +94,8 @@ export const useTripStore = create<TripState>((set, get) => ({
     }
   },
 
-  fetchTripsForDate: async (date: Date) => {
+  fetchTripsForDate: async (dateString: string) => {
     set({ isLoading: true });
-    const dateString = date.toISOString().split("T")[0];
     console.log(`[tripStore] fetchTripsForDate: Starting fetch for date ${dateString}.`);
     try {
       const response = await fetch(`/api/trips?date=${dateString}`);
@@ -120,13 +119,14 @@ export const useTripStore = create<TripState>((set, get) => ({
   },
 
   createTrip: async (date: Date, name: string = "New Trip", notes: string = "", wineryId?: number) => {
+    const dateString = date.toISOString().split('T')[0];
     const response = await fetch('/api/trips', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: date.toISOString().split('T')[0], name, notes, wineryId })
+      body: JSON.stringify({ date: dateString, name, notes, wineryId })
     });
     if (response.ok) {
-      await get().fetchTripsForDate(date);
+      await get().fetchTripsForDate(dateString);
       try {
         return await response.json();
       } catch (e) {
@@ -203,9 +203,10 @@ export const useTripStore = create<TripState>((set, get) => ({
       throw new Error("Could not save winery. Please try again.");
     }
 
+    const dateString = tripDate.toISOString().split("T")[0];
     const tripPromises = Array.from(selectedTrips).map(async (tripId) => {
       const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
-        date: tripDate.toISOString().split("T")[0],
+        date: dateString,
         wineryId: wineryDbId,
       };
 
@@ -240,7 +241,7 @@ export const useTripStore = create<TripState>((set, get) => ({
     try {
       await Promise.all(tripPromises);
       get().fetchUpcomingTrips();
-      get().fetchTripsForDate(tripDate);
+      get().fetchTripsForDate(dateString);
     } catch (error) {
       console.error("Error adding winery to one or more trips:", error);
       throw error; // Re-throw to be caught by the UI
