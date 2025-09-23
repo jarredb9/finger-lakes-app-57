@@ -242,11 +242,11 @@ export const useWineryStore = create<WineryState>((set, get) => ({
             return null; // Or throw, depending on desired behavior
           }
 
-          const { data: { publicUrl } } = supabase.storage
+          const { data } = await supabase.storage
             .from('visit-photos')
-            .getPublicUrl(filePath);
+            .createSignedUrl(filePath, 3600); // 1 hour expiration
             
-          return publicUrl;
+          return data?.signedUrl || null;
         });
 
         const uploadedUrls = await Promise.all(uploadPromises);
