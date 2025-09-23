@@ -11,18 +11,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!publicPaths.includes(pathname)) {
+    console.log("AuthProvider pathname:", pathname);
+    const isPublic = publicPaths.includes(pathname);
+    console.log("Is public path?", isPublic);
+
+    if (!isPublic) {
+      console.log("This is a protected path, calling fetchUser.");
       fetchUser();
+    } else {
+      console.log("This is a public path, skipping fetchUser.");
     }
   }, [fetchUser, pathname]);
 
-  // While the user is being fetched on a protected route, we can show a loader
-  // On public routes, we render children immediately.
   const isPublicPath = publicPaths.includes(pathname);
   if (!isPublicPath && isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        {/* You can replace this with a more sophisticated loading spinner */}
         <p>Loading...</p>
       </div>
     );
