@@ -4,6 +4,7 @@ import { NextResponse } from "next/server"
 export async function POST(request: Request) {
   const { email } = await request.json()
   const requestUrl = new URL(request.url)
+  // This is the critical line that creates the correct, full URL
   const redirectTo = `${requestUrl.origin}/reset-password`
 
   if (!email) {
@@ -11,6 +12,7 @@ export async function POST(request: Request) {
   }
 
   const supabase = createClient()
+  // Here we pass the full URL to Supabase
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
   })
