@@ -21,6 +21,12 @@ export async function middleware(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
+    if (pathname.startsWith('/api/')) {
+      return new NextResponse(JSON.stringify({ message: 'Unauthorized' }), {
+        status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
     // Redirect to login if no user and not a public route
     return NextResponse.redirect(new URL('/login', request.url));
   }
