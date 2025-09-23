@@ -197,89 +197,176 @@ export const useTripStore = create<TripState>((set, get) => ({
   setSelectedTrip: (trip) => set({ selectedTrip: trip }),
 
   addWineryToTrips: async (winery, tripDate, selectedTrips, newTripName, addTripNotes) => {
-    const { ensureWineryInDb } = useWineryStore.getState();
-    const wineryDbId = await ensureWineryInDb(winery);
-    if (!wineryDbId) {
-      throw new Error("Could not save winery. Please try again.");
+    const { ensureWineryInDb, persistentWineries, updateWinery } = useWineryStore.getState();
+    const dateString = tripDate.toISOString().split("T")[0];
+
+    // --- Optimistic Update --- //
+    const originalUpcomingTrips = get().upcomingTrips;
+    const originalTripsForDate = get().tripsForDate;
+    const originalWinery = persistentWineries.find(w => w.id === winery.id);
+
+    let tempTripIdCounter = Date.now();
+
+    // Create a winery object shape that can be added to a trip
+    const wineryForTrip = { 
+        ...winery, 
+        notes: addTripNotes, 
+        // Ensure dbId is present, even if temporary
+        dbId: winery.dbId || await ensureWineryInDb(winery) 
+    };
+    if (!wineryForTrip.dbId) {
+        throw new Error("Could not ensure winery in database for optimistic update.");
     }
 
-    const dateString = tripDate.toISOString().split("T")[0];
-    const tripPromises = Array.from(selectedTrips).map(async (tripId) => {
-      const payload: { date: string; wineryId: number; name?: string; tripIds?: number[]; notes?: string; } = {
-        date: dateString,
-        wineryId: wineryDbId,
-      };
+    const newUpcomingTrips = [...originalUpcomingTrips];
+    const newTripsForDate = [...originalTripsForDate];
 
-      if (tripId === 'new') {
-        if (!newTripName.trim()) {
-          throw new Error("New trip requires a name.");
+    // Update existing trips
+    selectedTrips.forEach(tripId => {
+        if (tripId !== 'new') {
+            const updateTripInList = (list: Trip[]) => {
+                const tripIndex = list.findIndex(t => t.id.toString() === tripId);
+                if (tripIndex > -1) {
+                    const updatedTrip = { ...list[tripIndex] };
+                    if (!updatedTrip.wineries.some(w => w.id === winery.id)) {
+                        updatedTrip.wineries = [...updatedTrip.wineries, wineryForTrip];
+                    }
+                    list[tripIndex] = updatedTrip;
+                }
+            };
+            updateTripInList(newUpcomingTrips);
+            updateTripInList(newTripsForDate);
         }
-        payload.name = newTripName;
-        payload.notes = addTripNotes;
-      } else {
-        payload.tripIds = [parseInt(tripId, 10)];
-        payload.notes = addTripNotes;
-      }
-
-      const response = await fetch('/api/trips', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      if (!response.ok) {
-        try {
-          const errorData = await response.json();
-          throw new Error(errorData.error || `Failed to add to trip ${tripId}.`);
-        } catch (e) {
-          throw new Error(`Failed to add to trip ${tripId} with status ${response.status}.`);
-        }
-      }
-      return response.json();
     });
 
+    // Create new trip
+    if (selectedTrips.has('new')) {
+        const tempNewTrip: Trip = {
+            id: `temp-${tempTripIdCounter++}`,
+            trip_date: dateString,
+            name: newTripName.trim() || "New Trip",
+            notes: "", // Trip notes, not winery notes
+            wineries: [wineryForTrip],
+            owner_id: "", // Will be set by the server
+            members: [],
+            wineryOrder: [wineryForTrip.dbId]
+        };
+        newUpcomingTrips.push(tempNewTrip);
+        newTripsForDate.push(tempNewTrip);
+    }
+    
+    // Optimistically update the winery itself to show the trip badge
+    const firstTripId = Array.from(selectedTrips)[0];
+    const tripName = firstTripId === 'new' ? (newTripName.trim() || "New Trip") : (originalTripsForDate.find(t => t.id.toString() === firstTripId)?.name || "Trip");
+    
+    if (originalWinery) {
+        const updatedWinery = { 
+            ...originalWinery, 
+            trip_name: tripName,
+            trip_date: dateString,
+            trip_id: firstTripId === 'new' ? `temp-${tempTripIdCounter-1}` : firstTripId
+        };
+        updateWinery(originalWinery.id, updatedWinery);
+    }
+
+    set({ upcomingTrips: newUpcomingTrips, tripsForDate: newTripsForDate });
+    // --- End Optimistic Update --- //
+
     try {
-      await Promise.all(tripPromises);
-      get().fetchUpcomingTrips();
-      get().fetchTripsForDate(dateString);
+        const wineryDbId = await ensureWineryInDb(winery);
+        if (!wineryDbId) {
+            throw new Error("Could not save winery. Please try again.");
+        }
+
+        const tripPromises = Array.from(selectedTrips).map(async (tripId) => {
+            const payload: any = { date: dateString, wineryId: wineryDbId, notes: addTripNotes };
+            if (tripId === 'new') {
+                if (!newTripName.trim()) throw new Error("New trip requires a name.");
+                payload.name = newTripName;
+            } else {
+                payload.tripIds = [parseInt(tripId, 10)];
+            }
+
+            const response = await fetch('/api/trips', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `Failed to add to trip ${tripId}.`);
+            }
+            return response.json();
+        });
+
+        await Promise.all(tripPromises);
+
+        // Re-fetch to get actual IDs and confirm data
+        get().fetchUpcomingTrips();
+        get().fetchTripsForDate(dateString);
+
     } catch (error) {
-      console.error("Error adding winery to one or more trips:", error);
-      throw error; // Re-throw to be caught by the UI
+        console.error("Error adding winery to trips, reverting:", error);
+        // Revert optimistic updates
+        set({ upcomingTrips: originalUpcomingTrips, tripsForDate: originalTripsForDate });
+        if (originalWinery) {
+            updateWinery(originalWinery.id, originalWinery);
+        }
+        throw error; // Re-throw to be caught by the UI
     }
   },
 
   toggleWineryOnTrip: async (winery, trip) => {
-    const { ensureWineryInDb } = useWineryStore.getState();
-    const wineryDbId = await ensureWineryInDb(winery);
-    if (!wineryDbId) {
-        throw new Error("Could not save winery for trip. Please try again.");
+    const { ensureWineryInDb, updateWinery } = useWineryStore.getState();
+    
+    // --- Optimistic Update --- //
+    const originalTrip = get().selectedTrip;
+    if (!originalTrip || originalTrip.id !== trip.id) {
+        // This should not happen if the UI is consistent
+        console.warn("Selected trip mismatch during toggle!");
+        return;
     }
 
-    const isOnTrip = trip.wineries.some(w => w.dbId === wineryDbId);
+    const wineryDbId = winery.dbId || await ensureWineryInDb(winery);
+    if (!wineryDbId) throw new Error("Could not get winery DB ID.");
+
+    const isOnTrip = originalTrip.wineries.some(w => w.dbId === wineryDbId);
     
-    if (isOnTrip) {
-        const response = await fetch(`/api/trips/${trip.id}`, {
-            method: 'PUT',
+    const updatedWineries = isOnTrip
+        ? originalTrip.wineries.filter(w => w.dbId !== wineryDbId)
+        : [...originalTrip.wineries, { ...winery, dbId: wineryDbId }];
+
+    const updatedTrip = { ...originalTrip, wineries: updatedWineries };
+
+    set({ selectedTrip: updatedTrip });
+    // --- End Optimistic Update --- //
+
+    try {
+        const requestBody = isOnTrip
+            ? { removeWineryId: wineryDbId }
+            : { wineryId: wineryDbId, tripIds: [trip.id], date: trip.trip_date.split('T')[0] };
+        
+        const method = isOnTrip ? 'PUT' : 'POST';
+        const url = isOnTrip ? `/api/trips/${trip.id}` : '/api/trips';
+
+        const response = await fetch(url, {
+            method,
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ removeWineryId: wineryDbId }),
+            body: JSON.stringify(requestBody),
         });
+
         if (!response.ok) {
-            throw new Error("Failed to remove winery from trip.");
+            throw new Error(isOnTrip ? "Failed to remove winery from trip." : "Failed to add winery to trip.");
         }
-    } else {
-        const response = await fetch('/api/trips', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                date: trip.trip_date.split('T')[0],
-                wineryId: wineryDbId,
-                tripIds: [trip.id]
-            }),
-        });
-        if (!response.ok) {
-            throw new Error("Failed to add winery to trip.");
-        }
+
+        // Re-fetch for consistency, could also merge response data
+        get().fetchTripById(trip.id);
+
+    } catch (error) {
+        console.error("Failed to toggle winery on trip, reverting:", error);
+        set({ selectedTrip: originalTrip }); // Revert
+        throw error;
     }
-    get().fetchTripById(trip.id);
   },
 }));

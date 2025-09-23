@@ -58,6 +58,7 @@ interface WineryState {
   toggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
   getWineryById: (id: string) => Winery | undefined;
   ensureWineryInDb: (winery: Winery) => Promise<number | null>;
+  updateWinery: (wineryId: string, updates: Partial<Winery>) => void;
 }
 
 export const useWineryStore = create<WineryState>((set, get) => ({
@@ -295,19 +296,111 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
   updateVisit: async (visitId, visitData) => {
     set({ isSavingVisit: true });
+
+    const originalWineries = get().persistentWineries;
+    let wineryIdToUpdate: string | null = null;
+
+    // Optimistically update the visit
+    const updatedWineries = originalWineries.map(winery => {
+        const visitIndex = winery.visits.findIndex(v => v.id === visitId);
+        if (visitIndex === -1) return winery;
+
+        wineryIdToUpdate = winery.id; // Capture the winery ID
+        const updatedVisits = [...winery.visits];
+        const originalVisit = updatedVisits[visitIndex];
+        updatedVisits[visitIndex] = { ...originalVisit, ...visitData };
+
+        return { ...winery, visits: updatedVisits };
+    });
+
+    set({ persistentWineries: updatedWineries });
+
     try {
-      const response = await fetch(`/api/visits/${visitId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(visitData) });
-      if (!response.ok) throw new Error("Failed to update visit.");
-      await get().fetchWineryData();
+        const response = await fetch(`/api/visits/${visitId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(visitData)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to update visit.");
+        }
+        
+        // The API returns the updated visit, we can use it to confirm our state
+        const updatedVisitFromServer = await response.json();
+        
+        // Final state update with server data to ensure consistency
+        set(state => {
+            const finalWineries = state.persistentWineries.map(winery => {
+                if (winery.id !== wineryIdToUpdate) return winery;
+                
+                const visitIndex = winery.visits.findIndex(v => v.id === visitId);
+                if (visitIndex === -1) return winery;
+
+                const finalVisits = [...winery.visits];
+                finalVisits[visitIndex] = { ...finalVisits[visitIndex], ...updatedVisitFromServer };
+                return { ...winery, visits: finalVisits };
+            });
+            return { persistentWineries: finalWineries };
+        });
+
+    } catch (error) {
+        console.error("Failed to update visit, reverting:", error);
+        set({ persistentWineries: originalWineries }); // Revert on error
+        throw error; // Re-throw to be caught in the component
     } finally {
-      set({ isSavingVisit: false });
+        set({ isSavingVisit: false });
     }
   },
 
   deleteVisit: async (visitId) => {
-    const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
-    if (!response.ok) throw new Error("Failed to delete visit.");
-    await get().fetchWineryData();
+    const originalWineries = get().persistentWineries;
+    let wineryIdForRevert: string | null = null;
+    let deletedVisit: Visit | null = null;
+    let visitIndexForRevert = -1;
+
+    // Optimistic deletion
+    const updatedWineries = originalWineries.map(winery => {
+        const visitIndex = winery.visits.findIndex(v => v.id === visitId);
+        if (visitIndex === -1) return winery;
+
+        wineryIdForRevert = winery.id;
+        deletedVisit = winery.visits[visitIndex];
+        visitIndexForRevert = visitIndex;
+
+        const newVisits = winery.visits.filter(v => v.id !== visitId);
+        return { ...winery, visits: newVisits };
+    });
+
+    set({ persistentWineries: updatedWineries });
+
+    try {
+        const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || "Failed to delete visit.");
+        }
+    } catch (error) {
+        console.error("Failed to delete visit, reverting:", error);
+        if (wineryIdForRevert && deletedVisit) {
+            const revertedWineries = originalWineries.map(winery => {
+                if (winery.id === wineryIdForRevert) {
+                    const revertedVisits = [...winery.visits];
+                    if (visitIndexForRevert !== -1) {
+                        revertedVisits.splice(visitIndexForRevert, 0, deletedVisit!);
+                    }
+                    return { ...winery, visits: revertedVisits };
+                }
+                return winery;
+            });
+            set({ persistentWineries: revertedWineries });
+        } else {
+            // If something went wrong with finding the visit, just revert all
+            set({ persistentWineries: originalWineries });
+        }
+        throw error;
+    }
   },
 
   toggleWishlist: async (winery, isOnWishlist) => {
@@ -372,6 +465,14 @@ export const useWineryStore = create<WineryState>((set, get) => ({
     return get().persistentWineries.find(w => w.id === id);
   },
   
+  updateWinery: (wineryId: string, updates: Partial<Winery>) => {
+    set(state => ({
+      persistentWineries: state.persistentWineries.map(w => 
+        w.id === wineryId ? { ...w, ...updates } : w
+      )
+    }));
+  },
+
   ensureWineryInDb: async (winery: Winery) => {
     if (winery.dbId) {
       return winery.dbId;
