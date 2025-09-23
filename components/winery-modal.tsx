@@ -501,9 +501,10 @@ export default function WineryModal() {
                               {rating.user_review && <p className="text-sm text-blue-700 bg-white p-3 rounded-md border">{rating.user_review}</p>}
                               {rating.photos && rating.photos.length > 0 && (
                                 <div className="flex gap-2 mt-2">
-                                  {rating.photos.map((photo: string, index: number) => (
-                                    <img key={index} src={photo} alt={`Friend photo ${index + 1}`} className="w-20 h-20 rounded-md object-cover"/>
-                                  ))}
+                                  {rating.photos.map((photo: string, index: number) => {
+                                    console.log("Friend's Photo URL:", photo);
+                                    return <img key={index} src={photo} alt={`Friend photo ${index + 1}`} className="w-20 h-20 rounded-md object-cover"/>
+                                  })}
                                 </div>
                               )}
                             </CardContent>
@@ -621,9 +622,10 @@ export default function WineryModal() {
                                 {visit.user_review && <p className="text-sm text-slate-700 bg-white p-3 rounded-md border">{visit.user_review}</p>}
                                 {visit.photos && visit.photos.length > 0 && (
                                   <div className="flex gap-2 mt-2 flex-wrap">
-                                    {visit.photos.map((photo, index) => (
-                                      <img key={index} src={photo} alt={`Visit photo ${index + 1}`} className="w-24 h-24 rounded-md object-cover"/>
-                                    ))}
+                                    {visit.photos.map((photo, index) => {
+                                      console.log("Photo URL:", photo);
+                                      return <img key={index} src={photo} alt={`Visit photo ${index + 1}`} className="w-24 h-24 rounded-md object-cover"/>
+                                    })}
                                   </div>
                                 )}
                               </CardContent>
