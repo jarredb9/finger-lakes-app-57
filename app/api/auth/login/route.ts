@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 })
     }
 
-    const supabase = await createClient()
+    const supabase = createClient()
 
     console.log("Attempting to sign in user:", email)
 
