@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 
 export async function POST(request: Request) {
   const { email } = await request.json()
+  const requestUrl = new URL(request.url)
+  const redirectTo = `${requestUrl.origin}/reset-password`
 
   if (!email) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 })
@@ -10,7 +12,7 @@ export async function POST(request: Request) {
 
   const supabase = createClient()
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `/reset-password`,
+    redirectTo,
   })
 
   if (error) {
