@@ -225,7 +225,7 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
       if (visitError) throw visitError;
 
-      let photoUrls: string[] = [];
+      let photoUrlsForState: string[] = [];
 
       // 2. Upload photos if they exist
       if (visitData.photos.length > 0) {
@@ -239,34 +239,35 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
           if (uploadError) {
             console.error('Error uploading photo:', uploadError);
-            return null; // Or throw, depending on desired behavior
+            return null;
           }
-
-          // Instead of creating a signed URL, just return the path.
           return filePath;
         });
 
-        const uploadedPaths = await Promise.all(uploadPromises);
-        const photoPaths = uploadedPaths.filter((path): path is string => path !== null);
+        const photoPathsForDb = (await Promise.all(uploadPromises)).filter((path): path is string => path !== null);
 
         // 3. Update visit with photo paths
-        if (photoPaths.length > 0) {
+        if (photoPathsForDb.length > 0) {
           const { error: updateError } = await supabase
             .from('visits')
-            .update({ photos: photoPaths })
+            .update({ photos: photoPathsForDb })
             .eq('id', visit.id);
 
           if (updateError) console.error('Error updating visit with photo paths:', updateError);
         }
 
-        // 4. Update local state, but generate signed URLs for immediate display
-        const signedUrls = await Promise.all(
-          photoPaths.map(async (path) => {
-            const { data } = await supabase.storage.from('visit-photos').createSignedUrl(path, 60 * 5); // 5-minute URL
-            return data?.signedUrl || null;
-          })
+        // For immediate display, create signed URLs
+        const signedUrlPromises = photoPathsForDb.map(path => 
+            supabase.storage.from('visit-photos').createSignedUrl(path, 300) // 5 min URL
         );
-        const newVisit: Visit = { ...visit, photos: signedUrls.filter((url): url is string => !!url) };
+        const signedUrlResults = await Promise.all(signedUrlPromises);
+        photoUrlsForState = signedUrlResults
+            .map(result => result.data?.signedUrl)
+            .filter((url): url is string => !!url);
+      }
+
+      // 4. Update local state
+      const newVisit: Visit = { ...visit, photos: photoUrlsForState };
       set(state => {
         const updatedWineries = state.persistentWineries.map(w => {
           if (w.id === winery.id) {
@@ -286,7 +287,6 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
     } catch (error) {
       console.error("Failed to save visit:", error);
-      // Optionally, add more robust error handling and rollback logic
       throw error;
     } finally {
       set({ isSavingVisit: false });
