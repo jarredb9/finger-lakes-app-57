@@ -242,9 +242,16 @@ export const useWineryStore = create<WineryState>((set, get) => ({
             return null; // Or throw, depending on desired behavior
           }
 
-          const { data } = await supabase.storage
+          const { data, error: signedUrlError } = await supabase.storage
             .from('visit-photos')
             .createSignedUrl(filePath, 3600); // 1 hour expiration
+
+          if (signedUrlError) {
+            console.error('Error creating signed URL:', signedUrlError);
+            return null;
+          }
+
+          console.log(`Signed URL for ${filePath}:`, data?.signedUrl);
             
           return data?.signedUrl || null;
         });
