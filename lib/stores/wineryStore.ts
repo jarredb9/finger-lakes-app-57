@@ -130,8 +130,27 @@ export const useWineryStore = create<WineryState>((set, get) => ({
 
       upcomingTrips.forEach((trip: Trip) => {
         if (trip.wineries) {
-          trip.wineries.forEach((winery: Winery) => {
-            processWinery(winery, {});
+          trip.wineries.forEach((wineryOnTrip: Winery) => {
+            const googleId = String(wineryOnTrip.google_place_id || wineryOnTrip.id);
+            if (!googleId) return;
+
+            // Ensure the winery is in the map
+            processWinery(wineryOnTrip, {});
+
+            // Enrich the winery in the map with trip details
+            const wineryInMap = wineriesMap.get(googleId);
+            if (wineryInMap) {
+              // Avoid overwriting if it's already associated with a trip from another source
+              // The first trip found wins, which is consistent with old logic.
+              if (!wineryInMap.trip_id) {
+                wineriesMap.set(googleId, {
+                  ...wineryInMap,
+                  trip_id: trip.id,
+                  trip_name: trip.name || "Unnamed Trip",
+                  trip_date: trip.trip_date,
+                });
+              }
+            }
           });
         }
       });
