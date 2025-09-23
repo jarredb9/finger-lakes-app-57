@@ -9,8 +9,12 @@ export async function POST(request: Request) {
   }
 
   const supabase = createClient()
+  const origin = process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}`
+    : new URL(request.url).origin
+
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${new URL(request.url).origin}/reset-password`,
+    redirectTo: `${origin}/reset-password`,
   })
 
   if (error) {
