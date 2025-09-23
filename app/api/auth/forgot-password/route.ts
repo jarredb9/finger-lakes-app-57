@@ -4,15 +4,16 @@ import { NextResponse } from "next/server"
 export async function POST(request: Request) {
   const { email } = await request.json()
   const requestUrl = new URL(request.url)
-  // This is the critical line that creates the correct, full URL
   const redirectTo = `${requestUrl.origin}/reset-password`
+
+  // Add this console.log for debugging
+  console.log("Generated redirectTo URL:", redirectTo);
 
   if (!email) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 })
   }
 
   const supabase = createClient()
-  // Here we pass the full URL to Supabase
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo,
   })
