@@ -69,7 +69,12 @@ export default function LoginForm() {
             <Input id="email" name="email" type="email" placeholder="your@email.com" required autoComplete="email" aria-label="Email Address" />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline">
+                Forgot password?
+              </Link>
+            </div>
             <Input id="password" name="password" type="password" required autoComplete="current-password" aria-label="Password" />
           </div>
         </CardContent>
