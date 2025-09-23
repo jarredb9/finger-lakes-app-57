@@ -38,5 +38,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to update password." }, { status: 500 });
   }
 
+  // Sign out the user to clear the temporary session
+  const { error: signOutError } = await supabase.auth.signOut();
+  if (signOutError) {
+      console.error("Error signing out after password reset:", signOutError);
+      // Don't block the success response, but log the error
+  }
+
   return NextResponse.json({ message: "Password updated successfully" });
 }
