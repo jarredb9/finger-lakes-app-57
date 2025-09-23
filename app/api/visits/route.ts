@@ -25,9 +25,22 @@ export async function GET(request: NextRequest) {
       .order("visit_date", { ascending: false })
       .range(rangeFrom, rangeTo);
 
-    if (error) {
-      console.error("Error fetching visits:", error)
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    if (visits) {
+      for (const visit of visits) {
+        if (visit.photos && visit.photos.length > 0) {
+          const { data: signedUrlsData, error: urlError } = await supabase.storage
+            .from('visit-photos')
+            .createSignedUrls(visit.photos, 3600); // 1 hour expiration
+
+          if (urlError) {
+            console.error(`Error creating signed URLs for visit ${visit.id}:`, urlError);
+            // Decide how to handle this - skip photos for this visit or return an error
+            visit.photos = []; // Clear photos if signing fails
+          } else {
+            visit.photos = signedUrlsData.map(item => item.signedUrl);
+          }
+        }
+      }
     }
 
     return NextResponse.json({ visits: visits || [], count: count || 0 });

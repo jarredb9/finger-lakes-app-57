@@ -36,8 +36,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         const { data: ratings, error: ratingsError } = await supabase
             .from('visits')
             .select(`
+                id,
                 rating,
                 user_review,
+                photos,
                 user_id,
                 profiles (
                     id, name, email
@@ -51,10 +53,29 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
             throw ratingsError;
         }
 
+        // 3. Generate signed URLs for photos
+        if (ratings) {
+            for (const rating of ratings) {
+                if (rating.photos && rating.photos.length > 0) {
+                    const { data: signedUrlsData, error: urlError } = await supabase.storage
+                        .from('visit-photos')
+                        .createSignedUrls(rating.photos, 3600); // 1 hour
+
+                    if (urlError) {
+                        console.error(`Error creating signed URLs for visit ${rating.id}:`, urlError);
+                        rating.photos = [];
+                    } else {
+                        rating.photos = signedUrlsData.map(item => item.signedUrl);
+                    }
+                }
+            }
+        }
+
         // Format the response
         const formattedRatings = ratings.map(r => ({
             rating: r.rating,
             user_review: r.user_review,
+            photos: r.photos || [],
             user_id: r.user_id,
             name: r.profiles?.name || 'A friend'
         }));

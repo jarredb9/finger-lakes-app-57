@@ -242,36 +242,31 @@ export const useWineryStore = create<WineryState>((set, get) => ({
             return null; // Or throw, depending on desired behavior
           }
 
-          const { data, error: signedUrlError } = await supabase.storage
-            .from('visit-photos')
-            .createSignedUrl(filePath, 3600); // 1 hour expiration
-
-          if (signedUrlError) {
-            console.error('Error creating signed URL:', signedUrlError);
-            return null;
-          }
-
-          console.log(`Signed URL for ${filePath}:`, data?.signedUrl);
-            
-          return data?.signedUrl || null;
+          // Instead of creating a signed URL, just return the path.
+          return filePath;
         });
 
-        const uploadedUrls = await Promise.all(uploadPromises);
-        photoUrls = uploadedUrls.filter((url): url is string => url !== null);
+        const uploadedPaths = await Promise.all(uploadPromises);
+        const photoPaths = uploadedPaths.filter((path): path is string => path !== null);
 
-        // 3. Update visit with photo URLs
-        if (photoUrls.length > 0) {
+        // 3. Update visit with photo paths
+        if (photoPaths.length > 0) {
           const { error: updateError } = await supabase
             .from('visits')
-            .update({ photos: photoUrls })
+            .update({ photos: photoPaths })
             .eq('id', visit.id);
 
-          if (updateError) console.error('Error updating visit with photos:', updateError);
+          if (updateError) console.error('Error updating visit with photo paths:', updateError);
         }
-      }
 
-      // 4. Update local state
-      const newVisit: Visit = { ...visit, photos: photoUrls };
+        // 4. Update local state, but generate signed URLs for immediate display
+        const signedUrls = await Promise.all(
+          photoPaths.map(async (path) => {
+            const { data } = await supabase.storage.from('visit-photos').createSignedUrl(path, 60 * 5); // 5-minute URL
+            return data?.signedUrl || null;
+          })
+        );
+        const newVisit: Visit = { ...visit, photos: signedUrls.filter((url): url is string => !!url) };
       set(state => {
         const updatedWineries = state.persistentWineries.map(w => {
           if (w.id === winery.id) {
