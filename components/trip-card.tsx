@@ -97,6 +97,8 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
     );
 }
 
+const supabase = createClient();
+
 export default function TripCard({ tripId, userId }: { tripId: string; userId: string; }) {
     const { trips, fetchTripsForDate, deleteTrip, updateTrip, updateWineryOrder, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
     const trip = trips.find(t => t.id == tripId);
@@ -109,8 +111,6 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
     const { toast } = useToast();
     
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-    
-    const supabase = createClient();
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -162,7 +162,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
         return () => {
           supabase.removeChannel(channel);
         };
-    }, [trip?.id, supabase, fetchTripsForDate, selectedDate]);
+    }, [trip?.id, fetchTripsForDate, selectedDate]);
 
     if (!trip) {
         return null; // Or a loading spinner
