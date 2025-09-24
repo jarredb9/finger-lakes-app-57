@@ -38,6 +38,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore, WineryState } from "@/lib/stores/wineryStore";
+import { useVisitStore } from "@/lib/stores/visitStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { shallow } from 'zustand/shallow';
@@ -102,17 +103,6 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
     );
 }
 
-const winerySelector = (state: WineryState) => ({
-    toggleWishlist: state.toggleWishlist,
-    toggleFavorite: state.toggleFavorite,
-    saveVisit: state.saveVisit,
-    updateVisit: state.updateVisit,
-    deleteVisit: state.deleteVisit,
-    isSavingVisit: state.isSavingVisit,
-    isTogglingWishlist: state.isTogglingWishlist,
-    isTogglingFavorite: state.isTogglingFavorite,
-});
-
 interface Friend {
   id: string;
   name: string;
@@ -133,13 +123,26 @@ export default function WineryModal() {
   const {
     toggleWishlist,
     toggleFavorite,
+    isTogglingWishlist,
+    isTogglingFavorite,
+  } = useWineryStore(state => ({
+    toggleWishlist: state.toggleWishlist,
+    toggleFavorite: state.toggleFavorite,
+    isTogglingWishlist: state.isTogglingWishlist,
+    isTogglingFavorite: state.isTogglingFavorite,
+  }), shallow);
+
+  const {
     saveVisit,
     updateVisit,
     deleteVisit: deleteVisitAction,
     isSavingVisit,
-    isTogglingWishlist,
-    isTogglingFavorite,
-  } = useWineryStore(winerySelector, shallow);
+  } = useVisitStore(state => ({
+    saveVisit: state.saveVisit,
+    updateVisit: state.updateVisit,
+    deleteVisit: state.deleteVisit,
+    isSavingVisit: state.isSavingVisit,
+  }), shallow);
 
   const activeWinery = useWineryStore(state => 
     activeWineryId ? state.persistentWineries.find(w => w.id === activeWineryId) : null

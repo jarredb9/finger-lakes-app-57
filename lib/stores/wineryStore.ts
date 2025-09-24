@@ -61,20 +61,25 @@ interface WineryState {
   favoriteWineries: Winery[];
   persistentWineries: Winery[];
   isLoading: boolean;
-  isSavingVisit: boolean;
   isTogglingWishlist: boolean;
   isTogglingFavorite: boolean;
   error: string | null;
+  _wineriesBackup: Winery[] | null;
+
   fetchWineryData: () => Promise<void>;
   ensureWineryDetails: (placeId: string) => Promise<Winery | null>;
-  saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[] }) => Promise<void>;
-  updateVisit: (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }) => Promise<void>;
-  deleteVisit: (visitId: string) => Promise<void>;
   toggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
   toggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
   getWineryById: (id: string) => Winery | undefined;
   ensureWineryInDb: (winery: Winery) => Promise<number | null>;
   updateWinery: (wineryId: string, updates: Partial<Winery>) => void;
+
+  // Methods for visitStore to interact with
+  addVisitToWinery: (wineryId: string, visit: Visit) => void;
+  optimisticallyUpdateVisit: (visitId: string, visitData: Partial<Visit>) => void;
+  optimisticallyDeleteVisit: (visitId: string) => void;
+  revertOptimisticUpdate: () => void;
+  confirmOptimisticUpdate: (updatedVisit?: Visit) => void;
 }
 
 export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
@@ -84,10 +89,10 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
   favoriteWineries: [],
   persistentWineries: [],
   isLoading: false,
-  isSavingVisit: false,
   isTogglingWishlist: false,
   isTogglingFavorite: false,
   error: null,
+  _wineriesBackup: null,
 
   fetchWineryData: async () => {
     set({ isLoading: true, error: null });
@@ -235,207 +240,93 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
     }
   },
 
-  saveVisit: async (winery, visitData) => {
-    set({ isSavingVisit: true });
-    const supabase = createClient();
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated.");
-
-      const dbId = await get().ensureWineryInDb(winery);
-      if (!dbId) throw new Error("Could not ensure winery exists in database.");
-
-      // 1. Save visit without photos
-      const visitPayload = { 
-        winery_id: dbId, 
-        user_id: user.id, 
-        visit_date: visitData.visit_date, 
-        user_review: visitData.user_review, 
-        rating: visitData.rating 
-      };
-      const { data: visit, error: visitError } = await supabase
-        .from('visits')
-        .insert(visitPayload)
-        .select()
-        .single();
-
-      if (visitError) throw visitError;
-
-      let photoUrlsForState: string[] = [];
-
-      // 2. Upload photos if they exist
-      if (visitData.photos.length > 0) {
-        const uploadPromises = visitData.photos.map(async (photoFile) => {
-          const fileName = `${Date.now()}-${photoFile.name}`;
-          const filePath = `${user.id}/${visit.id}/${fileName}`;
-          
-          const { error: uploadError } = await supabase.storage
-            .from('visit-photos')
-            .upload(filePath, photoFile);
-
-          if (uploadError) {
-            console.error('Error uploading photo:', uploadError);
-            return null;
-          }
-          return filePath;
-        });
-
-        const photoPathsForDb = (await Promise.all(uploadPromises)).filter((path): path is string => path !== null);
-
-        // 3. Update visit with photo paths
-        if (photoPathsForDb.length > 0) {
-          const { error: updateError } = await supabase
-            .from('visits')
-            .update({ photos: photoPathsForDb })
-            .eq('id', visit.id);
-
-          if (updateError) console.error('Error updating visit with photo paths:', updateError);
+  addVisitToWinery: (wineryId, newVisit) => {
+    set(state => {
+      const updatedWineries = state.persistentWineries.map(w => {
+        if (w.id === wineryId) {
+          return {
+            ...w,
+            userVisited: true,
+            visits: [newVisit, ...(w.visits || [])]
+          };
         }
+        return w;
+      });
+      return { 
+        persistentWineries: updatedWineries,
+        visitedWineries: updatedWineries.filter(w => w.userVisited)
+      };
+    });
+  },
 
-        // For immediate display, create signed URLs
-        const signedUrlPromises = photoPathsForDb.map(path => 
-            supabase.storage.from('visit-photos').createSignedUrl(path, 300) // 5 min URL
-        );
-        const signedUrlResults = await Promise.all(signedUrlPromises);
-        photoUrlsForState = signedUrlResults
-            .map(result => result.data?.signedUrl)
-            .filter((url): url is string => !!url);
-      }
+  optimisticallyUpdateVisit: (visitId, visitData) => {
+    set(state => {
+      if (state._wineriesBackup) return {}; // Prevent multiple optimistic updates
 
-      // 4. Update local state
-      const newVisit: Visit = { ...visit, photos: photoUrlsForState };
-      set(state => {
-        const updatedWineries = state.persistentWineries.map(w => {
-          if (w.id === winery.id) {
-            return {
-              ...w,
-              userVisited: true,
-              visits: [newVisit, ...(w.visits || [])]
-            };
-          }
-          return w;
-        });
-        return { 
-          persistentWineries: updatedWineries,
-          visitedWineries: updatedWineries.filter(w => w.userVisited)
-        };
+      const updatedWineries = state.persistentWineries.map(winery => {
+          const visitIndex = winery.visits.findIndex(v => v.id === visitId);
+          if (visitIndex === -1) return winery;
+
+          const updatedVisits = [...winery.visits];
+          const originalVisit = updatedVisits[visitIndex];
+          updatedVisits[visitIndex] = { ...originalVisit, ...visitData };
+
+          return { ...winery, visits: updatedVisits };
       });
 
-    } catch (error) {
-      console.error("Failed to save visit:", error);
-      throw error;
-    } finally {
-      set({ isSavingVisit: false });
-    }
-  },
-
-  updateVisit: async (visitId, visitData) => {
-    set({ isSavingVisit: true });
-
-    const originalWineries = get().persistentWineries;
-    let wineryIdToUpdate: string | null = null;
-
-    // Optimistically update the visit
-    const updatedWineries = originalWineries.map(winery => {
-        const visitIndex = winery.visits.findIndex(v => v.id === visitId);
-        if (visitIndex === -1) return winery;
-
-        wineryIdToUpdate = winery.id; // Capture the winery ID
-        const updatedVisits = [...winery.visits];
-        const originalVisit = updatedVisits[visitIndex];
-        updatedVisits[visitIndex] = { ...originalVisit, ...visitData };
-
-        return { ...winery, visits: updatedVisits };
+      return {
+          persistentWineries: updatedWineries,
+          _wineriesBackup: state.persistentWineries
+      };
     });
-
-    set({ persistentWineries: updatedWineries });
-
-    try {
-        const response = await fetch(`/api/visits/${visitId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(visitData)
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || "Failed to update visit.");
-        }
-        
-        // The API returns the updated visit, we can use it to confirm our state
-        const updatedVisitFromServer = await response.json();
-        
-        // Final state update with server data to ensure consistency
-        set(state => {
-            const finalWineries = state.persistentWineries.map(winery => {
-                if (winery.id !== wineryIdToUpdate) return winery;
-                
-                const visitIndex = winery.visits.findIndex(v => v.id === visitId);
-                if (visitIndex === -1) return winery;
-
-                const finalVisits = [...winery.visits];
-                finalVisits[visitIndex] = { ...finalVisits[visitIndex], ...updatedVisitFromServer };
-                return { ...winery, visits: finalVisits };
-            });
-            return { persistentWineries: finalWineries };
-        });
-
-    } catch (error) {
-        console.error("Failed to update visit, reverting:", error);
-        set({ persistentWineries: originalWineries }); // Revert on error
-        throw error; // Re-throw to be caught in the component
-    } finally {
-        set({ isSavingVisit: false });
-    }
   },
 
-  deleteVisit: async (visitId) => {
-    const originalWineries = get().persistentWineries;
-    let wineryIdForRevert: string | null = null;
-    let deletedVisit: Visit | null = null;
-    let visitIndexForRevert = -1;
+  optimisticallyDeleteVisit: (visitId) => {
+    set(state => {
+      if (state._wineriesBackup) return {}; // Prevent multiple optimistic updates
 
-    // Optimistic deletion
-    const updatedWineries = originalWineries.map(winery => {
+      const updatedWineries = state.persistentWineries.map(winery => {
         const visitIndex = winery.visits.findIndex(v => v.id === visitId);
         if (visitIndex === -1) return winery;
-
-        wineryIdForRevert = winery.id;
-        deletedVisit = winery.visits[visitIndex];
-        visitIndexForRevert = visitIndex;
-
         const newVisits = winery.visits.filter(v => v.id !== visitId);
         return { ...winery, visits: newVisits };
+      });
+
+      return {
+        persistentWineries: updatedWineries,
+        _wineriesBackup: state.persistentWineries
+      };
     });
+  },
 
-    set({ persistentWineries: updatedWineries });
+  revertOptimisticUpdate: () => {
+    set(state => {
+      if (!state._wineriesBackup) return {};
+      return {
+        persistentWineries: state._wineriesBackup,
+        _wineriesBackup: null
+      };
+    });
+  },
 
-    try {
-        const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || "Failed to delete visit.");
-        }
-    } catch (error) {
-        console.error("Failed to delete visit, reverting:", error);
-        if (wineryIdForRevert && deletedVisit) {
-            const revertedWineries = originalWineries.map(winery => {
-                if (winery.id === wineryIdForRevert) {
-                    const revertedVisits = [...winery.visits];
-                    if (visitIndexForRevert !== -1) {
-                        revertedVisits.splice(visitIndexForRevert, 0, deletedVisit!);
-                    }
-                    return { ...winery, visits: revertedVisits };
-                }
-                return winery;
-            });
-            set({ persistentWineries: revertedWineries });
-        } else {
-            // If something went wrong with finding the visit, just revert all
-            set({ persistentWineries: originalWineries });
-        }
-        throw error;
-    }
+  confirmOptimisticUpdate: (updatedVisit) => {
+    set(state => {
+      if (updatedVisit) {
+        const finalWineries = state.persistentWineries.map(winery => {
+            const visitIndex = winery.visits.findIndex(v => v.id === updatedVisit.id);
+            if (visitIndex === -1) return winery;
+
+            const finalVisits = [...winery.visits];
+            finalVisits[visitIndex] = { ...finalVisits[visitIndex], ...updatedVisit };
+            return { ...winery, visits: finalVisits };
+        });
+        return { 
+          persistentWineries: finalWineries,
+          _wineriesBackup: null 
+        };
+      }
+      return { _wineriesBackup: null };
+    });
   },
 
   toggleWishlist: async (winery, isOnWishlist) => {
