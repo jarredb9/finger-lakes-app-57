@@ -61,6 +61,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
         });
 
         const photoPathsForDb = (await Promise.all(uploadPromises)).filter((path): path is string => path !== null);
+        console.log('[visitStore] Uploaded photo paths:', photoPathsForDb);
 
         if (photoPathsForDb.length > 0) {
           const { error: updateError } = await supabase
@@ -75,9 +76,13 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
             supabase.storage.from('visit-photos').createSignedUrl(path, 300)
         );
         const signedUrlResults = await Promise.all(signedUrlPromises);
+        console.log('[visitStore] Signed URL results:', signedUrlResults);
+
         photoUrlsForState = signedUrlResults
             .map(result => result.data?.signedUrl)
             .filter((url): url is string => !!url);
+        
+        console.log('[visitStore] Final photo URLs for state:', photoUrlsForState);
       }
 
       const newVisit: Visit = { ...visit, photos: photoUrlsForState };
