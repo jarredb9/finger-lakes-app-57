@@ -48,8 +48,8 @@ export default function TripList() {
     }, [tripType]);
 
     useEffect(() => {
-        fetchTrips(1); // Always reset to page 1 when the tripType changes
-    }, [fetchTrips, tripType, refreshKey]);
+        fetchTrips(currentPage);
+    }, [fetchTrips, tripType, refreshKey, currentPage]);
 
     const handlePageChange = (page: number) => {
         if (page > 0 && page <= totalPages) {
