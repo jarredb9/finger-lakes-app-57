@@ -252,7 +252,7 @@ export default function WineryModal() {
 
     try {
         if (editingVisitId) {
-            await updateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating });
+            await updateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating }, photos);
             toast({ description: "Visit updated successfully." });
         } else {
             await saveVisit(activeWinery!, { visit_date: visitDate, user_review: userReview, rating, photos });

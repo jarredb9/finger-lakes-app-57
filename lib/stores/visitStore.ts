@@ -96,33 +96,84 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
     }
   },
 
-  updateVisit: async (visitId, visitData) => {
+  updateVisit: async (visitId, visitData, photos) => {
     set({ isSavingVisit: true });
+    const supabase = createClient();
     const { optimisticallyUpdateVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
 
+    // Optimistically update text fields
     optimisticallyUpdateVisit(visitId, visitData);
 
     try {
-        const response = await fetch(`/api/visits/${visitId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(visitData)
+      // Update text fields in Supabase
+      const { data: updatedVisit, error: updateError } = await supabase
+        .from('visits')
+        .update({
+          visit_date: visitData.visit_date,
+          user_review: visitData.user_review,
+          rating: visitData.rating,
+        })
+        .eq('id', visitId)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      let finalVisit = updatedVisit;
+      let photoUrlsForState: string[] = [];
+
+      // Handle photo uploads if they exist
+      if (photos.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated for photo upload.");
+
+        const existingPhotos = updatedVisit.photos || [];
+
+        const uploadPromises = photos.map(async (photoFile) => {
+          const fileName = `${Date.now()}-${photoFile.name}`;
+          const filePath = `${user.id}/${visitId}/${fileName}`;
+          const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile);
+          if (uploadError) {
+            console.error('Error uploading photo during update:', uploadError);
+            return null;
+          }
+          return filePath;
         });
 
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || "Failed to update visit.");
+        const newPhotoPaths = (await Promise.all(uploadPromises)).filter((p): p is string => p !== null);
+
+        if (newPhotoPaths.length > 0) {
+          const allPhotoPaths = [...existingPhotos, ...newPhotoPaths];
+          const { data: visitWithPhotos, error: photoUpdateError } = await supabase
+            .from('visits')
+            .update({ photos: allPhotoPaths })
+            .eq('id', visitId)
+            .select()
+            .single();
+          
+          if (photoUpdateError) throw photoUpdateError;
+          finalVisit = visitWithPhotos;
         }
-        
-        const updatedVisitFromServer = await response.json();
-        confirmOptimisticUpdate(updatedVisitFromServer);
+      }
+
+      // Create signed URLs for ALL photos for UI update
+      if (finalVisit.photos && finalVisit.photos.length > 0) {
+        const signedUrlPromises = finalVisit.photos.map(path =>
+          supabase.storage.from('visit-photos').createSignedUrl(path, 300)
+        );
+        const signedUrlResults = await Promise.all(signedUrlPromises);
+        photoUrlsForState = signedUrlResults.map(res => res.data?.signedUrl).filter((url): url is string => !!url);
+      }
+
+      // Confirm the optimistic update with the final state from server
+      confirmOptimisticUpdate({ ...finalVisit, photos: photoUrlsForState });
 
     } catch (error) {
-        console.error("Failed to update visit, reverting:", error);
-        revertOptimisticUpdate();
-        throw error;
+      console.error("Failed to update visit, reverting:", error);
+      revertOptimisticUpdate();
+      throw error;
     } finally {
-        set({ isSavingVisit: false });
+      set({ isSavingVisit: false });
     }
   },
 
