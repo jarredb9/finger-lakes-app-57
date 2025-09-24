@@ -1,4 +1,5 @@
-import { create } from 'zustand';
+import { createWithEqualityFn } from 'zustand/traditional';
+import { shallow } from 'zustand/shallow';
 import { Trip, Winery } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { useWineryStore } from './wineryStore';
@@ -27,7 +28,7 @@ interface TripState {
 
 const supabase = createClient();
 
-export const useTripStore = create<TripState>((set, get) => ({
+export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   trips: [],
   tripsForDate: [],
   upcomingTrips: [],

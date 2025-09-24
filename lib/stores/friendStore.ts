@@ -1,4 +1,5 @@
-import { create } from 'zustand';
+import { createWithEqualityFn } from 'zustand/traditional';
+import { shallow } from 'zustand/shallow';
 
 interface Friend {
   id: string;
@@ -33,7 +34,7 @@ interface FriendState {
   fetchFriendDataForWinery: (wineryId: number) => Promise<void>;
 }
 
-export const useFriendStore = create<FriendState>((set, get) => ({
+export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   friends: [],
   requests: [],
   isLoading: false,
@@ -109,4 +110,4 @@ export const useFriendStore = create<FriendState>((set, get) => ({
       set({ isLoading: false });
     }
   },
-}));
+}), shallow);

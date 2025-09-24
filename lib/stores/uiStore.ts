@@ -1,4 +1,5 @@
-import { create } from 'zustand';
+import { createWithEqualityFn } from 'zustand/traditional';
+import { shallow } from 'zustand/shallow';
 import { ReactNode } from 'react';
 import { Winery } from '@/lib/types';
 
@@ -23,7 +24,7 @@ interface UIState {
   removeNotification: (id: number) => void;
 }
 
-export const useUIStore = create<UIState>((set) => ({
+export const useUIStore = createWithEqualityFn<UIState>((set) => ({
   isSidebarOpen: false,
   isWineryModalOpen: false,
   activeWineryId: null,

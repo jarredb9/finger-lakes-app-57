@@ -1,4 +1,5 @@
-import { create } from 'zustand';
+import { createWithEqualityFn } from 'zustand/traditional';
+import { shallow } from 'zustand/shallow';
 import { Winery, Trip } from '@/lib/types';
 
 interface MapState {
@@ -26,7 +27,7 @@ interface MapState {
   setSearchLocation: (searchLocation: string) => void; // Add setter for searchLocation
 }
 
-export const useMapStore = create<MapState>((set) => ({
+export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   map: null,
   center: { lat: 40, lng: -98 },
   zoom: 4,

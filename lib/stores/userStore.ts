@@ -1,4 +1,5 @@
-import { create } from 'zustand';
+import { createWithEqualityFn } from 'zustand/traditional';
+import { shallow } from 'zustand/shallow';
 
 interface User {
   id: string;
@@ -14,7 +15,7 @@ interface UserState {
   logout: () => Promise<void>;
 }
 
-export const useUserStore = create<UserState>((set) => ({
+export const useUserStore = createWithEqualityFn<UserState>((set) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,

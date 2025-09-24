@@ -1,4 +1,5 @@
-import { create } from 'zustand';
+import { createWithEqualityFn } from 'zustand/traditional';
+import { shallow } from 'zustand/shallow';
 import { Winery, Visit } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
@@ -61,7 +62,7 @@ interface WineryState {
   updateWinery: (wineryId: string, updates: Partial<Winery>) => void;
 }
 
-export const useWineryStore = create<WineryState>((set, get) => ({
+export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
   wineries: [],
   visitedWineries: [],
   wishlistWineries: [],
