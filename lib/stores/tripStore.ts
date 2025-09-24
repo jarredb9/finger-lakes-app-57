@@ -97,9 +97,11 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
   fetchTripsForDate: async (dateString: string) => {
     set({ isLoading: true });
-    console.log(`[tripStore] fetchTripsForDate: Starting fetch for date ${dateString}.`);
+    // Convert the dateString to YYYY-MM-DD format
+    const formattedDate = new Date(dateString).toISOString().split('T')[0];
+    console.log(`[tripStore] fetchTripsForDate: Starting fetch for date ${formattedDate}.`);
     try {
-      const response = await fetch(`/api/trips?date=${dateString}`);
+      const response = await fetch(`/api/trips?date=${formattedDate}`);
       if (response.ok) {
         const data = await response.json();
         console.log(`[tripStore] fetchTripsForDate: Data fetched successfully for date ${dateString}.`, data);
