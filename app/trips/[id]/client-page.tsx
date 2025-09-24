@@ -16,9 +16,9 @@ export default function TripDetailClientPage({ tripId, user }: { tripId: string,
     fetchTripById(tripId);
   }, [fetchTripById, tripId]);
 
-  if (isLoading || !trip) {
+  if (isLoading && !trip) {
     return <Skeleton className="h-96 w-full" />;
   }
 
-  return <TripCard tripId={trip.id.toString()} userId={user.id} />;
+  return <TripCard tripId={tripId} user={user} />;
 }
