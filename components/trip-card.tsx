@@ -146,6 +146,12 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
     useEffect(() => {
         if (!trip) return;
 
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const isPastTrip = new Date(trip.trip_date + 'T00:00:00') < today;
+
+        if (isPastTrip) return;
+
         const channel = supabase.channel(`trip-updates-${trip.id}`);
         
         channel
@@ -162,7 +168,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
         return () => {
           supabase.removeChannel(channel);
         };
-    }, [trip?.id, supabase, fetchTripsForDate, selectedDate]);
+    }, [trip?.id, supabase, fetchTripsForDate, selectedDate, trip?.trip_date]);
 
     if (!trip) {
         return null; // Or a loading spinner
