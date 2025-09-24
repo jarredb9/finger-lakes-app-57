@@ -97,8 +97,9 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
     );
 }
 
-export default function TripCard({ trip, userId }: { trip: Trip; userId: string; }) {
+export default function TripCard({ tripId, userId }: { tripId: string; userId: string; }) {
     const { trips, fetchTripsForDate, deleteTrip, updateTrip, updateWineryOrder, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
+    const trip = trips.find(t => t.id == tripId);
 
     const [tripWineries, setTripWineries] = useState<Winery[]>([]);
     const [isEditingName, setIsEditingName] = useState(false);
