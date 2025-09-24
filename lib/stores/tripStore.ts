@@ -49,10 +49,16 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
       const response = await fetch(`/api/trips/${tripId}`);
       if (response.ok) {
         const trip = await response.json();
-        set(state => ({
-          trips: [...state.trips.filter(t => t.id !== trip.id), trip],
-          isLoading: false
-        }));
+        set(state => {
+          const existingTrip = state.trips.find(t => t.id === trip.id);
+          if (existingTrip && JSON.stringify(existingTrip) === JSON.stringify(trip)) {
+            return { isLoading: false };
+          }
+          return {
+            trips: [...state.trips.filter(t => t.id !== trip.id), trip],
+            isLoading: false
+          };
+        });
       } else {
         console.error(`[tripStore] fetchTripById: Failed to fetch data for trip ${tripId}.`, response.status, response.statusText);
         set({ isLoading: false });
@@ -103,11 +109,34 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
       if (response.ok) {
         const data = await response.json();
         const tripsForDate = data.trips || (Array.isArray(data) ? data : []);
-        set(state => ({
-          tripsForDate: tripsForDate,
-          trips: [...state.trips.filter(t => !tripsForDate.some(tfd => tfd.id === t.id)), ...tripsForDate],
-          isLoading: false
-        }));
+        set(state => {
+          const newTrips = [...state.trips];
+          let tripsChanged = false;
+          tripsForDate.forEach(tfd => {
+            const index = newTrips.findIndex(t => t.id === tfd.id);
+            if (index > -1) {
+              if (JSON.stringify(newTrips[index]) !== JSON.stringify(tfd)) {
+                newTrips[index] = tfd;
+                tripsChanged = true;
+              }
+            } else {
+              newTrips.push(tfd);
+              tripsChanged = true;
+            }
+          });
+
+          const tripsForDateChanged = JSON.stringify(state.tripsForDate) !== JSON.stringify(tripsForDate);
+
+          if (!tripsChanged && !tripsForDateChanged) {
+            return { isLoading: false };
+          }
+
+          return {
+            tripsForDate: tripsForDate,
+            trips: tripsChanged ? newTrips : state.trips,
+            isLoading: false
+          };
+        });
       } else {
         console.error(`[tripStore] fetchTripsForDate: Failed to fetch data for date ${dateString}.`, response.status, response.statusText);
         set({ tripsForDate: [], isLoading: false });
