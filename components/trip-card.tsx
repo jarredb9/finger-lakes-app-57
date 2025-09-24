@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -98,8 +98,12 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
 }
 
 export default function TripCard({ tripId, userId }: { tripId: string; userId: string; }) {
+    console.log('[TripCard] Render', { tripId });
+
     const { trips, fetchTripsForDate, deleteTrip, updateTrip, updateWineryOrder, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
     const trip = trips.find(t => t.id == tripId);
+
+    console.log('[TripCard] State:', { trip: trip ? { id: trip.id, name: trip.name } : null });
 
     const [tripWineries, setTripWineries] = useState<Winery[]>([]);
     const [isEditingName, setIsEditingName] = useState(false);
@@ -125,17 +129,8 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
         })
     );
 
-    const fetchTripsForDateRef = useRef(fetchTripsForDate);
     useEffect(() => {
-        fetchTripsForDateRef.current = fetchTripsForDate;
-    }, [fetchTripsForDate]);
-
-    const selectedDateRef = useRef(selectedDate);
-    useEffect(() => {
-        selectedDateRef.current = selectedDate;
-    }, [selectedDate]);
-
-    useEffect(() => {
+        console.log('[TripCard] useEffect setup', { trip: trip ? { id: trip.id, name: trip.name } : null });
         if (!trip) return;
 
         setTripWineries(trip.wineries || []);
@@ -151,34 +146,50 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
             }
         };
         fetchFriends();
-    }, [trip]);
+    }, [trip, fetchTripsForDate]);
 
     useEffect(() => {
+        console.log('[TripCard] useEffect subscription setup', { trip: trip ? { id: trip.id, name: trip.name } : null });
         if (!trip) return;
 
         const channel = supabase.channel(`trip-updates-${trip.id}`);
         
         channel
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trips', filter: `id=eq.${trip.id}` }, (payload: RealtimePostgresChangesPayload<Trip>) => {
-              if (payload.new && selectedDateRef.current) {
-                  fetchTripsForDateRef.current(selectedDateRef.current.toISOString());
+              console.log('[TripCard] Realtime event: trips', payload);
+              if (payload.new && selectedDate) {
+                  fetchTripsForDate(selectedDate);
               }
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_wineries', filter: `trip_id=eq.${trip.id}` }, (payload: RealtimePostgresChangesPayload<TripWinery>) => {
-              if (selectedDateRef.current) {
-                  fetchTripsForDateRef.current(selectedDateRef.current.toISOString());
-              }
+              console.log('[TripCard] Realtime event: trip_wineries', payload);
+              if (selectedDate) fetchTripsForDate(selectedDate);
           })
-          .subscribe();
+          .subscribe((status, err) => {
+            console.log('[TripCard] Subscription status:', status);
+            if (err) {
+              console.error('[TripCard] Subscription error:', err);
+            }
+          });
 
         return () => {
+          console.log('[TripCard] useEffect subscription cleanup');
           supabase.removeChannel(channel);
         };
-    }, [trip?.id, supabase]);
+    }, [trip?.id, supabase, fetchTripsForDate, selectedDate]);
+
+    useEffect(() => {
+        return () => {
+            console.log('[TripCard] Unmounting');
+        };
+    }, []);
 
     if (!trip) {
-        return null; // Or a loading spinner
+        console.log('[TripCard] Rendering null because no trip');
+        return null;
     }
+
+    console.log('[TripCard] Rendering card');
 
     const handleSaveTripName = async () => {
         if (!trip || !tripName) return;
@@ -215,7 +226,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
         } catch (error) {
             toast({ variant: "destructive", description: "Failed to save trip date." });
             if (selectedDate && new Date(selectedDate).toDateString() === originalDate.toDateString()) {
-                fetchTripsForDate(originalDate.toISOString());
+                fetchTripsForDate(originalDate);
             }
         }
     };
