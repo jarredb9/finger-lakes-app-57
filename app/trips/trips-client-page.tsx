@@ -9,7 +9,7 @@ import { User } from "@supabase/supabase-js"
 export default function TripsClientPage({ user }: { user: User }) {
 
   const handleWinerySelect = (wineryDbId: number) => {
-    console.log("Winery selected:", wineryDbId)
+    
   }
 
   return (

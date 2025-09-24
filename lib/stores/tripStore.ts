@@ -44,13 +44,11 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   selectedTrip: null,
 
   fetchTripById: async (tripId: string) => {
-    console.log(`[tripStore] fetchTripById: Starting fetch for trip ${tripId}.`);
     set({ isLoading: true });
     try {
       const response = await fetch(`/api/trips/${tripId}`);
       if (response.ok) {
         const trip = await response.json();
-        console.log(`[tripStore] fetchTripById: Data fetched successfully for trip ${tripId}.`, trip);
         set(state => ({
           trips: [...state.trips.filter(t => t.id !== trip.id), trip],
           isLoading: false
@@ -71,12 +69,6 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
       const response = await fetch(`/api/trips?full=true`);
       if (response.ok) {
         const data = await response.json();
-        console.log("[tripStore] fetchAllTrips: Data fetched successfully.", data);
-        if (Array.isArray(data)) {
-          data.forEach((trip: Trip) => console.log("[tripStore] Fetched trip ID:", trip.id, "(type:", typeof trip.id, ")"));
-        } else if (data.trips && Array.isArray(data.trips)) {
-          data.trips.forEach((trip: Trip) => console.log("[tripStore] Fetched trip ID:", trip.id, "(type:", typeof trip.id, ")"));
-        }
         set({ trips: data.trips || (Array.isArray(data) ? data : []), isLoading: false });
       } else {
         set({ trips: [], isLoading: false });
@@ -105,14 +97,11 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
   fetchTripsForDate: async (dateString: string) => {
     set({ isLoading: true });
-    // Convert the dateString to YYYY-MM-DD format
     const formattedDate = new Date(dateString).toISOString().split('T')[0];
-    console.log(`[tripStore] fetchTripsForDate: Starting fetch for date ${formattedDate}.`);
     try {
       const response = await fetch(`/api/trips?date=${formattedDate}`);
       if (response.ok) {
         const data = await response.json();
-        console.log(`[tripStore] fetchTripsForDate: Data fetched successfully for date ${dateString}.`, data);
         const tripsForDate = data.trips || (Array.isArray(data) ? data : []);
         set(state => ({
           tripsForDate: tripsForDate,
@@ -157,15 +146,11 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   },
 
   updateTrip: async (tripId: string, updates: Partial<Trip>) => {
-    console.log(`[tripStore] Attempting to update trip ${tripId} with:`, updates);
     const originalTrips = get().trips;
-    console.log(`[tripStore] Current trips state before optimistic update:`, originalTrips);
-    
     set(state => {
       const newTrips = state.trips.map(trip =>
         trip.id === tripId ? { ...trip, ...updates } : trip
       );
-      console.log(`[tripStore] Optimistically updated trips state:`, newTrips);
       return { trips: newTrips };
     });
 
@@ -181,7 +166,6 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         set({ trips: originalTrips }); // Revert on API failure
         throw new Error(errorData.message || "Failed to update trip");
       }
-      console.log(`[tripStore] Trip ${tripId} updated successfully via API with:`, updates);
     } catch (error) {
       console.error("[tripStore] Error updating trip, reverting state:", error);
       set({ trips: originalTrips }); // Revert on network error

@@ -3,7 +3,6 @@ import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
-    console.log(`PUT /api/visits/${params.id} called`);
     const user = await getUser();
     if (!user) {
         console.error("Unauthorized PUT to /api/visits");
@@ -43,7 +42,6 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
             return NextResponse.json({ error: "Visit not found or user not authorized" }, { status: 404 });
         }
 
-        console.log("Visit updated successfully:", data);
         return NextResponse.json({ success: true, visit: data[0] });
 
     } catch (error) {

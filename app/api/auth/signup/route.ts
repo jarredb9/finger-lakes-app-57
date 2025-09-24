@@ -15,8 +15,6 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    console.log("Attempting to sign up user:", email)
-
     // Check if user already exists first
     const { data: existingUser } = await supabase.auth.signInWithPassword({
       email,
@@ -49,21 +47,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
 
-    console.log("Signup response:", {
-      user: data.user?.email,
-      session: !!data.session,
-      confirmed: !!data.user?.email_confirmed_at,
-    })
-
     // If we have a session, user is ready to go
     if (data.session) {
-      console.log("User signed up and logged in successfully")
       return NextResponse.json({ success: true })
     }
 
     // If user was created but no session, they need confirmation
     if (data.user && !data.session) {
-      console.log("User created but email confirmation required")
 
       return NextResponse.json({
         success: true,

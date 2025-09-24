@@ -11,8 +11,6 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient()
 
-    console.log("Attempting to sign in user:", email)
-
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -52,7 +50,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to create session" }, { status: 401 })
     }
 
-    console.log("Login successful for user:", data.user?.email)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("Login error:", error)

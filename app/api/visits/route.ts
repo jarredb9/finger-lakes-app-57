@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
     
-    console.log("Received payload at /api/visits:", JSON.stringify(body, null, 2));
+    
 
     const { wineryData, visit_date, user_review, rating, photos } = body
 

@@ -5,8 +5,6 @@ export async function POST(request: NextRequest) {
   const { placeId } = await request.json();
   const supabase = await createClient();
 
-  console.log(`[API] /api/wineries/details: Received request for placeId: ${placeId}`);
-
   if (!placeId) {
     console.error('[API] /api/wineries/details: placeId is missing.');
     return NextResponse.json({ error: 'placeId is required' }, { status: 400 });
@@ -25,7 +23,6 @@ export async function POST(request: NextRequest) {
   }
 
   if (existingWinery && existingWinery.phone && existingWinery.website && existingWinery.google_rating) {
-    console.log(`[API] /api/wineries/details: Returning existing winery details for ${placeId}.`);
     return NextResponse.json(existingWinery);
   }
 
@@ -36,12 +33,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Google Maps API Key is not configured.' }, { status: 500 });
   }
   const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,website,rating&key=${apiKey}`;
-  console.log(`[API] /api/wineries/details: Fetching from Google Places API for URL: ${url}`);
 
   try {
     const response = await fetch(url);
     const data = await response.json();
-    console.log(`[API] /api/wineries/details: Google Places API response status: ${response.status}, data:`, data);
 
     if (data.status !== 'OK') {
       console.error('[API] /api/wineries/details: Google Places API returned non-OK status:', data.status, data.error_message);
@@ -73,7 +68,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to save winery details', details: upsertError }, { status: 500 });
     }
 
-    console.log(`[API] /api/wineries/details: Successfully upserted winery ${placeId}.`);
     return NextResponse.json(upsertedWinery);
   } catch (error) {
     console.error('[API] /api/wineries/details: Error fetching or processing winery details:', error);

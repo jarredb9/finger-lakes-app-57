@@ -6,7 +6,7 @@ const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  console.log(`Middleware path: ${pathname}`);
+  
 
   // Handle session update for all routes
   const response = await updateSession(request);

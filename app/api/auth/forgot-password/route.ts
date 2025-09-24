@@ -6,8 +6,7 @@ export async function POST(request: Request) {
   const requestUrl = new URL(request.url)
   const redirectTo = `${requestUrl.origin}/reset-password`
 
-  // Add this console.log for debugging
-  console.log("Generated redirectTo URL:", redirectTo);
+  
 
   if (!email) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 })
