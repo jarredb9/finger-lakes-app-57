@@ -110,7 +110,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
     
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
     
-    const [supabase] = useState(() => createClient());
+    const supabase = createClient();
 
     const sensors = useSensors(
         useSensor(PointerSensor),
