@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -125,6 +125,16 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
         })
     );
 
+    const fetchTripsForDateRef = useRef(fetchTripsForDate);
+    useEffect(() => {
+        fetchTripsForDateRef.current = fetchTripsForDate;
+    }, [fetchTripsForDate]);
+
+    const selectedDateRef = useRef(selectedDate);
+    useEffect(() => {
+        selectedDateRef.current = selectedDate;
+    }, [selectedDate]);
+
     useEffect(() => {
         if (!trip) return;
 
@@ -141,7 +151,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
             }
         };
         fetchFriends();
-    }, [trip, fetchTripsForDate]);
+    }, [trip]);
 
     useEffect(() => {
         if (!trip) return;
@@ -150,19 +160,21 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
         
         channel
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trips', filter: `id=eq.${trip.id}` }, (payload: RealtimePostgresChangesPayload<Trip>) => {
-              if (payload.new && selectedDate) {
-                  fetchTripsForDate(selectedDate);
+              if (payload.new && selectedDateRef.current) {
+                  fetchTripsForDateRef.current(selectedDateRef.current.toISOString());
               }
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_wineries', filter: `trip_id=eq.${trip.id}` }, (payload: RealtimePostgresChangesPayload<TripWinery>) => {
-              if (selectedDate) fetchTripsForDate(selectedDate);
+              if (selectedDateRef.current) {
+                  fetchTripsForDateRef.current(selectedDateRef.current.toISOString());
+              }
           })
           .subscribe();
 
         return () => {
           supabase.removeChannel(channel);
         };
-    }, [trip?.id, supabase, fetchTripsForDate, selectedDate]);
+    }, [trip?.id, supabase]);
 
     if (!trip) {
         return null; // Or a loading spinner
@@ -203,7 +215,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
         } catch (error) {
             toast({ variant: "destructive", description: "Failed to save trip date." });
             if (selectedDate && new Date(selectedDate).toDateString() === originalDate.toDateString()) {
-                fetchTripsForDate(originalDate);
+                fetchTripsForDate(originalDate.toISOString());
             }
         }
     };

@@ -13,20 +13,10 @@ export default function TripDetailClientPage({ tripId, user }: { tripId: string,
   const trip = useTripStore(state => state.trips.find(t => t.id === numericTripId));
 
   useEffect(() => {
-    // Only fetch the trip if it's not already in the store.
-    // This prevents the loading skeleton from appearing on navigation.
-    if (!trip) {
-      fetchTripById(tripId);
-    }
-  }, [fetchTripById, tripId, trip]);
+    fetchTripById(tripId);
+  }, [fetchTripById, tripId]);
 
-  // Show skeleton only if trip is not loaded for the first time.
-  if (isLoading && !trip) {
-    return <Skeleton className="h-96 w-full" />;
-  }
-
-  // If for some reason trip is still not available, show skeleton.
-  if (!trip) {
+  if (isLoading || !trip) {
     return <Skeleton className="h-96 w-full" />;
   }
 
