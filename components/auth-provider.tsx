@@ -4,22 +4,15 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useUserStore } from '@/lib/stores/userStore';
 
-const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password', '/manual-confirm'];
+const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password', '/manual-confirm', '/logout'];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { fetchUser, isLoading } = useUserStore();
   const pathname = usePathname();
 
   useEffect(() => {
-    console.log("AuthProvider pathname:", pathname);
-    const isPublic = publicPaths.includes(pathname);
-    console.log("Is public path?", isPublic);
-
-    if (!isPublic) {
-      console.log("This is a protected path, calling fetchUser.");
+    if (!publicPaths.includes(pathname)) {
       fetchUser();
-    } else {
-      console.log("This is a public path, skipping fetchUser.");
     }
   }, [fetchUser, pathname]);
 
