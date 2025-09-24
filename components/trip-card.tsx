@@ -157,9 +157,17 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_wineries', filter: `trip_id=eq.${trip.id}` }, (payload: RealtimePostgresChangesPayload<TripWinery>) => {
               if (selectedDate) fetchTripsForDate(selectedDate);
           })
-          .subscribe();
+          .subscribe((status, err) => {
+            if (status === 'SUBSCRIBED') {
+              console.log(`Subscribed to trip updates for trip ${trip.id}`);
+            }
+            if (err) {
+              console.error('Supabase subscription error:', err);
+            }
+          });
 
         return () => {
+          console.log(`Removing channel for trip ${trip.id}`);
           supabase.removeChannel(channel);
         };
     }, [trip?.id, fetchTripsForDate, selectedDate]);
