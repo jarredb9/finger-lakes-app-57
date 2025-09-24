@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Friend } from '@/lib/types';
 import { useFriendStore } from '@/lib/stores/friendStore'; // Import the new store
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserPlus, Check, X, Clock } from 'lucide-react';
@@ -12,13 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 
-interface Friend {
-  id: string;
-  name: string;
-  email: string;
-  status?: 'pending' | 'accepted';
-  requester_id?: string;
-}
+
 
 interface FriendsManagerProps {
   userId: string;
@@ -41,7 +36,7 @@ export default function FriendsManager({ userId }: FriendsManagerProps) {
       await addFriend(email);
       toast({ description: 'Friend request sent.' });
       setEmail('');
-    } catch (error: any) {
+    } catch (error: Error) {
       toast({ variant: 'destructive', description: error.message });
     }
   };
@@ -50,7 +45,7 @@ export default function FriendsManager({ userId }: FriendsManagerProps) {
     try {
       await respondToRequest(requesterId, accept);
       toast({ description: `Friend request ${accept ? 'accepted' : 'declined'}.` });
-    } catch (error: any) {
+    } catch (error: Error) {
       toast({ variant: 'destructive', description: error.message });
     }
   };

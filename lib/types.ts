@@ -1,11 +1,11 @@
 // file: lib/types.ts
 export interface Visit {
   id?: string;
+  user_id?: string;
   visit_date: string;
   user_review: string;
   rating?: number;
   photos?: string[];
-  // This was previously just an object, now it's correctly typed
   wineries?: {
     id: number;
     google_place_id: string;
@@ -13,6 +13,9 @@ export interface Visit {
     address: string;
     latitude: string;
     longitude: string;
+  };
+  profiles?: {
+    name: string;
   };
 }
 
@@ -30,10 +33,10 @@ export interface Winery {
   onWishlist?: boolean;
   isFavorite?: boolean;
   visits?: Visit[];
-  // ** FIX: Add new optional properties for trip information **
   trip_id?: number;
   trip_name?: string;
   trip_date?: string;
+  notes?: string;
 }
 
 export interface Trip {
@@ -43,4 +46,12 @@ export interface Trip {
     name?: string;
     wineries: Winery[];
     members?: string[];
+}
+
+export interface Friend {
+  id: string;
+  name: string;
+  email: string;
+  status?: 'pending' | 'accepted';
+  requester_id?: string;
 }

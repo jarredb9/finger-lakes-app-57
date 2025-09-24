@@ -1,10 +1,25 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { shallow } from 'zustand/shallow';
-import { Winery, Visit } from '@/lib/types';
+import { Winery, Visit, Trip } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 
+// This represents the raw data structure of a winery coming from the database/API
+interface RawWinery {
+  id: number;
+  google_place_id: string;
+  name: string;
+  address: string;
+  latitude: string;
+  longitude: string;
+  phone?: string;
+  website?: string;
+  google_rating?: number;
+  visits?: Visit[];
+  wineries?: RawWinery[]; // In case of nested winery data
+}
+
 // Moved standardizeWineryData outside of the create call to be reusable
-const standardizeWineryData = (rawWinery: any, existingWinery?: Winery): Winery | null => {
+const standardizeWineryData = (rawWinery: RawWinery, existingWinery?: Winery): Winery | null => {
   if (!rawWinery) return null;
 
   const id = String(rawWinery.google_place_id || rawWinery.id);
@@ -98,7 +113,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
 
       const wineriesMap = new Map<string, Winery>();
 
-      const processWinery = (rawWinery: any, updates: Partial<Winery>) => {
+      const processWinery = (rawWinery: RawWinery, updates: Partial<Winery>) => {
         const googleId = String(rawWinery.google_place_id || rawWinery.id);
         if (!googleId) return;
 
@@ -111,20 +126,20 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
         return merged;
       };
 
-      visits.forEach((rawVisit: any) => {
+      visits.forEach((rawVisit: Visit) => {
         if (!rawVisit.wineries) return;
-        const winery = processWinery(rawVisit.wineries, { userVisited: true });
+        const winery = processWinery(rawVisit.wineries as unknown as RawWinery, { userVisited: true });
         if (winery) {
           winery.visits = [...(winery.visits || []), rawVisit];
         }
       });
 
-      favorites.forEach((rawFavorite: any) => {
+      favorites.forEach((rawFavorite: { wineries: RawWinery }) => {
         const wineryData = rawFavorite.wineries || rawFavorite;
         processWinery(wineryData, { isFavorite: true });
       });
 
-      wishlist.forEach((rawWishlist: any) => {
+      wishlist.forEach((rawWishlist: { wineries: RawWinery }) => {
         const wineryData = rawWishlist.wineries || rawWishlist;
         processWinery(wineryData, { onWishlist: true });
       });
@@ -132,11 +147,11 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
       upcomingTrips.forEach((trip: Trip) => {
         if (trip.wineries) {
           trip.wineries.forEach((wineryOnTrip: Winery) => {
-            const googleId = String(wineryOnTrip.google_place_id || wineryOnTrip.id);
+            const googleId = String(wineryOnTrip.id);
             if (!googleId) return;
 
             // Ensure the winery is in the map
-            processWinery(wineryOnTrip, {});
+            processWinery(wineryOnTrip as unknown as RawWinery, {});
 
             // Enrich the winery in the map with trip details
             const wineryInMap = wineriesMap.get(googleId);

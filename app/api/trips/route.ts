@@ -2,9 +2,23 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
+import { Visit, Winery } from "@/lib/types";
+
+// This represents the raw data structure of a winery coming from the database/API
+interface RawWinery {
+  id: number;
+  google_place_id: string;
+  name: string;
+  address: string;
+  latitude: string;
+  longitude: string;
+  phone?: string;
+  website?: string;
+  google_rating?: number;
+}
 
 // This formatWinery function is now simpler as we will attach visits later.
-const formatWinery = (winery: any) => {
+const formatWinery = (winery: RawWinery) => {
     if (!winery) return null;
     return {
         id: winery.google_place_id,
@@ -68,7 +82,7 @@ export async function GET(request: NextRequest) {
     if(visitsError) throw visitsError;
 
     // 4. Group the visits by winery_id for easy lookup
-    const visitsByWinery = new Map<number, any[]>();
+    const visitsByWinery = new Map<number, Visit[]>();
     visits?.forEach(visit => {
         if (!visitsByWinery.has(visit.winery_id)) {
             visitsByWinery.set(visit.winery_id, []);
@@ -92,7 +106,7 @@ export async function GET(request: NextRequest) {
               return null;
           })
           .filter(Boolean);
-        return { ...trip, wineries: wineriesWithVisits as any[] };
+        return { ...trip, wineries: wineriesWithVisits };
     });
 
     return NextResponse.json(formattedTrips);

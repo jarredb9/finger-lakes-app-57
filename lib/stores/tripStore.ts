@@ -14,7 +14,7 @@ interface TripState {
   fetchAllTrips: () => Promise<void>;
   fetchUpcomingTrips: () => Promise<void>;
   fetchTripsForDate: (date: string) => Promise<void>;
-  createTrip: (date: Date, name?: string, notes?: string, wineryId?: number) => Promise<any | null>;
+  createTrip: (date: Date, name?: string, notes?: string, wineryId?: number) => Promise<Trip | null>;
   deleteTrip: (tripId: string) => Promise<void>;
   updateTrip: (tripId: string, updates: Partial<Trip>) => Promise<void>;
   updateWineryOrder: (tripId: string, wineryIds: number[]) => Promise<void>;
@@ -24,6 +24,14 @@ interface TripState {
   setSelectedTrip: (trip: Trip | null) => void;
   addWineryToTrips: (winery: Winery, tripDate: Date, selectedTrips: Set<string>, newTripName: string, addTripNotes: string) => Promise<void>;
   toggleWineryOnTrip: (winery: Winery, trip: Trip) => Promise<void>;
+}
+
+interface AddWineryToTripPayload {
+    date: string;
+    wineryId: number;
+    notes: string;
+    name?: string;
+    tripIds?: number[];
 }
 
 const supabase = createClient();
@@ -65,9 +73,9 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         const data = await response.json();
         console.log("[tripStore] fetchAllTrips: Data fetched successfully.", data);
         if (Array.isArray(data)) {
-          data.forEach(trip => console.log("[tripStore] Fetched trip ID:", trip.id, "(type:", typeof trip.id, ")"));
+          data.forEach((trip: Trip) => console.log("[tripStore] Fetched trip ID:", trip.id, "(type:", typeof trip.id, ")"));
         } else if (data.trips && Array.isArray(data.trips)) {
-          data.trips.forEach((trip: any) => console.log("[tripStore] Fetched trip ID:", trip.id, "(type:", typeof trip.id, ")"));
+          data.trips.forEach((trip: Trip) => console.log("[tripStore] Fetched trip ID:", trip.id, "(type:", typeof trip.id, ")"));
         }
         set({ trips: data.trips || (Array.isArray(data) ? data : []), isLoading: false });
       } else {
@@ -133,7 +141,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
       try {
         return await response.json();
       } catch (e) {
-        return { success: true } as any;
+        return { success: true } as unknown as Trip;
       }
     }
     return null;
@@ -282,7 +290,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         }
 
         const tripPromises = Array.from(selectedTrips).map(async (tripId) => {
-            const payload: any = { date: dateString, wineryId: wineryDbId, notes: addTripNotes };
+            const payload: AddWineryToTripPayload = { date: dateString, wineryId: wineryDbId, notes: addTripNotes };
             if (tripId === 'new') {
                 if (!newTripName.trim()) throw new Error("New trip requires a name.");
                 payload.name = newTripName;

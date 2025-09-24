@@ -37,7 +37,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { useUIStore } from "@/lib/stores/uiStore";
-import { useWineryStore } from "@/lib/stores/wineryStore";
+import { useWineryStore, WineryState } from "@/lib/stores/wineryStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { shallow } from 'zustand/shallow';
@@ -102,7 +102,7 @@ function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (dat
     );
 }
 
-const winerySelector = (state: any) => ({
+const winerySelector = (state: WineryState) => ({
     toggleWishlist: state.toggleWishlist,
     toggleFavorite: state.toggleFavorite,
     saveVisit: state.saveVisit,
@@ -112,6 +112,20 @@ const winerySelector = (state: any) => ({
     isTogglingWishlist: state.isTogglingWishlist,
     isTogglingFavorite: state.isTogglingFavorite,
 });
+
+interface Friend {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface FriendRating {
+  user_id: string;
+  name: string;
+  rating: number;
+  user_review: string;
+  photos?: string[];
+}
 
 export default function WineryModal() {
   const { isWineryModalOpen, activeWineryId, closeWineryModal } = useUIStore();
@@ -242,8 +256,9 @@ export default function WineryModal() {
             toast({ description: "Visit added successfully." });
         }
         resetForm();
-    } catch (error: any) {
-        toast({ variant: "destructive", description: error.message || "An error occurred." });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "An error occurred.";
+        toast({ variant: "destructive", description: message });
     }
   };
   
@@ -252,8 +267,9 @@ export default function WineryModal() {
     try {
         await deleteVisitAction(visitId);
         toast({ description: "Visit deleted successfully." });
-    } catch (error: any) {
-        toast({ variant: "destructive", description: error.message || "Failed to delete visit." });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to delete visit.";
+        toast({ variant: "destructive", description: message });
     }
   };
 
@@ -297,8 +313,9 @@ export default function WineryModal() {
     try {
         await addWineryToTrips(activeWinery, currentTripDate, currentSelectedTrips, currentNewTripName, currentAddTripNotes);
         toast({ description: "Winery added to trip(s)." });
-    } catch (error: any) {
-        toast({ variant: 'destructive', description: error.message || "An error occurred." });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "An error occurred.";
+        toast({ variant: 'destructive', description: message });
     }
   };
 
@@ -308,8 +325,9 @@ export default function WineryModal() {
         await toggleWineryOnTrip(activeWinery, selectedTrip);
         toast({ description: `Winery updated on ${selectedTrip.name || 'trip'}.` });
         closeWineryModal();
-    } catch (error: any) {
-        toast({ variant: "destructive", description: error.message || "An error occurred while updating the trip." });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "An error occurred while updating the trip.";
+        toast({ variant: "destructive", description: message });
     }
   };
 
@@ -408,7 +426,7 @@ export default function WineryModal() {
                             <div>
                               <p className="font-semibold text-sm text-gray-700 flex items-center gap-2"><Heart className="w-4 h-4 text-red-500 fill-red-500" />Favorited by:</p>
                               <div className="flex flex-wrap gap-2 mt-2">
-                                {friendsActivity.favoritedBy.map((friend: any) => (
+                                {friendsActivity.favoritedBy.map((friend: Friend) => (
                                   <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
                                     <Avatar className="h-6 w-6">
                                       <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
@@ -424,7 +442,7 @@ export default function WineryModal() {
                             <div className={friendsActivity.favoritedBy.length > 0 ? 'mt-3' : ''}>
                               <p className="font-semibold text-sm text-gray-700 flex items-center gap-2"><Bookmark className="w-4 h-4 text-blue-500 fill-blue-500" />On wishlist for:</p>
                               <div className="flex flex-wrap gap-2 mt-2">
-                                {friendsActivity.wishlistedBy.map((friend: any) => (
+                                {friendsActivity.wishlistedBy.map((friend: Friend) => (
                                   <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
                                     <Avatar className="h-6 w-6">
                                       <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
@@ -448,7 +466,7 @@ export default function WineryModal() {
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800"><Users className="w-5 h-5" /><span>Friends' Ratings</span></h3>
                       <div className="space-y-3">
-                        {friendsRatings.map((rating: any) => (
+                        {friendsRatings.map((rating: FriendRating) => (
                           <Card key={rating.user_id} className="bg-blue-50 border-blue-200">
                             <CardContent className="p-4 space-y-2">
                               <div className="flex items-center justify-between">
@@ -463,7 +481,6 @@ export default function WineryModal() {
                               {rating.photos && rating.photos.length > 0 && (
                                 <div className="flex gap-2 mt-2">
                                   {rating.photos.map((photo: string, index: number) => {
-                                    console.log("Friend's Photo URL:", photo);
                                     return <img key={index} src={photo} alt={`Friend photo ${index + 1}`} className="w-20 h-20 rounded-md object-cover"/>
                                   })}
                                 </div>
@@ -584,7 +601,6 @@ export default function WineryModal() {
                                 {visit.photos && visit.photos.length > 0 && (
                                   <div className="flex gap-2 mt-2 flex-wrap">
                                     {visit.photos.map((photo, index) => {
-                                      console.log("Photo URL:", photo);
                                       return <img key={index} src={photo} alt={`Visit photo ${index + 1}`} className="w-24 h-24 rounded-md object-cover"/>
                                     })}
                                   </div>

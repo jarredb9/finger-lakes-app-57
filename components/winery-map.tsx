@@ -324,7 +324,7 @@ function WineryMapLogic({ userId }: WineryMapProps) {
     }
 
     const searchTerms = ["winery", "vineyard", "tasting room"];
-    const allFoundPlaces = new Map<string, any>();
+    const allFoundPlaces = new Map<string, google.maps.places.Place>();
     let hitApiLimit = false;
 
     for (const term of searchTerms) {

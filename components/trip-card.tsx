@@ -6,8 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Winery, Trip, Visit } from "@/lib/types";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { Winery, Trip, Visit, Friend } from "@/lib/types";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, TouchSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -19,15 +19,23 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { createClient } from '@/utils/supabase/client';
+import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useTripStore } from "@/lib/stores/tripStore";
 
+interface TripWinery {
+    trip_id: number;
+    winery_id: number;
+    visit_order: number;
+    notes: string;
+}
+
 function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { trip: Trip; winery: Winery; onRemove: (wineryId: number) => void; onNoteSave: (wineryId: number, notes: string) => void; userId: string; }) {
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: winery.dbId! });
     const style = { transform: CSS.Transform.toString(transform), transition };
-    const [notes, setNotes] = useState((winery as any).notes || "");
+    const [notes, setNotes] = useState(winery.notes || "");
     const [isSavingNote, setIsSavingNote] = useState(false);
     const isPastTrip = new Date(trip.trip_date + 'T00:00:00') < new Date();
     const { toast } = useToast();
@@ -60,7 +68,7 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
             {isPastTrip ? (
                 winery.visits && winery.visits.length > 0 ? (
                     <div className="pl-12 space-y-3">
-                        {winery.visits.map((visit: any) => (
+                        {winery.visits.map((visit: Visit) => (
                             <div key={visit.id} className="space-y-1">
                                 <p className="font-semibold text-xs text-gray-600">
                                     {visit.user_id === userId ? "Your Review:" : `${visit.profiles?.name || 'A friend'}'s Review:`}
@@ -96,7 +104,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
     const [tripWineries, setTripWineries] = useState<Winery[]>([]);
     const [isEditingName, setIsEditingName] = useState(false);
     const [tripName, setTripName] = useState("");
-    const [friends, setFriends] = useState<any[]>([]);
+    const [friends, setFriends] = useState<Friend[]>([]);
     const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
     const { toast } = useToast();
     
@@ -141,14 +149,12 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
         const channel = supabase.channel(`trip-updates-${trip.id}`);
         
         channel
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'trips', filter: `id=eq.${trip.id}` }, (payload: any) => {
-              console.log('Realtime update received:', payload);
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'trips', filter: `id=eq.${trip.id}` }, (payload: RealtimePostgresChangesPayload<Trip>) => {
               if (payload.new && selectedDate) {
                   fetchTripsForDate(selectedDate);
               }
           })
-          .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_wineries', filter: `trip_id=eq.${trip.id}` }, (payload: any) => {
-              console.log('Winery update received:', payload);
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_wineries', filter: `trip_id=eq.${trip.id}` }, (payload: RealtimePostgresChangesPayload<TripWinery>) => {
               if (selectedDate) fetchTripsForDate(selectedDate);
           })
           .subscribe();
@@ -175,7 +181,6 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
           await updateTrip(trip.id, { name: tripName });
           toast({ description: "Trip name updated." });
         } catch (error) {
-          console.error("Failed to save trip name", error);
           toast({ variant: "destructive", description: "Failed to save trip name." });
           useTripStore.setState(state => ({
             trips: state.trips.map(t => t.id === trip.id ? { ...t, name: originalName } : t)
@@ -196,7 +201,6 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
             await updateTrip(trip.id, { trip_date: newDateString });
             toast({ description: "Trip date updated." });
         } catch (error) {
-            console.error("Failed to save trip date", error);
             toast({ variant: "destructive", description: "Failed to save trip date." });
             if (selectedDate && new Date(selectedDate).toDateString() === originalDate.toDateString()) {
                 fetchTripsForDate(originalDate);
@@ -210,12 +214,11 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
           await removeWineryFromTrip(trip.id, wineryId);
           toast({ description: "Winery removed from trip." });
         } catch (error) {
-          console.error("Failed to remove winery", error);
           toast({ variant: "destructive", description: "Failed to remove winery." });
         }
     };
     
-    const handleDragEnd = async (event: any) => {
+    const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         if (active && over && active.id !== over.id) {
             const oldIndex = tripWineries.findIndex((item) => item.dbId === active.id);
@@ -227,7 +230,6 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
             try {
                 await updateWineryOrder(trip.id, newOrder.map(w => w.dbId!));
             } catch (error) {
-                console.error("Failed to update winery order", error);
                 toast({ variant: "destructive", description: "Failed to update winery order." });
                 setTripWineries(tripWineries);
             }
@@ -239,7 +241,6 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
             await deleteTrip(trip.id);
             toast({ description: "Trip deleted successfully." });
         } catch (error) {
-            console.error("Failed to delete trip", error);
             toast({ variant: 'destructive', description: "Failed to delete trip." });
         }
     };
@@ -248,7 +249,6 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
         try {
             await saveWineryNote(trip.id, wineryId, notes);
         } catch (error) {
-            console.error("Failed to save note", error);
             toast({ variant: "destructive", description: "Failed to save note." });
             throw error;
         }
@@ -259,12 +259,11 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
             await addMembersToTrip(trip.id, selectedFriends);
             toast({ description: "Trip members updated." });
         } catch (error) {
-            console.error("Failed to add friends to trip", error);
             toast({ variant: "destructive", description: "Failed to update trip members." });
         }
     };
 
-    const currentMembers = friends.filter((f: any) => selectedFriends.includes(f.id));
+    const currentMembers = friends.filter((f: Friend) => selectedFriends.includes(f.id));
     
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -324,7 +323,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
                               <CommandInput placeholder="Search friends..." className="h-9" />
                               <CommandEmpty>No friends found.</CommandEmpty>
                               <CommandGroup>
-                                {friends.map((friend: any) => (
+                                {friends.map((friend: Friend) => (
                                   <CommandItem
                                     key={friend.id}
                                     onSelect={() => {
@@ -397,7 +396,7 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
                         <Users size={16} className="text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">Collaborators:</span>
                         <div className="flex items-center -space-x-2">
-                             {currentMembers.map((friend: any) => (
+                             {currentMembers.map((friend: Friend) => (
                                   <div key={friend.id} className="relative z-0">
                                       <Avatar className="h-6 w-6 border-2 border-white">
                                         <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
