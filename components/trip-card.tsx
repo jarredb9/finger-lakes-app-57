@@ -98,12 +98,8 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
 }
 
 export default function TripCard({ tripId, userId }: { tripId: string; userId: string; }) {
-    console.log('[TripCard] Render', { tripId });
-
     const { trips, fetchTripsForDate, deleteTrip, updateTrip, updateWineryOrder, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
     const trip = trips.find(t => t.id == tripId);
-
-    console.log('[TripCard] State:', { trip: trip ? { id: trip.id, name: trip.name } : null });
 
     const [tripWineries, setTripWineries] = useState<Winery[]>([]);
     const [isEditingName, setIsEditingName] = useState(false);
@@ -130,7 +126,6 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
     );
 
     useEffect(() => {
-        console.log('[TripCard] useEffect setup', { trip: trip ? { id: trip.id, name: trip.name } : null });
         if (!trip) return;
 
         setTripWineries(trip.wineries || []);
@@ -149,47 +144,29 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
     }, [trip, fetchTripsForDate]);
 
     useEffect(() => {
-        console.log('[TripCard] useEffect subscription setup', { trip: trip ? { id: trip.id, name: trip.name } : null });
         if (!trip) return;
 
         const channel = supabase.channel(`trip-updates-${trip.id}`);
         
         channel
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trips', filter: `id=eq.${trip.id}` }, (payload: RealtimePostgresChangesPayload<Trip>) => {
-              console.log('[TripCard] Realtime event: trips', payload);
               if (payload.new && selectedDate) {
                   fetchTripsForDate(selectedDate);
               }
           })
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_wineries', filter: `trip_id=eq.${trip.id}` }, (payload: RealtimePostgresChangesPayload<TripWinery>) => {
-              console.log('[TripCard] Realtime event: trip_wineries', payload);
               if (selectedDate) fetchTripsForDate(selectedDate);
           })
-          .subscribe((status, err) => {
-            console.log('[TripCard] Subscription status:', status);
-            if (err) {
-              console.error('[TripCard] Subscription error:', err);
-            }
-          });
+          .subscribe();
 
         return () => {
-          console.log('[TripCard] useEffect subscription cleanup');
           supabase.removeChannel(channel);
         };
     }, [trip?.id, supabase, fetchTripsForDate, selectedDate]);
 
-    useEffect(() => {
-        return () => {
-            console.log('[TripCard] Unmounting');
-        };
-    }, []);
-
     if (!trip) {
-        console.log('[TripCard] Rendering null because no trip');
-        return null;
+        return null; // Or a loading spinner
     }
-
-    console.log('[TripCard] Rendering card');
 
     const handleSaveTripName = async () => {
         if (!trip || !tripName) return;
