@@ -20,5 +20,5 @@ export default function TripDetailClientPage({ tripId, user }: { tripId: string,
     return <Skeleton className="h-96 w-full" />;
   }
 
-  return <TripCard tripId={trip.id.toString()} userId={user.id} />;
+  {user && <TripCard trip={trip} userId={user.id} />}
 }
