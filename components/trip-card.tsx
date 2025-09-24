@@ -97,8 +97,6 @@ function SortableWineryItem({ trip, winery, onRemove, onNoteSave, userId }: { tr
     );
 }
 
-const supabase = createClient();
-
 export default function TripCard({ tripId, userId }: { tripId: string; userId: string; }) {
     const { trips, fetchTripsForDate, deleteTrip, updateTrip, updateWineryOrder, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
     const trip = trips.find(t => t.id == tripId);
@@ -111,6 +109,8 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
     const { toast } = useToast();
     
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+    
+    const supabase = createClient();
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -157,20 +157,12 @@ export default function TripCard({ tripId, userId }: { tripId: string; userId: s
           .on('postgres_changes', { event: '*', schema: 'public', table: 'trip_wineries', filter: `trip_id=eq.${trip.id}` }, (payload: RealtimePostgresChangesPayload<TripWinery>) => {
               if (selectedDate) fetchTripsForDate(selectedDate);
           })
-          .subscribe((status, err) => {
-            if (status === 'SUBSCRIBED') {
-              console.log(`Subscribed to trip updates for trip ${trip.id}`);
-            }
-            if (err) {
-              console.error('Supabase subscription error:', err);
-            }
-          });
+          .subscribe();
 
         return () => {
-          console.log(`Removing channel for trip ${trip.id}`);
           supabase.removeChannel(channel);
         };
-    }, [trip?.id, fetchTripsForDate, selectedDate]);
+    }, [trip?.id, supabase, fetchTripsForDate, selectedDate]);
 
     if (!trip) {
         return null; // Or a loading spinner
