@@ -7,9 +7,8 @@ import { useWineryStore } from './wineryStore';
 interface VisitState {
   isSavingVisit: boolean;
   saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[] }) => Promise<void>;
-  updateVisit: (visitId: string, visitData: { visit_date: string; user_review: string; rating: number; }, photos: File[]) => Promise<void>;
+  updateVisit: (visitId: string, visitData: Partial<Visit>, newPhotos: File[], photosToDelete: string[]) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
-  deletePhoto: (visitId: string, photoPath: string) => Promise<void>;
 }
 
 export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
@@ -89,36 +88,32 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
     }
   },
 
-  updateVisit: async (visitId, visitData, photos = []) => {
+  updateVisit: async (visitId, visitData, newPhotos = [], photosToDelete = []) => {
     set({ isSavingVisit: true });
     const supabase = createClient();
     const { optimisticallyUpdateVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
 
-    optimisticallyUpdateVisit(visitId, visitData);
+    // Find the original visit to get the existing photos
+    const winery = useWineryStore.getState().persistentWineries.find(w => w.visits?.some(v => v.id === visitId));
+    const originalVisit = winery?.visits?.find(v => v.id === visitId);
+    if (!originalVisit) {
+      throw new Error("Original visit not found for update.");
+    }
+
+    const existingPhotos = originalVisit.photos || [];
+
+    // 1. Optimistic update for the UI
+    const newOptimisticPhotos = existingPhotos.filter(p => !photosToDelete.includes(p));
+    optimisticallyUpdateVisit(visitId, { ...visitData, photos: newOptimisticPhotos });
 
     try {
-      const { data: updatedVisit, error: updateError } = await supabase
-        .from('visits')
-        .update({
-          visit_date: visitData.visit_date,
-          user_review: visitData.user_review,
-          rating: visitData.rating,
-        })
-        .eq('id', visitId)
-        .select()
-        .single();
-
-      if (updateError) throw updateError;
-
-      let finalVisit = updatedVisit;
-
-      if (photos.length > 0) {
+      // 2. Upload new photos
+      let newPhotoPaths: string[] = [];
+      if (newPhotos.length > 0) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("User not authenticated for photo upload.");
 
-        const existingPhotos = updatedVisit.photos || [];
-
-        const uploadPromises = photos.map(async (photoFile) => {
+        const uploadPromises = newPhotos.map(async (photoFile) => {
           const fileName = `${Date.now()}-${photoFile.name}`;
           const filePath = `${user.id}/${visitId}/${fileName}`;
           const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile);
@@ -128,24 +123,33 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
           }
           return filePath;
         });
+        newPhotoPaths = (await Promise.all(uploadPromises)).filter((p): p is string => p !== null);
+      }
 
-        const newPhotoPaths = (await Promise.all(uploadPromises)).filter((p): p is string => p !== null);
+      // 3. Combine photo arrays for the final database update
+      const finalPhotoPaths = [...newOptimisticPhotos, ...newPhotoPaths];
 
-        if (newPhotoPaths.length > 0) {
-          const allPhotoPaths = [...existingPhotos, ...newPhotoPaths];
-          const { data: visitWithPhotos, error: photoUpdateError } = await supabase
-            .from('visits')
-            .update({ photos: allPhotoPaths })
-            .eq('id', visitId)
-            .select()
-            .single();
-          
-          if (photoUpdateError) throw photoUpdateError;
-          finalVisit = visitWithPhotos;
+      // 4. Update the visit in the database
+      const { data: updatedVisit, error: updateError } = await supabase
+        .from('visits')
+        .update({ ...visitData, photos: finalPhotoPaths })
+        .eq('id', visitId)
+        .select()
+        .single();
+
+      if (updateError) throw updateError;
+
+      // 5. Delete photos from storage if there are any to delete
+      if (photosToDelete.length > 0) {
+        const { error: storageError } = await supabase.storage.from('visit-photos').remove(photosToDelete);
+        if (storageError) {
+          // Log the error but don't throw, as the main visit update succeeded
+          console.error("Error deleting photos from storage:", storageError);
         }
       }
 
-      confirmOptimisticUpdate(finalVisit);
+      // 6. Confirm the final state in the store
+      confirmOptimisticUpdate(updatedVisit);
 
     } catch (error) {
       console.error("Failed to update visit, reverting:", error);
@@ -170,49 +174,6 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
         confirmOptimisticUpdate();
     } catch (error) {
         console.error("Failed to delete visit, reverting:", error);
-        revertOptimisticUpdate();
-        throw error;
-    }
-  },
-
-  deletePhoto: async (visitId, photoPath) => {
-    const supabase = createClient();
-    const { optimisticallyUpdateVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
-
-    const winery = useWineryStore.getState().persistentWineries.find(w => w.visits?.some(v => v.id === visitId));
-    const visit = winery?.visits?.find(v => v.id === visitId);
-
-    if (!visit) {
-        throw new Error("Visit not found for photo deletion.");
-    }
-
-    const oldPhotos = visit.photos || [];
-    const newPhotos = oldPhotos.filter(p => p !== photoPath);
-
-    optimisticallyUpdateVisit(visitId, { photos: newPhotos });
-
-    try {
-        const { error: storageError } = await supabase.storage.from('visit-photos').remove([photoPath]);
-        if (storageError) {
-            console.error("Storage deletion error:", storageError);
-            throw new Error("Failed to delete photo from storage.");
-        }
-
-        const { data: updatedVisit, error: dbError } = await supabase
-            .from('visits')
-            .update({ photos: newPhotos })
-            .eq('id', visitId)
-            .select()
-            .single();
-
-        if (dbError) {
-            throw dbError;
-        }
-
-        confirmOptimisticUpdate(updatedVisit);
-
-    } catch (error) {
-        console.error("Failed to delete photo, reverting:", error);
         revertOptimisticUpdate();
         throw error;
     }

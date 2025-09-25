@@ -159,6 +159,7 @@ export default function WineryModal() {
   const [rating, setRating] = useState(0);
   const [photos, setPhotos] = useState<File[]>([]);
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+  const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
 
   const editFormRef = useRef<HTMLDivElement>(null);
 
@@ -232,6 +233,7 @@ export default function WineryModal() {
     setRating(0);
     setPhotos([]);
     setEditingVisitId(null);
+    setPhotosToDelete([]);
   };
 
   const handleEditClick = (visit: Visit) => {
@@ -241,6 +243,7 @@ export default function WineryModal() {
     setUserReview(visit.user_review || "");
     setRating(visit.rating || 0);
     setPhotos([]); // Clear photo uploads when editing
+    setPhotosToDelete([]); // Also clear photos marked for deletion
 
     setTimeout(() => {
         editFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -255,7 +258,7 @@ export default function WineryModal() {
 
     try {
         if (editingVisitId) {
-            await updateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating }, photos);
+            await updateVisit(editingVisitId, { visit_date: visitDate, user_review: userReview, rating }, photos, photosToDelete);
             toast({ description: "Visit updated successfully." });
         } else {
             await saveVisit(activeWinery!, { visit_date: visitDate, user_review: userReview, rating, photos });
@@ -348,15 +351,12 @@ export default function WineryModal() {
     setPhotos(prevPhotos => prevPhotos.filter((_, i) => i !== index));
   };
 
-  const handleDeleteExistingPhoto = async (visitId: string, photoPath: string) => {
-    if (!deletePhotoAction) return;
-    try {
-        await deletePhotoAction(visitId, photoPath);
-        toast({ description: "Photo deleted successfully." });
-    } catch (error) {
-        const message = error instanceof Error ? error.message : "Failed to delete photo.";
-        toast({ variant: "destructive", description: message });
-    }
+  const togglePhotoForDeletion = (photoPath: string) => {
+    setPhotosToDelete(prev => 
+      prev.includes(photoPath) 
+        ? prev.filter(p => p !== photoPath) 
+        : [...prev, photoPath]
+    );
   };
 
   const visits = activeWinery.visits || [];
@@ -675,8 +675,9 @@ export default function WineryModal() {
                                 key={index} 
                                 photoPath={photoPath} 
                                 visitId={editingVisitId} 
-                                onDelete={handleDeleteExistingPhoto} 
+                                onDelete={() => togglePhotoForDeletion(photoPath)} 
                                 isEditing={true}
+                                isMarkedForDeletion={photosToDelete.includes(photoPath)}
                             />
                           ))}
                         </div>
