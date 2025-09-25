@@ -362,6 +362,8 @@ export default function WineryModal() {
   const visits = activeWinery.visits || [];
   const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
   
+  const visitBeingEdited = editingVisitId ? sortedVisits.find(v => v.id === editingVisitId) : null;
+
   const isOnActiveTrip = selectedTrip?.wineries.some(w => w.dbId === activeWinery.dbId) || false;
 
   return (
@@ -615,7 +617,7 @@ export default function WineryModal() {
                                   </div>
                                 </div>
                                 {visit.user_review && <p className="text-sm text-slate-700 bg-white p-3 rounded-md border">{visit.user_review}</p>}
-                                {visit.photos && visit.photos.length > 0 && (
+                                {visit.photos && visit.photos.length > 0 && editingVisitId !== visit.id && (
                                   <div className="flex gap-2 mt-2 flex-wrap">
                                     {visit.photos.map((photoPath, index) => (
                                         <PhotoCard 
@@ -623,7 +625,7 @@ export default function WineryModal() {
                                             photoPath={photoPath} 
                                             visitId={visit.id!} 
                                             onDelete={handleDeleteExistingPhoto} 
-                                            isEditing={editingVisitId === visit.id}
+                                            isEditing={false}
                                         />
                                     ))}
                                   </div>
@@ -665,7 +667,20 @@ export default function WineryModal() {
                       <Textarea id="userReview" placeholder="e.g., 'Loved the dry Riesling! Beautiful view from the patio.'" value={userReview} onChange={(e) => setUserReview(e.target.value)} rows={4} aria-label="Your Review" />
                     </div>
                     <div className="space-y-2">
-                      <Label>Photos (Optional)</Label>
+                      <Label>Photos</Label>
+                      {editingVisitId && visitBeingEdited?.photos && visitBeingEdited.photos.length > 0 && (
+                        <div className="flex gap-2 mb-2 flex-wrap">
+                          {visitBeingEdited.photos.map((photoPath, index) => (
+                            <PhotoCard 
+                                key={index} 
+                                photoPath={photoPath} 
+                                visitId={editingVisitId} 
+                                onDelete={handleDeleteExistingPhoto} 
+                                isEditing={true}
+                            />
+                          ))}
+                        </div>
+                      )}
                       {photos.length > 0 && (
                         <div className="flex gap-2 mb-2 flex-wrap">
                           {photos.map((file, index) => (
