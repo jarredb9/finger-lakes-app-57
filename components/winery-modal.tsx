@@ -1,5 +1,6 @@
+
 // components/winery-modal.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Separator } from "./ui/separator";
 import Link from "next/link";
@@ -79,7 +80,6 @@ export default function WineryModal() {
     );
   };
 
-  const visits = activeWinery.visits || [];
   const editingVisit = editingVisitId ? visits.find((v) => v.id === editingVisitId) : null;
 
   return (
@@ -121,7 +121,7 @@ export default function WineryModal() {
 
             <Separator className="my-4" />
 
-            <div className="space-y-4">
+            <div className="space-y-4" ref={visitHistoryRef}>
               <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
                 <CalendarIcon className="w-5 h-5" />
                 <span>Your Visits</span>
