@@ -76,6 +76,7 @@ export default function WineryModal() {
 
   const handleCancelEdit = () => {
     setEditingVisitId(null);
+    visitHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const togglePhotoForDeletion = (photoPath: string) => {
