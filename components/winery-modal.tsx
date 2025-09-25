@@ -33,6 +33,7 @@ export default function WineryModal() {
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
   const visitHistoryRef = useRef<HTMLDivElement>(null);
+  const visitFormRef = useRef<HTMLDivElement>(null);
 
   const visits = activeWinery?.visits || [];
   const prevVisitsLength = useRef(visits.length);
@@ -53,8 +54,6 @@ export default function WineryModal() {
   if (!isWineryModalOpen || !activeWinery) {
     return null;
   }
-
-  const visitFormRef = useRef<HTMLDivElement>(null);
 
   const handleEditClick = (visit: Visit) => {
     if (!visit.id) return;
@@ -138,7 +137,7 @@ export default function WineryModal() {
               )}
             </div>
           </div>
-          <VisitForm winery={activeWinery} editingVisit={editingVisit || null} onCancelEdit={handleCancelEdit} />
+          <VisitForm ref={visitFormRef} winery={activeWinery} editingVisit={editingVisit || null} onCancelEdit={handleCancelEdit} />
         </div>
       </DialogContent>
     </Dialog>
