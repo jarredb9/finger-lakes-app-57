@@ -16,6 +16,8 @@ export default function PhotoCard({ photoPath, visitId, onDelete }: PhotoCardPro
   const [isDeleting, setIsDeleting] = useState(false);
   const supabase = createClient();
 
+  console.log('[PhotoCard] Received photoPath:', photoPath);
+
   useEffect(() => {
     const getSignedUrl = async () => {
       setIsLoading(true);
