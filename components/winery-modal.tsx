@@ -31,12 +31,23 @@ export default function WineryModal() {
 
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
+  const visitHistoryRef = useRef<HTMLDivElement>(null);
+
+  const visits = activeWinery?.visits || [];
+  const prevVisitsLength = useRef(visits.length);
 
   useEffect(() => {
     if (isWineryModalOpen) {
       setEditingVisitId(null);
     }
   }, [isWineryModalOpen]);
+
+  useEffect(() => {
+    if (visits.length > prevVisitsLength.current) {
+      visitHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+    prevVisitsLength.current = visits.length;
+  }, [visits.length]);
 
   if (!isWineryModalOpen || !activeWinery) {
     return null;

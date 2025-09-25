@@ -27,6 +27,14 @@ export default function VisitForm({ winery, editingVisit, onCancelEdit }: VisitF
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
   const editFormRef = useRef<HTMLDivElement>(null);
 
+  const resetForm = () => {
+    setVisitDate(new Date().toISOString().split("T")[0]);
+    setUserReview("");
+    setRating(0);
+    setPhotos([]);
+    setPhotosToDelete([]);
+  };
+
   useEffect(() => {
     if (editingVisit) {
       setVisitDate(new Date(editingVisit.visit_date + "T00:00:00").toISOString().split("T")[0]);
@@ -38,11 +46,7 @@ export default function VisitForm({ winery, editingVisit, onCancelEdit }: VisitF
         editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }, 100);
     } else {
-      setVisitDate(new Date().toISOString().split("T")[0]);
-      setUserReview("");
-      setRating(0);
-      setPhotos([]);
-      setPhotosToDelete([]);
+      resetForm();
     }
   }, [editingVisit]);
 
@@ -62,11 +66,12 @@ export default function VisitForm({ winery, editingVisit, onCancelEdit }: VisitF
       if (editingVisit) {
         await updateVisit(editingVisit.id!, { visit_date: visitDate, user_review: userReview, rating }, photos, photosToDelete);
         toast({ description: "Visit updated successfully." });
+        onCancelEdit();
       } else {
         await saveVisit(winery, { visit_date: visitDate, user_review: userReview, rating, photos });
         toast({ description: "Visit added successfully." });
+        resetForm();
       }
-      onCancelEdit();
     } catch (error) {
       const message = error instanceof Error ? error.message : "An error occurred.";
       toast({ variant: "destructive", description: message });
