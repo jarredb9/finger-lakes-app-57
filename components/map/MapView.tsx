@@ -1,6 +1,6 @@
 "use client";
 import React, { memo } from "react";
-import { GoogleMap } from "@vis.gl/react-google-maps";
+import { Map } from "@vis.gl/react-google-maps";
 import { Winery, Trip } from "@/lib/types";
 import TripWineryClusterer from "../trip-winery-clusterer";
 import DiscoveredClusterer from "../discovered-clusterer";
@@ -30,7 +30,7 @@ const MapView = memo(
   }: MapViewProps) => {
     return (
       <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
-        <GoogleMap
+        <Map
           defaultCenter={{ lat: 40, lng: -98 }}
           defaultZoom={4}
           gestureHandling={"greedy"}
@@ -76,7 +76,7 @@ const MapView = memo(
               )}
             </>
           )}
-        </GoogleMap>
+        </Map>
       </div>
     );
   }
