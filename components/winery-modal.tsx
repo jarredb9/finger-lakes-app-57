@@ -137,13 +137,11 @@ export default function WineryModal() {
     saveVisit,
     updateVisit,
     deleteVisit: deleteVisitAction,
-    deletePhoto: deletePhotoAction,
     isSavingVisit,
   } = useVisitStore(state => ({
     saveVisit: state.saveVisit,
     updateVisit: state.updateVisit,
     deleteVisit: state.deleteVisit,
-    deletePhoto: state.deletePhoto,
     isSavingVisit: state.isSavingVisit,
   }), shallow);
 
@@ -624,7 +622,7 @@ export default function WineryModal() {
                                             key={index} 
                                             photoPath={photoPath} 
                                             visitId={visit.id!} 
-                                            onDelete={handleDeleteExistingPhoto} 
+                                            onDelete={() => togglePhotoForDeletion(photoPath)} 
                                             isEditing={false}
                                         />
                                     ))}
