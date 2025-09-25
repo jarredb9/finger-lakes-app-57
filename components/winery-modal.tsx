@@ -42,6 +42,7 @@ import { useVisitStore } from "@/lib/stores/visitStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { shallow } from 'zustand/shallow';
+import PhotoCard from './photo-card';
 
 // New Responsive Date Picker Component
 function DatePicker({ date, onSelect }: { date: Date | undefined, onSelect: (date: Date | undefined) => void }) {
@@ -136,11 +137,13 @@ export default function WineryModal() {
     saveVisit,
     updateVisit,
     deleteVisit: deleteVisitAction,
+    deletePhoto: deletePhotoAction,
     isSavingVisit,
   } = useVisitStore(state => ({
     saveVisit: state.saveVisit,
     updateVisit: state.updateVisit,
     deleteVisit: state.deleteVisit,
+    deletePhoto: state.deletePhoto,
     isSavingVisit: state.isSavingVisit,
   }), shallow);
 
