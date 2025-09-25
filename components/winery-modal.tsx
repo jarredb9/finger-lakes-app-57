@@ -623,6 +623,7 @@ export default function WineryModal() {
                                             photoPath={photoPath} 
                                             visitId={visit.id!} 
                                             onDelete={handleDeleteExistingPhoto} 
+                                            isEditing={editingVisitId === visit.id}
                                         />
                                     ))}
                                   </div>

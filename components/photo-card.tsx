@@ -8,15 +8,14 @@ interface PhotoCardProps {
   photoPath: string;
   visitId: string;
   onDelete: (visitId: string, photoPath: string) => void;
+  isEditing: boolean;
 }
 
-export default function PhotoCard({ photoPath, visitId, onDelete }: PhotoCardProps) {
+export default function PhotoCard({ photoPath, visitId, onDelete, isEditing }: PhotoCardProps) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const supabase = createClient();
-
-  console.log('[PhotoCard] Received photoPath:', photoPath);
 
   useEffect(() => {
     const getSignedUrl = async () => {
@@ -60,15 +59,17 @@ export default function PhotoCard({ photoPath, visitId, onDelete }: PhotoCardPro
           Photo unavailable
         </div>
       )}
-      <Button
-        variant="destructive"
-        size="icon"
-        className="absolute top-1 right-1 h-6 w-6 z-10"
-        onClick={handleDelete}
-        disabled={isDeleting}
-      >
-        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
-      </Button>
+      {isEditing && (
+        <Button
+          variant="destructive"
+          size="icon"
+          className="absolute top-1 right-1 h-6 w-6 z-10"
+          onClick={handleDelete}
+          disabled={isDeleting}
+        >
+          {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <X className="h-4 w-4" />}
+        </Button>
+      )}
     </div>
   );
 }
