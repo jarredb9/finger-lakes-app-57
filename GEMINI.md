@@ -10,4 +10,4 @@
 - Error handling
 - Edge cases
 - Performance optimization
-- Best practices for React, Next.js, supabase, Google Maps API, and general web application development 
+- Best practices for React, Next.js, Zustand Stores, Supabase, Google Maps API, and general web application development 
