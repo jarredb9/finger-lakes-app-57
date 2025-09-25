@@ -54,9 +54,14 @@ export default function WineryModal() {
     return null;
   }
 
+  const visitFormRef = useRef<HTMLDivElement>(null);
+
   const handleEditClick = (visit: Visit) => {
     if (!visit.id) return;
     setEditingVisitId(visit.id);
+    setTimeout(() => {
+      visitFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
   };
 
   const handleDeleteVisit = async (visitId: string) => {

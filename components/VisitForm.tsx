@@ -1,6 +1,5 @@
 
-// components/VisitForm.tsx
-import { useState, useRef, ChangeEvent, useEffect } from "react";
+import { useState, useRef, ChangeEvent, useEffect, forwardRef } from "react";
 import { Visit, Winery } from "@/lib/types";
 import { useVisitStore } from "@/lib/stores/visitStore";
 import { useToast } from "@/hooks/use-toast";
@@ -17,7 +16,7 @@ interface VisitFormProps {
   onCancelEdit: () => void;
 }
 
-export default function VisitForm({ winery, editingVisit, onCancelEdit }: VisitFormProps) {
+const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingVisit, onCancelEdit }, ref) => {
   const { toast } = useToast();
   const { saveVisit, updateVisit, isSavingVisit } = useVisitStore();
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
@@ -25,7 +24,6 @@ export default function VisitForm({ winery, editingVisit, onCancelEdit }: VisitF
   const [rating, setRating] = useState(0);
   const [photos, setPhotos] = useState<File[]>([]);
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
-  const editFormRef = useRef<HTMLDivElement>(null);
 
   const resetForm = () => {
     setVisitDate(new Date().toISOString().split("T")[0]);
@@ -42,9 +40,6 @@ export default function VisitForm({ winery, editingVisit, onCancelEdit }: VisitF
       setRating(editingVisit.rating || 0);
       setPhotos([]);
       setPhotosToDelete([]);
-      setTimeout(() => {
-        editFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-      }, 100);
     } else {
       resetForm();
     }
@@ -79,7 +74,7 @@ export default function VisitForm({ winery, editingVisit, onCancelEdit }: VisitF
   };
 
   return (
-    <div ref={editFormRef} className="bg-gray-50 p-6 border-t scroll-mt-4">
+    <div ref={ref} className="bg-gray-50 p-6 border-t scroll-mt-4">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
           {editingVisit ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
@@ -123,4 +118,8 @@ export default function VisitForm({ winery, editingVisit, onCancelEdit }: VisitF
       </div>
     </div>
   );
-}
+});
+
+VisitForm.displayName = "VisitForm";
+
+export default VisitForm;
