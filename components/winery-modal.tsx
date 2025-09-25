@@ -345,6 +345,17 @@ export default function WineryModal() {
     setPhotos(prevPhotos => prevPhotos.filter((_, i) => i !== index));
   };
 
+  const handleDeleteExistingPhoto = async (visitId: string, photoPath: string) => {
+    if (!deletePhotoAction) return;
+    try {
+        await deletePhotoAction(visitId, photoPath);
+        toast({ description: "Photo deleted successfully." });
+    } catch (error) {
+        const message = error instanceof Error ? error.message : "Failed to delete photo.";
+        toast({ variant: "destructive", description: message });
+    }
+  };
+
   const visits = activeWinery.visits || [];
   const sortedVisits = visits.slice().sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
   
@@ -603,9 +614,14 @@ export default function WineryModal() {
                                 {visit.user_review && <p className="text-sm text-slate-700 bg-white p-3 rounded-md border">{visit.user_review}</p>}
                                 {visit.photos && visit.photos.length > 0 && (
                                   <div className="flex gap-2 mt-2 flex-wrap">
-                                    {visit.photos.map((photo, index) => {
-                                      return <img key={index} src={photo} alt={`Visit photo ${index + 1}`} className="w-24 h-24 rounded-md object-cover"/>
-                                    })}
+                                    {visit.photos.map((photoPath, index) => (
+                                        <PhotoCard 
+                                            key={index} 
+                                            photoPath={photoPath} 
+                                            visitId={visit.id!} 
+                                            onDelete={handleDeleteExistingPhoto} 
+                                        />
+                                    ))}
                                   </div>
                                 )}
                               </CardContent>

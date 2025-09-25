@@ -32,7 +32,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
         user_id: user.id,
         visit_date: visitData.visit_date,
         user_review: visitData.user_review,
-        rating: visitData.rating
+        rating: visitData.rating,
+        photos: [], // Start with empty photos array
       };
       const { data: visit, error: visitError } = await supabase
         .from('visits')
@@ -42,7 +43,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
 
       if (visitError) throw visitError;
 
-      let photoUrlsForState: string[] = [];
+      let photoPathsForDb: string[] = [];
 
       if (visitData.photos.length > 0) {
         const uploadPromises = visitData.photos.map(async (photoFile) => {
@@ -60,32 +61,29 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
           return filePath;
         });
 
-        const photoPathsForDb = (await Promise.all(uploadPromises)).filter((path): path is string => path !== null);
-        console.log('[visitStore] Uploaded photo paths:', photoPathsForDb);
+        photoPathsForDb = (await Promise.all(uploadPromises)).filter((path): path is string => path !== null);
 
         if (photoPathsForDb.length > 0) {
-          const { error: updateError } = await supabase
+          const { data: updatedVisitWithPhotos, error: updateError } = await supabase
             .from('visits')
             .update({ photos: photoPathsForDb })
-            .eq('id', visit.id);
+            .eq('id', visit.id)
+            .select()
+            .single();
 
-          if (updateError) console.error('Error updating visit with photo paths:', updateError);
+          if (updateError) {
+            console.error('Error updating visit with photo paths:', updateError);
+            // Even if update fails, proceed with the visit object we have
+          } else {
+             const newVisit: Visit = { ...updatedVisitWithPhotos };
+             addVisitToWinery(winery.id, newVisit);
+             return;
+          }
         }
-
-        const signedUrlPromises = photoPathsForDb.map(path =>
-            supabase.storage.from('visit-photos').createSignedUrl(path, 300)
-        );
-        const signedUrlResults = await Promise.all(signedUrlPromises);
-        console.log('[visitStore] Signed URL results:', signedUrlResults);
-
-        photoUrlsForState = signedUrlResults
-            .map(result => result.data?.signedUrl)
-            .filter((url): url is string => !!url);
-        
-        console.log('[visitStore] Final photo URLs for state:', photoUrlsForState);
       }
-
-      const newVisit: Visit = { ...visit, photos: photoUrlsForState };
+      
+      // If no photos or if photo update failed, add the initial visit
+      const newVisit: Visit = { ...visit };
       addVisitToWinery(winery.id, newVisit);
 
     } catch (error) {
@@ -96,16 +94,14 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
     }
   },
 
-  updateVisit: async (visitId, visitData, photos) => {
+  updateVisit: async (visitId, visitData, photos = []) => {
     set({ isSavingVisit: true });
     const supabase = createClient();
     const { optimisticallyUpdateVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
 
-    // Optimistically update text fields
     optimisticallyUpdateVisit(visitId, visitData);
 
     try {
-      // Update text fields in Supabase
       const { data: updatedVisit, error: updateError } = await supabase
         .from('visits')
         .update({
@@ -120,9 +116,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
       if (updateError) throw updateError;
 
       let finalVisit = updatedVisit;
-      let photoUrlsForState: string[] = [];
 
-      // Handle photo uploads if they exist
       if (photos.length > 0) {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("User not authenticated for photo upload.");
@@ -156,17 +150,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
         }
       }
 
-      // Create signed URLs for ALL photos for UI update
-      if (finalVisit.photos && finalVisit.photos.length > 0) {
-        const signedUrlPromises = finalVisit.photos.map(path =>
-          supabase.storage.from('visit-photos').createSignedUrl(path, 300)
-        );
-        const signedUrlResults = await Promise.all(signedUrlPromises);
-        photoUrlsForState = signedUrlResults.map(res => res.data?.signedUrl).filter((url): url is string => !!url);
-      }
-
-      // Confirm the optimistic update with the final state from server
-      confirmOptimisticUpdate({ ...finalVisit, photos: photoUrlsForState });
+      confirmOptimisticUpdate(finalVisit);
 
     } catch (error) {
       console.error("Failed to update visit, reverting:", error);
@@ -193,6 +177,54 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
         console.error("Failed to delete visit, reverting:", error);
         revertOptimisticUpdate();
         throw error;
+    }
+  },
+
+  deletePhoto: async (visitId, photoPath) => {
+    const supabase = createClient();
+    const { optimisticallyUpdateVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
+
+    // Find the current visit to get the current photos array
+    const { wineries } = useWineryStore.getState().persistentWineries;
+    const visit = wineries.flatMap(w => w.visits || []).find(v => v.id === visitId);
+    if (!visit) {
+        throw new Error("Visit not found for photo deletion.");
+    }
+
+    const oldPhotos = visit.photos || [];
+    const newPhotos = oldPhotos.filter(p => p !== photoPath);
+
+    // Optimistically update the UI
+    optimisticallyUpdateVisit(visitId, { photos: newPhotos });
+
+    try {
+        // 1. Remove from storage
+        const { error: storageError } = await supabase.storage.from('visit-photos').remove([photoPath]);
+        if (storageError) {
+            console.error("Storage deletion error:", storageError);
+            throw new Error("Failed to delete photo from storage.");
+        }
+
+        // 2. Update the database
+        const { data: updatedVisit, error: dbError } = await supabase
+            .from('visits')
+            .update({ photos: newPhotos })
+            .eq('id', visitId)
+            .select()
+            .single();
+
+        if (dbError) {
+            throw dbError;
+        }
+
+        // 3. Confirm the update in the store
+        confirmOptimisticUpdate(updatedVisit);
+
+    } catch (error) {
+        console.error("Failed to delete photo, reverting:", error);
+        // Revert UI to previous state
+        revertOptimisticUpdate();
+        throw error; // Re-throw to be caught in the component
     }
   },
 }), shallow);
