@@ -1,3 +1,4 @@
+"use client";
 // components/friends-manager.tsx
 import { useState, useEffect } from "react";
 import { useFriendStore } from "@/lib/stores/friendStore";
