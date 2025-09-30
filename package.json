@@ -16,6 +16,7 @@
     "@dnd-kit/core": "^6.1.0",
     "@dnd-kit/sortable": "^8.0.0",
     "@dnd-kit/utilities": "^3.2.2",
+    "@googlemaps/markerclusterer": "^2.0.15",
     "@hookform/resolvers": "^3.9.1",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
@@ -48,7 +49,6 @@
     "@supabase/supabase-js": "latest",
     "@tanstack/react-table": "^8.19.2",
     "@vis.gl/react-google-maps": "^1.1.0",
-    "@googlemaps/markerclusterer": "^2.0.15",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
@@ -73,16 +73,22 @@
     "zustand": "^4.5.2"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@types/google.maps": "^3.55.11",
+    "@types/jest": "^30.0.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "@types/google.maps": "^3.55.11",
     "autoprefixer": "^10.4.19",
+    "husky": "^9.0.11",
+    "jest": "^30.1.3",
+    "jest-environment-jsdom": "^30.1.2",
+    "lint-staged": "^15.2.5",
     "postcss": "^8.4.38",
     "tailwindcss": "^3.4.17",
-    "typescript": "^5",
-    "husky": "^9.0.11",
-    "lint-staged": "^15.2.5"
+    "ts-jest": "^29.4.4",
+    "typescript": "^5"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
