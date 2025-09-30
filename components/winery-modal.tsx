@@ -1,4 +1,3 @@
-
 // components/winery-modal.tsx
 import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -55,6 +54,14 @@ export default function WineryModal() {
     return null;
   }
 
+  const handleTogglePhotoForDeletion = (photoPath: string) => {
+    setPhotosToDelete(prev => 
+      prev.includes(photoPath) 
+        ? prev.filter(p => p !== photoPath)
+        : [...prev, photoPath]
+    );
+  };
+
   const handleEditClick = (visit: Visit) => {
     if (!visit.id) return;
     setEditingVisitId(visit.id);
@@ -77,12 +84,6 @@ export default function WineryModal() {
   const handleCancelEdit = () => {
     setEditingVisitId(null);
     visitHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const togglePhotoForDeletion = (photoPath: string) => {
-    setPhotosToDelete((prev) =>
-      prev.includes(photoPath) ? prev.filter((p) => p !== photoPath) : [...prev, photoPath]
-    );
   };
 
   const editingVisit = editingVisitId ? visits.find((v) => v.id === editingVisitId) : null;
@@ -132,13 +133,21 @@ export default function WineryModal() {
                 <span>Your Visits</span>
               </h3>
               {visits.length > 0 ? (
-                <VisitHistory visits={visits} editingVisitId={editingVisitId} onEditClick={handleEditClick} onDeleteVisit={handleDeleteVisit} onTogglePhotoForDeletion={togglePhotoForDeletion} />
+                <VisitHistory visits={visits} editingVisitId={editingVisitId} onEditClick={handleEditClick} onDeleteVisit={handleDeleteVisit} onTogglePhotoForDeletion={handleTogglePhotoForDeletion} />
               ) : (
                 <p className="text-sm text-muted-foreground">{activeWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
               )}
             </div>
           </div>
-          <VisitForm ref={visitFormRef} winery={activeWinery} editingVisit={editingVisit || null} onCancelEdit={handleCancelEdit} />
+          <VisitForm 
+            ref={visitFormRef} 
+            winery={activeWinery} 
+            editingVisit={editingVisit || null} 
+            onCancelEdit={handleCancelEdit} 
+            photosToDelete={photosToDelete} 
+            togglePhotoForDeletion={handleTogglePhotoForDeletion}
+            setPhotosToDelete={setPhotosToDelete}
+          />
         </div>
       </DialogContent>
     </Dialog>

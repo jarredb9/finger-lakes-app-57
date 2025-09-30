@@ -1,17 +1,9 @@
-
 // components/FriendRatings.tsx
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star, Users } from "lucide-react";
 import { Separator } from "./ui/separator";
-
-interface FriendRating {
-  user_id: string;
-  name: string;
-  rating: number;
-  user_review: string;
-  photos?: string[];
-}
+import { FriendRating } from "@/lib/types";
 
 export default function FriendRatings() {
   const { friendsRatings } = useFriendStore();
@@ -25,7 +17,7 @@ export default function FriendRatings() {
       <div className="space-y-4">
         <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
           <Users className="w-5 h-5" />
-          <span>Friends' Ratings</span>
+          <span>{"Friends' Ratings"}</span>
         </h3>
         <div className="space-y-3">
           {friendsRatings.map((rating: FriendRating) => (

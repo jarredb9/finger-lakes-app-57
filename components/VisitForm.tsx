@@ -1,5 +1,4 @@
-
-import { useState, useRef, ChangeEvent, useEffect, forwardRef } from "react";
+import { useState, useEffect, forwardRef } from "react";
 import { Visit, Winery } from "@/lib/types";
 import { useVisitStore } from "@/lib/stores/visitStore";
 import { useToast } from "@/hooks/use-toast";
@@ -14,16 +13,18 @@ interface VisitFormProps {
   winery: Winery;
   editingVisit: Visit | null;
   onCancelEdit: () => void;
+  photosToDelete: string[];
+  togglePhotoForDeletion: (photoPath: string) => void;
+  setPhotosToDelete: (photos: string[]) => void;
 }
 
-const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingVisit, onCancelEdit }, ref) => {
+const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingVisit, onCancelEdit, photosToDelete, togglePhotoForDeletion, setPhotosToDelete }, ref) => {
   const { toast } = useToast();
   const { saveVisit, updateVisit, isSavingVisit } = useVisitStore();
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(0);
   const [photos, setPhotos] = useState<File[]>([]);
-  const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
 
   const resetForm = () => {
     setVisitDate(new Date().toISOString().split("T")[0]);
@@ -43,13 +44,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
     } else {
       resetForm();
     }
-  }, [editingVisit]);
-
-  const togglePhotoForDeletion = (photoPath: string) => {
-    setPhotosToDelete((prev) =>
-      prev.includes(photoPath) ? prev.filter((p) => p !== photoPath) : [...prev, photoPath]
-    );
-  };
+  }, [editingVisit, setPhotosToDelete]);
 
   const handleSave = async () => {
     if (!visitDate.trim()) {

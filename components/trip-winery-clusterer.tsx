@@ -22,7 +22,7 @@ export default function TripWineryClusterer({ wineries, onClick }: TripWineryClu
       clusterer.current = new MarkerClusterer({ 
         map,
         renderer: {
-          render: ({ count, position, markers }) => {
+          render: ({ count, position }) => {
             // A custom pin for a cluster of trip wineries
             // ** FIX: Updated color to the requested orange hex code. **
             const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">

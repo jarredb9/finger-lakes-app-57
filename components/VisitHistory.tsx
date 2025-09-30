@@ -1,4 +1,3 @@
-
 // components/VisitHistory.tsx
 import { Visit } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -48,7 +47,7 @@ export default function VisitHistory({ visits, editingVisitId, onEditClick, onDe
             {visit.photos && visit.photos.length > 0 && editingVisitId !== visit.id && (
               <div className="flex gap-2 mt-2 flex-wrap">
                 {visit.photos.map((photoPath, index) => (
-                  <PhotoCard key={index} photoPath={photoPath} visitId={visit.id!} onDelete={() => onTogglePhotoForDeletion(photoPath)} isEditing={false} />
+                  <PhotoCard key={index} photoPath={photoPath} onDelete={() => onTogglePhotoForDeletion(photoPath)} isEditing={false} isMarkedForDeletion={false} />
                 ))}
               </div>
             )}

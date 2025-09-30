@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { createClient } from '@/utils/supabase/client';
 import { Button } from './ui/button';
@@ -6,13 +5,12 @@ import { X, Loader2, Undo2 } from 'lucide-react';
 
 interface PhotoCardProps {
   photoPath: string;
-  visitId: string;
   onDelete: (photoPath: string) => void;
   isEditing: boolean;
   isMarkedForDeletion: boolean;
 }
 
-export default function PhotoCard({ photoPath, visitId, onDelete, isEditing, isMarkedForDeletion }: PhotoCardProps) {
+export default function PhotoCard({ photoPath, onDelete, isEditing, isMarkedForDeletion }: PhotoCardProps) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();

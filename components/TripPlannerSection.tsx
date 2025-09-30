@@ -1,7 +1,6 @@
-
 // components/TripPlannerSection.tsx
 import { useState, useEffect } from "react";
-import { Winery, Trip } from "@/lib/types";
+import { Winery } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";

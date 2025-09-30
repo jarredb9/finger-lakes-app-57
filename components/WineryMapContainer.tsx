@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useWineryMap } from "@/hooks/use-winery-map";
 import MapView from "./map/MapView";
 import MapControls from "./map/MapControls";
@@ -39,7 +39,6 @@ interface WineryMapProps {
 
 function WineryMapContainer({ userId }: WineryMapProps) {
   const {
-    loading,
     error,
     mapWineries,
     listResultsInView,
@@ -58,14 +57,6 @@ function WineryMapContainer({ userId }: WineryMapProps) {
     setProposedWinery,
     selectedTrip,
   } = useWineryMap(userId);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-[600px]">
-        <Loader2 className="h-12 w-12 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   if (error) {
     return (

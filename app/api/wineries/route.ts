@@ -51,8 +51,7 @@ export async function GET(request: NextRequest) {
                 rating: r.rating,
                 user_review: r.user_review,
                 user_id: r.user_id,
-                name: r.profiles?.name || 'A friend'
-            }));
+                                    name: r.profiles?.[0]?.name || 'A friend'            }));
 
             return NextResponse.json(formattedRatings);
         } catch (error) {

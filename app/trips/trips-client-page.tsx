@@ -4,11 +4,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TripList from "@/components/trip-list"
 import TripPlanner from "@/components/trip-planner"
 import VisitHistory from "@/components/visit-history"
-import { User } from "@supabase/supabase-js"
+import { AuthenticatedUser } from "@/lib/types"
 
-export default function TripsClientPage({ user }: { user: User }) {
+export default function TripsClientPage({ user }: { user: AuthenticatedUser }) {
 
-  const handleWinerySelect = (wineryDbId: number) => {
+  const handleWinerySelect = () => {
     
   }
 

@@ -1,7 +1,5 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { shallow } from 'zustand/shallow';
 import { ReactNode } from 'react';
-import { Winery } from '@/lib/types';
 
 interface Notification {
   id: number;
@@ -15,6 +13,10 @@ interface UIState {
   activeWineryId: string | null;
   theme: 'light' | 'dark';
   notifications: Notification[];
+  isModalOpen: boolean;
+  modalContent: ReactNode | null;
+  modalTitle: string;
+  modalDescription: string;
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
   openWineryModal: (wineryId: string) => void;
@@ -22,6 +24,8 @@ interface UIState {
   setTheme: (theme: 'light' | 'dark') => void;
   addNotification: (message: string, type: 'success' | 'error' | 'info') => void;
   removeNotification: (id: number) => void;
+  openModal: (content: ReactNode, title?: string, description?: string) => void;
+  closeModal: () => void;
 }
 
 export const useUIStore = createWithEqualityFn<UIState>((set) => ({
@@ -30,6 +34,10 @@ export const useUIStore = createWithEqualityFn<UIState>((set) => ({
   activeWineryId: null,
   theme: 'light',
   notifications: [],
+  isModalOpen: false,
+  modalContent: null,
+  modalTitle: '',
+  modalDescription: '',
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   openWineryModal: (wineryId) => set({ isWineryModalOpen: true, activeWineryId: wineryId }),
@@ -43,4 +51,6 @@ export const useUIStore = createWithEqualityFn<UIState>((set) => ({
     set((state) => ({
       notifications: state.notifications.filter((n) => n.id !== id),
     })),
+  openModal: (content, title = '', description = '') => set({ isModalOpen: true, modalContent: content, modalTitle: title, modalDescription: description }),
+  closeModal: () => set({ isModalOpen: false, modalContent: null, modalTitle: '', modalDescription: '' }),
 }));

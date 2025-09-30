@@ -3,7 +3,20 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+interface Rating {
+  id: number;
+  rating: number;
+  user_review: string;
+  photos: string[];
+  user_id: string;
+  profiles: {
+    id: string;
+    name: string;
+    email: string;
+  }[] | null;
+}
+
+export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
     const user = await getUser();
     if (!user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -72,12 +85,12 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         }
 
         // Format the response
-        const formattedRatings = ratings.map(r => ({
+        const formattedRatings = ratings.map((r: Rating) => ({
             rating: r.rating,
             user_review: r.user_review,
             photos: r.photos || [],
             user_id: r.user_id,
-            name: r.profiles?.name || 'A friend'
+            name: r.profiles?.[0]?.name || 'A friend'
         }));
 
 

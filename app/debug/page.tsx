@@ -11,12 +11,12 @@ export default async function DebugPage() {
 
   // Try to list users (admin function)
   let users = null
-  let usersError = null
+  let usersError: any = null
   try {
     const { data, error } = await supabase.auth.admin.listUsers()
     users = data?.users
     usersError = error
-  } catch (e) {
+  } catch (e: any) {
     usersError = e
   }
 
@@ -60,7 +60,7 @@ export default async function DebugPage() {
           <h2 className="text-xl font-semibold mb-4">All Users (Admin View)</h2>
           {users ? (
             <div className="space-y-4">
-              {users.map((u) => (
+              {users.map((u: any) => (
                 <div key={u.id} className="border p-3 rounded">
                   <p>
                     <strong>Email:</strong> {u.email}
@@ -77,7 +77,7 @@ export default async function DebugPage() {
           ) : (
             <p className="text-gray-500">No users found or admin access not available</p>
           )}
-          {usersError && <div className="mt-2 p-2 bg-red-100 text-red-700 rounded">Error: {String(usersError)}</div>}
+          {usersError && <div className="mt-2 p-2 bg-red-100 text-red-700 rounded">Error: {usersError.message}</div>}
         </div>
 
         {/* Visits */}
@@ -86,7 +86,7 @@ export default async function DebugPage() {
           {visits ? (
             <div>
               <p>Found {visits.length} visits</p>
-              {visits.map((visit) => (
+              {visits.map((visit: any) => (
                 <div key={visit.id} className="border p-3 rounded mt-2">
                   <p>
                     <strong>Winery:</strong> {visit.winery_name}

@@ -2,7 +2,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
-import { Visit, Winery } from "@/lib/types";
+import { Visit } from "@/lib/types";
 
 // This represents the raw data structure of a winery coming from the database/API
 interface RawWinery {
@@ -17,8 +17,30 @@ interface RawWinery {
   google_rating?: number;
 }
 
+interface TripWinery {
+  wineries: RawWinery | null;
+  visit_order: number;
+  notes: string | null;
+}
+
+interface TripWithWineries {
+  id: any;
+  name: any;
+  trip_date: any;
+  members: any;
+  wineries: TripWinery[];
+}
+
+interface TripWithWineryCount {
+  id: any;
+  name: any;
+  trip_date: any;
+  members: any;
+  wineries_count: { count: number }[];
+}
+
 // This formatWinery function is now simpler as we will attach visits later.
-const formatWinery = (winery: RawWinery) => {
+const formatWinery = (winery: RawWinery | null) => {
     if (!winery) return null;
     return {
         id: winery.google_place_id,
@@ -58,10 +80,10 @@ export async function GET(request: NextRequest) {
     const allMemberIds = new Set<string>();
     trips.forEach(trip => {
         if (trip.trip_wineries) {
-            trip.trip_wineries.forEach(tw => tw.wineries?.id && allWineryIds.add(tw.wineries.id));
+            trip.trip_wineries.forEach((tw: TripWinery) => tw.wineries?.id && allWineryIds.add(tw.wineries.id));
         }
         if (trip.members) {
-            trip.members.forEach(memberId => allMemberIds.add(memberId));
+            trip.members.forEach((memberId: string) => allMemberIds.add(memberId));
         }
         allMemberIds.add(trip.user_id); // Also include the trip owner
     });
@@ -83,7 +105,7 @@ export async function GET(request: NextRequest) {
 
     // 4. Group the visits by winery_id for easy lookup
     const visitsByWinery = new Map<number, Visit[]>();
-    visits?.forEach(visit => {
+    visits?.forEach((visit: any) => {
         if (!visitsByWinery.has(visit.winery_id)) {
             visitsByWinery.set(visit.winery_id, []);
         }
@@ -93,8 +115,8 @@ export async function GET(request: NextRequest) {
     // 5. Attach the relevant visits to each winery in each trip
     const formattedTrips = trips.map(trip => {
         const wineriesWithVisits = trip.trip_wineries
-          .sort((a, b) => a.visit_order - b.visit_order)
-          .map(tw => {
+          .sort((a: TripWinery, b: TripWinery) => a.visit_order - b.visit_order)
+          .map((tw: TripWinery) => {
               const wineryData = formatWinery(tw.wineries);
               if (wineryData) {
                   return { 
@@ -149,11 +171,15 @@ export async function GET(request: NextRequest) {
     }
     
     // We need to re-format the data to get the winery count
-    const formattedTrips = trips?.map(t => {
-      // ** FIX: Handle the `wineries_count` vs `wineries` data structure **
-      const wineries_count = fullData ? t.wineries?.length || 0 : t.wineries_count?.[0]?.count || 0;
-      const wineries = fullData ? t.wineries.map(tw => formatWinery(tw.wineries)) : [];
-      return { ...t, wineries_count, wineries };
+    const formattedTrips = trips?.map((t: TripWithWineries | TripWithWineryCount) => {
+      if ('wineries' in t) {
+        const wineries_count = t.wineries?.length || 0;
+        const wineries = t.wineries.map((tw: TripWinery) => formatWinery(tw.wineries));
+        return { ...t, wineries_count, wineries };
+      } else {
+        const wineries_count = t.wineries_count?.[0]?.count || 0;
+        return { ...t, wineries_count, wineries: [] };
+      }
     });
 
     return NextResponse.json({ trips: formattedTrips || [], count: count || 0 });

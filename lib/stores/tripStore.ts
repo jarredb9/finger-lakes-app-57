@@ -1,7 +1,5 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { shallow } from 'zustand/shallow';
 import { Trip, Winery } from '@/lib/types';
-import { createClient } from '@/utils/supabase/client';
 import { useWineryStore } from './wineryStore';
 
 interface TripState {
@@ -10,11 +8,15 @@ interface TripState {
   upcomingTrips: Trip[];
   isLoading: boolean;
   selectedTrip: Trip | null;
+  page: number;
+  count: number;
+  hasMore: boolean;
+  fetchTrips: (page: number, sortBy: string, sortOrder: string, refresh?: boolean) => Promise<void>;
   fetchTripById: (tripId: string) => Promise<void>;
   fetchAllTrips: () => Promise<void>;
   fetchUpcomingTrips: () => Promise<void>;
   fetchTripsForDate: (date: string) => Promise<void>;
-  createTrip: (date: Date, name?: string, notes?: string, wineryId?: number) => Promise<Trip | null>;
+  createTrip: (trip: Partial<Trip>) => Promise<Trip | null>;
   deleteTrip: (tripId: string) => Promise<void>;
   updateTrip: (tripId: string, updates: Partial<Trip>) => Promise<void>;
   updateWineryOrder: (tripId: string, wineryIds: number[]) => Promise<void>;
@@ -24,6 +26,7 @@ interface TripState {
   setSelectedTrip: (trip: Trip | null) => void;
   addWineryToTrips: (winery: Winery, tripDate: Date, selectedTrips: Set<string>, newTripName: string, addTripNotes: string) => Promise<void>;
   toggleWineryOnTrip: (winery: Winery, trip: Trip) => Promise<void>;
+  setPage: (page: number) => void;
 }
 
 interface AddWineryToTripPayload {
@@ -33,15 +36,42 @@ interface AddWineryToTripPayload {
     name?: string;
     tripIds?: number[];
 }
-
-const supabase = createClient();
-
 export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   trips: [],
   tripsForDate: [],
   upcomingTrips: [],
   isLoading: false,
   selectedTrip: null,
+  page: 1,
+  count: 0,
+  hasMore: true,
+
+  setPage: (page: number) => set({ page }),
+
+  fetchTrips: async (page: number, sortBy: string, sortOrder: string, refresh = false) => {
+    set({ isLoading: true });
+    try {
+      const response = await fetch(`/api/trips?page=${page}&sortBy=${sortBy}&sortOrder=${sortOrder}`);
+      if (response.ok) {
+        const { trips: newTrips, count } = await response.json();
+        set(state => {
+          const updatedTrips = refresh ? newTrips : [...state.trips, ...newTrips];
+          return {
+            trips: updatedTrips,
+            count,
+            page,
+            hasMore: updatedTrips.length < count,
+            isLoading: false,
+          };
+        });
+      } else {
+        set({ isLoading: false });
+      }
+    } catch (error) {
+      console.error("Failed to fetch trips", error);
+      set({ isLoading: false });
+    }
+  },
 
   fetchTripById: async (tripId: string) => {
     set({ isLoading: true });
@@ -105,7 +135,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         const tripsForDate = data.trips || (Array.isArray(data) ? data : []);
         set(state => ({
           tripsForDate: tripsForDate,
-          trips: [...state.trips.filter(t => !tripsForDate.some(tfd => tfd.id === t.id)), ...tripsForDate],
+          trips: [...state.trips.filter(t => !tripsForDate.some((tfd: Trip) => tfd.id === t.id)), ...tripsForDate],
           isLoading: false
         }));
       } else {
@@ -118,15 +148,14 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     }
   },
 
-  createTrip: async (date: Date, name: string = "New Trip", notes: string = "", wineryId?: number) => {
-    const dateString = date.toISOString().split('T')[0];
+  createTrip: async (trip: Partial<Trip>) => {
     const response = await fetch('/api/trips', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ date: dateString, name, notes, wineryId })
+      body: JSON.stringify(trip)
     });
     if (response.ok) {
-      await get().fetchTripsForDate(dateString);
+      await get().fetchTrips(1, 'trip_date', 'desc', true);
       try {
         return await response.json();
       } catch (e) {
@@ -139,7 +168,8 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   deleteTrip: async (tripId: string) => {
     const response = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' });
     if (response.ok) {
-      set(state => ({ trips: state.trips.filter(t => t.id !== tripId) }));
+      const tripIdAsNumber = parseInt(tripId, 10);
+      set(state => ({ trips: state.trips.filter(t => t.id !== tripIdAsNumber) }))
     } else {
       throw new Error("Failed to delete trip");
     }
@@ -147,9 +177,10 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
   updateTrip: async (tripId: string, updates: Partial<Trip>) => {
     const originalTrips = get().trips;
+    const tripIdAsNumber = parseInt(tripId, 10);
     set(state => {
       const newTrips = state.trips.map(trip =>
-        trip.id === tripId ? { ...trip, ...updates } : trip
+        trip.id === tripIdAsNumber ? { ...trip, ...updates } : trip
       );
       return { trips: newTrips };
     });
@@ -181,7 +212,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     get().updateTrip(tripId, { removeWineryId: wineryId });
   },
 
-  saveWineryNote: (tripId: string, wineryId: number, notes: string) => {
+  saveWineryNote: async (tripId: string, wineryId: number, notes: string) => {
     get().updateTrip(tripId, { updateNote: { wineryId, notes } });
   },
   
@@ -207,7 +238,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         ...winery, 
         notes: addTripNotes, 
         // Ensure dbId is present, even if temporary
-        dbId: winery.dbId || await ensureWineryInDb(winery) 
+        dbId: winery.dbId ?? await ensureWineryInDb(winery) 
     };
     if (!wineryForTrip.dbId) {
         throw new Error("Could not ensure winery in database for optimistic update.");
@@ -220,7 +251,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     selectedTrips.forEach(tripId => {
         if (tripId !== 'new') {
             const updateTripInList = (list: Trip[]) => {
-                const tripIndex = list.findIndex(t => t.id.toString() === tripId);
+                const tripIndex = list.findIndex(t => t.id === parseInt(tripId, 10));
                 if (tripIndex > -1) {
                     const updatedTrip = { ...list[tripIndex] };
                     if (!updatedTrip.wineries.some(w => w.id === winery.id)) {
@@ -237,7 +268,8 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     // Create new trip
     if (selectedTrips.has('new')) {
         const tempNewTrip: Trip = {
-            id: `temp-${tempTripIdCounter++}`,
+            id: -tempTripIdCounter++,
+            user_id: "",
             trip_date: dateString,
             name: newTripName.trim() || "New Trip",
             notes: "", // Trip notes, not winery notes
@@ -255,11 +287,19 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     const tripName = firstTripId === 'new' ? (newTripName.trim() || "New Trip") : (originalTripsForDate.find(t => t.id.toString() === firstTripId)?.name || "Trip");
     
     if (originalWinery) {
+      let numericTripId: number;
+
+      if (firstTripId === 'new') {
+        numericTripId = -Math.abs(tempTripIdCounter - 1);
+      } else {
+        // Parse the existing string ID into a number.
+        numericTripId = parseInt(firstTripId, 10);
+      }
         const updatedWinery = { 
             ...originalWinery, 
             trip_name: tripName,
             trip_date: dateString,
-            trip_id: firstTripId === 'new' ? `temp-${tempTripIdCounter-1}` : firstTripId
+            trip_id: numericTripId
         };
         updateWinery(originalWinery.id, updatedWinery);
     }
@@ -313,7 +353,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   },
 
   toggleWineryOnTrip: async (winery, trip) => {
-    const { ensureWineryInDb, updateWinery } = useWineryStore.getState();
+    const { ensureWineryInDb } = useWineryStore.getState();
     
     // --- Optimistic Update --- //
     const originalTrip = get().selectedTrip;
@@ -356,7 +396,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         }
 
         // Re-fetch for consistency, could also merge response data
-        get().fetchTripById(trip.id);
+        get().fetchTripById(trip.id.toString());
 
     } catch (error) {
         console.error("Failed to toggle winery on trip, reverting:", error);

@@ -27,12 +27,11 @@ export default function ManualConfirmPage() {
         body: JSON.stringify({ email }),
       })
 
-      const data = await response.json()
-
       if (response.ok) {
         setMessage("Account confirmed! You can now sign in.")
       } else {
-        setMessage("Could not confirm account. The user may not exist or may already be confirmed.")
+        const { message } = await response.json();
+        setMessage(message || "Could not confirm account. The user may not exist or may already be confirmed.")
       }
     } catch (err) {
       setMessage("An error occurred. Please try again.")
@@ -47,7 +46,7 @@ export default function ManualConfirmPage() {
         <CardHeader>
           <CardTitle>Manual Account Confirmation</CardTitle>
           <CardDescription>
-            If your account needs email confirmation but you haven't received an email, try this manual confirmation.
+            {"If your account needs email confirmation but you haven't received an email, try this manual confirmation."}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

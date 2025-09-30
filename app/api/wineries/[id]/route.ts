@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
     const user = await getUser();
     if (!user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

@@ -21,7 +21,7 @@ export default async function FriendsPage() {
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         }>
-          <FriendsManager userId={user.id} />
+          <FriendsManager />
         </Suspense>
       </main>
     </div>

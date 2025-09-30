@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient()
 
     // Try to manually confirm the user using service role key
-    const { data, error } = await supabase.auth.admin.updateUserById(email, {
+    const { error } = await supabase.auth.admin.updateUserById(email, {
       email_confirm: true,
     })
 

@@ -1,7 +1,5 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { shallow } from 'zustand/shallow';
 import { Winery, Visit, Trip } from '@/lib/types';
-import { createClient } from '@/utils/supabase/client';
 
 // This represents the raw data structure of a winery coming from the database/API
 interface RawWinery {
@@ -23,10 +21,10 @@ const standardizeWineryData = (rawWinery: RawWinery, existingWinery?: Winery): W
   if (!rawWinery) return null;
 
   const id = String(rawWinery.google_place_id || rawWinery.id);
-  const dbId = rawWinery.google_place_id ? rawWinery.id : (rawWinery.dbId || existingWinery?.dbId);
+  const dbId = rawWinery.google_place_id ? rawWinery.id : (existingWinery?.dbId);
 
-  const lat = rawWinery.latitude ?? rawWinery.lat;
-  const lng = rawWinery.longitude ?? rawWinery.lng;
+  const lat = rawWinery.latitude;
+  const lng = rawWinery.longitude;
 
   const standardized: Winery = {
       id,
@@ -37,14 +35,14 @@ const standardizeWineryData = (rawWinery: RawWinery, existingWinery?: Winery): W
       lng: typeof lng === 'string' ? parseFloat(lng) : (lng || 0),
       phone: rawWinery.phone ?? existingWinery?.phone,
       website: rawWinery.website ?? existingWinery?.website,
-      rating: rawWinery.google_rating ?? rawWinery.rating ?? existingWinery?.rating,
-      userVisited: existingWinery?.userVisited || rawWinery.userVisited || false,
-      onWishlist: existingWinery?.onWishlist || rawWinery.onWishlist || false,
-      isFavorite: existingWinery?.isFavorite || rawWinery.isFavorite || false,
+      rating: rawWinery.google_rating ?? existingWinery?.rating,
+      userVisited: existingWinery?.userVisited || false,
+      onWishlist: existingWinery?.onWishlist || false,
+      isFavorite: existingWinery?.isFavorite || false,
       visits: existingWinery?.visits || rawWinery.visits || [],
-      trip_id: rawWinery.trip_id ?? existingWinery?.trip_id,
-      trip_name: rawWinery.trip_name ?? existingWinery?.trip_name,
-      trip_date: rawWinery.trip_date ?? existingWinery?.trip_date,
+      trip_id: existingWinery?.trip_id,
+      trip_name: existingWinery?.trip_name,
+      trip_date: existingWinery?.trip_date,
   };
 
   if (!standardized.id || !standardized.name || typeof standardized.lat !== 'number' || isNaN(standardized.lat) || typeof standardized.lng !== 'number' || isNaN(standardized.lng)) {
@@ -135,6 +133,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
         if (!rawVisit.wineries) return;
         const winery = processWinery(rawVisit.wineries as unknown as RawWinery, { userVisited: true });
         if (winery) {
+          winery.visits ??= [];
           winery.visits = [...(winery.visits || []), rawVisit];
         }
       });
@@ -265,10 +264,10 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
       if (state._wineriesBackup) return {}; // Prevent multiple optimistic updates
 
       const updatedWineries = state.persistentWineries.map(winery => {
-          const visitIndex = winery.visits.findIndex(v => v.id === visitId);
+          const visitIndex = winery.visits?.findIndex(v => v.id === visitId) ?? -1;
           if (visitIndex === -1) return winery;
 
-          const updatedVisits = [...winery.visits];
+          const updatedVisits = [...winery.visits!];
           const originalVisit = updatedVisits[visitIndex];
           updatedVisits[visitIndex] = { ...originalVisit, ...visitData };
 
@@ -287,8 +286,14 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
       if (state._wineriesBackup) return {}; // Prevent multiple optimistic updates
 
       const updatedWineries = state.persistentWineries.map(winery => {
+        // Add a guard clause to handle cases where winery.visits is undefined.
+        if (!winery.visits) {
+          return winery;
+        }
         const visitIndex = winery.visits.findIndex(v => v.id === visitId);
-        if (visitIndex === -1) return winery;
+        if (visitIndex === -1) {
+          return winery;
+        }
         const newVisits = winery.visits.filter(v => v.id !== visitId);
         return { ...winery, visits: newVisits };
       });
@@ -314,10 +319,10 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
     set(state => {
       if (updatedVisit) {
         const finalWineries = state.persistentWineries.map(winery => {
-            const visitIndex = winery.visits.findIndex(v => v.id === updatedVisit.id);
+            const visitIndex = winery.visits?.findIndex(v => v.id === updatedVisit.id) ?? -1;
             if (visitIndex === -1) return winery;
 
-            const finalVisits = [...winery.visits];
+            const finalVisits = [...winery.visits!];
             finalVisits[visitIndex] = { ...finalVisits[visitIndex], ...updatedVisit };
             return { ...winery, visits: finalVisits };
         });

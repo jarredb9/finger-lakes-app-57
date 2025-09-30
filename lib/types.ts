@@ -21,7 +21,7 @@ export interface Visit {
 
 export interface Winery {
   id: string; // This is the google_place_id
-  dbId?: number; // This will be the serial ID from our database
+  dbId?: number | null | undefined; // This will be the serial ID from our database
   name: string;
   address: string;
   lat: number;
@@ -46,6 +46,14 @@ export interface Trip {
     name?: string;
     wineries: Winery[];
     members?: string[];
+    wineryOrder?: number[];
+    removeWineryId?: number;
+    notes?: string;
+    updateNote?: {
+        wineryId: number;
+        notes: string;
+    };
+    owner_id?: string
 }
 
 export interface Friend {
@@ -54,4 +62,18 @@ export interface Friend {
   email: string;
   status?: 'pending' | 'accepted';
   requester_id?: string;
+}
+
+export interface FriendRating {
+  user_id: string;
+  name: string;
+  rating: number;
+  user_review: string;
+  photos?: string[];
+}
+
+export interface AuthenticatedUser {
+  id: string;
+  name: string;
+  email: string;
 }

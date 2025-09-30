@@ -33,7 +33,6 @@ export function useWineryMap(userId: string) {
     wishlistWineries,
     favoriteWineries,
     persistentWineries,
-    loading,
     error,
     fetchWineryData,
     ensureWineryDetails,
@@ -239,9 +238,9 @@ export function useWineryMap(userId: string) {
         address: place.formattedAddress!,
         lat: place.location!.lat(),
         lng: place.location!.lng(),
-        rating: place.rating,
-        website: place.websiteURI,
-        phone: place.nationalPhoneNumber,
+        rating: place.rating ?? undefined,
+        website: place.websiteURI ?? undefined,
+        phone: place.nationalPhoneNumber ?? undefined,
       }));
 
       setSearchResults(wineries);
@@ -272,7 +271,7 @@ export function useWineryMap(userId: string) {
   }, [map, autoSearch, setBounds]);
 
   const handleMapClick = useCallback(
-    async (e: google.maps.MapMouseEvent) => {
+    async (e: google.maps.IconMouseEvent) => {
       if (!places || !geocoding || !e.latLng || !e.placeId) return;
       e.stop();
       const isKnown = persistentWineries.some((w) => w.id === e.placeId);
@@ -302,8 +301,8 @@ export function useWineryMap(userId: string) {
           address: placeDetails.formattedAddress || "N/A",
           lat: placeDetails.location.lat(),
           lng: placeDetails.location.lng(),
-          website: placeDetails.websiteURI,
-          phone: placeDetails.nationalPhoneNumber,
+          website: placeDetails.websiteURI ?? undefined,
+          phone: placeDetails.nationalPhoneNumber ?? undefined,
         };
         setProposedWinery(newWinery);
       } catch (error) {
@@ -362,7 +361,6 @@ export function useWineryMap(userId: string) {
   };
 
   return {
-    loading,
     error,
     mapWineries,
     listResultsInView,

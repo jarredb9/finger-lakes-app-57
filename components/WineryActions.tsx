@@ -1,4 +1,3 @@
-
 // components/WineryActions.tsx
 import { Winery } from "@/lib/types";
 import { Button } from "@/components/ui/button";
@@ -25,7 +24,7 @@ export default function WineryActions({ winery }: WineryActionsProps) {
 
   const handleWishlistToggle = async () => {
     try {
-      await toggleWishlist(winery, winery.onWishlist);
+      await toggleWishlist(winery, winery.onWishlist || false);
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to update wishlist." });
     }
@@ -33,7 +32,7 @@ export default function WineryActions({ winery }: WineryActionsProps) {
 
   const handleFavoriteToggle = async () => {
     try {
-      await toggleFavorite(winery, winery.isFavorite);
+      await toggleFavorite(winery, winery.isFavorite || false);
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to update favorites." });
     }

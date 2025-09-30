@@ -1,5 +1,4 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { shallow } from 'zustand/shallow';
 import { Winery, Trip } from '@/lib/types';
 
 interface MapState {

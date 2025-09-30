@@ -1,5 +1,6 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { shallow } from 'zustand/shallow';
+import { FriendRating } from '@/lib/types';
 
 interface Friend {
   id: string;
@@ -9,14 +10,6 @@ interface Friend {
   requester_id?: string;
 }
 
-interface FriendRating {
-  user_id: string;
-  username: string;
-  avatar_url: string;
-  rating: number;
-  comment: string;
-}
-
 interface FriendActivityData {
   favoritedBy: Friend[];
   wishlistedBy: Friend[];
@@ -24,20 +17,24 @@ interface FriendActivityData {
 
 interface FriendState {
   friends: Friend[];
-  requests: Friend[];
+  friendRequests: Friend[];
   isLoading: boolean;
+  error: string | null;
   friendsRatings: FriendRating[];
   friendsActivity: FriendActivityData;
   fetchFriends: () => Promise<void>;
   addFriend: (email: string) => Promise<void>;
+  acceptFriend: (requesterId: string) => Promise<void>;
+  rejectFriend: (requesterId: string) => Promise<void>;
   respondToRequest: (requesterId: string, accept: boolean) => Promise<void>;
   fetchFriendDataForWinery: (wineryId: number) => Promise<void>;
 }
 
 export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   friends: [],
-  requests: [],
+  friendRequests: [],
   isLoading: false,
+  error: null,
   friendsRatings: [],
   friendsActivity: { favoritedBy: [], wishlistedBy: [] },
 
@@ -47,13 +44,13 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       const response = await fetch('/api/friends');
       if (response.ok) {
         const data = await response.json();
-        set({ friends: data.friends || [], requests: data.requests || [], isLoading: false });
+        set({ friends: data.friends || [], friendRequests: data.requests || [], isLoading: false });
       } else {
         throw new Error("Failed to fetch friends");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      set({ isLoading: false });
+      set({ isLoading: false, error: error.message });
     }
   },
 
@@ -68,6 +65,14 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       throw new Error(error || "Failed to send friend request.");
     }
     await get().fetchFriends(); // Refetch to show pending request
+  },
+
+  acceptFriend: async (requesterId: string) => {
+    await get().respondToRequest(requesterId, true);
+  },
+
+  rejectFriend: async (requesterId: string) => {
+    await get().respondToRequest(requesterId, false);
   },
 
   respondToRequest: async (requesterId: string, accept: boolean) => {

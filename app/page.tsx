@@ -8,15 +8,13 @@ import { createClient } from "@/utils/supabase/server"
 import { getUser } from "@/lib/auth"
 import Header from "@/components/header"
 import HomeClientPage from "@/components/home-client-page"
-import { Loader2 } from "lucide-react"
-
 
 async function getUserStats(userId: string) {
   const supabase = await createClient();
   
   const { data: visits, error: visitsError } = await supabase
     .from('visits')
-    .select('id, rating, wineries(id)')
+    .select('id, rating, wineries!inner(id)')
     .eq('user_id', userId);
 
   const { data: wishlist, error: wishlistError } = await supabase
@@ -35,7 +33,7 @@ async function getUserStats(userId: string) {
   }
 
   const totalVisits = visits.length;
-  const uniqueWineries = new Set(visits.map(v => v.wineries?.id)).size;
+  const uniqueWineries = new Set(visits.map(v => v.wineries[0]?.id)).size;
   const ratedVisits = visits.filter(v => v.rating !== null);
   const averageRating = ratedVisits.length > 0
     ? (ratedVisits.reduce((acc, v) => acc + (v.rating || 0), 0) / ratedVisits.length).toFixed(1)

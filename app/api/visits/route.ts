@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
 
     // Fetch the total count and the data in one query
-    const { data: visits, error, count } = await supabase
+    const { data: visits, count } = await supabase
       .from("visits")
       .select("*, wineries(*)", { count: 'exact' })
       .eq("user_id", user.id)

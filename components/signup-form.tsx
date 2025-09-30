@@ -88,13 +88,12 @@ export default function SignupForm() {
         body: JSON.stringify({ email: userEmail }),
       })
 
-      const data = await response.json()
-
       if (response.ok) {
         setSuccess("Account confirmed! You can now sign in.")
         setNeedsConfirmation(false)
       } else {
-        setError("Could not confirm account automatically. Please try signing in anyway.")
+        const { error } = await response.json()
+        setError(error || "Could not confirm account automatically. Please try signing in anyway.")
       }
     } catch (err) {
       setError("Confirmation failed. Please try signing in anyway.")

@@ -33,7 +33,7 @@ export default function PhotoUploader({ editingVisit, photos, setPhotos, photosT
       {editingVisit?.photos && editingVisit.photos.length > 0 && (
         <div className="flex gap-2 mb-2 flex-wrap">
           {editingVisit.photos.map((photoPath, index) => (
-            <PhotoCard key={index} photoPath={photoPath} visitId={editingVisit.id!} onDelete={() => togglePhotoForDeletion(photoPath)} isEditing={true} isMarkedForDeletion={photosToDelete.includes(photoPath)} />
+            <PhotoCard key={index} photoPath={photoPath} onDelete={() => togglePhotoForDeletion(photoPath)} isEditing={true} isMarkedForDeletion={photosToDelete.includes(photoPath)} />
           ))}
         </div>
       )}

@@ -15,11 +15,7 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // Check if user already exists first
-    const { data: existingUser } = await supabase.auth.signInWithPassword({
-      email,
-      password: "dummy", // This will fail but tell us if user exists
-    })
+
 
     // Try to sign up the user
     const { data, error } = await supabase.auth.signUp({

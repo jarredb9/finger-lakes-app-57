@@ -30,7 +30,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle } from "lucide-react";
 import { useTripStore } from "@/lib/stores/tripStore";
-import { useToast } from "@/hooks/use-toast";
 
 interface MapControlsProps {
   isSearching: boolean;
@@ -59,7 +58,6 @@ const MapControls = memo(
     onFilterChange,
   }: MapControlsProps) => {
     const { trips, fetchTripById, selectedTrip, setSelectedTrip } = useTripStore();
-    const { toast } = useToast();
 
     const handleTripSelect = async (tripId: string) => {
       if (tripId === "none") {

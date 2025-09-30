@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server"
 import { getUser } from "@/lib/auth"
 
 // GET endpoint to fetch all wishlist items for a user
-export async function GET(request: NextRequest) {
+export async function GET(_request: NextRequest) {
   try {
     const user = await getUser()
     if (!user) {

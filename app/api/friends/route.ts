@@ -1,9 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
+import { Friend } from "@/lib/types";
 
 // GET handler to fetch friends and friend requests
-export async function GET(request: NextRequest) {
+export async function GET() {
     const user = await getUser();
     if (!user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
 
         const friendIds = friendsData.map(f => f.user1_id === user.id ? f.user2_id : f.user1_id);
 
-        let friends = [];
+        let friends: Friend[] = [];
         if (friendIds.length > 0) {
             const { data: profiles, error: usersError } = await supabase
                 .from('profiles')
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
         
         const requestorIds = requestsData.map(r => r.user1_id);
 
-        let requests = [];
+        let requests: Friend[] = [];
         if (requestorIds.length > 0) {
              const { data: profiles, error: requestUsersError } = await supabase
                 .from('profiles')
