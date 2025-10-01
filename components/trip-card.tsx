@@ -8,13 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X } from "lucide-react";
+import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Check } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { DatePicker } from "./DatePicker";
 import { useToast } from "@/hooks/use-toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Checkbox } from "./ui/checkbox";
-import { Label } from "./ui/label";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import { cn } from "@/lib/utils";
 
 interface TripCardProps {
   trip: Trip;
@@ -30,14 +30,11 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
   const [editedDate, setEditedDate] = useState<Date | undefined>(new Date(trip.trip_date));
   const [winerySearch, setWinerySearch] = useState("");
   const [notes, setNotes] = useState<Record<number, string>>({});
-  const [isAddMembersOpen, setAddMembersOpen] = useState(false);
-  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+  const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
 
   useEffect(() => {
-    if (isAddMembersOpen) {
-      fetchFriends();
-    }
-  }, [isAddMembersOpen, fetchFriends]);
+    fetchFriends();
+  }, [fetchFriends]);
 
   const availableWineries = useMemo(() => 
     allWineries.filter(w => !trip.wineries.some(tw => tw.id === w.id)),
@@ -103,7 +100,6 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
     try {
       await addMembersToTrip(trip.id.toString(), selectedFriends);
       toast({ description: "Members added to trip." });
-      setAddMembersOpen(false);
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to add members." });
     }
@@ -116,6 +112,8 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
         : [...prev, friendId]
     );
   };
+  
+  const currentMembers = friends.filter((f: Friend) => trip.members?.includes(f.id));
 
   return (
     <Card className="w-full overflow-hidden">
@@ -156,9 +154,11 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
                             className="mt-2 text-sm"
                           />
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.id)} className="text-red-500">
-                          <X className="w-4 h-4" />
-                        </Button>
+                        {isEditing && (
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.id)} className="text-red-500">
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     )}
                   </Draggable>
@@ -196,32 +196,55 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
       <CardFooter className="bg-gray-50 p-4 flex justify-between items-center">
         <div className="flex items-center gap-2 text-sm text-gray-600">
             <Users className="w-4 h-4" />
-            <span>{trip.members?.length || 0} members</span>
-            <Dialog open={isAddMembersOpen} onOpenChange={setAddMembersOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm"><Plus className="w-4 h-4 mr-2"/>Add Members</Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add Members to {trip.name}</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4">
-                  {friends.map((friend: Friend) => (
-                    <div key={friend.id} className="flex items-center space-x-2">
-                      <Checkbox 
-                        id={`friend-${friend.id}`}
-                        onCheckedChange={() => onFriendSelect(friend.id)}
-                        checked={selectedFriends.includes(friend.id)}
-                      />
-                      <Label htmlFor={`friend-${friend.id}`}>{friend.name}</Label>
-                    </div>
-                  ))}
-                </div>
-                <DialogFooter>
-                  <Button onClick={handleAddMembers}>Add to Trip</Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+            <div className="flex items-center -space-x-2">
+                <TooltipProvider>
+                    {currentMembers.map((friend: Friend) => (
+                        <Tooltip key={friend.id}>
+                            <TooltipTrigger asChild>
+                                <Avatar className="h-6 w-6 border-2 border-white">
+                                    <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
+                                    <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{friend.name}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    ))}
+                </TooltipProvider>
+            </div>
+            {isEditing && (
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm"><UserPlus className="w-4 h-4 mr-2"/>Add/Remove</Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[200px] p-0">
+                        <Command>
+                            <CommandInput placeholder="Search friends..." className="h-9" />
+                            <CommandEmpty>No friends found.</CommandEmpty>
+                            <CommandGroup>
+                                {friends.map((friend: Friend) => (
+                                <CommandItem
+                                    key={friend.id}
+                                    onSelect={() => onFriendSelect(friend.id)}
+                                >
+                                    <div className="flex items-center justify-between w-full">
+                                        <span>{friend.name}</span>
+                                        <Check
+                                            className={cn(
+                                            "h-4 w-4",
+                                            selectedFriends.includes(friend.id) ? "opacity-100" : "opacity-0"
+                                            )}
+                                        />
+                                    </div>
+                                </CommandItem>
+                                ))}
+                            </CommandGroup>
+                        </Command>
+                        <Button className="w-full" onClick={handleAddMembers}>Update Members</Button>
+                    </PopoverContent>
+                </Popover>
+            )}
         </div>
         <div className="flex items-center gap-2">
           {isEditing ? (
