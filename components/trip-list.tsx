@@ -23,7 +23,6 @@ export default function TripList() {
     const today = new Date().toISOString().slice(0, 10);
 
     const filtered = trips.filter(trip => {
-      console.log({today, tripDate: trip.trip_date, isUpcoming: trip.trip_date >= today, isPast: trip.trip_date < today});
       if (filter === "all") return true;
       if (filter === "upcoming") return trip.trip_date >= today;
       if (filter === "past") return trip.trip_date < today;

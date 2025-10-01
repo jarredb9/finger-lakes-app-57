@@ -127,15 +127,12 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
   fetchTripsForDate: async (dateString: string) => {
     set({ isLoading: true });
-    const formattedDate = new Date(dateString).toISOString().split('T')[0];
-    try {
-      const response = await fetch(`/api/trips?date=${formattedDate}`);
+    const formattedDate = new Date(dateString).toISOString().split('T
       if (response.ok) {
         const data = await response.json();
         const tripsForDate = data.trips || (Array.isArray(data) ? data : []);
         set(state => ({
           tripsForDate: tripsForDate,
-          trips: [...state.trips.filter(t => !tripsForDate.some((tfd: Trip) => tfd.id === t.id)), ...tripsForDate],
           isLoading: false
         }));
       } else {
