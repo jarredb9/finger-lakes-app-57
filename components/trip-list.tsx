@@ -10,6 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from "./ui/toggle-group";
 
 export default function TripList() {
   const { trips, isLoading, fetchAllTrips } = useTripStore();
+  console.log("[TripList] trips from store:", trips);
   const { wineries } = useWineryStore();
   const [sortBy, setSortBy] = useState("trip_date");
   const [sortOrder, setSortOrder] = useState("desc");
