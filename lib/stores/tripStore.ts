@@ -99,6 +99,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
       const response = await fetch(`/api/trips?full=true`);
       if (response.ok) {
         const data = await response.json();
+        console.log("[tripStore] fetchAllTrips data:", data);
         set({ trips: data.trips || (Array.isArray(data) ? data : []), isLoading: false });
       } else {
         set({ trips: [], isLoading: false });
