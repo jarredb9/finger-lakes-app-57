@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Trip, Winery, Friend } from '@/lib/types';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from './ui/button';
 import { ArrowRight, Trash2, Wine, Share2, UserPlus, Check, Users, Calendar as CalendarIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';

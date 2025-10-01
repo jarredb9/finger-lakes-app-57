@@ -363,7 +363,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     try {
         const requestBody = isOnTrip
             ? { removeWineryId: wineryDbId }
-            : { wineryId: wineryId, tripIds: [trip.id], date: trip.trip_date.split('T')[0] };
+            : { wineryId: winery.dbId, tripIds: [trip.id], date: trip.trip_date.split('T')[0] };
         
         const method = isOnTrip ? 'PUT' : 'POST';
         const url = isOnTrip ? `/api/trips/${trip.id}` : '/api/trips';

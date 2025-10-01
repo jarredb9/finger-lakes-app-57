@@ -65,7 +65,7 @@ export function useWineryMap(userId: string) {
       fetchWineryData();
       fetchUpcomingTrips();
     }
-  }, [geocoding, userId, fetchWineryData, fetchAllTrips, fetchUpcomingTrips]);
+  }, [geocoding, userId, fetchWineryData, fetchUpcomingTrips]);
 
   useEffect(() => {
     if (googleMapInstance) {
