@@ -127,14 +127,16 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
   fetchTripsForDate: async (dateString: string) => {
     set({ isLoading: true });
-    const formattedDate = new Date(dateString).toISOString().split('T
+    try {
+      const formattedDate = new Date(dateString).toISOString().split('T')[0];
+      const response = await fetch(`/api/trips?date=${formattedDate}`);
       if (response.ok) {
         const data = await response.json();
         const tripsForDate = data.trips || (Array.isArray(data) ? data : []);
-        set(state => ({
+        set({
           tripsForDate: tripsForDate,
           isLoading: false
-        }));
+        });
       } else {
         console.error(`[tripStore] fetchTripsForDate: Failed to fetch data for date ${dateString}.`, response.status, response.statusText);
         set({ tripsForDate: [], isLoading: false });
