@@ -11,9 +11,8 @@ interface TripState {
   page: number;
   count: number;
   hasMore: boolean;
-  fetchTrips: (page: number, sortBy: string, sortOrder: string, refresh?: boolean) => Promise<void>;
+  fetchTrips: (page: number, type: 'upcoming' | 'past', refresh?: boolean) => Promise<void>;
   fetchTripById: (tripId: string) => Promise<void>;
-  fetchAllTrips: () => Promise<void>;
   fetchUpcomingTrips: () => Promise<void>;
   fetchTripsForDate: (date: string) => Promise<void>;
   createTrip: (trip: Partial<Trip>) => Promise<Trip | null>;
@@ -48,10 +47,11 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
   setPage: (page: number) => set({ page }),
 
-  fetchTrips: async (page: number, sortBy: string, sortOrder: string, refresh = false) => {
+  fetchTrips: async (page: number, type: 'upcoming' | 'past', refresh = false) => {
+    const limit = 6;
     set({ isLoading: true });
     try {
-      const response = await fetch(`/api/trips?page=${page}&sortBy=${sortBy}&sortOrder=${sortOrder}`);
+      const response = await fetch(`/api/trips?page=${page}&type=${type}&limit=${limit}&full=true`);
       if (response.ok) {
         const { trips: newTrips, count } = await response.json();
         set(state => {
@@ -90,23 +90,6 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     } catch (error) {
       console.error(`[tripStore] fetchTripById: Error during fetch for trip ${tripId}.`, error);
       set({ isLoading: false });
-    }
-  },
-
-  fetchAllTrips: async () => {
-    set({ isLoading: true });
-    try {
-      const response = await fetch(`/api/trips?full=true`);
-      if (response.ok) {
-        const data = await response.json();
-        console.log("[tripStore] fetchAllTrips data:", data);
-        set({ trips: data.trips || [], isLoading: false });
-      } else {
-        set({ trips: [], isLoading: false });
-      }
-    } catch (error) {
-      console.error("[tripStore] fetchAllTrips: Error during fetch.", error);
-      set({ trips: [], isLoading: false });
     }
   },
 
@@ -155,7 +138,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
       body: JSON.stringify(trip)
     });
     if (response.ok) {
-      await get().fetchTrips(1, 'trip_date', 'desc', 'all', true);
+      await get().fetchTrips(1, 'upcoming', true);
       try {
         return await response.json();
       } catch (e) {
@@ -380,7 +363,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     try {
         const requestBody = isOnTrip
             ? { removeWineryId: wineryDbId }
-            : { wineryId: wineryDbId, tripIds: [trip.id], date: trip.trip_date.split('T')[0] };
+            : { wineryId: wineryId, tripIds: [trip.id], date: trip.trip_date.split('T')[0] };
         
         const method = isOnTrip ? 'PUT' : 'POST';
         const url = isOnTrip ? `/api/trips/${trip.id}` : '/api/trips';

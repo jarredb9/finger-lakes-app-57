@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useWineryStore } from '@/lib/stores/wineryStore';
 import TripCard from './trip-card';
 import { Button } from './ui/button';
 import { Loader2 } from 'lucide-react';
-import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from '@/components/ui/pagination';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 
 export default function TripList() {
     const { trips, isLoading, page, hasMore, fetchTrips, setPage } = useTripStore();
@@ -14,11 +14,14 @@ export default function TripList() {
     const [tripType, setTripType] = useState<'upcoming' | 'past'>('upcoming');
 
     useEffect(() => {
-        fetchTrips(page, 'trip_date', 'desc', tripType, true);
-    }, [fetchTrips, tripType, page]);
+        fetchTrips(1, tripType, true); // Always fetch page 1 when type changes
+    }, [fetchTrips, tripType]);
 
     const handlePageChange = (newPage: number) => {
-        setPage(newPage);
+        if (newPage > 0) {
+            setPage(newPage);
+            fetchTrips(newPage, tripType);
+        }
     };
 
     if (isLoading && trips.length === 0) {
