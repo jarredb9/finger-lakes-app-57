@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Trip, Winery, Friend } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from './ui/button';
-import { ArrowRight, Trash2, Wine, Share2, UserPlus, Check, Users } from 'lucide-react';
+import { ArrowRight, Trash2, Wine, Share2, UserPlus, Check, Users, Calendar as CalendarIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from '@/hooks/use-toast';
@@ -77,15 +77,10 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
 
     return (
         <Card>
-            <CardHeader className="relative">
-                <CardTitle className="text-lg">{trip.name || `Trip for ${new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}`}</CardTitle>
-                <CardDescription>{new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}</CardDescription>
-                <Badge variant="secondary" className="absolute top-4 right-4"><Wine className="w-3 h-3 mr-1" /> {trip.wineries?.length || 0} Wineries</Badge>
-            </CardHeader>
-            <CardContent className="space-y-4">
-                <div className="flex justify-between items-center">
-                    <Button onClick={() => handleViewTrip(trip.id)}>View Details <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                    <div className="flex items-center gap-2">
+            <CardHeader>
+                <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg md:text-xl">{trip.name || "Unnamed Trip"}</CardTitle>
+                     <div className="flex items-center gap-2">
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -98,8 +93,40 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="outline" size="icon"><UserPlus size={16} /></Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-[200px] p-0">
+                            <Command>
+                              <CommandInput placeholder="Search friends..." className="h-9" />
+                              <CommandEmpty>No friends found.</CommandEmpty>
+                              <CommandGroup>
+                                {friends.map((friend: Friend) => (
+                                  <CommandItem
+                                    key={friend.id}
+                                    onSelect={() => onFriendSelect(friend.id)}
+                                  >
+                                    <div className="flex items-center justify-between w-full">
+                                      <span>{friend.name}</span>
+                                      <Check
+                                        className={cn(
+                                          "h-4 w-4",
+                                          selectedFriends.includes(friend.id) ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </Command>
+                            <Button className="w-full" onClick={handleAddFriendsToTrip}>Update Members</Button>
+                          </PopoverContent>
+                        </Popover>
                         <AlertDialog>
-                            <AlertDialogTrigger asChild><Button variant="destructive" size="icon"><Trash2 size={16} /></Button></AlertDialogTrigger>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="icon"><Trash2 size={16} /></Button>
+                            </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
                                     <AlertDialogTitle>Are you sure?</AlertDialogTitle>
@@ -111,57 +138,42 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
+                     </div>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2">
+                        <CalendarIcon size={16} className="text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground">{new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Users className="w-4 h-4" />
-                    <div className="flex items-center -space-x-2">
-                        <TooltipProvider>
-                            {currentMembers.map((friend: Friend) => (
-                                <Tooltip key={friend.id}>
-                                    <TooltipTrigger asChild>
-                                        <Avatar className="h-6 w-6 border-2 border-white">
-                                            <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
-                                            <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                                        </Avatar>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                        <p>{friend.name}</p>
-                                    </TooltipContent>
-                                </Tooltip>
-                            ))}
-                        </TooltipProvider>
+                {currentMembers.length > 0 && (
+                    <div className="flex items-center space-x-2 mt-2">
+                        <Users size={16} className="text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Collaborators:</span>
+                        <div className="flex items-center -space-x-2">
+                            <TooltipProvider>
+                                 {currentMembers.map((friend: Friend) => (
+                                      <Tooltip key={friend.id}>
+                                          <TooltipTrigger asChild>
+                                              <Avatar className="h-6 w-6 border-2 border-white">
+                                                <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
+                                                <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                                              </Avatar>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                                <p>{friend.name}</p>
+                                          </TooltipContent>
+                                      </Tooltip>
+                                  ))}
+                            </TooltipProvider>
+                        </div>
                     </div>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" size="sm"><UserPlus className="w-4 h-4 mr-2"/>Add/Remove</Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[200px] p-0">
-                            <Command>
-                                <CommandInput placeholder="Search friends..." className="h-9" />
-                                <CommandEmpty>No friends found.</CommandEmpty>
-                                <CommandGroup>
-                                    {friends.map((friend: Friend) => (
-                                    <CommandItem
-                                        key={friend.id}
-                                        onSelect={() => onFriendSelect(friend.id)}
-                                    >
-                                        <div className="flex items-center justify-between w-full">
-                                            <span>{friend.name}</span>
-                                            <Check
-                                                className={cn(
-                                                "h-4 w-4",
-                                                selectedFriends.includes(friend.id) ? "opacity-100" : "opacity-0"
-                                                )}
-                                            />
-                                        </div>
-                                    </CommandItem>
-                                    ))}
-                                </CommandGroup>
-                            </Command>
-                            <Button className="w-full" onClick={handleAddFriendsToTrip}>Update Members</Button>
-                        </PopoverContent>
-                    </Popover>
+                )}
+            </CardHeader>
+            <CardContent>
+                <div className="flex justify-between items-center">
+                    <Button onClick={() => handleViewTrip(trip.id)}>View Details <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                    <Badge variant="secondary"><Wine className="w-3 h-3 mr-1" /> {trip.wineries?.length || 0} Wineries</Badge>
                 </div>
             </CardContent>
         </Card>
