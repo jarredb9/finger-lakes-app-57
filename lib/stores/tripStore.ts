@@ -155,7 +155,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
       body: JSON.stringify(trip)
     });
     if (response.ok) {
-      await get().fetchTrips(1, 'trip_date', 'desc', true);
+      await get().fetchTrips(1, 'trip_date', 'desc', 'all', true);
       try {
         return await response.json();
       } catch (e) {
