@@ -1,6 +1,7 @@
-import { memo, useState, useMemo } from "react";
-import { Trip, Winery } from "@/lib/types";
+import { memo, useState, useMemo, useEffect } from "react";
+import { Trip, Winery, Friend } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
+import { useFriendStore } from "@/lib/stores/friendStore";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +12,9 @@ import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X } fr
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { DatePicker } from "./DatePicker";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "./ui/checkbox";
+import { Label } from "./ui/label";
 
 interface TripCardProps {
   trip: Trip;
@@ -19,12 +23,21 @@ interface TripCardProps {
 
 const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
   const { toast } = useToast();
-  const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote } = useTripStore();
+  const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
+  const { friends, fetchFriends } = useFriendStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(trip.name || "");
   const [editedDate, setEditedDate] = useState<Date | undefined>(new Date(trip.trip_date));
   const [winerySearch, setWinerySearch] = useState("");
   const [notes, setNotes] = useState<Record<number, string>>({});
+  const [isAddMembersOpen, setAddMembersOpen] = useState(false);
+  const [selectedFriends, setSelectedFriends] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isAddMembersOpen) {
+      fetchFriends();
+    }
+  }, [isAddMembersOpen, fetchFriends]);
 
   const availableWineries = useMemo(() => 
     allWineries.filter(w => !trip.wineries.some(tw => tw.id === w.id)),
@@ -84,6 +97,24 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to save notes." });
     }
+  };
+
+  const handleAddMembers = async () => {
+    try {
+      await addMembersToTrip(trip.id.toString(), selectedFriends);
+      toast({ description: "Members added to trip." });
+      setAddMembersOpen(false);
+    } catch (error) {
+      toast({ variant: "destructive", description: "Failed to add members." });
+    }
+  };
+
+  const onFriendSelect = (friendId: string) => {
+    setSelectedFriends(prev => 
+      prev.includes(friendId) 
+        ? prev.filter(id => id !== friendId) 
+        : [...prev, friendId]
+    );
   };
 
   return (
@@ -166,6 +197,31 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
         <div className="flex items-center gap-2 text-sm text-gray-600">
             <Users className="w-4 h-4" />
             <span>{trip.members?.length || 0} members</span>
+            <Dialog open={isAddMembersOpen} onOpenChange={setAddMembersOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm"><Plus className="w-4 h-4 mr-2"/>Add Members</Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add Members to {trip.name}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  {friends.map((friend: Friend) => (
+                    <div key={friend.id} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`friend-${friend.id}`}
+                        onCheckedChange={() => onFriendSelect(friend.id)}
+                        checked={selectedFriends.includes(friend.id)}
+                      />
+                      <Label htmlFor={`friend-${friend.id}`}>{friend.name}</Label>
+                    </div>
+                  ))}
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleAddMembers}>Add to Trip</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
         </div>
         <div className="flex items-center gap-2">
           {isEditing ? (
