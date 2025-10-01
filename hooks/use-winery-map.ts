@@ -63,7 +63,6 @@ export function useWineryMap(userId: string) {
     }
     if (userId) {
       fetchWineryData();
-      fetchAllTrips();
       fetchUpcomingTrips();
     }
   }, [geocoding, userId, fetchWineryData, fetchAllTrips, fetchUpcomingTrips]);
