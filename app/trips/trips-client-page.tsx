@@ -5,15 +5,23 @@ import TripList from "@/components/trip-list"
 import TripPlanner from "@/components/trip-planner"
 import VisitHistory from "@/components/visit-history"
 import { AuthenticatedUser } from "@/lib/types"
+import { useTripStore } from "@/lib/stores/tripStore"
 
 export default function TripsClientPage({ user }: { user: AuthenticatedUser }) {
+  const { fetchAllTrips } = useTripStore();
 
   const handleWinerySelect = () => {
     
   }
 
+  const onTabChange = (value: string) => {
+    if (value === 'trips') {
+      fetchAllTrips();
+    }
+  }
+
   return (
-    <Tabs defaultValue="trips">
+    <Tabs defaultValue="trips" onValueChange={onTabChange}>
       <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="trips">My Trips</TabsTrigger>
         <TabsTrigger value="planner">Plan a Trip</TabsTrigger>
