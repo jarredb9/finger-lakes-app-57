@@ -10,6 +10,7 @@ import { useWineryStore } from "@/lib/stores/wineryStore";
 import TripCard from "@/components/trip-card";
 import { AuthenticatedUser } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { APIProvider } from "@vis.gl/react-google-maps";
 import TripForm from "./trip-form";
 
 export default function TripPlanner({ initialDate, user }: { initialDate: Date, user: AuthenticatedUser }) {
@@ -53,7 +54,9 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
                             <DialogHeader>
                                 <DialogTitle>Create a New Trip</DialogTitle>
                             </DialogHeader>
-                            <TripForm user={user} initialDate={selectedDate} />
+                            <APIProvider apiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+                                <TripForm user={user} initialDate={selectedDate} />
+                            </APIProvider>
                         </DialogContent>
                     </Dialog>
                 </div>
