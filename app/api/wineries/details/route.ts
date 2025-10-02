@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Database error' }, { status: 500 });
   }
 
-  if (existingWinery && existingWinery.phone && existingWinery.website && existingWinery.google_rating && existingWinery.opening_hours !== null) {
+  if (existingWinery && existingWinery.phone && existingWinery.website && existingWinery.google_rating && existingWinery.opening_hours !== null && existingWinery.reviews !== null) {
     return NextResponse.json(existingWinery);
   }
 

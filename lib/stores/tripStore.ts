@@ -275,7 +275,15 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   },
 
   saveWineryNote: async (tripId: string, wineryId: number, notes: string) => {
-    get().updateTrip(tripId, { updateNote: { wineryId, notes } });
+    // The API expects a specific format for a single note update.
+    // The `updateTrip` function was wrapping this in a way that caused the backend
+    // to misinterpret it as a batch update. By calling the API directly here
+    // with the correct payload, we ensure only the specific winery's note is updated.
+    await fetch(`/api/trips/${tripId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updateNote: { wineryId, notes } }),
+    });
   },
 
   saveAllWineryNotes: async (tripId: string, notes: Record<number, string>) => {

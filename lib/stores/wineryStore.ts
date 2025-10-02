@@ -207,7 +207,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
 
   ensureWineryDetails: async (placeId: string) => {
     const existing = get().persistentWineries.find(w => w.id === placeId);
-    if (existing && existing.phone && existing.website && existing.rating && existing.openingHours !== undefined) {
+    if (existing && existing.phone && existing.website && existing.rating && existing.openingHours !== undefined && existing.reviews !== undefined) {
       return existing;
     }
 
