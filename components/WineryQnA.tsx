@@ -1,12 +1,12 @@
 // components/WineryQnA.tsx
 import { useState, useMemo } from "react";
-import { PlaceReview } from "@/lib/types";
+import { PlaceReview, Winery } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { MessageSquare, Dog, CalendarCheck, Baby } from "lucide-react";
+import { MessageSquare, Dog, CalendarCheck, Baby, CheckCircle2, XCircle } from "lucide-react";
 
 interface WineryQnAProps {
-  reviews: PlaceReview[];
+  winery: Winery;
 }
 
 const questions = [
@@ -30,10 +30,13 @@ const questions = [
   },
 ];
 
-export default function WineryQnA({ reviews }: WineryQnAProps) {
+export default function WineryQnA({ winery }: WineryQnAProps) {
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
+  const reviews = winery.reviews;
 
   const searchResults = useMemo(() => {
+    // Handle structured data first
+    if (activeQuestionId === 'reservations' && winery.reservable !== undefined) return null;
     if (!activeQuestionId || !reviews) return [];
 
     const activeQuestion = questions.find((q) => q.id === activeQuestionId);
@@ -60,9 +63,9 @@ export default function WineryQnA({ reviews }: WineryQnAProps) {
     });
 
     return foundReviews;
-  }, [activeQuestionId, reviews]);
+  }, [activeQuestionId, reviews, winery.reservable]);
 
-  if (!reviews || reviews.length === 0) {
+  if ((!reviews || reviews.length === 0) && winery.reservable === undefined) {
     return null;
   }
 
@@ -87,24 +90,42 @@ export default function WineryQnA({ reviews }: WineryQnAProps) {
       </div>
 
       {activeQuestionId && (
-        <div className="space-y-2">
-          {searchResults.length > 0 ? (
-            searchResults.map((result, index) => (
-              <Card key={index} className="bg-gray-50">
-                <CardContent className="p-3 text-sm">
-                  <p className="italic text-gray-700">{result.snippet}</p>
-                  <p className="text-xs text-right text-gray-500 mt-2">
-                    - {result.review.author_name} ({result.review.relative_time_description})
-                  </p>
-                </CardContent>
-              </Card>
-            ))
+        <>
+          {activeQuestionId === 'reservations' && winery.reservable !== undefined ? (
+            <Card className="bg-gray-50">
+              <CardContent className="p-3 text-sm flex items-center gap-2">
+                {winery.reservable ? (
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                ) : (
+                  <XCircle className="w-5 h-5 text-red-600" />
+                )}
+                <span className="font-medium">
+                  {winery.reservable ? "Reservations can be made." : "Reservations are not offered."}
+                </span>
+                 <span className="text-xs text-gray-500 ml-auto">(From Google)</span>
+              </CardContent>
+            </Card>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No mention of this in the reviews. It might be best to call or check their website.
-            </p>
+            <div className="space-y-2">
+              {searchResults && searchResults.length > 0 ? (
+                searchResults.map((result, index) => (
+                  <Card key={index} className="bg-gray-50">
+                    <CardContent className="p-3 text-sm">
+                      <p className="italic text-gray-700">{result.snippet}</p>
+                      <p className="text-xs text-right text-gray-500 mt-2">
+                        - {result.review.author_name} ({result.review.relative_time_description})
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No mention of this in the reviews. It might be best to call or check their website.
+                </p>
+              )}
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   );

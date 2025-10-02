@@ -63,6 +63,7 @@ export interface Winery {
   notes?: string;
   openingHours?: OpeningHours | null;
   reviews?: PlaceReview[];
+  reservable?: boolean;
 }
 
 export interface Trip {

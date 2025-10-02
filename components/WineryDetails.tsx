@@ -84,10 +84,10 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
         </div>
       )}
 
-      {winery.reviews && winery.reviews.length > 0 && (
+      {((winery.reviews && winery.reviews.length > 0) || winery.reservable !== undefined) && (
         <>
           <Separator className="!my-4" />
-          <WineryQnA reviews={winery.reviews} />
+          <WineryQnA winery={winery} />
         </>
       )}
     </DialogDescription>

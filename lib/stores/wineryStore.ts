@@ -14,6 +14,7 @@ interface RawWinery {
   google_rating?: number;
   opening_hours?: any; // From Google Places Details API
   reviews?: any; // From Google Places Details API
+  reservable?: boolean; // From Google Places Details API
   visits?: Visit[];
   wineries?: RawWinery[]; // In case of nested winery data
 }
@@ -41,6 +42,7 @@ const standardizeWineryData = (rawWinery: RawWinery, existingWinery?: Winery): W
       userVisited: existingWinery?.userVisited || false,
       openingHours: rawWinery.opening_hours ?? existingWinery?.openingHours,
       reviews: rawWinery.reviews ?? existingWinery?.reviews,
+      reservable: rawWinery.reservable ?? existingWinery?.reservable,
       onWishlist: existingWinery?.onWishlist || false,
       isFavorite: existingWinery?.isFavorite || false,
       visits: existingWinery?.visits || rawWinery.visits || [],
@@ -207,7 +209,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
 
   ensureWineryDetails: async (placeId: string) => {
     const existing = get().persistentWineries.find(w => w.id === placeId);
-    if (existing && existing.phone && existing.website && existing.rating && existing.openingHours !== undefined && existing.reviews !== undefined) {
+    if (existing && existing.phone && existing.website && existing.rating && existing.openingHours !== undefined && existing.reviews !== undefined && existing.reservable !== undefined) {
       return existing;
     }
 
