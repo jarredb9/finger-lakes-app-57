@@ -45,6 +45,12 @@ export async function POST(request: NextRequest) {
     }
 
     const placeDetails = data.result;
+
+    if (!placeDetails || !placeDetails.name || !placeDetails.formatted_address) {
+      console.error('[API] /api/wineries/details: Google Places API result is missing required fields (name or address).', placeDetails);
+      return NextResponse.json({ error: 'Incomplete place details from Google' }, { status: 500 });
+    }
+
     console.log('[API] /api/wineries/details: Fetched place details:', placeDetails);
 
     const wineryData = {
