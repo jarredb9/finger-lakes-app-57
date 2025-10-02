@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
   }
   const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,website,rating&key=${apiKey}`;
 
-    try {
+  try {
     console.log(`[API] /api/wineries/details: Fetching details for placeId: ${placeId}`);
     const response = await fetch(url);
     const data = await response.json();
