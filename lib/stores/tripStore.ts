@@ -86,6 +86,22 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
           trips: [...state.trips.filter(t => t.id !== trip.id), trip],
           isLoading: false
         }));
+
+        // After setting the trip, ensure all its wineries have their details.
+        const { ensureWineryDetails } = useWineryStore.getState();
+        const wineryDetailPromises = trip.wineries.map((winery: Winery) => ensureWineryDetails(winery.id));
+        
+        const detailedWineries = (await Promise.all(wineryDetailPromises)).filter(Boolean) as Winery[];
+        const detailedWineriesMap = new Map(detailedWineries.map((w: Winery) => [w.id, w]));
+
+        // Update the trip in the store with the newly fetched details
+        set(state => ({
+          trips: state.trips.map(t => 
+            t.id === trip.id 
+              ? { ...t, wineries: t.wineries.map(w => detailedWineriesMap.get(w.id) ? { ...w, ...detailedWineriesMap.get(w.id) } : w) }
+              : t
+          ),
+        }));
       } else {
         console.error(`[tripStore] fetchTripById: Failed to fetch data for trip ${tripId}.`, response.status, response.statusText);
         set({ isLoading: false });
@@ -123,30 +139,6 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         set({
           tripsForDate: tripsForDate,
           isLoading: false
-        });
-
-        // After setting the trips, ensure all wineries have their details.
-        const { ensureWineryDetails } = useWineryStore.getState();
-        const wineryDetailPromises = tripsForDate.flatMap((trip: Trip) => 
-          trip.wineries.map(winery => ensureWineryDetails(winery.id))
-        );
-        
-        const detailedWineries = (await Promise.all(wineryDetailPromises)).filter(Boolean) as Winery[];
-
-        const detailedWineriesMap = new Map(detailedWineries.map(w => [w.id, w]));
-
-        // Update the trips in the store with the newly fetched details
-        set(state => {
-          const updatedTripsForDate = state.tripsForDate.map(trip => ({
-            ...trip,
-            wineries: trip.wineries.map(winery => {
-              const detailedWinery = detailedWineriesMap.get(winery.id);
-              return detailedWinery ? { ...winery, ...detailedWinery } : winery;
-            })
-          }));
-          return {
-            tripsForDate: updatedTripsForDate
-          };
         });
       } else {
         console.error(`[tripStore] fetchTripsForDate: Failed to fetch data for date ${dateString}.`, response.status, response.statusText);
