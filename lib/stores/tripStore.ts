@@ -168,9 +168,6 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         tripsForDate: state.tripsForDate.map(t => t.id === tempId ? { ...tempTrip, ...createdTrip, id: createdTrip.tripId } : t)
       }));
 
-      // Also refresh the main paginated list in the background
-      get().fetchTrips(1, 'upcoming', true);
-
       return createdTrip;
     } catch (error) {
       console.error("Failed to create trip, reverting optimistic update.", error);
@@ -181,11 +178,19 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   },
 
   deleteTrip: async (tripId: string) => {
+    const tripIdAsNumber = parseInt(tripId, 10);
+    const originalTrips = get().trips;
+    const originalTripsForDate = get().tripsForDate;
+
+    // Optimistically remove from both lists
+    set(state => ({ 
+      trips: state.trips.filter(t => t.id !== tripIdAsNumber),
+      tripsForDate: state.tripsForDate.filter(t => t.id !== tripIdAsNumber),
+    }));
+
     const response = await fetch(`/api/trips/${tripId}`, { method: 'DELETE' });
-    if (response.ok) {
-      const tripIdAsNumber = parseInt(tripId, 10);
-      set(state => ({ trips: state.trips.filter(t => t.id !== tripIdAsNumber) }))
-    } else {
+    if (!response.ok) {
+      set({ trips: originalTrips, tripsForDate: originalTripsForDate }); // Revert on failure
       throw new Error("Failed to delete trip");
     }
   },
