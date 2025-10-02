@@ -39,7 +39,7 @@ export function useWineryMap(userId: string) {
   } = useWineryStore();
 
   const { openWineryModal } = useUIStore();
-  const { fetchAllTrips, fetchUpcomingTrips, selectedTrip } = useTripStore();
+  const { fetchUpcomingTrips, selectedTrip } = useTripStore();
   const { toast } = useToast();
 
   const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
