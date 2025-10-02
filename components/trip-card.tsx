@@ -6,7 +6,6 @@ import { useFriendStore } from "@/lib/stores/friendStore";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Check, Share2 } from "lucide-react";
@@ -16,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import DailyHours from "@/components/DailyHours";
+import WineryNoteEditor from "./WineryNoteEditor";
 import { cn } from "@/lib/utils";
 
 interface TripCardProps {
@@ -25,16 +25,14 @@ interface TripCardProps {
 
 const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
   const { toast } = useToast();
-  const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip, saveAllWineryNotes } = useTripStore();
+  const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
   const persistentWineries = useWineryStore(state => state.persistentWineries);
     const { friends, fetchFriends } = useFriendStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(trip.name || "");
   const [editedDate, setEditedDate] = useState<Date | undefined>(new Date(trip.trip_date));
   const [winerySearch, setWinerySearch] = useState("");
-  const [notes, setNotes] = useState<Record<number, string>>({});
   const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
-  const [hasUnsavedNotes, setHasUnsavedNotes] = useState(false);
 
   useEffect(() => {
     fetchFriends();
@@ -101,27 +99,12 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
     }
   };
 
-  const handleNotesChange = (wineryId: number, newNotes: string) => {
-    setNotes(prev => ({ ...prev, [wineryId]: newNotes }));
-    setHasUnsavedNotes(true);
-  };
-
-  const handleSaveNotes = async (wineryId: number) => {
+  const handleSaveNote = async (wineryId: number, newNotes: string) => {
     try {
-      await saveWineryNote(trip.id.toString(), wineryId, notes[wineryId] || "");
+      await saveWineryNote(trip.id.toString(), wineryId, newNotes);
       toast({ description: "Notes saved." });
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to save notes." });
-    }
-  };
-
-  const handleSaveAllNotes = async () => {
-    try {
-      await saveAllWineryNotes(trip.id.toString(), notes);
-      setHasUnsavedNotes(false);
-      toast({ description: "All notes saved." });
-    } catch (error) {
-      toast({ variant: "destructive", description: "Failed to save all notes." });
     }
   };
 
@@ -202,12 +185,10 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
                           <p className="font-semibold">{winery.name}</p>
                           <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
                           <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
-                          <Textarea
-                            placeholder="Add notes..."
-                            value={notes[winery.dbId as number] ?? winery.notes ?? ''}
-                            onChange={(e) => handleNotesChange(winery.dbId as number, e.target.value)}
-                            onBlur={() => handleSaveNotes(winery.dbId as number)}
-                            className="mt-2 text-sm"
+                          <WineryNoteEditor
+                            wineryDbId={winery.dbId as number}
+                            initialNotes={winery.notes || ''}
+                            onSave={handleSaveNote}
                           />
                         </div>
                         {isEditing && (
@@ -302,7 +283,6 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {hasUnsavedNotes && <Button variant="secondary" onClick={handleSaveAllNotes}><Save className="w-4 h-4 mr-2"/>Save Notes</Button>}
           {isEditing ? (
             <Button onClick={handleSave}><Save className="w-4 h-4 mr-2"/>Save Changes</Button>
           ) : (
