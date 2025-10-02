@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
     console.error('[API] /api/wineries/details: Google Maps API Key is not set.');
     return NextResponse.json({ error: 'Google Maps API Key is not configured.' }, { status: 500 });
   }
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,website,rating&key=${apiKey}`;
+  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,website,rating,opening_hours&key=${apiKey}`;
 
   try {
     console.log(`[API] /api/wineries/details: Fetching details for placeId: ${placeId}`);
@@ -62,6 +62,7 @@ export async function POST(request: NextRequest) {
       phone: placeDetails.formatted_phone_number,
       website: placeDetails.website,
       google_rating: placeDetails.rating,
+      opening_hours: placeDetails.opening_hours,
     };
     console.log('[API] /api/wineries/details: Prepared winery data for upsert:', wineryData);
 
