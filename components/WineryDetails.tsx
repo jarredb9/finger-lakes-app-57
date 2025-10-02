@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Winery } from "@/lib/types";
 import { Star, Phone, Globe, MapPin, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { DialogDescription } from "@/components/ui/dialog";
+import { Separator } from "./ui/separator";
+import WineryQnA from "./WineryQnA";
 
 interface WineryDetailsProps {
   winery: Winery;
@@ -80,6 +82,13 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
           <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
           <span>{winery.rating}/5.0 (Google Reviews)</span>
         </div>
+      )}
+
+      {winery.reviews && winery.reviews.length > 0 && (
+        <>
+          <Separator className="!my-4" />
+          <WineryQnA reviews={winery.reviews} />
+        </>
       )}
     </DialogDescription>
   );

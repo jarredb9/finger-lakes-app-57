@@ -19,6 +19,17 @@ export interface Visit {
   };
 }
 
+export interface PlaceReview {
+  author_name: string;
+  rating: number;
+  relative_time_description: string;
+  text: string;
+  time: number;
+  author_url?: string | null;
+  language?: string | null;
+  profile_photo_url?: string | null;
+}
+
 export interface OpeningHoursPoint {
   day: number;
   hour: number;
@@ -51,6 +62,7 @@ export interface Winery {
   trip_date?: string;
   notes?: string;
   openingHours?: OpeningHours | null;
+  reviews?: PlaceReview[];
 }
 
 export interface Trip {
