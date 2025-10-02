@@ -135,20 +135,49 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   },
 
   createTrip: async (trip: Partial<Trip>) => {
-    const response = await fetch('/api/trips', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(trip)
-    });
-    if (response.ok) {
-      await get().fetchTrips(1, 'upcoming', true);
-      try {
-        return await response.json();
-      } catch (e) {
-        return { success: true } as unknown as Trip;
+    const tempId = -Date.now();
+    const tempTrip: Trip = {
+      id: tempId,
+      user_id: trip.user_id || '',
+      trip_date: trip.trip_date || new Date().toISOString(),
+      name: trip.name,
+      wineries: trip.wineries || [],
+      members: trip.members || [],
+    };
+
+    // Optimistically add to tripsForDate
+    set(state => ({
+      tripsForDate: [...state.tripsForDate, tempTrip]
+    }));
+
+    try {
+      const response = await fetch('/api/trips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(trip)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create trip on server.');
       }
+
+      const createdTrip = await response.json();
+
+      // Replace temporary trip with the real one from the server
+      set(state => ({
+        tripsForDate: state.tripsForDate.map(t => t.id === tempId ? { ...tempTrip, ...createdTrip, id: createdTrip.tripId } : t)
+      }));
+
+      // Also refresh the main paginated list in the background
+      get().fetchTrips(1, 'upcoming', true);
+
+      return createdTrip;
+    } catch (error) {
+      console.error("Failed to create trip, reverting optimistic update.", error);
+      // On failure, remove the temporary trip
+      set(state => ({ tripsForDate: state.tripsForDate.filter(t => t.id !== tempId) }));
+      throw error; // Re-throw to be caught by the UI
     }
-    return null;
   },
 
   deleteTrip: async (tripId: string) => {

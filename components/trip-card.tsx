@@ -43,7 +43,7 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
   }, [trip.members]);
 
   const availableWineries = useMemo(() => 
-    allWineries.filter(w => !trip.wineries.some(tw => tw.id === w.id)),
+    allWineries.filter(w => !(trip.wineries || []).some(tw => tw.id === w.id)),
     [allWineries, trip.wineries]
   );
 
@@ -179,7 +179,7 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
           <Droppable droppableId={`trip-${trip.id}`}>
             {(provided) => (
               <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y">
-                {trip.wineries.map((winery, index) => (
+                {(trip.wineries || []).map((winery, index) => (
                   <Draggable key={winery.id} draggableId={winery.id.toString()} index={index}>
                     {(provided) => (
                       <div ref={provided.innerRef} {...provided.draggableProps} className="flex items-start gap-3 p-4 bg-white hover:bg-gray-50">
