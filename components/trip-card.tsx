@@ -37,6 +37,11 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
     fetchFriends();
   }, [fetchFriends]);
 
+  useEffect(() => {
+    // Keep local selected friends in sync with trip data
+    setSelectedFriends(trip.members || []);
+  }, [trip.members]);
+
   const availableWineries = useMemo(() => 
     allWineries.filter(w => !trip.wineries.some(tw => tw.id === w.id)),
     [allWineries, trip.wineries]
@@ -108,41 +113,47 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
     }
   };
 
-  const handleAddMembers = async () => {
+  const onFriendSelect = async (friendId: string) => {
+    const newSelectedFriends = selectedFriends.includes(friendId)
+      ? selectedFriends.filter(id => id !== friendId)
+      : [...selectedFriends, friendId];
+    
+    setSelectedFriends(newSelectedFriends);
     try {
-      await addMembersToTrip(trip.id.toString(), selectedFriends);
-      toast({ description: "Members added to trip." });
+      await addMembersToTrip(trip.id.toString(), newSelectedFriends);
+      toast({ description: "Trip members updated." });
     } catch (error) {
-      toast({ variant: "destructive", description: "Failed to add members." });
+      toast({ variant: "destructive", description: "Failed to update members." });
     }
-  };
-
-  const onFriendSelect = (friendId: string) => {
-    setSelectedFriends(prev => 
-      prev.includes(friendId) 
-        ? prev.filter(id => id !== friendId) 
-        : [...prev, friendId]
-    );
   };
   
   const currentMembers = friends.filter((f: Friend) => trip.members?.includes(f.id));
 
   const handleExportToMaps = (tripWineries: Winery[]) => {
-    if (!tripWineries || tripWineries.length === 0) {
-        return;
-    }
+    if (!tripWineries || tripWineries.length === 0) return;
 
-    const encodedWineries = tripWineries.map(w => encodeURIComponent(`${w.name}, ${w.address}`));
-    
-    let url = `https://www.google.com/maps/dir/`;
+    const waypoints = tripWineries.map(w => encodeURIComponent(`${w.name}, ${w.address}`));
+    let url = 'https://www.google.com/maps/dir/';
 
-    if (encodedWineries.length === 1) {
-        url += `${encodedWineries[0]}`;
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLocation = `${position.coords.latitude},${position.coords.longitude}`;
+          const destination = waypoints.pop(); // The last winery is the final destination
+          url += `${userLocation}/${waypoints.join('/')}/${destination}`;
+          window.open(url, '_blank');
+        },
+        () => {
+          // Geolocation failed, fall back to winery-to-winery directions
+          url += waypoints.join('/');
+          window.open(url, '_blank');
+        }
+      );
     } else {
-        const waypoints = encodedWineries.slice(0, -1).join('/');
-        url += `${encodedWineries[encodedWineries.length - 1]}/${waypoints}`;
+      // Geolocation not supported
+      url += waypoints.join('/');
+      window.open(url, '_blank');
     }
-    window.open(url, '_blank');
   };
 
   return (
@@ -171,8 +182,10 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
                 {trip.wineries.map((winery, index) => (
                   <Draggable key={winery.id} draggableId={winery.id.toString()} index={index}>
                     {(provided) => (
-                      <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="flex items-start gap-3 p-4 bg-white hover:bg-gray-50">
-                        <GripVertical className="w-5 h-5 text-gray-400 mt-1" />
+                      <div ref={provided.innerRef} {...provided.draggableProps} className="flex items-start gap-3 p-4 bg-white hover:bg-gray-50">
+                        <div {...provided.dragHandleProps} className="pt-1">
+                          <GripVertical className="w-5 h-5 text-gray-400" />
+                        </div>
                         <div className="flex-grow">
                           <p className="font-semibold">{winery.name}</p>
                           <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
@@ -271,7 +284,6 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
                               ))}
                           </CommandGroup>
                       </Command>
-                      <Button className="w-full" onClick={handleAddMembers}>Update Members</Button>
                   </PopoverContent>
               </Popover>
           )}
