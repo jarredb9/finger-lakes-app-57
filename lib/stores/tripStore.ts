@@ -127,13 +127,28 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
         // After setting the trips, ensure all wineries have their details.
         const { ensureWineryDetails } = useWineryStore.getState();
-        const wineryDetailPromises: Promise<any>[] = [];
-        tripsForDate.forEach((trip: Trip) => {
-          trip.wineries.forEach(winery => {
-            wineryDetailPromises.push(ensureWineryDetails(winery.id));
-          });
+        const wineryDetailPromises = tripsForDate.flatMap((trip: Trip) => 
+          trip.wineries.map(winery => ensureWineryDetails(winery.id))
+        );
+        
+        const detailedWineries = (await Promise.all(wineryDetailPromises)).filter(Boolean) as Winery[];
+        console.log('[tripStore] Fetched details for wineries:', detailedWineries);
+
+        const detailedWineriesMap = new Map(detailedWineries.map(w => [w.id, w]));
+
+        // Update the trips in the store with the newly fetched details
+        set(state => {
+          const updatedTripsForDate = state.tripsForDate.map(trip => ({
+            ...trip,
+            wineries: trip.wineries.map(winery => {
+              const detailedWinery = detailedWineriesMap.get(winery.id);
+              return detailedWinery ? { ...winery, ...detailedWinery } : winery;
+            })
+          }));
+          return {
+            tripsForDate: updatedTripsForDate
+          };
         });
-        await Promise.all(wineryDetailPromises);
       } else {
         console.error(`[tripStore] fetchTripsForDate: Failed to fetch data for date ${dateString}.`, response.status, response.statusText);
         set({ tripsForDate: [], isLoading: false });
