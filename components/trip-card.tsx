@@ -1,7 +1,6 @@
 import { memo, useState, useMemo, useEffect } from "react";
 import { Trip, Winery, Friend } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
-import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,7 +25,6 @@ interface TripCardProps {
 const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
   const { toast } = useToast();
   const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip, saveAllWineryNotes } = useTripStore();
-  const persistentWineries = useWineryStore(state => state.persistentWineries);
   const { friends, fetchFriends } = useFriendStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(trip.name || "");
@@ -49,15 +47,6 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
     allWineries.filter(w => !(trip.wineries || []).some(tw => tw.id === w.id)),
     [allWineries, trip.wineries]
   );
-
-  // Get the most up-to-date winery data from the persistent store
-  const tripWineries = useMemo(() => {
-    return (trip.wineries || []).map(wineryInTrip => {
-      const persistentWinery = persistentWineries.find(p => p.id === wineryInTrip.id);
-      // Merge data, giving preference to the more complete persistent data
-      return persistentWinery ? { ...wineryInTrip, ...persistentWinery } : wineryInTrip;
-    });
-  }, [trip.wineries, persistentWineries]);
 
   const handleDrop = (result: DropResult) => {
     if (!result.destination) return;
@@ -190,8 +179,8 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
         <DragDropContext onDragEnd={handleDrop}>
           <Droppable droppableId={`trip-${trip.id}`}>
             {(provided) => (
-              <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y" data-testid="winery-list">
-                {tripWineries.map((winery, index) => (
+              <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y" data-testid="winery-list" >
+                {(trip.wineries || []).map((winery, index) => (
                   <Draggable key={winery.id} draggableId={winery.id.toString()} index={index}>
                     {(provided) => (
                       <div ref={provided.innerRef} {...provided.draggableProps} className="flex items-start gap-3 p-4 bg-white hover:bg-gray-50">

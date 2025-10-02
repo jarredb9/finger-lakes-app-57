@@ -132,7 +132,6 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         );
         
         const detailedWineries = (await Promise.all(wineryDetailPromises)).filter(Boolean) as Winery[];
-        console.log('[tripStore] Fetched details for wineries:', detailedWineries);
 
         const detailedWineriesMap = new Map(detailedWineries.map(w => [w.id, w]));
 
