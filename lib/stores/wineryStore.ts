@@ -13,6 +13,7 @@ interface RawWinery {
   website?: string;
   google_rating?: number;
   opening_hours?: any; // From Google Places Details API
+  reviews?: any; // From Google Places Details API
   visits?: Visit[];
   wineries?: RawWinery[]; // In case of nested winery data
 }
@@ -39,6 +40,7 @@ const standardizeWineryData = (rawWinery: RawWinery, existingWinery?: Winery): W
       rating: rawWinery.google_rating ?? existingWinery?.rating,
       userVisited: existingWinery?.userVisited || false,
       openingHours: rawWinery.opening_hours ?? (rawWinery as unknown as Partial<Winery>).openingHours ?? existingWinery?.openingHours,
+      reviews: rawWinery.reviews ?? existingWinery?.reviews,
       onWishlist: existingWinery?.onWishlist || false,
       isFavorite: existingWinery?.isFavorite || false,
       visits: existingWinery?.visits || rawWinery.visits || [],

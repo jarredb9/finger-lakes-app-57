@@ -208,7 +208,7 @@ export function useWineryMap(userId: string) {
             "id",
             "websiteURI",
             "nationalPhoneNumber",
-            "reviews", // Add this field to your details fetch
+            "reviews",
           ],
           locationRestriction: finalSearchBounds,
         };
