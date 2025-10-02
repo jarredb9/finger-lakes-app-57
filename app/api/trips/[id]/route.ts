@@ -164,10 +164,24 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   // Handle winery order update
   if (updates.wineryOrder !== undefined && Array.isArray(updates.wineryOrder)) {
+    // First, fetch existing notes to preserve them.
+    const { data: existingTripWineries, error: notesFetchError } = await supabase
+      .from("trip_wineries")
+      .select("winery_id, notes")
+      .eq("trip_id", tripId);
+
+    if (notesFetchError) {
+      console.error("Error fetching existing winery notes:", notesFetchError);
+      return NextResponse.json({ error: "Failed to update winery order" }, { status: 500 });
+    }
+
+    const notesMap = new Map(existingTripWineries.map(item => [item.winery_id, item.notes]));
+
     const updatesToPerform = updates.wineryOrder.map((wineryId: number, index: number) => ({
       winery_id: wineryId,
       visit_order: index,
       trip_id: tripId, // tripId is already a number here
+      notes: notesMap.get(wineryId) || null, // Preserve existing notes
     }));
 
     // Delete existing trip_wineries for this trip and re-insert
