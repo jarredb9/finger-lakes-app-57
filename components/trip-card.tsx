@@ -14,6 +14,7 @@ import { DatePicker } from "./DatePicker";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import DailyHours from "@/app/api/trips/DailyHours";
 import { cn } from "@/lib/utils";
 
 interface TripCardProps {
@@ -189,6 +190,7 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
                         <div className="flex-grow">
                           <p className="font-semibold">{winery.name}</p>
                           <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
+                          <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
                           <Textarea
                             placeholder="Add notes..."
                             value={notes[winery.dbId as number] ?? winery.notes ?? ''}

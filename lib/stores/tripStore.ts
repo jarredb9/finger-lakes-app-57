@@ -124,6 +124,16 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
           tripsForDate: tripsForDate,
           isLoading: false
         });
+
+        // After setting the trips, ensure all wineries have their details.
+        const { ensureWineryDetails } = useWineryStore.getState();
+        const wineryDetailPromises: Promise<any>[] = [];
+        tripsForDate.forEach((trip: Trip) => {
+          trip.wineries.forEach(winery => {
+            wineryDetailPromises.push(ensureWineryDetails(winery.id));
+          });
+        });
+        await Promise.all(wineryDetailPromises);
       } else {
         console.error(`[tripStore] fetchTripsForDate: Failed to fetch data for date ${dateString}.`, response.status, response.statusText);
         set({ tripsForDate: [], isLoading: false });
