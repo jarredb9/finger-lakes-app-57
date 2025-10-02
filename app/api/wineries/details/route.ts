@@ -68,6 +68,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to save winery details', details: upsertError }, { status: 500 });
     }
 
+    console.log('[API] /api/wineries/details: Upserted winery:', upsertedWinery);
+
+    if (!upsertedWinery) {
+      const { data: fetchedWinery, error: fetchError } = await supabase
+        .from('wineries')
+        .select('*')
+        .eq('google_place_id', placeId)
+        .single();
+
+      if (fetchError) {
+        console.error('[API] /api/wineries/details: Error fetching after upsert:', fetchError);
+        return NextResponse.json({ error: 'Failed to fetch winery details after upsert' }, { status: 500 });
+      }
+      
+      console.log('[API] /api/wineries/details: Fetched winery after failed upsert return:', fetchedWinery);
+      return NextResponse.json(fetchedWinery);
+    }
+
     return NextResponse.json(upsertedWinery);
   } catch (error) {
     console.error('[API] /api/wineries/details: Error fetching or processing winery details:', error);
