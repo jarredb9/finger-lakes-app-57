@@ -8,7 +8,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
 import { Label } from "./ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { AuthenticatedUser, Winery } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 
@@ -46,7 +46,7 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
         setIsSearching(true);
         const request = {
           textQuery: `${winerySearch} winery`,
-          fields: ["displayName", "location", "formattedAddress", "id"],
+          fields: ["displayName", "location", "formattedAddress", "id", "rating"],
         };
         try {
           const { places: foundPlaces } = await places.Place.searchByText(request);
@@ -56,6 +56,7 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
             address: place.formattedAddress!,
             lat: place.location!.lat(),
             lng: place.location!.lng(),
+            rating: place.rating ?? undefined, // Coalesce null to undefined
           }));
           setSearchResults(wineries);
         } catch (error) {
@@ -115,7 +116,8 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Plan a New Trip</CardTitle>
+        <CardTitle>Create a New Trip</CardTitle>
+        <CardDescription>Give your trip a name and date, then search for wineries to add.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid sm:grid-cols-2 gap-4">
@@ -134,17 +136,22 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
             onChange={(e) => setWinerySearch(e.target.value)}
             className="mt-2"
           />
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-2 max-h-60 overflow-y-auto p-1">
+          <div className="space-y-2 mt-2 max-h-60 overflow-y-auto p-1">
             {isSearching ? <p>Searching...</p> : searchResults.map(winery => (
-              <div key={winery.id} className="flex items-center gap-2 p-2 border rounded-lg">
+              <div key={winery.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
                 <Checkbox 
                   id={`winery-${winery.id}`}
                   checked={selectedWineries.has(winery.id)}
                   onCheckedChange={() => handleWineryToggle(winery)}
+                  className="mt-1"
                 />
-                <Label htmlFor={`winery-${winery.id}`} className="text-sm">
-                  {winery.name}
-                </Label>
+                <div className="grid gap-1.5 leading-none">
+                  <Label htmlFor={`winery-${winery.id}`} className="text-sm font-medium cursor-pointer">
+                    {winery.name}
+                  </Label>
+                  <p className="text-sm text-muted-foreground">{winery.address}</p>
+                  {winery.rating && <p className="text-sm text-muted-foreground">Rating: {winery.rating} ★</p>}
+                </div>
               </div>
             ))}
           </div>
