@@ -122,8 +122,8 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const tripId = params.id;
+  
+  const tripId = parseInt(params.id, 10);
   const supabase = await createClient();
   const updates = await request.json();
 
@@ -167,7 +167,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     const updatesToPerform = updates.wineryOrder.map((wineryId: number, index: number) => ({
       winery_id: wineryId,
       visit_order: index,
-      trip_id: tripId,
+      trip_id: tripId, // tripId is already a number here
     }));
 
     // Delete existing trip_wineries for this trip and re-insert

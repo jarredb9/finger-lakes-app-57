@@ -146,11 +146,11 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
                         <div className="flex-grow">
                           <p className="font-semibold">{winery.name}</p>
                           <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
-                          <Textarea 
+                          <Textarea
                             placeholder="Add notes..."
-                            value={notes[Number(winery.id)] ?? winery.notes ?? ''}
-                            onChange={(e) => handleNotesChange(Number(winery.id), e.target.value)}
-                            onBlur={() => handleSaveNotes(Number(winery.id))}
+                            value={notes[winery.dbId as number] ?? winery.notes ?? ''}
+                            onChange={(e) => handleNotesChange(winery.dbId as number, e.target.value)}
+                            onBlur={() => handleSaveNotes(winery.dbId as number)}
                             className="mt-2 text-sm"
                           />
                         </div>
