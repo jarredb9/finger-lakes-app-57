@@ -123,7 +123,7 @@ export default function WineryQnA({ winery }: WineryQnAProps) {
                         <span className="font-medium">Online reservations seem to be available.</span>
                       </div>
                       <CardDescription className="mt-2 pl-7">
-                        Their website points to a reservation service. It&apos;s a good idea to book ahead.
+                                          {"Their website points to a reservation service. It's a good idea to book ahead."}
                       </CardDescription>
                     </CardContent>
                  </Card>
