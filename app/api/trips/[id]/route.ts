@@ -219,3 +219,47 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   return NextResponse.json({ message: "Trip updated successfully" });
 }
+
+export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tripId = params.id;
+  const supabase = await createClient();
+
+  // First, verify the user owns the trip
+  const { data: trip, error: fetchError } = await supabase
+    .from("trips")
+    .select("user_id")
+    .eq("id", tripId)
+    .single();
+
+  if (fetchError || !trip) {
+    return NextResponse.json({ error: "Trip not found" }, { status: 404 });
+  }
+
+  if (trip.user_id !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Delete associated trip_wineries first to avoid foreign key constraint violations
+  const { error: tripWineriesError } = await supabase
+    .from("trip_wineries")
+    .delete()
+    .eq("trip_id", tripId);
+
+  if (tripWineriesError) {
+    console.error("Error deleting trip wineries:", tripWineriesError);
+    return NextResponse.json({ error: "Failed to delete associated wineries" }, { status: 500 });
+  }
+
+  // Now delete the trip itself
+  const { error: deleteError } = await supabase.from("trips").delete().eq("id", tripId);
+
+  if (deleteError) {
+    console.error("Error deleting trip:", deleteError);
+    return NextResponse.json({ error: "Failed to delete trip" }, { status: 500 });
+  }
+
+  return NextResponse.json({ message: "Trip deleted successfully" });
+}
