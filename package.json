@@ -11,7 +11,7 @@
     "test:watch": "jest --watch",
     "prepare": "husky",
     "start": "next start",
-    "type-check": "tsc --noEmit"
+    "type-check": "npx tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -70,7 +70,6 @@
     "sonner": "^1.7.1",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
-    "tsc": "^2.0.4",
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
     "zustand": "^4.5.2"
@@ -101,7 +100,7 @@
     "*.{js,jsx}": "eslint --fix",
     "*.{ts,tsx}": [
       "eslint --fix",
-      "bash -c 'tsc -p tsconfig.json --noEmit'"
+      "bash -c 'npm run type-check'"
     ]
   }
 }
