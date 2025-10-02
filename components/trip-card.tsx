@@ -14,7 +14,7 @@ import { DatePicker } from "./DatePicker";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
-import DailyHours from "@/app/api/trips/DailyHours";
+import DailyHours from "@/components/DailyHours";
 import { cn } from "@/lib/utils";
 
 interface TripCardProps {
