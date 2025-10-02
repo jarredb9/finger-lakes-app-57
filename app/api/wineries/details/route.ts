@@ -34,7 +34,8 @@ export async function POST(request: NextRequest) {
   }
   const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,website,rating&key=${apiKey}`;
 
-  try {
+    try {
+    console.log(`[API] /api/wineries/details: Fetching details for placeId: ${placeId}`);
     const response = await fetch(url);
     const data = await response.json();
 
@@ -44,17 +45,19 @@ export async function POST(request: NextRequest) {
     }
 
     const placeDetails = data.result;
+    console.log('[API] /api/wineries/details: Fetched place details:', placeDetails);
 
     const wineryData = {
       google_place_id: placeId,
       name: placeDetails.name,
       address: placeDetails.formatted_address,
-      latitude: placeDetails.geometry.location.lat,
-      longitude: placeDetails.geometry.location.lng,
+      latitude: placeDetails.geometry?.location?.lat,
+      longitude: placeDetails.geometry?.location?.lng,
       phone: placeDetails.formatted_phone_number,
       website: placeDetails.website,
       google_rating: placeDetails.rating,
     };
+    console.log('[API] /api/wineries/details: Prepared winery data for upsert:', wineryData);
 
     // Upsert winery data into the database
     const { data: upsertedWinery, error: upsertError } = await supabase
