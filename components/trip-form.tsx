@@ -1,6 +1,6 @@
 // components/trip-form.tsx
-import { useState, useEffect } from "react";
-import { useTripStore } from "@/lib/stores/tripStore";
+import { useState, useEffect, useMemo } from "react";
+import { useTripStore } from "@/lib/stores/tripStore"; 
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { DatePicker } from "./DatePicker";
 import { Button } from "./ui/button";
@@ -19,10 +19,11 @@ interface TripFormProps {
 export default function TripForm({ initialDate, user }: TripFormProps) {
   const { toast } = useToast();
   const { fetchTripsForDate, createTrip } = useTripStore();
-  const { wineries, fetchWineryData } = useWineryStore();
+  const { persistentWineries: wineries, fetchWineryData } = useWineryStore();
   const [tripDate, setTripDate] = useState<Date | undefined>(initialDate);
   const [selectedWineries, setSelectedWineries] = useState<Set<string>>(new Set());
   const [newTripName, setNewTripName] = useState("");
+  const [winerySearch, setWinerySearch] = useState("");
 
   useEffect(() => {
     if (tripDate) {
@@ -33,6 +34,13 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
   useEffect(() => {
     fetchWineryData();
   }, [fetchWineryData]);
+
+  const filteredWineries = useMemo(() => {
+    if (!winerySearch) return wineries;
+    return wineries.filter(winery => 
+      winery.name.toLowerCase().includes(winerySearch.toLowerCase())
+    );
+  }, [wineries, winerySearch]);
 
   const handleWineryToggle = (wineryId: string) => {
     setSelectedWineries(prev => {
@@ -47,8 +55,8 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
   };
 
   const handleCreateTrip = async () => {
-    if (!tripDate || selectedWineries.size === 0 || !newTripName.trim()) {
-      toast({ variant: "destructive", description: "Please select a date, name, and at least one winery." });
+    if (!tripDate || !newTripName.trim()) {
+      toast({ variant: "destructive", description: "Please select a date and provide a name for the trip." });
       return;
     }
     try {
@@ -82,9 +90,15 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
           <DatePicker date={tripDate} onSelect={setTripDate} />
         </div>
         <div>
-          <Label className="font-semibold">Select Wineries:</Label>
+          <Label className="font-semibold">Select Wineries (Optional):</Label>
+          <Input 
+            placeholder="Search for a winery..."
+            value={winerySearch}
+            onChange={(e) => setWinerySearch(e.target.value)}
+            className="mt-2"
+          />
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
-            {wineries.map(winery => (
+            {filteredWineries.map(winery => (
               <div key={winery.id} className="flex items-center gap-2 p-2 border rounded-lg">
                 <Checkbox 
                   id={`winery-${winery.id}`}
@@ -98,7 +112,7 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
             ))}
           </div>
         </div>
-        <Button onClick={handleCreateTrip} disabled={!tripDate || selectedWineries.size === 0 || !newTripName.trim()}>
+        <Button onClick={handleCreateTrip} disabled={!tripDate || !newTripName.trim()}>
           Create Trip
         </Button>
       </CardContent>
