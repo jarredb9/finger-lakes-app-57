@@ -1,7 +1,7 @@
 
 // components/WineryDetails.tsx
 import { Winery } from "@/lib/types";
-import { Star, Phone, Globe, MapPin } from "lucide-react";
+import { Star, Phone, Globe, MapPin, Clock } from "lucide-react";
 import { DialogDescription } from "@/components/ui/dialog";
 
 interface WineryDetailsProps {
@@ -27,6 +27,16 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
           <a href={winery.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline truncate">
             Visit Website
           </a>
+        </div>
+      )}
+      {winery.openingHours?.weekday_text && (
+        <div className="flex items-start space-x-2">
+          <Clock className="w-4 h-4 mt-1 shrink-0" />
+          <div>
+            {winery.openingHours.weekday_text.map((line: string, index: number) => (
+              <div key={index}>{line}</div>
+            ))}
+          </div>
         </div>
       )}
       {winery.rating && (

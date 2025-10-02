@@ -19,6 +19,19 @@ export interface Visit {
   };
 }
 
+export interface OpeningHoursPoint {
+  day: number;
+  hour: number;
+  minute: number;
+}
+
+export interface OpeningHours {
+  open_now?: boolean;
+  periods?: { open: OpeningHoursPoint; close?: OpeningHoursPoint | null }[];
+  weekday_text?: string[];
+  toJSON?: () => any; // From Google Places API
+}
+
 export interface Winery {
   id: string; // This is the google_place_id
   dbId?: number | null | undefined; // This will be the serial ID from our database
@@ -37,6 +50,7 @@ export interface Winery {
   trip_name?: string;
   trip_date?: string;
   notes?: string;
+  openingHours?: OpeningHours | null;
 }
 
 export interface Trip {

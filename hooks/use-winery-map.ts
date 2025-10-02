@@ -208,6 +208,7 @@ export function useWineryMap(userId: string) {
             "id",
             "websiteURI",
             "nationalPhoneNumber",
+            "openingHours",
           ],
           locationRestriction: finalSearchBounds,
         };
@@ -240,6 +241,7 @@ export function useWineryMap(userId: string) {
         rating: place.rating ?? undefined,
         website: place.websiteURI ?? undefined,
         phone: place.nationalPhoneNumber ?? undefined,
+        openingHours: place.openingHours ?? null,
       }));
 
       setSearchResults(wineries);
@@ -285,6 +287,7 @@ export function useWineryMap(userId: string) {
             "websiteURI",
             "nationalPhoneNumber",
             "location",
+            "openingHours",
           ],
         });
         if (!placeDetails.location) {
@@ -302,6 +305,7 @@ export function useWineryMap(userId: string) {
           lng: placeDetails.location.lng(),
           website: placeDetails.websiteURI ?? undefined,
           phone: placeDetails.nationalPhoneNumber ?? undefined,
+          openingHours: placeDetails.openingHours ?? null,
         };
         setProposedWinery(newWinery);
       } catch (error) {

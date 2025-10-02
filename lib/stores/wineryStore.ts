@@ -37,6 +37,7 @@ const standardizeWineryData = (rawWinery: RawWinery, existingWinery?: Winery): W
       website: rawWinery.website ?? existingWinery?.website,
       rating: rawWinery.google_rating ?? existingWinery?.rating,
       userVisited: existingWinery?.userVisited || false,
+      openingHours: (rawWinery as unknown as Partial<Winery>).openingHours ?? existingWinery?.openingHours,
       onWishlist: existingWinery?.onWishlist || false,
       isFavorite: existingWinery?.isFavorite || false,
       visits: existingWinery?.visits || rawWinery.visits || [],
@@ -203,7 +204,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
 
   ensureWineryDetails: async (placeId: string) => {
     const existing = get().persistentWineries.find(w => w.id === placeId);
-    if (existing && existing.phone && existing.website && existing.rating) {
+    if (existing && existing.phone && existing.website && existing.rating && existing.openingHours !== undefined) {
       return existing;
     }
 
