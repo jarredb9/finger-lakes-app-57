@@ -19,7 +19,7 @@ interface TripFormProps {
 export default function TripForm({ initialDate, user }: TripFormProps) {
   const { toast } = useToast();
   const { fetchTripsForDate, createTrip } = useTripStore();
-  const { wineries } = useWineryStore();
+  const { wineries, fetchWineryData } = useWineryStore();
   const [tripDate, setTripDate] = useState<Date | undefined>(initialDate);
   const [selectedWineries, setSelectedWineries] = useState<Set<string>>(new Set());
   const [newTripName, setNewTripName] = useState("");
@@ -29,6 +29,10 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
       fetchTripsForDate(tripDate.toISOString().split('T')[0]);
     }
   }, [tripDate, fetchTripsForDate]);
+
+  useEffect(() => {
+    fetchWineryData();
+  }, [fetchWineryData]);
 
   const handleWineryToggle = (wineryId: string) => {
     setSelectedWineries(prev => {
