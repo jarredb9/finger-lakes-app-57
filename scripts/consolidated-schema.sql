@@ -167,6 +167,7 @@ CREATE POLICY "Users can update their own visits" ON public.visits FOR UPDATE US
 ALTER TABLE public.wineries ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Anyone can view wineries" ON public.wineries FOR SELECT USING (true);
 CREATE POLICY "Authenticated users can insert wineries" ON public.wineries FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "Authenticated users can update wineries" ON public.wineries FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
 
 -- wishlist
 CREATE POLICY "Users can delete their own wishlist items" ON public.wishlist FOR DELETE USING (auth.uid() = user_id);
