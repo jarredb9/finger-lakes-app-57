@@ -208,7 +208,7 @@ export function useWineryMap(userId: string) {
             "id",
             "websiteURI",
             "nationalPhoneNumber",
-            "openingHours",
+            "opening_hours",
           ],
           locationRestriction: finalSearchBounds,
         };
@@ -287,7 +287,7 @@ export function useWineryMap(userId: string) {
             "websiteURI",
             "nationalPhoneNumber",
             "location",
-            "openingHours",
+            "opening_hours",
           ],
         });
         if (!placeDetails.location) {
