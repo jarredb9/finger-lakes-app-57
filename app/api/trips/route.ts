@@ -190,14 +190,45 @@ export async function POST(request: NextRequest) {
     const user = await getUser();
     if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { date, wineryId, name, tripIds, notes } = await request.json();
+    const body = await request.json();
+    const supabase = await createClient();
+
+    // Scenario 1: Creating a new trip with multiple wineries (from TripForm)
+    if (body.name && body.trip_date && Array.isArray(body.wineries)) {
+        const { name, trip_date, wineries } = body;
+
+        const { data: newTrip, error: createTripError } = await supabase
+            .from("trips")
+            .insert({ user_id: user.id, trip_date, name, members: [user.id] })
+            .select("id")
+            .single();
+
+        if (createTripError) throw createTripError;
+
+        if (wineries.length > 0) {
+            const tripWineriesToInsert = wineries.map((winery: { dbId: number }, index: number) => ({
+                trip_id: newTrip.id,
+                winery_id: winery.dbId,
+                visit_order: index,
+            }));
+
+            const { error: addWineriesError } = await supabase
+                .from("trip_wineries")
+                .insert(tripWineriesToInsert);
+
+            if (addWineriesError) throw addWineriesError;
+        }
+
+        return NextResponse.json({ success: true, tripId: newTrip.id });
+    }
+
+    // Scenario 2: Adding a single winery to one or more trips (from WineryModal)
+    const { date, wineryId, name, tripIds, notes } = body;
     if (!date) return NextResponse.json({ error: "Date is required" }, { status: 400 });
 
-    const supabase = await createClient();
     let targetTripIds: number[] = [];
 
-    // Handle creation of a new trip if needed
-    if (name) {
+    if (name) { // Creating a new trip while adding a winery
         const { data: newTrip, error: createTripError } = await supabase
             .from("trips")
             .insert({ user_id: user.id, trip_date: date, name: name, members: [user.id] })
@@ -206,39 +237,20 @@ export async function POST(request: NextRequest) {
         if (createTripError) throw createTripError;
         targetTripIds.push(newTrip.id);
     }
-    
-    // Add existing trips to the target array
+
     if (tripIds && Array.isArray(tripIds)) {
         targetTripIds = [...targetTripIds, ...tripIds];
     }
 
     if (wineryId && targetTripIds.length > 0) {
-        // Find the winery's current max order for each trip
-        const orderPromises = targetTripIds.map((tripId: number) => 
-            supabase.from("trip_wineries").select("visit_order").eq("trip_id", tripId)
-        );
-        const orderResults = await Promise.all(orderPromises);
-        
-        const addWineryPromises = targetTripIds.map((tripId: number, index: number) => {
-            const orderError = orderResults[index].error;
-            const tripWineries = orderResults[index].data || [];
-            if(orderError) throw orderError;
-            
-            const maxOrder = Math.max(0, ...tripWineries.map(tw => tw.visit_order));
-            
-            return supabase
-                .from("trip_wineries")
-                .insert({ trip_id: tripId, winery_id: wineryId, visit_order: maxOrder + 1, notes });
+        const addWineryPromises = targetTripIds.map(async (tripId) => {
+            const { data: existing, error } = await supabase.from("trip_wineries").select('visit_order').eq("trip_id", tripId).order('visit_order', { ascending: false }).limit(1).single();
+            if (error && error.code !== 'PGRST116') throw error; // Ignore 'not found'
+            const maxOrder = existing?.visit_order ?? -1;
+            return supabase.from("trip_wineries").insert({ trip_id: tripId, winery_id: wineryId, visit_order: maxOrder + 1, notes });
         });
-        
-        await Promise.all(addWineryPromises).catch(err => {
-             // Handle unique constraint errors gracefully
-            if (err.code === '23505') {
-                 console.warn("Winery already in a trip, skipping...");
-            } else {
-                throw err;
-            }
-        });
+
+        await Promise.all(addWineryPromises);
     }
 
     return NextResponse.json({ success: true, tripIds: targetTripIds });
