@@ -16,11 +16,14 @@ interface TripState {
   fetchUpcomingTrips: () => Promise<void>;
   fetchTripsForDate: (date: string) => Promise<void>;
   createTrip: (trip: Partial<Trip>) => Promise<Trip | null>;
-  deleteTrip: (tripId: string) => Promise<void>;
-  updateTrip: (tripId: string, updates: Partial<Trip>) => Promise<void>;
+  deleteTrip: (tripId: string) => Promise<void>;  
+  updateTrip: (tripId: string, updates: Partial<Omit<Trip, 'updateNote'> & {
+    updateNote?: { wineryId: number; notes: string; } | { notes: Record<number, string>; };
+  }>) => Promise<void>;
   updateWineryOrder: (tripId: string, wineryIds: number[]) => Promise<void>;
   removeWineryFromTrip: (tripId: string, wineryId: number) => Promise<void>;
   saveWineryNote: (tripId: string, wineryId: number, notes: string) => Promise<void>;
+  saveAllWineryNotes: (tripId: string, notes: Record<number, string>) => Promise<void>;
   addMembersToTrip: (tripId: string, memberIds: string[]) => Promise<void>;
   setSelectedTrip: (trip: Trip | null) => void;
   addWineryToTrips: (winery: Winery, tripDate: Date, selectedTrips: Set<string>, newTripName: string, addTripNotes: string) => Promise<void>;
@@ -188,7 +191,33 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   },
 
   updateWineryOrder: async (tripId: string, wineryIds: number[]) => {
-    get().updateTrip(tripId, { wineryOrder: wineryIds });
+    const tripIdAsNumber = parseInt(tripId, 10);
+    const originalTrips = get().trips;
+    const tripToUpdate = originalTrips.find(t => t.id === tripIdAsNumber);
+
+    if (!tripToUpdate) return;
+
+    // Create the new ordered winery list for the optimistic update
+    const reorderedWineries = wineryIds.map(id => 
+      tripToUpdate.wineries.find(w => w.dbId === id)
+    ).filter((w): w is Winery => w !== undefined);
+
+    // Optimistically update the state
+    set(state => ({
+      trips: state.trips.map(t => 
+        t.id === tripIdAsNumber ? { ...t, wineries: reorderedWineries } : t
+      )
+    }));
+
+    try {
+      // Send the update to the backend. The backend only needs the order of IDs.
+      await get().updateTrip(tripId, { wineryOrder: wineryIds });
+    } catch (error) {
+      console.error("Failed to update winery order, reverting.", error);
+      // On failure, revert to the original order
+      set({ trips: originalTrips });
+      throw new Error("Failed to save new winery order.");
+    }
   },
 
   removeWineryFromTrip: async (tripId: string, wineryId: number) => {
@@ -197,6 +226,10 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
   saveWineryNote: async (tripId: string, wineryId: number, notes: string) => {
     get().updateTrip(tripId, { updateNote: { wineryId, notes } });
+  },
+
+  saveAllWineryNotes: async (tripId: string, notes: Record<number, string>) => {
+    get().updateTrip(tripId, { updateNote: { notes } });
   },
   
   addMembersToTrip: async (tripId: string, memberIds: string[]) => {

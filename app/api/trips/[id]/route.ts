@@ -220,14 +220,29 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   // Handle update winery note
   if (updates.updateNote !== undefined && updates.updateNote.wineryId !== undefined && updates.updateNote.notes !== undefined) {
-    const { error } = await supabase
-      .from("trip_wineries")
-      .update({ notes: updates.updateNote.notes })
-      .eq("trip_id", tripId)
-      .eq("winery_id", updates.updateNote.wineryId);
-    if (error) {
-      console.error("Error updating winery note:", error);
-      return NextResponse.json({ error: "Failed to update winery note" }, { status: 500 });
+    // This handles both single note updates and batch updates
+    if (typeof updates.updateNote.notes === 'string') {
+      // Single note update
+      const { error } = await supabase
+        .from("trip_wineries")
+        .update({ notes: updates.updateNote.notes })
+        .eq("trip_id", tripId)
+        .eq("winery_id", updates.updateNote.wineryId);
+      if (error) {
+        console.error("Error updating winery note:", error);
+        return NextResponse.json({ error: "Failed to update winery note" }, { status: 500 });
+      }
+    } else if (typeof updates.updateNote.notes === 'object') {
+      // Batch note update
+      const noteUpdates = Object.entries(updates.updateNote.notes).map(([wineryId, noteText]) => 
+        supabase
+          .from('trip_wineries')
+          .update({ notes: noteText as string })
+          .eq('trip_id', tripId)
+          .eq('winery_id', parseInt(wineryId, 10))
+      );
+      await Promise.all(noteUpdates);
+      // You could add more robust error handling here if needed
     }
   }
 

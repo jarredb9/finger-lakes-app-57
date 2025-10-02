@@ -49,10 +49,8 @@ export interface Trip {
     wineryOrder?: number[];
     removeWineryId?: number;
     notes?: string;
-    updateNote?: {
-        wineryId: number;
-        notes: string;
-    };
+    // Can be a single note update or a batch update of multiple notes
+    updateNote?: { wineryId: number; notes: string; } | { notes: Record<number, string>; };
     owner_id?: string
 }
 

@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Check } from "lucide-react";
+import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Check, Share2 } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { DatePicker } from "./DatePicker";
 import { useToast } from "@/hooks/use-toast";
@@ -23,7 +23,7 @@ interface TripCardProps {
 
 const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
   const { toast } = useToast();
-  const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
+  const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip, saveAllWineryNotes } = useTripStore();
   const { friends, fetchFriends } = useFriendStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(trip.name || "");
@@ -31,6 +31,7 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
   const [winerySearch, setWinerySearch] = useState("");
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
+  const [hasUnsavedNotes, setHasUnsavedNotes] = useState(false);
 
   useEffect(() => {
     fetchFriends();
@@ -74,9 +75,9 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
     }
   };
 
-  const handleRemoveWinery = async (wineryId: string) => {
+  const handleRemoveWinery = async (wineryDbId: number) => {
     try {
-      await removeWineryFromTrip(trip.id.toString(), Number(wineryId));
+      await removeWineryFromTrip(trip.id.toString(), wineryDbId);
       toast({ description: "Winery removed from trip." });
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to remove winery." });
@@ -85,6 +86,7 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
 
   const handleNotesChange = (wineryId: number, newNotes: string) => {
     setNotes(prev => ({ ...prev, [wineryId]: newNotes }));
+    setHasUnsavedNotes(true);
   };
 
   const handleSaveNotes = async (wineryId: number) => {
@@ -93,6 +95,16 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
       toast({ description: "Notes saved." });
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to save notes." });
+    }
+  };
+
+  const handleSaveAllNotes = async () => {
+    try {
+      await saveAllWineryNotes(trip.id.toString(), notes);
+      setHasUnsavedNotes(false);
+      toast({ description: "All notes saved." });
+    } catch (error) {
+      toast({ variant: "destructive", description: "Failed to save all notes." });
     }
   };
 
@@ -114,6 +126,24 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
   };
   
   const currentMembers = friends.filter((f: Friend) => trip.members?.includes(f.id));
+
+  const handleExportToMaps = (tripWineries: Winery[]) => {
+    if (!tripWineries || tripWineries.length === 0) {
+        return;
+    }
+
+    const encodedWineries = tripWineries.map(w => encodeURIComponent(`${w.name}, ${w.address}`));
+    
+    let url = `https://www.google.com/maps/dir/`;
+
+    if (encodedWineries.length === 1) {
+        url += `${encodedWineries[0]}`;
+    } else {
+        const waypoints = encodedWineries.slice(0, -1).join('/');
+        url += `${encodedWineries[encodedWineries.length - 1]}/${waypoints}`;
+    }
+    window.open(url, '_blank');
+  };
 
   return (
     <Card className="w-full overflow-hidden">
@@ -155,7 +185,7 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
                           />
                         </div>
                         {isEditing && (
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.id)} className="text-red-500">
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">
                             <X className="w-4 h-4" />
                           </Button>
                         )}
@@ -195,63 +225,76 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
       </CardContent>
       <CardFooter className="bg-gray-50 p-4 flex justify-between items-center">
         <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Users className="w-4 h-4" />
-            <div className="flex items-center -space-x-2">
-                <TooltipProvider>
-                    {currentMembers.map((friend: Friend) => (
-                        <Tooltip key={friend.id}>
-                            <TooltipTrigger asChild>
-                                <Avatar className="h-6 w-6 border-2 border-white">
-                                    <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
-                                    <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{friend.name}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    ))}
-                </TooltipProvider>
-            </div>
-            {isEditing && (
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm"><UserPlus className="w-4 h-4 mr-2"/>Add/Remove</Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-[200px] p-0">
-                        <Command>
-                            <CommandInput placeholder="Search friends..." className="h-9" />
-                            <CommandEmpty>No friends found.</CommandEmpty>
-                            <CommandGroup>
-                                {friends.map((friend: Friend) => (
-                                <CommandItem
-                                    key={friend.id}
-                                    onSelect={() => onFriendSelect(friend.id)}
-                                >
-                                    <div className="flex items-center justify-between w-full">
-                                        <span>{friend.name}</span>
-                                        <Check
-                                            className={cn(
-                                            "h-4 w-4",
-                                            selectedFriends.includes(friend.id) ? "opacity-100" : "opacity-0"
-                                            )}
-                                        />
-                                    </div>
-                                </CommandItem>
-                                ))}
-                            </CommandGroup>
-                        </Command>
-                        <Button className="w-full" onClick={handleAddMembers}>Update Members</Button>
-                    </PopoverContent>
-                </Popover>
-            )}
+          <Users className="w-4 h-4" />
+          <div className="flex items-center -space-x-2">
+              <TooltipProvider>
+                  {currentMembers.map((friend: Friend) => (
+                      <Tooltip key={friend.id}>
+                          <TooltipTrigger asChild>
+                              <Avatar className="h-6 w-6 border-2 border-white">
+                                  <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
+                                  <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                              <p>{friend.name}</p>
+                          </TooltipContent>
+                      </Tooltip>
+                  ))}
+              </TooltipProvider>
+          </div>
+          {isEditing && (
+              <Popover>
+                  <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm"><UserPlus className="w-4 h-4 mr-2"/>Add/Remove</Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-0">
+                      <Command>
+                          <CommandInput placeholder="Search friends..." className="h-9" />
+                          <CommandEmpty>No friends found.</CommandEmpty>
+                          <CommandGroup>
+                              {friends.map((friend: Friend) => (
+                              <CommandItem
+                                  key={friend.id}
+                                  onSelect={() => onFriendSelect(friend.id)}
+                              >
+                                  <div className="flex items-center justify-between w-full">
+                                      <span>{friend.name}</span>
+                                      <Check
+                                          className={cn(
+                                          "h-4 w-4",
+                                          selectedFriends.includes(friend.id) ? "opacity-100" : "opacity-0"
+                                          )}
+                                      />
+                                  </div>
+                              </CommandItem>
+                              ))}
+                          </CommandGroup>
+                      </Command>
+                      <Button className="w-full" onClick={handleAddMembers}>Update Members</Button>
+                  </PopoverContent>
+              </Popover>
+          )}
         </div>
         <div className="flex items-center gap-2">
+          {hasUnsavedNotes && <Button variant="secondary" onClick={handleSaveAllNotes}><Save className="w-4 h-4 mr-2"/>Save Notes</Button>}
           {isEditing ? (
             <Button onClick={handleSave}><Save className="w-4 h-4 mr-2"/>Save Changes</Button>
           ) : (
             <Button variant="outline" onClick={() => setIsEditing(true)}><Edit className="w-4 h-4 mr-2"/>Edit Trip</Button>
           )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="outline" onClick={() => handleExportToMaps(trip.wineries)} disabled={!trip.wineries || trip.wineries.length === 0}>
+                    <Share2 size={16} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                  <p>Export to Google Maps</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button variant="destructive" size="icon" onClick={() => deleteTrip(trip.id.toString())}><Trash2 className="w-4 h-4"/></Button>
         </div>
       </CardFooter>
