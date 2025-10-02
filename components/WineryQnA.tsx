@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import { PlaceReview, Winery } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { MessageSquare, Dog, CalendarCheck, Baby, CheckCircle2, XCircle } from "lucide-react";
 
 interface WineryQnAProps {
@@ -30,13 +30,24 @@ const questions = [
   },
 ];
 
+const reservationPlatforms = ['tock.com', 'resy.com', 'opentable.com', 'cellarpass.com'];
+
 export default function WineryQnA({ winery }: WineryQnAProps) {
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const reviews = winery.reviews;
 
+  const hasOnlineReservations = useMemo(() => {
+    if (!winery.website) return false;
+    return reservationPlatforms.some(platform => winery.website!.includes(platform));
+  }, [winery.website]);
+
   const searchResults = useMemo(() => {
     // Handle structured data first
-    if (activeQuestionId === 'reservations' && winery.reservable !== undefined) return null;
+    if (activeQuestionId === 'reservations') {
+      if (winery.reservable !== undefined) return null; // Handled by dedicated UI
+      if (hasOnlineReservations) return null; // Handled by dedicated UI
+    }
+
     if (!activeQuestionId || !reviews) return [];
 
     const activeQuestion = questions.find((q) => q.id === activeQuestionId);
@@ -63,7 +74,7 @@ export default function WineryQnA({ winery }: WineryQnAProps) {
     });
 
     return foundReviews;
-  }, [activeQuestionId, reviews, winery.reservable]);
+  }, [activeQuestionId, reviews, winery.reservable, hasOnlineReservations]);
 
   if ((!reviews || reviews.length === 0) && winery.reservable === undefined) {
     return null;
@@ -91,22 +102,35 @@ export default function WineryQnA({ winery }: WineryQnAProps) {
 
       {activeQuestionId && (
         <>
-          {activeQuestionId === 'reservations' && winery.reservable !== undefined ? (
-            <Card className="bg-gray-50">
-              <CardContent className="p-3 text-sm flex items-center gap-2">
-                {winery.reservable ? (
-                  <CheckCircle2 className="w-5 h-5 text-green-600" />
-                ) : (
-                  <XCircle className="w-5 h-5 text-red-600" />
-                )}
-                <span className="font-medium">
-                  {winery.reservable ? "Reservations can be made." : "Reservations are not offered."}
-                </span>
-                 <span className="text-xs text-gray-500 ml-auto">(From Google)</span>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="space-y-2">
+          {activeQuestionId === 'reservations' && (winery.reservable !== undefined || hasOnlineReservations) ? (
+            <>
+              {winery.reservable !== undefined && (
+                <Card className="bg-gray-50">
+                  <CardContent className="p-3 text-sm flex items-center gap-2">
+                    {winery.reservable ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <XCircle className="w-5 h-5 text-red-600" />}
+                    <span className="font-medium">
+                      {winery.reservable ? "Reservations can be made." : "Reservations are not offered."}
+                    </span>
+                    <span className="text-xs text-gray-500 ml-auto">(From Google)</span>
+                  </CardContent>
+                </Card>
+              )}
+              {winery.reservable === undefined && hasOnlineReservations && (
+                 <Card className="bg-gray-50">
+                    <CardContent className="p-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        <span className="font-medium">Online reservations seem to be available.</span>
+                      </div>
+                      <CardDescription className="mt-2 pl-7">
+                        Their website points to a reservation service. It&apos;s a good idea to book ahead.
+                      </CardDescription>
+                    </CardContent>
+                 </Card>
+              )}
+            </>
+          ) : ( // Fallback for all other questions, or for reservations if no structured data is found
+            <div className="space-y-2 mt-2">
               {searchResults && searchResults.length > 0 ? (
                 searchResults.map((result, index) => (
                   <Card key={index} className="bg-gray-50">
