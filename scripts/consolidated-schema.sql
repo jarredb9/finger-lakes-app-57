@@ -4,7 +4,7 @@ CREATE TABLE public.profiles (id uuid NOT NULL, name text, email text, PRIMARY K
 CREATE TABLE public.trip_wineries (id SERIAL PRIMARY KEY, trip_id integer NOT NULL, winery_id integer NOT NULL, visit_order integer NOT NULL, created_at timestamp with time zone DEFAULT now(), notes text);
 CREATE TABLE public.trips (id SERIAL PRIMARY KEY, user_id uuid NOT NULL, trip_date date NOT NULL, name character varying(255), created_at timestamp with time zone DEFAULT now(), members uuid[]);
 CREATE TABLE public.visits (id SERIAL PRIMARY KEY, user_id uuid NOT NULL, winery_id integer NOT NULL, visit_date date NOT NULL, user_review text, rating integer, photos text[], created_at timestamp with time zone DEFAULT now(), updated_at timestamp with time zone DEFAULT now());
-CREATE TABLE public.wineries (id SERIAL PRIMARY KEY, google_place_id text, name character varying(255) NOT NULL, address text NOT NULL, latitude numeric, longitude numeric, phone character varying(20), website character varying(255), google_rating numeric, created_at timestamp with time zone DEFAULT now());
+CREATE TABLE public.wineries (id SERIAL PRIMARY KEY, google_place_id text, name character varying(255) NOT NULL, address text NOT NULL, latitude numeric, longitude numeric, phone character varying(20), website character varying(255), google_rating numeric, created_at timestamp with time zone DEFAULT now(), opening_hours jsonb);
 CREATE TABLE public.wishlist (id SERIAL PRIMARY KEY, user_id uuid NOT NULL, winery_id integer NOT NULL, created_at timestamp with time zone DEFAULT now());
 
 ALTER TABLE public.visits ADD CONSTRAINT visits_winery_id_fkey FOREIGN KEY (winery_id) REFERENCES public.wineries(id);
