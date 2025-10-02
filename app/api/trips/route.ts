@@ -15,6 +15,7 @@ interface RawWinery {
   phone?: string;
   website?: string;
   google_rating?: number;
+  opening_hours?: any;
 }
 
 interface TripWinery {
@@ -52,6 +53,7 @@ const formatWinery = (winery: RawWinery | null) => {
         phone: winery.phone,
         website: winery.website,
         rating: winery.google_rating,
+        openingHours: winery.opening_hours,
     };
 };
 
