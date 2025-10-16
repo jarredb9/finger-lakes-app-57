@@ -85,8 +85,9 @@ const TripCard = memo(({ trip }: TripCardProps) => {
   const tripWineries = useMemo(() => {
     return (trip.wineries || []).map(wineryInTrip => {
       const persistentWinery = persistentWineries.find(p => p.id === wineryInTrip.id);
-      // Merge data, giving preference to the more complete persistent data
-      return persistentWinery ? { ...wineryInTrip, ...persistentWinery } : wineryInTrip;
+      // Start with the persistent data, then apply trip-specific data over it.
+      // This preserves the `visits` array fetched with the trip.
+      return persistentWinery ? { ...persistentWinery, ...wineryInTrip } : wineryInTrip;
     });
   }, [trip.wineries, persistentWineries]);
 
