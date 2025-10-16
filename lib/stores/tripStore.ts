@@ -271,7 +271,37 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   },
 
   removeWineryFromTrip: async (tripId: string, wineryId: number) => {
-    get().updateTrip(tripId, { removeWineryId: wineryId });
+    const tripIdAsNumber = parseInt(tripId, 10);
+    const originalTrips = get().trips;
+    const tripIndex = originalTrips.findIndex(t => t.id === tripIdAsNumber);
+    if (tripIndex === -1) return;
+
+    const tripToUpdate = originalTrips[tripIndex];
+    const originalWineries = tripToUpdate.wineries;
+
+    // --- Optimistic Update --- //
+    const updatedWineries = originalWineries.filter(w => w.dbId !== wineryId);
+    const updatedTrip = { ...tripToUpdate, wineries: updatedWineries };
+    const updatedTrips = [...originalTrips];
+    updatedTrips[tripIndex] = updatedTrip;
+
+    set({ trips: updatedTrips, selectedTrip: updatedTrip });
+    // --- End Optimistic Update --- //
+
+    try {
+      const response = await fetch(`/api/trips/${tripId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ removeWineryId: wineryId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to remove winery from trip on server.");
+      }
+    } catch (error) {
+      console.error("Failed to remove winery, reverting:", error);
+      set({ trips: originalTrips, selectedTrip: tripToUpdate }); // Revert
+    }
   },
 
   saveWineryNote: async (tripId: string, wineryId: number, notes: string) => {
