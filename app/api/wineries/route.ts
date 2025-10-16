@@ -17,7 +17,9 @@ export async function GET(request: NextRequest) {
             console.error('[API] /api/wineries: Google Maps API Key is not set.');
             return NextResponse.json({ error: 'Google Maps API Key is not configured.' }, { status: 500 });
         }
-        const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(query)}&type=winery&key=${apiKey}`;
+        // Append "winery" to the query to improve search relevance, mirroring the trip-form implementation.
+        const enhancedQuery = `${query} winery`;
+        const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(enhancedQuery)}&type=winery&key=${apiKey}`;
 
         try {
             const response = await fetch(url);
