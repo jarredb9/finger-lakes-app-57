@@ -21,20 +21,27 @@ interface TripCardProps {
   trip: Trip;
 }
 
-const WineryReviews = ({ visits, friends }: { visits: Visit[], friends: Friend[] }) => {
+const WineryReviews = ({ visits, currentUserId }: { visits: Visit[], currentUserId: string }) => {
   if (!visits || visits.length === 0) {
     return null;
   }
 
-  const getFriendName = (userId: string) => {
-    return friends.find(f => f.id === userId)?.name || 'A friend';
+  const getReviewerName = (visit: Visit) => {
+    if (visit.user_id === currentUserId) {
+      return 'You';
+    }
+    // The API includes the profile name directly on the visit
+    if (visit.profiles?.name) {
+      return visit.profiles.name;
+    }
+    return 'A friend';
   };
 
   return (
     <div className="mt-2 space-y-2">
       {visits.map((visit, index) => (
         <div key={index} className="text-xs p-2 bg-gray-100 rounded-md">
-          <p className="font-semibold">{getFriendName(visit.user_id!)} rated it {visit.rating}/5:</p>
+          <p className="font-semibold">{getReviewerName(visit)} rated it {visit.rating}/5:</p>
           <p className="italic">&ldquo;{visit.user_review}&rdquo;</p>
         </div>
       ))}
@@ -45,7 +52,7 @@ const WineryReviews = ({ visits, friends }: { visits: Visit[], friends: Friend[]
 const TripCard = memo(({ trip }: TripCardProps) => {
   const { toast } = useToast();
   const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
-    const { friends, fetchFriends } = useFriendStore();
+  const { friends, fetchFriends } = useFriendStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(trip.name || "");
   const [editedDate, setEditedDate] = useState<Date | undefined>(new Date(trip.trip_date));
@@ -237,7 +244,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                             initialNotes={winery.notes || ''}
                             onSave={handleSaveNote}
                           />
-                          <WineryReviews visits={winery.visits || []} friends={currentMembers} />
+                          <WineryReviews visits={winery.visits || []} currentUserId={trip.user_id} />
                         </div>
                         {isEditing && (
                           <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">

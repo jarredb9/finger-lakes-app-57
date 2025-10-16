@@ -166,7 +166,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     const tempTrip: Trip = {
       id: tempId,
       user_id: trip.user_id || '',
-      trip_date: trip.trip_date || new Date().toISOString(),
+      trip_date: trip.trip_date || new Date().toISOString(), // This should be correct
       name: trip.name,
       wineries: trip.wineries || [],
       members: trip.members || [],
