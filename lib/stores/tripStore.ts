@@ -430,25 +430,25 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     const { ensureWineryInDb } = useWineryStore.getState();
     
     // --- Optimistic Update --- //
-    const originalTrip = get().selectedTrip;
-    if (!originalTrip || originalTrip.id !== trip.id) {
-        // This should not happen if the UI is consistent
-        console.warn("Selected trip mismatch during toggle!");
-        return;
-    }
+    const originalTrips = get().trips;
+    const tripIndex = originalTrips.findIndex(t => t.id === trip.id);
+    if (tripIndex === -1) return;
 
     const wineryDbId = winery.dbId || await ensureWineryInDb(winery);
     if (!wineryDbId) throw new Error("Could not get winery DB ID.");
 
-    const isOnTrip = originalTrip.wineries.some(w => w.dbId === wineryDbId);
+    const tripToUpdate = originalTrips[tripIndex];
+    const isOnTrip = tripToUpdate.wineries.some(w => w.dbId === wineryDbId);
     
     const updatedWineries = isOnTrip
-        ? originalTrip.wineries.filter(w => w.dbId !== wineryDbId)
-        : [...originalTrip.wineries, { ...winery, dbId: wineryDbId }];
+        ? tripToUpdate.wineries.filter(w => w.dbId !== wineryDbId)
+        : [...tripToUpdate.wineries, { ...winery, dbId: wineryDbId }];
 
-    const updatedTrip = { ...originalTrip, wineries: updatedWineries };
+    const updatedTrip = { ...tripToUpdate, wineries: updatedWineries };
+    const updatedTrips = [...originalTrips];
+    updatedTrips[tripIndex] = updatedTrip;
 
-    set({ selectedTrip: updatedTrip });
+    set({ trips: updatedTrips, selectedTrip: updatedTrip });
     // --- End Optimistic Update --- //
 
     try {
@@ -474,7 +474,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
     } catch (error) {
         console.error("Failed to toggle winery on trip, reverting:", error);
-        set({ selectedTrip: originalTrip }); // Revert
+        set({ trips: originalTrips, selectedTrip: tripToUpdate }); // Revert
         throw error;
     }
   },
