@@ -98,7 +98,12 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         set(state => ({
           trips: state.trips.map(t => 
             t.id === trip.id 
-              ? { ...t, wineries: t.wineries.map(w => detailedWineriesMap.get(w.id) ? { ...w, ...detailedWineriesMap.get(w.id) } : w) }
+              ? { 
+                  ...t, 
+                  wineries: t.wineries.map(w => 
+                    detailedWineriesMap.get(w.id) ? { ...detailedWineriesMap.get(w.id), ...w } : w
+                  ) 
+                }
               : t
           ),
         }));
