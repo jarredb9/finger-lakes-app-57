@@ -20,10 +20,9 @@ import { cn } from "@/lib/utils";
 
 interface TripCardProps {
   trip: Trip;
-  allWineries: Winery[];
 }
 
-const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
+const TripCard = memo(({ trip }: TripCardProps) => {
   const { toast } = useToast();
   const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
   const persistentWineries = useWineryStore(state => state.persistentWineries);
@@ -32,6 +31,8 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
   const [editedName, setEditedName] = useState(trip.name || "");
   const [editedDate, setEditedDate] = useState<Date | undefined>(new Date(trip.trip_date));
   const [winerySearch, setWinerySearch] = useState("");
+  const [searchResults, setSearchResults] = useState<Winery[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
 
   useEffect(() => {
@@ -43,10 +44,36 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
     setSelectedFriends(trip.members || []);
   }, [trip.members]);
 
-  const availableWineries = useMemo(() => 
-    allWineries.filter(w => !(trip.wineries || []).some(tw => tw.id === w.id)),
-    [allWineries, trip.wineries]
-  );
+  useEffect(() => {
+    if (!winerySearch.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const debounceSearch = setTimeout(() => {
+      const search = async () => {
+        setIsSearching(true);
+        try {
+          const response = await fetch(`/api/wineries?query=${encodeURIComponent(winerySearch)}`);
+          if (!response.ok) {
+            throw new Error('Search failed');
+          }
+          const results: Winery[] = await response.json();
+          // Filter out wineries already in the trip
+          const tripWineryIds = new Set((trip.wineries || []).map(w => w.id));
+          setSearchResults(results.filter(r => !tripWineryIds.has(r.id)));
+        } catch (error) {
+          console.error("Winery search failed:", error);
+          toast({ variant: "destructive", description: "Winery search failed." });
+        } finally {
+          setIsSearching(false);
+        }
+      };
+      search();
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(debounceSearch);
+  }, [winerySearch, trip.wineries, toast]);
 
   // Get the most up-to-date winery data from the persistent store
   const tripWineries = useMemo(() => {
@@ -84,6 +111,7 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
     try {
       await toggleWineryOnTrip(winery, trip);
       setWinerySearch("");
+      setSearchResults([]);
       toast({ description: `${winery.name} added to trip.` });
     } catch (error) {
       toast({ variant: "destructive", description: `Failed to add ${winery.name}.` });
@@ -215,11 +243,11 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
                 <Command>
                   <CommandInput placeholder="Search wineries..." value={winerySearch} onValueChange={setWinerySearch} />
                   <CommandList>
-                    <CommandEmpty>No wineries found.</CommandEmpty>
+                    <CommandEmpty>{isSearching ? "Searching..." : "No wineries found."}</CommandEmpty>
                     <CommandGroup>
-                      {availableWineries.map(winery => (
+                      {searchResults.map(winery => (
                         <CommandItem key={winery.id} onSelect={() => handleAddWinery(winery)}>
-                          {winery.name}
+                          <span>{winery.name}</span>
                         </CommandItem>
                       ))}
                     </CommandGroup>

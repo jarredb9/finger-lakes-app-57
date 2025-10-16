@@ -6,7 +6,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PlusCircle } from "lucide-react";
 import { useTripStore } from "@/lib/stores/tripStore";
-import { useWineryStore } from "@/lib/stores/wineryStore";
 import TripCard from "@/components/trip-card";
 import { AuthenticatedUser } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -18,7 +17,6 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
     const [isCreateTripModalOpen, setCreateTripModalOpen] = useState(false);
 
     const { tripsForDate, isLoading, fetchTripsForDate } = useTripStore();
-    const { wineries } = useWineryStore();
 
     useEffect(() => {
         if (selectedDate) {
@@ -66,7 +64,6 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
                         <TripCard 
                             key={trip.id} 
                             trip={trip}
-                            allWineries={wineries}
                         />
                     ))
                 ) : (
