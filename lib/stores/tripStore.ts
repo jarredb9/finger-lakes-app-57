@@ -82,6 +82,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
       const response = await fetch(`/api/trips/${tripId}`);
       if (response.ok) {
         const trip = await response.json();
+        console.log('[tripStore] 1. Data received from API:', JSON.parse(JSON.stringify(trip)));
         set(state => ({
           trips: [...state.trips.filter(t => t.id !== trip.id), trip],
           isLoading: false
@@ -95,21 +96,23 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         const detailedWineriesMap = new Map(detailedWineries.map((w: Winery) => [w.id, w]));
 
         // Update the trip in the store with the newly fetched details
-        set(state => ({
-          trips: state.trips.map(t => 
-            t.id === trip.id 
-              ? {
-                  ...t,
-                  wineries: t.wineries.map(wineryInTrip => {
-                    const detailedWinery = detailedWineriesMap.get(wineryInTrip.id);
-                    // Start with detailed data, then spread trip-specific data over it
-                    // to ensure `notes` and `visits` are preserved.
-                    return detailedWinery ? { ...detailedWinery, ...wineryInTrip } : wineryInTrip;
-                  })
-              }
-              : t
-          ),
-        }));
+        set(state => {
+          const newTrips = state.trips.map(t => {
+            if (t.id !== trip.id) return t;
+
+            const updatedWineries = t.wineries.map(wineryInTrip => {
+              const detailedWinery = detailedWineriesMap.get(wineryInTrip.id);
+              // Start with detailed data, then spread trip-specific data over it
+              // to ensure `notes` and `visits` are preserved.
+              return detailedWinery ? { ...detailedWinery, ...wineryInTrip } : wineryInTrip;
+            });
+            
+            const finalTrip = { ...t, wineries: updatedWineries };
+            console.log('[tripStore] 2. Final trip data after merging details:', JSON.parse(JSON.stringify(finalTrip)));
+            return finalTrip;
+          });
+          return { trips: newTrips };
+        });
       } else {
         console.error(`[tripStore] fetchTripById: Failed to fetch data for trip ${tripId}.`, response.status, response.statusText);
         set({ isLoading: false });
