@@ -469,9 +469,6 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
             throw new Error(isOnTrip ? "Failed to remove winery from trip." : "Failed to add winery to trip.");
         }
 
-        // Re-fetch for consistency, could also merge response data
-        get().fetchTripById(trip.id.toString());
-
     } catch (error) {
         console.error("Failed to toggle winery on trip, reverting:", error);
         set({ trips: originalTrips, selectedTrip: tripToUpdate }); // Revert
