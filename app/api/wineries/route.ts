@@ -19,17 +19,22 @@ export async function GET(request: NextRequest) {
         }
         // Append "winery" to the query to improve search relevance, mirroring the trip-form implementation.
         const enhancedQuery = `${query} winery`;
+        console.log(`[API] /api/wineries: Received search query "${query}", enhanced to "${enhancedQuery}"`);
         const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(enhancedQuery)}&type=winery&key=${apiKey}`;
 
         try {
+            console.log(`[API] /api/wineries: Fetching from Google Places API: ${url}`);
             const response = await fetch(url);
             const data = await response.json();
+
+            console.log(`[API] /api/wineries: Google Places API response status: ${data.status}`);
 
             if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
                 console.error('[API] /api/wineries: Google Places API returned non-OK status:', data.status, data.error_message);
                 return NextResponse.json({ error: 'Failed to fetch from Google Places API', details: data.status }, { status: 500 });
             }
 
+            console.log(`[API] /api/wineries: Found ${data.results?.length || 0} results from Google.`);
             const searchResults = data.results.map((place: any) => ({
                 id: place.place_id,
                 name: place.name,
@@ -39,6 +44,7 @@ export async function GET(request: NextRequest) {
                 rating: place.rating,
             }));
 
+            console.log('[API] /api/wineries: Sending formatted results to client.');
             return NextResponse.json(searchResults);
 
         } catch (error) {

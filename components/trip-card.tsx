@@ -53,17 +53,23 @@ const TripCard = memo(({ trip }: TripCardProps) => {
     const debounceSearch = setTimeout(() => {
       const search = async () => {
         setIsSearching(true);
+        const fetchUrl = `/api/wineries?query=${encodeURIComponent(winerySearch)}`;
+        console.log(`[TripCard] Searching for: "${winerySearch}", Fetching URL: ${fetchUrl}`);
         try {
-          const response = await fetch(`/api/wineries?query=${encodeURIComponent(winerySearch)}`);
+          const response = await fetch(fetchUrl);
+          console.log(`[TripCard] API response status: ${response.status}`);
           if (!response.ok) {
             throw new Error('Search failed');
           }
           const results: Winery[] = await response.json();
+          console.log(`[TripCard] Received ${results.length} results from API:`, results);
           // Filter out wineries already in the trip
           const tripWineryIds = new Set((trip.wineries || []).map(w => w.id));
-          setSearchResults(results.filter(r => !tripWineryIds.has(r.id)));
+          const finalResults = results.filter(r => !tripWineryIds.has(r.id));
+          console.log(`[TripCard] Displaying ${finalResults.length} results after filtering.`);
+          setSearchResults(finalResults);
         } catch (error) {
-          console.error("Winery search failed:", error);
+          console.error("[TripCard] Winery search failed:", error);
           toast({ variant: "destructive", description: "Winery search failed." });
         } finally {
           setIsSearching(false);
