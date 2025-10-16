@@ -1,5 +1,5 @@
 import { memo, useState, useEffect } from "react";
-import { Trip, Winery, Friend } from "@/lib/types";
+import { Trip, Winery, Friend, Visit } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
@@ -19,6 +19,27 @@ import { cn } from "@/lib/utils";
 
 interface TripCardProps {
   trip: Trip;
+}
+
+const WineryReviews = ({ visits, friends }: { visits: Visit[], friends: Friend[] }) => {
+  if (!visits || visits.length === 0) {
+    return null;
+  }
+
+  const getFriendName = (userId: string) => {
+    return friends.find(f => f.id === userId)?.name || 'A friend';
+  };
+
+  return (
+    <div className="mt-2 space-y-2">
+      {visits.map((visit, index) => (
+        <div key={index} className="text-xs p-2 bg-gray-100 rounded-md">
+          <p className="font-semibold">{getFriendName(visit.user_id!)} rated it {visit.rating}/5:</p>
+          <p className="italic">&ldquo;{visit.user_review}&rdquo;</p>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 const TripCard = memo(({ trip }: TripCardProps) => {
@@ -216,6 +237,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                             initialNotes={winery.notes || ''}
                             onSave={handleSaveNote}
                           />
+                          <WineryReviews visits={winery.visits || []} friends={currentMembers} />
                         </div>
                         {isEditing && (
                           <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">
