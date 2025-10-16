@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Check, Share2 } from "lucide-react";
+import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Check, Share2, Star } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { DatePicker } from "./DatePicker";
 import { useToast } from "@/hooks/use-toast";
@@ -21,28 +21,41 @@ interface TripCardProps {
   trip: Trip;
 }
 
-const WineryReviews = ({ visits, currentUserId }: { visits: Visit[], currentUserId: string }) => {
+const WineryReviews = ({ visits, currentUserId, members }: { visits: Visit[], currentUserId: string, members: Friend[] }) => {
   if (!visits || visits.length === 0) {
     return null;
   }
 
   const getReviewerName = (visit: Visit) => {
-    if (visit.user_id === currentUserId) {
-      return 'You';
-    }
-    // The API includes the profile name directly on the visit
-    if (visit.profiles?.name) {
-      return visit.profiles.name;
-    }
-    return 'A friend';
+    if (visit.user_id === currentUserId) return 'You';
+    return visit.profiles?.name || 'A friend';
+  };
+
+  const getReviewerEmail = (visit: Visit) => {
+    if (visit.user_id === currentUserId) return 'you@example.com'; // Placeholder for current user
+    const member = members.find(m => m.id === visit.user_id);
+    return member?.email || 'friend@example.com'; // Placeholder for friend
   };
 
   return (
     <div className="mt-2 space-y-2">
       {visits.map((visit, index) => (
-        <div key={index} className="text-xs p-2 bg-gray-100 rounded-md">
-          <p className="font-semibold">{getReviewerName(visit)} rated it {visit.rating}/5:</p>
-          <p className="italic">&ldquo;{visit.user_review}&rdquo;</p>
+        <div key={index} className="text-xs p-2 bg-slate-100 rounded-md border border-slate-200">
+          <div className="flex items-center gap-2 mb-1">
+            <Avatar className="h-5 w-5">
+              <AvatarImage src={`https://i.pravatar.cc/150?u=${getReviewerEmail(visit)}`} />
+              <AvatarFallback>{getReviewerName(visit).charAt(0)}</AvatarFallback>
+            </Avatar>
+            <span className="font-semibold">{getReviewerName(visit)}</span>
+            <div className="flex items-center gap-0.5 ml-auto">
+              <Star className={`w-3 h-3 ${visit.rating && visit.rating >= 1 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+              <Star className={`w-3 h-3 ${visit.rating && visit.rating >= 2 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+              <Star className={`w-3 h-3 ${visit.rating && visit.rating >= 3 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+              <Star className={`w-3 h-3 ${visit.rating && visit.rating >= 4 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+              <Star className={`w-3 h-3 ${visit.rating && visit.rating >= 5 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+            </div>
+          </div>
+          <p className="italic text-slate-600 pl-7">&ldquo;{visit.user_review}&rdquo;</p>
         </div>
       ))}
     </div>
@@ -244,7 +257,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                             initialNotes={winery.notes || ''}
                             onSave={handleSaveNote}
                           />
-                          <WineryReviews visits={winery.visits || []} currentUserId={trip.user_id} />
+                          <WineryReviews visits={winery.visits || []} currentUserId={trip.user_id} members={currentMembers} />
                         </div>
                         {isEditing && (
                           <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">
