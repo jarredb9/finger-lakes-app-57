@@ -225,31 +225,31 @@ export async function POST(request: NextRequest) {
     }
 
     // Scenario 2: Adding a single winery to one or more trips (from WineryModal)
-    const { date, wineryId, name, tripIds, notes } = body;
-    if (!date) return NextResponse.json({ error: "Date is required" }, { status: 400 });
+    const { date, wineryId, name, tripIds, notes } = body; // from WineryModal
+    const { wineryId: singleWineryId, tripIds: singleTripIds, date: singleDate } = body; // from TripCard toggle
 
-    let targetTripIds: number[] = [];
+    const effectiveDate = date || singleDate;
+    const effectiveWineryId = wineryId || singleWineryId;
+    let targetTripIds: number[] = tripIds || singleTripIds || [];
+
+    if (!effectiveDate) return NextResponse.json({ error: "Date is required" }, { status: 400 });
 
     if (name) { // Creating a new trip while adding a winery
         const { data: newTrip, error: createTripError } = await supabase
             .from("trips")
-            .insert({ user_id: user.id, trip_date: date, name: name, members: [user.id] })
+            .insert({ user_id: user.id, trip_date: effectiveDate, name: name, members: [user.id] })
             .select("id")
             .single();
         if (createTripError) throw createTripError;
         targetTripIds.push(newTrip.id);
     }
 
-    if (tripIds && Array.isArray(tripIds)) {
-        targetTripIds = [...targetTripIds, ...tripIds];
-    }
-
-    if (wineryId && targetTripIds.length > 0) {
+    if (effectiveWineryId && targetTripIds.length > 0) {
         const addWineryPromises = targetTripIds.map(async (tripId) => {
             const { data: existing, error } = await supabase.from("trip_wineries").select('visit_order').eq("trip_id", tripId).order('visit_order', { ascending: false }).limit(1).single();
             if (error && error.code !== 'PGRST116') throw error; // Ignore 'not found'
             const maxOrder = existing?.visit_order ?? -1;
-            return supabase.from("trip_wineries").insert({ trip_id: tripId, winery_id: wineryId, visit_order: maxOrder + 1, notes });
+            return supabase.from("trip_wineries").insert({ trip_id: tripId, winery_id: effectiveWineryId, visit_order: maxOrder + 1, notes });
         });
 
         await Promise.all(addWineryPromises);
