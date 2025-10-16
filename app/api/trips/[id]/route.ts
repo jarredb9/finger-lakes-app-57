@@ -102,12 +102,19 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
   const wineriesWithVisits = trip.trip_wineries
     .sort((a: TripWinery, b: TripWinery) => a.visit_order - b.visit_order)
     .map((tw: TripWinery) => {
-        const wineryData = formatWinery(tw.wineries);
-        if (wineryData) {
+        if (tw.wineries) {
             return {
-                ...wineryData,
+                id: tw.wineries.google_place_id,
+                dbId: tw.wineries.id,
+                name: tw.wineries.name,
+                address: tw.wineries.address,
+                lat: parseFloat(tw.wineries.latitude),
+                lng: parseFloat(tw.wineries.longitude),
+                phone: tw.wineries.phone,
+                website: tw.wineries.website,
+                rating: tw.wineries.google_rating,
                 notes: tw.notes,
-                visits: visitsByWinery.get(wineryData.dbId) || [],
+                visits: visitsByWinery.get(tw.wineries.id) || [],
             };
         }
         return null;
