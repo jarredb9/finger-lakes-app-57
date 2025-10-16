@@ -252,8 +252,12 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                     <CommandEmpty>{isSearching ? "Searching..." : "No wineries found."}</CommandEmpty>
                     <CommandGroup>
                       {searchResults.map(winery => (
-                        <CommandItem key={winery.id} onSelect={() => handleAddWinery(winery)}>
-                          <span>{winery.name}</span>
+                        <CommandItem
+                          key={winery.id}
+                          value={winery.name} // Add this value prop for filtering
+                          onSelect={() => handleAddWinery(winery)}
+                        >
+                          {winery.name}
                         </CommandItem>
                       ))}
                     </CommandGroup>
