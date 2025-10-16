@@ -98,12 +98,15 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         set(state => ({
           trips: state.trips.map(t => 
             t.id === trip.id 
-              ? { 
-                  ...t, 
-                  wineries: t.wineries.map(w => 
-                    detailedWineriesMap.get(w.id) ? { ...detailedWineriesMap.get(w.id), ...w } : w
-                  ) 
-                }
+              ? {
+                  ...t,
+                  wineries: t.wineries.map(wineryInTrip => {
+                    const detailedWinery = detailedWineriesMap.get(wineryInTrip.id);
+                    // Start with detailed data, then spread trip-specific data over it
+                    // to ensure `notes` and `visits` are preserved.
+                    return detailedWinery ? { ...detailedWinery, ...wineryInTrip } : wineryInTrip;
+                  })
+              }
               : t
           ),
         }));

@@ -1,7 +1,6 @@
-import { memo, useState, useMemo, useEffect } from "react";
+import { memo, useState, useEffect } from "react";
 import { Trip, Winery, Friend } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
-import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,7 +24,6 @@ interface TripCardProps {
 const TripCard = memo(({ trip }: TripCardProps) => {
   const { toast } = useToast();
   const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
-  const persistentWineries = useWineryStore(state => state.persistentWineries);
     const { friends, fetchFriends } = useFriendStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(trip.name || "");
@@ -82,14 +80,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
   }, [winerySearch, trip.wineries, toast]);
 
   // Get the most up-to-date winery data from the persistent store
-  const tripWineries = useMemo(() => {
-    return (trip.wineries || []).map(wineryInTrip => {
-      const persistentWinery = persistentWineries.find(p => p.id === wineryInTrip.id);
-      // Start with the persistent data, then apply trip-specific data over it.
-      // This preserves the `visits` array fetched with the trip.
-      return persistentWinery ? { ...persistentWinery, ...wineryInTrip } : wineryInTrip;
-    });
-  }, [trip.wineries, persistentWineries]);
+  const tripWineries = trip.wineries || [];
 
   const handleDrop = (result: DropResult) => {
     if (!result.destination) return;
