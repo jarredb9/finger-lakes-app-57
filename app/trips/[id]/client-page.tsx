@@ -11,12 +11,24 @@ export default function TripDetailClientPage({ tripId }: { tripId: string }) {
   const isLoading = useTripStore(state => state.isLoading);
   const numericTripId = Number(tripId);
   const trip = useTripStore(state => state.trips.find(t => t.id === numericTripId));
-  const { fetchWineryData, persistentWineries: allWineries } = useWineryStore();
+  const { fetchAllWineries, persistentWineries: allWineries } = useWineryStore();
+  const setSelectedTrip = useTripStore(state => state.setSelectedTrip);
 
   useEffect(() => {
     fetchTripById(tripId);
-    fetchWineryData();
-  }, [fetchTripById, tripId, fetchWineryData]);
+    fetchAllWineries();
+  }, [fetchTripById, tripId, fetchAllWineries]);
+
+  useEffect(() => {
+    if (trip) {
+      setSelectedTrip(trip);
+      console.log("Selected trip set in store:", trip);
+    }
+    // Clear selected trip on unmount
+    return () => {
+      setSelectedTrip(null);
+    };
+  }, [trip, setSelectedTrip]);
 
   if (isLoading || !trip) {
     return <Skeleton className="h-96 w-full" />;

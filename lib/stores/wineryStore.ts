@@ -71,6 +71,7 @@ interface WineryState {
   _wineriesBackup: Winery[] | null;
 
   fetchWineryData: () => Promise<void>;
+  fetchAllWineries: () => Promise<void>;
   ensureWineryDetails: (placeId: string) => Promise<Winery | null>;
   toggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
   toggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
@@ -204,6 +205,40 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
     } catch (error) {
       console.error("Failed to fetch winery data:", error);
       set({ error: "Failed to load winery data.", isLoading: false });
+    }
+  },
+
+  fetchAllWineries: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch("/api/wineries");
+      if (!response.ok) {
+        throw new Error('Failed to fetch all wineries');
+      }
+      const allWineriesData = await response.json();
+      const allWineries = Array.isArray(allWineriesData) ? allWineriesData : allWineriesData.wineries || [];
+
+      const { persistentWineries } = get();
+      const persistentWineriesMap = new Map(persistentWineries.map(w => [w.id, w]));
+
+      allWineries.forEach((rawWinery: RawWinery) => {
+        const existing = persistentWineriesMap.get(String(rawWinery.google_place_id || rawWinery.id));
+        const standardized = standardizeWineryData(rawWinery, existing);
+        if (standardized) {
+          persistentWineriesMap.set(standardized.id, { ...existing, ...standardized });
+        }
+      });
+
+      const mergedWineries = Array.from(persistentWineriesMap.values());
+
+      set({
+        persistentWineries: mergedWineries,
+        isLoading: false,
+      });
+
+    } catch (error) {
+      console.error("Failed to fetch all wineries:", error);
+      set({ error: "Failed to load all wineries.", isLoading: false });
     }
   },
 
