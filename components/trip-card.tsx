@@ -74,6 +74,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
   const [isSearching, setIsSearching] = useState(false);
   const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
 
+  const [addWineryPopoverOpen, setAddWineryPopoverOpen] = useState(false);
   useEffect(() => {
     fetchFriends();
   }, [fetchFriends]);
@@ -148,9 +149,10 @@ const TripCard = memo(({ trip }: TripCardProps) => {
 
   const handleAddWinery = async (winery: Winery) => {
     try {
-      await toggleWineryOnTrip(winery, trip);
+      toggleWineryOnTrip(winery, trip);
       setWinerySearch("");
       setSearchResults([]);
+      setAddWineryPopoverOpen(false); // Close popover on selection
       toast({ description: `${winery.name} added to trip.` });
     } catch (error) {
       toast({ variant: "destructive", description: `Failed to add ${winery.name}.` });
@@ -175,18 +177,21 @@ const TripCard = memo(({ trip }: TripCardProps) => {
     }
   };
 
-  const onFriendSelect = async (friendId: string) => {
-    const newSelectedFriends = selectedFriends.includes(friendId)
-      ? selectedFriends.filter(id => id !== friendId)
-      : [...selectedFriends, friendId];
-    
-    setSelectedFriends(newSelectedFriends);
-    try {
-      await addMembersToTrip(trip.id.toString(), newSelectedFriends);
-      toast({ description: "Trip members updated." });
-    } catch (error) {
-      toast({ variant: "destructive", description: "Failed to update members." });
-    }
+  const onFriendSelect = (friendId: string) => {
+    setSelectedFriends(prev => {
+      const newSelectedFriends = prev.includes(friendId)
+        ? prev.filter(id => id !== friendId)
+        : [...prev, friendId];
+      
+      addMembersToTrip(trip.id.toString(), newSelectedFriends)
+        .then(() => {
+          toast({ description: "Trip members updated." });
+        })
+        .catch(() => {
+          toast({ variant: "destructive", description: "Failed to update members." });
+        });
+      return newSelectedFriends;
+    });
   };
   
   const currentMembers = friends.filter((f: Friend) => trip.members?.includes(f.id));
@@ -275,7 +280,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
         </DragDropContext>
         {isEditing && (
           <div className="p-4 border-t">
-            <Popover>
+            <Popover open={addWineryPopoverOpen} onOpenChange={setAddWineryPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full"><Plus className="w-4 h-4 mr-2"/>Add a Winery</Button>
               </PopoverTrigger>

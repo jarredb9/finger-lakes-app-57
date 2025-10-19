@@ -31,7 +31,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
 
     useEffect(() => {
         fetchFriends();
-    }, [fetchFriends]);
+    }, []);
 
     const handleViewTrip = (tripId: number) => {
         router.push(`/trips/${tripId}`);
