@@ -1,70 +1,69 @@
+"use client";
 
-import { useEffect, useState } from "react";
-import { useTripStore } from "@/lib/stores/tripStore";
-import { useWineryStore } from "@/lib/stores/wineryStore";
-import TripCard from "./trip-card";
-import { Button } from "./ui/button";
-import { Loader2 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { useState, useEffect } from 'react';
+import { useTripStore } from '@/lib/stores/tripStore';
+import { Trip } from '@/lib/types';
+import { Button } from './ui/button';
+import { Loader2 } from 'lucide-react';
+import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
+import { useToast } from '@/hooks/use-toast';
+import TripCardSimple from './trip-card-simple';
 
 export default function TripList() {
-  const { trips, isLoading, fetchTrips, page, hasMore } = useTripStore();
-  const { wineries } = useWineryStore();
-  const [sortBy, setSortBy] = useState("trip_date");
-  const [sortOrder, setSortOrder] = useState("desc");
+    const { trips, isLoading, page, hasMore, fetchTrips, setPage, deleteTrip } = useTripStore();
+    const [tripType, setTripType] = useState<'upcoming' | 'past'>('upcoming');
+    const { toast } = useToast();
 
-  useEffect(() => {
-    fetchTrips(1, sortBy, sortOrder, true);
-  }, [fetchTrips, sortBy, sortOrder]);
+    useEffect(() => {
+        fetchTrips(1, tripType, true);
+    }, [fetchTrips, tripType]);
 
-  const handleLoadMore = () => {
-    if (hasMore) {
-      fetchTrips(page + 1, sortBy, sortOrder);
+    const handlePageChange = (newPage: number) => {
+        if (newPage > 0) {
+            setPage(newPage);
+            fetchTrips(newPage, tripType);
+        }
+    };
+
+    const handleDeleteTrip = async (tripId: number) => {
+        try {
+            await deleteTrip(tripId.toString());
+            toast({ description: "Trip deleted successfully." });
+            fetchTrips(1, tripType, true);
+        } catch (error) {
+            toast({ variant: 'destructive', description: "Failed to delete trip." });
+        }
+    };
+
+    if (isLoading && trips.length === 0) {
+        return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
     }
-  };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">My Trips</h2>
-        <div className="flex items-center gap-2">
-          <Select value={`${sortBy}-${sortOrder}`} onValueChange={(value) => {
-            const [sort, order] = value.split('-');
-            setSortBy(sort);
-            setSortOrder(order);
-          }}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="trip_date-desc">Date (Newest First)</SelectItem>
-              <SelectItem value="trip_date-asc">Date (Oldest First)</SelectItem>
-              <SelectItem value="name-asc">Name (A-Z)</SelectItem>
-              <SelectItem value="name-desc">Name (Z-A)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-      {isLoading && trips.length === 0 ? (
-        <div className="flex justify-center items-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : trips.length > 0 ? (
+    return (
         <div className="space-y-4">
-          {trips.map((trip) => (
-            <TripCard key={trip.id} trip={trip} allWineries={wineries} />
-          ))}
+            <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">{tripType === 'upcoming' ? 'Upcoming Trips' : 'Past Trips'}</h2>
+                <Button variant="default" onClick={() => setTripType(tripType === 'upcoming' ? 'past' : 'upcoming')}>
+                    View {tripType === 'upcoming' ? 'Past' : 'Upcoming'} Trips
+                </Button>
+            </div>
+            {trips.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {trips.map((trip: Trip) => (
+                        <TripCardSimple key={trip.id} trip={trip} onDelete={handleDeleteTrip} />
+                    ))}
+                </div>
+            ) : (
+                <p className="text-muted-foreground">You have no {tripType} trips.</p>
+            )}
+            {hasMore && (
+                <Pagination>
+                    <PaginationContent>
+                        <PaginationItem><PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(page - 1); }} /></PaginationItem>
+                        <PaginationItem><PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(page + 1); }} /></PaginationItem>
+                    </PaginationContent>
+                </Pagination>
+            )}
         </div>
-      ) : (
-        <p>{"You haven't created any trips yet."}</p>
-      )}
-      {hasMore && (
-        <div className="text-center">
-          <Button onClick={handleLoadMore} disabled={isLoading}>
-            {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading...</> : "Load More"}
-          </Button>
-        </div>
-      )}
-    </div>
-  );
+    );
 }

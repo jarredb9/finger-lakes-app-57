@@ -102,12 +102,19 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
   const wineriesWithVisits = trip.trip_wineries
     .sort((a: TripWinery, b: TripWinery) => a.visit_order - b.visit_order)
     .map((tw: TripWinery) => {
-        const wineryData = formatWinery(tw.wineries);
-        if (wineryData) {
+        if (tw.wineries) {
             return {
-                ...wineryData,
+                id: tw.wineries.google_place_id,
+                dbId: tw.wineries.id,
+                name: tw.wineries.name,
+                address: tw.wineries.address,
+                lat: parseFloat(tw.wineries.latitude),
+                lng: parseFloat(tw.wineries.longitude),
+                phone: tw.wineries.phone,
+                website: tw.wineries.website,
+                rating: tw.wineries.google_rating,
                 notes: tw.notes,
-                visits: visitsByWinery.get(wineryData.dbId) || [],
+                visits: visitsByWinery.get(tw.wineries.id) || [],
             };
         }
         return null;
@@ -122,8 +129,8 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const tripId = params.id;
+  
+  const tripId = parseInt(params.id, 10);
   const supabase = await createClient();
   const updates = await request.json();
 
@@ -164,10 +171,24 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   // Handle winery order update
   if (updates.wineryOrder !== undefined && Array.isArray(updates.wineryOrder)) {
+    // First, fetch existing notes to preserve them.
+    const { data: existingTripWineries, error: notesFetchError } = await supabase
+      .from("trip_wineries")
+      .select("winery_id, notes")
+      .eq("trip_id", tripId);
+
+    if (notesFetchError) {
+      console.error("Error fetching existing winery notes:", notesFetchError);
+      return NextResponse.json({ error: "Failed to update winery order" }, { status: 500 });
+    }
+
+    const notesMap = new Map(existingTripWineries.map(item => [item.winery_id, item.notes]));
+
     const updatesToPerform = updates.wineryOrder.map((wineryId: number, index: number) => ({
       winery_id: wineryId,
       visit_order: index,
-      trip_id: tripId,
+      trip_id: tripId, // tripId is already a number here
+      notes: notesMap.get(wineryId) || null, // Preserve existing notes
     }));
 
     // Delete existing trip_wineries for this trip and re-insert
@@ -206,16 +227,75 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   // Handle update winery note
   if (updates.updateNote !== undefined && updates.updateNote.wineryId !== undefined && updates.updateNote.notes !== undefined) {
-    const { error } = await supabase
-      .from("trip_wineries")
-      .update({ notes: updates.updateNote.notes })
-      .eq("trip_id", tripId)
-      .eq("winery_id", updates.updateNote.wineryId);
-    if (error) {
-      console.error("Error updating winery note:", error);
-      return NextResponse.json({ error: "Failed to update winery note" }, { status: 500 });
+    // This handles both single note updates and batch updates
+    if (typeof updates.updateNote.notes === 'string') {
+      // Single note update
+      const { error } = await supabase
+        .from("trip_wineries")
+        .update({ notes: updates.updateNote.notes })
+        .eq("trip_id", tripId)
+        .eq("winery_id", updates.updateNote.wineryId);
+      if (error) {
+        console.error("Error updating winery note:", error);
+        return NextResponse.json({ error: "Failed to update winery note" }, { status: 500 });
+      }
+    } else if (typeof updates.updateNote.notes === 'object') {
+      // Batch note update
+      const noteUpdates = Object.entries(updates.updateNote.notes).map(([wineryId, noteText]) => 
+        supabase
+          .from('trip_wineries')
+          .update({ notes: noteText as string })
+          .eq('trip_id', tripId)
+          .eq('winery_id', parseInt(wineryId, 10))
+      );
+      await Promise.all(noteUpdates);
+      // You could add more robust error handling here if needed
     }
   }
 
   return NextResponse.json({ message: "Trip updated successfully" });
+}
+
+export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const tripId = params.id;
+  const supabase = await createClient();
+
+  // First, verify the user owns the trip
+  const { data: trip, error: fetchError } = await supabase
+    .from("trips")
+    .select("user_id")
+    .eq("id", tripId)
+    .single();
+
+  if (fetchError || !trip) {
+    return NextResponse.json({ error: "Trip not found" }, { status: 404 });
+  }
+
+  if (trip.user_id !== user.id) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  // Delete associated trip_wineries first to avoid foreign key constraint violations
+  const { error: tripWineriesError } = await supabase
+    .from("trip_wineries")
+    .delete()
+    .eq("trip_id", tripId);
+
+  if (tripWineriesError) {
+    console.error("Error deleting trip wineries:", tripWineriesError);
+    return NextResponse.json({ error: "Failed to delete associated wineries" }, { status: 500 });
+  }
+
+  // Now delete the trip itself
+  const { error: deleteError } = await supabase.from("trips").delete().eq("id", tripId);
+
+  if (deleteError) {
+    console.error("Error deleting trip:", deleteError);
+    return NextResponse.json({ error: "Failed to delete trip" }, { status: 500 });
+  }
+
+  return NextResponse.json({ message: "Trip deleted successfully" });
 }

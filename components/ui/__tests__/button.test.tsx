@@ -1,12 +1,11 @@
-
-import { render, screen } from '@testing-library/react'
+import { render } from '@testing-library/react'
 import { Button } from '../button'
  
 describe('Button', () => {
   it('renders a button', () => {
-    render(<Button>Click me</Button>)
+    const { getByRole } = render(<Button>Click me</Button>)
  
-    const button = screen.getByRole('button', { name: /click me/i })
+    const button = getByRole('button', { name: /click me/i })
  
     expect(button).toBeInTheDocument()
   })

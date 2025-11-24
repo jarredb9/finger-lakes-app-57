@@ -4,80 +4,75 @@ import { getUser } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
     const user = await getUser();
-    if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const { searchParams } = new URL(request.url);
-    const wineryIdStr = searchParams.get("wineryId");
-    const ratingsFor = searchParams.get("ratingsFor");
-
-    if (!wineryIdStr) {
-        return NextResponse.json({ error: "wineryId is required" }, { status: 400 });
-    }
-
-    const wineryId = parseInt(wineryIdStr, 10);
-    if (isNaN(wineryId)) {
-        return NextResponse.json({ error: "Invalid winery ID" }, { status: 400 });
-    }
-
+    const query = searchParams.get("query");
     const supabase = await createClient();
 
-    // If the URL asks for friends' ratings, execute this block
-    if (ratingsFor === 'friends') {
+    // If a search query is provided, use Google Places API
+    if (query) {
+        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+        if (!apiKey) {
+            console.error('[API] /api/wineries: Google Maps API Key is not set.');
+            return NextResponse.json({ error: 'Google Maps API Key is not configured.' }, { status: 500 });
+        }
+        // Append "winery" to the query to improve search relevance, mirroring the trip-form implementation.
+        const enhancedQuery = `${query} winery`;
+        console.log(`[API] /api/wineries: Received search query "${query}", enhanced to "${enhancedQuery}"`);
+        const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(enhancedQuery)}&type=winery&key=${apiKey}`;
+
         try {
-            const { data: friendsData, error: friendsError } = await supabase
-                .from('friends')
-                .select('user1_id, user2_id')
-                .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-                .eq('status', 'accepted');
+            console.log(`[API] /api/wineries: Fetching from Google Places API: ${url}`);
+            const response = await fetch(url);
+            const data = await response.json();
 
-            if (friendsError) throw friendsError;
-            const friendIds = friendsData.map(f => f.user1_id === user.id ? f.user2_id : f.user1_id);
+            console.log(`[API] /api/wineries: Google Places API response status: ${data.status}`);
 
-            if (friendIds.length === 0) {
-                return NextResponse.json([]);
+            if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+                console.error('[API] /api/wineries: Google Places API returned non-OK status:', data.status, data.error_message);
+                return NextResponse.json({ error: 'Failed to fetch from Google Places API', details: data.status }, { status: 500 });
             }
 
-            const { data: ratings, error: ratingsError } = await supabase
-                .from('visits')
-                .select(`rating, user_review, user_id, profiles (id, name, email)`)
-                .eq('winery_id', wineryId)
-                .in('user_id', friendIds);
+            console.log(`[API] /api/wineries: Found ${data.results?.length || 0} results from Google.`);
+            const searchResults = data.results.map((place: any) => ({
+                id: place.place_id,
+                name: place.name,
+                address: place.formatted_address,
+                lat: place.geometry.location.lat,
+                lng: place.geometry.location.lng,
+                rating: place.rating,
+            }));
 
-            if (ratingsError) throw ratingsError;
+            console.log('[API] /api/wineries: Sending formatted results to client.');
+            return NextResponse.json(searchResults);
 
-            const formattedRatings = ratings.map(r => ({
-                rating: r.rating,
-                user_review: r.user_review,
-                user_id: r.user_id,
-                                    name: r.profiles?.[0]?.name || 'A friend'            }));
-
-            return NextResponse.json(formattedRatings);
         } catch (error) {
-            console.error("Internal error fetching friend ratings:", error);
+            console.error('[API] /api/wineries: Error fetching from Google Places API:', error);
+            return NextResponse.json({ error: "Internal server error during Google search" }, { status: 500 });
+        }
+    } 
+    // Otherwise, fetch all wineries from the database
+    else {
+        try {
+            const { data: wineries, error } = await supabase
+                .from('wineries')
+                .select('*');
+
+            if (error) {
+                throw error;
+            }
+            // Standardize the output to match the Winery type
+            const formattedWineries = wineries.map(w => ({
+                id: w.google_place_id,
+                dbId: w.id,
+                ...w
+            }));
+            return NextResponse.json(formattedWineries || []);
+        } catch (error) {
+            console.error("Error fetching all wineries:", error);
             return NextResponse.json({ error: "Internal server error" }, { status: 500 });
         }
-    }
-
-    // Handle the default request for winery details
-    try {
-        const { data: winery, error } = await supabase
-            .from('wineries')
-            .select('*')
-            .eq('id', wineryId)
-            .single();
-
-        if (error) {
-            if (error.code === 'PGRST116') { // No rows found
-                return NextResponse.json({ error: "Winery not found" }, { status: 404 });
-            }
-            throw error;
-        }
-        return NextResponse.json(winery);
-    } catch (error) {
-        console.error("Error fetching winery:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
 

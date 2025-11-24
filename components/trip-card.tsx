@@ -1,39 +1,132 @@
-import { memo, useState, useMemo } from "react";
-import { Trip, Winery } from "@/lib/types";
+import { memo, useState, useEffect } from "react";
+import { Trip, Winery, Friend, Visit } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
+import { useFriendStore } from "@/lib/stores/friendStore";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X } from "lucide-react";
+import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Check, Share2, Star } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { DatePicker } from "./DatePicker";
 import { useToast } from "@/hooks/use-toast";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
+import DailyHours from "@/components/DailyHours";
+import WineryNoteEditor from "./WineryNoteEditor";
+import { cn } from "@/lib/utils";
 
 interface TripCardProps {
   trip: Trip;
-  allWineries: Winery[];
 }
 
-const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
+const WineryReviews = ({ visits, currentUserId, members }: { visits: Visit[], currentUserId: string, members: Friend[] }) => {
+  if (!visits || visits.length === 0) {
+    return null;
+  }
+
+  const getReviewerName = (visit: Visit) => {
+    if (visit.user_id === currentUserId) return 'You';
+    return visit.profiles?.name || 'A friend';
+  };
+
+  const getReviewerEmail = (visit: Visit) => {
+    if (visit.user_id === currentUserId) return 'you@example.com'; // Placeholder for current user
+    const member = members.find(m => m.id === visit.user_id);
+    return member?.email || 'friend@example.com'; // Placeholder for friend
+  };
+
+  return (
+    <div className="mt-2 space-y-2">
+      {visits.map((visit, index) => (
+        <div key={index} className="text-xs p-2 bg-slate-100 rounded-md border border-slate-200">
+          <div className="flex items-center gap-2 mb-1">
+            <Avatar className="h-5 w-5">
+              <AvatarImage src={`https://i.pravatar.cc/150?u=${getReviewerEmail(visit)}`} />
+              <AvatarFallback>{getReviewerName(visit).charAt(0)}</AvatarFallback>
+            </Avatar>
+            <span className="font-semibold">{getReviewerName(visit)}</span>
+            <div className="flex items-center gap-0.5 ml-auto">
+              <Star className={`w-3 h-3 ${visit.rating && visit.rating >= 1 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+              <Star className={`w-3 h-3 ${visit.rating && visit.rating >= 2 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+              <Star className={`w-3 h-3 ${visit.rating && visit.rating >= 3 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+              <Star className={`w-3 h-3 ${visit.rating && visit.rating >= 4 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+              <Star className={`w-3 h-3 ${visit.rating && visit.rating >= 5 ? "text-yellow-400 fill-yellow-400" : "text-gray-300"}`} />
+            </div>
+          </div>
+          <p className="italic text-slate-600 pl-7">&ldquo;{visit.user_review}&rdquo;</p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const TripCard = memo(({ trip }: TripCardProps) => {
   const { toast } = useToast();
-  const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote } = useTripStore();
+  const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
+  const { friends, fetchFriends } = useFriendStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(trip.name || "");
   const [editedDate, setEditedDate] = useState<Date | undefined>(new Date(trip.trip_date));
   const [winerySearch, setWinerySearch] = useState("");
-  const [notes, setNotes] = useState<Record<number, string>>({});
+  const [searchResults, setSearchResults] = useState<Winery[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
 
-  const availableWineries = useMemo(() => 
-    allWineries.filter(w => !trip.wineries.some(tw => tw.id === w.id)),
-    [allWineries, trip.wineries]
-  );
+  const [addWineryPopoverOpen, setAddWineryPopoverOpen] = useState(false);
+  useEffect(() => {
+    fetchFriends();
+  }, [fetchFriends]);
+
+  useEffect(() => {
+    // Keep local selected friends in sync with trip data
+    setSelectedFriends(trip.members || []);
+  }, [trip.members]);
+
+  useEffect(() => {
+    if (!winerySearch.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const debounceSearch = setTimeout(() => {
+      const search = async () => {
+        setIsSearching(true);
+        const fetchUrl = `/api/wineries?query=${encodeURIComponent(winerySearch)}`;
+        console.log(`[TripCard] Searching for: "${winerySearch}", Fetching URL: ${fetchUrl}`);
+        try {
+          const response = await fetch(fetchUrl);
+          console.log(`[TripCard] API response status: ${response.status}`);
+          if (!response.ok) {
+            throw new Error('Search failed');
+          }
+          const results: Winery[] = await response.json();
+          console.log(`[TripCard] Received ${results.length} results from API:`, results);
+          // Filter out wineries already in the trip
+          const tripWineryIds = new Set((trip.wineries || []).map(w => w.id));
+          const finalResults = results.filter(r => !tripWineryIds.has(r.id));
+          console.log(`[TripCard] Displaying ${finalResults.length} results after filtering.`);
+          setSearchResults(finalResults);
+        } catch (error) {
+          console.error("[TripCard] Winery search failed:", error);
+          toast({ variant: "destructive", description: "Winery search failed." });
+        } finally {
+          setIsSearching(false);
+        }
+      };
+      search();
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(debounceSearch);
+  }, [winerySearch, trip.wineries, toast]);
+
+  // Get the most up-to-date winery data from the persistent store
+  const tripWineries = trip.wineries || [];
 
   const handleDrop = (result: DropResult) => {
     if (!result.destination) return;
-    const items = Array.from(trip.wineries);
+    const items = Array.from(tripWineries);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
     const newWineryIds = items.map(item => item.dbId as number);
@@ -56,33 +149,77 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
 
   const handleAddWinery = async (winery: Winery) => {
     try {
-      await toggleWineryOnTrip(winery, trip);
+      toggleWineryOnTrip(winery, trip);
       setWinerySearch("");
+      setSearchResults([]);
+      setAddWineryPopoverOpen(false); // Close popover on selection
       toast({ description: `${winery.name} added to trip.` });
     } catch (error) {
       toast({ variant: "destructive", description: `Failed to add ${winery.name}.` });
     }
   };
 
-  const handleRemoveWinery = async (wineryId: string) => {
+  const handleRemoveWinery = async (wineryDbId: number) => {
     try {
-      await removeWineryFromTrip(trip.id.toString(), Number(wineryId));
+      await removeWineryFromTrip(trip.id.toString(), wineryDbId);
       toast({ description: "Winery removed from trip." });
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to remove winery." });
     }
   };
 
-  const handleNotesChange = (wineryId: number, newNotes: string) => {
-    setNotes(prev => ({ ...prev, [wineryId]: newNotes }));
-  };
-
-  const handleSaveNotes = async (wineryId: number) => {
+  const handleSaveNote = async (wineryId: number, newNotes: string) => {
     try {
-      await saveWineryNote(trip.id.toString(), wineryId, notes[wineryId] || "");
+      await saveWineryNote(trip.id.toString(), wineryId, newNotes);
       toast({ description: "Notes saved." });
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to save notes." });
+    }
+  };
+
+  const onFriendSelect = (friendId: string) => {
+    setSelectedFriends(prev => {
+      const newSelectedFriends = prev.includes(friendId)
+        ? prev.filter(id => id !== friendId)
+        : [...prev, friendId];
+      
+      addMembersToTrip(trip.id.toString(), newSelectedFriends)
+        .then(() => {
+          toast({ description: "Trip members updated." });
+        })
+        .catch(() => {
+          toast({ variant: "destructive", description: "Failed to update members." });
+        });
+      return newSelectedFriends;
+    });
+  };
+  
+  const currentMembers = friends.filter((f: Friend) => trip.members?.includes(f.id));
+
+  const handleExportToMaps = (tripWineries: Winery[]) => {
+    if (!tripWineries || tripWineries.length === 0) return;
+
+    const waypoints = tripWineries.map(w => encodeURIComponent(`${w.name}, ${w.address}`));
+    let url = 'https://www.google.com/maps/dir/';
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const userLocation = `${position.coords.latitude},${position.coords.longitude}`;
+          const destination = waypoints.pop(); // The last winery is the final destination
+          url += `${userLocation}/${waypoints.join('/')}/${destination}`;
+          window.open(url, '_blank');
+        },
+        () => {
+          // Geolocation failed, fall back to winery-to-winery directions
+          url += waypoints.join('/');
+          window.open(url, '_blank');
+        }
+      );
+    } else {
+      // Geolocation not supported
+      url += waypoints.join('/');
+      window.open(url, '_blank');
     }
   };
 
@@ -108,26 +245,30 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
         <DragDropContext onDragEnd={handleDrop}>
           <Droppable droppableId={`trip-${trip.id}`}>
             {(provided) => (
-              <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y">
-                {trip.wineries.map((winery, index) => (
+              <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y" data-testid="winery-list">
+                {tripWineries.map((winery, index) => (
                   <Draggable key={winery.id} draggableId={winery.id.toString()} index={index}>
                     {(provided) => (
-                      <div ref={provided.innerRef} {...provided.draggableProps} {...provided.dragHandleProps} className="flex items-start gap-3 p-4 bg-white hover:bg-gray-50">
-                        <GripVertical className="w-5 h-5 text-gray-400 mt-1" />
+                      <div ref={provided.innerRef} {...provided.draggableProps} className="flex items-start gap-3 p-4 bg-white hover:bg-gray-50">
+                        <div {...provided.dragHandleProps} className="pt-1">
+                          <GripVertical className="w-5 h-5 text-gray-400" />
+                        </div>
                         <div className="flex-grow">
                           <p className="font-semibold">{winery.name}</p>
                           <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
-                          <Textarea 
-                            placeholder="Add notes..."
-                            value={notes[Number(winery.id)] ?? winery.notes ?? ''}
-                            onChange={(e) => handleNotesChange(Number(winery.id), e.target.value)}
-                            onBlur={() => handleSaveNotes(Number(winery.id))}
-                            className="mt-2 text-sm"
+                          <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
+                          <WineryNoteEditor
+                            wineryDbId={winery.dbId as number}
+                            initialNotes={winery.notes || ''}
+                            onSave={handleSaveNote}
                           />
+                          <WineryReviews visits={winery.visits || []} currentUserId={trip.user_id} members={currentMembers} />
                         </div>
-                        <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.id)} className="text-red-500">
-                          <X className="w-4 h-4" />
-                        </Button>
+                        {isEditing && (
+                          <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">
+                            <X className="w-4 h-4" />
+                          </Button>
+                        )}
                       </div>
                     )}
                   </Draggable>
@@ -139,7 +280,7 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
         </DragDropContext>
         {isEditing && (
           <div className="p-4 border-t">
-            <Popover>
+            <Popover open={addWineryPopoverOpen} onOpenChange={setAddWineryPopoverOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full"><Plus className="w-4 h-4 mr-2"/>Add a Winery</Button>
               </PopoverTrigger>
@@ -147,10 +288,14 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
                 <Command>
                   <CommandInput placeholder="Search wineries..." value={winerySearch} onValueChange={setWinerySearch} />
                   <CommandList>
-                    <CommandEmpty>No wineries found.</CommandEmpty>
+                    <CommandEmpty>{isSearching ? "Searching..." : "No wineries found."}</CommandEmpty>
                     <CommandGroup>
-                      {availableWineries.map(winery => (
-                        <CommandItem key={winery.id} onSelect={() => handleAddWinery(winery)}>
+                      {searchResults.map(winery => (
+                        <CommandItem
+                          key={winery.id}
+                          value={winery.name} // Add this value prop for filtering
+                          onSelect={() => handleAddWinery(winery)}
+                        >
                           {winery.name}
                         </CommandItem>
                       ))}
@@ -164,8 +309,55 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
       </CardContent>
       <CardFooter className="bg-gray-50 p-4 flex justify-between items-center">
         <div className="flex items-center gap-2 text-sm text-gray-600">
-            <Users className="w-4 h-4" />
-            <span>{trip.members?.length || 0} members</span>
+          <Users className="w-4 h-4" />
+          <div className="flex items-center -space-x-2">
+              <TooltipProvider>
+                  {currentMembers.map((friend: Friend) => (
+                      <Tooltip key={friend.id}>
+                          <TooltipTrigger asChild>
+                              <Avatar className="h-6 w-6 border-2 border-white">
+                                  <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
+                                  <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                              </Avatar>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                              <p>{friend.name}</p>
+                          </TooltipContent>
+                      </Tooltip>
+                  ))}
+              </TooltipProvider>
+          </div>
+          {isEditing && (
+              <Popover>
+                  <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm"><UserPlus className="w-4 h-4 mr-2"/>Add/Remove</Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-0">
+                      <Command>
+                          <CommandInput placeholder="Search friends..." className="h-9" />
+                          <CommandEmpty>No friends found.</CommandEmpty>
+                          <CommandGroup>
+                              {friends.map((friend: Friend) => (
+                              <CommandItem
+                                  key={friend.id}
+                                  onSelect={() => onFriendSelect(friend.id)}
+                              >
+                                  <div className="flex items-center justify-between w-full">
+                                      <span>{friend.name}</span>
+                                      <Check
+                                          className={cn(
+                                          "h-4 w-4",
+                                          selectedFriends.includes(friend.id) ? "opacity-100" : "opacity-0"
+                                          )}
+                                      />
+                                  </div>
+                              </CommandItem>
+                              ))}
+                          </CommandGroup>
+                      </Command>
+                  </PopoverContent>
+              </Popover>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {isEditing ? (
@@ -173,6 +365,18 @@ const TripCard = memo(({ trip, allWineries }: TripCardProps) => {
           ) : (
             <Button variant="outline" onClick={() => setIsEditing(true)}><Edit className="w-4 h-4 mr-2"/>Edit Trip</Button>
           )}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button size="icon" variant="outline" onClick={() => handleExportToMaps(trip.wineries)} disabled={!trip.wineries || trip.wineries.length === 0}>
+                    <Share2 size={16} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                  <p>Export to Google Maps</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button variant="destructive" size="icon" onClick={() => deleteTrip(trip.id.toString())}><Trash2 className="w-4 h-4"/></Button>
         </div>
       </CardFooter>

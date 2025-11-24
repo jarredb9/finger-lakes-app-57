@@ -14,7 +14,7 @@ export default function Header({ user }: HeaderProps) {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
             <Link href="/" className="flex items-center">
-              <Image src="/placeholder-logo.png" alt="Winery Tracker Logo" width={32} height={32} />
+              <Image src="/wine-glass.svg" alt="Winery Tracker Logo" width={32} height={32} />
               <h1 className="text-xl font-bold text-gray-900 ml-3">Winery Tracker</h1>
             </Link>
           </div>

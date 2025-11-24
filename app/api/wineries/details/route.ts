@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Database error' }, { status: 500 });
   }
 
-  if (existingWinery && existingWinery.phone && existingWinery.website && existingWinery.google_rating) {
+  if (existingWinery && existingWinery.phone && existingWinery.website && existingWinery.google_rating && existingWinery.opening_hours !== null && existingWinery.reviews !== null && existingWinery.reservable !== null) {
     return NextResponse.json(existingWinery);
   }
 
@@ -32,9 +32,10 @@ export async function POST(request: NextRequest) {
     console.error('[API] /api/wineries/details: Google Maps API Key is not set.');
     return NextResponse.json({ error: 'Google Maps API Key is not configured.' }, { status: 500 });
   }
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,website,rating&key=${apiKey}`;
+  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,website,rating,opening_hours,reviews,reservable&key=${apiKey}`;
 
   try {
+    console.log(`[API] /api/wineries/details: Fetching details for placeId: ${placeId}`);
     const response = await fetch(url);
     const data = await response.json();
 
@@ -45,16 +46,27 @@ export async function POST(request: NextRequest) {
 
     const placeDetails = data.result;
 
+    if (!placeDetails || !placeDetails.name || !placeDetails.formatted_address) {
+      console.error('[API] /api/wineries/details: Google Places API result is missing required fields (name or address).', placeDetails);
+      return NextResponse.json({ error: 'Incomplete place details from Google' }, { status: 500 });
+    }
+
+    console.log('[API] /api/wineries/details: Fetched place details:', placeDetails);
+
     const wineryData = {
       google_place_id: placeId,
       name: placeDetails.name,
       address: placeDetails.formatted_address,
-      latitude: placeDetails.geometry.location.lat,
-      longitude: placeDetails.geometry.location.lng,
+      latitude: placeDetails.geometry?.location?.lat,
+      longitude: placeDetails.geometry?.location?.lng,
       phone: placeDetails.formatted_phone_number,
       website: placeDetails.website,
       google_rating: placeDetails.rating,
+      opening_hours: placeDetails.opening_hours,
+      reviews: placeDetails.reviews,
+      reservable: placeDetails.reservable,
     };
+    console.log('[API] /api/wineries/details: Prepared winery data for upsert:', wineryData);
 
     // Upsert winery data into the database
     const { data: upsertedWinery, error: upsertError } = await supabase

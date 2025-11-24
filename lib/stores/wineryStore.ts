@@ -12,6 +12,9 @@ interface RawWinery {
   phone?: string;
   website?: string;
   google_rating?: number;
+  opening_hours?: any; // From Google Places Details API
+  reviews?: any; // From Google Places Details API
+  reservable?: boolean; // From Google Places Details API
   visits?: Visit[];
   wineries?: RawWinery[]; // In case of nested winery data
 }
@@ -35,8 +38,11 @@ const standardizeWineryData = (rawWinery: RawWinery, existingWinery?: Winery): W
       lng: typeof lng === 'string' ? parseFloat(lng) : (lng || 0),
       phone: rawWinery.phone ?? existingWinery?.phone,
       website: rawWinery.website ?? existingWinery?.website,
-      rating: rawWinery.google_rating ?? existingWinery?.rating,
+      rating: rawWinery.google_rating ?? (rawWinery as unknown as Winery).rating ?? existingWinery?.rating,
       userVisited: existingWinery?.userVisited || false,
+      openingHours: rawWinery.opening_hours ?? existingWinery?.openingHours,
+      reviews: rawWinery.reviews ?? existingWinery?.reviews,
+      reservable: rawWinery.reservable ?? existingWinery?.reservable,
       onWishlist: existingWinery?.onWishlist || false,
       isFavorite: existingWinery?.isFavorite || false,
       visits: existingWinery?.visits || rawWinery.visits || [],
@@ -65,6 +71,7 @@ interface WineryState {
   _wineriesBackup: Winery[] | null;
 
   fetchWineryData: () => Promise<void>;
+  fetchAllWineries: () => Promise<void>;
   ensureWineryDetails: (placeId: string) => Promise<Winery | null>;
   toggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
   toggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
@@ -201,9 +208,43 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
     }
   },
 
+  fetchAllWineries: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await fetch("/api/wineries");
+      if (!response.ok) {
+        throw new Error('Failed to fetch all wineries');
+      }
+      const allWineriesData = await response.json();
+      const allWineries = Array.isArray(allWineriesData) ? allWineriesData : allWineriesData.wineries || [];
+
+      const { persistentWineries } = get();
+      const persistentWineriesMap = new Map(persistentWineries.map(w => [w.id, w]));
+
+      allWineries.forEach((rawWinery: RawWinery) => {
+        const existing = persistentWineriesMap.get(String(rawWinery.google_place_id || rawWinery.id));
+        const standardized = standardizeWineryData(rawWinery, existing);
+        if (standardized) {
+          persistentWineriesMap.set(standardized.id, { ...existing, ...standardized });
+        }
+      });
+
+      const mergedWineries = Array.from(persistentWineriesMap.values());
+
+      set({
+        persistentWineries: mergedWineries,
+        isLoading: false,
+      });
+
+    } catch (error) {
+      console.error("Failed to fetch all wineries:", error);
+      set({ error: "Failed to load all wineries.", isLoading: false });
+    }
+  },
+
   ensureWineryDetails: async (placeId: string) => {
     const existing = get().persistentWineries.find(w => w.id === placeId);
-    if (existing && existing.phone && existing.website && existing.rating) {
+    if (existing && existing.phone && existing.website && existing.rating && existing.openingHours !== undefined && existing.reviews !== undefined && existing.reservable !== undefined) {
       return existing;
     }
 

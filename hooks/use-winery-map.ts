@@ -39,7 +39,7 @@ export function useWineryMap(userId: string) {
   } = useWineryStore();
 
   const { openWineryModal } = useUIStore();
-  const { fetchAllTrips, fetchUpcomingTrips, selectedTrip } = useTripStore();
+  const { fetchUpcomingTrips, selectedTrip } = useTripStore();
   const { toast } = useToast();
 
   const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
@@ -63,10 +63,9 @@ export function useWineryMap(userId: string) {
     }
     if (userId) {
       fetchWineryData();
-      fetchAllTrips();
       fetchUpcomingTrips();
     }
-  }, [geocoding, userId, fetchWineryData, fetchAllTrips, fetchUpcomingTrips]);
+  }, [geocoding, userId, fetchWineryData, fetchUpcomingTrips]);
 
   useEffect(() => {
     if (googleMapInstance) {
@@ -209,6 +208,7 @@ export function useWineryMap(userId: string) {
             "id",
             "websiteURI",
             "nationalPhoneNumber",
+            "reviews",
           ],
           locationRestriction: finalSearchBounds,
         };
@@ -232,7 +232,7 @@ export function useWineryMap(userId: string) {
         }
       }
 
-      const wineries = Array.from(allFoundPlaces.values()).map((place) => ({
+      const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place) => ({
         id: place.id!,
         name: place.displayName!,
         address: place.formattedAddress!,
@@ -241,6 +241,16 @@ export function useWineryMap(userId: string) {
         rating: place.rating ?? undefined,
         website: place.websiteURI ?? undefined,
         phone: place.nationalPhoneNumber ?? undefined,
+        reviews: place.reviews?.map(review => ({
+          author_name: review.authorAttribution?.displayName ?? 'A reviewer',
+          rating: review.rating ?? 0,
+          relative_time_description: review.relativePublishTimeDescription ?? '',
+          text: review.text ?? '',
+          time: review.publishTime?.getTime() ?? 0,
+          author_url: review.authorAttribution?.uri,
+          language: review.textLanguageCode,
+          profile_photo_url: review.authorAttribution?.photoURI,
+        })) ?? undefined,
       }));
 
       setSearchResults(wineries);

@@ -57,22 +57,18 @@ const MapControls = memo(
     filter,
     onFilterChange,
   }: MapControlsProps) => {
-    const { trips, fetchTripById, selectedTrip, setSelectedTrip } = useTripStore();
+    const { upcomingTrips, fetchTripById, selectedTrip, setSelectedTrip } = useTripStore();
 
     const handleTripSelect = async (tripId: string) => {
       if (tripId === "none") {
         setSelectedTrip(null);
         return;
       }
-      const existingTrip = trips.find((t) => t.id.toString() === tripId);
-      if (existingTrip && existingTrip.wineries) {
-        setSelectedTrip(existingTrip);
-      } else {
-        await fetchTripById(tripId);
-        const updatedTrip =
-          useTripStore.getState().trips.find((t) => t.id.toString() === tripId);
-        if (updatedTrip) setSelectedTrip(updatedTrip);
-      }
+      // Always fetch the full trip details when a trip is selected
+      // to ensure we have the complete winery list for the map.
+      await fetchTripById(tripId);
+      const updatedTrip = useTripStore.getState().trips.find((t) => t.id.toString() === tripId);
+      if (updatedTrip) setSelectedTrip(updatedTrip);
     };
 
     return (
@@ -175,7 +171,7 @@ const MapControls = memo(
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">None</SelectItem>
-                {trips
+                {upcomingTrips
                   .filter((trip) => !!trip.id)
                   .map((trip) => (
                     <SelectItem key={trip.id} value={trip.id.toString()}>
