@@ -12,34 +12,39 @@ import HomeClientPage from "@/components/home-client-page"
 async function getUserStats(userId: string) {
   const supabase = await createClient();
   
-  const { data: visits, error: visitsError } = await supabase
-    .from('visits')
-    .select('id, rating, wineries!inner(id)')
-    .eq('user_id', userId);
-
-  const { data: wishlist, error: wishlistError } = await supabase
-    .from('wishlist')
-    .select('id')
-    .eq('user_id', userId);
-
-  const { data: favorites, error: favoritesError } = await supabase
-    .from('favorites')
-    .select('id')
-    .eq('user_id', userId);
+  const [
+    { data: visits, error: visitsError },
+    { data: wishlist, error: wishlistError },
+    { data: favorites, error: favoritesError }
+  ] = await Promise.all([
+    supabase
+      .from('visits')
+      .select('id, rating, wineries!inner(id)')
+      .eq('user_id', userId),
+    supabase
+      .from('wishlist')
+      .select('id')
+      .eq('user_id', userId),
+    supabase
+      .from('favorites')
+      .select('id')
+      .eq('user_id', userId)
+  ]);
 
   if (visitsError || wishlistError || favoritesError) {
     console.error("Error fetching stats:", visitsError, wishlistError, favoritesError);
     return { totalVisits: 0, uniqueWineries: 0, averageRating: 0, wishlistCount: 0, favoritesCount: 0 };
   }
 
-  const totalVisits = visits.length;
-  const uniqueWineries = new Set(visits.map(v => v.wineries[0]?.id)).size;
-  const ratedVisits = visits.filter(v => v.rating !== null);
+  const totalVisits = visits?.length || 0;
+  // The Supabase query returns wineries as an array, so we access the first element.
+  const uniqueWineries = new Set(visits?.map(v => v.wineries[0]?.id).filter(Boolean)).size;
+  const ratedVisits = visits?.filter(v => v.rating !== null) || [];
   const averageRating = ratedVisits.length > 0
     ? (ratedVisits.reduce((acc, v) => acc + (v.rating || 0), 0) / ratedVisits.length).toFixed(1)
     : "0";
-  const wishlistCount = wishlist.length;
-  const favoritesCount = favorites.length;
+  const wishlistCount = wishlist?.length || 0;
+  const favoritesCount = favorites?.length || 0;
 
   return { totalVisits, uniqueWineries, averageRating, wishlistCount, favoritesCount };
 }
