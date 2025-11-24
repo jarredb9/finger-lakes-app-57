@@ -321,16 +321,20 @@ BEGIN
         w.phone,
         w.website,
         w.google_rating,
-        EXISTS(SELECT 1 FROM favorites f WHERE f.winery_id = w.id AND f.user_id = auth.uid()) as is_favorite,
-        EXISTS(SELECT 1 FROM wishlist wl WHERE wl.winery_id = w.id AND wl.user_id = auth.uid()) as on_wishlist,
-        EXISTS(SELECT 1 FROM visits v WHERE v.winery_id = w.id AND v.user_id = auth.uid()) as user_visited,
+        bool_or(f.user_id IS NOT NULL) as is_favorite,
+        bool_or(wl.user_id IS NOT NULL) as on_wishlist,
+        bool_or(v.user_id IS NOT NULL) as user_visited,
         wit.trip_id,
         wit.trip_name,
         wit.trip_date,
         wit.visit_order,
         wit.notes
     FROM wineries w
-    JOIN wineries_in_trips wit ON w.id = wit.winery_id;
+    JOIN wineries_in_trips wit ON w.id = wit.winery_id
+    LEFT JOIN favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
+    LEFT JOIN wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
+    LEFT JOIN visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
+    GROUP BY w.id, wit.trip_id, wit.trip_name, wit.trip_date, wit.visit_order, wit.notes;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -352,7 +356,18 @@ RETURNS TABLE (
     user_visited boolean,
     visits jsonb
 ) AS $$
+DECLARE
+    v_visits jsonb;
 BEGIN
+    SELECT jsonb_agg(v_agg)
+    INTO v_visits
+    FROM (
+        SELECT v.id, v.visit_date, v.user_review, v.rating, v.photos
+        FROM visits v
+        WHERE v.winery_id = winery_id_param AND v.user_id = auth.uid()
+        ORDER BY v.visit_date DESC
+    ) AS v_agg;
+
     RETURN QUERY
     SELECT
         w.id,
@@ -364,16 +379,13 @@ BEGIN
         w.phone,
         w.website,
         w.google_rating,
-        EXISTS(SELECT 1 FROM favorites f WHERE f.winery_id = w.id AND f.user_id = auth.uid()) as is_favorite,
-        EXISTS(SELECT 1 FROM wishlist wl WHERE wl.winery_id = w.id AND wl.user_id = auth.uid()) as on_wishlist,
-        EXISTS(SELECT 1 FROM visits v WHERE v.winery_id = w.id AND v.user_id = auth.uid()) as user_visited,
-        (SELECT jsonb_agg(v_agg) FROM (
-            SELECT v.id, v.visit_date, v.user_review, v.rating, v.photos
-            FROM visits v
-            WHERE v.winery_id = w.id AND v.user_id = auth.uid()
-            ORDER BY v.visit_date DESC
-        ) AS v_agg) AS visits
+        f.user_id IS NOT NULL AS is_favorite,
+        wl.user_id IS NOT NULL AS on_wishlist,
+        v_visits IS NOT NULL AND jsonb_array_length(v_visits) > 0 AS user_visited,
+        v_visits AS visits
     FROM wineries w
+    LEFT JOIN favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
+    LEFT JOIN wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
     WHERE w.id = winery_id_param;
 END;
 $$ LANGUAGE plpgsql;
@@ -402,25 +414,34 @@ RETURNS TABLE (
 ) AS $$
 BEGIN
     RETURN QUERY
+    WITH winery_matches AS (
+        SELECT
+            w.id,
+            w.google_place_id,
+            w.name,
+            w.address,
+            w.latitude,
+            w.longitude,
+            w.phone,
+            w.website,
+            w.google_rating,
+            bool_or(f.user_id IS NOT NULL) as is_favorite,
+            bool_or(wl.user_id IS NOT NULL) as on_wishlist,
+            bool_or(v.user_id IS NOT NULL) as user_visited
+        FROM wineries w
+        LEFT JOIN favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
+        LEFT JOIN wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
+        LEFT JOIN visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
+        WHERE w.name ILIKE '%' || search_query || '%'
+        GROUP BY w.id
+    )
     SELECT
-        w.id,
-        w.google_place_id,
-        w.name,
-        w.address,
-        w.latitude,
-        w.longitude,
-        w.phone,
-        w.website,
-        w.google_rating,
-        EXISTS(SELECT 1 FROM favorites f WHERE f.winery_id = w.id AND f.user_id = auth.uid()) as is_favorite,
-        EXISTS(SELECT 1 FROM wishlist wl WHERE wl.winery_id = w.id AND wl.user_id = auth.uid()) as on_wishlist,
-        EXISTS(SELECT 1 FROM visits v WHERE v.winery_id = w.id AND v.user_id = auth.uid()) as user_visited,
+        wm.*,
         ST_Distance(
-            ST_MakePoint(w.longitude::double precision, w.latitude::double precision)::geography,
+            ST_MakePoint(wm.longitude::double precision, wm.latitude::double precision)::geography,
             ST_MakePoint(user_lng, user_lat)::geography
         ) as distance_meters
-    FROM wineries w
-    WHERE w.name ILIKE '%' || search_query || '%'
+    FROM winery_matches wm
     ORDER BY distance_meters;
 END;
 $$ LANGUAGE plpgsql;
@@ -454,10 +475,14 @@ BEGIN
         w.phone,
         w.website,
         w.google_rating,
-        EXISTS(SELECT 1 FROM favorites f WHERE f.winery_id = w.id AND f.user_id = auth.uid()) as is_favorite,
-        EXISTS(SELECT 1 FROM wishlist wl WHERE wl.winery_id = w.id AND wl.user_id = auth.uid()) as on_wishlist,
-        EXISTS(SELECT 1 FROM visits v WHERE v.winery_id = w.id AND v.user_id = auth.uid()) as user_visited
-    FROM wineries w;
+        bool_or(f.user_id IS NOT NULL) as is_favorite,
+        bool_or(wl.user_id IS NOT NULL) as on_wishlist,
+        bool_or(v.user_id IS NOT NULL) as user_visited
+    FROM wineries w
+    LEFT JOIN favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
+    LEFT JOIN wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
+    LEFT JOIN visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
+    GROUP BY w.id;
 END;
 $$ LANGUAGE plpgsql;
 
