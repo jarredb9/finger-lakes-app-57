@@ -1,5 +1,4 @@
 "use client";
-import React, { memo } from "react";
 import { Winery } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

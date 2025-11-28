@@ -1,5 +1,5 @@
 // components/TripPlannerSection.tsx
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Winery } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useToast } from "@/hooks/use-toast";
