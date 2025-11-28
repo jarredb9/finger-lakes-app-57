@@ -1,11 +1,10 @@
 # Fingerlakes Winery Visit Planner and Tracker
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/jarreds-projects-8ff50eea/v0-fingerlakes-winery-app)
-[![Built with v0](https://img.shields.io/badge/Built%20with-v0.dev-black?style=for-the-badge)](https://v0.dev/chat/projects/Zculw1N8IrK)
 
 ## Overview
 
-This is a Next.js web application for planning and tracking visits to wineries in the Finger Lakes region. It allows users to explore wineries, create trips, track visits, and manage friends. The project is automatically synced with v0.dev deployments.
+This is a Next.js web application for planning and tracking visits to wineries in the Finger Lakes region. It allows users to explore wineries, create trips, track visits, and manage friends.
 
 **Live URL:** [https://vercel.com/jarreds-projects-8ff50eea/v0-fingerlakes-winery-app](https://vercel.com/jarreds-projects-8ff50eea/v0-fingerlakes-winery-app)
 
@@ -57,10 +56,3 @@ We use a strict **Migration-First** workflow. The `supabase/migrations` folder i
 *   **State:** Use Zustand for global state management.
 *   **Styling:** Use Tailwind utility classes.
 *   **Icons:** Use Lucide React icons.
-
-## How It Works (v0.dev Sync)
-
-1.  Create and modify your project using [v0.dev](https://v0.dev/chat/projects/Zculw1N8IrK).
-2.  Deploy your chats from the v0 interface.
-3.  Changes are automatically pushed to this repository.
-4.  Vercel deploys the latest version from this repository.

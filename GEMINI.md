@@ -1,7 +1,7 @@
 # Fingerlakes Winery Visit Planner and Tracker
 
 ## Project Overview
-This is a Next.js web application for planning and tracking visits to wineries in the Finger Lakes region. It allows users to explore wineries, create trips, track visits, and manage friends. The project is automatically synced with v0.dev deployments.
+This is a Next.js web application for planning and tracking visits to wineries in the Finger Lakes region. It allows users to explore wineries, create trips, track visits, and manage friends.
 
 ## Critical Instructions & Constraints
 
