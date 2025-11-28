@@ -1,4 +1,4 @@
-import { useState, useEffect, forwardRef } from "react";
+import { useState, useEffect, forwardRef, useCallback } from "react";
 import { Visit, Winery } from "@/lib/types";
 import { useVisitStore } from "@/lib/stores/visitStore";
 import { useToast } from "@/hooks/use-toast";
@@ -26,13 +26,13 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
   const [rating, setRating] = useState(0);
   const [photos, setPhotos] = useState<File[]>([]);
 
-  const resetForm = () => {
+  const resetForm = useCallback(() => {
     setVisitDate(new Date().toISOString().split("T")[0]);
     setUserReview("");
     setRating(0);
     setPhotos([]);
     setPhotosToDelete([]);
-  };
+  }, [setPhotosToDelete]);
 
   useEffect(() => {
     if (editingVisit) {
@@ -44,7 +44,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
     } else {
       resetForm();
     }
-  }, [editingVisit, setPhotosToDelete]);
+  }, [editingVisit, resetForm, setPhotosToDelete]);
 
   const handleSave = async () => {
     if (!visitDate.trim()) {

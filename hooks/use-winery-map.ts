@@ -58,14 +58,14 @@ export function useWineryMap(userId: string) {
   const googleMapInstance = useMap();
 
   useEffect(() => {
-    if (geocoding) {
+    if (geocoding && !geocoder) {
       setGeocoder(new google.maps.Geocoder());
     }
     if (userId) {
       fetchWineryData();
       fetchUpcomingTrips();
     }
-  }, [geocoding, userId, fetchWineryData, fetchUpcomingTrips]);
+  }, [geocoding, userId, fetchWineryData, fetchUpcomingTrips, geocoder]);
 
   useEffect(() => {
     if (googleMapInstance) {

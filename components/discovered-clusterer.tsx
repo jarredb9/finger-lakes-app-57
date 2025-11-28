@@ -56,7 +56,7 @@ export default function DiscoveredClusterer({ wineries, onClick }: DiscoveredClu
       return marker;
     });
     clusterer.current.addMarkers(newMarkers);
-  }, [wineries, onClick, clusterer.current]);
+  }, [wineries, onClick, clusterer]);
   
   useEffect(() => {
     return () => clusterer.current?.clearMarkers();

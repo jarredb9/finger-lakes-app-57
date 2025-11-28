@@ -25,15 +25,16 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
   const [newTripName, setNewTripName] = useState("");
   const [addTripNotes, setAddTripNotes] = useState("");
 
-  useEffect(() => {
-    if (tripDate) {
-      const dateString = tripDate.toISOString().split("T")[0];
+  const handleDateSelect = (date: Date | undefined) => {
+    setTripDate(date);
+    if (date) {
+      const dateString = date.toISOString().split("T")[0];
       fetchTripsForDate(dateString);
       setSelectedTrips(new Set());
       setNewTripName("");
       setAddTripNotes("");
     }
-  }, [tripDate, fetchTripsForDate]);
+  };
 
   const handleToggleTrip = (tripId: string) => {
     setSelectedTrips((prev) => {
@@ -127,7 +128,7 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
     <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
       <h4 className="font-semibold">Add to a Trip</h4>
       <div className="flex items-center gap-2">
-        <DatePicker date={tripDate} onSelect={setTripDate} />
+        <DatePicker date={tripDate} onSelect={handleDateSelect} />
         {tripDate && (
           <Button onClick={handleAddToTrip} disabled={selectedTrips.size === 0 || (selectedTrips.has("new") && !newTripName.trim())}>
             Add to Trip

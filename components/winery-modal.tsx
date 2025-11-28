@@ -38,10 +38,10 @@ export default function WineryModal() {
   const prevVisitsLength = useRef(visits.length);
 
   useEffect(() => {
-    if (isWineryModalOpen) {
+    if (isWineryModalOpen && editingVisitId !== null) {
       setEditingVisitId(null);
     }
-  }, [isWineryModalOpen]);
+  }, [isWineryModalOpen, editingVisitId]);
 
   useEffect(() => {
     if (visits.length > prevVisitsLength.current) {

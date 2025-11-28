@@ -93,6 +93,7 @@ export function useWineryData() {
     }, [fetchUserVisits, fetchWishlist, fetchFavorites, fetchUpcomingTrips]);
 
     useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         refreshAllData();
     }, [refreshAllData]);
 

@@ -56,7 +56,7 @@ export default function FavoriteClusterer({ wineries, onClick }: FavoriteCluster
       return marker;
     });
     clusterer.current.addMarkers(newMarkers);
-  }, [wineries, onClick, clusterer.current]);
+  }, [wineries, onClick, clusterer]);
   
   useEffect(() => {
     return () => clusterer.current?.clearMarkers();
