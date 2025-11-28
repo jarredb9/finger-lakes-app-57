@@ -3,13 +3,14 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const user = await getUser();
     if (!user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const wineryId = parseInt(params.id, 10);
+    const wineryId = parseInt(id, 10);
     if (isNaN(wineryId)) {
         return NextResponse.json({ error: "Invalid winery ID" }, { status: 400 });
     }

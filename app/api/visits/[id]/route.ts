@@ -2,14 +2,15 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
     const user = await getUser();
     if (!user) {
         console.error("Unauthorized PUT to /api/visits");
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const visitId = parseInt(params.id, 10);
+    const visitId = parseInt(id, 10);
     if (isNaN(visitId)) {
         return NextResponse.json({ error: "Invalid visit ID" }, { status: 400 });
     }
@@ -50,14 +51,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const user = await getUser();
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const visitId = params.id;
+    const visitId = id;
     const supabase = await createClient();
 
     const { error } = await supabase.from("visits").delete().eq("id", visitId).eq("user_id", user.id);

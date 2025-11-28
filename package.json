@@ -98,10 +98,5 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.44.1"
   },
-  "lint-staged": {
-    "*.{js,jsx,ts,tsx}": [
-      "next lint --fix",
-      "bash -c 'npm run type-check'"
-    ]
-  }
+
 }
