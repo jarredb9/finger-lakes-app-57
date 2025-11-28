@@ -8,7 +8,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Password and code are required" }, { status: 400 });
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
   // Exchange the code for a session
   const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
