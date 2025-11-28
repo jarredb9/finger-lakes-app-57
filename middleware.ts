@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check for user on protected routes
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) {
