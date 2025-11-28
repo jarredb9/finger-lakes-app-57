@@ -1,5 +1,4 @@
 "use client";
-import { AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
 
 export function WineryMarkers() {
   return (
