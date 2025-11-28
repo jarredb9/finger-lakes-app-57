@@ -5,7 +5,7 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
-    "lint": "next lint",
+    "lint": "eslint .",
     "format": "prettier --write .",
     "test": "jest",
     "test:watch": "jest --watch",
@@ -97,5 +97,11 @@
     "ts-jest": "^29.4.4",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.44.1"
+  },
+  "lint-staged": {
+    "*.{js,jsx,ts,tsx}": [
+      "eslint --fix",
+      "bash -c 'npm run type-check'"
+    ]
   }
 }
