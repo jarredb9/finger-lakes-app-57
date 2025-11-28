@@ -36,6 +36,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
 
   useEffect(() => {
     if (editingVisit) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setVisitDate(new Date(editingVisit.visit_date + "T00:00:00").toISOString().split("T")[0]);
       setUserReview(editingVisit.user_review || "");
       setRating(editingVisit.rating || 0);

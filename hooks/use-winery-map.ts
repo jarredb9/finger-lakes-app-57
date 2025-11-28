@@ -59,6 +59,7 @@ export function useWineryMap(userId: string) {
 
   useEffect(() => {
     if (geocoding && !geocoder) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGeocoder(new google.maps.Geocoder());
     }
     if (userId) {

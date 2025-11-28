@@ -39,6 +39,7 @@ export default function WineryModal() {
 
   useEffect(() => {
     if (isWineryModalOpen && editingVisitId !== null) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setEditingVisitId(null);
     }
   }, [isWineryModalOpen, editingVisitId]);
