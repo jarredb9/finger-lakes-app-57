@@ -9,5 +9,8 @@ module.exports = [
   ...compat.extends('next/core-web-vitals'),
   {
     ignores: ['.next/', 'dist/', 'build/', 'node_modules/'],
+    rules: {
+      "no-console": "warn",
+    },
   }
 ];
