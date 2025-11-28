@@ -126,11 +126,12 @@ export async function GET(_request: NextRequest, { params }: { params: { id: str
   return NextResponse.json(formattedTrip);
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   
-  const tripId = parseInt(params.id, 10);
+  const { id } = await params;
+  const tripId = parseInt(id, 10);
   const supabase = await createClient();
   const updates = await request.json();
 
@@ -256,11 +257,12 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   return NextResponse.json({ message: "Trip updated successfully" });
 }
 
-export async function DELETE(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const tripId = params.id;
+  const { id } = await params;
+  const tripId = id;
   const supabase = await createClient();
 
   // First, verify the user owns the trip

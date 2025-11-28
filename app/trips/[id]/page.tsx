@@ -6,7 +6,8 @@ import { Loader2 } from "lucide-react";
 import TripDetailClientPage from "./client-page";
 import { AuthenticatedUser } from '@/lib/types';
 
-export default async function TripDetailPage({ params }: { params: { id: string } }) {
+export default async function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getUser();
 
   if (!user) {
@@ -22,7 +23,7 @@ export default async function TripDetailPage({ params }: { params: { id: string 
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
         }>
-          <TripDetailClientPage tripId={params.id} />
+          <TripDetailClientPage tripId={id} />
         </Suspense>
       </main>
     </div>
