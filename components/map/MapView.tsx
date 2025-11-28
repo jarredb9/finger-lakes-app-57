@@ -1,4 +1,5 @@
 "use client";
+import { memo } from "react";
 import { Map } from "@vis.gl/react-google-maps";
 import { Winery, Trip } from "@/lib/types";
 import TripWineryClusterer from "../trip-winery-clusterer";
