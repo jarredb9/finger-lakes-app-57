@@ -38,11 +38,12 @@ const formatWinery = (winery: RawWinery | null) => {
     };
 };
 
-export async function GET(_request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const tripId = params.id;
+  const { id } = await params;
+  const tripId = id;
   const supabase = await createClient();
 
   const { data: trip, error: tripError } = await supabase
