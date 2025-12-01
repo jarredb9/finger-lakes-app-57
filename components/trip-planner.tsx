@@ -9,7 +9,7 @@ import { useTripStore } from "@/lib/stores/tripStore";
 import TripCard from "@/components/trip-card";
 import { AuthenticatedUser } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { APIProvider } from "@vis.gl/react-google-maps";
+import { Skeleton } from "@/components/ui/skeleton";
 import TripForm from "./trip-form";
 
 export default function TripPlanner({ initialDate, user }: { initialDate: Date, user: AuthenticatedUser }) {
@@ -59,7 +59,24 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
                     </Dialog>
                 </div>
 
-                {isLoading ? <p>Loading trips...</p> : tripsForDate.length > 0 ? (
+                {isLoading ? (
+                    <div className="space-y-4">
+                        <Card>
+                            <CardContent className="p-4 flex flex-col space-y-2">
+                                <Skeleton className="h-8 w-3/4" />
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-1/2" />
+                            </CardContent>
+                        </Card>
+                        <Card>
+                            <CardContent className="p-4 flex flex-col space-y-2">
+                                <Skeleton className="h-8 w-3/4" />
+                                <Skeleton className="h-4 w-full" />
+                                <Skeleton className="h-4 w-1/2" />
+                            </CardContent>
+                        </Card>
+                    </div>
+                ) : tripsForDate.length > 0 ? (
                     tripsForDate.map(trip => (
                         <TripCard 
                             key={trip.id} 
