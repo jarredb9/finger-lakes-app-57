@@ -1,21 +1,18 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import { Trip, Winery, Friend } from '@/lib/types';
+import { Trip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from './ui/button';
 import { ArrowRight, Trash2, Wine, Share2, UserPlus, Check, Users, Calendar as CalendarIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useTripStore } from '@/lib/stores/tripStore';
-import { useFriendStore } from '@/lib/stores/friendStore';
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { useTripActions } from "@/hooks/use-trip-actions";
 
 interface TripCardSimpleProps {
     trip: Trip;
@@ -24,56 +21,19 @@ interface TripCardSimpleProps {
 
 export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) {
     const router = useRouter();
-    const { toast } = useToast();
-    const { addMembersToTrip } = useTripStore();
-    const { friends, fetchFriends } = useFriendStore();
-    const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
-
-    useEffect(() => {
-        fetchFriends();
-    }, []);
+    
+    const { 
+        friends, 
+        selectedFriends, 
+        currentMembers, 
+        handleExportToMaps, 
+        toggleFriendSelection, 
+        saveTripMembers 
+    } = useTripActions(trip);
 
     const handleViewTrip = (tripId: number) => {
         router.push(`/trips/${tripId}`);
     };
-
-    const handleExportToMaps = (tripWineries: Winery[]) => {
-        if (!tripWineries || tripWineries.length === 0) {
-            return;
-        }
-
-        const encodedWineries = tripWineries.map(w => encodeURIComponent(`${w.name}, ${w.address}`));
-        
-        let url = `https://www.google.com/maps/dir/Current+Location/`;
-
-        if (encodedWineries.length === 1) {
-            url += `${encodedWineries[0]}`;
-        } else {
-            const waypoints = encodedWineries.join('/');
-            url += `${waypoints}`;
-        }
-        
-        window.open(url, '_blank');
-    };
-
-    const handleAddFriendsToTrip = async () => {
-        try {
-            await addMembersToTrip(trip.id.toString(), selectedFriends);
-            toast({ description: "Trip members updated." });
-        } catch (error) {
-            toast({ variant: "destructive", description: "Failed to update trip members." });
-        }
-    };
-
-    const onFriendSelect = (friendId: string) => {
-        setSelectedFriends(prev => 
-          prev.includes(friendId) 
-            ? prev.filter(id => id !== friendId) 
-            : [...prev, friendId]
-        );
-    };
-
-    const currentMembers = friends.filter((f: Friend) => trip.members?.includes(f.id));
 
     return (
         <Card>
@@ -84,7 +44,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button size="icon" variant="outline" onClick={() => handleExportToMaps(trip.wineries)} disabled={!trip.wineries || trip.wineries.length === 0}>
+                                    <Button size="icon" variant="outline" onClick={handleExportToMaps} disabled={!trip.wineries || trip.wineries.length === 0}>
                                         <Share2 size={16} />
                                     </Button>
                                 </TooltipTrigger>
@@ -102,10 +62,10 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
                               <CommandInput placeholder="Search friends..." className="h-9" />
                               <CommandEmpty>No friends found.</CommandEmpty>
                               <CommandGroup>
-                                {friends.map((friend: Friend) => (
+                                {friends.map((friend) => (
                                   <CommandItem
                                     key={friend.id}
-                                    onSelect={() => onFriendSelect(friend.id)}
+                                    onSelect={() => toggleFriendSelection(friend.id)}
                                   >
                                     <div className="flex items-center justify-between w-full">
                                       <span>{friend.name}</span>
@@ -120,7 +80,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
                                 ))}
                               </CommandGroup>
                             </Command>
-                            <Button className="w-full" onClick={handleAddFriendsToTrip}>Update Members</Button>
+                            <Button className="w-full" onClick={() => saveTripMembers()}>Update Members</Button>
                           </PopoverContent>
                         </Popover>
                         <AlertDialog>
@@ -152,7 +112,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
                         <span className="text-sm text-muted-foreground">Collaborators:</span>
                         <div className="flex items-center -space-x-2">
                             <TooltipProvider>
-                                 {currentMembers.map((friend: Friend) => (
+                                 {currentMembers.map((friend) => (
                                       <Tooltip key={friend.id}>
                                           <TooltipTrigger asChild>
                                               <Avatar className="h-6 w-6 border-2 border-white">

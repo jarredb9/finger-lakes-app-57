@@ -1,7 +1,6 @@
 import { memo, useState, useEffect } from "react";
 import { Trip, Winery, Friend, Visit } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
-import { useFriendStore } from "@/lib/stores/friendStore";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import DailyHours from "@/components/DailyHours";
 import WineryNoteEditor from "./WineryNoteEditor";
 import { cn } from "@/lib/utils";
+import { useTripActions } from "@/hooks/use-trip-actions";
 
 interface TripCardProps {
   trip: Trip;
@@ -65,24 +65,23 @@ const WineryReviews = ({ visits, currentUserId, members }: { visits: Visit[], cu
 const TripCard = memo(({ trip }: TripCardProps) => {
   const { toast } = useToast();
   const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
-  const { friends, fetchFriends } = useFriendStore();
+  
+  const { 
+    friends, 
+    selectedFriends, 
+    currentMembers, 
+    handleExportToMaps, 
+    toggleFriendSelection 
+  } = useTripActions(trip);
+
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(trip.name || "");
   const [editedDate, setEditedDate] = useState<Date | undefined>(new Date(trip.trip_date));
   const [winerySearch, setWinerySearch] = useState("");
   const [searchResults, setSearchResults] = useState<Winery[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
 
   const [addWineryPopoverOpen, setAddWineryPopoverOpen] = useState(false);
-  useEffect(() => {
-    fetchFriends();
-  }, [fetchFriends]);
-
-  useEffect(() => {
-    // Keep local selected friends in sync with trip data
-    setSelectedFriends(trip.members || []);
-  }, [trip.members]);
 
   useEffect(() => {
     if (!winerySearch.trim()) {
@@ -174,51 +173,17 @@ const TripCard = memo(({ trip }: TripCardProps) => {
   };
 
   const onFriendSelect = (friendId: string) => {
-    setSelectedFriends(prev => {
-      const newSelectedFriends = prev.includes(friendId)
-        ? prev.filter(id => id !== friendId)
-        : [...prev, friendId];
-      
-      addMembersToTrip(trip.id.toString(), newSelectedFriends)
-        .then(() => {
-          toast({ description: "Trip members updated." });
-        })
-        .catch(() => {
-          toast({ variant: "destructive", description: "Failed to update members." });
-        });
-      return newSelectedFriends;
-    });
+    const newSelectedFriends = toggleFriendSelection(friendId);
+    
+    addMembersToTrip(trip.id.toString(), newSelectedFriends)
+      .then(() => {
+        toast({ description: "Trip members updated." });
+      })
+      .catch(() => {
+        toast({ variant: "destructive", description: "Failed to update members." });
+      });
   };
   
-  const currentMembers = friends.filter((f: Friend) => trip.members?.includes(f.id));
-
-  const handleExportToMaps = (tripWineries: Winery[]) => {
-    if (!tripWineries || tripWineries.length === 0) return;
-
-    const waypoints = tripWineries.map(w => encodeURIComponent(`${w.name}, ${w.address}`));
-    let url = 'https://www.google.com/maps/dir/';
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const userLocation = `${position.coords.latitude},${position.coords.longitude}`;
-          const destination = waypoints.pop(); // The last winery is the final destination
-          url += `${userLocation}/${waypoints.join('/')}/${destination}`;
-          window.open(url, '_blank');
-        },
-        () => {
-          // Geolocation failed, fall back to winery-to-winery directions
-          url += waypoints.join('/');
-          window.open(url, '_blank');
-        }
-      );
-    } else {
-      // Geolocation not supported
-      url += waypoints.join('/');
-      window.open(url, '_blank');
-    }
-  };
-
   return (
     <Card className="w-full overflow-hidden">
       <CardHeader className="bg-gray-50">
@@ -364,7 +329,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="icon" variant="outline" onClick={() => handleExportToMaps(trip.wineries)} disabled={!trip.wineries || trip.wineries.length === 0}>
+                <Button size="icon" variant="outline" onClick={() => handleExportToMaps()} disabled={!trip.wineries || trip.wineries.length === 0}>
                     <Share2 size={16} />
                 </Button>
               </TooltipTrigger>
