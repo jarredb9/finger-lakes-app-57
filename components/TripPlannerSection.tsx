@@ -103,7 +103,7 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
     }
   };
   
-  const isOnActiveTrip = selectedTrip?.wineries.some(w => w.dbId === winery.dbId) || false;
+  const isOnActiveTrip = selectedTrip?.wineries?.some(w => w.dbId === winery.dbId) || false;
 
   if (selectedTrip) {
     return (

@@ -367,8 +367,9 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
                 const tripIndex = list.findIndex(t => t.id === parseInt(tripId, 10));
                 if (tripIndex > -1) {
                     const updatedTrip = { ...list[tripIndex] };
-                    if (!updatedTrip.wineries.some(w => w.id === winery.id)) {
-                        updatedTrip.wineries = [...updatedTrip.wineries, wineryForTrip];
+                    const currentWineries = updatedTrip.wineries || []; // Safeguard against undefined
+                    if (!currentWineries.some(w => w.id === winery.id)) {
+                        updatedTrip.wineries = [...currentWineries, wineryForTrip];
                     }
                     list[tripIndex] = updatedTrip;
                 }
