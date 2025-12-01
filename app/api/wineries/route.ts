@@ -46,12 +46,18 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Internal server error during Google search" }, { status: 500 });
         }
     } 
-    // Otherwise, fetch all wineries from the database
+    // Otherwise, fetch paginated wineries from the database
     else {
+        const page = parseInt(searchParams.get("page") || "1", 10);
+        const limit = parseInt(searchParams.get("limit") || "20", 10);
+        const rangeFrom = (page - 1) * limit;
+        const rangeTo = rangeFrom + limit - 1;
+
         try {
-            const { data: wineries, error } = await supabase
+            const { data: wineries, error, count } = await supabase
                 .from('wineries')
-                .select('*');
+                .select('*', { count: 'exact' })
+                .range(rangeFrom, rangeTo);
 
             if (error) {
                 throw error;
@@ -62,9 +68,9 @@ export async function GET(request: NextRequest) {
                 dbId: w.id,
                 ...w
             }));
-            return NextResponse.json(formattedWineries || []);
+            return NextResponse.json({ wineries: formattedWineries || [], count: count || 0 });
         } catch (error) {
-            console.error("Error fetching all wineries:", error);
+            console.error("Error fetching wineries:", error);
             return NextResponse.json({ error: "Internal server error" }, { status: 500 });
         }
     }

@@ -1,7 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
-import { Friend } from "@/lib/types";
 
 // GET handler to fetch friends and friend requests
 export async function GET() {
@@ -13,50 +12,15 @@ export async function GET() {
     const supabase = await createClient();
 
     try {
-        // --- Get Friends ---
-        const { data: friendsData, error: friendsError } = await supabase
-            .from('friends')
-            .select('user1_id, user2_id')
-            .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`)
-            .eq('status', 'accepted');
+        const { data, error } = await supabase.rpc('get_friends_and_requests');
 
-        if (friendsError) throw friendsError;
-
-        const friendIds = friendsData.map(f => f.user1_id === user.id ? f.user2_id : f.user1_id);
-
-        let friends: Friend[] = [];
-        if (friendIds.length > 0) {
-            const { data: profiles, error: usersError } = await supabase
-                .from('profiles')
-                .select('id, name, email')
-                .in('id', friendIds);
-            if (usersError) throw usersError;
-            friends = profiles || [];
+        if (error) {
+            console.error("Error calling get_friends_and_requests RPC:", error);
+            throw error;
         }
 
-        // --- Get Requests ---
-        const { data: requestsData, error: requestsError } = await supabase
-            .from('friends')
-            .select('user1_id')
-            .eq('user2_id', user.id)
-            .eq('status', 'pending');
-
-        if (requestsError) throw requestsError;
-        
-        const requestorIds = requestsData.map(r => r.user1_id);
-
-        let requests: Friend[] = [];
-        if (requestorIds.length > 0) {
-             const { data: profiles, error: requestUsersError } = await supabase
-                .from('profiles')
-                .select('id, name, email')
-                .in('id', requestorIds);
-
-            if (requestUsersError) throw requestUsersError;
-            requests = profiles || [];
-        }
-
-        return NextResponse.json({ friends, requests });
+        // The RPC returns { friends: [...], requests: [...] }
+        return NextResponse.json(data || { friends: [], requests: [] });
 
     } catch (error) {
         console.error("Error in /api/friends GET:", error);
