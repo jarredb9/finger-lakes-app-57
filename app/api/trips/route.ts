@@ -2,7 +2,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { getUser } from "@/lib/auth";
-import { Visit } from "@/lib/types";
 
 // This represents the raw data structure of a winery coming from the database/API
 interface RawWinery {
