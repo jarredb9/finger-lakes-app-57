@@ -19,12 +19,7 @@ export default function TripDetailClientPage({ tripId }: { tripId: string }) {
   useEffect(() => {
     if (trip) {
       setSelectedTrip(trip);
-      console.log("Selected trip set in store:", trip);
     }
-    // Clear selected trip on unmount
-    return () => {
-      setSelectedTrip(null);
-    };
   }, [trip, setSelectedTrip]);
 
   if (isLoading || !trip) {

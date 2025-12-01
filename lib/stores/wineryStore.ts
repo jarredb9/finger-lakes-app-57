@@ -281,7 +281,6 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
   },
 
   addVisitToWinery: (wineryId, newVisit) => {
-    console.log('[wineryStore] Adding visit to winery:', wineryId, newVisit);
     set(state => {
       const updatedWineries = state.persistentWineries.map(w => {
         if (w.id === wineryId) {

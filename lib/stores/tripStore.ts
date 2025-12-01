@@ -82,7 +82,6 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
       const response = await fetch(`/api/trips/${tripId}`);
       if (response.ok) {
         const trip = await response.json();
-        console.log('[tripStore] 1. Data received from API:', JSON.parse(JSON.stringify(trip)));
         set(state => ({
           trips: [...state.trips.filter(t => t.id !== trip.id), trip],
           isLoading: false
@@ -108,7 +107,6 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
             });
             
             const finalTrip = { ...t, wineries: updatedWineries };
-            console.log('[tripStore] 2. Final trip data after merging details:', JSON.parse(JSON.stringify(finalTrip)));
             return finalTrip;
           });
           return { trips: newTrips };
