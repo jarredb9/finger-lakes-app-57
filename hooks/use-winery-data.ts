@@ -5,6 +5,7 @@ import { useState, useCallback, useMemo, useEffect } from "react";
 import { Winery, Visit } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useTripStore } from "@/lib/stores/tripStore";
+import { getFavorites } from "@/app/actions";
 
 // This represents the raw data structure of a winery coming from the database/API
 interface RawWinery {
@@ -60,12 +61,13 @@ export function useWineryData() {
 
     const fetchFavorites = useCallback(async () => {
         try {
-            const response = await fetch('/api/favorites');
-            if (response.ok) {
-                const items = await response.json();
-                const formatted = items.map((w: RawWinery) => formatWinery(w, { isFavorite: true }));
+            const result = await getFavorites();
+            if (result.success) {
+                const formatted = result.data.map((w: any) => formatWinery(w as RawWinery, { isFavorite: true })).filter(Boolean) as Winery[];
                 setAllFavoriteWineries(formatted);
                 return formatted;
+            } else {
+                toast({ variant: "destructive", title: "Error", description: result.error || "Could not fetch your favorites." });
             }
         } catch (error) {
             toast({ variant: "destructive", title: "Error", description: "Could not fetch your favorites." });

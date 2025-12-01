@@ -1,5 +1,6 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { Winery, Visit, Trip } from '@/lib/types';
+import { getFavorites, toggleFavorite } from '@/app/actions';
 
 // This represents the raw data structure of a winery coming from the database/API
 interface RawWinery {
@@ -102,22 +103,26 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
   fetchWineryData: async () => {
     set({ isLoading: true, error: null });
     try {
-      const [visitsRes, favoritesRes, wishlistRes, tripsRes] = await Promise.all([
+      const [visitsRes, favoritesResult, wishlistRes, tripsRes] = await Promise.all([
         fetch("/api/visits"),
-        fetch("/api/favorites"),
+        getFavorites(), // Use Server Action
         fetch("/api/wishlist"),
         fetch("/api/trips?type=upcoming&full=true"),
       ]);
 
-      const [visitsData, favoritesData, wishlistData, tripsData] = await Promise.all([
+      if (!favoritesResult.success) {
+        console.error("Failed to fetch favorites:", favoritesResult.error);
+        throw new Error(favoritesResult.error || "Failed to fetch favorites.");
+      }
+
+      const [visitsData, wishlistData, tripsData] = await Promise.all([
         visitsRes.json(),
-        favoritesRes.json(),
         wishlistRes.json(),
         tripsRes.json(),
       ]);
 
       const { visits } = visitsData;
-      const favorites = favoritesData.favorites || favoritesData;
+      const favorites = favoritesResult.data as RawWinery[]; // This is an array of RawWinery
       const wishlist = wishlistData.wishlist || wishlistData;
       const upcomingTrips = tripsData.trips || [];
 
@@ -145,9 +150,8 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
         }
       });
 
-      favorites.forEach((rawFavorite: { wineries: RawWinery }) => {
-        const wineryData = rawFavorite.wineries || rawFavorite;
-        processWinery(wineryData, { isFavorite: true });
+      favorites.forEach((rawFavorite: RawWinery) => {
+        processWinery(rawFavorite, { isFavorite: true });
       });
 
       wishlist.forEach((rawWishlist: { wineries: RawWinery }) => {
@@ -406,6 +410,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
 
   toggleFavorite: async (winery, isFavorite) => {
     set({ isTogglingFavorite: true });
+    // Optimistic update
     const originalWineries = get().persistentWineries;
     const updatedWineries = originalWineries.map(w =>
       w.id === winery.id ? { ...w, isFavorite: !isFavorite } : w
@@ -413,20 +418,22 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
     set({ persistentWineries: updatedWineries, favoriteWineries: updatedWineries.filter(w => w.isFavorite) });
 
     try {
-      await get().ensureWineryDetails(winery.id);
-      const dbId = get().persistentWineries.find(w => w.id === winery.id)?.dbId;
-
-      const method = isFavorite ? 'DELETE' : 'POST';
-      const body = isFavorite ? JSON.stringify({ dbId }) : JSON.stringify({ wineryData: { ...winery, isFavorite: !isFavorite } });
-      const response = await fetch('/api/favorites', { method, headers: { 'Content-Type': 'application/json' }, body });
+      const result = await toggleFavorite(winery); // Call the Server Action
       
-      if (!response.ok) throw new Error("Could not update favorites.");
+      if (!result.success) {
+        throw new Error(result.error || "Could not update favorites.");
+      }
 
-      // Optional: Re-fetch in the background to ensure full consistency
+      // Re-fetch in the background to ensure full consistency after server action
       get().fetchWineryData();
 
     } catch (error) {
-      set({ persistentWineries: originalWineries, favoriteWineries: originalWineries.filter(w => w.isFavorite) }); // Revert on error
+      console.error("Failed to toggle favorite:", error);
+      set({ 
+        persistentWineries: originalWineries, 
+        favoriteWineries: originalWineries.filter(w => w.isFavorite),
+        error: "Failed to update favorites."
+      }); // Revert optimistic update on error
       throw error;
     } finally {
       set({ isTogglingFavorite: false });
