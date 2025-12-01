@@ -40,8 +40,8 @@ CREATE INDEX idx_wineries_google_place_id ON public.wineries USING btree (google
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles
-    FOR SELECT USING (true);
+CREATE POLICY "Users can view their own and their friends' profiles" ON public.profiles
+    FOR SELECT USING (auth.uid() = id OR id IN (SELECT friend_id FROM get_friends_ids()));
 CREATE POLICY "Users can insert their own profile." ON public.profiles
     FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can update their own profile." ON public.profiles
