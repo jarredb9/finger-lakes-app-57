@@ -11,7 +11,7 @@ jest.mock('@/app/actions', () => ({
   getFavorites: jest.fn().mockResolvedValue({ success: true, data: [] }),
 }));
 
-import { toggleFavorite, getFavorites } from '@/app/actions';
+import { toggleFavorite } from '@/app/actions';
 
 const resetStore = () => {
   useWineryStore.setState({
