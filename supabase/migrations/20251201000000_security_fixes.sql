@@ -1,0 +1,9 @@
+ALTER FUNCTION public.handle_new_user() SET search_path = public, extensions;
+ALTER FUNCTION public.get_friends_ids() SET search_path = public, extensions;
+ALTER FUNCTION public.is_trip_member(int) SET search_path = public, extensions;
+ALTER FUNCTION public.get_friends_activity_for_winery(integer) SET search_path = public, extensions;
+ALTER FUNCTION public.get_friends_ratings_for_winery(integer) SET search_path = public, extensions;
+ALTER FUNCTION public.get_wineries_for_trip_planner(date) SET search_path = public, extensions;
+ALTER FUNCTION public.get_winery_details(integer) SET search_path = public, extensions;
+ALTER FUNCTION public.search_wineries_by_name_and_location(text, double precision, double precision) SET search_path = public, extensions;
+ALTER FUNCTION public.get_all_wineries_with_user_data() SET search_path = public, extensions;
