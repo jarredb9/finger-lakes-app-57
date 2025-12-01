@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/utils/supabase/middleware';
-import { createClient } from '@/utils/supabase/server';
 
 const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password', '/auth/callback', '/api/auth/login', '/api/auth/signup', '/api/auth/logout', '/api/auth/forgot-password', '/api/auth/reset-password'];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  
 
   // Handle session update for all routes
-  const response = await updateSession(request);
+  const { response, user } = await updateSession(request);
 
   // Skip auth check for public routes
   if (publicRoutes.includes(pathname)) {
@@ -17,9 +15,6 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check for user on protected routes
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
   if (!user) {
     if (pathname.startsWith('/api/')) {
       return new NextResponse(JSON.stringify({ message: 'Unauthorized' }), {
