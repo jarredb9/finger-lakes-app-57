@@ -11,7 +11,12 @@ jest.mock('@/app/actions', () => ({
   getFavorites: jest.fn().mockResolvedValue({ success: true, data: [] }),
 }));
 
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(),
+}));
+
 import { toggleFavorite } from '@/app/actions';
+import { createClient } from '@/utils/supabase/client';
 
 const resetStore = () => {
   useWineryStore.setState({
@@ -32,6 +37,9 @@ describe('wineryStore', () => {
   beforeEach(() => {
     resetStore();
     jest.clearAllMocks();
+    (createClient as jest.Mock).mockReturnValue({
+      rpc: jest.fn().mockResolvedValue({ data: null, error: { message: "Mock RPC Error" } }),
+    });
   });
 
   describe('toggleFavorite', () => {

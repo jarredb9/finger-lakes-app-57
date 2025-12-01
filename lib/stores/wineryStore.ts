@@ -1,6 +1,7 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { Winery, Visit, Trip } from '@/lib/types';
-import { getFavorites, toggleFavorite } from '@/app/actions';
+import { Winery, Visit } from '@/lib/types';
+import { toggleFavorite } from '@/app/actions';
+import { createClient } from '@/utils/supabase/client';
 
 // This represents the raw data structure of a winery coming from the database/API
 interface RawWinery {
@@ -102,101 +103,48 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
 
   fetchWineryData: async () => {
     set({ isLoading: true, error: null });
+    const supabase = createClient();
     try {
-      const [visitsRes, favoritesResult, wishlistRes, tripsRes] = await Promise.all([
-        fetch("/api/visits"),
-        getFavorites(), // Use Server Action
-        fetch("/api/wishlist"),
-        fetch("/api/trips?type=upcoming&full=true"),
-      ]);
+      const { data: aggregatedData, error: rpcError } = await supabase.rpc('get_user_winery_data_aggregated');
 
-      if (!favoritesResult.success) {
-        console.error("Failed to fetch favorites:", favoritesResult.error);
-        throw new Error(favoritesResult.error || "Failed to fetch favorites.");
+      if (rpcError) {
+        console.error("Failed to fetch winery data:", rpcError);
+        throw new Error(rpcError.message || "Failed to fetch winery data.");
       }
 
-      const [visitsData, wishlistData, tripsData] = await Promise.all([
-        visitsRes.json(),
-        wishlistRes.json(),
-        tripsRes.json(),
-      ]);
+      // The RPC returns a single object { wineries_data: [...] } or strictly the array if defined as TABLE(jsonb)
+      // Let's inspect the type. Defined as RETURNS TABLE (wineries_data jsonb). 
+      // So data will be [{ wineries_data: [...] }] or just the array if it unrolled.
+      // Actually, with RETURNS TABLE, Supabase client usually returns an array of objects.
+      // Since the RPC logic aggregates everything into one JSON array inside a single row/column,
+      // it likely returns `[{ wineries_data: [...] }]`.
+      
+      // Wait, let's check the RPC definition again.
+      // RETURNS TABLE (wineries_data jsonb)
+      // The query does `SELECT COALESCE(jsonb_agg(...))` which returns ONE row with ONE column `wineries_data`.
+      
+      const wineriesArray = (aggregatedData && aggregatedData[0]?.wineries_data) || [];
 
-      const { visits } = visitsData;
-      const favorites = favoritesResult.data as RawWinery[]; // This is an array of RawWinery
-      const wishlist = wishlistData.wishlist || wishlistData;
-      const upcomingTrips = tripsData.trips || [];
-
-      const wineriesMap = new Map<string, Winery>();
-
-      const processWinery = (rawWinery: RawWinery, updates: Partial<Winery>) => {
-        const googleId = String(rawWinery.google_place_id || rawWinery.id);
-        if (!googleId) return;
-
-        const existing = wineriesMap.get(googleId);
-        const standardized = standardizeWineryData(rawWinery, existing);
-        if (!standardized) return;
-
-        const merged = { ...standardized, ...updates };
-        wineriesMap.set(googleId, merged);
-        return merged;
-      };
-
-      visits.forEach((rawVisit: Visit) => {
-        if (!rawVisit.wineries) return;
-        const winery = processWinery(rawVisit.wineries as unknown as RawWinery, { userVisited: true });
-        if (winery) {
-          winery.visits ??= [];
-          winery.visits = [...(winery.visits || []), rawVisit];
-        }
-      });
-
-      favorites.forEach((rawFavorite: RawWinery) => {
-        processWinery(rawFavorite, { isFavorite: true });
-      });
-
-      wishlist.forEach((rawWishlist: { wineries: RawWinery }) => {
-        const wineryData = rawWishlist.wineries || rawWishlist;
-        processWinery(wineryData, { onWishlist: true });
-      });
-
-      upcomingTrips.forEach((trip: Trip) => {
-        if (trip.wineries) {
-          trip.wineries.forEach((wineryOnTrip: Winery) => {
-            const googleId = String(wineryOnTrip.id);
-            if (!googleId) return;
-
-            // Ensure the winery is in the map
-            processWinery(wineryOnTrip as unknown as RawWinery, {});
-
-            // Enrich the winery in the map with trip details
-            const wineryInMap = wineriesMap.get(googleId);
-            if (wineryInMap) {
-              // Avoid overwriting if it's already associated with a trip from another source
-              // The first trip found wins, which is consistent with old logic.
-              if (!wineryInMap.trip_id) {
-                wineriesMap.set(googleId, {
-                  ...wineryInMap,
-                  trip_id: trip.id,
-                  trip_name: trip.name || "Unnamed Trip",
-                  trip_date: trip.trip_date,
-                });
-              }
-            }
-          });
-        }
-      });
-
-      const initialWineries = Array.from(wineriesMap.values());
-
-      const detailedWineries = await Promise.all(
-        initialWineries.map(async (winery) => {
-          if (winery.id && (!winery.phone || !winery.website || !winery.rating)) {
-            const details = await get().ensureWineryDetails(winery.id);
-            return details ? { ...winery, ...details } : winery;
-          }
-          return winery;
-        })
-      );
+      const detailedWineries: Winery[] = wineriesArray.map((w: any) => ({
+        id: w.id,
+        dbId: w.dbId,
+        name: w.name,
+        address: w.address,
+        lat: typeof w.lat === 'string' ? parseFloat(w.lat) : (w.lat || 0),
+        lng: typeof w.lng === 'string' ? parseFloat(w.lng) : (w.lng || 0),
+        phone: w.phone,
+        website: w.website,
+        rating: w.rating,
+        isFavorite: w.isFavorite,
+        onWishlist: w.onWishlist,
+        userVisited: w.userVisited,
+        visits: w.visits,
+        // Map trip info if available (taking the first one as primary)
+        trip_id: w.tripInfo?.[0]?.trip_id,
+        trip_name: w.tripInfo?.[0]?.trip_name,
+        trip_date: w.tripInfo?.[0]?.trip_date,
+        // We can store the full trip info if needed, but for now stick to existing types
+      }));
 
       set({
         persistentWineries: detailedWineries,
