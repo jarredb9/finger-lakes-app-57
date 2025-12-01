@@ -11,6 +11,14 @@ jest.mock('@/lib/stores/tripStore', () => ({
   useTripStore: () => ({ fetchUpcomingTrips: jest.fn() }),
 }));
 
+// Mock server actions
+jest.mock('@/app/actions', () => ({
+  getFavorites: jest.fn().mockResolvedValue({ 
+    success: true, 
+    data: [{ id: 2, google_place_id: 'place2', name: 'Fav Winery', address: 'B', latitude: '0', longitude: '0' }] 
+  }),
+}));
+
 global.fetch = jest.fn();
 
 describe('useWineryData', () => {

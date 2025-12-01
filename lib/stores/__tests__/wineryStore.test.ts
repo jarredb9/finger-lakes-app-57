@@ -5,6 +5,14 @@ import { Winery } from '@/lib/types';
 // Mock the global fetch function
 global.fetch = jest.fn();
 
+// Mock server actions to avoid "cookies() called outside request scope" error
+jest.mock('@/app/actions', () => ({
+  toggleFavorite: jest.fn(),
+  getFavorites: jest.fn().mockResolvedValue({ success: true, data: [] }),
+}));
+
+import { toggleFavorite, getFavorites } from '@/app/actions';
+
 const resetStore = () => {
   useWineryStore.setState({
     wineries: [],
@@ -38,7 +46,9 @@ describe('wineryStore', () => {
       };
       useWineryStore.setState({ persistentWineries: [mockWinery] });
 
-      (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
+      // Mock the server action success
+      (toggleFavorite as jest.Mock).mockResolvedValue({ success: true });
+      (global.fetch as jest.Mock).mockResolvedValue({ ok: true }); // Keep fetch mock for subsequent fetchWineryData
 
       await act(async () => {
         await useWineryStore.getState().toggleFavorite(mockWinery, false);
@@ -63,7 +73,8 @@ describe('wineryStore', () => {
       };
       useWineryStore.setState({ persistentWineries: [mockWinery] });
 
-      (global.fetch as jest.Mock).mockResolvedValue({ ok: false });
+      // Mock the server action failure
+      (toggleFavorite as jest.Mock).mockResolvedValue({ success: false, error: "Failed" });
 
       await expect(
         useWineryStore.getState().toggleFavorite(mockWinery, false)

@@ -432,25 +432,37 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         }
 
         const tripPromises = Array.from(selectedTrips).map(async (tripId) => {
-            const payload: AddWineryToTripPayload = { date: dateString, wineryId: wineryDbId, notes: addTripNotes };
+            // If it's a new trip, we still use the API because it handles creating the trip AND adding the winery
             if (tripId === 'new') {
+                const payload: AddWineryToTripPayload = { date: dateString, wineryId: wineryDbId, notes: addTripNotes, name: newTripName };
                 if (!newTripName.trim()) throw new Error("New trip requires a name.");
-                payload.name = newTripName;
+
+                const response = await fetch('/api/trips', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Failed to create new trip.`);
+                }
+                return response.json();
             } else {
-                payload.tripIds = [parseInt(tripId, 10)];
-            }
+                // For existing trips, use the atomic RPC function to prevent race conditions
+                const numericTripId = parseInt(tripId, 10);
+                const supabase = createClient();
+                const { error } = await supabase.rpc('add_winery_to_trip', {
+                  trip_id_param: numericTripId,
+                  winery_id_param: wineryDbId,
+                  notes_param: addTripNotes || null
+                });
 
-            const response = await fetch('/api/trips', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || `Failed to add to trip ${tripId}.`);
+                if (error) {
+                  throw new Error(error.message || `Failed to add to trip ${tripId}.`);
+                }
+                return { success: true };
             }
-            return response.json();
         });
 
         await Promise.all(tripPromises);
