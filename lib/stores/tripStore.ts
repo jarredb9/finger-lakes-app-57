@@ -1,6 +1,7 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { Trip, Winery } from '@/lib/types';
 import { useWineryStore } from './wineryStore';
+import { createClient } from '@/utils/supabase/client';
 
 interface TripState {
   trips: Trip[];
@@ -139,20 +140,23 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
   fetchTripsForDate: async (dateString: string) => {
     set({ isLoading: true });
+    const supabase = createClient(); // Initialize client-side Supabase
     try {
       const formattedDate = new Date(dateString).toISOString().split('T')[0];
-      const response = await fetch(`/api/trips?date=${formattedDate}`);
-      if (response.ok) {
-        const data = await response.json();
-        const tripsForDate = data.trips || (Array.isArray(data) ? data : []);
-        set({
-          tripsForDate: tripsForDate,
-          isLoading: false
-        });
-      } else {
-        console.error(`[tripStore] fetchTripsForDate: Failed to fetch data for date ${dateString}.`, response.status, response.statusText);
+      const { data, error } = await supabase.rpc('get_trips_for_date', { target_date: formattedDate });
+
+      if (error) {
+        console.error(`[tripStore] fetchTripsForDate: Supabase RPC error for date ${dateString}.`, error);
         set({ tripsForDate: [], isLoading: false });
+        return;
       }
+
+      // The RPC returns an array of Trip objects directly
+      const tripsForDate = data || [];
+      set({
+        tripsForDate: tripsForDate,
+        isLoading: false
+      });
     } catch (error) {
       console.error(`[tripStore] fetchTripsForDate: Error during fetch for date ${dateString}.`, error);
       set({ tripsForDate: [], isLoading: false });

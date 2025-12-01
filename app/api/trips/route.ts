@@ -65,83 +65,10 @@ export async function GET(request: NextRequest) {
   const date = searchParams.get("date");
   const supabase = await createClient();
 
-  // Logic for the Trip Planner page
+  // Logic for the Trip Planner page (DEPRECATED: Use Supabase RPC 'get_trips_for_date' directly.)
   if (date) {
-    // 1. Fetch trips for the user (owned or member of) on a specific date
-    const { data: trips, error: tripsError } = await supabase
-      .from("trips")
-      .select("*, trip_wineries(*, wineries(*))")
-      .or(`user_id.eq.${user.id},members.cs.{${user.id}}`)
-      .eq("trip_date", date);
-
-    if (tripsError) throw tripsError;
-    if (!trips) return NextResponse.json([]);
-    
-    // 2. Collect all winery IDs and member IDs from the fetched trips
-    const allWineryIds = new Set<number>();
-    const allMemberIds = new Set<string>();
-    trips.forEach(trip => {
-        if (trip.trip_wineries) {
-            trip.trip_wineries.forEach((tw: TripWinery) => tw.wineries?.id && allWineryIds.add(tw.wineries.id));
-        }
-        if (trip.members) {
-            trip.members.forEach((memberId: string) => allMemberIds.add(memberId));
-        }
-        allMemberIds.add(trip.user_id); // Also include the trip owner
-    });
-
-    if (allWineryIds.size === 0 || allMemberIds.size === 0) {
-        return NextResponse.json(trips);
-    }
-    
-    // 3. Fetch all visits for those wineries from any of the members THAT OCCURRED ON THE TRIP DATE
-    const { data: visits, error: visitsError } = await supabase
-        .from("visits")
-        .select("*, profiles(name)")
-        .in("winery_id", Array.from(allWineryIds))
-        .in("user_id", Array.from(allMemberIds))
-        // ** THE FIX IS HERE: Only get visits that match the trip's date. **
-        .eq("visit_date", date);
-
-    if(visitsError) throw visitsError;
-
-    // 4. Group the visits by winery_id for easy lookup
-    const visitsByWinery = new Map<number, Visit[]>();
-    visits?.forEach((visit: any) => {
-        if (!visitsByWinery.has(visit.winery_id)) {
-            visitsByWinery.set(visit.winery_id, []);
-        }
-        visitsByWinery.get(visit.winery_id)?.push(visit);
-    });
-
-    // 5. Attach the relevant visits to each winery in each trip
-    const formattedTrips = trips.map(trip => {
-        const wineriesWithVisits = trip.trip_wineries
-          .sort((a: TripWinery, b: TripWinery) => a.visit_order - b.visit_order)
-          .map((tw: TripWinery) => {
-              if (tw.wineries) {
-                  return { 
-                      id: tw.wineries.google_place_id,
-                      dbId: tw.wineries.id,
-                      name: tw.wineries.name,
-                      address: tw.wineries.address,
-                      lat: parseFloat(tw.wineries.latitude),
-                      lng: parseFloat(tw.wineries.longitude),
-                      phone: tw.wineries.phone,
-                      website: tw.wineries.website,
-                      rating: tw.wineries.google_rating,
-                      notes: tw.notes,
-                      visits: visitsByWinery.get(tw.wineries.id) || [], // Attach the visits
-                  };
-              }
-              return null;
-          })
-          .filter(Boolean);
-        return { ...trip, wineries: wineriesWithVisits };
-    });
-
-    return NextResponse.json(formattedTrips);
-  } 
+    return NextResponse.json({ error: "Deprecated: Use Supabase RPC 'get_trips_for_date' directly." }, { status: 410 });
+  }
   
   // Logic for the paginated "All Trips" page (remains unchanged)
   else {
