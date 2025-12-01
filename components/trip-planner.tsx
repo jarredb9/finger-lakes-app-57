@@ -9,6 +9,7 @@ import { useTripStore } from "@/lib/stores/tripStore";
 import TripCard from "@/components/trip-card";
 import { AuthenticatedUser } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { APIProvider } from "@vis.gl/react-google-maps";
 import { Skeleton } from "@/components/ui/skeleton";
 import TripForm from "./trip-form";
 

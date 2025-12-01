@@ -34,6 +34,7 @@ export function useWinerySearch() {
 
   useEffect(() => {
     if (geocoding && !geocoder) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setGeocoder(new google.maps.Geocoder());
     }
   }, [geocoding, geocoder]);
