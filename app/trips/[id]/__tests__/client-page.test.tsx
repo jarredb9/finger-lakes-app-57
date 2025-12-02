@@ -51,13 +51,13 @@ describe('TripDetailClientPage', () => {
     expect(container.querySelector('.animate-pulse')).toBeInTheDocument();
   });
 
-  it('should render TripCard and set selected trip when trip data is available', () => {
+  it('should render TripCard when trip data is available', () => {
     const mockTrip = { id: 123, name: 'My Awesome Trip' };
 
     (useTripStore as unknown as jest.Mock).mockImplementation((selector) => {
       const state = {
         fetchTripById: mockFetchTripById,
-        setSelectedTrip: mockSetSelectedTrip,
+        // setSelectedTrip is no longer called by the component
         isLoading: false,
         trips: [mockTrip],
       };
@@ -67,6 +67,5 @@ describe('TripDetailClientPage', () => {
     render(<TripDetailClientPage tripId="123" />);
     
     expect(screen.getByTestId('trip-card')).toHaveTextContent('My Awesome Trip');
-    expect(mockSetSelectedTrip).toHaveBeenCalledWith(mockTrip);
   });
 });
