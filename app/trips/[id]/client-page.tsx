@@ -10,7 +10,6 @@ export default function TripDetailClientPage({ tripId }: { tripId: string }) {
   const isLoading = useTripStore(state => state.isLoading);
   const numericTripId = Number(tripId);
   const trip = useTripStore(state => state.trips.find(t => t.id === numericTripId));
-  const setSelectedTrip = useTripStore(state => state.setSelectedTrip);
 
   useEffect(() => {
     fetchTripById(tripId);
