@@ -16,12 +16,6 @@ export default function TripDetailClientPage({ tripId }: { tripId: string }) {
     fetchTripById(tripId);
   }, [fetchTripById, tripId]);
 
-  useEffect(() => {
-    if (trip) {
-      setSelectedTrip(trip);
-    }
-  }, [trip, setSelectedTrip]);
-
   if (isLoading || !trip) {
     return <Skeleton className="h-96 w-full" />;
   }
