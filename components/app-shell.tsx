@@ -16,7 +16,7 @@ interface AppShellProps {
   initialTab?: "explore" | "trips";
 }
 
-export function AppShell({ user, initialTab = "explore" }: AppShellProps) {
+function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
   const wineryMapData = useWineryMap(user.id);
   const [activeTab, setActiveTab] = useState<"explore" | "trips">(initialTab);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -29,7 +29,6 @@ export function AppShell({ user, initialTab = "explore" }: AppShellProps) {
   };
 
   return (
-    <GoogleMapsProvider>
       <div className="flex h-[calc(100vh-4rem)] md:h-screen flex-col md:flex-row overflow-hidden">
         {/* Desktop Sidebar */}
         <div
@@ -115,15 +114,17 @@ export function AppShell({ user, initialTab = "explore" }: AppShellProps) {
                         activeTab={activeTab}
                         onTabChange={(val) => setActiveTab(val as "explore" | "trips")}
                     />
-                    {/* Note: AppSidebar has Tabs internally. We might want to force the tab based on activeTab prop if we want strict control.
-                        For now, we just render the sidebar and let the user switch tabs if they want, 
-                        OR we could pass 'defaultValue' to AppSidebar. 
-                        Let's assume AppSidebar manages its own tabs for now, or we can improve this.
-                    */}
                 </div>
             </DrawerContent>
         </Drawer>
       </div>
+  );
+}
+
+export function AppShell(props: AppShellProps) {
+  return (
+    <GoogleMapsProvider>
+      <AppShellContent {...props} />
     </GoogleMapsProvider>
   );
 }
