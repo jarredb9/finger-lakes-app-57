@@ -1,9 +1,15 @@
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   const { placeId } = await request.json();
-  const supabase = await createClient();
+  
+  // Use service role key to bypass RLS for writing to the public wineries catalog
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
 
   if (!placeId) {
     console.error('[API] /api/wineries/details: placeId is missing.');
@@ -11,7 +17,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Check if the winery already exists and has details
-  const { data: existingWinery, error: selectError } = await supabase
+  const { data: existingWinery, error: selectError } = await supabaseAdmin
     .from('wineries')
     .select('*')
     .eq('google_place_id', placeId)
@@ -66,7 +72,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Upsert winery data into the database
-    const { data: upsertedWinery, error: upsertError } = await supabase
+    const { data: upsertedWinery, error: upsertError } = await supabaseAdmin
       .from('wineries')
       .upsert(wineryData, { onConflict: 'google_place_id' })
       .select()
