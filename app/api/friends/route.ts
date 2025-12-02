@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { getUser } from "@/lib/auth";
 
 // GET handler to fetch friends and friend requests
@@ -42,15 +43,26 @@ export async function POST(request: NextRequest) {
         }
 
         const supabase = await createClient();
+        
+        // Use admin client to find the user by email to bypass potential RLS restrictions on listing users
+        // and to allow for case-insensitive search if configured differently in DB.
+        const supabaseAdmin = createAdminClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
 
         // Find the user to whom the request is being sent
-        const { data: friendUser, error: findError } = await supabase
+        // Using ilike for case-insensitive matching and trimming whitespace
+        const { data: friendUser, error: findError } = await supabaseAdmin
             .from('profiles')
             .select('id')
-            .eq('email', email)
+            .ilike('email', email.trim())
             .single();
             
         if (findError || !friendUser) {
+            if (findError && findError.code !== 'PGRST116') {
+                console.error("Error finding user by email:", findError);
+            }
             return NextResponse.json({ error: "User not found." }, { status: 404 });
         }
 
@@ -73,6 +85,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({ success: true });
     } catch (error) {
+         console.error("Error in /api/friends POST:", error);
          return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
