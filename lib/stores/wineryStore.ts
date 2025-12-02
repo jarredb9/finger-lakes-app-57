@@ -172,7 +172,11 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
         body: JSON.stringify({ placeId }),
       });
 
-      if (!response.ok) throw new Error('Failed to fetch details');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('[ensureWineryDetails] API Error:', errorData);
+        throw new Error(`Failed to fetch details: ${response.status} ${response.statusText}`);
+      }
       
       const detailedWineryData = await response.json();
       const standardized = standardizeWineryData(detailedWineryData, existing);

@@ -32,7 +32,8 @@ export async function POST(request: NextRequest) {
     console.error('[API] /api/wineries/details: Google Maps API Key is not set.');
     return NextResponse.json({ error: 'Google Maps API Key is not configured.' }, { status: 500 });
   }
-  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,website,rating,opening_hours,reviews,reservable&key=${apiKey}`;
+  // Removed 'reservable' from fields as it may cause INVALID_REQUEST on some API versions/SKUs when explicitly requested in fields
+  const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,formatted_address,geometry,formatted_phone_number,website,rating,opening_hours,reviews&key=${apiKey}`;
 
   try {
     const response = await fetch(url);
