@@ -47,6 +47,7 @@ This is a Next.js web application for planning and tracking visits to wineries i
 │   ├── api/             # Backend API endpoints (Auth, Favorites, Trips, etc.)
 │   ├── (routes)/        # Page routes (login, signup, trips, etc.)
 │   └── layout.tsx       # Root layout with AuthProvider, TooltipProvider, Toaster
+├── proxy.ts             # Replaces `middleware.ts` for Next.js 16+ for handling middleware logic
 ├── components/          # React components
 │   ├── ui/              # Reusable UI components (shadcn/ui)
 │   └── [feature].tsx    # Feature-specific components (e.g., trip-planner.tsx)
