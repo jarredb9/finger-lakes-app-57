@@ -8,7 +8,8 @@ import { useWineryMap } from "@/hooks/use-winery-map";
 import WinerySearchResults from "@/components/map/WinerySearchResults";
 import TripList from "@/components/trip-list";
 import TripPlanner from "@/components/trip-planner";
-import { MapPin, Route } from "lucide-react";
+import GlobalVisitHistory from "@/components/global-visit-history";
+import { MapPin, Route, History } from "lucide-react";
 
 type WineryMapData = ReturnType<typeof useWineryMap>;
 
@@ -24,7 +25,7 @@ export function AppSidebar({ user, className, listResultsInView, isSearching, ha
     <div className={`flex flex-col h-full bg-white dark:bg-zinc-950 border-r ${className}`}>
       <Tabs defaultValue="explore" value={activeTab} onValueChange={onTabChange} className="flex flex-col h-full">
         <div className="px-4 py-2 border-b bg-white dark:bg-zinc-950 z-10">
-          <TabsList className="grid w-full grid-cols-2">
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="explore" className="flex items-center gap-2">
               <MapPin className="w-4 h-4" />
               Explore
@@ -32,6 +33,10 @@ export function AppSidebar({ user, className, listResultsInView, isSearching, ha
             <TabsTrigger value="trips" className="flex items-center gap-2">
               <Route className="w-4 h-4" />
               Trips
+            </TabsTrigger>
+            <TabsTrigger value="history" className="flex items-center gap-2">
+              <History className="w-4 h-4" />
+              History
             </TabsTrigger>
           </TabsList>
         </div>
@@ -97,6 +102,15 @@ export function AppSidebar({ user, className, listResultsInView, isSearching, ha
                 </div>
             </div>
           </div >
+        </TabsContent>
+
+        <TabsContent value="history" className="flex-1 overflow-hidden p-0 m-0 data-[state=active]:flex flex-col">
+            <div className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-4">
+                    <h3 className="text-lg font-semibold">My Visit History</h3>
+                    <GlobalVisitHistory />
+                </div>
+            </div>
         </TabsContent>
       </Tabs>
     </div>
