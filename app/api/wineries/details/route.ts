@@ -57,11 +57,11 @@ export async function POST(request: NextRequest) {
       address: placeDetails.formatted_address,
       latitude: placeDetails.geometry?.location?.lat,
       longitude: placeDetails.geometry?.location?.lng,
-      phone: placeDetails.formatted_phone_number || null,
-      website: placeDetails.website || null,
+      phone: placeDetails.formatted_phone_number ? placeDetails.formatted_phone_number.substring(0, 50) : null,
+      website: placeDetails.website ? placeDetails.website.substring(0, 500) : null,
       google_rating: placeDetails.rating,
-      opening_hours: placeDetails.opening_hours,
-      reviews: placeDetails.reviews,
+      opening_hours: placeDetails.opening_hours ? JSON.parse(JSON.stringify(placeDetails.opening_hours)) : null,
+      reviews: placeDetails.reviews ? placeDetails.reviews.slice(0, 5) : null,
       // reservable field removed from fetch
     };
 
