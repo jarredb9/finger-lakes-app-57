@@ -2,11 +2,7 @@
 import { memo } from "react";
 import { Map } from "@vis.gl/react-google-maps";
 import { Winery, Trip } from "@/lib/types";
-import TripWineryClusterer from "../trip-winery-clusterer";
-import DiscoveredClusterer from "../discovered-clusterer";
-import WishlistClusterer from "../wishlist-clusterer";
-import WineryClusterer from "../winery-clusterer";
-import FavoriteClusterer from "../favorite-clusterer";
+import GenericMarkerClusterer from "../generic-marker-clusterer";
 
 interface MapViewProps {
   discoveredWineries: Winery[];
@@ -39,39 +35,55 @@ const MapView = memo(
           clickableIcons={true}
         >
           {selectedTrip && (
-            <TripWineryClusterer
+            <GenericMarkerClusterer
               wineries={selectedTrip.wineries}
               onClick={onMarkerClick}
+              color="#f17e3a"
+              strokeColor="#d26e32"
+              zIndexBase={30}
+              numbered={true}
             />
           )}
 
           {!selectedTrip && (
             <>
               {(filter.includes("all") || filter.includes("notVisited")) && (
-                <DiscoveredClusterer
+                <GenericMarkerClusterer
                   wineries={discoveredWineries}
                   onClick={onMarkerClick}
+                  color="#3B82F6"
+                  strokeColor="#2563EB"
+                  zIndexBase={1000}
                 />
               )}
 
               {(filter.includes("all") || filter.includes("wantToGo")) && (
-                <WishlistClusterer
+                <GenericMarkerClusterer
                   wineries={wishlistWineries}
                   onClick={onMarkerClick}
+                  color="#9333ea"
+                  strokeColor="#7e22ce"
+                  zIndexBase={2000}
                 />
               )}
 
               {(filter.includes("all") || filter.includes("visited")) && (
-                <WineryClusterer
+                <GenericMarkerClusterer
                   wineries={visitedWineries}
                   onClick={onMarkerClick}
+                  color="#10B981"
+                  strokeColor="#059669"
+                  zIndexBase={3000}
                 />
               )}
 
               {(filter.includes("all") || filter.includes("favorites")) && (
-                <FavoriteClusterer
+                <GenericMarkerClusterer
                   wineries={favoriteWineries}
                   onClick={onMarkerClick}
+                  color="#FBBF24"
+                  strokeColor="#F59E0B"
+                  zIndexBase={4000}
                 />
               )}
             </>

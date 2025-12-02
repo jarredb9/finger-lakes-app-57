@@ -54,6 +54,7 @@ export default function GenericMarkerClusterer({
       let markerOptions: google.maps.MarkerOptions = {
         position: { lat: winery.lat, lng: winery.lng },
         zIndex: zIndexBase,
+        title: winery.name,
       };
 
       if (numbered) {
