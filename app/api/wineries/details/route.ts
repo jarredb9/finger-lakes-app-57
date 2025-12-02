@@ -57,12 +57,12 @@ export async function POST(request: NextRequest) {
       address: placeDetails.formatted_address,
       latitude: placeDetails.geometry?.location?.lat,
       longitude: placeDetails.geometry?.location?.lng,
-      phone: placeDetails.formatted_phone_number,
-      website: placeDetails.website,
+      phone: placeDetails.formatted_phone_number || null,
+      website: placeDetails.website || null,
       google_rating: placeDetails.rating,
       opening_hours: placeDetails.opening_hours,
       reviews: placeDetails.reviews,
-      reservable: placeDetails.reservable,
+      // reservable field removed from fetch
     };
 
     // Upsert winery data into the database
