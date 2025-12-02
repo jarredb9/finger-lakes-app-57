@@ -28,9 +28,13 @@ This is a Next.js web application for planning and tracking visits to wineries i
     2.  **Edit SQL:** Write the specific SQL changes (e.g., `CREATE TABLE`, `ALTER POLICY`) in the generated file.
     3.  **Deploy:** `npx supabase db push`
 
+### 4. Middleware Configuration
+*   **File:** `proxy.ts` is used instead of `middleware.ts`.
+*   **Context:** This project uses Next.js 16+. The standard `middleware.ts` convention is replaced by `proxy.ts` for handling middleware logic (auth checks, session updates). Do not create a `middleware.ts` file.
+
 ## Tech Stack
 
-*   **Framework:** Next.js 14 (App Router)
+*   **Framework:** Next.js 16 (App Router)
 *   **Language:** TypeScript
 *   **Styling:** Tailwind CSS, Radix UI (via shadcn/ui)
 *   **State Management:** Zustand (`lib/stores/`)
@@ -53,6 +57,7 @@ This is a Next.js web application for planning and tracking visits to wineries i
 │   └── [feature].tsx    # Feature-specific components (e.g., trip-planner.tsx)
 ├── lib/                 # Core logic and types
 │   ├── stores/          # Zustand state stores (userStore, tripStore, etc.)
+│   ├── services/        # Service layer for API calls (TripService, etc.)
 │   ├── types.ts         # TypeScript interfaces (Winery, Trip, Visit, etc.)
 │   └── supabase/        # Supabase clients (server/client/middleware)
 ├── supabase/            # Database configuration
@@ -73,6 +78,7 @@ This is a Next.js web application for planning and tracking visits to wineries i
 *   **Imports:** Use absolute imports (`@/components/...`, `@/lib/...`) as defined in `tsconfig.json`.
 *   **Components:** Prefer functional components with TypeScript interfaces for props.
 *   **State:** Use Zustand stores for complex global state (e.g., `useTripStore`, `useWineryStore`).
+*   **Services:** Use dedicated services in `lib/services/` for API logic (e.g., `TripService`).
 *   **Styling:** Use Tailwind utility classes. Avoid custom CSS files unless necessary (`globals.css`).
 *   **Icons:** Lucide React icons.
 

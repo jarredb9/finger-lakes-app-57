@@ -10,7 +10,7 @@ This is a Next.js web application for planning and tracking visits to wineries i
 
 ## Tech Stack
 
-*   **Framework:** Next.js 14 (App Router)
+*   **Framework:** Next.js 16 (App Router)
 *   **Language:** TypeScript
 *   **Styling:** Tailwind CSS, Radix UI (via shadcn/ui)
 *   **State Management:** Zustand
@@ -46,7 +46,7 @@ We use a strict **Migration-First** workflow. The `supabase/migrations` folder i
 
 *   `app/`: Next.js App Router pages and API routes.
 *   `components/`: React components (UI library and feature-specific).
-*   `lib/`: Core logic, including Zustand stores (`lib/stores`) and types (`lib/types.ts`).
+*   `lib/`: Core logic, including Zustand stores (`lib/stores`), Services (`lib/services`), and types (`lib/types.ts`).
 *   `supabase/`: Database configuration and migrations.
 *   `public/`: Static assets.
 
@@ -54,5 +54,6 @@ We use a strict **Migration-First** workflow. The `supabase/migrations` folder i
 
 *   **Imports:** Use absolute imports (e.g., `@/components/...`).
 *   **State:** Use Zustand for global state management.
+*   **Services:** Use dedicated services in `lib/services/` for API logic.
 *   **Styling:** Use Tailwind utility classes.
 *   **Icons:** Use Lucide React icons.
