@@ -120,19 +120,24 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             activeSnapPoint={snap}
             setActiveSnapPoint={setSnap}
             modal={false}
-            dismissible={false} // Prevent closing by clicking outside (since modal=false means outside is map)
+            dismissible={true}
         >
             <DrawerContent className="h-[85vh] shadow-xl border-t" overlay={false}>
-                <DrawerHeader className="text-left pt-4">
-                    <DrawerTitle>
-                        {activeTab === "explore" && "Explore Wineries"}
-                        {activeTab === "trips" && "Trip Planner"}
-                        {activeTab === "friends" && "Friends"}
-                        {activeTab === "history" && "My Visit History"}
-                    </DrawerTitle>
-                    <DrawerDescription hidden>
-                        Browse wineries or plan your trip.
-                    </DrawerDescription>
+                <DrawerHeader className="text-left pt-4 flex justify-between items-start">
+                    <div>
+                        <DrawerTitle>
+                            {activeTab === "explore" && "Explore Wineries"}
+                            {activeTab === "trips" && "Trip Planner"}
+                            {activeTab === "friends" && "Friends"}
+                            {activeTab === "history" && "My Visit History"}
+                        </DrawerTitle>
+                        <DrawerDescription hidden>
+                            Browse wineries or plan your trip.
+                        </DrawerDescription>
+                    </div>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 -mt-1 -mr-2" onClick={() => setIsMobileDrawerOpen(false)}>
+                        <X className="h-4 w-4" />
+                    </Button>
                 </DrawerHeader>
                 <div className="px-4 h-full overflow-hidden pb-20">
                     <AppSidebar 
