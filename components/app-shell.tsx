@@ -123,23 +123,28 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             activeSnapPoint={snap}
             setActiveSnapPoint={setSnap}
         >
-            <DrawerContent overlay={false} className="h-[85vh] flex flex-col fixed bottom-16 border-t shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] focus:outline-none">
-                <DrawerHeader className="border-b bg-muted/30">
-                    <DrawerTitle className="text-center text-muted-foreground text-sm">
-                        {activeTab === "explore" && "Explore"}
-                        {activeTab === "trips" && "Trips"}
-                        {activeTab === "friends" && "Friends"}
-                        {activeTab === "history" && "History"}
-                    </DrawerTitle>
-                </DrawerHeader>
-                <div className="flex-1 overflow-y-auto">
-                    <AppSidebar 
-                        user={user} 
-                        {...wineryMapData} 
-                        className="border-none h-full w-full"
-                        activeTab={activeTab}
-                        onTabChange={(val) => setActiveTab(val as "explore" | "trips" | "friends" | "history")}
-                    />
+            <DrawerContent 
+                overlay={false} 
+                className="h-[85vh] fixed bottom-16 mt-0 focus:outline-none pointer-events-none bg-transparent border-none shadow-none"
+            >
+                <div className="flex flex-col h-full w-full bg-background border-t rounded-t-[10px] pointer-events-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+                    <DrawerHeader className="border-b bg-muted/30">
+                        <DrawerTitle className="text-center text-muted-foreground text-sm">
+                            {activeTab === "explore" && "Explore"}
+                            {activeTab === "trips" && "Trips"}
+                            {activeTab === "friends" && "Friends"}
+                            {activeTab === "history" && "History"}
+                        </DrawerTitle>
+                    </DrawerHeader>
+                    <div className="flex-1 overflow-y-auto">
+                        <AppSidebar 
+                            user={user} 
+                            {...wineryMapData} 
+                            className="border-none h-full w-full"
+                            activeTab={activeTab}
+                            onTabChange={(val) => setActiveTab(val as "explore" | "trips" | "friends" | "history")}
+                        />
+                    </div>
                 </div>
             </DrawerContent>
         </Drawer>
