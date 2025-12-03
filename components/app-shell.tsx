@@ -5,7 +5,6 @@ import { AuthenticatedUser } from "@/lib/types";
 import { useWineryMap } from "@/hooks/use-winery-map";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Map as MapIcon, CalendarDays, Search, Menu, X, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -110,36 +109,41 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             </Button>
         </div>
 
-        {/* Mobile Drawer */}
-        <Drawer 
-            open={isMobileDrawerOpen} 
-            onOpenChange={setIsMobileDrawerOpen}
-            snapPoints={[0.4, 0.85]}
-            modal={false}
+        {/* Mobile Custom Bottom Sheet */}
+        <div
+          className={cn(
+            "md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background border-t rounded-t-[10px] shadow-lg",
+            "transition-all duration-300 ease-in-out",
+            isMobileDrawerOpen ? "h-[85vh]" : "h-0 overflow-hidden", // Full height or hidden
+            activeTab === "explore" ? "h-[85vh]" : "h-[40vh]" // Explore defaults to 85, others to 40, if not fully hidden
+          )}
+          style={{
+            // This is a simplified snapping mechanism; actual Vaul snap points would require more logic
+            // For now, let's control visibility and height based on activeTab and open state
+            pointerEvents: isMobileDrawerOpen ? "auto" : "none", // Only capture events when open
+          }}
         >
-            <DrawerContent className="h-[85vh]" overlay={false}>
-                <DrawerHeader className="text-left">
-                    <DrawerTitle>
-                        {activeTab === "explore" && "Explore Wineries"}
-                        {activeTab === "trips" && "Trip Planner"}
-                        {activeTab === "friends" && "Friends"}
-                    </DrawerTitle>
-                    <DrawerDescription hidden>
-                        Browse wineries or plan your trip.
-                    </DrawerDescription>
-                </DrawerHeader>
-                <div className="px-4 h-full overflow-hidden pb-10">
-                    {/* Re-using AppSidebar content logic but simplified for Drawer */}
-                    <AppSidebar 
-                        user={user} 
-                        {...wineryMapData} 
-                        className="border-none h-full"
-                        activeTab={activeTab}
-                        onTabChange={(val) => setActiveTab(val as "explore" | "trips" | "friends" | "history")}
-                    />
-                </div>
-            </DrawerContent>
-        </Drawer>
+          <div className="mx-auto mt-2 h-1 w-[50px] rounded-full bg-muted cursor-grab" />
+          <div className="flex flex-col h-full overflow-hidden">
+            <div className="p-4 text-left border-b">
+              <h2 className="text-lg font-semibold leading-none tracking-tight">
+                {activeTab === "explore" && "Explore Wineries"}
+                {activeTab === "trips" && "Trip Planner"}
+                {activeTab === "friends" && "Friends"}
+                {activeTab === "history" && "My Visit History"}
+              </h2>
+            </div>
+            <div className="px-4 h-full overflow-hidden pb-10">
+              <AppSidebar
+                user={user}
+                {...wineryMapData}
+                className="border-none h-full"
+                activeTab={activeTab}
+                onTabChange={(val) => setActiveTab(val as "explore" | "trips" | "friends" | "history")}
+              />
+            </div>
+          </div>
+        </div>
       </div>
   );
 }
