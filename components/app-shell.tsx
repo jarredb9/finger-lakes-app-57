@@ -46,9 +46,6 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
           )}
         >
           <div className="flex-1 overflow-hidden">
-             {/* We force the Sidebar to render but hide it when width is 0 to preserve state if needed, 
-                 but conditional rendering is better for performance if state isn't critical. 
-                 For tabs, we want to keep state. */}
              <div className="w-[400px] h-full">
                 <AppSidebar 
                     user={user} 
@@ -76,7 +73,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
           <WineryMap {...wineryMapData} />
         </div>
 
-        {/* Mobile Navigation Bar (Replaces BottomNav) */}
+        {/* Mobile Navigation Bar */}
         <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t flex items-center justify-around z-50 pb-safe">
             <Button 
                 variant="ghost" 
