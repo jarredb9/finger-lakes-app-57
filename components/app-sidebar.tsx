@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { AuthenticatedUser } from "@/lib/types";
@@ -8,19 +9,11 @@ import WinerySearchResults from "@/components/map/WinerySearchResults";
 import TripList from "@/components/trip-list";
 import TripPlanner from "@/components/trip-planner";
 import GlobalVisitHistory from "@/components/global-visit-history";
-import { MapPin, Route, History, Search, Loader2, XCircle, Clock, Info, Users } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { MapPin, Route, History, Info, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
-import { useTripStore } from "@/lib/stores/tripStore";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import FriendsManager from "@/components/friends-manager";
+import { MapControls } from "@/components/map/map-controls";
 
 type WineryMapData = ReturnType<typeof useWineryMap>;
 
@@ -50,17 +43,40 @@ export function AppSidebar({
   filter,
   handleFilterChange,
 }: AppSidebarProps) {
-  const { upcomingTrips, fetchTripById, selectedTrip, setSelectedTrip } = useTripStore();
 
-  const handleTripSelect = async (tripId: string) => {
-    if (tripId === "none") {
-      setSelectedTrip(null);
-      return;
-    }
-    await fetchTripById(tripId);
-    const updatedTrip = useTripStore.getState().trips.find((t) => t.id.toString() === tripId);
-    if (updatedTrip) setSelectedTrip(updatedTrip);
-  };
+  // Memoize expensive tab contents to prevent re-renders when map search state changes
+  const tripsContent = useMemo(() => (
+    <div className="flex-1 overflow-y-auto">
+      <div className="p-4 space-y-6">
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Plan a Trip</h3>
+          <TripPlanner initialDate={new Date()} user={user} />
+        </div>
+        <Separator />
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Your Upcoming Trips</h3>
+          <TripList />
+        </div>
+      </div>
+    </div>
+  ), [user]); // TripPlanner depends on user
+
+  const historyContent = useMemo(() => (
+    <div className="flex-1 overflow-y-auto">
+      <div className="p-4 space-y-4">
+        <h3 className="text-lg font-semibold">My Visit History</h3>
+        <GlobalVisitHistory />
+      </div>
+    </div>
+  ), []);
+
+  const friendsContent = useMemo(() => (
+    <div className="flex-1 overflow-y-auto">
+      <div className="p-4 space-y-4">
+        <FriendsManager />
+      </div>
+    </div>
+  ), []);
 
   return (
     <div className={`flex flex-col h-full bg-white dark:bg-zinc-950 border-r ${className}`}>
@@ -91,78 +107,18 @@ export function AppSidebar({
              <div className="p-4 space-y-4">
                
                {/* --- Map Controls (Search & Filter) --- */}
-               <div className="space-y-3">
-                  <div className="flex flex-col gap-2">
-                      <form onSubmit={handleSearchSubmit} className="flex gap-2">
-                        <Input
-                            placeholder="City or region..."
-                            value={searchLocation}
-                            onChange={(e) => setSearchLocation(e.target.value)}
-                            className="flex-1 h-9"
-                        />
-                        <Button type="submit" size="icon" className="h-9 w-9" disabled={isSearching}>
-                            {isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />}
-                        </Button>
-                      </form>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm" onClick={handleManualSearchArea} disabled={isSearching} className="flex-1 h-8 text-xs">
-                            <MapPin className="mr-2 w-3 h-3" /> Search This Area
-                        </Button>
-                        <div className="flex items-center gap-2 px-2 bg-muted/50 rounded-md border h-8">
-                            <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} className="scale-75" />
-                            <Label htmlFor="auto-search" className="text-[10px] font-medium cursor-pointer uppercase text-muted-foreground">Auto</Label>
-                        </div>
-                      </div>
-                  </div>
-
-                  {hitApiLimit && (
-                    <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800 py-2">
-                        <AlertTriangle className="h-4 w-4 !text-yellow-600" />
-                        <AlertDescription className="text-xs">Zoom in to see more results.</AlertDescription>
-                    </Alert>
-                  )}
-
-                  <div className="space-y-2">
-                       <div className="space-y-1">
-                          <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Filter Wineries</span>
-                          {selectedTrip ? (
-                              <div className="flex items-center">
-                                  <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer" onClick={() => setSelectedTrip(null)}>
-                                      Viewing: {selectedTrip.name} <XCircle className="w-3 h-3 ml-1" />
-                                  </Badge>
-                              </div>
-                          ) : (
-                              <ToggleGroup type="multiple" value={filter} onValueChange={handleFilterChange} className="justify-start flex-wrap gap-1" size="sm">
-                                  <ToggleGroupItem value="all" className="text-xs h-6 px-2">All</ToggleGroupItem>
-                                  <ToggleGroupItem value="visited" className="text-xs h-6 px-2">Visited</ToggleGroupItem>
-                                  <ToggleGroupItem value="favorites" className="text-xs h-6 px-2">Favorites</ToggleGroupItem>
-                                  <ToggleGroupItem value="wantToGo" className="text-xs h-6 px-2">Want</ToggleGroupItem>
-                                  <ToggleGroupItem value="notVisited" className="text-xs h-6 px-2">New</ToggleGroupItem>
-                              </ToggleGroup>
-                          )}
-                      </div>
-
-                      <div className="space-y-1 pt-1">
-                          <div className="flex items-center gap-2">
-                              <Clock className="w-3 h-3 text-muted-foreground" />
-                              <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Trip Overlay</span>
-                          </div>
-                          <Select value={selectedTrip?.id?.toString() || "none"} onValueChange={handleTripSelect}>
-                            <SelectTrigger className="w-full h-8 text-xs">
-                                <SelectValue placeholder="Show a trip..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="none">None</SelectItem>
-                                {upcomingTrips.filter((trip) => !!trip.id).map((trip) => (
-                                    <SelectItem key={trip.id} value={trip.id.toString()}>
-                                    {trip.name} ({new Date(trip.trip_date + "T00:00:00").toLocaleDateString()})
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                          </Select>
-                      </div>
-                  </div>
-               </div>
+               <MapControls 
+                 searchLocation={searchLocation}
+                 setSearchLocation={setSearchLocation}
+                 isSearching={isSearching}
+                 handleSearchSubmit={handleSearchSubmit}
+                 handleManualSearchArea={handleManualSearchArea}
+                 autoSearch={autoSearch}
+                 setAutoSearch={setAutoSearch}
+                 hitApiLimit={hitApiLimit}
+                 filter={filter}
+                 handleFilterChange={handleFilterChange}
+               />
 
                <Separator />
 
@@ -216,36 +172,15 @@ export function AppSidebar({
         </TabsContent>
 
         <TabsContent value="trips" className="flex-1 overflow-hidden p-0 m-0 data-[state=active]:flex flex-col">
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-4 space-y-6">
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Plan a Trip</h3>
-                    <TripPlanner initialDate={new Date()} user={user} />
-                </div>
-                <Separator />
-                <div className="space-y-4">
-                    <h3 className="text-lg font-semibold">Your Upcoming Trips</h3>
-                    <TripList />
-                </div>
-            </div>
-          </div >
+          {tripsContent}
         </TabsContent>
 
         <TabsContent value="history" className="flex-1 overflow-hidden p-0 m-0 data-[state=active]:flex flex-col">
-            <div className="flex-1 overflow-y-auto">
-                <div className="p-4 space-y-4">
-                    <h3 className="text-lg font-semibold">My Visit History</h3>
-                    <GlobalVisitHistory />
-                </div>
-            </div>
+            {historyContent}
         </TabsContent>
 
         <TabsContent value="friends" className="flex-1 overflow-hidden p-0 m-0 data-[state=active]:flex flex-col">
-            <div className="flex-1 overflow-y-auto">
-                <div className="p-4 space-y-4">
-                    <FriendsManager />
-                </div>
-            </div>
+            {friendsContent}
         </TabsContent>
       </Tabs>
     </div>
