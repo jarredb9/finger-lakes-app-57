@@ -38,11 +38,10 @@ export default function WineryModal() {
   const prevVisitsLength = useRef(visits.length);
 
   useEffect(() => {
-    if (isWineryModalOpen && editingVisitId !== null) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setEditingVisitId(null);
-    }
-  }, [isWineryModalOpen, editingVisitId]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEditingVisitId(null);
+    setPhotosToDelete([]);
+  }, [isWineryModalOpen, activeWineryId]);
 
   useEffect(() => {
     if (visits.length > prevVisitsLength.current) {
