@@ -54,9 +54,26 @@ export function useWinerySearch() {
       if (locationText) {
         try {
           const { results } = await geocoder.geocode({ address: locationText });
-          if (results && results.length > 0 && results[0].geometry.viewport) {
-            finalSearchBounds = results[0].geometry.viewport;
-            map?.fitBounds(finalSearchBounds);
+          if (results && results.length > 0) {
+            const geometry = results[0].geometry;
+            if (geometry.viewport) {
+              finalSearchBounds = geometry.viewport;
+              map?.fitBounds(finalSearchBounds);
+            } else if (geometry.location) {
+              map?.setCenter(geometry.location);
+              map?.setZoom(13); // Reasonable default zoom for a point
+              // Create a small bounds around the point for the search context
+              const point = geometry.location;
+              const offset = 0.05; // Roughly 5km
+              finalSearchBounds = new google.maps.LatLngBounds(
+                { lat: point.lat() - offset, lng: point.lng() - offset },
+                { lat: point.lat() + offset, lng: point.lng() + offset }
+              );
+            } else {
+               toast({ variant: "destructive", description: "Location geometry missing." });
+               setIsSearching(false);
+               return;
+            }
           } else {
             toast({
               variant: "destructive",
@@ -79,43 +96,40 @@ export function useWinerySearch() {
         return;
       }
 
-      const searchTerms = ["winery", "vineyard", "tasting room"];
       const allFoundPlaces = new Map<string, google.maps.places.Place>();
       let hitApiLimit = false;
 
-      // Parallelize search requests for better performance
-      await Promise.all(
-        searchTerms.map(async (term) => {
-          const request = {
-            textQuery: term,
-            fields: [
-              "displayName",
-              "location",
-              "formattedAddress",
-              "rating",
-              "id",
-              "websiteURI",
-              "nationalPhoneNumber",
-              "reviews",
-            ],
-            locationRestriction: finalSearchBounds,
-          };
+      // Use strict type filtering to avoid "restaurants" or "liquor stores"
+      // We only search for "winery" as the primary type.
+      const request = {
+        textQuery: "winery", 
+        includedType: "winery",
+        fields: [
+          "displayName",
+          "location",
+          "formattedAddress",
+          "rating",
+          "id",
+          "websiteURI",
+          "nationalPhoneNumber",
+          "reviews",
+        ],
+        locationRestriction: finalSearchBounds,
+      };
 
-          try {
-            const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-            if (foundPlaces.length === 20) {
-              hitApiLimit = true;
-            }
-            foundPlaces.forEach((place) => {
-              if (place.id) {
-                allFoundPlaces.set(place.id, place);
-              }
-            });
-          } catch (error) {
-            console.error(`Google Places search error for term "${term}":`, error);
+      try {
+        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
+        if (foundPlaces.length === 20) {
+          hitApiLimit = true;
+        }
+        foundPlaces.forEach((place) => {
+          if (place.id) {
+            allFoundPlaces.set(place.id, place);
           }
-        })
-      );
+        });
+      } catch (error) {
+        console.error("Google Places search error:", error);
+      }
 
       const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place) => ({
         id: place.id!,
