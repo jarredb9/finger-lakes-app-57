@@ -6,7 +6,7 @@ import { useWineryMap } from "@/hooks/use-winery-map";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, CalendarDays, Search, Menu, X, Users } from "lucide-react";
+import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GoogleMapsProvider } from "@/components/google-maps-provider";
 import dynamic from "next/dynamic";
@@ -114,18 +114,26 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
           className={cn(
             "md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background border-t rounded-t-[10px] shadow-lg",
             "transition-all duration-300 ease-in-out",
-            isMobileDrawerOpen ? "h-[85vh]" : "h-0 overflow-hidden", // Full height or hidden
-            activeTab === "explore" ? "h-[85vh]" : "h-[40vh]" // Explore defaults to 85, others to 40, if not fully hidden
+            // If NOT open, force height 0 and hide overflow.
+            !isMobileDrawerOpen && "h-0 overflow-hidden",
+            // If open, set height based on tab.
+            isMobileDrawerOpen && (activeTab === "explore" ? "h-[85vh]" : "h-[85vh]") // Standardize to 85vh for now for consistency, or keep 40 if desired. User asked for "swipe down" feel.
           )}
           style={{
-            // This is a simplified snapping mechanism; actual Vaul snap points would require more logic
-            // For now, let's control visibility and height based on activeTab and open state
-            pointerEvents: isMobileDrawerOpen ? "auto" : "none", // Only capture events when open
+            pointerEvents: isMobileDrawerOpen ? "auto" : "none", 
           }}
         >
-          <div className="mx-auto mt-2 h-1 w-[50px] rounded-full bg-muted cursor-grab" />
-          <div className="flex flex-col h-full overflow-hidden">
-            <div className="p-4 text-left border-b">
+          <div className="flex flex-col h-full overflow-hidden relative">
+            {/* Close Handle/Button */}
+            <div className="absolute top-0 right-0 p-2 z-50">
+                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-muted/50" onClick={() => setIsMobileDrawerOpen(false)}>
+                    <ChevronDown className="h-5 w-5" />
+                </Button>
+            </div>
+            
+            <div className="mx-auto mt-2 h-1 w-[50px] rounded-full bg-muted" />
+            
+            <div className="p-4 text-left border-b pt-6">
               <h2 className="text-lg font-semibold leading-none tracking-tight">
                 {activeTab === "explore" && "Explore Wineries"}
                 {activeTab === "trips" && "Trip Planner"}
@@ -133,7 +141,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                 {activeTab === "history" && "My Visit History"}
               </h2>
             </div>
-            <div className="px-4 h-full overflow-hidden pb-10">
+            <div className="px-4 h-full overflow-hidden pb-20">
               <AppSidebar
                 user={user}
                 {...wineryMapData}
