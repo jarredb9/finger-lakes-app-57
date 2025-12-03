@@ -70,10 +70,10 @@ export const columns: ColumnDef<Visit>[] = [
   },
   {
     accessorKey: "user_review",
-    header: "Review",
+    header: () => <div className="hidden md:block">Review</div>,
     cell: ({ row }) => {
         const review = row.original.user_review;
-        return <div className="text-sm text-muted-foreground truncate max-w-xs">{review || "No review."}</div>
+        return <div className="text-sm text-muted-foreground truncate max-w-xs hidden md:block">{review || "No review."}</div>
     }
   },
 ]

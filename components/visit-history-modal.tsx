@@ -33,7 +33,9 @@ export function VisitHistoryModal({ isOpen, onClose, visits }: VisitHistoryModal
             A complete log of all your winery visits. Click a row to view winery details.
           </DialogDescription>
         </DialogHeader>
-        <DataTable columns={columns} data={visits} onRowClick={handleRowClick} />
+        <div className="overflow-x-auto">
+          <DataTable columns={columns} data={visits} onRowClick={handleRowClick} />
+        </div>
       </DialogContent>
     </Dialog>
   )

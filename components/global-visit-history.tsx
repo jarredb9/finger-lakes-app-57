@@ -29,7 +29,15 @@ export default function GlobalVisitHistory() {
       (winery.visits || []).map(visit => ({
         ...visit,
         wineryName: winery.name,
-        wineryId: winery.id
+        wineryId: winery.id,
+        wineries: {
+            id: 0, // Placeholder, not used by table
+            google_place_id: winery.id,
+            name: winery.name,
+            address: winery.address,
+            latitude: winery.lat.toString(),
+            longitude: winery.lng.toString()
+        }
       }))
     ).sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
   }, [persistentWineries]);
