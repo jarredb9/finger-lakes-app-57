@@ -1,14 +1,15 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
 import { DataTable } from "@/components/ui/data-table"
 import { columns } from "@/components/visits-table-columns"
 import { Visit } from "@/lib/types"
 import { useUIStore } from "@/lib/stores/uiStore"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Star, Calendar, Search, ArrowUpDown } from "lucide-react"
+import { Star, Calendar, Search, ArrowUp, ArrowDown, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import {
   Select,
   SelectContent,
@@ -23,10 +24,14 @@ interface VisitHistoryModalProps {
   visits: Visit[]
 }
 
+type SortField = "date" | "rating" | "name"
+type SortDirection = "asc" | "desc"
+
 export function VisitHistoryModal({ isOpen, onClose, visits }: VisitHistoryModalProps) {
   const { openWineryModal } = useUIStore()
   const [mobileSearch, setMobileSearch] = useState("")
-  const [sortOrder, setSortOrder] = useState<"date-desc" | "date-asc" | "rating-desc" | "rating-asc">("date-desc")
+  const [sortField, setSortField] = useState<SortField>("date")
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
   const handleRowClick = (visit: Visit) => {
      // @ts-ignore - We know this visit object has the wineryId attached from the parent mapping
@@ -35,6 +40,10 @@ export function VisitHistoryModal({ isOpen, onClose, visits }: VisitHistoryModal
         openWineryModal(visit.wineryId)
         // Do not close this modal so user returns to it after closing winery modal
      }
+  }
+
+  const toggleSortDirection = () => {
+    setSortDirection(prev => prev === "asc" ? "desc" : "asc")
   }
 
   const filteredAndSortedVisits = useMemo(() => {
@@ -51,33 +60,42 @@ export function VisitHistoryModal({ isOpen, onClose, visits }: VisitHistoryModal
 
     // Sort
     result.sort((a, b) => {
-        switch (sortOrder) {
-            case "date-desc":
-                return new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
-            case "date-asc":
-                return new Date(a.visit_date).getTime() - new Date(b.visit_date).getTime()
-            case "rating-desc":
-                return (b.rating || 0) - (a.rating || 0)
-            case "rating-asc":
-                return (a.rating || 0) - (b.rating || 0)
-            default:
-                return 0
+        let comparison = 0
+        switch (sortField) {
+            case "date":
+                comparison = new Date(a.visit_date).getTime() - new Date(b.visit_date).getTime()
+                break
+            case "rating":
+                comparison = (a.rating || 0) - (b.rating || 0)
+                break
+            case "name":
+                const nameA = a.wineries?.name || ""
+                const nameB = b.wineries?.name || ""
+                comparison = nameA.localeCompare(nameB)
+                break
         }
+        return sortDirection === "asc" ? comparison : -comparison
     })
 
     return result
-  }, [visits, mobileSearch, sortOrder])
+  }, [visits, mobileSearch, sortField, sortDirection])
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl max-h-[85dvh] flex flex-col p-0 gap-0 overflow-hidden">
-        <div className="p-6 pb-4 border-b bg-background z-10">
+        <div className="p-6 pb-4 border-b bg-background z-10 flex items-start justify-between">
           <DialogHeader>
             <DialogTitle>Full Visit History</DialogTitle>
             <DialogDescription>
               A complete log of all your winery visits.
             </DialogDescription>
           </DialogHeader>
+          <DialogClose asChild>
+            <Button variant="ghost" size="icon" className="-mt-2 -mr-2" onClick={onClose}>
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+            </Button>
+          </DialogClose>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
@@ -93,20 +111,28 @@ export function VisitHistoryModal({ isOpen, onClose, visits }: VisitHistoryModal
                             className="pl-8"
                         />
                     </div>
-                    <div className="flex items-center justify-between">
-                        <span className="text-xs text-muted-foreground font-medium uppercase">Sort By</span>
-                        <Select value={sortOrder} onValueChange={(v) => setSortOrder(v as any)}>
-                            <SelectTrigger className="w-[180px] h-8 text-xs">
-                                <ArrowUpDown className="w-3 h-3 mr-2" />
-                                <SelectValue placeholder="Sort order" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="date-desc">Newest First</SelectItem>
-                                <SelectItem value="date-asc">Oldest First</SelectItem>
-                                <SelectItem value="rating-desc">Highest Rated</SelectItem>
-                                <SelectItem value="rating-asc">Lowest Rated</SelectItem>
-                            </SelectContent>
-                        </Select>
+                    <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1">
+                            <span className="text-xs text-muted-foreground font-medium uppercase shrink-0">Sort By</span>
+                            <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
+                                <SelectTrigger className="h-8 text-xs">
+                                    <SelectValue placeholder="Sort by" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="date">Date</SelectItem>
+                                    <SelectItem value="rating">Rating</SelectItem>
+                                    <SelectItem value="name">Winery Name</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="h-8 w-8 px-0"
+                            onClick={toggleSortDirection}
+                        >
+                            {sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                        </Button>
                     </div>
                 </div>
 
