@@ -25,7 +25,7 @@ const MapView = memo(
     selectedTrip,
   }: MapViewProps) => {
     return (
-      <div className="h-[50vh] w-full lg:h-[600px] bg-muted">
+      <div className="h-full w-full bg-muted">
         <Map
           defaultCenter={{ lat: 40, lng: -98 }}
           defaultZoom={4}
