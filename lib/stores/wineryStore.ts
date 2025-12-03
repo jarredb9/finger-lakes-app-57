@@ -125,7 +125,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
       const wineriesArray = (aggregatedData && aggregatedData[0]?.wineries_data) || [];
 
       const detailedWineries: Winery[] = wineriesArray.map((w: any) => ({
-        id: w.id,
+        id: w.id || String(w.dbId),
         dbId: w.dbId,
         name: w.name,
         address: w.address,
@@ -163,6 +163,13 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
     const existing = get().persistentWineries.find(w => w.id === placeId);
     if (existing && existing.phone && existing.website && existing.rating && existing.openingHours !== undefined && existing.reviews !== undefined && existing.reservable !== undefined) {
       return existing;
+    }
+
+    // Check if placeId is likely a Database ID (integer) instead of a Google Place ID.
+    // Google Place IDs are alphanumeric and longer. DB IDs are just numbers here.
+    if (/^\d+$/.test(placeId)) {
+        // console.warn(`[ensureWineryDetails] Skipped Google API fetch for winery ${placeId} because it appears to be a Database ID.`);
+        return existing || null;
     }
 
     try {
