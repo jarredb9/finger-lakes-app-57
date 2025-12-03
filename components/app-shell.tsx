@@ -5,8 +5,9 @@ import { AuthenticatedUser } from "@/lib/types";
 import { useWineryMap } from "@/hooks/use-winery-map";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, ChevronDown } from "lucide-react";
+import { Map as MapIcon, CalendarDays, Search, Menu, X, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GoogleMapsProvider } from "@/components/google-maps-provider";
 import dynamic from "next/dynamic";
@@ -25,11 +26,13 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<"explore" | "trips" | "friends" | "history">(initialTab);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [snap, setSnap] = useState<number | string | null>(0.35);
 
   // Handle mobile nav click
   const handleMobileNav = (tab: "explore" | "trips" | "friends") => {
     setActiveTab(tab);
     setIsMobileDrawerOpen(true);
+    setSnap(0.35); // Reset to smaller view on open
   };
 
   return (
@@ -109,49 +112,39 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             </Button>
         </div>
 
-        {/* Mobile Custom Bottom Sheet */}
-        <div
-          className={cn(
-            "md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background border-t rounded-t-[10px] shadow-lg",
-            "transition-all duration-300 ease-in-out",
-            // If NOT open, force height 0 and hide overflow.
-            !isMobileDrawerOpen && "h-0 overflow-hidden",
-            // If open, set height based on tab.
-            isMobileDrawerOpen && (activeTab === "explore" ? "h-[85vh]" : "h-[85vh]") // Standardize to 85vh for now for consistency, or keep 40 if desired. User asked for "swipe down" feel.
-          )}
-          style={{
-            pointerEvents: isMobileDrawerOpen ? "auto" : "none", 
-          }}
+        {/* Mobile Drawer */}
+        <Drawer 
+            open={isMobileDrawerOpen} 
+            onOpenChange={setIsMobileDrawerOpen}
+            snapPoints={[0.35, 0.85]}
+            activeSnapPoint={snap}
+            setActiveSnapPoint={setSnap}
+            modal={false}
+            dismissible={false} // Prevent closing by clicking outside (since modal=false means outside is map)
         >
-          <div className="flex flex-col h-full overflow-hidden relative">
-            {/* Close Handle/Button */}
-            <div className="absolute top-0 right-0 p-2 z-50">
-                <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-muted/50" onClick={() => setIsMobileDrawerOpen(false)}>
-                    <ChevronDown className="h-5 w-5" />
-                </Button>
-            </div>
-            
-            <div className="mx-auto mt-2 h-1 w-[50px] rounded-full bg-muted" />
-            
-            <div className="p-4 text-left border-b pt-6">
-              <h2 className="text-lg font-semibold leading-none tracking-tight">
-                {activeTab === "explore" && "Explore Wineries"}
-                {activeTab === "trips" && "Trip Planner"}
-                {activeTab === "friends" && "Friends"}
-                {activeTab === "history" && "My Visit History"}
-              </h2>
-            </div>
-            <div className="px-4 h-full overflow-hidden pb-20">
-              <AppSidebar
-                user={user}
-                {...wineryMapData}
-                className="border-none h-full"
-                activeTab={activeTab}
-                onTabChange={(val) => setActiveTab(val as "explore" | "trips" | "friends" | "history")}
-              />
-            </div>
-          </div>
-        </div>
+            <DrawerContent className="h-[85vh] shadow-xl border-t" overlay={false}>
+                <DrawerHeader className="text-left pt-4">
+                    <DrawerTitle>
+                        {activeTab === "explore" && "Explore Wineries"}
+                        {activeTab === "trips" && "Trip Planner"}
+                        {activeTab === "friends" && "Friends"}
+                        {activeTab === "history" && "My Visit History"}
+                    </DrawerTitle>
+                    <DrawerDescription hidden>
+                        Browse wineries or plan your trip.
+                    </DrawerDescription>
+                </DrawerHeader>
+                <div className="px-4 h-full overflow-hidden pb-20">
+                    <AppSidebar 
+                        user={user} 
+                        {...wineryMapData} 
+                        className="border-none h-full"
+                        activeTab={activeTab}
+                        onTabChange={(val) => setActiveTab(val as "explore" | "trips" | "friends" | "history")}
+                    />
+                </div>
+            </DrawerContent>
+        </Drawer>
       </div>
   );
 }
