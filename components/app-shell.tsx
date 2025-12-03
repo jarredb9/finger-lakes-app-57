@@ -136,7 +136,8 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                         <X className="h-4 w-4" />
                     </Button>
                 </DrawerHeader>
-                <div className="px-4 h-full overflow-hidden pb-20">
+                {/* Wrapper: Removed overflow-hidden, added padding to ensure content is reachable */}
+                <div className="px-4 h-full pb-10">
                     <AppSidebar 
                         user={user} 
                         {...wineryMapData} 
