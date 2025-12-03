@@ -7,7 +7,7 @@ import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, CalendarDays, Search, Menu, X } from "lucide-react";
+import { Map as MapIcon, CalendarDays, Search, Menu, X, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GoogleMapsProvider } from "@/components/google-maps-provider";
 import dynamic from "next/dynamic";
@@ -23,12 +23,12 @@ interface AppShellProps {
 
 function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
   const wineryMapData = useWineryMap(user.id);
-  const [activeTab, setActiveTab] = useState<"explore" | "trips">(initialTab);
+  const [activeTab, setActiveTab] = useState<"explore" | "trips" | "friends" | "history">(initialTab);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
 
   // Handle mobile nav click
-  const handleMobileNav = (tab: "explore" | "trips") => {
+  const handleMobileNav = (tab: "explore" | "trips" | "friends") => {
     setActiveTab(tab);
     setIsMobileDrawerOpen(true);
   };
@@ -52,7 +52,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                     user={user} 
                     {...wineryMapData}
                     activeTab={activeTab}
-                    onTabChange={(val) => setActiveTab(val as "explore" | "trips")}
+                    onTabChange={(val) => setActiveTab(val as "explore" | "trips" | "friends" | "history")}
                 />
              </div>
           </div>
@@ -100,13 +100,30 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                 <CalendarDays className="h-5 w-5" />
                 <span className="text-xs">Trips</span>
             </Button>
+            <Button 
+                variant="ghost" 
+                className={cn("flex flex-col gap-1 h-auto", activeTab === "friends" && isMobileDrawerOpen && "text-primary")}
+                onClick={() => handleMobileNav("friends")}
+            >
+                <Users className="h-5 w-5" />
+                <span className="text-xs">Friends</span>
+            </Button>
         </div>
 
         {/* Mobile Drawer */}
-        <Drawer open={isMobileDrawerOpen} onOpenChange={setIsMobileDrawerOpen}>
-            <DrawerContent className="h-[85vh]">
+        <Drawer 
+            open={isMobileDrawerOpen} 
+            onOpenChange={setIsMobileDrawerOpen}
+            snapPoints={[0.4, 0.85]}
+            modal={false}
+        >
+            <DrawerContent className="h-[85vh]" overlay={false}>
                 <DrawerHeader className="text-left">
-                    <DrawerTitle>{activeTab === "explore" ? "Explore Wineries" : "Trip Planner"}</DrawerTitle>
+                    <DrawerTitle>
+                        {activeTab === "explore" && "Explore Wineries"}
+                        {activeTab === "trips" && "Trip Planner"}
+                        {activeTab === "friends" && "Friends"}
+                    </DrawerTitle>
                     <DrawerDescription hidden>
                         Browse wineries or plan your trip.
                     </DrawerDescription>
@@ -118,7 +135,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                         {...wineryMapData} 
                         className="border-none h-full"
                         activeTab={activeTab}
-                        onTabChange={(val) => setActiveTab(val as "explore" | "trips")}
+                        onTabChange={(val) => setActiveTab(val as "explore" | "trips" | "friends" | "history")}
                     />
                 </div>
             </DrawerContent>
