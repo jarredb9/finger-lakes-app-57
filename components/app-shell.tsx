@@ -10,6 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Map as MapIcon, CalendarDays, Search, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GoogleMapsProvider } from "@/components/google-maps-provider";
+import dynamic from "next/dynamic";
+
+const WineryModal = dynamic(() => import("@/components/winery-modal"), {
+  ssr: false,
+});
 
 interface AppShellProps {
   user: AuthenticatedUser;
@@ -30,6 +35,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
   return (
       <div className="flex h-[calc(100vh-4rem)] md:h-screen flex-col md:flex-row overflow-hidden">
+        <WineryModal />
         {/* Desktop Sidebar */}
         <div
           className={cn(
