@@ -96,32 +96,30 @@ export function useWinerySearch() {
               return;
             }
       
-            const searchTerms = ["winery", "vineyard", "tasting room"];
-            const allFoundPlaces = new Map<string, google.maps.places.Place>();
-            let hitApiLimit = false;
-      
-            // Parallelize search requests for better performance
-            await Promise.all(
-              searchTerms.map(async (term) => {
-                const request = {
-                  textQuery: term,
-                  includedType: "winery", // Strict type filtering to avoid restaurants
-                  fields: [
-                    "displayName",
-                    "location",
-                    "formattedAddress",
-                    "rating",
-                    "id",
-                    "websiteURI",
-                    "nationalPhoneNumber",
-                    "reviews",
-                  ],
-                  locationRestriction: finalSearchBounds,
-                };
-      
-                try {
-                  const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-                  if (foundPlaces.length === 20) {
+                  const searchTerms = ["winery", "vineyard", "wine tasting room"];
+                  const allFoundPlaces = new Map<string, google.maps.places.Place>();
+                  let hitApiLimit = false;
+            
+                  // Parallelize search requests for better performance
+                  await Promise.all(
+                    searchTerms.map(async (term) => {
+                      const request = {
+                        textQuery: term,
+                        fields: [
+                          "displayName",
+                          "location",
+                          "formattedAddress",
+                          "rating",
+                          "id",
+                          "websiteURI",
+                          "nationalPhoneNumber",
+                          "reviews",
+                        ],
+                        locationRestriction: finalSearchBounds,
+                      };
+            
+                      try {
+                        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);                  if (foundPlaces.length === 20) {
                     hitApiLimit = true;
                   }
                   foundPlaces.forEach((place) => {
