@@ -9,7 +9,17 @@ import WinerySearchResults from "@/components/map/WinerySearchResults";
 import TripList from "@/components/trip-list";
 import TripPlanner from "@/components/trip-planner";
 import GlobalVisitHistory from "@/components/global-visit-history";
-import { MapPin, Route, History } from "lucide-react";
+import { MapPin, Route, History, Search, Loader2, XCircle, Clock } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
+import { useTripStore } from "@/lib/stores/tripStore";
 
 type WineryMapData = ReturnType<typeof useWineryMap>;
 
@@ -20,7 +30,37 @@ interface AppSidebarProps extends WineryMapData {
   onTabChange?: (value: string) => void;
 }
 
-export function AppSidebar({ user, className, listResultsInView, isSearching, handleOpenModal, activeTab, onTabChange }: AppSidebarProps) {
+export function AppSidebar({ 
+  user, 
+  className, 
+  listResultsInView, 
+  isSearching, 
+  handleOpenModal, 
+  activeTab, 
+  onTabChange,
+  // Map Data Props
+  hitApiLimit,
+  searchLocation,
+  setSearchLocation,
+  autoSearch,
+  setAutoSearch,
+  handleSearchSubmit,
+  handleManualSearchArea,
+  filter,
+  handleFilterChange,
+}: AppSidebarProps) {
+  const { upcomingTrips, fetchTripById, selectedTrip, setSelectedTrip } = useTripStore();
+
+  const handleTripSelect = async (tripId: string) => {
+    if (tripId === "none") {
+      setSelectedTrip(null);
+      return;
+    }
+    await fetchTripById(tripId);
+    const updatedTrip = useTripStore.getState().trips.find((t) => t.id.toString() === tripId);
+    if (updatedTrip) setSelectedTrip(updatedTrip);
+  };
+
   return (
     <div className={`flex flex-col h-full bg-white dark:bg-zinc-950 border-r ${className}`}>
       <Tabs defaultValue="explore" value={activeTab} onValueChange={onTabChange} className="flex flex-col h-full">
@@ -44,6 +84,84 @@ export function AppSidebar({ user, className, listResultsInView, isSearching, ha
         <TabsContent value="explore" className="flex-1 overflow-hidden p-0 m-0 data-[state=active]:flex flex-col">
            <div className="flex-1 overflow-y-auto">
              <div className="p-4 space-y-6">
+               
+               {/* --- Map Controls (Search & Filter) --- */}
+               <div className="space-y-4">
+                  <div className="flex flex-col gap-2">
+                      <form onSubmit={handleSearchSubmit} className="flex gap-2">
+                        <Input
+                            placeholder="City or region..."
+                            value={searchLocation}
+                            onChange={(e) => setSearchLocation(e.target.value)}
+                            className="flex-1"
+                        />
+                        <Button type="submit" size="icon" disabled={isSearching}>
+                            {isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />}
+                        </Button>
+                      </form>
+                      <Button variant="outline" size="sm" onClick={handleManualSearchArea} disabled={isSearching} className="w-full">
+                         <MapPin className="mr-2 w-4 h-4" /> Search This Area
+                      </Button>
+                  </div>
+
+                  {hitApiLimit && (
+                    <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800 py-2">
+                        <AlertTriangle className="h-4 w-4 !text-yellow-600" />
+                        <AlertDescription className="text-xs">Zoom in to see more results.</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="space-y-3">
+                       <div className="space-y-2">
+                          <span className="text-xs font-medium uppercase text-muted-foreground">Filter Wineries</span>
+                          {selectedTrip ? (
+                              <div className="flex items-center">
+                                  <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer" onClick={() => setSelectedTrip(null)}>
+                                      Viewing: {selectedTrip.name} <XCircle className="w-3 h-3 ml-1" />
+                                  </Badge>
+                              </div>
+                          ) : (
+                              <ToggleGroup type="multiple" value={filter} onValueChange={handleFilterChange} className="justify-start flex-wrap gap-2" size="sm">
+                                  <ToggleGroupItem value="all" className="text-xs h-7 px-2">All</ToggleGroupItem>
+                                  <ToggleGroupItem value="visited" className="text-xs h-7 px-2">Visited</ToggleGroupItem>
+                                  <ToggleGroupItem value="favorites" className="text-xs h-7 px-2">Favorites</ToggleGroupItem>
+                                  <ToggleGroupItem value="wantToGo" className="text-xs h-7 px-2">Want to Go</ToggleGroupItem>
+                                  <ToggleGroupItem value="notVisited" className="text-xs h-7 px-2">Discovered</ToggleGroupItem>
+                              </ToggleGroup>
+                          )}
+                      </div>
+
+                      <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                              <Clock className="w-4 h-4 text-muted-foreground" />
+                              <span className="text-xs font-medium uppercase text-muted-foreground">Trip Overlay</span>
+                          </div>
+                          <Select value={selectedTrip?.id?.toString() || "none"} onValueChange={handleTripSelect}>
+                            <SelectTrigger className="w-full h-9 text-sm">
+                                <SelectValue placeholder="Show a trip on the map..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                {upcomingTrips.filter((trip) => !!trip.id).map((trip) => (
+                                    <SelectItem key={trip.id} value={trip.id.toString()}>
+                                    {trip.name} ({new Date(trip.trip_date + "T00:00:00").toLocaleDateString()})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                          </Select>
+                      </div>
+
+                      <div className="flex items-center justify-between p-2 bg-blue-50/50 rounded-lg border border-blue-200">
+                        <Label htmlFor="auto-search" className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                        <Switch id="auto-search" checked={autoSearch} onCheckedChange={setAutoSearch} className="scale-75" />
+                        Auto-search when moving map
+                        </Label>
+                    </div>
+                  </div>
+               </div>
+
+               <Separator />
+
                {/* Legend Section */}
                <Card className="border-none shadow-none bg-transparent">
                   <CardHeader className="px-0 pt-0">

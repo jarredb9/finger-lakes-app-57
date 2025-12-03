@@ -4,8 +4,10 @@ import VisitHistory from "./VisitHistory";
 import { useVisitStore } from "@/lib/stores/visitStore";
 import { useUIStore } from "@/lib/stores/uiStore"; // Import UI Store
 import { useToast } from "@/hooks/use-toast";
-import { useMemo } from "react";
-import { Calendar, MapPin } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Calendar, MapPin, List } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { VisitHistoryModal } from "@/components/visit-history-modal";
 
 // Extended Visit type to include winery name for display context
 interface VisitWithContext extends Visit {
@@ -18,6 +20,7 @@ export default function GlobalVisitHistory() {
   const { openWineryModal } = useUIStore(); // Use UI Store
   const { deleteVisit: deleteVisitAction } = useVisitStore();
   const { toast } = useToast();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
 
   // Flatten all visits from all wineries into a single array
@@ -66,6 +69,13 @@ export default function GlobalVisitHistory() {
 
   return (
     <div className="space-y-6">
+       <div className="flex justify-end">
+         <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)} className="gap-2">
+           <List className="w-4 h-4" />
+           View as Table
+         </Button>
+       </div>
+
        {allVisits.map((visit) => (
            <div key={visit.id} className="relative">
                <div className="flex items-center gap-2 mb-2 px-1">
@@ -81,6 +91,11 @@ export default function GlobalVisitHistory() {
                />
            </div>
        ))}
+       <VisitHistoryModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          visits={allVisits} 
+       />
     </div>
   );
 }

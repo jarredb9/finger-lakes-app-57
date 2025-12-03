@@ -17,7 +17,6 @@ import {
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle } from "lucide-react";
 import MapView from "./map/MapView";
-import MapControls from "./map/MapControls";
 import { useWineryMap } from "@/hooks/use-winery-map";
 
 
@@ -32,20 +31,11 @@ export default function WineryMap(props: WineryMapProps) {
   const {
     error,
     mapWineries,
-    searchLocation,
-    setSearchLocation,
-    autoSearch,
-    setAutoSearch,
     filter,
-    handleSearchSubmit,
-    handleManualSearchArea,
-    handleFilterChange,
     handleOpenModal,
     proposedWinery,
     setProposedWinery,
     selectedTrip,
-    isSearching,
-    hitApiLimit,
   } = props;
 
   if (error) {
@@ -59,22 +49,6 @@ export default function WineryMap(props: WineryMapProps) {
 
   return (
     <div className="relative w-full h-full group">
-      {/* Map Controls Overlay */}
-      <div className="absolute top-4 left-4 right-4 z-10 max-w-xl mx-auto md:mx-0">
-        <MapControls
-            isSearching={isSearching}
-            hitApiLimit={hitApiLimit}
-            searchLocation={searchLocation}
-            setSearchLocation={setSearchLocation}
-            autoSearch={autoSearch}
-            setAutoSearch={setAutoSearch}
-            handleSearchSubmit={handleSearchSubmit}
-            handleManualSearchArea={handleManualSearchArea}
-            filter={filter}
-            onFilterChange={handleFilterChange}
-        />
-      </div>
-
       {/* Main Map View */}
       <div className="w-full h-full">
         <MapView
