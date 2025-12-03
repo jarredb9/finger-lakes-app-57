@@ -125,7 +125,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
         >
             <DrawerContent 
                 overlay={false} 
-                className="h-[85vh] fixed bottom-16 mt-0 focus:outline-none pointer-events-none bg-transparent border-none shadow-none"
+                className="h-[85vh] fixed bottom-16 mt-0 focus:outline-none !pointer-events-none !bg-transparent !border-none !shadow-none"
             >
                 <div className="flex flex-col h-full w-full bg-background border-t rounded-t-[10px] pointer-events-auto shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
                     <DrawerHeader className="border-b bg-muted/30">
