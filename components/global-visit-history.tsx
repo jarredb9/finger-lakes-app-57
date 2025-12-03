@@ -4,8 +4,7 @@ import VisitHistory from "./VisitHistory";
 import { useVisitStore } from "@/lib/stores/visitStore";
 import { useUIStore } from "@/lib/stores/uiStore"; // Import UI Store
 import { useToast } from "@/hooks/use-toast";
-import { useState, useMemo } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useMemo } from "react";
 import { Calendar, MapPin } from "lucide-react";
 
 // Extended Visit type to include winery name for display context
@@ -19,7 +18,7 @@ export default function GlobalVisitHistory() {
   const { openWineryModal } = useUIStore(); // Use UI Store
   const { deleteVisit: deleteVisitAction } = useVisitStore();
   const { toast } = useToast();
-  const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
+
 
   // Flatten all visits from all wineries into a single array
   const allVisits: VisitWithContext[] = useMemo(() => {
@@ -51,7 +50,7 @@ export default function GlobalVisitHistory() {
     }
   };
 
-  const handleTogglePhotoForDeletion = (photoPath: string) => {
+  const handleTogglePhotoForDeletion = () => {
      // No-op for now in global view
   };
 
