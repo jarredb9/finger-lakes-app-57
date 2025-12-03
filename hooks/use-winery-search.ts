@@ -88,51 +88,54 @@ export function useWinerySearch() {
           return;
         }
       } 
-      // Case 2: Bounds-based search (current map view)
-      else if (searchBounds) {
-        finalSearchBounds = new google.maps.LatLngBounds(searchBounds);
-      } else {
-        setIsSearching(false);
-        return;
-      }
-
-      const allFoundPlaces = new Map<string, google.maps.places.Place>();
-      let hitApiLimit = false;
-
-      // Use strict type filtering to avoid "restaurants" or "liquor stores"
-      // We only search for "winery" as the primary type.
-      const request = {
-        textQuery: "winery", 
-        includedType: "winery",
-        fields: [
-          "displayName",
-          "location",
-          "formattedAddress",
-          "rating",
-          "id",
-          "websiteURI",
-          "nationalPhoneNumber",
-          "reviews",
-        ],
-        locationRestriction: finalSearchBounds,
-      };
-
-      try {
-        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-        if (foundPlaces.length === 20) {
-          hitApiLimit = true;
-        }
-        foundPlaces.forEach((place) => {
-          if (place.id) {
-            allFoundPlaces.set(place.id, place);
-          }
-        });
-      } catch (error) {
-        console.error("Google Places search error:", error);
-      }
-
-      const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place) => ({
-        id: place.id!,
+            // Case 2: Bounds-based search (current map view)
+            else if (searchBounds) {
+              finalSearchBounds = new google.maps.LatLngBounds(searchBounds);
+            } else {
+              setIsSearching(false);
+              return;
+            }
+      
+            const searchTerms = ["winery", "vineyard", "tasting room"];
+            const allFoundPlaces = new Map<string, google.maps.places.Place>();
+            let hitApiLimit = false;
+      
+            // Parallelize search requests for better performance
+            await Promise.all(
+              searchTerms.map(async (term) => {
+                const request = {
+                  textQuery: term,
+                  includedType: "winery", // Strict type filtering to avoid restaurants
+                  fields: [
+                    "displayName",
+                    "location",
+                    "formattedAddress",
+                    "rating",
+                    "id",
+                    "websiteURI",
+                    "nationalPhoneNumber",
+                    "reviews",
+                  ],
+                  locationRestriction: finalSearchBounds,
+                };
+      
+                try {
+                  const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
+                  if (foundPlaces.length === 20) {
+                    hitApiLimit = true;
+                  }
+                  foundPlaces.forEach((place) => {
+                    if (place.id) {
+                      allFoundPlaces.set(place.id, place);
+                    }
+                  });
+                } catch (error) {
+                  console.error(`Google Places search error for term "${term}":`, error);
+                }
+              })
+            );
+      
+            const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place) => ({        id: place.id!,
         name: place.displayName!,
         address: place.formattedAddress!,
         lat: place.location!.lat(),
