@@ -180,10 +180,10 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
         <div
             className={cn(
                 "md:hidden fixed bottom-16 left-0 right-0 z-40 bg-background border-t rounded-t-[15px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex flex-col",
-                "transition-all duration-300 ease-out",
-                !isMobileSheetOpen ? "translate-y-[120%] opacity-0 invisible" : "translate-y-0 opacity-100 visible",
-                isMobileSheetOpen && sheetSize === "mini" ? "h-[45vh]" : "",
-                isMobileSheetOpen && sheetSize === "full" ? "h-[calc(100vh-4rem)] top-4" : "" // Full height minus nav bar, with top spacing
+                "transition-transform duration-300 ease-out will-change-transform", // Use transform for performance
+                // Always set height based on sheetSize, use translate to hide
+                sheetSize === "mini" ? "h-[45vh]" : "h-[calc(100vh-4rem)] top-4",
+                !isMobileSheetOpen ? "translate-y-[150%]" : "translate-y-0" 
             )}
         >
             {/* Sheet Header / Handle */}

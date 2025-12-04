@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,6 +22,7 @@ import FriendsManager from "@/components/friends-manager";
 import { MapControls } from "@/components/map/map-controls";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useWineryStore } from "@/lib/stores/wineryStore"; // To get persistentWineries for allVisits
+import { useUIStore } from "@/lib/stores/uiStore";
 
 interface AppSidebarProps {
   user: AuthenticatedUser;
@@ -53,8 +54,7 @@ export function AppSidebar({
   } = useWineryMapContext();
 
   const { persistentWineries } = useWineryStore(); // Get persistentWineries here
-
-  const [isVisitHistoryModalOpen, setIsVisitHistoryModalOpen] = useState(false); // State for modal
+  const { isVisitHistoryModalOpen, setVisitHistoryModalOpen } = useUIStore();
 
   // Compute allVisits here in AppSidebar
   const allVisits: VisitWithContext[] = useMemo(() => {
@@ -98,7 +98,7 @@ export function AppSidebar({
         <Button 
           variant="outline" 
           size="sm" 
-          onClick={() => setIsVisitHistoryModalOpen(true)} 
+          onClick={() => setVisitHistoryModalOpen(true)} 
           className="gap-2 shrink-0"
         >
           <List className="w-4 h-4" />
@@ -110,12 +110,10 @@ export function AppSidebar({
       </div>
       {/* Render VisitHistoryModal here */}
       <VisitHistoryModal 
-        isOpen={isVisitHistoryModalOpen} 
-        onClose={() => setIsVisitHistoryModalOpen(false)} 
         visits={allVisits} 
       />
     </div>
-  ), [allVisits, isVisitHistoryModalOpen]); // Dependencies for historyContent
+  ), [allVisits, isVisitHistoryModalOpen, setVisitHistoryModalOpen]); // Dependencies for historyContent
 
   const friendsContent = useMemo(() => (
     <div className="p-4 space-y-4">

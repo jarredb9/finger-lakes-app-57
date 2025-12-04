@@ -19,16 +19,14 @@ import {
 } from "@/components/ui/select"
 
 interface VisitHistoryModalProps {
-  isOpen: boolean
-  onClose: () => void
   visits: Visit[]
 }
 
 type SortField = "date" | "rating" | "name"
 type SortDirection = "asc" | "desc"
 
-export function VisitHistoryModal({ isOpen, onClose, visits }: VisitHistoryModalProps) {
-  const { openWineryModal } = useUIStore()
+export function VisitHistoryModal({ visits }: VisitHistoryModalProps) {
+  const { openWineryModal, isVisitHistoryModalOpen, setVisitHistoryModalOpen } = useUIStore()
   const [mobileSearch, setMobileSearch] = useState("")
   const [sortField, setSortField] = useState<SortField>("date")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
@@ -38,7 +36,6 @@ export function VisitHistoryModal({ isOpen, onClose, visits }: VisitHistoryModal
      if (visit.wineryId) {
         // @ts-ignore
         openWineryModal(visit.wineryId)
-        // Do not close this modal so user returns to it after closing winery modal
      }
   }
 
@@ -81,7 +78,7 @@ export function VisitHistoryModal({ isOpen, onClose, visits }: VisitHistoryModal
   }, [visits, mobileSearch, sortField, sortDirection])
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isVisitHistoryModalOpen} onOpenChange={setVisitHistoryModalOpen}>
       <DialogContent className="max-w-4xl max-h-[85dvh] flex flex-col p-0 gap-0 overflow-hidden">
         <div className="p-6 pb-4 border-b bg-background z-10 flex items-start justify-between">
           <DialogHeader>
@@ -91,7 +88,7 @@ export function VisitHistoryModal({ isOpen, onClose, visits }: VisitHistoryModal
             </DialogDescription>
           </DialogHeader>
           <DialogClose asChild>
-            <Button variant="ghost" size="icon" className="-mt-2 -mr-2" onClick={onClose}>
+            <Button variant="ghost" size="icon" className="-mt-2 -mr-2" onClick={() => setVisitHistoryModalOpen(false)}>
                 <X className="h-4 w-4" />
                 <span className="sr-only">Close</span>
             </Button>

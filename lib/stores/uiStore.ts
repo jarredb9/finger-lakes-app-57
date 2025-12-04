@@ -17,8 +17,10 @@ interface UIState {
   modalContent: ReactNode | null;
   modalTitle: string;
   modalDescription: string;
+  isVisitHistoryModalOpen: boolean;
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
+  setVisitHistoryModalOpen: (isOpen: boolean) => void;
   openWineryModal: (wineryId: string) => void;
   closeWineryModal: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
@@ -38,8 +40,10 @@ export const useUIStore = createWithEqualityFn<UIState>((set) => ({
   modalContent: null,
   modalTitle: '',
   modalDescription: '',
+  isVisitHistoryModalOpen: false,
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
+  setVisitHistoryModalOpen: (isOpen) => set({ isVisitHistoryModalOpen: isOpen }),
   openWineryModal: (wineryId) => set({ isWineryModalOpen: true, activeWineryId: wineryId }),
   closeWineryModal: () => set({ isWineryModalOpen: false, activeWineryId: null }),
   setTheme: (theme) => set({ theme }),
