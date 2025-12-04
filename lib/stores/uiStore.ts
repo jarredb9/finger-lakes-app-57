@@ -18,10 +18,11 @@ interface UIState {
   modalTitle: string;
   modalDescription: string;
   isVisitHistoryModalOpen: boolean;
+  returnToVisitHistory: boolean; // New flag
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
   setVisitHistoryModalOpen: (isOpen: boolean) => void;
-  openWineryModal: (wineryId: string) => void;
+  openWineryModal: (wineryId: string, returnToHistory?: boolean) => void; // Updated signature
   closeWineryModal: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
   addNotification: (message: string, type: 'success' | 'error' | 'info') => void;
@@ -41,11 +42,22 @@ export const useUIStore = createWithEqualityFn<UIState>((set) => ({
   modalTitle: '',
   modalDescription: '',
   isVisitHistoryModalOpen: false,
+  returnToVisitHistory: false,
   toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
   setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
   setVisitHistoryModalOpen: (isOpen) => set({ isVisitHistoryModalOpen: isOpen }),
-  openWineryModal: (wineryId) => set({ isWineryModalOpen: true, activeWineryId: wineryId }),
-  closeWineryModal: () => set({ isWineryModalOpen: false, activeWineryId: null }),
+  openWineryModal: (wineryId, returnToHistory = false) => set({ 
+    isWineryModalOpen: true, 
+    activeWineryId: wineryId,
+    returnToVisitHistory: returnToHistory
+  }),
+  closeWineryModal: () => set((state) => {
+    // If the flag is set, open the history modal when closing the winery modal
+    if (state.returnToVisitHistory) {
+      return { isWineryModalOpen: false, activeWineryId: null, returnToVisitHistory: false, isVisitHistoryModalOpen: true };
+    }
+    return { isWineryModalOpen: false, activeWineryId: null };
+  }),
   setTheme: (theme) => set({ theme }),
   addNotification: (message, type) =>
     set((state) => ({
