@@ -17,17 +17,13 @@ import {
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle } from "lucide-react";
 import MapView from "./map/MapView";
-import { useWineryMap } from "@/hooks/use-winery-map";
+import { useWineryMapContext } from "@/components/winery-map-context";
 
-
-// Define the type based on the return value of useWineryMap
-type WineryMapData = ReturnType<typeof useWineryMap>;
-
-interface WineryMapProps extends WineryMapData {
+interface WineryMapProps {
   className?: string;
 }
 
-export default function WineryMap(props: WineryMapProps) {
+export default function WineryMap({ className }: WineryMapProps) {
   const {
     error,
     mapWineries,
@@ -36,7 +32,7 @@ export default function WineryMap(props: WineryMapProps) {
     proposedWinery,
     setProposedWinery,
     selectedTrip,
-  } = props;
+  } = useWineryMapContext();
 
   if (error) {
     return (
@@ -48,7 +44,7 @@ export default function WineryMap(props: WineryMapProps) {
   }
 
   return (
-    <div className="relative w-full h-full group">
+    <div className={`relative w-full h-full group ${className || ''}`}>
       {/* Main Map View */}
       <div className="w-full h-full">
         <MapView

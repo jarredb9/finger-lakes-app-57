@@ -2,14 +2,15 @@
 
 import { useState } from "react";
 import { AuthenticatedUser } from "@/lib/types";
-import { useWineryMap } from "@/hooks/use-winery-map";
+import { WineryMapProvider } from "@/components/winery-map-context";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, ChevronUp, ChevronDown } from "lucide-react";
+import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, ChevronUp, ChevronDown, User as UserIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GoogleMapsProvider } from "@/components/google-maps-provider";
 import dynamic from "next/dynamic";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const WineryModal = dynamic(() => import("@/components/winery-modal"), {
   ssr: false,
@@ -17,21 +18,25 @@ const WineryModal = dynamic(() => import("@/components/winery-modal"), {
 
 interface AppShellProps {
   user: AuthenticatedUser;
-  initialTab?: "explore" | "trips";
+  initialTab?: "explore" | "trips" | "friends" | "history";
 }
 
 function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
-  const wineryMapData = useWineryMap(user.id);
   const [activeTab, setActiveTab] = useState<"explore" | "trips" | "friends" | "history">(initialTab);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const [sheetSize, setSheetSize] = useState<"mini" | "full">("mini");
 
   // Handle mobile nav click
-  const handleMobileNav = (tab: "explore" | "trips" | "friends") => {
-    setActiveTab(tab);
-    setIsMobileSheetOpen(true);
-    setSheetSize("mini"); // Start small
+  const handleMobileNav = (tab: "explore" | "trips" | "friends" | "history") => {
+    if (activeTab === tab && isMobileSheetOpen) {
+        // Toggle size if clicking same tab
+        setSheetSize(prev => prev === "mini" ? "full" : "mini");
+    } else {
+        setActiveTab(tab);
+        setIsMobileSheetOpen(true);
+        setSheetSize("mini"); // Start small
+    }
   };
 
   const toggleSheetSize = () => {
@@ -39,8 +44,9 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
   };
 
   return (
-      <div className="flex h-[calc(100vh-4rem)] md:h-screen flex-col md:flex-row overflow-hidden">
+      <div className="flex h-screen w-screen overflow-hidden flex-col md:flex-row relative">
         <WineryModal />
+        
         {/* Desktop Sidebar */}
         <div
           className={cn(
@@ -52,9 +58,8 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
              <div className="w-[400px] h-full">
                 <AppSidebar 
                     user={user} 
-                    {...wineryMapData}
                     activeTab={activeTab}
-                    onTabChange={(val) => setActiveTab(val as "explore" | "trips" | "friends" | "history")}
+                    onTabChange={(val) => setActiveTab(val as any)}
                 />
              </div>
           </div>
@@ -64,7 +69,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
         <Button
             variant="outline"
             size="icon"
-            className="hidden md:flex absolute top-20 left-4 z-20 bg-background shadow-md"
+            className="hidden md:flex absolute top-4 left-4 z-20 bg-background shadow-md"
             style={{ left: isSidebarOpen ? "416px" : "16px", transition: "left 0.3s ease-in-out" }}
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
         >
@@ -73,107 +78,97 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
         {/* Main Map Area */}
         <div className="flex-1 relative w-full h-full">
-          <WineryMap {...wineryMapData} />
+          <WineryMap />
+          
+          {/* Mobile User Avatar (Floating Top Right) - Since header is gone */}
+          <div className="md:hidden absolute top-4 right-4 z-10">
+             <div className="bg-background/80 backdrop-blur-sm p-1 rounded-full shadow-sm border">
+                <Avatar className="h-8 w-8">
+                    <AvatarImage src="/placeholder-user.jpg" />
+                    <AvatarFallback>{user.name?.charAt(0) || <UserIcon className="h-4 w-4" />}</AvatarFallback>
+                </Avatar>
+             </div>
+          </div>
         </div>
 
         {/* Mobile Navigation Bar */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t flex items-center justify-around z-50 pb-safe">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t flex items-center justify-around z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
             <Button 
                 variant="ghost" 
-                className={cn("flex flex-col gap-1 h-auto", !isMobileSheetOpen && "text-primary")}
+                className={cn("flex flex-col gap-1 h-auto w-16", !isMobileSheetOpen && "text-primary")}
                 onClick={() => setIsMobileSheetOpen(false)}
             >
                 <MapIcon className="h-5 w-5" />
-                <span className="text-xs">Map</span>
+                <span className="text-[10px]">Map</span>
             </Button>
             <Button 
                 variant="ghost" 
-                className={cn("flex flex-col gap-1 h-auto", activeTab === "explore" && isMobileSheetOpen && "text-primary")}
+                className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "explore" && isMobileSheetOpen && "text-primary")}
                 onClick={() => handleMobileNav("explore")}
             >
                 <Search className="h-5 w-5" />
-                <span className="text-xs">Explore</span>
+                <span className="text-[10px]">Explore</span>
             </Button>
             <Button 
                 variant="ghost" 
-                className={cn("flex flex-col gap-1 h-auto", activeTab === "trips" && isMobileSheetOpen && "text-primary")}
+                className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "trips" && isMobileSheetOpen && "text-primary")}
                 onClick={() => handleMobileNav("trips")}
             >
                 <CalendarDays className="h-5 w-5" />
-                <span className="text-xs">Trips</span>
+                <span className="text-[10px]">Trips</span>
             </Button>
             <Button 
                 variant="ghost" 
-                className={cn("flex flex-col gap-1 h-auto", activeTab === "friends" && isMobileSheetOpen && "text-primary")}
+                className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "friends" && isMobileSheetOpen && "text-primary")}
                 onClick={() => handleMobileNav("friends")}
             >
                 <Users className="h-5 w-5" />
-                <span className="text-xs">Friends</span>
+                <span className="text-[10px]">Friends</span>
             </Button>
         </div>
 
         {/* Custom Mobile Bottom Sheet */}
         <div
-            role="dialog"
-            aria-modal="false"
-            aria-labelledby="drawer-title"
             className={cn(
-                "md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background border-t rounded-t-[10px] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] flex flex-col",
-                "transition-all duration-300 ease-in-out",
-                !isMobileSheetOpen ? "h-0 overflow-hidden opacity-0 invisible" : "opacity-100 visible",
-                isMobileSheetOpen && sheetSize === "mini" ? "h-[40vh]" : "",
-                isMobileSheetOpen && sheetSize === "full" ? "h-[85vh]" : ""
+                "md:hidden fixed bottom-16 left-0 right-0 z-40 bg-background border-t rounded-t-[15px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex flex-col",
+                "transition-all duration-300 ease-out",
+                !isMobileSheetOpen ? "translate-y-[120%] opacity-0 invisible" : "translate-y-0 opacity-100 visible",
+                isMobileSheetOpen && sheetSize === "mini" ? "h-[45vh]" : "",
+                isMobileSheetOpen && sheetSize === "full" ? "h-[calc(100vh-4rem)] top-4" : "" // Full height minus nav bar, with top spacing
             )}
         >
             {/* Sheet Header / Handle */}
-            <button
-                type="button"
-                aria-expanded={sheetSize === "full"}
-                aria-controls="drawer-content"
-                className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 rounded-t-[10px] shrink-0 cursor-pointer w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+            <div
+                className="flex items-center justify-between px-4 py-3 border-b bg-muted/10 shrink-0 cursor-pointer w-full active:bg-muted/20 transition-colors rounded-t-[15px]"
                 onClick={toggleSheetSize}
             >
                 <div className="flex-1 text-left">
-                    <h2 id="drawer-title" className="text-sm font-semibold text-muted-foreground">
-                        {activeTab === "explore" && "Explore"}
-                        {activeTab === "trips" && "Trips"}
-                        {activeTab === "friends" && "Friends"}
-                        {activeTab === "history" && "History"}
+                    <h2 className="text-sm font-semibold text-foreground">
+                        {activeTab === "explore" && "Explore Wineries"}
+                        {activeTab === "trips" && "Trip Planner"}
+                        {activeTab === "friends" && "Friends & Activity"}
+                        {activeTab === "history" && "Visit History"}
                     </h2>
                 </div>
+                
                 {/* Drag Handle Visual */}
-                <div className="w-12 h-1.5 bg-muted-foreground/20 rounded-full mx-auto" />
+                <div className="w-12 h-1.5 bg-muted-foreground/20 rounded-full absolute left-1/2 -translate-x-1/2" />
                 
                 {/* Controls */}
                 <div className="flex-1 flex justify-end gap-1">
-                    <div className="h-8 w-8 flex items-center justify-center">
+                    <div className="h-8 w-8 flex items-center justify-center text-muted-foreground">
                         {sheetSize === "mini" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     </div>
-                    <div 
-                        role="button"
-                        tabIndex={0}
-                        className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-accent"
-                        onClick={(e) => { e.stopPropagation(); setIsMobileSheetOpen(false); }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.stopPropagation();
-                                setIsMobileSheetOpen(false);
-                            }
-                        }}
-                    >
-                        <X className="h-4 w-4" />
-                    </div>
                 </div>
-            </button>
+            </div>
 
             {/* Scrollable Content Area */}
-            <div id="drawer-content" className="flex-1 overflow-y-auto pb-20">
+            <div className="flex-1 overflow-hidden relative bg-background">
                 <AppSidebar 
                     user={user} 
-                    {...wineryMapData} 
                     className="border-none h-full"
                     activeTab={activeTab}
-                    onTabChange={(val) => setActiveTab(val as "explore" | "trips" | "friends" | "history")}
+                    onTabChange={(val) => setActiveTab(val as any)}
                 />
             </div>
         </div>
@@ -184,7 +179,9 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 export function AppShell(props: AppShellProps) {
   return (
     <GoogleMapsProvider>
-      <AppShellContent {...props} />
+      <WineryMapProvider user={props.user}>
+        <AppShellContent {...props} />
+      </WineryMapProvider>
     </GoogleMapsProvider>
   );
 }
