@@ -187,7 +187,7 @@ export function AppSidebar({
       </Tabs>
 
       {/* User Footer */}
-      <div className="p-4 border-t bg-muted/10 shrink-0">
+      <div className="hidden md:flex p-4 border-t bg-muted/10 shrink-0">
         <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
                 <Avatar className="h-9 w-9 border">
