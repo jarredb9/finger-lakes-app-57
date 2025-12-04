@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useTripStore } from "@/lib/stores/tripStore";
 
 interface MapControlsProps {
@@ -89,12 +88,14 @@ export function MapControls({
       </div>
 
       {/* API Limit Warning */}
-                                                                              {hitApiLimit && (
-                                                                                <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800 py-2 [&>svg+div]:translate-y-0 [&>svg]:!top-[50%] [&>svg]:!-translate-y-1/2">
-                                                                                    <AlertTriangle className="h-4 w-4 !text-yellow-600" />
-                                                                                    <AlertDescription className="text-xs">Zoom in to see more results.</AlertDescription>
-                                                                                </Alert>
-                                                                              )}      {/* Filters & Overlays */}
+      {hitApiLimit && (
+        <div role="alert" className="flex items-center gap-3 w-full rounded-lg border px-4 bg-yellow-50 border-yellow-200 text-yellow-800 py-2">
+            <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />
+            <span className="text-xs leading-relaxed">Zoom in to see more results.</span>
+        </div>
+      )}
+
+      {/* Filters & Overlays */}
       <div className="space-y-2">
         <div className="space-y-1">
           <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Filter Wineries</span>
