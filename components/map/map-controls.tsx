@@ -89,12 +89,12 @@ export function MapControls({
       </div>
 
       {/* API Limit Warning */}
-                                          {hitApiLimit && (
-                                            <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800 py-2 [&>svg+div]:translate-y-0 [&>svg]:top-2">
-                                                <AlertTriangle className="h-4 w-4 !text-yellow-600" />
-                                                <AlertDescription className="text-xs">Zoom in to see more results.</AlertDescription>
-                                            </Alert>
-                                          )}      {/* Filters & Overlays */}
+                                                            {hitApiLimit && (
+                                                              <Alert variant="default" className="bg-yellow-50 border-yellow-200 text-yellow-800 py-2 [&>svg+div]:translate-y-0 [&>svg]:top-[50%] [&>svg]:-translate-y-1/2">
+                                                                  <AlertTriangle className="h-4 w-4 !text-yellow-600" />
+                                                                  <AlertDescription className="text-xs">Zoom in to see more results.</AlertDescription>
+                                                              </Alert>
+                                                            )}      {/* Filters & Overlays */}
       <div className="space-y-2">
         <div className="space-y-1">
           <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Filter Wineries</span>
