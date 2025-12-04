@@ -107,7 +107,7 @@ export function AppSidebar({
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <TabsContent value="explore" className="m-0 h-full flex flex-col">
+          <TabsContent value="explore" className="m-0 h-full data-[state=active]:flex flex-col">
              <div className="p-4 space-y-4 pb-20">
                
                <MapControls 
