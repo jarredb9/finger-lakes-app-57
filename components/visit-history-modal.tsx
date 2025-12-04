@@ -26,10 +26,18 @@ type SortField = "date" | "rating" | "name"
 type SortDirection = "asc" | "desc"
 
 export function VisitHistoryModal({ visits }: VisitHistoryModalProps) {
-  const { openWineryModal, isVisitHistoryModalOpen, setVisitHistoryModalOpen } = useUIStore()
+  const { openWineryModal, isVisitHistoryModalOpen, setVisitHistoryModalOpen, isWineryModalOpen } = useUIStore()
   const [mobileSearch, setMobileSearch] = useState("")
   const [sortField, setSortField] = useState<SortField>("date")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open && isWineryModalOpen) {
+      // Prevent closing if the Winery Modal is open (likely a propagation issue)
+      return
+    }
+    setVisitHistoryModalOpen(open)
+  }
 
   const handleRowClick = (visit: Visit) => {
      // @ts-ignore - We know this visit object has the wineryId attached from the parent mapping
@@ -78,7 +86,7 @@ export function VisitHistoryModal({ visits }: VisitHistoryModalProps) {
   }, [visits, mobileSearch, sortField, sortDirection])
 
   return (
-    <Dialog open={isVisitHistoryModalOpen} onOpenChange={setVisitHistoryModalOpen}>
+    <Dialog open={isVisitHistoryModalOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-4xl max-h-[85dvh] flex flex-col p-0 gap-0 overflow-hidden">
         <div className="p-6 pb-4 border-b bg-background z-10 flex items-start justify-between">
           <DialogHeader>
