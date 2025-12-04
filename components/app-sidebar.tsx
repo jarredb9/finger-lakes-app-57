@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,14 +9,19 @@ import { AuthenticatedUser } from "@/lib/types";
 import { useWineryMapContext } from "@/components/winery-map-context";
 import WinerySearchResults from "@/components/map/WinerySearchResults";
 import TripList from "@/components/trip-list";
+// Import VisitHistoryModal and List icon
+import { VisitHistoryModal } from "@/components/visit-history-modal";
+import { List } from "lucide-react";
+
 import TripPlanner from "@/components/trip-planner";
-import GlobalVisitHistory from "@/components/global-visit-history";
+import GlobalVisitHistory, { VisitWithContext } from "@/components/global-visit-history"; // Import VisitWithContext
 import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import FriendsManager from "@/components/friends-manager";
 import { MapControls } from "@/components/map/map-controls";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useWineryStore } from "@/lib/stores/wineryStore"; // To get persistentWineries for allVisits
 
 interface AppSidebarProps {
   user: AuthenticatedUser;
@@ -47,6 +52,30 @@ export function AppSidebar({
     handleFilterChange,
   } = useWineryMapContext();
 
+  const { persistentWineries } = useWineryStore(); // Get persistentWineries here
+
+  const [isVisitHistoryModalOpen, setIsVisitHistoryModalOpen] = useState(false); // State for modal
+
+  // Compute allVisits here in AppSidebar
+  const allVisits: VisitWithContext[] = useMemo(() => {
+    return persistentWineries.flatMap(winery => 
+      (winery.visits || []).map(visit => ({
+        ...visit,
+        wineryName: winery.name,
+        wineryId: winery.id,
+        wineries: {
+            id: 0, // Placeholder, not used by table
+            google_place_id: winery.id,
+            name: winery.name,
+            address: winery.address,
+            latitude: winery.lat.toString(),
+            longitude: winery.lng.toString()
+        }
+      }))
+    ).sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+  }, [persistentWineries]);
+
+
   // Memoize expensive tab contents
   const tripsContent = useMemo(() => (
     <div className="p-4 space-y-6">
@@ -63,11 +92,30 @@ export function AppSidebar({
   ), [user]);
 
   const historyContent = useMemo(() => (
-    <div className="p-4 space-y-4">
-      <h3 className="text-lg font-semibold">My Visit History</h3>
-      <GlobalVisitHistory />
+    <div className="flex flex-col flex-1 overflow-y-auto"> {/* Changed div to flex-col and overflow-y-auto */}
+      <div className="p-4 flex items-center justify-between shrink-0"> {/* Flex for title and button */}
+        <h3 className="text-lg font-semibold">My Visit History</h3>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => setIsVisitHistoryModalOpen(true)} 
+          className="gap-2 shrink-0"
+        >
+          <List className="w-4 h-4" />
+          View as Table
+        </Button>
+      </div>
+      <div className="p-4 space-y-4 flex-1 overflow-y-auto"> {/* Added p-4 here for padding, flex-1 for content */}
+        <GlobalVisitHistory allVisits={allVisits} />
+      </div>
+      {/* Render VisitHistoryModal here */}
+      <VisitHistoryModal 
+        isOpen={isVisitHistoryModalOpen} 
+        onClose={() => setIsVisitHistoryModalOpen(false)} 
+        visits={allVisits} 
+      />
     </div>
-  ), []);
+  ), [allVisits, isVisitHistoryModalOpen]); // Dependencies for historyContent
 
   const friendsContent = useMemo(() => (
     <div className="p-4 space-y-4">

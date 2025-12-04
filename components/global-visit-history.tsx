@@ -1,46 +1,34 @@
 import { Visit } from "@/lib/types";
-import { useWineryStore } from "@/lib/stores/wineryStore";
 import VisitHistory from "./VisitHistory";
 import { useVisitStore } from "@/lib/stores/visitStore";
-import { useUIStore } from "@/lib/stores/uiStore"; // Import UI Store
+import { useUIStore } from "@/lib/stores/uiStore";
 import { useToast } from "@/hooks/use-toast";
-import { useMemo, useState } from "react";
-import { Calendar, MapPin, List } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { VisitHistoryModal } from "@/components/visit-history-modal";
+import { Calendar, MapPin } from "lucide-react";
 
 // Extended Visit type to include winery name for display context
-interface VisitWithContext extends Visit {
+export interface VisitWithContext extends Visit {
   wineryName: string;
   wineryId: string;
+  // Add temporary 'wineries' field for table compatibility, as required by the original code
+  wineries: {
+    id: number;
+    google_place_id: string;
+    name: string;
+    address: string;
+    latitude: string;
+    longitude: string;
+  };
 }
 
-export default function GlobalVisitHistory() {
-  const { persistentWineries } = useWineryStore();
-  const { openWineryModal } = useUIStore(); // Use UI Store
+interface GlobalVisitHistoryProps {
+  // allVisits is exposed via prop to parent for modal
+  allVisits: VisitWithContext[];
+}
+
+export default function GlobalVisitHistory({ allVisits }: GlobalVisitHistoryProps) {
+  const { openWineryModal } = useUIStore();
   const { deleteVisit: deleteVisitAction } = useVisitStore();
   const { toast } = useToast();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
-
-  // Flatten all visits from all wineries into a single array
-  const allVisits: VisitWithContext[] = useMemo(() => {
-    return persistentWineries.flatMap(winery => 
-      (winery.visits || []).map(visit => ({
-        ...visit,
-        wineryName: winery.name,
-        wineryId: winery.id,
-        wineries: {
-            id: 0, // Placeholder, not used by table
-            google_place_id: winery.id,
-            name: winery.name,
-            address: winery.address,
-            latitude: winery.lat.toString(),
-            longitude: winery.lng.toString()
-        }
-      }))
-    ).sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
-  }, [persistentWineries]);
 
   const handleEditClick = (visit: Visit) => {
     const visitWithContext = visit as VisitWithContext;
@@ -77,13 +65,6 @@ export default function GlobalVisitHistory() {
 
   return (
     <div className="space-y-6">
-       <div className="flex justify-end">
-         <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)} className="gap-2">
-           <List className="w-4 h-4" />
-           View as Table
-         </Button>
-       </div>
-
        {allVisits.map((visit) => (
            <div key={visit.id} className="relative">
                <div className="flex items-center gap-2 mb-2 px-1">
@@ -99,11 +80,6 @@ export default function GlobalVisitHistory() {
                />
            </div>
        ))}
-       <VisitHistoryModal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
-          visits={allVisits} 
-       />
     </div>
   );
 }
