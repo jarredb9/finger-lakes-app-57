@@ -114,21 +114,27 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
         {/* Custom Mobile Bottom Sheet */}
         <div
+            role="dialog"
+            aria-modal="false"
+            aria-labelledby="drawer-title"
             className={cn(
                 "md:hidden fixed bottom-0 left-0 right-0 z-40 bg-background border-t rounded-t-[10px] shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] flex flex-col",
                 "transition-all duration-300 ease-in-out",
-                !isMobileSheetOpen ? "h-0 overflow-hidden opacity-0" : "opacity-100",
+                !isMobileSheetOpen ? "h-0 overflow-hidden opacity-0 invisible" : "opacity-100 visible",
                 isMobileSheetOpen && sheetSize === "mini" ? "h-[40vh]" : "",
                 isMobileSheetOpen && sheetSize === "full" ? "h-[85vh]" : ""
             )}
         >
             {/* Sheet Header / Handle */}
-            <div 
-                className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 rounded-t-[10px] shrink-0 cursor-pointer"
+            <button
+                type="button"
+                aria-expanded={sheetSize === "full"}
+                aria-controls="drawer-content"
+                className="flex items-center justify-between px-4 py-2 border-b bg-muted/30 rounded-t-[10px] shrink-0 cursor-pointer w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                 onClick={toggleSheetSize}
             >
-                <div className="flex-1">
-                    <h2 className="text-sm font-semibold text-muted-foreground">
+                <div className="flex-1 text-left">
+                    <h2 id="drawer-title" className="text-sm font-semibold text-muted-foreground">
                         {activeTab === "explore" && "Explore"}
                         {activeTab === "trips" && "Trips"}
                         {activeTab === "friends" && "Friends"}
@@ -140,17 +146,28 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                 
                 {/* Controls */}
                 <div className="flex-1 flex justify-end gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); toggleSheetSize(); }}>
+                    <div className="h-8 w-8 flex items-center justify-center">
                         {sheetSize === "mini" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); setIsMobileSheetOpen(false); }}>
+                    </div>
+                    <div 
+                        role="button"
+                        tabIndex={0}
+                        className="h-8 w-8 flex items-center justify-center rounded-md hover:bg-accent"
+                        onClick={(e) => { e.stopPropagation(); setIsMobileSheetOpen(false); }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.stopPropagation();
+                                setIsMobileSheetOpen(false);
+                            }
+                        }}
+                    >
                         <X className="h-4 w-4" />
-                    </Button>
+                    </div>
                 </div>
-            </div>
+            </button>
 
             {/* Scrollable Content Area */}
-            <div className="flex-1 overflow-y-auto pb-20">
+            <div id="drawer-content" className="flex-1 overflow-y-auto pb-20">
                 <AppSidebar 
                     user={user} 
                     {...wineryMapData} 
