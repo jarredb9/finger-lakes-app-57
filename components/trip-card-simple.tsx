@@ -36,7 +36,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
     };
 
     return (
-        <Card>
+        <Card className="w-full">
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg md:text-xl">{trip.name || "Unnamed Trip"}</CardTitle>
