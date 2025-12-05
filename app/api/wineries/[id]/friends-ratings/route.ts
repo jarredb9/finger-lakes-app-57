@@ -13,6 +13,10 @@ interface Rating {
     id: string;
     name: string;
     email: string;
+  } | {
+    id: string;
+    name: string;
+    email: string;
   }[] | null;
 }
 
@@ -86,13 +90,16 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
         }
 
         // Format the response
-        const formattedRatings = ratings.map((r: Rating) => ({
-            rating: r.rating,
-            user_review: r.user_review,
-            photos: r.photos || [],
-            user_id: r.user_id,
-            name: r.profiles?.[0]?.name || 'A friend'
-        }));
+        const formattedRatings = ratings.map((r: Rating) => {
+            const profile = Array.isArray(r.profiles) ? r.profiles[0] : r.profiles;
+            return {
+                rating: r.rating,
+                user_review: r.user_review,
+                photos: r.photos || [],
+                user_id: r.user_id,
+                name: profile?.name || 'A friend'
+            };
+        });
 
 
         return NextResponse.json(formattedRatings);
