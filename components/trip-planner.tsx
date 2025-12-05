@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Skeleton } from "@/components/ui/skeleton";
 import TripForm from "./trip-form";
 
-export default function TripPlanner({ initialDate, user }: { initialDate: Date, user: AuthenticatedUser }) {
+export default function TripPlanner({ initialDate, user, hideCalendar = false, hideTrips = false }: { initialDate: Date, user: AuthenticatedUser, hideCalendar?: boolean, hideTrips?: boolean }) {
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
     const [isCreateTripModalOpen, setCreateTripModalOpen] = useState(false);
 
@@ -27,22 +27,25 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
     return (
         <div className="space-y-6">
             {/* Date Selection */}
-            <Card className="w-full">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium uppercase text-muted-foreground">Select Date</CardTitle>
-                </CardHeader>
-                <CardContent className="flex justify-center">
-                    <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        className="rounded-md border shadow-sm"
-                    />
-                </CardContent>
-            </Card>
+            {!hideCalendar && (
+                <Card className="w-full">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium uppercase text-muted-foreground">Select Date</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex justify-center">
+                        <Calendar
+                            mode="single"
+                            selected={selectedDate}
+                            onSelect={setSelectedDate}
+                            className="rounded-md border shadow-sm"
+                        />
+                    </CardContent>
+                </Card>
+            )}
 
             {/* Trips List */}
-            <div className="space-y-4">
+            {!hideTrips && (
+                <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <h2 className="text-lg font-bold">
                         {selectedDate ? selectedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '...'}
@@ -83,6 +86,7 @@ export default function TripPlanner({ initialDate, user }: { initialDate: Date, 
                             <p className="text-muted-foreground text-sm">No trips planned for this day.</p>
                         </CardContent>
                     </Card>
+                )}
                 )}
             </div>
         </div>

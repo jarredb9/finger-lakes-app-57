@@ -82,13 +82,18 @@ export function AppSidebar({
   const tripsContent = useMemo(() => (
     <div className="p-4 space-y-6">
       <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Happening Today</h3>
+        <TripPlanner initialDate={new Date()} user={user} hideCalendar={true} />
+      </div>
+      <Separator />
+      <div className="space-y-4">
         <h3 className="text-lg font-semibold">Your Upcoming Trips</h3>
         <TripList />
       </div>
       <Separator />
       <div className="space-y-4">
         <h3 className="text-lg font-semibold">Plan a Trip</h3>
-        <TripPlanner initialDate={new Date()} user={user} />
+        <TripPlanner initialDate={new Date()} user={user} hideTrips={true} />
       </div>
     </div>
   ), [user]);
