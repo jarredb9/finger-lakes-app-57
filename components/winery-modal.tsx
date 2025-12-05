@@ -38,11 +38,10 @@ export default function WineryModal() {
   const prevVisitsLength = useRef(visits.length);
 
   useEffect(() => {
-    if (isWineryModalOpen && editingVisitId !== null) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setEditingVisitId(null);
-    }
-  }, [isWineryModalOpen, editingVisitId]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setEditingVisitId(null);
+    setPhotosToDelete([]);
+  }, [isWineryModalOpen, activeWineryId]);
 
   useEffect(() => {
     if (visits.length > prevVisitsLength.current) {
@@ -93,11 +92,6 @@ export default function WineryModal() {
     <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
       <DialogContent
         className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
-        onPointerDownOutside={(e) => {
-          if ((e.target as HTMLElement)?.closest("[vaul-drawer-trigger]")) {
-            e.preventDefault();
-          }
-        }}
         onFocusOutside={(e) => e.preventDefault()}
       >
         <div className="overflow-y-auto">

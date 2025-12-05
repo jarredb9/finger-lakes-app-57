@@ -8,6 +8,7 @@ interface TripState {
   tripsForDate: Trip[];
   upcomingTrips: Trip[];
   isLoading: boolean;
+  isSaving: boolean;
   selectedTrip: Trip | null;
   page: number;
   count: number;
@@ -37,6 +38,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   tripsForDate: [],
   upcomingTrips: [],
   isLoading: false,
+  isSaving: false,
   selectedTrip: null,
   page: 1,
   count: 0,
@@ -270,90 +272,9 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   setSelectedTrip: (trip) => set({ selectedTrip: trip }),
 
   addWineryToTrips: async (winery, tripDate, selectedTrips, newTripName, addTripNotes) => {
-    const { ensureWineryInDb, persistentWineries, updateWinery } = useWineryStore.getState();
+    set({ isSaving: true });
+    const { ensureWineryInDb } = useWineryStore.getState();
     const dateString = tripDate.toISOString().split("T")[0];
-
-    // --- Optimistic Update --- //
-    const originalUpcomingTrips = get().upcomingTrips;
-    const originalTripsForDate = get().tripsForDate;
-    const originalWinery = persistentWineries.find(w => w.id === winery.id);
-
-    let tempTripIdCounter = Date.now();
-
-    // Create a winery object shape that can be added to a trip
-    const wineryForTrip = { 
-        ...winery, 
-        notes: addTripNotes, 
-        // Ensure dbId is present, even if temporary
-        dbId: winery.dbId ?? await ensureWineryInDb(winery) 
-    };
-    if (!wineryForTrip.dbId) {
-        throw new Error("Could not ensure winery in database for optimistic update.");
-    }
-
-    const newUpcomingTrips = [...originalUpcomingTrips];
-    const newTripsForDate = [...originalTripsForDate];
-
-    // Update existing trips
-    selectedTrips.forEach(tripId => {
-        if (tripId !== 'new') {
-            const updateTripInList = (list: Trip[]) => {
-                const tripIndex = list.findIndex(t => t.id === parseInt(tripId, 10));
-                if (tripIndex > -1) {
-                    const updatedTrip = { ...list[tripIndex] };
-                    const currentWineries = updatedTrip.wineries || []; // Safeguard against undefined
-                    if (!currentWineries.some(w => w.id === winery.id)) {
-                        updatedTrip.wineries = [...currentWineries, wineryForTrip];
-                    }
-                    list[tripIndex] = updatedTrip;
-                }
-            };
-            updateTripInList(newUpcomingTrips);
-            updateTripInList(newTripsForDate);
-        }
-    });
-
-    // Create new trip
-    if (selectedTrips.has('new')) {
-        const tempNewTrip: Trip = {
-            id: -tempTripIdCounter++,
-            user_id: "",
-            trip_date: dateString,
-            name: newTripName.trim() || "New Trip",
-            notes: "", // Trip notes, not winery notes
-            wineries: [wineryForTrip],
-            owner_id: "", // Will be set by the server
-            members: [],
-            wineryOrder: [wineryForTrip.dbId]
-        };
-        newUpcomingTrips.push(tempNewTrip);
-        newTripsForDate.push(tempNewTrip);
-    }
-    
-    // Optimistically update the winery itself to show the trip badge
-    const firstTripId = Array.from(selectedTrips)[0];
-    const tripName = firstTripId === 'new' ? (newTripName.trim() || "New Trip") : (originalTripsForDate.find(t => t.id.toString() === firstTripId)?.name || "Trip");
-    
-    if (originalWinery) {
-      let numericTripId: number;
-
-      if (firstTripId === 'new') {
-        numericTripId = -Math.abs(tempTripIdCounter - 1);
-      } else {
-        // Parse the existing string ID into a number.
-        numericTripId = parseInt(firstTripId, 10);
-      }
-        const updatedWinery = { 
-            ...originalWinery, 
-            trip_name: tripName,
-            trip_date: dateString,
-            trip_id: numericTripId
-        };
-        updateWinery(originalWinery.id, updatedWinery);
-    }
-
-    set({ upcomingTrips: newUpcomingTrips, tripsForDate: newTripsForDate });
-    // --- End Optimistic Update --- //
 
     try {
         const wineryDbId = await ensureWineryInDb(winery);
@@ -376,17 +297,16 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         await Promise.all(tripPromises);
 
         // Re-fetch to get actual IDs and confirm data
-        get().fetchUpcomingTrips();
-        get().fetchTripsForDate(dateString);
+        await Promise.all([
+          get().fetchUpcomingTrips(),
+          get().fetchTripsForDate(dateString)
+        ]);
 
     } catch (error) {
-        console.error("Error adding winery to trips, reverting:", error);
-        // Revert optimistic updates
-        set({ upcomingTrips: originalUpcomingTrips, tripsForDate: originalTripsForDate });
-        if (originalWinery) {
-            updateWinery(originalWinery.id, originalWinery);
-        }
+        console.error("Error adding winery to trips:", error);
         throw error; // Re-throw to be caught by the UI
+    } finally {
+        set({ isSaving: false });
     }
   },
 
