@@ -24,6 +24,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useWineryStore } from "@/lib/stores/wineryStore"; // To get persistentWineries for allVisits
 import { useUIStore } from "@/lib/stores/uiStore";
 
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+
 interface AppSidebarProps {
   user: AuthenticatedUser;
   className?: string;
@@ -123,10 +125,41 @@ export function AppSidebar({
 
   return (
     <div className={`flex flex-col h-full bg-white dark:bg-zinc-950 border-r ${className || ''}`}>
-      {/* Branding Header */}
-      <div className="p-4 border-b flex items-center gap-3 shrink-0">
-        <Image src="/wine-glass.svg" alt="Logo" width={24} height={24} />
-        <h1 className="text-lg font-bold tracking-tight">Winery Tracker</h1>
+      {/* Branding Header & User Avatar */}
+      <div className="p-4 border-b flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-3">
+            <Image src="/wine-glass.svg" alt="Logo" width={24} height={24} />
+            <h1 className="text-lg font-bold tracking-tight">Winery Tracker</h1>
+        </div>
+        
+        {/* User Avatar Dropdown - Visible on Desktop, hidden on mobile (handled by AppShell) */}
+        <div className="hidden md:block">
+            <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                        <Avatar className="h-8 w-8 border">
+                            <AvatarImage src="/placeholder-user.jpg" />
+                            <AvatarFallback>{user.name?.charAt(0) || <UserIcon className="h-4 w-4" />}</AvatarFallback>
+                        </Avatar>
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                        <div className="flex flex-col space-y-1">
+                            <p className="text-sm font-medium leading-none">{user.name}</p>
+                            <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                        </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                        <Link href="/logout" className="w-full cursor-pointer flex items-center text-red-600 focus:text-red-600">
+                            <LogOut className="mr-2 h-4 w-4" />
+                            <span>Log out</span>
+                        </Link>
+                    </DropdownMenuItem>
+                </DropdownMenuContent>
+            </DropdownMenu>
+        </div>
       </div>
 
       {/* Navigation Tabs */}
@@ -231,27 +264,6 @@ export function AppSidebar({
           </TabsContent>
         </div>
       </Tabs>
-
-      {/* User Footer */}
-      <div className="hidden md:flex p-4 border-t bg-muted/10 shrink-0">
-        <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-                <Avatar className="h-9 w-9 border">
-                    <AvatarImage src="/placeholder-user.jpg" />
-                    <AvatarFallback>{user.name?.charAt(0) || <UserIcon className="h-4 w-4" />}</AvatarFallback>
-                </Avatar>
-                <div className="flex flex-col">
-                    <span className="text-sm font-medium leading-none">{user.name}</span>
-                    <span className="text-xs text-muted-foreground truncate max-w-[120px]">{user.email}</span>
-                </div>
-            </div>
-            <Link href="/logout">
-                <Button variant="ghost" size="icon" title="Logout">
-                    <LogOut className="h-4 w-4 text-muted-foreground" />
-                </Button>
-            </Link>
-        </div>
-      </div>
     </div>
   );
 }
