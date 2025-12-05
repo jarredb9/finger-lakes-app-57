@@ -87,8 +87,8 @@ export default function TripPlanner({ initialDate, user, hideCalendar = false, h
                         </CardContent>
                     </Card>
                 )}
-                )}
             </div>
+            )}
         </div>
     );
 }
