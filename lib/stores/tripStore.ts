@@ -294,7 +294,37 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
             }
         });
 
-        await Promise.all(tripPromises);
+        const results = await Promise.all(tripPromises);
+
+        // Update WineryStore to reflect trip status immediately (Badge support)
+        // We pick the first trip added to display on the badge, as the Winery type currently supports one trip reference.
+        let badgeTripId: number | undefined;
+        let badgeTripName: string | undefined;
+
+        // 1. Check for new trip result
+        const newTripResult = results.find(r => r && r.tripId);
+        if (newTripResult) {
+            badgeTripId = newTripResult.tripId;
+            badgeTripName = newTripName;
+        } 
+        // 2. If not new, find first existing trip ID
+        else if (selectedTrips.size > 0) {
+             const firstTripId = Array.from(selectedTrips).find(id => id !== 'new');
+             if (firstTripId) {
+                 badgeTripId = parseInt(firstTripId, 10);
+                 // Find name from tripsForDate
+                 const trip = get().tripsForDate.find(t => t.id === badgeTripId);
+                 badgeTripName = trip?.name;
+             }
+        }
+
+        if (badgeTripId && badgeTripName) {
+             useWineryStore.getState().updateWinery(winery.id, { 
+                 trip_id: badgeTripId, 
+                 trip_name: badgeTripName, 
+                 trip_date: dateString 
+             });
+        }
 
         // Re-fetch to get actual IDs and confirm data
         await Promise.all([

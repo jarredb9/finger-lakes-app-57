@@ -115,7 +115,7 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
         <Button onClick={handleToggleWineryOnActiveTrip} variant={isOnActiveTrip ? "destructive" : "default"} className="w-full">
           {isOnActiveTrip ? "Remove from Trip" : "Add to This Trip"}
         </Button>
-        <Link href={`/trips?date=${new Date(selectedTrip.trip_date).toISOString()}`} passHref>
+        <Link href={`/trips/${selectedTrip.id}`} passHref>
           <Button variant="outline" className="w-full">
             <ArrowRight className="mr-2 h-4 w-4" /> Go to Trip Planner
           </Button>
