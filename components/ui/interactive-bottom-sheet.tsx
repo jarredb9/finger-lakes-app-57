@@ -66,7 +66,6 @@ export function InteractiveBottomSheet({
         !isOpen ? "translate-y-[150%]" : "translate-y-0",
         className
       )}
-      aria-hidden={!isOpen}
     >
       {/* Sheet Header / Handle */}
       <div
