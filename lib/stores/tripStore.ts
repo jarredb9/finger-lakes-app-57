@@ -266,7 +266,34 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   },
   
   addMembersToTrip: async (tripId: string, memberIds: string[]) => {
-    await TripService.updateTrip(tripId, { members: memberIds });
+    // Optimistic Update
+    const originalTrips = get().trips;
+    const tripIdNum = parseInt(tripId, 10);
+    
+    set(state => {
+        const updateTripMembers = (t: Trip) => t.id === tripIdNum ? { ...t, members: memberIds } : t;
+        return {
+            trips: state.trips.map(updateTripMembers),
+            // Update selectedTrip if it matches
+            selectedTrip: state.selectedTrip?.id === tripIdNum ? { ...state.selectedTrip, members: memberIds } : state.selectedTrip,
+            // Update tripsForDate if it matches
+            tripsForDate: state.tripsForDate.map(updateTripMembers),
+            // Update upcomingTrips if it matches
+            upcomingTrips: state.upcomingTrips.map(updateTripMembers)
+        };
+    });
+
+    try {
+      await TripService.updateTrip(tripId, { members: memberIds });
+    } catch (error) {
+        console.error("Failed to add members, reverting:", error);
+        // Revert to original state
+        // Note: deeply reverting all lists might be complex, but fetching fresh data is safer on error
+        // For now, we can just restore 'trips' and assume a refetch is needed or rely on the originalTrips snapshot for the main list
+        set({ trips: originalTrips });
+        // Trigger a refetch to ensure consistency
+        get().fetchTripById(tripId);
+    }
   },
 
   setSelectedTrip: (trip) => set({ selectedTrip: trip }),

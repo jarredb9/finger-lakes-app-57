@@ -268,25 +268,27 @@ const TripCard = memo(({ trip }: TripCardProps) => {
           </div>
         )}
       </CardContent>
-      <CardFooter className="bg-gray-50 p-4 flex justify-between items-center">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
-          <Users className="w-4 h-4" />
-          <div className="flex items-center -space-x-2">
-              <TooltipProvider>
-                  {currentMembers.map((friend: Friend) => (
-                      <Tooltip key={friend.id}>
-                          <TooltipTrigger asChild>
-                              <Avatar className="h-6 w-6 border-2 border-white">
-                                  <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
-                                  <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                              </Avatar>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                              <p>{friend.name}</p>
-                          </TooltipContent>
-                      </Tooltip>
-                  ))}
-              </TooltipProvider>
+      <CardFooter className="bg-gray-50 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="flex items-center gap-2 text-sm text-gray-600 w-full sm:w-auto justify-between sm:justify-start">
+          <div className="flex items-center gap-2">
+            <Users className="w-4 h-4" />
+            <div className="flex items-center -space-x-2">
+                <TooltipProvider>
+                    {currentMembers.map((friend: Friend) => (
+                        <Tooltip key={friend.id}>
+                            <TooltipTrigger asChild>
+                                <Avatar className="h-6 w-6 border-2 border-white">
+                                    <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
+                                    <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                                <p>{friend.name}</p>
+                            </TooltipContent>
+                        </Tooltip>
+                    ))}
+                </TooltipProvider>
+            </div>
           </div>
           {isEditing && (
               <Popover>
@@ -320,11 +322,11 @@ const TripCard = memo(({ trip }: TripCardProps) => {
               </Popover>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
           {isEditing ? (
-            <Button onClick={handleSave}><Save className="w-4 h-4 mr-2"/>Save Changes</Button>
+            <Button onClick={handleSave} className="flex-1 sm:flex-none"><Save className="w-4 h-4 mr-2"/>Save Changes</Button>
           ) : (
-            <Button variant="outline" onClick={() => setIsEditing(true)}><Edit className="w-4 h-4 mr-2"/>Edit Trip</Button>
+            <Button variant="outline" onClick={() => setIsEditing(true)} className="flex-1 sm:flex-none"><Edit className="w-4 h-4 mr-2"/>Edit Trip</Button>
           )}
           <TooltipProvider>
             <Tooltip>
