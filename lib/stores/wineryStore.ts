@@ -104,46 +104,60 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
     set({ isLoading: true, error: null });
     const supabase = createClient();
     try {
-      const { data: aggregatedData, error: rpcError } = await supabase.rpc('get_user_winery_data_aggregated');
+      // Parallel fetch: Lightweight markers + User Visits history
+      const [markersResult, visitsResult] = await Promise.all([
+        supabase.rpc('get_map_markers'),
+        supabase.rpc('get_all_user_visits_list')
+      ]);
 
-      if (rpcError) {
-        console.error("Failed to fetch winery data:", rpcError);
-        throw new Error(rpcError.message || "Failed to fetch winery data.");
-      }
+      if (markersResult.error) throw markersResult.error;
+      if (visitsResult.error) throw visitsResult.error;
 
-      // The RPC returns a single object { wineries_data: [...] } or strictly the array if defined as TABLE(jsonb)
-      // Let's inspect the type. Defined as RETURNS TABLE (wineries_data jsonb). 
-      // So data will be [{ wineries_data: [...] }] or just the array if it unrolled.
-      // Actually, with RETURNS TABLE, Supabase client usually returns an array of objects.
-      // Since the RPC logic aggregates everything into one JSON array inside a single row/column,
-      // it likely returns `[{ wineries_data: [...] }]`.
-      
-      // Wait, let's check the RPC definition again.
-      // RETURNS TABLE (wineries_data jsonb)
-      // The query does `SELECT COALESCE(jsonb_agg(...))` which returns ONE row with ONE column `wineries_data`.
-      
-      const wineriesArray = (aggregatedData && aggregatedData[0]?.wineries_data) || [];
+      const markers = markersResult.data || [];
+      const visits = visitsResult.data || [];
 
-      const detailedWineries: Winery[] = wineriesArray.map((w: any) => ({
-        id: w.id || String(w.dbId),
-        dbId: w.dbId,
-        name: w.name,
-        address: w.address,
-        lat: typeof w.lat === 'string' ? parseFloat(w.lat) : (w.lat || 0),
-        lng: typeof w.lng === 'string' ? parseFloat(w.lng) : (w.lng || 0),
-        phone: w.phone,
-        website: w.website,
-        rating: w.rating,
-        isFavorite: w.isFavorite,
-        onWishlist: w.onWishlist,
-        userVisited: w.userVisited,
-        visits: w.visits,
-        // Map trip info if available (taking the first one as primary)
-        trip_id: w.tripInfo?.[0]?.trip_id,
-        trip_name: w.tripInfo?.[0]?.trip_name,
-        trip_date: w.tripInfo?.[0]?.trip_date,
-        // We can store the full trip info if needed, but for now stick to existing types
-      }));
+      // Group visits by winery_id (dbId)
+      const visitsByWineryId = new Map();
+      visits.forEach((v: any) => {
+        const wId = v.winery_id;
+        if (!visitsByWineryId.has(wId)) visitsByWineryId.set(wId, []);
+        visitsByWineryId.get(wId).push({
+            id: v.id,
+            visit_date: v.visit_date,
+            rating: v.rating,
+            user_review: v.user_review,
+            photos: v.photos
+        });
+      });
+
+      const detailedWineries: Winery[] = markers.map((w: any) => {
+        const dbId = w.id; 
+        // markers returns 'id' as dbId, and 'google_place_id'
+        const googleId = w.google_place_id || String(dbId);
+        const visitsForThisWinery = visitsByWineryId.get(dbId) || [];
+
+        // Note: We intentionally omit heavy details (reviews, opening hours) here.
+        // They will be lazy-loaded via ensureWineryDetails.
+        return {
+            id: googleId,
+            dbId: dbId,
+            name: w.name,
+            address: w.address,
+            lat: typeof w.lat === 'string' ? parseFloat(w.lat) : (w.lat || 0),
+            lng: typeof w.lng === 'string' ? parseFloat(w.lng) : (w.lng || 0),
+            isFavorite: w.is_favorite,
+            onWishlist: w.on_wishlist,
+            userVisited: w.user_visited,
+            visits: visitsForThisWinery,
+            // Initialize optional fields as undefined to indicate "not loaded"
+            phone: undefined,
+            website: undefined,
+            rating: undefined, // Google rating
+            openingHours: undefined,
+            reviews: undefined,
+            reservable: undefined
+        };
+      });
 
       set({
         persistentWineries: detailedWineries,
@@ -161,51 +175,93 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
 
   ensureWineryDetails: async (placeId: string) => {
     const existing = get().persistentWineries.find(w => w.id === placeId);
-    if (existing && existing.phone && existing.website && existing.rating && existing.openingHours !== undefined && existing.reviews !== undefined && existing.reservable !== undefined) {
+    
+    // Check if we have meaningful details. 
+    // Note: Some wineries might legitimately not have a website or opening hours, 
+    // so checking for undefined is better than truthy check if we want to be precise.
+    // But for now, let's assume if `openingHours` is undefined, we haven't loaded details.
+    if (existing && existing.openingHours !== undefined) {
       return existing;
     }
 
-    // Check if placeId is likely a Database ID (integer) instead of a Google Place ID.
-    // Google Place IDs are alphanumeric and longer. DB IDs are just numbers here.
-    if (/^\d+$/.test(placeId)) {
-        // console.warn(`[ensureWineryDetails] Skipped Google API fetch for winery ${placeId} because it appears to be a Database ID.`);
-        return existing || null;
-    }
+    const supabase = createClient();
+    let dbData = null;
 
-    try {
-      const response = await fetch('/api/wineries/details', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ placeId }),
-      });
+    // 1. Try fetching full details from OUR DB first (using dbId if available)
+    if (existing?.dbId) {
+        const { data, error } = await supabase.rpc('get_winery_details_by_id', { winery_id_param: existing.dbId });
+        if (!error && data && data.length > 0) {
+            dbData = data[0];
+        }
+    } 
+    // If we don't have a DB ID yet (rare if coming from map markers), we might skip this
+    // or we'd need a google_place_id lookup RPC if we added one. 
+    // But get_map_markers guarantees we have a dbId for everything on the map.
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error('[ensureWineryDetails] API Error:', errorData);
-        throw new Error(`Failed to fetch details: ${response.status} ${response.statusText}`);
-      }
-      
-      const detailedWineryData = await response.json();
-      const standardized = standardizeWineryData(detailedWineryData, existing);
+    if (dbData && dbData.opening_hours) {
+        // We have good data from DB
+        // Transform DB data to Winery type
+         const standardized: Winery = {
+            ...existing!,
+            id: dbData.google_place_id || String(dbData.id),
+            dbId: dbData.id,
+            name: dbData.name,
+            address: dbData.address,
+            lat: Number(dbData.lat),
+            lng: Number(dbData.lng),
+            phone: dbData.phone,
+            website: dbData.website,
+            rating: dbData.google_rating,
+            openingHours: dbData.opening_hours,
+            reviews: dbData.reviews,
+            reservable: dbData.reservable,
+            // User state
+            isFavorite: dbData.is_favorite,
+            onWishlist: dbData.on_wishlist,
+            userVisited: dbData.user_visited,
+            visits: dbData.visits || existing?.visits || [], // Prefer DB visits but fallback
+            trip_id: dbData.trip_info?.[0]?.trip_id,
+            trip_name: dbData.trip_info?.[0]?.trip_name,
+            trip_date: dbData.trip_info?.[0]?.trip_date,
+        };
 
-      if (standardized) {
-        set(state => {
-          const index = state.persistentWineries.findIndex(w => w.id === placeId);
-          if (index !== -1) {
-            const updatedWineries = [...state.persistentWineries];
-            updatedWineries[index] = { ...updatedWineries[index], ...standardized };
-            return { persistentWineries: updatedWineries };
-          } else {
-            return { persistentWineries: [...state.persistentWineries, standardized] };
-          }
-        });
+        set(state => ({
+             persistentWineries: state.persistentWineries.map(w => 
+                 w.id === placeId ? { ...w, ...standardized } : w
+             )
+        }));
         return standardized;
-      }
-      return null;
-    } catch (error) {
-      console.error(`Failed to ensure details for winery ${placeId}:`, error);
-      return null;
     }
+
+    // 2. If DB data is missing or incomplete (no opening_hours), fetch from Google API
+    // Only if it looks like a Google Place ID (alphanumeric)
+    if (!/^\d+$/.test(placeId)) {
+        try {
+            const response = await fetch('/api/wineries/details', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ placeId }),
+            });
+
+            if (!response.ok) throw new Error("API call failed");
+            
+            const detailedWineryData = await response.json();
+            const standardized = standardizeWineryData(detailedWineryData, existing);
+
+            if (standardized) {
+                set(state => ({
+                    persistentWineries: state.persistentWineries.map(w => 
+                        w.id === placeId ? { ...w, ...standardized } : w
+                    )
+                }));
+                return standardized;
+            }
+        } catch (err) {
+            console.error(`Failed to fetch Google details for ${placeId}`, err);
+        }
+    }
+
+    return existing || null;
   },
 
   addVisitToWinery: (wineryId, newVisit) => {

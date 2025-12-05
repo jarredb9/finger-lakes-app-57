@@ -37,9 +37,53 @@ describe('wineryStore', () => {
   beforeEach(() => {
     resetStore();
     jest.clearAllMocks();
-    (createClient as jest.Mock).mockReturnValue({
-      rpc: jest.fn().mockResolvedValue({ data: null, error: { message: "Mock RPC Error" } }),
+    
+    const mockRpc = jest.fn().mockImplementation((rpcName) => {
+        if (rpcName === 'get_map_markers') {
+            return Promise.resolve({ data: [], error: null });
+        }
+        if (rpcName === 'get_all_user_visits_list') {
+            return Promise.resolve({ data: [], error: null });
+        }
+        if (rpcName === 'get_winery_details_by_id') {
+            return Promise.resolve({ data: [], error: null });
+        }
+        return Promise.resolve({ data: null, error: { message: "Unknown Mock RPC" } });
     });
+
+    (createClient as jest.Mock).mockReturnValue({
+      rpc: mockRpc,
+    });
+  });
+
+  describe('fetchWineryData', () => {
+      it('should fetch and merge markers and visits correctly', async () => {
+          const mockMarkers = [
+              { id: 100, google_place_id: 'place_A', name: 'Winery A', lat: 10, lng: 10, is_favorite: true, user_visited: true }
+          ];
+          const mockVisits = [
+              { id: 1, winery_id: 100, visit_date: '2025-01-01', rating: 5, user_review: 'Great!' }
+          ];
+
+          const mockRpc = jest.fn().mockImplementation((rpcName) => {
+            if (rpcName === 'get_map_markers') return Promise.resolve({ data: mockMarkers, error: null });
+            if (rpcName === 'get_all_user_visits_list') return Promise.resolve({ data: mockVisits, error: null });
+            return Promise.resolve({ data: null, error: null });
+          });
+          (createClient as jest.Mock).mockReturnValue({ rpc: mockRpc });
+
+          await act(async () => {
+              await useWineryStore.getState().fetchWineryData();
+          });
+
+          const state = useWineryStore.getState();
+          expect(state.persistentWineries).toHaveLength(1);
+          expect(state.persistentWineries[0].name).toBe('Winery A');
+          expect(state.persistentWineries[0].visits).toHaveLength(1);
+          expect(state.persistentWineries[0].visits![0].user_review).toBe('Great!');
+          expect(state.visitedWineries).toHaveLength(1);
+          expect(state.favoriteWineries).toHaveLength(1);
+      });
   });
 
   describe('toggleFavorite', () => {
@@ -54,9 +98,26 @@ describe('wineryStore', () => {
       };
       useWineryStore.setState({ persistentWineries: [mockWinery] });
 
+      // Mock RPC to return the winery as favorited when fetchWineryData is called
+      const mockRpc = jest.fn().mockImplementation((rpcName) => {
+        if (rpcName === 'get_map_markers') {
+             return Promise.resolve({ 
+                 data: [{ 
+                     id: 1, google_place_id: 'place1', name: 'Winery 1', 
+                     lat: 0, lng: 0, address: '123 Main St', 
+                     is_favorite: true, on_wishlist: false, user_visited: false 
+                 }], 
+                 error: null 
+             });
+        }
+        if (rpcName === 'get_all_user_visits_list') return Promise.resolve({ data: [], error: null });
+        return Promise.resolve({ data: null, error: null });
+      });
+      (createClient as jest.Mock).mockReturnValue({ rpc: mockRpc });
+
       // Mock the server action success
       (toggleFavorite as jest.Mock).mockResolvedValue({ success: true });
-      (global.fetch as jest.Mock).mockResolvedValue({ ok: true }); // Keep fetch mock for subsequent fetchWineryData
+      (global.fetch as jest.Mock).mockResolvedValue({ ok: true }); 
 
       await act(async () => {
         await useWineryStore.getState().toggleFavorite(mockWinery, false);
@@ -81,6 +142,9 @@ describe('wineryStore', () => {
       };
       useWineryStore.setState({ persistentWineries: [mockWinery] });
 
+      // Mock RPC to return ORIGINAL state (not favorited) in case fetchWineryData is called (though it shouldn't be on error ideally, or if it is, it reverts)
+      // But logic says: revert on error. So we check the revert state.
+      
       // Mock the server action failure
       (toggleFavorite as jest.Mock).mockResolvedValue({ success: false, error: "Failed" });
 
@@ -107,6 +171,26 @@ describe('wineryStore', () => {
         onWishlist: false 
       };
       useWineryStore.setState({ persistentWineries: [mockWinery] });
+      
+      // Mock RPC to return the winery as wishlisted
+      const mockRpc = jest.fn().mockImplementation((rpcName) => {
+        if (rpcName === 'get_map_markers') {
+             return Promise.resolve({ 
+                 data: [{ 
+                     id: 2, google_place_id: 'place2', name: 'Winery 2', 
+                     lat: 0, lng: 0, address: '456 Vine St', 
+                     is_favorite: false, on_wishlist: true, user_visited: false 
+                 }], 
+                 error: null 
+             });
+        }
+        if (rpcName === 'get_all_user_visits_list') return Promise.resolve({ data: [], error: null });
+         // Mock ensureWineryDetails calls if any
+        if (rpcName === 'get_winery_details_by_id') return Promise.resolve({ data: [], error: null });
+
+        return Promise.resolve({ data: null, error: null });
+      });
+      (createClient as jest.Mock).mockReturnValue({ rpc: mockRpc });
 
       (global.fetch as jest.Mock).mockResolvedValue({ ok: true });
 

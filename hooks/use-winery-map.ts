@@ -143,8 +143,10 @@ export function useWineryMap(userId: string) {
 
   const handleOpenModal = useCallback(
     async (winery: Winery) => {
-      await ensureWineryDetails(winery.id);
+      // Open modal immediately with lightweight data
       openWineryModal(winery.id);
+      // Fetch full details in the background
+      ensureWineryDetails(winery.id);
     },
     [openWineryModal, ensureWineryDetails]
   );
