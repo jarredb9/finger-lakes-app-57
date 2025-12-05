@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { AuthenticatedUser } from "@/lib/types";
 import { WineryMapProvider } from "@/components/winery-map-context";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, ChevronUp, ChevronDown, User as UserIcon, LogOut } from "lucide-react";
+import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, User as UserIcon, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GoogleMapsProvider } from "@/components/google-maps-provider";
 import dynamic from "next/dynamic";
@@ -20,6 +20,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
+import { InteractiveBottomSheet, SheetMode } from "@/components/ui/interactive-bottom-sheet";
 
 const WineryModal = dynamic(() => import("@/components/winery-modal"), {
   ssr: false,
@@ -34,43 +35,28 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
   const [activeTab, setActiveTab] = useState<"explore" | "trips" | "friends" | "history">(initialTab);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
-  const [sheetSize, setSheetSize] = useState<"mini" | "full">("mini");
-  const touchStart = useRef<number | null>(null);
+  const [sheetMode, setSheetMode] = useState<SheetMode>("mini");
 
   // Handle mobile nav click
   const handleMobileNav = (tab: "explore" | "trips" | "friends" | "history") => {
     if (activeTab === tab && isMobileSheetOpen) {
         // Toggle size if clicking same tab
-        setSheetSize(prev => prev === "mini" ? "full" : "mini");
+        setSheetMode(prev => prev === "mini" ? "full" : "mini");
     } else {
         setActiveTab(tab);
         setIsMobileSheetOpen(true);
-        setSheetSize("mini"); // Start small
+        setSheetMode("mini"); // Start small
     }
   };
 
-  const toggleSheetSize = () => {
-    setSheetSize((prev) => (prev === "mini" ? "full" : "mini"));
-  };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStart.current = e.touches[0].clientY;
-  };
-
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStart.current === null) return;
-    const touchEnd = e.changedTouches[0].clientY;
-    const diff = touchEnd - touchStart.current;
-
-    // If swipe down is significant (> 50px) and we are in mini mode or just want to close it
-    // For better UX: 
-    // - If in full mode and swipe down -> go to mini? Or close? Usually full -> mini -> close.
-    // - Let's keep it simple: Swipe down on header always closes/minimizes. 
-    //   But user asked to "swipe it closed". So let's close it.
-    if (diff > 50) {
-        setIsMobileSheetOpen(false);
-    }
-    touchStart.current = null;
+  const getSheetTitle = () => {
+      switch (activeTab) {
+          case "explore": return "Explore Wineries";
+          case "trips": return "Trip Planner";
+          case "friends": return "Friends & Activity";
+          case "history": return "Visit History";
+          default: return "Menu";
+      }
   };
 
   return (
@@ -177,70 +163,20 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
         </div>
 
         {/* Custom Mobile Bottom Sheet */}
-        <div
-            className={cn(
-                "md:hidden fixed bottom-16 left-0 right-0 z-40 bg-background border-t rounded-t-[15px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex flex-col",
-                "transition-transform duration-300 ease-out will-change-transform", // Use transform for performance
-                // Always set height based on sheetSize, use translate to hide
-                sheetSize === "mini" ? "h-[45vh]" : "h-[calc(100vh-4rem)] top-4",
-                !isMobileSheetOpen ? "translate-y-[150%]" : "translate-y-0" 
-            )}
+        <InteractiveBottomSheet
+            isOpen={isMobileSheetOpen}
+            onOpenChange={setIsMobileSheetOpen}
+            mode={sheetMode}
+            onModeChange={setSheetMode}
+            title={getSheetTitle()}
         >
-            {/* Sheet Header / Handle */}
-            <div
-                className="flex items-center justify-between px-4 py-3 border-b bg-muted/10 shrink-0 cursor-pointer w-full active:bg-muted/20 transition-colors rounded-t-[15px] touch-none"
-                onClick={toggleSheetSize}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-            >
-                <div className="flex-1 text-left">
-                    <h2 className="text-sm font-semibold text-foreground">
-                        {activeTab === "explore" && "Explore Wineries"}
-                        {activeTab === "trips" && "Trip Planner"}
-                        {activeTab === "friends" && "Friends & Activity"}
-                        {activeTab === "history" && "Visit History"}
-                    </h2>
-                </div>
-                
-                {/* Drag Handle Visual */}
-                <div className="w-12 h-1.5 bg-muted-foreground/20 rounded-full absolute left-1/2 -translate-x-1/2" />
-                
-                {/* Controls */}
-                <div className="flex-1 flex justify-end gap-2 items-center">
-                    <div className="h-8 w-8 flex items-center justify-center text-muted-foreground">
-                        {sheetSize === "mini" ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                    </div>
-                    
-                    <div 
-                        role="button"
-                        tabIndex={0}
-                        className="h-8 w-8 flex items-center justify-center rounded-full bg-muted/50 hover:bg-muted text-muted-foreground"
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setIsMobileSheetOpen(false);
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                                e.stopPropagation();
-                                setIsMobileSheetOpen(false);
-                            }
-                        }}
-                    >
-                        <X className="h-4 w-4" />
-                    </div>
-                </div>
-            </div>
-
-            {/* Scrollable Content Area */}
-            <div className="flex-1 overflow-hidden relative bg-background">
-                <AppSidebar 
-                    user={user} 
-                    className="border-none h-full"
-                    activeTab={activeTab}
-                    onTabChange={(val) => setActiveTab(val as any)}
-                />
-            </div>
-        </div>
+            <AppSidebar 
+                user={user} 
+                className="border-none h-full"
+                activeTab={activeTab}
+                onTabChange={(val) => setActiveTab(val as any)}
+            />
+        </InteractiveBottomSheet>
       </div>
   );
 }
