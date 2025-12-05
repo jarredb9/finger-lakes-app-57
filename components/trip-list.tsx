@@ -48,7 +48,7 @@ export default function TripList() {
                 </Button>
             </div>
             {trips.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 w-full">
                     {trips.map((trip: Trip) => (
                         <TripCardSimple key={trip.id} trip={trip} onDelete={handleDeleteTrip} />
                     ))}
