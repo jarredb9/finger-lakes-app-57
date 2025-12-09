@@ -2,6 +2,7 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import { Trip, Winery } from '@/lib/types';
 import { useWineryStore } from './wineryStore';
 import { TripService } from '@/lib/services/tripService';
+import { createClient } from '@/utils/supabase/client';
 
 interface TripState {
   trips: Trip[];
@@ -250,7 +251,13 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     // --- End Optimistic Update --- //
 
     try {
-      await TripService.updateTrip(tripId, { removeWineryId: wineryId });
+      const supabase = createClient(); // Direct Supabase client
+      const { error } = await supabase.rpc('remove_winery_from_trip', {
+        p_trip_id: tripIdAsNumber,
+        p_winery_id: wineryId
+      });
+
+      if (error) throw error;
     } catch (error) {
       console.error("Failed to remove winery, reverting:", error);
       set({ trips: originalTrips, selectedTrip: tripToUpdate }); // Revert
@@ -300,36 +307,58 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
   addWineryToTrips: async (winery, tripDate, selectedTrips, newTripName, addTripNotes) => {
     set({ isSaving: true });
-    const { ensureWineryInDb } = useWineryStore.getState();
+    const supabase = createClient(); // Direct Supabase client for RPCs
     const dateString = tripDate.toISOString().split("T")[0];
 
     try {
-        const wineryDbId = await ensureWineryInDb(winery);
-        if (!wineryDbId) {
-            throw new Error("Could not save winery. Please try again.");
-        }
+        // Prepare generic winery data object for RPCs
+        const rpcWineryData = {
+          id: winery.id,
+          name: winery.name,
+          address: winery.address,
+          lat: winery.lat,
+          lng: winery.lng,
+          phone: winery.phone || null,
+          website: winery.website || null,
+          rating: winery.rating || null,
+        };
 
         const tripPromises = Array.from(selectedTrips).map(async (tripId) => {
-            // If it's a new trip, we still use the API because it handles creating the trip AND adding the winery
             if (tripId === 'new') {
                 if (!newTripName.trim()) throw new Error("New trip requires a name.");
-                return TripService.addWineryToNewTrip(dateString, wineryDbId, addTripNotes, newTripName);
+                
+                // Call RPC to create trip AND add winery in one transaction
+                const { data, error } = await supabase.rpc('create_trip_with_winery', {
+                    p_trip_name: newTripName,
+                    p_trip_date: dateString,
+                    p_winery_data: rpcWineryData,
+                    p_notes: addTripNotes || null
+                });
+
+                if (error) throw error;
+                return { tripId: data.trip_id, isNew: true };
             } else {
-                // For existing trips, use the atomic RPC function to prevent race conditions
+                // Call RPC to add winery to existing trip
                 const numericTripId = parseInt(tripId, 10);
-                return TripService.addWineryToExistingTrip(numericTripId, wineryDbId, addTripNotes || null);
+                const { error } = await supabase.rpc('add_winery_to_trip', {
+                    p_trip_id: numericTripId,
+                    p_winery_data: rpcWineryData,
+                    p_notes: addTripNotes || null
+                });
+
+                if (error) throw error;
+                return { tripId: numericTripId, isNew: false };
             }
         });
 
         const results = await Promise.all(tripPromises);
 
         // Update WineryStore to reflect trip status immediately (Badge support)
-        // We pick the first trip added to display on the badge, as the Winery type currently supports one trip reference.
         let badgeTripId: number | undefined;
         let badgeTripName: string | undefined;
 
         // 1. Check for new trip result
-        const newTripResult = results.find(r => r && r.tripId);
+        const newTripResult = results.find(r => r.isNew);
         if (newTripResult) {
             badgeTripId = newTripResult.tripId;
             badgeTripName = newTripName;
@@ -368,21 +397,23 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   },
 
   toggleWineryOnTrip: async (winery, trip) => {
-    const { ensureWineryInDb } = useWineryStore.getState();
-    
     // --- Optimistic Update --- //
     const originalTrips = get().trips;
     const tripIndex = originalTrips.findIndex(t => t.id === trip.id);
     if (tripIndex === -1) return;
 
-    const wineryDbId = winery.dbId || await ensureWineryInDb(winery);
-    if (!wineryDbId) throw new Error("Could not get winery DB ID.");
-
+    // We assume the store has the dbId if the user is interacting with it,
+    // but the RPC handles the upsert anyway, so we can use generic winery data.
     const tripToUpdate = originalTrips[tripIndex];
-    const isOnTrip = tripToUpdate.wineries.some(w => w.dbId === wineryDbId);
+    // Find if the winery is already on the trip using google_place_id or dbId
+    const existingWineryOnTrip = tripToUpdate.wineries.find(w => w.id === winery.id || (w.dbId && w.dbId === winery.dbId));
+    const isOnTrip = !!existingWineryOnTrip;
     
+    // For optimistic update display, we need a temp dbId if we don't have one
+    const wineryDbId = winery.dbId || -Date.now(); 
+
     const updatedWineries = isOnTrip
-        ? tripToUpdate.wineries.filter(w => w.dbId !== wineryDbId)
+        ? tripToUpdate.wineries.filter(w => w.id !== winery.id && w.dbId !== winery.dbId)
         : [...tripToUpdate.wineries, { ...winery, dbId: wineryDbId }];
 
     const updatedTrip = { ...tripToUpdate, wineries: updatedWineries };
@@ -392,11 +423,39 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     set({ trips: updatedTrips, selectedTrip: updatedTrip });
     // --- End Optimistic Update --- //
 
+    const supabase = createClient();
+
     try {
         if (isOnTrip) {
-             await TripService.updateTrip(trip.id.toString(), { removeWineryId: wineryDbId });
+             // For removal, we need the DB ID. 
+             // If we don't have it in the store, we can't reliably delete by ID via RPC.
+             // However, trips loaded from DB *should* have dbIds for their wineries.
+             if (!existingWineryOnTrip?.dbId) throw new Error("Cannot remove winery without DB ID.");
+             
+             const { error } = await supabase.rpc('remove_winery_from_trip', {
+                p_trip_id: trip.id,
+                p_winery_id: existingWineryOnTrip.dbId
+             });
+             if (error) throw error;
         } else {
-             await TripService.addWineryToTripByApi(wineryDbId, [trip.id], trip.trip_date.split('T')[0]);
+             // For adding, we use the RPC which handles upsert
+             const rpcWineryData = {
+                id: winery.id,
+                name: winery.name,
+                address: winery.address,
+                lat: winery.lat,
+                lng: winery.lng,
+                phone: winery.phone || null,
+                website: winery.website || null,
+                rating: winery.rating || null,
+              };
+             
+             const { error } = await supabase.rpc('add_winery_to_trip', {
+                 p_trip_id: trip.id,
+                 p_winery_data: rpcWineryData,
+                 p_notes: null
+             });
+             if (error) throw error;
         }
     } catch (error) {
         console.error("Failed to toggle winery on trip, reverting:", error);

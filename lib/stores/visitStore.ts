@@ -17,37 +17,48 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
   saveVisit: async (winery, visitData) => {
     set({ isSavingVisit: true });
     const supabase = createClient();
-    const { ensureWineryInDb, addVisitToWinery } = useWineryStore.getState();
+    const { addVisitToWinery } = useWineryStore.getState();
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated.");
 
-      const dbId = await ensureWineryInDb(winery);
-      if (!dbId) throw new Error("Could not ensure winery exists in database.");
+      // Prepare winery data for RPC
+      const rpcWineryData = {
+        id: winery.id,
+        name: winery.name,
+        address: winery.address,
+        lat: winery.lat,
+        lng: winery.lng,
+        phone: winery.phone || null,
+        website: winery.website || null,
+        rating: winery.rating || null,
+      };
 
-      const visitPayload = {
-        winery_id: dbId,
-        user_id: user.id,
+      // Prepare visit data for RPC
+      const rpcVisitData = {
         visit_date: visitData.visit_date,
         user_review: visitData.user_review,
         rating: visitData.rating,
-        photos: [], // Start with empty photos array
+        photos: [], // Photos are handled after RPC for ID
       };
-      const { data: visit, error: visitError } = await supabase
-        .from('visits')
-        .insert(visitPayload)
-        .select()
-        .single();
 
-      if (visitError) throw visitError;
+      // Call the RPC to log the visit and ensure the winery exists
+      const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
+        p_winery_data: rpcWineryData,
+        p_visit_data: rpcVisitData,
+      });
 
-      let finalVisit = visit;
+      if (rpcError) throw rpcError;
+      if (!rpcResult || !rpcResult.visit_id) throw new Error("RPC did not return visit ID.");
+
+      const visitId = rpcResult.visit_id;
+      let finalVisit = { ...rpcVisitData, id: visitId, user_id: user.id, winery_id: rpcResult.winery_id };
 
       if (visitData.photos.length > 0) {
         const uploadPromises = visitData.photos.map(async (photoFile) => {
           const fileName = `${Date.now()}-${photoFile.name}`;
-          const filePath = `${user.id}/${visit.id}/${fileName}`;
+          const filePath = `${user.id}/${visitId}/${fileName}`;
 
           const { error: uploadError } = await supabase.storage
             .from('visit-photos')
@@ -66,7 +77,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
           const { data: updatedVisitWithPhotos, error: updateError } = await supabase
             .from('visits')
             .update({ photos: photoPathsForDb })
-            .eq('id', visit.id)
+            .eq('id', visitId)
             .select()
             .single();
 

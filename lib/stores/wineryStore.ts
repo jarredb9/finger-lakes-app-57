@@ -362,25 +362,50 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
   toggleWishlist: async (winery, isOnWishlist) => {
     set({ isTogglingWishlist: true });
     const originalWineries = get().persistentWineries;
+    const supabase = createClient();
+
+    // Optimistic update
     const updatedWineries = originalWineries.map(w =>
       w.id === winery.id ? { ...w, onWishlist: !isOnWishlist } : w
     );
     set({ persistentWineries: updatedWineries, wishlistWineries: updatedWineries.filter(w => w.onWishlist) });
 
     try {
-      await get().ensureWineryDetails(winery.id);
-      const dbId = get().persistentWineries.find(w => w.id === winery.id)?.dbId;
-
-      const method = isOnWishlist ? 'DELETE' : 'POST';
-      const body = isOnWishlist ? JSON.stringify({ dbId }) : JSON.stringify({ wineryData: { ...winery, onWishlist: !isOnWishlist } });
-      const response = await fetch('/api/wishlist', { method, headers: { 'Content-Type': 'application/json' }, body });
-
-      if (!response.ok) throw new Error("Could not update wishlist.");
+      if (isOnWishlist) {
+        // If it was on wishlist, we need to remove it.
+        // The add_to_wishlist RPC only adds, it doesn't remove.
+        // So for deletion, we will call the API route for now.
+        // In the future, a separate RPC for remove_from_wishlist could be made.
+        const dbId = get().persistentWineries.find(w => w.id === winery.id)?.dbId;
+        if (!dbId) throw new Error("Winery not found in DB for removal from wishlist.");
+        const response = await fetch('/api/wishlist', { 
+            method: 'DELETE', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ dbId }) 
+        });
+        if (!response.ok) throw new Error("Could not remove from wishlist.");
+      } else {
+        // Add to wishlist using RPC
+        const rpcWineryData = {
+          id: winery.id,
+          name: winery.name,
+          address: winery.address,
+          lat: winery.lat,
+          lng: winery.lng,
+          phone: winery.phone || null,
+          website: winery.website || null,
+          rating: winery.rating || null,
+        };
+        const { error: rpcError } = await supabase.rpc('add_to_wishlist', { p_winery_data: rpcWineryData });
+        if (rpcError) throw rpcError;
+      }
       
-      // Optional: Re-fetch in the background to ensure full consistency
+      // Re-fetch in the background to ensure full consistency, especially for the isFavorite/onWishlist flags
+      // on the persistentWineries (which the RPC does not directly update in the store)
       get().fetchWineryData(); 
 
     } catch (error) {
+      console.error("Failed to toggle wishlist:", error);
       set({ persistentWineries: originalWineries, wishlistWineries: originalWineries.filter(w => w.onWishlist) }); // Revert on error
       throw error;
     } finally {
@@ -442,19 +467,24 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
     }
 
     try {
-      const response = await fetch('/api/wineries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(winery),
-      });
+      const supabase = createClient();
+      const rpcWineryData = {
+        id: winery.id,
+        name: winery.name,
+        address: winery.address,
+        lat: winery.lat,
+        lng: winery.lng,
+        phone: winery.phone || null,
+        website: winery.website || null,
+        rating: winery.rating || null,
+      };
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Failed to ensure winery in DB. Server response:', errorText);
+      const { data: dbId, error } = await supabase.rpc('ensure_winery', { p_winery_data: rpcWineryData });
+
+      if (error) {
+        console.error('Failed to ensure winery in DB via RPC:', error);
         throw new Error('Failed to ensure winery in DB');
       }
-
-      const { dbId } = await response.json();
 
       if (dbId) {
         set(state => {

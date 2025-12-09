@@ -48,6 +48,10 @@ describe('wineryStore', () => {
         if (rpcName === 'get_winery_details_by_id') {
             return Promise.resolve({ data: [], error: null });
         }
+        if (rpcName === 'ensure_winery') {
+            // Mock to return a dummy dbId for ensure_winery RPC
+            return Promise.resolve({ data: 999, error: null }); 
+        }
         return Promise.resolve({ data: null, error: { message: "Unknown Mock RPC" } });
     });
 
