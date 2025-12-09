@@ -27,7 +27,7 @@ export default function WineryModal() {
   const activeWinery = useWineryStore((state) =>
     activeWineryId ? state.persistentWineries.find((w) => w.id === activeWineryId) : null
   );
-  const isLoadingDetails = useWineryStore((state) => state.isLoadingDetails); // Get loading state
+  const loadingWineryId = useWineryStore((state) => state.loadingWineryId); // Get loading state
   const { deleteVisit: deleteVisitAction } = useVisitStore();
   const { friendsRatings } = useFriendStore();
 
@@ -55,6 +55,8 @@ export default function WineryModal() {
   if (!isWineryModalOpen) {
     return null;
   }
+
+  const isLoading = loadingWineryId === activeWineryId; // Check if THIS winery is loading
 
   const handleTogglePhotoForDeletion = (photoPath: string) => {
     setPhotosToDelete(prev => 
@@ -97,7 +99,7 @@ export default function WineryModal() {
         onFocusOutside={(e) => e.preventDefault()}
       >
         <div className="overflow-y-auto">
-          {isLoadingDetails || !activeWinery ? (
+          {isLoading || !activeWinery ? (
             <div className="p-6 space-y-4">
               <Skeleton className="h-8 w-3/4" />
               <Skeleton className="h-4 w-full" />

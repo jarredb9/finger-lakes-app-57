@@ -67,7 +67,7 @@ interface WineryState {
   favoriteWineries: Winery[];
   persistentWineries: Winery[];
   isLoading: boolean;
-  isLoadingDetails: boolean; // New state to track if details are being loaded for the active winery
+  loadingWineryId: string | null; // Tracks which winery ID is currently fetching details
   isTogglingWishlist: boolean;
   isTogglingFavorite: boolean;
   error: string | null;
@@ -96,7 +96,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
   favoriteWineries: [],
   persistentWineries: [],
   isLoading: false,
-  isLoadingDetails: false, // Initial state for new loading indicator
+  loadingWineryId: null, // Initial state
   isTogglingWishlist: false,
   isTogglingFavorite: false,
   error: null,
@@ -183,7 +183,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
       return existing;
     }
 
-    set({ isLoadingDetails: true }); // Start loading indicator
+    set({ loadingWineryId: placeId }); // Start loading for this specific ID
 
     const supabase = createClient();
     let dbData = null;
@@ -195,9 +195,6 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
             dbData = data[0];
         }
     } 
-    // If we don't have a DB ID yet (rare if coming from map markers), we might skip this
-    // or we'd need a google_place_id lookup RPC if we added one. 
-    // But get_map_markers guarantees we have a dbId for everything on the map.
 
     if (dbData && dbData.opening_hours) {
         // We have good data from DB
@@ -231,7 +228,11 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
                  w.id === placeId ? { ...w, ...standardized } : w
              )
         }));
-        set({ isLoadingDetails: false }); // Ensure loading stops on DB hit
+        
+        // Only clear loading if it's still for this ID (concurrency check)
+        if (get().loadingWineryId === placeId) {
+            set({ loadingWineryId: null });
+        }
         return standardized;
     }
 
@@ -263,11 +264,16 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
         } catch (err) {
             console.error(`Failed to fetch Google details for ${placeId}`, err);
         } finally {
-            set({ isLoadingDetails: false }); // End loading indicator
+            // Only clear loading if it's still for this ID
+            if (get().loadingWineryId === placeId) {
+                set({ loadingWineryId: null });
+            }
         }
     }
 
-    set({ isLoadingDetails: false }); // Ensure false if no fetch was triggered
+    if (get().loadingWineryId === placeId) {
+        set({ loadingWineryId: null });
+    }
     return existing || null;
   },
 
