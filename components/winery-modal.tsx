@@ -92,6 +92,8 @@ export default function WineryModal() {
 
   const editingVisit = editingVisitId ? visits.find((v) => v.id === editingVisitId) : null;
 
+  console.log(`[WineryModal] Render. ActiveID: ${activeWineryId}, LoadingID: ${loadingWineryId}, HasActiveWinery: ${!!activeWinery}, isLoading: ${loadingWineryId === activeWineryId}`);
+
   return (
     <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
       <DialogContent
@@ -101,6 +103,7 @@ export default function WineryModal() {
         <div className="overflow-y-auto">
           {isLoading || !activeWinery ? (
             <div className="p-6 space-y-4">
+              {console.log("[WineryModal] Rendering SKELETON")}
               <Skeleton className="h-8 w-3/4" />
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-1/2" />
