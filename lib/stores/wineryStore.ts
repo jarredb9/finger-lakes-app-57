@@ -231,11 +231,20 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
             trip_date: dbData.trip_info?.[0]?.trip_date,
         };
 
-        set(state => ({
-             persistentWineries: state.persistentWineries.map(w => 
-                 w.id === placeId ? { ...w, ...standardized } : w
-             )
-        }));
+        set(state => {
+             const exists = state.persistentWineries.some(w => w.id === placeId);
+             if (exists) {
+                 return {
+                     persistentWineries: state.persistentWineries.map(w => 
+                         w.id === placeId ? { ...w, ...standardized } : w
+                     )
+                 };
+             } else {
+                 return {
+                     persistentWineries: [...state.persistentWineries, standardized]
+                 };
+             }
+        });
         
         // Only clear loading if it's still for this ID (concurrency check)
         if (get().loadingWineryId === placeId) {
@@ -264,11 +273,20 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
 
             if (standardized) {
                 console.log(`[wineryStore] Standardized data for ${placeId}`, standardized);
-                set(state => ({
-                    persistentWineries: state.persistentWineries.map(w => 
-                        w.id === placeId ? { ...w, ...standardized } : w
-                    )
-                }));
+                set(state => {
+                    const exists = state.persistentWineries.some(w => w.id === placeId);
+                    if (exists) {
+                        return {
+                            persistentWineries: state.persistentWineries.map(w => 
+                                w.id === placeId ? { ...w, ...standardized } : w
+                            )
+                        };
+                    } else {
+                        return {
+                            persistentWineries: [...state.persistentWineries, standardized]
+                        };
+                    }
+                });
                 return standardized;
             } else {
                 console.error(`Standardization failed for winery ${placeId}`);
