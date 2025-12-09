@@ -93,9 +93,9 @@ export default function WineryModal() {
   const editingVisit = editingVisitId ? visits.find((v) => v.id === editingVisitId) : null;
 
   // Logging moved outside JSX
-  if (isWineryModalOpen) {
-    console.log(`[WineryModal] Render. ActiveID: ${activeWineryId}, LoadingID: ${loadingWineryId}, HasActiveWinery: ${!!activeWinery}, isLoading: ${loadingWineryId === activeWineryId}`);
-  }
+  // if (isWineryModalOpen) {
+  //   console.log(`[WineryModal] Render. ActiveID: ${activeWineryId}, LoadingID: ${loadingWineryId}, HasActiveWinery: ${!!activeWinery}, isLoading: ${loadingWineryId === activeWineryId}`);
+  // }
 
   return (
     <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
@@ -106,6 +106,7 @@ export default function WineryModal() {
         <div className="overflow-y-auto">
           {isLoading || !activeWinery ? (
             <div className="p-6 space-y-4">
+              <DialogDescription className="sr-only">Loading winery details...</DialogDescription> {/* Visually hidden description for accessibility */}
               {/* console.log("[WineryModal] Rendering SKELETON") - Removed from JSX */}
               <Skeleton className="h-8 w-3/4" />
               <Skeleton className="h-4 w-full" />

@@ -176,36 +176,29 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
   },
 
   ensureWineryDetails: async (placeId: string) => {
-    console.log(`[wineryStore] ensureWineryDetails called for: ${placeId}`);
     const existing = get().persistentWineries.find(w => w.id === placeId);
     
     // Check if we have meaningful details. 
     if (existing && existing.openingHours !== undefined) {
-      console.log(`[wineryStore] Details already exist for ${placeId}`);
       return existing;
     }
 
     set({ loadingWineryId: placeId }); // Start loading for this specific ID
-    console.log(`[wineryStore] Set loadingWineryId to: ${placeId}`);
 
     const supabase = createClient();
     let dbData = null;
 
     // 1. Try fetching full details from OUR DB first (using dbId if available)
     if (existing?.dbId) {
-        console.log(`[wineryStore] Checking DB for dbId: ${existing.dbId}`);
         const { data, error } = await supabase.rpc('get_winery_details_by_id', { winery_id_param: existing.dbId });
         if (!error && data && data.length > 0) {
             dbData = data[0];
-            console.log(`[wineryStore] Found DB data for ${placeId}`);
         } else {
-            console.log(`[wineryStore] No DB data found or error for ${placeId}`, error);
         }
     } 
 
     if (dbData && dbData.opening_hours) {
         // We have good data from DB
-        console.log(`[wineryStore] Using DB data for ${placeId}`);
         // Transform DB data to Winery type
          const standardized: Winery = {
             ...existing!,
@@ -248,7 +241,6 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
         
         // Only clear loading if it's still for this ID (concurrency check)
         if (get().loadingWineryId === placeId) {
-            console.log(`[wineryStore] Clearing loadingWineryId (was ${placeId})`);
             set({ loadingWineryId: null });
         }
         return standardized;
@@ -257,7 +249,6 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
     // 2. If DB data is missing or incomplete (no opening_hours), fetch from Google API
     // Only if it looks like a Google Place ID (alphanumeric)
     if (!/^\d+$/.test(placeId)) {
-        console.log(`[wineryStore] Fetching from Google API for ${placeId}`);
         try {
             const response = await fetch('/api/wineries/details', {
                 method: 'POST',
@@ -268,11 +259,9 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
             if (!response.ok) throw new Error("API call failed");
             
             const detailedWineryData = await response.json();
-            console.log(`[wineryStore] Google API returned data for ${placeId}`, detailedWineryData);
             const standardized = standardizeWineryData(detailedWineryData, existing);
 
             if (standardized) {
-                console.log(`[wineryStore] Standardized data for ${placeId}`, standardized);
                 set(state => {
                     const exists = state.persistentWineries.some(w => w.id === placeId);
                     if (exists) {
@@ -296,16 +285,13 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
         } finally {
             // Only clear loading if it's still for this ID
             if (get().loadingWineryId === placeId) {
-                console.log(`[wineryStore] Finally block: Clearing loadingWineryId (was ${placeId})`);
                 set({ loadingWineryId: null });
             }
         }
     } else {
-        console.log(`[wineryStore] Skipping Google fetch for non-Google ID ${placeId}`);
     }
 
     if (get().loadingWineryId === placeId) {
-        console.log(`[wineryStore] Fallthrough: Clearing loadingWineryId (was ${placeId})`);
         set({ loadingWineryId: null });
     }
     return existing || null;
