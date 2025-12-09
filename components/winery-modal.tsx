@@ -19,6 +19,7 @@ import TripPlannerSection from "./TripPlannerSection";
 import VisitHistory from "./VisitHistory";
 import VisitForm from "./VisitForm";
 import { useFriendStore } from "@/lib/stores/friendStore";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function WineryModal() {
   const { isWineryModalOpen, activeWineryId, closeWineryModal } = useUIStore();
@@ -26,6 +27,7 @@ export default function WineryModal() {
   const activeWinery = useWineryStore((state) =>
     activeWineryId ? state.persistentWineries.find((w) => w.id === activeWineryId) : null
   );
+  const isLoadingDetails = useWineryStore((state) => state.isLoadingDetails); // Get loading state
   const { deleteVisit: deleteVisitAction } = useVisitStore();
   const { friendsRatings } = useFriendStore();
 
@@ -50,7 +52,7 @@ export default function WineryModal() {
     prevVisitsLength.current = visits.length;
   }, [visits.length]);
 
-  if (!isWineryModalOpen || !activeWinery) {
+  if (!isWineryModalOpen) {
     return null;
   }
 
@@ -95,54 +97,71 @@ export default function WineryModal() {
         onFocusOutside={(e) => e.preventDefault()}
       >
         <div className="overflow-y-auto">
-          <div className="p-6">
-            <DialogHeader>
-                <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
-                    <div className="flex items-center gap-2">
-                        <DialogTitle className="text-2xl pr-4">{activeWinery.name}</DialogTitle>
-                        {activeWinery.trip_name && activeWinery.trip_date && (
-                            <Link href={`/trips?date=${activeWinery.trip_date.split("T")[0]}&tripId=${activeWinery.trip_id}`} passHref onClick={closeWineryModal}>
-                            <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
-                                <Clock className="w-3 h-3 mr-1" />
-                                On Trip: {activeWinery.trip_name}
-                            </Badge>
-                            </Link>
-                        )}
-                    </div>
-                    <WineryActions winery={activeWinery} />
-                </div>
-                <WineryDetails winery={activeWinery} />
-            </DialogHeader>
-            <Separator className="my-4" />
-
-            {activeWinery.dbId && <FriendActivity wineryDbId={activeWinery.dbId} />}
-            {friendsRatings.length > 0 && <FriendRatings />}
-
-            <TripPlannerSection winery={activeWinery} onClose={closeWineryModal} />
-
-            <Separator className="my-4" />
-
-            <div className="space-y-4" ref={visitHistoryRef}>
-              <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
-                <CalendarIcon className="w-5 h-5" />
-                <span>Your Visits</span>
-              </h3>
-              {visits.length > 0 ? (
-                <VisitHistory visits={visits} editingVisitId={editingVisitId} onEditClick={handleEditClick} onDeleteVisit={handleDeleteVisit} onTogglePhotoForDeletion={handleTogglePhotoForDeletion} />
-              ) : (
-                <p className="text-sm text-muted-foreground">{activeWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
-              )}
+          {isLoadingDetails || !activeWinery ? (
+            <div className="p-6 space-y-4">
+              <Skeleton className="h-8 w-3/4" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-1/2" />
+              <Separator className="my-4" />
+              <Skeleton className="h-6 w-1/3" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-2/3" />
+              <Separator className="my-4" />
+              <Skeleton className="h-6 w-1/4" />
+              <Skeleton className="h-20 w-full" />
             </div>
-          </div>
-          <VisitForm 
-            ref={visitFormRef} 
-            winery={activeWinery} 
-            editingVisit={editingVisit || null} 
-            onCancelEdit={handleCancelEdit} 
-            photosToDelete={photosToDelete} 
-            togglePhotoForDeletion={handleTogglePhotoForDeletion}
-            setPhotosToDelete={setPhotosToDelete}
-          />
+          ) : (
+            <>
+              <div className="p-6">
+                <DialogHeader>
+                    <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
+                        <div className="flex items-center gap-2">
+                            <DialogTitle className="text-2xl pr-4">{activeWinery.name}</DialogTitle>
+                            {activeWinery.trip_name && activeWinery.trip_date && (
+                                <Link href={`/trips?date=${activeWinery.trip_date.split("T")[0]}&tripId=${activeWinery.trip_id}`} passHref onClick={closeWineryModal}>
+                                <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    On Trip: {activeWinery.trip_name}
+                                </Badge>
+                                </Link>
+                            )}
+                        </div>
+                        <WineryActions winery={activeWinery} />
+                    </div>
+                    <WineryDetails winery={activeWinery} />
+                </DialogHeader>
+                <Separator className="my-4" />
+
+                {activeWinery.dbId && <FriendActivity wineryDbId={activeWinery.dbId} />}
+                {friendsRatings.length > 0 && <FriendRatings />}
+
+                <TripPlannerSection winery={activeWinery} onClose={closeWineryModal} />
+
+                <Separator className="my-4" />
+
+                <div className="space-y-4" ref={visitHistoryRef}>
+                  <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
+                    <CalendarIcon className="w-5 h-5" />
+                    <span>Your Visits</span>
+                  </h3>
+                  {visits.length > 0 ? (
+                    <VisitHistory visits={visits} editingVisitId={editingVisitId} onEditClick={handleEditClick} onDeleteVisit={handleDeleteVisit} onTogglePhotoForDeletion={handleTogglePhotoForDeletion} />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">{activeWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
+                  )}
+                </div>
+              </div>
+              <VisitForm 
+                ref={visitFormRef} 
+                winery={activeWinery} 
+                editingVisit={editingVisit || null} 
+                onCancelEdit={handleCancelEdit} 
+                photosToDelete={photosToDelete} 
+                togglePhotoForDeletion={handleTogglePhotoForDeletion}
+                setPhotosToDelete={setPhotosToDelete}
+              />
+            </>
+          )}
         </div>
       </DialogContent>
     </Dialog>

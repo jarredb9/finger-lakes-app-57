@@ -55,10 +55,10 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
             <div className="flex items-center">
               <span
                 className={`font-semibold mr-2 ${
-                  winery.openingHours.open_now ? 'text-green-600' : 'text-red-600'
+                  winery.openingHours?.open_now ? 'text-green-600' : 'text-red-600'
                 }`}
               >
-                {winery.openingHours.open_now ? 'Open' : 'Closed'}
+                {winery.openingHours?.open_now ? 'Open' : 'Closed'}
               </span>
               <span className="text-sm">{getTodaysHours()}</span>
               {winery.openingHours.weekday_text && (

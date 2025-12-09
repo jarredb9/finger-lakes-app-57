@@ -67,6 +67,7 @@ interface WineryState {
   favoriteWineries: Winery[];
   persistentWineries: Winery[];
   isLoading: boolean;
+  isLoadingDetails: boolean; // New state to track if details are being loaded for the active winery
   isTogglingWishlist: boolean;
   isTogglingFavorite: boolean;
   error: string | null;
@@ -95,6 +96,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
   favoriteWineries: [],
   persistentWineries: [],
   isLoading: false,
+  isLoadingDetails: false, // Initial state for new loading indicator
   isTogglingWishlist: false,
   isTogglingFavorite: false,
   error: null,
@@ -177,12 +179,11 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
     const existing = get().persistentWineries.find(w => w.id === placeId);
     
     // Check if we have meaningful details. 
-    // Note: Some wineries might legitimately not have a website or opening hours, 
-    // so checking for undefined is better than truthy check if we want to be precise.
-    // But for now, let's assume if `openingHours` is undefined, we haven't loaded details.
     if (existing && existing.openingHours !== undefined) {
       return existing;
     }
+
+    set({ isLoadingDetails: true }); // Start loading indicator
 
     const supabase = createClient();
     let dbData = null;
@@ -258,9 +259,12 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
             }
         } catch (err) {
             console.error(`Failed to fetch Google details for ${placeId}`, err);
+        } finally {
+            set({ isLoadingDetails: false }); // End loading indicator
         }
     }
 
+    set({ isLoadingDetails: false }); // Ensure false if no fetch was triggered
     return existing || null;
   },
 
