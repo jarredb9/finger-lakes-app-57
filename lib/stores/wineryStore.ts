@@ -231,6 +231,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
                  w.id === placeId ? { ...w, ...standardized } : w
              )
         }));
+        set({ isLoadingDetails: false }); // Ensure loading stops on DB hit
         return standardized;
     }
 
@@ -256,6 +257,8 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
                     )
                 }));
                 return standardized;
+            } else {
+                console.error(`Standardization failed for winery ${placeId}`);
             }
         } catch (err) {
             console.error(`Failed to fetch Google details for ${placeId}`, err);
