@@ -106,9 +106,12 @@ export default function WineryModal() {
         <div className="overflow-y-auto">
           {isLoading || !activeWinery ? (
             <div className="p-6 space-y-4">
-              <DialogDescription className="sr-only">Loading winery details...</DialogDescription> {/* Visually hidden description for accessibility */}
-              {/* console.log("[WineryModal] Rendering SKELETON") - Removed from JSX */}
-              <Skeleton className="h-8 w-3/4" />
+              <DialogHeader>
+                <DialogTitle>
+                  <Skeleton className="h-8 w-3/4" />
+                </DialogTitle>
+              </DialogHeader>
+              <DialogDescription className="sr-only">Loading winery details...</DialogDescription>
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-4 w-1/2" />
               <Separator className="my-4" />
