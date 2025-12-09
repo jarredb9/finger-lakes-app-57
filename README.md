@@ -1,4 +1,4 @@
-# Fingerlakes Winery Visit Planner and Tracker
+# Winery Visit Planner and Tracker
 
 [![Deployed on Vercel](https://img.shields.io/badge/Deployed%20on-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com/jarreds-projects-8ff50eea/v0-fingerlakes-winery-app)
 
