@@ -98,8 +98,6 @@ export function useWineryMap(userId: string) {
           fields: [
             "displayName",
             "formattedAddress",
-            "websiteURI",
-            "nationalPhoneNumber",
             "location",
           ],
         });
@@ -118,8 +116,6 @@ export function useWineryMap(userId: string) {
           address: placeDetails.formattedAddress || "N/A",
           lat: placeDetails.location.lat(),
           lng: placeDetails.location.lng(),
-          website: placeDetails.websiteURI ?? undefined,
-          phone: placeDetails.nationalPhoneNumber ?? undefined,
         };
         setProposedWinery(newWinery);
       } catch (error) {

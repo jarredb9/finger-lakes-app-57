@@ -111,9 +111,6 @@ export function useWinerySearch() {
                           "formattedAddress",
                           "rating",
                           "id",
-                          "websiteURI",
-                          "nationalPhoneNumber",
-                          "reviews",
                         ],
                         locationRestriction: finalSearchBounds,
                       };
@@ -139,18 +136,11 @@ export function useWinerySearch() {
         lat: place.location!.lat(),
         lng: place.location!.lng(),
         rating: place.rating ?? undefined,
-        website: place.websiteURI ?? undefined,
-        phone: place.nationalPhoneNumber ?? undefined,
-        reviews: place.reviews?.map((review) => ({
-          author_name: review.authorAttribution?.displayName ?? "A reviewer",
-          rating: review.rating ?? 0,
-          relative_time_description: review.relativePublishTimeDescription ?? "",
-          text: review.text ?? "",
-          time: review.publishTime?.getTime() ?? 0,
-          author_url: review.authorAttribution?.uri,
-          language: review.textLanguageCode,
-          profile_photo_url: review.authorAttribution?.photoURI,
-        })) ?? undefined,
+        // Expensive fields removed from initial search to save costs. 
+        // These will be fetched on demand by 'ensureWineryDetails' when a user interacts.
+        website: undefined,
+        phone: undefined,
+        reviews: undefined,
       }));
 
       setSearchResults(wineries);

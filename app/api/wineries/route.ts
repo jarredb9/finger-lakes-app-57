@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { createClient as createAdminClient } from '@supabase/supabase-js';
 import { getUser } from "@/lib/auth";
 
 export async function GET(request: NextRequest) {
@@ -38,6 +39,37 @@ export async function GET(request: NextRequest) {
                 lng: place.geometry.location.lng,
                 rating: place.rating,
             }));
+
+            // CACHING STRATEGY:
+            // Silently upsert these results into our database so future "details" calls 
+            // and map loads can be served from our own cache.
+            (async () => {
+                try {
+                    const supabaseAdmin = createAdminClient(
+                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                        process.env.SUPABASE_SERVICE_ROLE_KEY!
+                    );
+
+                    const dbWineries = data.results.map((place: any) => ({
+                        google_place_id: place.place_id,
+                        name: place.name,
+                        address: place.formatted_address,
+                        latitude: place.geometry.location.lat,
+                        longitude: place.geometry.location.lng,
+                        google_rating: place.rating,
+                    }));
+
+                    const { error } = await supabaseAdmin
+                        .from('wineries')
+                        .upsert(dbWineries, { onConflict: 'google_place_id' });
+                        
+                    if (error) {
+                         console.error('[API] /api/wineries: Background cache update failed:', error);
+                    }
+                } catch (cacheError) {
+                    console.error('[API] /api/wineries: Background cache error:', cacheError);
+                }
+            })();
 
             return NextResponse.json(searchResults);
 
