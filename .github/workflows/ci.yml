@@ -22,9 +22,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
-        env:
-          SUPABASE_DISABLE_POSTINSTALL: 1
+        run: npm ci --ignore-scripts
 
       - name: Run Security Audit
         run: npm run audit
