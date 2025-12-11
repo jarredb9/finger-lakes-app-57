@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+"use client"
+
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -13,9 +15,18 @@ import {
 import { CookieIcon } from "lucide-react"
 
 export function CookieConsent() {
-  const [showConsent, setShowConsent] = useState(() => {
-    return !localStorage.getItem("cookie-consent");
-  });
+  const [showConsent, setShowConsent] = useState(false)
+
+  useEffect(() => {
+    // Check if user has already consented
+    // Use setTimeout to avoid synchronous state update warning and ensure client-side execution
+    setTimeout(() => {
+      const hasConsented = localStorage.getItem("cookie-consent")
+      if (!hasConsented) {
+        setShowConsent(true)
+      }
+    }, 0)
+  }, [])
 
   const acceptCookies = () => {
     localStorage.setItem("cookie-consent", "true")
