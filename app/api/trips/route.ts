@@ -61,64 +61,56 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
-  const date = searchParams.get("date");
   const supabase = await createClient();
 
-  // Logic for the Trip Planner page (DEPRECATED: Use Supabase RPC 'get_trips_for_date' directly.)
-  if (date) {
-    return NextResponse.json({ error: "Deprecated: Use Supabase RPC 'get_trips_for_date' directly." }, { status: 410 });
+  // Logic for the paginated "All Trips" page
+  const type = searchParams.get("type") || "upcoming";
+  const page = parseInt(searchParams.get("page") || "1", 10);
+  const limit = parseInt(searchParams.get("limit") || "6", 10);
+  const fullData = searchParams.get("full"); // ** FIX: Read the new 'full' query param **
+  const rangeFrom = (page - 1) * limit;
+  const rangeTo = rangeFrom + limit - 1;
+  const today = new Date().toISOString().split("T")[0];
+
+  // ** FIX: Fetch the count of wineries using a nested select to optimize performance. **
+  // ** FIX: Dynamically adjust the query based on the 'full' parameter **
+  let query = supabase
+    .from("trips")
+    .select(`
+        id,
+        name,
+        trip_date,
+        members,
+        ${fullData ? 'wineries:trip_wineries(*, wineries(*))' : 'wineries_count:trip_wineries(count)'}
+    `, { count: 'exact' })
+    .or(`user_id.eq.${user.id},members.cs.{${user.id}}`);
+
+  if (type === 'upcoming') {
+      query = query.gte('trip_date', today).order("trip_date", { ascending: true });
+  } else { // 'past'
+      query = query.lt('trip_date', today).order("trip_date", { ascending: false });
   }
   
-  // Logic for the paginated "All Trips" page (remains unchanged)
-  else {
-    const type = searchParams.get("type") || "upcoming";
-    const page = parseInt(searchParams.get("page") || "1", 10);
-    const limit = parseInt(searchParams.get("limit") || "6", 10);
-    const fullData = searchParams.get("full"); // ** FIX: Read the new 'full' query param **
-    const rangeFrom = (page - 1) * limit;
-    const rangeTo = rangeFrom + limit - 1;
-    const today = new Date().toISOString().split("T")[0];
+  const { data: trips, error, count } = await query.range(rangeFrom, rangeTo);
 
-    // ** FIX: Fetch the count of wineries using a nested select to optimize performance. **
-    // ** FIX: Dynamically adjust the query based on the 'full' parameter **
-    let query = supabase
-      .from("trips")
-      .select(`
-          id,
-          name,
-          trip_date,
-          members,
-          ${fullData ? 'wineries:trip_wineries(*, wineries(*))' : 'wineries_count:trip_wineries(count)'}
-      `, { count: 'exact' })
-      .or(`user_id.eq.${user.id},members.cs.{${user.id}}`);
-
-    if (type === 'upcoming') {
-        query = query.gte('trip_date', today).order("trip_date", { ascending: true });
-    } else { // 'past'
-        query = query.lt('trip_date', today).order("trip_date", { ascending: false });
-    }
-    
-    const { data: trips, error, count } = await query.range(rangeFrom, rangeTo);
-
-    if (error) {
-        console.error(`Error fetching ${type} trips:`, error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
-    }
-    
-    // We need to re-format the data to get the winery count
-    const formattedTrips = trips?.map((t: TripWithWineries | TripWithWineryCount) => {
-      if ('wineries' in t) {
-        const wineries_count = t.wineries?.length || 0;
-        const wineries = t.wineries.map((tw: TripWinery) => formatWinery(tw.wineries));
-        return { ...t, wineries_count, wineries };
-      } else {
-        const wineries_count = t.wineries_count?.[0]?.count || 0;
-        return { ...t, wineries_count, wineries: [] };
-      }
-    });
-
-    return NextResponse.json({ trips: formattedTrips || [], count: count || 0 });
+  if (error) {
+      console.error(`Error fetching ${type} trips:`, error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
   }
+  
+  // We need to re-format the data to get the winery count
+  const formattedTrips = trips?.map((t: TripWithWineries | TripWithWineryCount) => {
+    if ('wineries' in t) {
+      const wineries_count = t.wineries?.length || 0;
+      const wineries = t.wineries.map((tw: TripWinery) => formatWinery(tw.wineries));
+      return { ...t, wineries_count, wineries };
+    } else {
+      const wineries_count = t.wineries_count?.[0]?.count || 0;
+      return { ...t, wineries_count, wineries: [] };
+    }
+  });
+
+  return NextResponse.json({ trips: formattedTrips || [], count: count || 0 });
 }
 
 export async function POST(request: NextRequest) {
