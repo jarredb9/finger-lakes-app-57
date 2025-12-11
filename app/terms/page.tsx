@@ -29,7 +29,7 @@ export default function TermsOfService() {
           <h2 className="text-xl font-semibold mb-2">2. Description of Service</h2>
           <p>
             The Winery Tracker App is a personal project designed to help users explore wineries, create itineraries, and track visits. 
-            The service is provided "as is" and "as available" without any warranties.
+            The service is provided &#34;as is&#34; and &#34;as available&#34; without any warranties.
           </p>
         </section>
 
@@ -45,7 +45,7 @@ export default function TermsOfService() {
           <p>
             This application utilizes the Google Maps API. By using our application, you are also bound by 
             <Link href="https://cloud.google.com/maps-platform/terms/" className="text-primary hover:underline ml-1" target="_blank" rel="noopener noreferrer">
-              Google's Terms of Service
+              Google&#39;s Terms of Service
             </Link>.
           </p>
         </section>

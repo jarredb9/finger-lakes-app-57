@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -13,15 +13,9 @@ import {
 import { CookieIcon } from "lucide-react"
 
 export function CookieConsent() {
-  const [showConsent, setShowConsent] = useState(false)
-
-  useEffect(() => {
-    // Check if user has already consented
-    const hasConsented = localStorage.getItem("cookie-consent")
-    if (!hasConsented) {
-      setShowConsent(true)
-    }
-  }, [])
+  const [showConsent, setShowConsent] = useState(() => {
+    return !localStorage.getItem("cookie-consent");
+  });
 
   const acceptCookies = () => {
     localStorage.setItem("cookie-consent", "true")
