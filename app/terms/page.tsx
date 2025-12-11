@@ -10,7 +10,7 @@ export default function TermsOfService() {
         <section>
           <h2 className="text-xl font-semibold mb-2">1. Acceptance of Terms</h2>
           <p>
-            By accessing or using the Winery Planner application, you agree to be bound by these Terms of Service. 
+            By accessing or using The Winery Tracker App application, you agree to be bound by these Terms of Service. 
             If you do not agree to these terms, please do not use our service.
           </p>
         </section>
@@ -18,7 +18,7 @@ export default function TermsOfService() {
         <section>
           <h2 className="text-xl font-semibold mb-2">2. Description of Service</h2>
           <p>
-            The Winery Planner is a personal project designed to help users explore wineries, create itineraries, and track visits. 
+            The Winery Tracker App is a personal project designed to help users explore wineries, create itineraries, and track visits. 
             The service is provided "as is" and "as available" without any warranties.
           </p>
         </section>

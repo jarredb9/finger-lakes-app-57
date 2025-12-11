@@ -10,7 +10,7 @@ export default function PrivacyPolicy() {
         <section>
           <h2 className="text-xl font-semibold mb-2">1. Introduction</h2>
           <p>
-            Welcome to the Winery Planner ("we," "our," or "us"). We are committed to protecting your privacy. 
+            Welcome to The Winery Tracker App ("we," "our," or "us"). We are committed to protecting your privacy. 
             This Privacy Policy explains how we collect, use, and safeguard your information when you use our application.
           </p>
         </section>

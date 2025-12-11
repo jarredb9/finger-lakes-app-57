@@ -6,7 +6,7 @@ import { WineryMapProvider } from "@/components/winery-map-context";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, User as UserIcon, LogOut } from "lucide-react";
+import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, User as UserIcon, LogOut, FileText, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GoogleMapsProvider } from "@/components/google-maps-provider";
 import dynamic from "next/dynamic";
@@ -114,6 +114,19 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                             <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                         </div>
                     </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                        <Link href="/privacy" className="w-full cursor-pointer flex items-center">
+                            <Shield className="mr-2 h-4 w-4" />
+                            <span>Privacy Policy</span>
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                        <Link href="/terms" className="w-full cursor-pointer flex items-center">
+                            <FileText className="mr-2 h-4 w-4" />
+                            <span>Terms of Service</span>
+                        </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                         <Link href="/logout" className="w-full cursor-pointer flex items-center text-red-600 focus:text-red-600">

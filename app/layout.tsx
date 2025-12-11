@@ -7,7 +7,6 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from '@/components/auth-provider'
 import { GlobalModalRenderer } from '@/components/global-modal-renderer'
 
-import { SiteFooter } from '@/components/site-footer'
 import { CookieConsent } from '@/components/cookie-consent'
 
 export const metadata: Metadata = {
@@ -30,7 +29,6 @@ export default function RootLayout({
         <TooltipProvider>
           <div className="relative flex min-h-screen flex-col">
             <main className="flex-1"><AuthProvider>{children}</AuthProvider></main>
-            <SiteFooter />
             <Toaster />
             <GlobalModalRenderer />
             <CookieConsent />

@@ -15,7 +15,7 @@ import { List } from "lucide-react";
 
 import TripPlanner from "@/components/trip-planner";
 import GlobalVisitHistory, { VisitWithContext } from "@/components/global-visit-history"; // Import VisitWithContext
-import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon } from "lucide-react";
+import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon, FileText, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import FriendsManager from "@/components/friends-manager";
@@ -155,6 +155,19 @@ export function AppSidebar({
                             <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
                         </div>
                     </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                        <Link href="/privacy" className="w-full cursor-pointer flex items-center">
+                            <Shield className="mr-2 h-4 w-4" />
+                            <span>Privacy Policy</span>
+                        </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                        <Link href="/terms" className="w-full cursor-pointer flex items-center">
+                            <FileText className="mr-2 h-4 w-4" />
+                            <span>Terms of Service</span>
+                        </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem asChild>
                         <Link href="/logout" className="w-full cursor-pointer flex items-center text-red-600 focus:text-red-600">
