@@ -1,6 +1,22 @@
 import { createServerClient} from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+interface CookieOptions {
+  maxAge?: number;
+  expires?: Date;
+  domain?: string;
+  path?: string;
+  secure?: boolean;
+  httpOnly?: boolean;
+  sameSite?: 'lax' | 'strict' | 'none' | boolean;
+}
+
+interface SupabaseCookie {
+  name: string;
+  value: string;
+  options: Partial<CookieOptions>;
+}
+
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
     request: {
@@ -16,7 +32,7 @@ export async function updateSession(request: NextRequest) {
         getAll() {
           return request.cookies.getAll()
         },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: SupabaseCookie[]) { // Explicitly type cookiesToSet
           cookiesToSet.forEach(({ name, value, options }) => {
             request.cookies.set({
               name,
