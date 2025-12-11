@@ -31,22 +31,22 @@ export function CookieConsent() {
   if (!showConsent) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 max-w-sm">
+    <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-[340px] md:max-w-sm">
       <Card className="shadow-lg border-primary/20">
-        <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
+        <CardHeader className="p-4 pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm font-semibold">
             <CookieIcon className="h-4 w-4 text-primary" />
             Cookie Notice
           </CardTitle>
         </CardHeader>
-        <CardContent className="pb-2">
-          <CardDescription>
-            We use strictly necessary cookies to manage your login session and ensure the site functions correctly. 
-            By using our site, you agree to our use of these cookies.
+        <CardContent className="p-4 pt-0 pb-2">
+          <CardDescription className="text-xs">
+            We use strictly necessary cookies to manage your login session. 
+            By using our site, you agree to this.
           </CardDescription>
         </CardContent>
-        <CardFooter className="justify-end pt-2">
-          <Button size="sm" onClick={acceptCookies}>
+        <CardFooter className="p-4 pt-0 justify-end">
+          <Button size="sm" className="h-8 text-xs" onClick={acceptCookies}>
             Got it
           </Button>
         </CardFooter>
