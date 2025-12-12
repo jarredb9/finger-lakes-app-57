@@ -2,14 +2,13 @@
 import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "./ui/separator";
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { Clock, Calendar as CalendarIcon } from "lucide-react";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useVisitStore } from "@/lib/stores/visitStore";
 import { useToast } from "@/hooks/use-toast";
 import { Visit } from "@/lib/types";
+import { useTripStore } from "@/lib/stores/tripStore";
 
 import WineryDetails from "./WineryDetails";
 import WineryActions from "./WineryActions";
@@ -24,6 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function WineryModal() {
   const { isWineryModalOpen, activeWineryId, closeWineryModal } = useUIStore();
   const { toast } = useToast();
+  const { fetchTripById, setSelectedTrip } = useTripStore();
   const activeWinery = useWineryStore((state) =>
     activeWineryId ? state.persistentWineries.find((w) => w.id === activeWineryId) : null
   );
@@ -92,10 +92,17 @@ export default function WineryModal() {
 
   const editingVisit = editingVisitId ? visits.find((v) => v.id === editingVisitId) : null;
 
-  // Logging moved outside JSX
-  // if (isWineryModalOpen) {
-  //   console.log(`[WineryModal] Render. ActiveID: ${activeWineryId}, LoadingID: ${loadingWineryId}, HasActiveWinery: ${!!activeWinery}, isLoading: ${loadingWineryId === activeWineryId}`);
-  // }
+  const handleTripBadgeClick = async (tripId: number) => {
+    closeWineryModal(); // Close the winery modal first
+    await fetchTripById(tripId.toString());
+    const updatedTrip = useTripStore.getState().trips.find((t) => t.id === tripId);
+    if (updatedTrip) {
+      setSelectedTrip(updatedTrip);
+      toast({ description: `Map updated to show trip: ${updatedTrip.name}` });
+    } else {
+      toast({ variant: "destructive", description: "Failed to load trip details." });
+    }
+  };
 
   return (
     <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
@@ -129,13 +136,14 @@ export default function WineryModal() {
                     <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
                         <div className="flex items-center gap-2">
                             <DialogTitle className="text-2xl pr-4">{activeWinery.name}</DialogTitle>
-                            {activeWinery.trip_name && activeWinery.trip_date && (
-                                <Link href={`/trips?date=${activeWinery.trip_date.split("T")[0]}&tripId=${activeWinery.trip_id}`} passHref onClick={closeWineryModal}>
-                                <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer">
+                            {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
+                                <div
+                                    className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-[#f17e3a] hover:bg-[#f17e3a]/90 cursor-pointer"
+                                    onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
+                                >
                                     <Clock className="w-3 h-3 mr-1" />
                                     On Trip: {activeWinery.trip_name}
-                                </Badge>
-                                </Link>
+                                </div>
                             )}
                         </div>
                         <WineryActions winery={activeWinery} />
