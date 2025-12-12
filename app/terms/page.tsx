@@ -20,7 +20,7 @@ export default function TermsOfService() {
         <section>
           <h2 className="text-xl font-semibold mb-2">1. Acceptance of Terms</h2>
           <p>
-            By accessing or using The Winery Tracker App application, you agree to be bound by these Terms of Service. 
+            By accessing or using The Winery Tracker App, you agree to be bound by these Terms of Service. 
             If you do not agree to these terms, please do not use our service.
           </p>
         </section>
