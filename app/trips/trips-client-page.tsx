@@ -3,7 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TripList from "@/components/trip-list"
 import TripPlanner from "@/components/trip-planner"
-import VisitHistory from "@/components/visit-history"
+import VisitHistoryView from "@/components/VisitHistoryView"
 import { AuthenticatedUser } from "@/lib/types"
 
 export default function TripsClientPage({ user }: { user: AuthenticatedUser }) {
@@ -26,7 +26,7 @@ export default function TripsClientPage({ user }: { user: AuthenticatedUser }) {
         <TripPlanner initialDate={new Date()} user={user} />
       </TabsContent>
       <TabsContent value="history">
-        <VisitHistory onWinerySelect={handleWinerySelect} />
+        <VisitHistoryView onWinerySelect={handleWinerySelect} />
       </TabsContent>
     </Tabs>
   )

@@ -16,7 +16,7 @@ import WineryActions from "./WineryActions";
 import FriendActivity from "./FriendActivity";
 import FriendRatings from "./FriendRatings";
 import TripPlannerSection from "./TripPlannerSection";
-import VisitHistory from "./VisitHistory";
+import VisitCardHistory from "./VisitCardHistory";
 import VisitForm from "./VisitForm";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -157,7 +157,7 @@ export default function WineryModal() {
                     <span>Your Visits</span>
                   </h3>
                   {visits.length > 0 ? (
-                    <VisitHistory visits={visits} editingVisitId={editingVisitId} onEditClick={handleEditClick} onDeleteVisit={handleDeleteVisit} onTogglePhotoForDeletion={handleTogglePhotoForDeletion} />
+                    <VisitCardHistory visits={visits} editingVisitId={editingVisitId} onEditClick={handleEditClick} onDeleteVisit={handleDeleteVisit} onTogglePhotoForDeletion={handleTogglePhotoForDeletion} />
                   ) : (
                     <p className="text-sm text-muted-foreground">{activeWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
                   )}

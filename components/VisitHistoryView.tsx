@@ -37,7 +37,7 @@ type SortConfig = {
     direction: 'asc' | 'desc';
 };
 
-export default function VisitHistory({ onWinerySelect }: { onWinerySelect: (wineryDbId: number) => void; }) {
+export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (wineryDbId: number) => void; }) {
     const [visits, setVisits] = useState<Visit[]>([]);
     const [loading, setLoading] = useState(true);
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });

@@ -1,5 +1,5 @@
 import { Visit } from "@/lib/types";
-import VisitHistory from "./VisitHistory";
+import VisitCardHistory from "./VisitCardHistory";
 import { useVisitStore } from "@/lib/stores/visitStore";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useToast } from "@/hooks/use-toast";
@@ -71,7 +71,7 @@ export default function GlobalVisitHistory({ allVisits }: GlobalVisitHistoryProp
                    <MapPin className="w-4 h-4 text-muted-foreground" />
                    <span className="text-sm font-medium text-muted-foreground">{visit.wineryName}</span>
                </div>
-               <VisitHistory 
+               <VisitCardHistory 
                    visits={[visit]} 
                    editingVisitId={null} 
                    onEditClick={handleEditClick} 
