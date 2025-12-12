@@ -5,7 +5,7 @@ import { useFriendStore } from "@/lib/stores/friendStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserPlus, UserCheck, UserX, Loader2, UserMinus } from "lucide-react";
+import { UserPlus, UserCheck, UserX, Loader2, UserMinus, X as XIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Friend } from "@/lib/types";
 import {
@@ -22,7 +22,7 @@ import {
 
 export default function FriendsManager() {
   const { toast } = useToast();
-  const { friends, friendRequests, fetchFriends, addFriend, acceptFriend, rejectFriend, removeFriend, isLoading, error } = useFriendStore();
+  const { friends, friendRequests, sentRequests, fetchFriends, addFriend, acceptFriend, rejectFriend, removeFriend, isLoading, error } = useFriendStore();
   const [email, setEmail] = useState("");
 
   useEffect(() => {
@@ -61,9 +61,9 @@ export default function FriendsManager() {
   const handleRemove = async (friendId: string) => {
     try {
       await removeFriend(friendId);
-      toast({ description: "Friend removed." });
+      toast({ description: "Removed successfully." });
     } catch (err: any) {
-      toast({ variant: "destructive", description: err.message || "Failed to remove friend." });
+      toast({ variant: "destructive", description: err.message || "Failed to remove." });
     }
   };
 
@@ -109,6 +109,34 @@ export default function FriendsManager() {
                     <UserX className="h-4 w-4" />
                   </Button>
                 </div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {sentRequests.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Sent Requests</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {sentRequests.map((req: Friend) => (
+              <div key={req.id} className="flex items-center justify-between p-2 bg-gray-100 rounded-md border border-dashed">
+                <div>
+                  <p className="font-medium">{req.name}</p>
+                  <p className="text-sm text-gray-500">{req.email}</p>
+                </div>
+                <Button 
+                    size="sm" 
+                    variant="ghost" 
+                    onClick={() => handleRemove(req.id)} 
+                    disabled={isLoading}
+                    className="text-muted-foreground hover:text-destructive"
+                >
+                    <span className="mr-2 text-xs">Cancel</span>
+                    <XIcon className="h-4 w-4" />
+                </Button>
               </div>
             ))}
           </CardContent>

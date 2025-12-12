@@ -18,6 +18,7 @@ interface FriendActivityData {
 interface FriendState {
   friends: Friend[];
   friendRequests: Friend[];
+  sentRequests: Friend[];
   isLoading: boolean;
   error: string | null;
   friendsRatings: FriendRating[];
@@ -34,6 +35,7 @@ interface FriendState {
 export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   friends: [],
   friendRequests: [],
+  sentRequests: [],
   isLoading: false,
   error: null,
   friendsRatings: [],
@@ -45,7 +47,12 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       const response = await fetch('/api/friends');
       if (response.ok) {
         const data = await response.json();
-        set({ friends: data.friends || [], friendRequests: data.requests || [], isLoading: false });
+        set({ 
+            friends: data.friends || [], 
+            friendRequests: data.requests || [], 
+            sentRequests: data.sent_requests || [],
+            isLoading: false 
+        });
       } else {
         throw new Error("Failed to fetch friends");
       }
@@ -65,7 +72,7 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       const { error } = await response.json();
       throw new Error(error || "Failed to send friend request.");
     }
-    await get().fetchFriends(); // Refetch to show pending request
+    await get().fetchFriends(); // Refetch to show pending request in "Sent Requests"
   },
 
   acceptFriend: async (requesterId: string) => {
@@ -79,22 +86,19 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   removeFriend: async (friendId: string) => {
     // Optimistic Update
     const originalFriends = get().friends;
-    const newFriends = originalFriends.filter(f => f.id !== friendId);
-    set({ friends: newFriends });
+    const originalSentRequests = get().sentRequests;
+    
+    // Check if it's a friend or a sent request
+    const isFriend = originalFriends.some(f => f.id === friendId);
+    const isSentRequest = originalSentRequests.some(f => f.id === friendId);
+
+    if (isFriend) {
+        set({ friends: originalFriends.filter(f => f.id !== friendId) });
+    } else if (isSentRequest) {
+        set({ sentRequests: originalSentRequests.filter(f => f.id !== friendId) });
+    }
 
     try {
-      // Use the newly created RPC via supabase-js client if we were in a component,
-      // but here we are in a store, so we'll likely need a new API route OR just use the DELETE endpoint we planned?
-      // Wait, the user asked for RPC.
-      // Since we can't directly use Supabase client in the store (it's client-side but we usually use fetch for APIs in this project structure),
-      // we should create an API route that calls the RPC or use the supabase client directly if available.
-      // Looking at `addFriend`, it uses `/api/friends`.
-      // Let's use the DELETE endpoint we discussed, but implement it to call the RPC.
-      // Actually, I can use the supabase client directly in the store if I import `createClient` from `@/utils/supabase/client`?
-      // No, `createClient` is usually for server or client components.
-      // Let's stick to the pattern: Store -> API Route -> Supabase RPC.
-      // I need to update /api/friends/route.ts to handle DELETE and call the RPC.
-      
       const response = await fetch('/api/friends', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
@@ -107,7 +111,9 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       }
     } catch (error) {
       console.error("Failed to remove friend, reverting:", error);
-      set({ friends: originalFriends });
+      // Revert state
+      if (isFriend) set({ friends: originalFriends });
+      if (isSentRequest) set({ sentRequests: originalSentRequests });
       throw error;
     }
   },
