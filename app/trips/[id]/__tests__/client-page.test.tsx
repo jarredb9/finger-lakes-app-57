@@ -57,7 +57,7 @@ describe('TripDetailClientPage', () => {
     (useTripStore as unknown as jest.Mock).mockImplementation((selector) => {
       const state = {
         fetchTripById: mockFetchTripById,
-        // setSelectedTrip is no longer called by the component
+        setSelectedTrip: mockSetSelectedTrip,
         isLoading: false,
         trips: [mockTrip],
       };

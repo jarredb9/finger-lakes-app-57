@@ -420,7 +420,17 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     const updatedTrips = [...originalTrips];
     updatedTrips[tripIndex] = updatedTrip;
 
-    set({ trips: updatedTrips, selectedTrip: updatedTrip });
+    // Optimistically update tripsForDate as well to ensure UI consistency
+    const originalTripsForDate = get().tripsForDate;
+    const tripForDateIndex = originalTripsForDate.findIndex(t => t.id === trip.id);
+    let updatedTripsForDate = originalTripsForDate;
+    
+    if (tripForDateIndex !== -1) {
+        updatedTripsForDate = [...originalTripsForDate];
+        updatedTripsForDate[tripForDateIndex] = updatedTrip;
+    }
+
+    set({ trips: updatedTrips, selectedTrip: updatedTrip, tripsForDate: updatedTripsForDate });
     // --- End Optimistic Update --- //
 
     const supabase = createClient();
