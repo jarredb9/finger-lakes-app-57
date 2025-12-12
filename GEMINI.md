@@ -60,6 +60,7 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
     *   **`saveVisit` (`visitStore`):** Creates a temporary visit object with a temp ID (`temp-${Date.now()}`), adds it via `wineryStore.addVisitToWinery`, then replaces it with the real DB record using `wineryStore.replaceVisit` upon success.
     *   **`respondToRequest` (`friendStore`):** Immediately moves friend from "Requests" to "Friends" list before API call.
     *   **`addWineryToTrips` (`tripStore`):** For *existing* trips, we optimistically append the winery to the `trips` and `tripsForDate` arrays. For *new* trips, we wait for the server (due to ID generation complexity).
+    *   **`removeFriend` (`friendStore`):** Optimistically removes a friend from the `friends` list or a sent request from the `sentRequests` list before the API call.
 
 ### 3. Navigation & Map Context Logic
 *   **Active Trip (`selectedTrip`):**
@@ -67,7 +68,11 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
     *   **Persistence:** This state is global (Zustand) and persists across client-side navigation.
     *   **Reset Rule:** To prevents the map from getting "stuck" on a trip, navigating to a **Trip Details Page** (`/trips/[id]`) **MUST** explicitly clear the active trip (`setSelectedTrip(null)`) on mount. This ensures that returning to the Explore tab starts with a clean map context.
 
-### 4. API & Component Structure Notes
+### 4. Friend Request Notifications
+*   **Immediate Fetch:** Friend data, including pending requests, is now fetched immediately upon user authentication via `AuthProvider` to ensure notification badges are always up-to-date.
+*   **Notification Badges:** Visual indicators (red circles with counts) are displayed on the "Friends" tab in both desktop (AppSidebar) and mobile (AppShell) views to highlight pending friend requests.
+
+### 5. API & Component Structure Notes
 *   **Component Naming:**
     *   `VisitCardHistory.tsx`: The reusable UI card/list component.
     *   `VisitHistoryView.tsx`: The full-page view wrapper (used in Tabs).
@@ -91,7 +96,10 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
     *   `create_trip_with_winery()`: Atomically creates a trip and adds the first winery.
     *   `add_winery_to_trip()`: Handles the upsert logic for wineries when adding to a trip.
     *   `remove_winery_from_trip()`: Safely removes a winery from a trip.
-    *   `get_friends_and_requests()`: Fetches social graph in a single round-trip.
+
+### Social Graph Management
+*   `remove_friend(target_friend_id)`: Deletes a friendship record between the current user and `target_friend_id`, used for both removing friends and cancelling sent requests.
+*   `get_friends_and_requests()`: Fetches the social graph, now including accepted friends, incoming friend requests, and outgoing (sent) friend requests in a single round-trip.
 
 ### Core Custom Hooks
 *   **`useWineryMap`:** The "Brain" of the map view. Aggregates store data, handles map clicks (fetching details for non-DB places), and manages the Google Maps instance.
