@@ -55,7 +55,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
 
     try {
       if (editingVisit) {
-        await updateVisit(editingVisit.id!, { visit_date: visitDate, user_review: userReview, rating }, photos, photosToDelete);
+        await updateVisit(String(editingVisit.id!), { visit_date: visitDate, user_review: userReview, rating }, photos, photosToDelete);
         toast({ description: "Visit updated successfully." });
         onCancelEdit();
       } else {

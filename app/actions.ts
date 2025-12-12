@@ -11,9 +11,9 @@ interface WineryData {
     address: string;
     lat: number;
     lng: number;
-    phone?: string;
-    website?: string;
-    rating?: number;
+    phone?: string | null;
+    website?: string | null;
+    rating?: number | null;
 }
 
 /**

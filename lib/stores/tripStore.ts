@@ -152,7 +152,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
       // Replace temporary trip with the real one from the server
       set(state => ({
-        tripsForDate: state.tripsForDate.map(t => t.id === tempId ? { ...tempTrip, ...createdTrip, id: createdTrip.tripId } : t)
+        tripsForDate: state.tripsForDate.map(t => t.id === tempId ? createdTrip! : t)
       }));
 
       return createdTrip;

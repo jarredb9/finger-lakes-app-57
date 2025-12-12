@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { useTripStore } from "@/lib/stores/tripStore"; 
 import { useMapsLibrary } from "@vis.gl/react-google-maps";
-import { useWineryStore } from "@/lib/stores/wineryStore";
+import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { DatePicker } from "./DatePicker";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -43,7 +43,7 @@ type TripFormValues = z.infer<typeof tripSchema>
 export default function TripForm({ initialDate, user }: TripFormProps) {
   const { toast } = useToast();
   const { fetchTripsForDate, createTrip } = useTripStore();
-  const { ensureWineryInDb } = useWineryStore();
+  const { ensureInDb, upsertWinery } = useWineryDataStore();
   
   // Local state for search (not part of the form schema directly)
   const [winerySearch, setWinerySearch] = useState("");
@@ -114,8 +114,10 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
     if (isSelected) {
       form.setValue("wineries", currentWineries.filter(w => w.id !== winery.id));
     } else {
-      // Add - first ensure it's in the DB
-      const dbId = await ensureWineryInDb(winery);
+      // Add - first ensure it's in the store and DB
+      upsertWinery(winery);
+      const dbId = await ensureInDb(winery.id);
+      
       if (!dbId) {
         toast({ variant: "destructive", description: `Could not save ${winery.name} to the database.` });
         return;

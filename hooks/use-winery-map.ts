@@ -5,6 +5,7 @@ import { useMap } from "@vis.gl/react-google-maps";
 import { useToast } from "@/hooks/use-toast";
 import { Winery } from "@/lib/types";
 import { useWineryStore } from "@/lib/stores/wineryStore";
+import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useUIStore } from "@/lib/stores/uiStore";
@@ -18,11 +19,12 @@ export function useWineryMap(userId: string) {
     hitApiLimit,
   } = useMapStore();
 
+  const { error } = useWineryDataStore();
+
   const {
-    persistentWineries,
-    error,
     fetchWineryData,
     ensureWineryDetails,
+    getWineries,
   } = useWineryStore();
 
   const { openWineryModal } = useUIStore();
@@ -89,7 +91,7 @@ export function useWineryMap(userId: string) {
       if (!placesLibrary || !geocodingLibrary || !e.latLng || !e.placeId) return;
       e.stop();
       
-      const isKnown = persistentWineries.some((w) => w.id === e.placeId);
+      const isKnown = getWineries().some((w) => w.id === e.placeId);
       if (isKnown) return;
 
       try {
@@ -126,7 +128,7 @@ export function useWineryMap(userId: string) {
         });
       }
     },
-    [placesLibrary, geocodingLibrary, toast, persistentWineries]
+    [placesLibrary, geocodingLibrary, toast, getWineries]
   );
 
   useEffect(() => {

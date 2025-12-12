@@ -37,7 +37,7 @@ export default function VisitHistory({ visits, editingVisitId, onEditClick, onDe
                   <Edit className="w-4 h-4" />
                 </Button>
                 {visit.id && (
-                  <Button variant="ghost" size="sm" onClick={() => onDeleteVisit(visit.id!)} className="text-red-600 hover:text-red-800 hover:bg-red-50" aria-label={`Delete visit`}>
+                  <Button variant="ghost" size="sm" onClick={() => onDeleteVisit(String(visit.id!))} className="text-red-600 hover:text-red-800 hover:bg-red-50" aria-label={`Delete visit`}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 )}

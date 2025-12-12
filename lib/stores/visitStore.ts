@@ -125,7 +125,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
     const { optimisticallyUpdateVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
 
     // Find the original visit to get the existing photos
-    const winery = useWineryStore.getState().persistentWineries.find(w => w.visits?.some(v => v.id === visitId));
+    const winery = useWineryStore.getState().getWineries().find(w => w.visits?.some(v => v.id === visitId));
     const originalVisit = winery?.visits?.find(v => v.id === visitId);
     if (!originalVisit) {
       throw new Error("Original visit not found for update.");

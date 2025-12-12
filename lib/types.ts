@@ -1,17 +1,31 @@
-// file: lib/types.ts
+import { Database } from './database.types';
+
+type Tables = Database['public']['Tables'];
+
+// Basic Row Types
+export type DbWinery = Tables['wineries']['Row'];
+export type DbTrip = Tables['trips']['Row'];
+export type DbVisit = Tables['visits']['Row'];
+export type DbProfile = Tables['profiles']['Row'];
+export type DbFriend = Tables['friends']['Row'];
+
+// Derived Interfaces (Frontend Models)
+
 export interface Visit {
-  id?: string;
+  id?: string | number; // String for temp ID, number for DB ID
   user_id?: string;
   visit_date: string;
   user_review: string;
   rating?: number;
   photos?: string[];
+  winery_id?: number;
+  // Expanded fields often joined in queries
   wineries?: {
     id: number;
     google_place_id: string;
     name: string;
     address: string;
-    latitude: string;
+    latitude: string; // Numeric in DB but often string in API/RPC responses
     longitude: string;
   };
   profiles?: {
@@ -44,26 +58,37 @@ export interface OpeningHours {
 }
 
 export interface Winery {
-  id: string; // This is the google_place_id
-  dbId?: number | null | undefined; // This will be the serial ID from our database
+  // The 'id' here is strictly the Google Place ID for UI/Map consistency.
+  // Use 'dbId' for database operations.
+  id: string; 
+  dbId?: number | null; 
+  
   name: string;
   address: string;
   lat: number;
   lng: number;
-  phone?: string;
-  website?: string;
-  rating?: number;
+  
+  phone?: string | null;
+  website?: string | null;
+  rating?: number | null; // Google Rating
+  
+  // User interaction state (derived)
   userVisited?: boolean;
   onWishlist?: boolean;
   isFavorite?: boolean;
+  
   visits?: Visit[];
+  
+  // Trip context (derived)
   trip_id?: number;
   trip_name?: string;
   trip_date?: string;
   notes?: string;
+  
+  // Extended Details (Lazy Loaded)
   openingHours?: OpeningHours | null;
   reviews?: PlaceReview[];
-  reservable?: boolean;
+  reservable?: boolean | null;
 }
 
 export interface Trip {
@@ -71,14 +96,15 @@ export interface Trip {
     user_id: string;
     trip_date: string;
     name?: string;
-    wineries: Winery[];
     members?: string[];
+    wineries: Winery[];
+    
+    // UI-specific fields for form handling
     wineryOrder?: number[];
     removeWineryId?: number;
     notes?: string;
-    // Can be a single note update or a batch update of multiple notes
     updateNote?: { wineryId: number; notes: string; } | { notes: Record<number, string>; };
-    owner_id?: string
+    owner_id?: string;
 }
 
 export interface Friend {

@@ -8,14 +8,14 @@ import { Winery } from "@/lib/types";
 
 export function useWineryFilter() {
   const { searchResults, filter, bounds, setFilter } = useMapStore();
-  const { persistentWineries, favoriteWineries, visitedWineries, wishlistWineries } = useWineryStore();
+  const { getWineries, getFavorites, getVisited, getWishlist } = useWineryStore();
   const { selectedTrip } = useTripStore();
 
   const mapWineries = useMemo(() => {
     const wineriesMap = new Map<string, Winery>();
     
     // Combine search results and persistent wineries, preferring persistent ones (more data)
-    [...searchResults, ...persistentWineries].forEach((w) => {
+    [...searchResults, ...getWineries()].forEach((w) => {
       if (w && w.id) {
         // If duplicate, this preserves the last one. 
         // We might want to be more careful here, but this matches original logic.
@@ -23,9 +23,9 @@ export function useWineryFilter() {
       }
     });
 
-    const favoriteIds = new Set(favoriteWineries.map((w) => w.id));
-    const visitedIds = new Set(visitedWineries.map((w) => w.id));
-    const wishlistIds = new Set(wishlistWineries.map((w) => w.id));
+    const favoriteIds = new Set(getFavorites().map((w) => w.id));
+    const visitedIds = new Set(getVisited().map((w) => w.id));
+    const wishlistIds = new Set(getWishlist().map((w) => w.id));
 
     const categorizedWineries = {
       favorites: [] as Winery[],
@@ -49,10 +49,10 @@ export function useWineryFilter() {
     return categorizedWineries;
   }, [
     searchResults,
-    persistentWineries,
-    favoriteWineries,
-    visitedWineries,
-    wishlistWineries,
+    getWineries,
+    getFavorites,
+    getVisited,
+    getWishlist,
   ]);
 
   const listResultsInView = useMemo(() => {

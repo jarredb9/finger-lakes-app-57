@@ -1,570 +1,140 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { Winery, Visit } from '@/lib/types';
-import { toggleFavorite } from '@/app/actions';
+import { useWineryDataStore } from './wineryDataStore';
 import { createClient } from '@/utils/supabase/client';
 
-// This represents the raw data structure of a winery coming from the database/API
-interface RawWinery {
-  id: number;
-  google_place_id: string;
-  name: string;
-  address: string;
-  latitude: string;
-  longitude: string;
-  phone?: string;
-  website?: string;
-  google_rating?: number;
-  opening_hours?: any; // From Google Places Details API
-  reviews?: any; // From Google Places Details API
-  reservable?: boolean; // From Google Places Details API
-  visits?: Visit[];
-  wineries?: RawWinery[]; // In case of nested winery data
-}
+/**
+ * WineryUIStore
+ * 
+ * Responsibilities:
+ * 1. Filtering and Derived Views (Favorites, Wishlist, Visited)
+ * 2. UI Loading States (Specific ID loading)
+ * 3. Fetching heavy details (lazy loading) and pushing them to DataStore
+ */
 
-// Moved standardizeWineryData outside of the create call to be reusable
-const standardizeWineryData = (rawWinery: RawWinery, existingWinery?: Winery): Winery | null => {
-  if (!rawWinery) return null;
-
-  const id = String(rawWinery.google_place_id || rawWinery.id);
-  const dbId = rawWinery.google_place_id ? rawWinery.id : (existingWinery?.dbId);
-
-  const lat = rawWinery.latitude;
-  const lng = rawWinery.longitude;
-
-  const standardized: Winery = {
-      id,
-      dbId,
-      name: rawWinery.name,
-      address: rawWinery.address,
-      lat: typeof lat === 'string' ? parseFloat(lat) : (lat || 0),
-      lng: typeof lng === 'string' ? parseFloat(lng) : (lng || 0),
-      phone: rawWinery.phone ?? existingWinery?.phone,
-      website: rawWinery.website ?? existingWinery?.website,
-      rating: rawWinery.google_rating ?? (rawWinery as unknown as Winery).rating ?? existingWinery?.rating,
-      userVisited: existingWinery?.userVisited || false,
-      openingHours: rawWinery.opening_hours ?? existingWinery?.openingHours,
-      reviews: rawWinery.reviews ?? existingWinery?.reviews,
-      reservable: rawWinery.reservable ?? existingWinery?.reservable,
-      onWishlist: existingWinery?.onWishlist || false,
-      isFavorite: existingWinery?.isFavorite || false,
-      visits: existingWinery?.visits || rawWinery.visits || [],
-      trip_id: existingWinery?.trip_id,
-      trip_name: existingWinery?.trip_name,
-      trip_date: existingWinery?.trip_date,
-  };
-
-  if (!standardized.id || !standardized.name || typeof standardized.lat !== 'number' || isNaN(standardized.lat) || typeof standardized.lng !== 'number' || isNaN(standardized.lng)) {
-      console.warn('[Validation] Invalid winery data after standardization:', { rawWinery, standardized });
-      return null;
-  }
-  return standardized;
-};
-
-interface WineryState {
-  wineries: Winery[];
-  visitedWineries: Winery[];
-  wishlistWineries: Winery[];
-  favoriteWineries: Winery[];
-  persistentWineries: Winery[];
-  isLoading: boolean;
-  loadingWineryId: string | null; // Tracks which winery ID is currently fetching details
-  isTogglingWishlist: boolean;
-  isTogglingFavorite: boolean;
+interface WineryUIState {
+  // Derived State (Getters)
+  getWineries: () => Winery[];
+  getVisited: () => Winery[];
+  getWishlist: () => Winery[];
+  getFavorites: () => Winery[];
   error: string | null;
-  _wineriesBackup: Winery[] | null;
-
-  fetchWineryData: () => Promise<void>;
+  
+  // UI State
+  loadingWineryId: string | null;
+  
+  // Actions
+  fetchWineryData: () => Promise<void>; // Proxies to DataStore
   ensureWineryDetails: (placeId: string) => Promise<Winery | null>;
-  toggleWishlist: (winery: Winery, isOnWishlist: boolean) => Promise<void>;
-  toggleFavorite: (winery: Winery, isFavorite: boolean) => Promise<void>;
-  getWineryById: (id: string) => Winery | undefined;
-  ensureWineryInDb: (winery: Winery) => Promise<number | null>;
-  updateWinery: (wineryId: string, updates: Partial<Winery>) => void;
-
-  // Methods for visitStore to interact with
+  
+  // Proxy Actions (For convenience/compatibility)
+  toggleWishlist: (winery: Winery, isOn: boolean) => Promise<void>;
+  toggleFavorite: (winery: Winery, isFav: boolean) => Promise<void>;
   addVisitToWinery: (wineryId: string, visit: Visit) => void;
   optimisticallyUpdateVisit: (visitId: string, visitData: Partial<Visit>) => void;
   optimisticallyDeleteVisit: (visitId: string) => void;
-  replaceVisit: (wineryId: string, tempVisitId: string, finalVisit: Visit) => void;
-  revertOptimisticUpdate: () => void;
+  replaceVisit: (wineryId: string, tempId: string, finalVisit: Visit) => void;
   confirmOptimisticUpdate: (updatedVisit?: Visit) => void;
+  revertOptimisticUpdate: () => void;
+  updateWinery: (id: string, updates: Partial<Winery>) => void;
 }
 
-export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
-  wineries: [],
-  visitedWineries: [],
-  wishlistWineries: [],
-  favoriteWineries: [],
-  persistentWineries: [],
-  isLoading: false,
-  loadingWineryId: null, // Initial state
-  isTogglingWishlist: false,
-  isTogglingFavorite: false,
-  error: null,
-  _wineriesBackup: null,
+export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
+  loadingWineryId: null,
+
+  getWineries: () => useWineryDataStore.getState().persistentWineries,
+  getVisited: () => useWineryDataStore.getState().persistentWineries.filter(w => w.userVisited),
+  getWishlist: () => useWineryDataStore.getState().persistentWineries.filter(w => w.onWishlist),
+  getFavorites: () => useWineryDataStore.getState().persistentWineries.filter(w => w.isFavorite),
+  error: useWineryDataStore.getState().error,
 
   fetchWineryData: async () => {
-    set({ isLoading: true, error: null });
-    const supabase = createClient();
-    try {
-      // Parallel fetch: Lightweight markers + User Visits history
-      const [markersResult, visitsResult] = await Promise.all([
-        supabase.rpc('get_map_markers'),
-        supabase.rpc('get_all_user_visits_list')
-      ]);
-
-      if (markersResult.error) throw markersResult.error;
-      if (visitsResult.error) throw visitsResult.error;
-
-      const markers = markersResult.data || [];
-      const visits = visitsResult.data || [];
-
-      // Group visits by winery_id (dbId)
-      const visitsByWineryId = new Map();
-      visits.forEach((v: any) => {
-        const wId = v.winery_id;
-        if (!visitsByWineryId.has(wId)) visitsByWineryId.set(wId, []);
-        visitsByWineryId.get(wId).push({
-            id: v.id,
-            visit_date: v.visit_date,
-            rating: v.rating,
-            user_review: v.user_review,
-            photos: v.photos
-        });
-      });
-
-      const detailedWineries: Winery[] = markers.map((w: any) => {
-        const dbId = w.id; 
-        // markers returns 'id' as dbId, and 'google_place_id'
-        const googleId = w.google_place_id || String(dbId);
-        const visitsForThisWinery = visitsByWineryId.get(dbId) || [];
-
-        // Note: We intentionally omit heavy details (reviews, opening hours) here.
-        // They will be lazy-loaded via ensureWineryDetails.
-        return {
-            id: googleId,
-            dbId: dbId,
-            name: w.name,
-            address: w.address,
-            lat: typeof w.lat === 'string' ? parseFloat(w.lat) : (w.lat || 0),
-            lng: typeof w.lng === 'string' ? parseFloat(w.lng) : (w.lng || 0),
-            isFavorite: w.is_favorite,
-            onWishlist: w.on_wishlist,
-            userVisited: w.user_visited,
-            visits: visitsForThisWinery,
-            // Initialize optional fields as undefined to indicate "not loaded"
-            phone: undefined,
-            website: undefined,
-            rating: undefined, // Google rating
-            openingHours: undefined,
-            reviews: undefined,
-            reservable: undefined
-        };
-      });
-
-      set({
-        persistentWineries: detailedWineries,
-        visitedWineries: detailedWineries.filter(w => w.userVisited),
-        favoriteWineries: detailedWineries.filter(w => w.isFavorite),
-        wishlistWineries: detailedWineries.filter(w => w.onWishlist),
-        isLoading: false,
-      });
-
-    } catch (error) {
-      console.error("Failed to fetch winery data:", error);
-      set({ error: "Failed to load winery data.", isLoading: false });
-    }
+      await useWineryDataStore.getState().hydrateWineries();
   },
 
   ensureWineryDetails: async (placeId: string) => {
-    const existing = get().persistentWineries.find(w => w.id === placeId);
-    
-    // Check if we have meaningful details. 
+    const dataStore = useWineryDataStore.getState();
+    const existing = dataStore.getWinery(placeId);
+
     if (existing && existing.openingHours !== undefined) {
-      return existing;
+        return existing;
     }
 
-    set({ loadingWineryId: placeId }); // Start loading for this specific ID
+    set({ loadingWineryId: placeId });
 
-    const supabase = createClient();
-    let dbData = null;
+    try {
+        const supabase = createClient();
+        let dbData = null;
 
-    // 1. Try fetching full details from OUR DB first (using dbId if available)
-    if (existing?.dbId) {
-        const { data, error } = await supabase.rpc('get_winery_details_by_id', { winery_id_param: existing.dbId });
-        if (!error && data && data.length > 0) {
-            dbData = data[0];
-        } else {
+        // 1. Try DB details
+        if (existing?.dbId) {
+            const { data } = await supabase.rpc('get_winery_details_by_id', { winery_id_param: existing.dbId });
+            if (data && data.length > 0) dbData = data[0];
         }
-    } 
 
-    if (dbData && dbData.opening_hours) {
-        // We have good data from DB
-        // Transform DB data to Winery type
-         const standardized: Winery = {
-            ...existing!,
-            id: dbData.google_place_id || String(dbData.id),
-            dbId: dbData.id,
-            name: dbData.name,
-            address: dbData.address,
-            lat: Number(dbData.lat),
-            lng: Number(dbData.lng),
-            phone: dbData.phone,
-            website: dbData.website,
-            rating: dbData.google_rating,
-            openingHours: dbData.opening_hours,
-            reviews: dbData.reviews,
-            reservable: dbData.reservable,
-            // User state
-            isFavorite: dbData.is_favorite,
-            onWishlist: dbData.on_wishlist,
-            userVisited: dbData.user_visited,
-            visits: dbData.visits || existing?.visits || [], // Prefer DB visits but fallback
-            trip_id: dbData.trip_info?.[0]?.trip_id,
-            trip_name: dbData.trip_info?.[0]?.trip_name,
-            trip_date: dbData.trip_info?.[0]?.trip_date,
-        };
-
-        set(state => {
-             const exists = state.persistentWineries.some(w => w.id === placeId);
-             if (exists) {
-                 return {
-                     persistentWineries: state.persistentWineries.map(w => 
-                         w.id === placeId ? { ...w, ...standardized } : w
-                     )
-                 };
-             } else {
-                 return {
-                     persistentWineries: [...state.persistentWineries, standardized]
-                 };
-             }
-        });
-        
-        // Only clear loading if it's still for this ID (concurrency check)
-        if (get().loadingWineryId === placeId) {
+        // 2. If valid DB data found, upsert to DataStore
+        if (dbData && dbData.opening_hours) {
+            const updated = dataStore.upsertWinery({ ...dbData, id: dbData.google_place_id || dbData.id });
             set({ loadingWineryId: null });
+            return updated;
         }
-        return standardized;
-    }
 
-    // 2. If DB data is missing or incomplete (no opening_hours), fetch from Google API
-    // Only if it looks like a Google Place ID (alphanumeric)
-    if (!/^\d+$/.test(placeId)) {
-        try {
+        // 3. Fallback to Google API (if alphanumeric place ID)
+        if (!/^\d+$/.test(placeId)) {
             const response = await fetch('/api/wineries/details', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ placeId }),
             });
-
-            if (!response.ok) throw new Error("API call failed");
-            
-            const detailedWineryData = await response.json();
-            const standardized = standardizeWineryData(detailedWineryData, existing);
-
-            if (standardized) {
-                set(state => {
-                    const exists = state.persistentWineries.some(w => w.id === placeId);
-                    if (exists) {
-                        return {
-                            persistentWineries: state.persistentWineries.map(w => 
-                                w.id === placeId ? { ...w, ...standardized } : w
-                            )
-                        };
-                    } else {
-                        return {
-                            persistentWineries: [...state.persistentWineries, standardized]
-                        };
-                    }
-                });
-                return standardized;
-            } else {
-                console.error(`Standardization failed for winery ${placeId}`);
-            }
-        } catch (err) {
-            console.error(`Failed to fetch Google details for ${placeId}`, err);
-        } finally {
-            // Only clear loading if it's still for this ID
-            if (get().loadingWineryId === placeId) {
+            if (response.ok) {
+                const googleData = await response.json();
+                const updated = dataStore.upsertWinery(googleData);
                 set({ loadingWineryId: null });
+                return updated;
             }
         }
-    } else {
+    } catch (error) {
+        console.error("Details fetch failed:", error);
     }
 
-    if (get().loadingWineryId === placeId) {
-        set({ loadingWineryId: null });
-    }
+    set({ loadingWineryId: null });
     return existing || null;
   },
 
-  addVisitToWinery: (wineryId, newVisit) => {
-    set(state => {
-      const updatedWineries = state.persistentWineries.map(w => {
-        if (w.id === wineryId) {
-          return {
-            ...w,
-            userVisited: true,
-            visits: [newVisit, ...(w.visits || [])]
-          };
-        }
-        return w;
-      });
-      return { 
-        persistentWineries: updatedWineries,
-        visitedWineries: updatedWineries.filter(w => w.userVisited)
-      };
-    });
-  },
-
-  optimisticallyUpdateVisit: (visitId, visitData) => {
-    set(state => {
-      if (state._wineriesBackup) return {}; // Prevent multiple optimistic updates
-
-      const updatedWineries = state.persistentWineries.map(winery => {
-          const visitIndex = winery.visits?.findIndex(v => v.id === visitId) ?? -1;
-          if (visitIndex === -1) return winery;
-
-          const updatedVisits = [...winery.visits!];
-          const originalVisit = updatedVisits[visitIndex];
-          updatedVisits[visitIndex] = { ...originalVisit, ...visitData };
-
-          return { ...winery, visits: updatedVisits };
-      });
-
-      return {
-          persistentWineries: updatedWineries,
-          _wineriesBackup: state.persistentWineries
-      };
-    });
-  },
-
-  optimisticallyDeleteVisit: (visitId) => {
-    set(state => {
-      if (state._wineriesBackup) return {}; // Prevent multiple optimistic updates
-
-      const updatedWineries = state.persistentWineries.map(winery => {
-        // Add a guard clause to handle cases where winery.visits is undefined.
-        if (!winery.visits) {
-          return winery;
-        }
-        const visitIndex = winery.visits.findIndex(v => v.id === visitId);
-        if (visitIndex === -1) {
-          return winery;
-        }
-        const newVisits = winery.visits.filter(v => v.id !== visitId);
-        return { ...winery, visits: newVisits };
-      });
-
-      return {
-        persistentWineries: updatedWineries,
-        _wineriesBackup: state.persistentWineries
-      };
-    });
-  },
-
-  replaceVisit: (wineryId, tempVisitId, finalVisit) => {
-    set(state => {
-      const updatedWineries = state.persistentWineries.map(w => {
-        if (w.id === wineryId && w.visits) {
-          const visitIndex = w.visits.findIndex(v => v.id === tempVisitId);
-          if (visitIndex !== -1) {
-            const newVisits = [...w.visits];
-            newVisits[visitIndex] = finalVisit;
-            return { ...w, visits: newVisits };
-          }
-        }
-        return w;
-      });
-      return {
-        persistentWineries: updatedWineries,
-        visitedWineries: updatedWineries.filter(w => w.userVisited)
-      };
-    });
-  },
-
-  revertOptimisticUpdate: () => {
-    set(state => {
-      if (!state._wineriesBackup) return {};
-      return {
-        persistentWineries: state._wineriesBackup,
-        _wineriesBackup: null
-      };
-    });
-  },
-
-  confirmOptimisticUpdate: (updatedVisit) => {
-    set(state => {
-      if (updatedVisit) {
-        const finalWineries = state.persistentWineries.map(winery => {
-            const visitIndex = winery.visits?.findIndex(v => v.id === updatedVisit.id) ?? -1;
-            if (visitIndex === -1) return winery;
-
-            const finalVisits = [...winery.visits!];
-            finalVisits[visitIndex] = { ...finalVisits[visitIndex], ...updatedVisit };
-            return { ...winery, visits: finalVisits };
-        });
-        return { 
-          persistentWineries: finalWineries,
-          _wineriesBackup: null 
-        };
-      }
-      return { _wineriesBackup: null };
-    });
-  },
-
-  toggleWishlist: async (winery, isOnWishlist) => {
-    set({ isTogglingWishlist: true });
-    const originalWineries = get().persistentWineries;
-    const supabase = createClient();
-
-    // Optimistic update
-    const updatedWineries = originalWineries.map(w =>
-      w.id === winery.id ? { ...w, onWishlist: !isOnWishlist } : w
-    );
-    set({ persistentWineries: updatedWineries, wishlistWineries: updatedWineries.filter(w => w.onWishlist) });
-
-    try {
-      if (isOnWishlist) {
-        // If it was on wishlist, we need to remove it.
-        // The add_to_wishlist RPC only adds, it doesn't remove.
-        // So for deletion, we will call the API route for now.
-        // In the future, a separate RPC for remove_from_wishlist could be made.
-        const dbId = get().persistentWineries.find(w => w.id === winery.id)?.dbId;
-        if (!dbId) throw new Error("Winery not found in DB for removal from wishlist.");
-        const response = await fetch('/api/wishlist', { 
-            method: 'DELETE', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ dbId }) 
-        });
-        if (!response.ok) throw new Error("Could not remove from wishlist.");
-      } else {
-        // Add to wishlist using RPC
-        const rpcWineryData = {
-          id: winery.id,
-          name: winery.name,
-          address: winery.address,
-          lat: winery.lat,
-          lng: winery.lng,
-          phone: winery.phone || null,
-          website: winery.website || null,
-          rating: winery.rating || null,
-        };
-        const { error: rpcError } = await supabase.rpc('add_to_wishlist', { p_winery_data: rpcWineryData });
-        if (rpcError) throw rpcError;
-      }
-      
-      // Re-fetch in the background to ensure full consistency, especially for the isFavorite/onWishlist flags
-      // on the persistentWineries (which the RPC does not directly update in the store)
-      get().fetchWineryData(); 
-
-    } catch (error) {
-      console.error("Failed to toggle wishlist:", error);
-      set({ persistentWineries: originalWineries, wishlistWineries: originalWineries.filter(w => w.onWishlist) }); // Revert on error
-      throw error;
-    } finally {
-      set({ isTogglingWishlist: false });
-    }
-  },
-
-  toggleFavorite: async (winery, isFavorite) => {
-    set({ isTogglingFavorite: true });
-    // Optimistic update
-    const originalWineries = get().persistentWineries;
-    const updatedWineries = originalWineries.map(w =>
-      w.id === winery.id ? { ...w, isFavorite: !isFavorite } : w
-    );
-    set({ persistentWineries: updatedWineries, favoriteWineries: updatedWineries.filter(w => w.isFavorite) });
-
-    try {
-      const result = await toggleFavorite(winery); // Call the Server Action
-      
-      if (!result.success) {
-        throw new Error(result.error || "Could not update favorites.");
-      }
-
-      // Re-fetch in the background to ensure full consistency after server action
-      get().fetchWineryData();
-
-    } catch (error) {
-      console.error("Failed to toggle favorite:", error);
-      set({ 
-        persistentWineries: originalWineries, 
-        favoriteWineries: originalWineries.filter(w => w.isFavorite),
-        error: "Failed to update favorites."
-      }); // Revert optimistic update on error
-      throw error;
-    } finally {
-      set({ isTogglingFavorite: false });
-    }
-  },
-
-  getWineryById: (id: string) => {
-    return get().persistentWineries.find(w => w.id === id);
+  // Proxies to DataStore actions
+  toggleWishlist: async (winery, _isOn) => {
+      await useWineryDataStore.getState().toggleWishlist(winery.id);
   },
   
-  updateWinery: (wineryId: string, updates: Partial<Winery>) => {
-    set(state => ({
-      persistentWineries: state.persistentWineries.map(w => 
-        w.id === wineryId ? { ...w, ...updates } : w
-      )
-    }));
+  toggleFavorite: async (winery, _isFav) => {
+      await useWineryDataStore.getState().toggleFavorite(winery.id);
   },
-
-  ensureWineryInDb: async (winery: Winery) => {
-    if (winery.dbId) {
-      return winery.dbId;
-    }
-    const existing = get().persistentWineries.find(w => w.id === winery.id);
-    if (existing?.dbId) {
-      return existing.dbId;
-    }
-
-    try {
-      const supabase = createClient();
-      const rpcWineryData = {
-        id: winery.id,
-        name: winery.name,
-        address: winery.address,
-        lat: winery.lat,
-        lng: winery.lng,
-        phone: winery.phone || null,
-        website: winery.website || null,
-        rating: winery.rating || null,
-      };
-
-      const { data: dbId, error } = await supabase.rpc('ensure_winery', { p_winery_data: rpcWineryData });
-
-      if (error) {
-        console.error('Failed to ensure winery in DB via RPC:', error);
-        throw new Error('Failed to ensure winery in DB');
-      }
-
-      if (dbId) {
-        set(state => {
-          const updateWinery = (w: Winery) => w.id === winery.id ? { ...w, dbId } : w;
-          
-          const persistentWineries = state.persistentWineries.map(updateWinery);
-          const isNew = !state.persistentWineries.some(w => w.id === winery.id);
-
-          return { 
-            persistentWineries: isNew ? [...persistentWineries, { ...winery, dbId }] : persistentWineries,
-            visitedWineries: state.visitedWineries.map(updateWinery),
-            favoriteWineries: state.favoriteWineries.map(updateWinery),
-            wishlistWineries: state.wishlistWineries.map(updateWinery),
-          };
-        });
-      }
-      return dbId;
-    } catch (error) {
-      console.error(`Failed to ensure winery in DB for ${winery.name}:`, error);
-      return null;
-    }
+  
+  addVisitToWinery: (id, visit) => useWineryDataStore.getState().addVisit(id, visit),
+  
+  optimisticallyUpdateVisit: (id, data) => useWineryDataStore.getState().updateVisit(id, data),
+  
+  optimisticallyDeleteVisit: (id) => useWineryDataStore.getState().removeVisit(id),
+  
+  replaceVisit: (wineryId, tempId, final) => {
+      useWineryDataStore.getState().removeVisit(tempId);
+      useWineryDataStore.getState().addVisit(wineryId, final);
   },
+  
+  // These are now handled implicitly by DataStore atomic updates, 
+  // but kept for interface compatibility if complex rollback needed
+  confirmOptimisticUpdate: () => {}, 
+  revertOptimisticUpdate: () => {},
+
+  updateWinery: (id, updates) => {
+      const existing = useWineryDataStore.getState().getWinery(id);
+      if (existing) {
+          useWineryDataStore.getState().upsertWinery({ ...existing, ...updates });
+      }
+  }
 }));
 
-// Helper function to find a winery by its database ID
+// Backward compatibility helper
 export const findWineryByDbId = (dbId: number) => {
-  const state = useWineryStore.getState();
-  return state.persistentWineries.find(w => w.dbId === dbId);
+    return useWineryDataStore.getState().persistentWineries.find(w => w.dbId === dbId);
 };

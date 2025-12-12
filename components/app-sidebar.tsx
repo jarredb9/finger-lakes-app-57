@@ -56,7 +56,7 @@ export function AppSidebar({
     handleFilterChange,
   } = useWineryMapContext();
 
-  const { persistentWineries } = useWineryStore(); // Get persistentWineries here
+  const { getWineries } = useWineryStore(); // Get persistentWineries here
   const { isVisitHistoryModalOpen, setVisitHistoryModalOpen } = useUIStore();
   const { friendRequests } = useFriendStore();
 
@@ -64,7 +64,7 @@ export function AppSidebar({
 
   // Compute allVisits here in AppSidebar
   const allVisits: VisitWithContext[] = useMemo(() => {
-    return persistentWineries.flatMap(winery => 
+    return getWineries().flatMap(winery => 
       (winery.visits || []).map(visit => ({
         ...visit,
         wineryName: winery.name,
@@ -79,7 +79,7 @@ export function AppSidebar({
         }
       }))
     ).sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
-  }, [persistentWineries]);
+  }, [getWineries]);
 
 
   // Memoize expensive tab contents

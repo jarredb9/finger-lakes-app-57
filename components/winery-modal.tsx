@@ -25,7 +25,7 @@ export default function WineryModal() {
   const { toast } = useToast();
   const { fetchTripById, setSelectedTrip } = useTripStore();
   const activeWinery = useWineryStore((state) =>
-    activeWineryId ? state.persistentWineries.find((w) => w.id === activeWineryId) : null
+    activeWineryId ? state.getWineries().find((w) => w.id === activeWineryId) : null
   );
   const loadingWineryId = useWineryStore((state) => state.loadingWineryId); // Get loading state
   const { deleteVisit: deleteVisitAction } = useVisitStore();
@@ -68,7 +68,7 @@ export default function WineryModal() {
 
   const handleEditClick = (visit: Visit) => {
     if (!visit.id) return;
-    setEditingVisitId(visit.id);
+    setEditingVisitId(String(visit.id));
     setTimeout(() => {
       visitFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 100);
