@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import { InteractiveBottomSheet, SheetMode } from "@/components/ui/interactive-bottom-sheet";
+import { useFriendStore } from "@/lib/stores/friendStore";
 
 const WineryModal = dynamic(() => import("@/components/winery-modal"), {
   ssr: false,
@@ -36,6 +37,9 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
   const [sheetMode, setSheetMode] = useState<SheetMode>("mini");
+  const { friendRequests } = useFriendStore();
+
+  const friendRequestCount = friendRequests.length;
 
   // Handle mobile nav click
   const handleMobileNav = (tab: "explore" | "trips" | "friends" | "history") => {
@@ -167,11 +171,16 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             </Button>
             <Button 
                 variant="ghost" 
-                className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "friends" && isMobileSheetOpen && "text-primary")}
+                className={cn("flex flex-col gap-1 h-auto w-16 relative", activeTab === "friends" && isMobileSheetOpen && "text-primary")}
                 onClick={() => handleMobileNav("friends")}
             >
                 <Users className="h-5 w-5" />
                 <span className="text-[10px]">Friends</span>
+                {friendRequestCount > 0 && (
+                  <span className="absolute top-1 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                    {friendRequestCount}
+                  </span>
+                )}
             </Button>
         </div>
 

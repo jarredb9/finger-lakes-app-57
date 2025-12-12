@@ -125,3 +125,33 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }
+
+// DELETE handler to remove a friend
+export async function DELETE(request: NextRequest) {
+    const user = await getUser();
+    if (!user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    try {
+        const { friendId } = await request.json();
+        if (!friendId) {
+            return NextResponse.json({ error: "Friend ID is required" }, { status: 400 });
+        }
+
+        const supabase = await createClient();
+
+        // Call the RPC to remove the friend
+        const { error } = await supabase.rpc('remove_friend', { target_friend_id: friendId });
+
+        if (error) {
+            console.error("Error removing friend via RPC:", error);
+            throw error;
+        }
+
+        return NextResponse.json({ success: true });
+    } catch (error) {
+        console.error("Error in /api/friends DELETE:", error);
+        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    }
+}

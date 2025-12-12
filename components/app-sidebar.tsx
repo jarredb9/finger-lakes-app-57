@@ -23,6 +23,7 @@ import { MapControls } from "@/components/map/map-controls";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useWineryStore } from "@/lib/stores/wineryStore"; // To get persistentWineries for allVisits
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useFriendStore } from "@/lib/stores/friendStore";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
@@ -57,6 +58,9 @@ export function AppSidebar({
 
   const { persistentWineries } = useWineryStore(); // Get persistentWineries here
   const { isVisitHistoryModalOpen, setVisitHistoryModalOpen } = useUIStore();
+  const { friendRequests } = useFriendStore();
+
+  const friendRequestCount = friendRequests.length;
 
   // Compute allVisits here in AppSidebar
   const allVisits: VisitWithContext[] = useMemo(() => {
@@ -192,9 +196,14 @@ export function AppSidebar({
               <Route className="w-4 h-4" />
               <span className="hidden sm:inline">Trips</span>
             </TabsTrigger>
-            <TabsTrigger value="friends" className="flex items-center gap-2 px-1">
+            <TabsTrigger value="friends" className="relative flex items-center gap-2 px-1">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Friends</span>
+              {friendRequestCount > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                  {friendRequestCount}
+                </span>
+              )}
             </TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-2 px-1">
               <History className="w-4 h-4" />

@@ -26,6 +26,7 @@ interface FriendState {
   addFriend: (email: string) => Promise<void>;
   acceptFriend: (requesterId: string) => Promise<void>;
   rejectFriend: (requesterId: string) => Promise<void>;
+  removeFriend: (friendId: string) => Promise<void>;
   respondToRequest: (requesterId: string, accept: boolean) => Promise<void>;
   fetchFriendDataForWinery: (wineryId: number) => Promise<void>;
 }
@@ -73,6 +74,42 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
 
   rejectFriend: async (requesterId: string) => {
     await get().respondToRequest(requesterId, false);
+  },
+
+  removeFriend: async (friendId: string) => {
+    // Optimistic Update
+    const originalFriends = get().friends;
+    const newFriends = originalFriends.filter(f => f.id !== friendId);
+    set({ friends: newFriends });
+
+    try {
+      // Use the newly created RPC via supabase-js client if we were in a component,
+      // but here we are in a store, so we'll likely need a new API route OR just use the DELETE endpoint we planned?
+      // Wait, the user asked for RPC.
+      // Since we can't directly use Supabase client in the store (it's client-side but we usually use fetch for APIs in this project structure),
+      // we should create an API route that calls the RPC or use the supabase client directly if available.
+      // Looking at `addFriend`, it uses `/api/friends`.
+      // Let's use the DELETE endpoint we discussed, but implement it to call the RPC.
+      // Actually, I can use the supabase client directly in the store if I import `createClient` from `@/utils/supabase/client`?
+      // No, `createClient` is usually for server or client components.
+      // Let's stick to the pattern: Store -> API Route -> Supabase RPC.
+      // I need to update /api/friends/route.ts to handle DELETE and call the RPC.
+      
+      const response = await fetch('/api/friends', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ friendId }),
+      });
+
+      if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to remove friend.");
+      }
+    } catch (error) {
+      console.error("Failed to remove friend, reverting:", error);
+      set({ friends: originalFriends });
+      throw error;
+    }
   },
 
   respondToRequest: async (requesterId: string, accept: boolean) => {

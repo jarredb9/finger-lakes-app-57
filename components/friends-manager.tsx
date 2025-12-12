@@ -5,13 +5,24 @@ import { useFriendStore } from "@/lib/stores/friendStore";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { UserPlus, UserCheck, UserX, Loader2 } from "lucide-react";
+import { UserPlus, UserCheck, UserX, Loader2, UserMinus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Friend } from "@/lib/types";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function FriendsManager() {
   const { toast } = useToast();
-  const { friends, friendRequests, fetchFriends, addFriend, acceptFriend, rejectFriend, isLoading, error } = useFriendStore();
+  const { friends, friendRequests, fetchFriends, addFriend, acceptFriend, rejectFriend, removeFriend, isLoading, error } = useFriendStore();
   const [email, setEmail] = useState("");
 
   useEffect(() => {
@@ -44,6 +55,15 @@ export default function FriendsManager() {
       toast({ description: "Friend request rejected." });
     } catch (err: any) {
       toast({ variant: "destructive", description: err.message || "Failed to reject request." });
+    }
+  };
+
+  const handleRemove = async (friendId: string) => {
+    try {
+      await removeFriend(friendId);
+      toast({ description: "Friend removed." });
+    } catch (err: any) {
+      toast({ variant: "destructive", description: err.message || "Failed to remove friend." });
     }
   };
 
@@ -102,9 +122,32 @@ export default function FriendsManager() {
         <CardContent className="space-y-2">
           {friends.length > 0 ? (
             friends.map((friend: Friend) => (
-              <div key={friend.id} className="p-2 bg-gray-100 rounded-md">
-                <p className="font-medium">{friend.name}</p>
-                <p className="text-sm text-gray-500">{friend.email}</p>
+              <div key={friend.id} className="flex items-center justify-between p-2 bg-gray-100 rounded-md">
+                <div>
+                    <p className="font-medium">{friend.name}</p>
+                    <p className="text-sm text-gray-500">{friend.email}</p>
+                </div>
+                <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive/90 hover:bg-destructive/10">
+                            <UserMinus className="h-4 w-4" />
+                        </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Remove Friend?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                Are you sure you want to remove {friend.name} from your friends list? This action cannot be undone.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleRemove(friend.id)} className="bg-destructive hover:bg-destructive/90">
+                                Remove
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
               </div>
             ))
           ) : (
