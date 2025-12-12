@@ -112,7 +112,6 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
     const isSelected = currentWineries.some(w => w.id === winery.id);
 
     if (isSelected) {
-      // Remove
       form.setValue("wineries", currentWineries.filter(w => w.id !== winery.id));
     } else {
       // Add - first ensure it's in the DB
