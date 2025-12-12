@@ -85,6 +85,7 @@ interface WineryState {
   addVisitToWinery: (wineryId: string, visit: Visit) => void;
   optimisticallyUpdateVisit: (visitId: string, visitData: Partial<Visit>) => void;
   optimisticallyDeleteVisit: (visitId: string) => void;
+  replaceVisit: (wineryId: string, tempVisitId: string, finalVisit: Visit) => void;
   revertOptimisticUpdate: () => void;
   confirmOptimisticUpdate: (updatedVisit?: Visit) => void;
 }
@@ -358,6 +359,26 @@ export const useWineryStore = createWithEqualityFn<WineryState>((set, get) => ({
       return {
         persistentWineries: updatedWineries,
         _wineriesBackup: state.persistentWineries
+      };
+    });
+  },
+
+  replaceVisit: (wineryId, tempVisitId, finalVisit) => {
+    set(state => {
+      const updatedWineries = state.persistentWineries.map(w => {
+        if (w.id === wineryId && w.visits) {
+          const visitIndex = w.visits.findIndex(v => v.id === tempVisitId);
+          if (visitIndex !== -1) {
+            const newVisits = [...w.visits];
+            newVisits[visitIndex] = finalVisit;
+            return { ...w, visits: newVisits };
+          }
+        }
+        return w;
+      });
+      return {
+        persistentWineries: updatedWineries,
+        visitedWineries: updatedWineries.filter(w => w.userVisited)
       };
     });
   },

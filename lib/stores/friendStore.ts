@@ -76,13 +76,42 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   },
 
   respondToRequest: async (requesterId: string, accept: boolean) => {
-    const response = await fetch('/api/friends', {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requesterId, accept }),
-    });
-    if (!response.ok) throw new Error("Failed to update friend request.");
-    await get().fetchFriends(); // Refetch to update lists
+    // Optimistic Update
+    const originalFriends = get().friends;
+    const originalRequests = get().friendRequests;
+    
+    const request = originalRequests.find(r => r.id === requesterId);
+    
+    if (request) {
+        const newRequests = originalRequests.filter(r => r.id !== requesterId);
+        let newFriends = originalFriends;
+        
+        if (accept) {
+            newFriends = [...originalFriends, { ...request, status: 'accepted' }];
+        }
+        
+        set({ friends: newFriends, friendRequests: newRequests });
+    }
+
+    try {
+      const response = await fetch('/api/friends', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requesterId, accept }),
+      });
+      
+      if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to update friend request.");
+      }
+      // We can optionally refetch to be 100% sure, but the optimistic state should be correct.
+      // Keeping refetch for safety on other metadata that might return
+      await get().fetchFriends(); 
+    } catch (error) {
+      console.error("Failed to respond to friend request, reverting:", error);
+      set({ friends: originalFriends, friendRequests: originalRequests });
+      throw error;
+    }
   },
 
   fetchFriendDataForWinery: async (wineryId: number) => {

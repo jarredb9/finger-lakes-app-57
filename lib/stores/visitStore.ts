@@ -17,12 +17,27 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
   saveVisit: async (winery, visitData) => {
     set({ isSavingVisit: true });
     const supabase = createClient();
-    const { addVisitToWinery } = useWineryStore.getState();
+    const { addVisitToWinery, replaceVisit, optimisticallyDeleteVisit, confirmOptimisticUpdate } = useWineryStore.getState();
+
+    // Create temporary ID and Visit object
+    const tempId = `temp-${Date.now()}`;
+    // Assuming user is available for the optimistic object (will be validated later)
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated.");
+
+    const tempVisit: Visit = {
+        id: tempId,
+        user_id: user.id,
+        visit_date: visitData.visit_date,
+        rating: visitData.rating,
+        user_review: visitData.user_review,
+        photos: visitData.photos.map(file => URL.createObjectURL(file)), // Use object URLs for preview
+    };
+
+    // 1. Optimistic Add
+    addVisitToWinery(winery.id, tempVisit);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated.");
-
       // Prepare winery data for RPC
       const rpcWineryData = {
         id: winery.id,
@@ -53,7 +68,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
       if (!rpcResult || !rpcResult.visit_id) throw new Error("RPC did not return visit ID.");
 
       const visitId = rpcResult.visit_id;
-      let finalVisit = { ...rpcVisitData, id: visitId, user_id: user.id, winery_id: rpcResult.winery_id };
+      let finalVisit = { ...rpcVisitData, id: visitId, user_id: user.id, photos: [] as string[] };
 
       if (visitData.photos.length > 0) {
         const uploadPromises = visitData.photos.map(async (photoFile) => {
@@ -83,16 +98,21 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
 
           if (updateError) {
             console.error('Error updating visit with photo paths:', updateError);
+            finalVisit.photos = photoPathsForDb; // Best effort to show paths locally
           } else {
             finalVisit = updatedVisitWithPhotos;
           }
         }
       }
       
-      addVisitToWinery(winery.id, finalVisit);
+      // 2. Replace temp visit with final real visit
+      replaceVisit(winery.id, tempId, finalVisit);
 
     } catch (error) {
-      console.error("Failed to save visit:", error);
+      console.error("Failed to save visit, removing optimistic update:", error);
+      // 3. Rollback: Remove temp visit
+      optimisticallyDeleteVisit(tempId);
+      confirmOptimisticUpdate(); // Commit deletion immediately
       throw error;
     } finally {
       set({ isSavingVisit: false });

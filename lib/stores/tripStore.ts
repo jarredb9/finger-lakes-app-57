@@ -310,6 +310,37 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     const supabase = createClient(); // Direct Supabase client for RPCs
     const dateString = tripDate.toISOString().split("T")[0];
 
+    // Optimistic Update for EXISTING trips
+    const originalTrips = get().trips;
+    const originalTripsForDate = get().tripsForDate;
+    const existingTripIds = Array.from(selectedTrips).filter(id => id !== 'new');
+
+    if (existingTripIds.length > 0) {
+        const optimisticWinery: Winery = {
+            ...winery,
+            dbId: winery.dbId || -Date.now()
+        };
+
+        const updateTripLists = (list: Trip[]) => {
+            return list.map(trip => {
+                if (existingTripIds.includes(trip.id.toString())) {
+                    if (trip.wineries.some(w => w.id === winery.id)) return trip;
+                    
+                    return { 
+                        ...trip, 
+                        wineries: [...trip.wineries, optimisticWinery] 
+                    };
+                }
+                return trip;
+            });
+        };
+
+        set({
+            trips: updateTripLists(originalTrips),
+            tripsForDate: updateTripLists(originalTripsForDate),
+        });
+    }
+
     try {
         // Prepare generic winery data object for RPCs
         const rpcWineryData = {
@@ -390,6 +421,10 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
     } catch (error) {
         console.error("Error adding winery to trips:", error);
+        // Revert optimistic update
+        if (existingTripIds.length > 0) {
+             set({ trips: originalTrips, tripsForDate: originalTripsForDate });
+        }
         throw error; // Re-throw to be caught by the UI
     } finally {
         set({ isSaving: false });
