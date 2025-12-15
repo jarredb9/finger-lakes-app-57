@@ -210,8 +210,8 @@ LANGUAGE plpgsql
 AS $$
 DECLARE
     friends_list UUID[];
-    favorited_by_list JSON[];
-    wishlisted_by_list JSON[];
+    favorited_by_list JSON;
+    wishlisted_by_list JSON;
 BEGIN
     -- Get the current user's friends
     SELECT ARRAY(
