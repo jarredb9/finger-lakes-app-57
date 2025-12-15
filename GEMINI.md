@@ -165,6 +165,6 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
 
 ### Completed Refactors
-1.  **Architecture:** Moved to "Supabase Native". Removed API routes for Trips and Friends.
+1.  **Architecture:** Moved to "Supabase Native" for Trips. Removed API routes for Trips.
 2.  **Store Split:** `wineryStore.ts` split into Data/UI stores.
 3.  **Optimization:** Initial load only fetches markers. Visits are lazy-loaded.
