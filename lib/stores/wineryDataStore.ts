@@ -45,8 +45,6 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
       const { data: markers, error: markersError } = await supabase.rpc('get_map_markers', { user_id_param: userId }); 
       if (markersError) throw markersError;
 
-      console.log('[hydrateWineries] Raw RPC markers:', markers ? JSON.stringify(markers.slice(0, 2)) : 'No data');
-
       const processedWineries = (markers as MapMarkerRpc[] || []).map((m) => { // Cast here
          return standardizeWineryData(m); // Pass m directly
       }).filter(Boolean) as Winery[];

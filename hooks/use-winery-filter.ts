@@ -2,20 +2,20 @@
 
 import { useMemo } from "react";
 import { useMapStore } from "@/lib/stores/mapStore";
-import { useWineryStore } from "@/lib/stores/wineryStore";
+import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { Winery } from "@/lib/types";
 
 export function useWineryFilter() {
   const { searchResults, filter, bounds, setFilter } = useMapStore();
-  const { getWineries, getFavorites, getVisited, getWishlist } = useWineryStore();
+  const persistentWineries = useWineryDataStore((state) => state.persistentWineries);
   const { selectedTrip } = useTripStore();
 
   const mapWineries = useMemo(() => {
     const wineriesMap = new Map<string, Winery>();
     
     // Combine search results and persistent wineries, preferring persistent ones (more data)
-    [...searchResults, ...getWineries()].forEach((w) => {
+    [...searchResults, ...persistentWineries].forEach((w) => {
       if (w && w.id) {
         // If duplicate, this preserves the last one. 
         // We might want to be more careful here, but this matches original logic.
@@ -23,10 +23,9 @@ export function useWineryFilter() {
       }
     });
 
-    const favoriteIds = new Set(getFavorites().map((w) => w.id));
-    const visitedIds = new Set(getVisited().map((w) => w.id));
-    const wishlistIds = new Set(getWishlist().map((w) => w.id));
-
+    // Derive subsets directly from the map values to ensure consistency
+    // Note: We use the properties on the Winery object (isFavorite, etc) which are standardized
+    
     const categorizedWineries = {
       favorites: [] as Winery[],
       visited: [] as Winery[],
@@ -35,11 +34,11 @@ export function useWineryFilter() {
     };
 
     wineriesMap.forEach((winery) => {
-      if (favoriteIds.has(winery.id)) {
+      if (winery.isFavorite) {
         categorizedWineries.favorites.push(winery);
-      } else if (visitedIds.has(winery.id)) {
+      } else if (winery.userVisited) {
         categorizedWineries.visited.push(winery);
-      } else if (wishlistIds.has(winery.id)) {
+      } else if (winery.onWishlist) {
         categorizedWineries.wishlist.push(winery);
       } else {
         categorizedWineries.discovered.push(winery);
@@ -49,10 +48,7 @@ export function useWineryFilter() {
     return categorizedWineries;
   }, [
     searchResults,
-    getWineries,
-    getFavorites,
-    getVisited,
-    getWishlist,
+    persistentWineries,
   ]);
 
   const listResultsInView = useMemo(() => {
