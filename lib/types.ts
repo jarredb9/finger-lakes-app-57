@@ -1,4 +1,4 @@
-import { Database } from './database.types';
+import { Database, Json } from './database.types';
 
 type Tables = Database['public']['Tables'];
 
@@ -9,20 +9,71 @@ export type DbVisit = Tables['visits']['Row'];
 export type DbProfile = Tables['profiles']['Row'];
 export type DbFriend = Tables['friends']['Row'];
 
+// Distinct types for IDs to prevent confusion between Google Place IDs and Database IDs
+export type GooglePlaceId = string & { __brand: 'GooglePlaceId' };
+export type WineryDbId = number & { __brand: 'WineryDbId' };
+
+// RPC Return Types
+export interface MapMarkerRpc {
+  id: WineryDbId;
+  google_place_id: GooglePlaceId;
+  name: string;
+  address: string;
+  lat: number;
+  lng: number;
+  is_favorite: boolean;
+  on_wishlist: boolean;
+  user_visited: boolean;
+}
+
+export interface WineryDetailsRpc {
+  id: WineryDbId;
+  google_place_id: GooglePlaceId;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  phone: string | null;
+  website: string | null;
+  google_rating: number | null;
+  opening_hours: Json | null; // Use Json for unstructured JSONB
+  reviews: Json | null; // Use Json for unstructured JSONB
+  reservable: boolean | null;
+  is_favorite: boolean;
+  on_wishlist: boolean;
+  user_visited: boolean;
+  visits: Visit[]; // Assuming this RPC also returns visits
+  trip_info: any; // Untyped for now as we don't use it directly
+}
+
+// A more complete DbWinery type that includes the joined user data from RPCs
+// This is the shape of data from RPCs like get_all_wineries_with_user_data
+export interface DbWineryWithUserData extends DbWinery {
+  is_favorite: boolean;
+  on_wishlist: boolean;
+  user_visited: boolean;
+  visits?: Visit[]; // Visits can be included
+  trip_id?: number;
+  trip_name?: string;
+  trip_date?: string;
+  // May also include other joined data
+}
+
+
 // Derived Interfaces (Frontend Models)
 
 export interface Visit {
-  id?: string | number; // String for temp ID, number for DB ID
+  id?: string; // String for temp ID (optimistic updates), number for DB ID (will refine later if needed)
   user_id?: string;
   visit_date: string;
   user_review: string;
   rating?: number;
   photos?: string[];
-  winery_id?: number;
+  winery_id?: WineryDbId; // Use new distinct type
   // Expanded fields often joined in queries
   wineries?: {
-    id: number;
-    google_place_id: string;
+    id: WineryDbId; // Use new distinct type
+    google_place_id: GooglePlaceId; // Use new distinct type
     name: string;
     address: string;
     latitude: string; // Numeric in DB but often string in API/RPC responses
@@ -54,14 +105,14 @@ export interface OpeningHours {
   open_now?: boolean;
   periods?: { open: OpeningHoursPoint; close?: OpeningHoursPoint | null }[];
   weekday_text?: string[];
-  toJSON?: () => any; // From Google Places API
+  toJSON?: () => Json; // From Google Places API
 }
 
 export interface Winery {
   // The 'id' here is strictly the Google Place ID for UI/Map consistency.
+  id: GooglePlaceId; 
   // Use 'dbId' for database operations.
-  id: string; 
-  dbId?: number | null; 
+  dbId?: WineryDbId | null; 
   
   name: string;
   address: string;
@@ -100,10 +151,10 @@ export interface Trip {
     wineries: Winery[];
     
     // UI-specific fields for form handling
-    wineryOrder?: number[];
-    removeWineryId?: number;
+    wineryOrder?: WineryDbId[]; // Use new distinct type
+    removeWineryId?: WineryDbId; // Use new distinct type
     notes?: string;
-    updateNote?: { wineryId: number; notes: string; } | { notes: Record<number, string>; };
+    updateNote?: { wineryId: WineryDbId; notes: string; } | { notes: Record<WineryDbId, string>; }; // Use new distinct type
     owner_id?: string;
 }
 

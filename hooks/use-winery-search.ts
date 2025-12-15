@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useToast } from "@/hooks/use-toast";
-import { Winery } from "@/lib/types";
+import { Winery, GooglePlaceId } from "@/lib/types";
 
 export function useWinerySearch() {
   const {
@@ -130,7 +130,7 @@ export function useWinerySearch() {
               })
             );
       
-            const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place) => ({        id: place.id!,
+            const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place) => ({        id: place.id! as GooglePlaceId,
         name: place.displayName!,
         address: place.formattedAddress!,
         lat: place.location!.lat(),

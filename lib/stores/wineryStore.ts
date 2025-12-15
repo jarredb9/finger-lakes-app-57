@@ -1,5 +1,5 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { Winery, Visit } from '@/lib/types';
+import { Winery, Visit, GooglePlaceId, WineryDbId } from '@/lib/types';
 import { useWineryDataStore } from './wineryDataStore';
 import { createClient } from '@/utils/supabase/client';
 
@@ -25,18 +25,18 @@ interface WineryUIState {
   
   // Actions
   fetchWineryData: () => Promise<void>; // Proxies to DataStore
-  ensureWineryDetails: (placeId: string) => Promise<Winery | null>;
+  ensureWineryDetails: (placeId: GooglePlaceId) => Promise<Winery | null>;
   
   // Proxy Actions (For convenience/compatibility)
   toggleWishlist: (winery: Winery, isOn: boolean) => Promise<void>;
   toggleFavorite: (winery: Winery, isFav: boolean) => Promise<void>;
-  addVisitToWinery: (wineryId: string, visit: Visit) => void;
+  addVisitToWinery: (wineryId: GooglePlaceId, visit: Visit) => void;
   optimisticallyUpdateVisit: (visitId: string, visitData: Partial<Visit>) => void;
   optimisticallyDeleteVisit: (visitId: string) => void;
-  replaceVisit: (wineryId: string, tempId: string, finalVisit: Visit) => void;
+  replaceVisit: (wineryId: GooglePlaceId, tempId: string, finalVisit: Visit) => void;
   confirmOptimisticUpdate: (updatedVisit?: Visit) => void;
   revertOptimisticUpdate: () => void;
-  updateWinery: (id: string, updates: Partial<Winery>) => void;
+  updateWinery: (id: GooglePlaceId, updates: Partial<Winery>) => void;
 }
 
 export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
@@ -52,7 +52,7 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
       await useWineryDataStore.getState().hydrateWineries();
   },
 
-  ensureWineryDetails: async (placeId: string) => {
+  ensureWineryDetails: async (placeId: GooglePlaceId) => {
     const dataStore = useWineryDataStore.getState();
     const existing = dataStore.getWinery(placeId);
 
@@ -74,7 +74,7 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
 
         // 2. If valid DB data found, upsert to DataStore
         if (dbData && dbData.opening_hours) {
-            const updated = dataStore.upsertWinery({ ...dbData, id: dbData.google_place_id || dbData.id });
+            const updated = dataStore.upsertWinery({ ...dbData, id: dbData.google_place_id || dbData.id as number }); // id from Db is number
             set({ loadingWineryId: null });
             return updated;
         }
@@ -126,7 +126,7 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
   confirmOptimisticUpdate: () => {}, 
   revertOptimisticUpdate: () => {},
 
-  updateWinery: (id, updates) => {
+  updateWinery: (id: GooglePlaceId, updates) => {
       const existing = useWineryDataStore.getState().getWinery(id);
       if (existing) {
           useWineryDataStore.getState().upsertWinery({ ...existing, ...updates });
@@ -136,5 +136,5 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
 
 // Backward compatibility helper
 export const findWineryByDbId = (dbId: number) => {
-    return useWineryDataStore.getState().persistentWineries.find(w => w.dbId === dbId);
+    return useWineryDataStore.getState().persistentWineries.find(w => w.dbId === (dbId as WineryDbId));
 };

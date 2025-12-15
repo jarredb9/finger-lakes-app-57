@@ -10,7 +10,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Checkbox } from "./ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { AuthenticatedUser, Winery } from "@/lib/types";
+import { AuthenticatedUser, Winery, GooglePlaceId } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
@@ -87,7 +87,7 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
         try {
           const { places: foundPlaces } = await places.Place.searchByText(request);
           const wineries = foundPlaces.map((place) => ({
-            id: place.id!,
+            id: place.id! as GooglePlaceId,
             name: place.displayName!,
             address: place.formattedAddress!,
             lat: place.location!.lat(),

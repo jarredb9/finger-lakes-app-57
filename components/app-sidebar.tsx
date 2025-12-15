@@ -14,14 +14,13 @@ import { VisitHistoryModal } from "@/components/visit-history-modal";
 import { List } from "lucide-react";
 
 import TripPlanner from "@/components/trip-planner";
-import GlobalVisitHistory, { VisitWithContext } from "@/components/global-visit-history"; // Import VisitWithContext
+import GlobalVisitHistory from "@/components/global-visit-history"; // Import GlobalVisitHistory
 import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon, FileText, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import FriendsManager from "@/components/friends-manager";
 import { MapControls } from "@/components/map/map-controls";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useWineryStore } from "@/lib/stores/wineryStore"; // To get persistentWineries for allVisits
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 
@@ -56,31 +55,10 @@ export function AppSidebar({
     handleFilterChange,
   } = useWineryMapContext();
 
-  const { getWineries } = useWineryStore(); // Get persistentWineries here
   const { isVisitHistoryModalOpen, setVisitHistoryModalOpen } = useUIStore();
   const { friendRequests } = useFriendStore();
 
   const friendRequestCount = friendRequests.length;
-
-  // Compute allVisits here in AppSidebar
-  const allVisits: VisitWithContext[] = useMemo(() => {
-    return getWineries().flatMap(winery => 
-      (winery.visits || []).map(visit => ({
-        ...visit,
-        wineryName: winery.name,
-        wineryId: winery.id,
-        wineries: {
-            id: 0, // Placeholder, not used by table
-            google_place_id: winery.id,
-            name: winery.name,
-            address: winery.address,
-            latitude: winery.lat.toString(),
-            longitude: winery.lng.toString()
-        }
-      }))
-    ).sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
-  }, [getWineries]);
-
 
   // Memoize expensive tab contents
   const tripsContent = useMemo(() => (
@@ -117,14 +95,12 @@ export function AppSidebar({
         </Button>
       </div>
       <div className="p-4 space-y-4 flex-1 overflow-y-auto"> {/* Added p-4 here for padding, flex-1 for content */}
-        <GlobalVisitHistory allVisits={allVisits} />
+        <GlobalVisitHistory />
       </div>
       {/* Render VisitHistoryModal here */}
-      <VisitHistoryModal 
-        visits={allVisits} 
-      />
+      <VisitHistoryModal />
     </div>
-  ), [allVisits, isVisitHistoryModalOpen, setVisitHistoryModalOpen]); // Dependencies for historyContent
+  ), [isVisitHistoryModalOpen, setVisitHistoryModalOpen]); // Dependencies for historyContent
 
   const friendsContent = useMemo(() => (
     <div className="p-4 space-y-4">

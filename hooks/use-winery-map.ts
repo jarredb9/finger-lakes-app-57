@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useMap } from "@vis.gl/react-google-maps";
 import { useToast } from "@/hooks/use-toast";
-import { Winery } from "@/lib/types";
+import { Winery, GooglePlaceId } from "@/lib/types";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useMapStore } from "@/lib/stores/mapStore";
@@ -113,7 +113,7 @@ export function useWineryMap(userId: string) {
         }
 
         const newWinery: Winery = {
-          id: e.placeId,
+          id: e.placeId as GooglePlaceId,
           name: placeDetails.displayName || "Unnamed Location",
           address: placeDetails.formattedAddress || "N/A",
           lat: placeDetails.location.lat(),

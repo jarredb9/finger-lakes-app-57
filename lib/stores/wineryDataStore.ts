@@ -1,7 +1,7 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { Winery, Visit } from '@/lib/types';
+import { Winery, Visit, GooglePlaceId, WineryDbId, DbWinery, MapMarkerRpc, WineryDetailsRpc, DbWineryWithUserData } from '@/lib/types'; // Import new types
 import { createClient } from '@/utils/supabase/client';
-import { standardizeWineryData } from '@/lib/utils/winery';
+import { standardizeWineryData, GoogleWinery } from '@/lib/utils/winery'; // Import GoogleWinery
 import { toggleFavorite } from '@/app/actions';
 
 interface WineryDataState {
@@ -12,20 +12,20 @@ interface WineryDataState {
 
   // Actions
   hydrateWineries: () => Promise<void>;
-  upsertWinery: (data: any) => Winery | null;
-  getWinery: (id: string) => Winery | undefined;
+  upsertWinery: (data: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData) => Winery | null; // Typed 'data'
+  getWinery: (id: GooglePlaceId) => Winery | undefined; // Typed 'id'
   
   // Data Mutations
-  addVisit: (wineryId: string, visit: Visit) => void;
+  addVisit: (wineryId: GooglePlaceId, visit: Visit) => void;
   updateVisit: (visitId: string, updates: Partial<Visit>) => void;
   removeVisit: (visitId: string) => void;
   
   // User Actions
-  toggleFavorite: (wineryId: string) => Promise<void>;
-  toggleWishlist: (wineryId: string) => Promise<void>;
+  toggleFavorite: (wineryId: GooglePlaceId) => Promise<void>;
+  toggleWishlist: (wineryId: GooglePlaceId) => Promise<void>;
   
   // Sync
-  ensureInDb: (wineryId: string) => Promise<number | null>;
+  ensureInDb: (wineryId: GooglePlaceId) => Promise<WineryDbId | null>;
 }
 
 export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, get) => ({
@@ -40,34 +40,12 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
     set({ isLoading: true, error: null });
     const supabase = createClient();
     try {
-      const [markersResult, visitsResult] = await Promise.all([
-        supabase.rpc('get_map_markers'),
-        supabase.rpc('get_all_user_visits_list')
-      ]);
+      // Only fetch lightweight markers for initial load
+      const { data: markers, error: markersError } = await supabase.rpc('get_map_markers'); 
+      if (markersError) throw markersError;
 
-      if (markersResult.error) throw markersResult.error;
-      const markers = markersResult.data || [];
-      const visits = visitsResult.data || [];
-
-      // Create a map of visits for O(1) lookup
-      const visitsMap = new Map<number, Visit[]>();
-      visits.forEach((v: any) => {
-          if (!visitsMap.has(v.winery_id)) visitsMap.set(v.winery_id, []);
-          visitsMap.get(v.winery_id)!.push({
-              id: v.id,
-              visit_date: v.visit_date,
-              rating: v.rating,
-              user_review: v.user_review,
-              photos: v.photos
-          });
-      });
-
-      const processedWineries = markers.map((m: any) => {
-         const dbId = m.id;
-         return standardizeWineryData({
-             ...m,
-             visits: visitsMap.get(dbId) || []
-         });
+      const processedWineries = (markers as MapMarkerRpc[] || []).map((m) => { // Cast here
+         return standardizeWineryData(m); // Pass m directly
       }).filter(Boolean) as Winery[];
 
       set({ persistentWineries: processedWineries, isLoading: false });
@@ -78,7 +56,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
   },
 
   upsertWinery: (data) => {
-      const existing = get().persistentWineries.find(w => w.id === (data.google_place_id || data.id));
+      const existing = get().persistentWineries.find(w => w.id === (data.google_place_id || (data as any).id));
       const standardized = standardizeWineryData(data, existing);
       
       if (standardized) {
@@ -91,7 +69,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
       return standardized;
   },
 
-  addVisit: (wineryId, visit) => {
+  addVisit: (wineryId: GooglePlaceId, visit: Visit) => {
       set(state => ({
           persistentWineries: state.persistentWineries.map(w => 
               w.id === wineryId ? { ...w, userVisited: true, visits: [visit, ...(w.visits || [])] } : w
@@ -99,7 +77,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
       }));
   },
 
-  updateVisit: (visitId, updates) => {
+  updateVisit: (visitId: string, updates: Partial<Visit>) => {
       set(state => {
           // Backup for rollback if needed (implied context)
           return {
@@ -114,7 +92,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
       });
   },
 
-  removeVisit: (visitId) => {
+  removeVisit: (visitId: string) => {
       set(state => ({
           persistentWineries: state.persistentWineries.map(w => {
                if (!w.visits?.some(v => v.id === visitId)) return w;
@@ -124,7 +102,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
       }));
   },
 
-  toggleFavorite: async (wineryId) => {
+  toggleFavorite: async (wineryId: GooglePlaceId) => {
       const original = get().persistentWineries;
       const winery = original.find(w => w.id === wineryId);
       if (!winery) return;
@@ -135,7 +113,17 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
       });
 
       try {
-          const result = await toggleFavorite(winery);
+          const rpcWineryData = {
+              id: winery.id,
+              name: winery.name,
+              address: winery.address,
+              lat: winery.lat,
+              lng: winery.lng,
+              phone: winery.phone || null,
+              website: winery.website || null,
+              rating: winery.rating || null,
+          };
+          const result = await toggleFavorite(rpcWineryData);
           if (!result.success) throw new Error(result.error);
       } catch (err) {
           console.error("Fav toggle failed:", err);
@@ -143,7 +131,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
       }
   },
   
-  toggleWishlist: async (wineryId) => {
+  toggleWishlist: async (wineryId: GooglePlaceId) => {
     const original = get().persistentWineries;
     const winery = original.find(w => w.id === wineryId);
     if (!winery) return;
@@ -187,7 +175,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
     }
   },
 
-  ensureInDb: async (wineryId) => {
+  ensureInDb: async (wineryId: GooglePlaceId) => {
       const winery = get().persistentWineries.find(w => w.id === wineryId);
       if (!winery) return null;
       if (winery.dbId) return winery.dbId;
@@ -209,9 +197,9 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
 
       // Update store with new DB ID
       set(state => ({
-          persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId } : w)
+          persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId: dbId as WineryDbId } : w)
       }));
       
-      return dbId;
+      return dbId as WineryDbId;
   }
 }));

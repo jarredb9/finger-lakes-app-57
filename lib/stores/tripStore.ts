@@ -1,5 +1,5 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { Trip, Winery } from '@/lib/types';
+import { Trip, Winery, WineryDbId } from '@/lib/types';
 import { useWineryStore } from './wineryStore';
 import { TripService } from '@/lib/services/tripService';
 import { createClient } from '@/utils/supabase/client';
@@ -243,7 +243,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
 
     // --- Optimistic Update --- //
     const updatedWineries = originalWineries.filter(w => w.dbId !== wineryId);
-    const updatedTrip = { ...tripToUpdate, wineries: updatedWineries };
+    const updatedTrip = { ...tripToUpdate, wineries: updatedWineries } as Trip;
     const updatedTrips = [...originalTrips];
     updatedTrips[tripIndex] = updatedTrip;
 
@@ -318,7 +318,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     if (existingTripIds.length > 0) {
         const optimisticWinery: Winery = {
             ...winery,
-            dbId: winery.dbId || -Date.now()
+            dbId: (winery.dbId || -Date.now()) as WineryDbId
         };
 
         const updateTripLists = (list: Trip[]) => {
@@ -445,7 +445,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     const isOnTrip = !!existingWineryOnTrip;
     
     // For optimistic update display, we need a temp dbId if we don't have one
-    const wineryDbId = winery.dbId || -Date.now(); 
+    const wineryDbId = (winery.dbId || -Date.now()) as WineryDbId; 
 
     const updatedWineries = isOnTrip
         ? tripToUpdate.wineries.filter(w => w.id !== winery.id && w.dbId !== winery.dbId)
