@@ -148,13 +148,15 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 *   **The Trap:** Tests will crash if you add a new action to the Store but forget to add a mock implementation for it.
 *   **The Fix:** Always check the `beforeEach` block in the test file.
 
-## Recent Changes & Known Issues (December 2025)
+### 4. Zustand Reactivity & `useMemo` Dependencies
+*   **Concept:** When a Zustand store provides data through getter *functions* (e.g., `getWineries: () => useWineryDataStore.getState().persistentWineries`), the function reference itself remains stable.
+*   **The Trap:** Including such a getter function in a `useMemo` dependency array (e.g., `[getWineries]`) will NOT cause `useMemo` to re-evaluate when the underlying data (`persistentWineries`) changes. The `useMemo` will only re-run if the *function reference* itself changes, which it typically does not. This leads to stale data being used by components.
+*   **The Fix:** Always subscribe directly to the specific reactive state from the Zustand store you need. For example, instead of `const { getWineries } = useWineryStore();`, use `const persistentWineries = useWineryDataStore((state) => state.persistentWineries);` and include `persistentWineries` in your `useMemo` dependency array. This ensures components re-render when the data truly changes.
+
+## Future Implementations
+*   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
 
 ### Completed Refactors
 1.  **Architecture:** Moved to "Supabase Native". Removed API routes for Trips and Friends.
 2.  **Store Split:** `wineryStore.ts` split into Data/UI stores.
 3.  **Optimization:** Initial load only fetches markers. Visits are lazy-loaded.
-
-### **KNOWN BUG: Missing Map Markers Flags**
-*   **Symptom:** On initial load, the map pins for "Visited", "Favorite", and "Wishlist" may default to blue "Discovered" if the user context isn't correctly passed.
-*   **Status:** A fix was applied (passing `userId` explicitly to `get_map_markers` RPC), but the user reported the issue persisting. Ensure the database migration `20251215120003` is deployed and `auth.uid()` / passed parameter logic is sound.
