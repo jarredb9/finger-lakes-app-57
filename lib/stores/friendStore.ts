@@ -157,6 +157,12 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   },
 
   fetchFriendDataForWinery: async (wineryId: WineryDbId) => {
+    // Runtime guard: Ensure wineryId is a number
+    if (typeof wineryId !== 'number') {
+        console.warn('fetchFriendDataForWinery called with invalid ID type:', typeof wineryId, wineryId);
+        return;
+    }
+
     set({ isLoading: true });
     const supabase = createClient();
     try {

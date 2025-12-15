@@ -92,12 +92,19 @@ export const standardizeWineryData = (
   }
 
   // 2. Resolve DB ID
-  const dbId = (
-    (isRawDbWinery(source) && typeof source.id === 'number' ? source.id : undefined) || 
-    (isMapMarkerRpc(source) && source.id) ||
-    (isWineryDetailsRpc(source) && source.id) ||
-    existing?.dbId
-  ) as WineryDbId | undefined;
+  let resolvedDbId: number | undefined;
+  
+  if (!isGoogleWinery(source) && !isMapMarkerRpc(source) && !isWineryDetailsRpc(source) && typeof (source as DbWinery).id === 'number') {
+      resolvedDbId = (source as DbWinery).id;
+  } else if (isMapMarkerRpc(source) && typeof source.id === 'number') {
+      resolvedDbId = source.id;
+  } else if (isWineryDetailsRpc(source) && typeof source.id === 'number') {
+      resolvedDbId = source.id;
+  } else {
+      resolvedDbId = typeof existing?.dbId === 'number' ? existing.dbId : undefined;
+  }
+
+  const dbId = resolvedDbId as WineryDbId | undefined;
 
   // 3. Resolve Coordinates
   let lat: number = 0;
