@@ -17,6 +17,7 @@ import FriendRatings from "./FriendRatings";
 import TripPlannerSection from "./TripPlannerSection";
 import VisitCardHistory from "./VisitCardHistory";
 import VisitForm from "./VisitForm";
+import { useWineryDataStore } from "@/lib/stores/wineryDataStore"; // Import DataStore
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -24,9 +25,12 @@ export default function WineryModal() {
   const { isWineryModalOpen, activeWineryId, closeWineryModal } = useUIStore();
   const { toast } = useToast();
   const { fetchTripById, setSelectedTrip } = useTripStore();
-  const activeWinery = useWineryStore((state) =>
-    activeWineryId ? state.getWineries().find((w) => w.id === activeWineryId) : null
+  
+  // Subscribe directly to DataStore for reactive updates
+  const activeWinery = useWineryDataStore((state) =>
+    activeWineryId ? state.persistentWineries.find((w) => w.id === activeWineryId) : null
   );
+  
   const loadingWineryId = useWineryStore((state) => state.loadingWineryId); // Get loading state
   const { deleteVisit: deleteVisitAction } = useVisitStore();
   const { friendsRatings } = useFriendStore();
