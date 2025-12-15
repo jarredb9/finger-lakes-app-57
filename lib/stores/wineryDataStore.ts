@@ -40,8 +40,12 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
     set({ isLoading: true, error: null });
     const supabase = createClient();
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+      const userId = user?.id || null;
+
       // Only fetch lightweight markers for initial load
-      const { data: markers, error: markersError } = await supabase.rpc('get_map_markers'); 
+      // Pass userId explicitly to ensure flags are correct
+      const { data: markers, error: markersError } = await supabase.rpc('get_map_markers', { user_id_param: userId }); 
       if (markersError) throw markersError;
 
       const processedWineries = (markers as MapMarkerRpc[] || []).map((m) => { // Cast here
