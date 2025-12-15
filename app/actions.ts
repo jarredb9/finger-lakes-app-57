@@ -134,6 +134,90 @@ export async function getFavorites() {
 }
 
 /**
+ * Toggles a winery in the wishlist for the current user.
+ * If the winery is already in the wishlist, it will be removed.
+ * If not, it will be added.
+ * Handles creating the winery in the database if it doesn't exist via RPC.
+ *
+ * @param wineryData - The data of the winery to toggle.
+ * @param skipRevalidation - If true, skips Next.js cache revalidation.
+ * @returns An object indicating success or failure.
+ */
+export async function toggleWishlist(wineryData: WineryData, skipRevalidation = false) {
+    const user = await getUser();
+    if (!user) {
+        return { success: false, error: "Unauthorized" };
+    }
+
+    const supabase = await createClient();
+
+    try {
+        // Step 1: Ensure winery exists
+        const { data: wineryId, error: rpcError } = await supabase
+            .rpc('ensure_winery', { p_winery_data: wineryData });
+
+        if (rpcError) {
+            console.error("Error ensuring winery via RPC:", rpcError);
+            return { success: false, error: "Failed to ensure winery existence." };
+        }
+        
+        const wineryIdInt = wineryId as number;
+
+        // Step 2: Check if already in wishlist
+        const { data: existingItem, error: checkError } = await supabase
+            .from("wishlist")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("winery_id", wineryIdInt)
+            .maybeSingle();
+
+        if (checkError) {
+            console.error("Error checking wishlist status:", checkError);
+            return { success: false, error: "Failed to check wishlist status." };
+        }
+
+        if (existingItem) {
+            // Remove
+            const { error: deleteError } = await supabase
+                .from("wishlist")
+                .delete()
+                .eq("user_id", user.id)
+                .eq("winery_id", wineryIdInt);
+
+            if (deleteError) {
+                console.error("Error removing from wishlist:", deleteError);
+                return { success: false, error: "Failed to remove from wishlist." };
+            }
+
+            if (!skipRevalidation) {
+                revalidatePath('/trips');
+                revalidatePath('/');
+            }
+            return { success: true, message: "Removed from wishlist." };
+        } else {
+            // Add
+            const { error: insertError } = await supabase
+                .from("wishlist")
+                .insert({ user_id: user.id, winery_id: wineryIdInt });
+
+            if (insertError) {
+                console.error("Error adding to wishlist:", insertError);
+                return { success: false, error: "Failed to add to wishlist." };
+            }
+
+            if (!skipRevalidation) {
+                revalidatePath('/trips');
+                revalidatePath('/');
+            }
+            return { success: true, message: "Added to wishlist." };
+        }
+    } catch (error) {
+        console.error("Toggle Wishlist Server Action Error:", error);
+        return { success: false, error: "An unexpected error occurred." };
+    }
+}
+
+/**
  * Handles user login with email and password.
  * @param email The user's email.
  * @param password The user's password.

@@ -2,7 +2,7 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import { Winery, Visit, GooglePlaceId, WineryDbId, DbWinery, MapMarkerRpc, WineryDetailsRpc, DbWineryWithUserData } from '@/lib/types'; // Import new types
 import { createClient } from '@/utils/supabase/client';
 import { standardizeWineryData, GoogleWinery } from '@/lib/utils/winery'; // Import GoogleWinery
-import { toggleFavorite } from '@/app/actions';
+import { toggleFavorite, toggleWishlist } from '@/app/actions';
 
 interface WineryDataState {
   persistentWineries: Winery[]; // The Master Cache
@@ -124,7 +124,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
               website: winery.website || null,
               rating: winery.rating || null,
           };
-          const result = await toggleFavorite(rpcWineryData);
+          const result = await toggleFavorite(rpcWineryData, true);
           if (!result.success) throw new Error(result.error);
       } catch (err) {
           console.error("Fav toggle failed:", err);
@@ -144,32 +144,19 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
         persistentWineries: original.map(w => w.id === wineryId ? { ...w, onWishlist: !isOnWishlist } : w)
     });
 
-    const supabase = createClient();
     try {
-        if (isOnWishlist) {
-            // Remove
-            const dbId = winery.dbId;
-            if (!dbId) throw new Error("Missing DB ID for removal");
-             await fetch('/api/wishlist', { 
-                method: 'DELETE', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ dbId }) 
-            });
-        } else {
-            // Add (RPC)
-            const rpcData = {
-                id: winery.id,
-                name: winery.name,
-                address: winery.address,
-                lat: winery.lat,
-                lng: winery.lng,
-                phone: winery.phone || null,
-                website: winery.website || null,
-                rating: winery.rating || null,
-            };
-            const { error } = await supabase.rpc('add_to_wishlist', { p_winery_data: rpcData });
-            if (error) throw error;
-        }
+        const rpcWineryData = {
+            id: winery.id,
+            name: winery.name,
+            address: winery.address,
+            lat: winery.lat,
+            lng: winery.lng,
+            phone: winery.phone || null,
+            website: winery.website || null,
+            rating: winery.rating || null,
+        };
+        const result = await toggleWishlist(rpcWineryData, true);
+        if (!result.success) throw new Error(result.error);
     } catch (err) {
         console.error("Wishlist toggle failed:", err);
         set({ persistentWineries: original }); // Revert
