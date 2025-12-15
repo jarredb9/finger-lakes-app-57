@@ -143,6 +143,14 @@ export const standardizeWineryData = (
   const userVisited = isMapMarkerRpc(source) ? source.user_visited : (isWineryDetailsRpc(source) ? source.user_visited : ((source as DbWineryWithUserData).user_visited ?? existing?.userVisited ?? false));
   const onWishlist = isMapMarkerRpc(source) ? source.on_wishlist : (isWineryDetailsRpc(source) ? source.on_wishlist : ((source as DbWineryWithUserData).on_wishlist ?? existing?.onWishlist ?? false));
   const isFavorite = isMapMarkerRpc(source) ? source.is_favorite : (isWineryDetailsRpc(source) ? source.is_favorite : ((source as DbWineryWithUserData).is_favorite ?? existing?.isFavorite ?? false));
+  
+  if (source.name === 'Ryan William Vineyard') { // Target a specific winery or just log first few
+       console.log('[standardizeWineryData] Processing:', source.name);
+       console.log('  Type check: MapMarkerRpc?', isMapMarkerRpc(source), 'WineryDetailsRpc?', isWineryDetailsRpc(source));
+       console.log('  Raw Flags:', 'user_visited:', (source as any).user_visited, 'is_favorite:', (source as any).is_favorite);
+       console.log('  Extracted:', { userVisited, isFavorite });
+  }
+
   const visits = (isWineryDetailsRpc(source) && source.visits) ? source.visits : ((source as DbWineryWithUserData).visits || existing?.visits || []);
   const trip_id = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_id) ? source.trip_info[0].trip_id : ((source as DbWineryWithUserData).trip_id || existing?.trip_id);
   const trip_name = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_name) ? source.trip_info[0].trip_name : ((source as DbWineryWithUserData).trip_name || existing?.trip_name);
