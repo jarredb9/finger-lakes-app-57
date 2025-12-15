@@ -23,10 +23,13 @@ This is a Next.js web application for planning and tracking visits to wineries i
 *   **Forbidden Actions:**
     *   Do NOT manually edit the database via the Supabase Dashboard.
     *   Do NOT edit `scripts/consolidated-schema.sql`.
+    *   **Do NOT edit existing migration files.** Once a migration file is created and committed, it is immutable.
 *   **Migration Workflow:**
-    1.  **Create Migration:** `npx supabase migration new <description_of_change>`
-    2.  **Edit SQL:** Write the specific SQL changes (e.g., `CREATE TABLE`, `ALTER POLICY`) in the generated file.
-    3.  **Deploy:** `npx supabase db push`
+    *   ALWAYS create a **new** migration file for ANY database change.
+    *   Preferred command: `npx supabase migration new <description_of_change>`
+    *   If the command fails (e.g., due to missing Docker), create a new file manually in `supabase/migrations/` with the format `YYYYMMDDHHMMSS_description.sql`, ensuring the timestamp is strictly sequential and newer than the latest existing file.
+    *   **Edit SQL:** Write the specific SQL changes (e.g., `CREATE TABLE`, `ALTER POLICY`) in the newly generated file.
+    *   **Deploy:** `npx supabase db push`
 
 ### 4. Middleware Configuration
 *   **File:** `proxy.ts` is used instead of `middleware.ts`.
