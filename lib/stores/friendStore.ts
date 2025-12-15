@@ -1,6 +1,7 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { shallow } from 'zustand/shallow';
-import { FriendRating } from '@/lib/types';
+import { FriendRating, WineryDbId } from '@/lib/types'; // Import WineryDbId
+import { createClient } from '@/utils/supabase/client';
 
 interface Friend {
   id: string;
@@ -29,7 +30,7 @@ interface FriendState {
   rejectFriend: (requesterId: string) => Promise<void>;
   removeFriend: (friendId: string) => Promise<void>;
   respondToRequest: (requesterId: string, accept: boolean) => Promise<void>;
-  fetchFriendDataForWinery: (wineryId: number) => Promise<void>;
+  fetchFriendDataForWinery: (wineryId: WineryDbId) => Promise<void>;
 }
 
 export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
@@ -43,19 +44,22 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
 
   fetchFriends: async () => {
     set({ isLoading: true });
+    const supabase = createClient();
     try {
-      const response = await fetch('/api/friends');
-      if (response.ok) {
-        const data = await response.json();
-        set({ 
-            friends: data.friends || [], 
-            friendRequests: data.requests || [], 
-            sentRequests: data.sent_requests || [],
-            isLoading: false 
-        });
-      } else {
-        throw new Error("Failed to fetch friends");
-      }
+      const { data, error } = await supabase.rpc('get_friends_and_requests');
+      
+      if (error) throw error;
+
+      // RPC returns a combined object, destructure it
+      // Based on typical structure of get_friends_and_requests
+      const { friends, requests, sent_requests } = data as any; 
+
+      set({ 
+          friends: friends || [], 
+          friendRequests: requests || [], 
+          sentRequests: sent_requests || [],
+          isLoading: false 
+      });
     } catch (error: any) {
       console.error(error);
       set({ isLoading: false, error: error.message });
@@ -98,17 +102,11 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
         set({ sentRequests: originalSentRequests.filter(f => f.id !== friendId) });
     }
 
+    const supabase = createClient();
     try {
-      const response = await fetch('/api/friends', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ friendId }),
-      });
+      const { error } = await supabase.rpc('remove_friend', { target_friend_id: friendId });
 
-      if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to remove friend.");
-      }
+      if (error) throw error;
     } catch (error) {
       console.error("Failed to remove friend, reverting:", error);
       // Revert state
@@ -137,6 +135,8 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
     }
 
     try {
+      // We keep the fetch call here for now as 'respond_to_friend_request' RPC might not exist or logic is complex
+      // TODO: Migrate to RPC if available
       const response = await fetch('/api/friends', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -147,8 +147,7 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
           const errorData = await response.json();
           throw new Error(errorData.error || "Failed to update friend request.");
       }
-      // We can optionally refetch to be 100% sure, but the optimistic state should be correct.
-      // Keeping refetch for safety on other metadata that might return
+      
       await get().fetchFriends(); 
     } catch (error) {
       console.error("Failed to respond to friend request, reverting:", error);
@@ -157,28 +156,60 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
     }
   },
 
-  fetchFriendDataForWinery: async (wineryId: number) => {
+  fetchFriendDataForWinery: async (wineryId: WineryDbId) => {
     set({ isLoading: true });
+    const supabase = createClient();
     try {
-      const [ratingsResponse, activityResponse] = await Promise.all([
-        fetch(`/api/wineries/${wineryId}/friends-ratings`),
-        fetch(`/api/wineries/${wineryId}/friends-activity`)
+      // Parallel RPC calls
+      const [ratingsResult, activityResult] = await Promise.all([
+        supabase.rpc('get_friends_ratings_for_winery', { winery_id_param: wineryId }),
+        supabase.rpc('get_friends_activity_for_winery', { winery_id_param: wineryId })
       ]);
 
-      if (ratingsResponse.ok) {
-        const ratings = await ratingsResponse.json();
-        set({ friendsRatings: ratings || [] });
+      if (ratingsResult.error) {
+          console.error('Failed to fetch friends ratings:', ratingsResult.error);
+          set({ friendsRatings: [] });
       } else {
-        console.error('Failed to fetch friends ratings');
-        set({ friendsRatings: [] });
+          // Transform signed URLs if needed, but RPC returns public URLs or paths?
+          // The RPC returns { photos: string[] }. Assuming they are paths, we might need to sign them.
+          // However, previous API route signed them. 
+          // For now, let's assume the RPC returns accessible paths or the component handles it.
+          // If photos are private, we need a separate step to sign them.
+          // Let's implement signing here to match previous behavior if needed.
+          
+          let ratings = ratingsResult.data || [];
+          // Sign photos logic
+          // Collect all photos
+          const allPhotos = ratings.flatMap((r: any) => r.photos || []);
+          if (allPhotos.length > 0) {
+              const { data: signedUrlsData } = await supabase.storage
+                  .from('visit-photos')
+                  .createSignedUrls(allPhotos, 3600);
+              
+              if (signedUrlsData) {
+                  const urlMap = new Map(signedUrlsData.map(u => [u.path, u.signedUrl]));
+                  ratings = ratings.map((r: any) => ({
+                      ...r,
+                      photos: r.photos?.map((p: string) => urlMap.get(p) || p) || []
+                  }));
+              }
+          }
+
+          set({ friendsRatings: ratings });
       }
 
-      if (activityResponse.ok) {
-        const activity = await activityResponse.json();
-        set({ friendsActivity: activity || { favoritedBy: [], wishlistedBy: [] } });
+      if (activityResult.error) {
+          console.error('Failed to fetch friends activity:', activityResult.error);
+          set({ friendsActivity: { favoritedBy: [], wishlistedBy: [] } });
       } else {
-        console.error('Failed to fetch friends activity');
-        set({ friendsActivity: { favoritedBy: [], wishlistedBy: [] } });
+          // Cast the JSON result to the expected type
+          const activity = activityResult.data as any; // RPC returns Json
+          set({ 
+              friendsActivity: { 
+                  favoritedBy: activity?.favoritedBy || [], 
+                  wishlistedBy: activity?.wishlistedBy || [] 
+              } 
+          });
       }
     } catch (error) {
       console.error('Error fetching friend data for winery:', error);

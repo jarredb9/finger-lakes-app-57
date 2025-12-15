@@ -1,8 +1,6 @@
 import { useTripStore } from '../tripStore';
 import { TripService } from '@/lib/services/tripService';
-import { useWineryStore } from '@/lib/stores/wineryStore';
 import { act } from '@testing-library/react';
-import { createClient } from '@/utils/supabase/client';
 
 // Mock dependencies
 jest.mock('@/lib/services/tripService');
@@ -18,7 +16,6 @@ jest.mock('@/utils/supabase/client');
 
 // Typed mocks
 const mockedTripService = TripService as jest.Mocked<typeof TripService>;
-const mockedCreateClient = createClient as jest.Mock;
 
 describe('tripStore', () => {
   const mockTrips = [{ id: 1, name: 'Test Trip' }];

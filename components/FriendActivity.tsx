@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Users, Heart, Bookmark } from "lucide-react";
 import { Separator } from "./ui/separator";
+import { WineryDbId } from "@/lib/types";
 
 interface Friend {
   id: string;
@@ -14,7 +15,7 @@ interface Friend {
 }
 
 interface FriendActivityProps {
-  wineryDbId: number;
+  wineryDbId: WineryDbId;
 }
 
 export default function FriendActivity({ wineryDbId }: FriendActivityProps) {
