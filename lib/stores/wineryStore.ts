@@ -24,7 +24,7 @@ interface WineryUIState {
   loadingWineryId: string | null;
   
   // Actions
-  fetchWineryData: () => Promise<void>; // Proxies to DataStore
+  fetchWineryData: (userId: string) => Promise<void>; // Proxies to DataStore
   ensureWineryDetails: (placeId: GooglePlaceId) => Promise<Winery | null>;
   
   // Proxy Actions (For convenience/compatibility)
@@ -48,8 +48,8 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
   getFavorites: () => useWineryDataStore.getState().persistentWineries.filter(w => w.isFavorite),
   error: useWineryDataStore.getState().error,
 
-  fetchWineryData: async () => {
-      await useWineryDataStore.getState().hydrateWineries();
+  fetchWineryData: async (userId: string) => {
+      await useWineryDataStore.getState().hydrateWineries(userId);
   },
 
   ensureWineryDetails: async (placeId: GooglePlaceId) => {

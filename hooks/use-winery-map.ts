@@ -57,7 +57,7 @@ export function useWineryMap(userId: string) {
   // Data Fetching Initialization
   useEffect(() => {
     if (userId) {
-      fetchWineryData();
+      fetchWineryData(userId);
       fetchUpcomingTrips();
     }
   }, [userId, fetchWineryData, fetchUpcomingTrips]);
