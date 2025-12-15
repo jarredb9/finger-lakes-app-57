@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useMap } from "@vis.gl/react-google-maps";
 import { useToast } from "@/hooks/use-toast";
 import { Winery, GooglePlaceId } from "@/lib/types";
@@ -149,7 +149,7 @@ export function useWineryMap(userId: string) {
     [openWineryModal, ensureWineryDetails]
   );
 
-  return {
+  return useMemo(() => ({
     error,
     mapWineries,
     listResultsInView,
@@ -167,5 +167,23 @@ export function useWineryMap(userId: string) {
     proposedWinery,
     setProposedWinery,
     selectedTrip,
-  };
+  }), [
+    error,
+    mapWineries,
+    listResultsInView,
+    isSearching,
+    hitApiLimit,
+    searchLocation,
+    setSearchLocation,
+    autoSearch,
+    setAutoSearch,
+    filter,
+    handleSearchSubmit,
+    handleManualSearchArea,
+    handleFilterChange,
+    handleOpenModal,
+    proposedWinery,
+    setProposedWinery,
+    selectedTrip,
+  ]);
 }

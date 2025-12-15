@@ -1,7 +1,7 @@
-# Fingerlakes Winery Visit Planner and Tracker
+# Winery Visit Planner and Tracker
 
 ## Project Overview
-This is a Next.js web application for planning and tracking visits to wineries in the Finger Lakes region. It allows users to explore wineries, create trips, track visits, and manage friends.
+This is a Next.js web application for planning and tracking visits to wineries. It allows users to explore wineries, create trips, track visits, and manage friends.
 
 ## Critical Instructions & Constraints
 
@@ -56,11 +56,11 @@ This is a Next.js web application for planning and tracking visits to wineries i
     *   **`visitStore`:** Manages logging and updating user visits.
     *   **`friendStore`:** Manages friend list, requests, and activity.
 *   **Service Layer (`lib/services/`):** Static classes that encapsulate API calls. Stores call Services; Components call Stores.
-*   **Authentication:** Handled via **Server Actions** in `app/actions.ts` (e.g., `login`). We **do not** use `app/api/auth/login/route.ts`.
-
-### 2. "Supabase Native" Architecture (Mobile-First)
-We enforce a "Thick Client, Thin Server" architecture to support future mobile development.
-*   **Data Fetching:** Client-side stores communicate **directly** with Supabase using `@supabase/supabase-js` or RPCs. Next.js API routes (`app/api/*`) are deprecated and should only be used for webhooks or specialized server-side logic.
+*   **Authentication:** Currently in a **hybrid state**. While some logic uses `app/actions.ts`, core flows like Signup, Login, and Logout still rely on legacy API routes (`app/api/auth/*`). **Do not delete `app/api/auth`** until these are fully migrated.
+    *   **Data Fetching:** Hybrid approach.
+        *   **Goal:** Client-side stores communicate **directly** with Supabase using `@supabase/supabase-js` or RPCs.
+        *   **Current Reality:** Legacy API routes (`app/api/friends`, `app/api/wineries`) are still heavily used by Stores and Components.
+        *   **Migration Status:** API routes are deprecated but **active**. Do not delete `app/api/*` without verifying usage.
 *   **RPCs:** We rely heavily on PostgreSQL functions (RPCs) for complex joins and logic.
 *   **Type Safety:** `lib/database.types.ts` is the generated source of truth for DB types. `lib/types.ts` imports from it.
 

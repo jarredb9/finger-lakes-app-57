@@ -34,22 +34,11 @@ export async function toggleFavorite(wineryData: WineryData) {
     const supabase = await createClient();
 
     try {
-        // Step 1: Find or Create the winery in the public.wineries table
-        let { data: winery, error: findError } = await supabase
+        // Step 1: Ensure the winery exists in the public.wineries table (UPSERT)
+        const { data: winery, error: upsertWineryError } = await supabase
             .from("wineries")
-            .select("id")
-            .eq("google_place_id", wineryData.id)
-            .single();
-
-        if (findError && findError.code !== 'PGRST116') { // PGRST116 = no rows found
-            console.error("Error finding winery:", findError);
-            return { success: false, error: "Failed to find or create winery." };
-        }
-
-        if (!winery) {
-            const { data: newWinery, error: insertError } = await supabase
-                .from("wineries")
-                .insert({
+            .upsert(
+                {
                     google_place_id: wineryData.id,
                     name: wineryData.name,
                     address: wineryData.address,
@@ -58,15 +47,15 @@ export async function toggleFavorite(wineryData: WineryData) {
                     phone: wineryData.phone,
                     website: wineryData.website,
                     google_rating: wineryData.rating,
-                })
-                .select("id")
-                .single();
+                },
+                { onConflict: 'google_place_id' }
+            )
+            .select("id")
+            .single();
 
-            if (insertError) {
-                console.error("Error inserting new winery:", insertError);
-                return { success: false, error: "Failed to create new winery." };
-            }
-            winery = newWinery;
+        if (upsertWineryError) {
+            console.error("Error upserting winery:", upsertWineryError);
+            return { success: false, error: "Failed to ensure winery existence." };
         }
 
         // Step 2: Check if already a favorite and toggle
