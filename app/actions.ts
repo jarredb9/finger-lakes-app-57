@@ -20,12 +20,13 @@ interface WineryData {
  * Toggles a winery as a favorite for the current user.
  * If the winery is already a favorite, it will be removed.
  * If not, it will be added.
- * Handles creating the winery in the database if it doesn't exist.
+ * Handles creating the winery in the database if it doesn't exist via RPC.
  *
  * @param wineryData - The data of the winery to toggle.
+ * @param skipRevalidation - If true, skips Next.js cache revalidation (useful for optimistic updates).
  * @returns An object indicating success or failure.
  */
-export async function toggleFavorite(wineryData: WineryData) {
+export async function toggleFavorite(wineryData: WineryData, skipRevalidation = false) {
     const user = await getUser();
     if (!user) {
         return { success: false, error: "Unauthorized" };
@@ -34,36 +35,25 @@ export async function toggleFavorite(wineryData: WineryData) {
     const supabase = await createClient();
 
     try {
-        // Step 1: Ensure the winery exists in the public.wineries table (UPSERT)
-        const { data: winery, error: upsertWineryError } = await supabase
-            .from("wineries")
-            .upsert(
-                {
-                    google_place_id: wineryData.id,
-                    name: wineryData.name,
-                    address: wineryData.address,
-                    latitude: wineryData.lat,
-                    longitude: wineryData.lng,
-                    phone: wineryData.phone,
-                    website: wineryData.website,
-                    google_rating: wineryData.rating,
-                },
-                { onConflict: 'google_place_id' }
-            )
-            .select("id")
-            .single();
+        // Step 1: Ensure the winery exists using the security-definer RPC
+        // This bypasses RLS 'UPDATE' restrictions that block direct upserts
+        const { data: wineryId, error: rpcError } = await supabase
+            .rpc('ensure_winery', { p_winery_data: wineryData });
 
-        if (upsertWineryError) {
-            console.error("Error upserting winery:", upsertWineryError);
+        if (rpcError) {
+            console.error("Error ensuring winery via RPC:", rpcError);
             return { success: false, error: "Failed to ensure winery existence." };
         }
+        
+        // ensure_winery returns the ID directly
+        const wineryIdInt = wineryId as number;
 
         // Step 2: Check if already a favorite and toggle
         const { data: existingFavorite, error: checkFavoriteError } = await supabase
             .from("favorites")
             .select("id")
             .eq("user_id", user.id)
-            .eq("winery_id", winery.id)
+            .eq("winery_id", wineryIdInt)
             .maybeSingle();
 
         if (checkFavoriteError) {
@@ -77,27 +67,33 @@ export async function toggleFavorite(wineryData: WineryData) {
                 .from("favorites")
                 .delete()
                 .eq("user_id", user.id)
-                .eq("winery_id", winery.id);
+                .eq("winery_id", wineryIdInt);
 
             if (deleteError) {
                 console.error("Error removing favorite:", deleteError);
                 return { success: false, error: "Failed to remove favorite." };
             }
-            revalidatePath('/trips'); // Revalidate paths that display favorites
-            revalidatePath('/'); // For homepage
+            
+            if (!skipRevalidation) {
+                revalidatePath('/trips');
+                revalidatePath('/');
+            }
             return { success: true, message: "Removed from favorites." };
         } else {
             // Not a favorite, so add it
             const { error: insertFavoriteError } = await supabase
                 .from("favorites")
-                .insert({ user_id: user.id, winery_id: winery.id });
+                .insert({ user_id: user.id, winery_id: wineryIdInt });
 
             if (insertFavoriteError) {
                 console.error("Error adding favorite:", insertFavoriteError);
                 return { success: false, error: "Failed to add favorite." };
             }
-            revalidatePath('/trips'); // Revalidate paths that display favorites
-            revalidatePath('/'); // For homepage
+            
+            if (!skipRevalidation) {
+                revalidatePath('/trips');
+                revalidatePath('/');
+            }
             return { success: true, message: "Added to favorites." };
         }
     } catch (error) {
