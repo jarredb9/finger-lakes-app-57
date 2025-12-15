@@ -27,7 +27,7 @@ This is a Next.js web application for planning and tracking visits to wineries i
 *   **Migration Workflow:**
     *   ALWAYS create a **new** migration file for ANY database change.
     *   Preferred command: `npx supabase migration new <description_of_change>`
-    *   If the command fails (e.g., due to missing Docker), create a new file manually in `supabase/migrations/` with the format `YYYYMMDDHHMMSS_description.sql`, ensuring the timestamp is strictly sequential and newer than the latest existing file.
+    *   If the command fails (e.g., due to missing Docker), create a new file manually in `supabase/migrations/` with the format `YYYYMMDDHHMMSS_description.sql`, ensuring the timestamp is strictly sequential.
     *   **Edit SQL:** Write the specific SQL changes (e.g., `CREATE TABLE`, `ALTER POLICY`) in the newly generated file.
     *   **Deploy:** `npx supabase db push`
 
@@ -50,63 +50,63 @@ This is a Next.js web application for planning and tracking visits to wineries i
 
 ### 1. State Management & Data Flow
 *   **Zustand Stores (`lib/stores/`):** The primary source of truth for client-side state.
-    *   **`wineryStore`:** Manages the global list of wineries, favorites, and wishlist items. Handles lightweight "map markers" vs. heavy "detailed data" lazy loading.
+    *   **`wineryStore`:** (UI Store) Manages UI state (modal open/close, loading), filtering, and delegates data operations to `wineryDataStore`.
+    *   **`wineryDataStore`:** (Data Store) Manages the global cache of `Winery` objects, handles hydration, CRUD operations, and syncs with Supabase.
     *   **`tripStore`:** Manages trip creation, updates, and the "Active Trip" state (`selectedTrip`) for the map overlay.
     *   **`visitStore`:** Manages logging and updating user visits.
+    *   **`friendStore`:** Manages friend list, requests, and activity.
 *   **Service Layer (`lib/services/`):** Static classes that encapsulate API calls. Stores call Services; Components call Stores.
-*   **Authentication:** Handled via **Server Actions** in `app/actions.ts` (e.g., `login`). We **do not** use `app/api/auth/login/route.ts` (it was removed).
+*   **Authentication:** Handled via **Server Actions** in `app/actions.ts` (e.g., `login`). We **do not** use `app/api/auth/login/route.ts`.
 
-### 2. Optimistic Updates Strategy
+### 2. "Supabase Native" Architecture (Mobile-First)
+We enforce a "Thick Client, Thin Server" architecture to support future mobile development.
+*   **Data Fetching:** Client-side stores communicate **directly** with Supabase using `@supabase/supabase-js` or RPCs. Next.js API routes (`app/api/*`) are deprecated and should only be used for webhooks or specialized server-side logic.
+*   **RPCs:** We rely heavily on PostgreSQL functions (RPCs) for complex joins and logic.
+*   **Type Safety:** `lib/database.types.ts` is the generated source of truth for DB types. `lib/types.ts` imports from it.
+
+### 3. ID System (Strict Typing)
+To prevent "Dual-ID" confusion, we use branded types in `lib/types.ts`:
+*   **`GooglePlaceId` (string):** Used for API lookups and Map markers.
+*   **`WineryDbId` (number):** The Supabase Primary Key. Used for relational data.
+*   **Rule:** Always cast explicit IDs to these types. Never assume `string | number`.
+
+### 4. Optimistic Updates Strategy
 We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 *   **Pattern:** Update Zustand store immediately -> Call API/RPC -> Revert store on error -> (Optional) Refetch/Confirm on success.
 *   **Key Implementations:**
-    *   **`saveVisit` (`visitStore`):** Creates a temporary visit object with a temp ID (`temp-${Date.now()}`), adds it via `wineryStore.addVisitToWinery`, then replaces it with the real DB record using `wineryStore.replaceVisit` upon success.
-    *   **`respondToRequest` (`friendStore`):** Immediately moves friend from "Requests" to "Friends" list before API call.
-    *   **`addWineryToTrips` (`tripStore`):** For *existing* trips, we optimistically append the winery to the `trips` and `tripsForDate` arrays. For *new* trips, we wait for the server (due to ID generation complexity).
-    *   **`removeFriend` (`friendStore`):** Optimistically removes a friend from the `friends` list or a sent request from the `sentRequests` list before the API call.
+    *   **`visitStore`:** Creates temp ID, adds via `wineryDataStore`, replaces with real ID after RPC.
+    *   **`tripStore`:** Optimistically appends wineries to trips before RPC.
 
-### 3. Navigation & Map Context Logic
+### 5. Navigation & Map Context Logic
 *   **Active Trip (`selectedTrip`):**
     *   **Activation:** Occurs when a user selects a trip from the dropdown on the Map controls OR clicks the "On Trip" badge in a `WineryModal`.
     *   **Persistence:** This state is global (Zustand) and persists across client-side navigation.
-    *   **Reset Rule:** To prevents the map from getting "stuck" on a trip, navigating to a **Trip Details Page** (`/trips/[id]`) **MUST** explicitly clear the active trip (`setSelectedTrip(null)`) on mount. This ensures that returning to the Explore tab starts with a clean map context.
+    *   **Reset Rule:** To prevent the map from getting "stuck" on a trip, navigating to a **Trip Details Page** (`/trips/[id]`) **MUST** explicitly clear the active trip (`setSelectedTrip(null)`) on mount.
 
-### 4. Friend Request Notifications
-*   **Immediate Fetch:** Friend data, including pending requests, is now fetched immediately upon user authentication via `AuthProvider` to ensure notification badges are always up-to-date.
-*   **Notification Badges:** Visual indicators (red circles with counts) are displayed on the "Friends" tab in both desktop (AppSidebar) and mobile (AppShell) views to highlight pending friend requests.
-
-### 5. API & Component Structure Notes
-*   **Component Naming:**
-    *   `VisitCardHistory.tsx`: The reusable UI card/list component.
-    *   `VisitHistoryView.tsx`: The full-page view wrapper (used in Tabs).
-*   **Unused/Removed:**
-    *   `app/api/auth/login/route.ts`: Removed (Use Server Actions).
-    *   `app/api/wineries/[id]/route.ts`: Removed (Use `details` or `list` endpoints).
-    *   `components/theme-provider.tsx`: Removed (Unused).
+### 6. Friend Request Notifications
+*   **Immediate Fetch:** Friend data, including pending requests, is fetched immediately upon user authentication to ensure notification badges are up-to-date.
+*   **Notification Badges:** Visual indicators (red circles with counts) are displayed on the "Friends" tab.
 
 ## Key References (Maps & Tools)
 
 ### UI Architecture (Layout)
-*   **Responsive Controller:** `AppShell` (`components/app-shell.tsx`) is the central orchestrator. It manages the state for switching between the **Desktop Sidebar** (`AppSidebar`) and the **Mobile Bottom Drawer** (`InteractiveBottomSheet`). It does **not** rely on media queries in CSS alone; it uses the `useIsMobile` hook to conditionally render the correct container.
-*   **Modals:** `WineryModal` is rendered at the root level in `AppShell` but controlled via `uiStore` to allow triggering from anywhere (Map, Sidebar, etc.).
+*   **Responsive Controller:** `AppShell` (`components/app-shell.tsx`) is the central orchestrator. It manages the state for switching between the **Desktop Sidebar** (`AppSidebar`) and the **Mobile Bottom Drawer** (`InteractiveBottomSheet`).
+*   **Modals:** `WineryModal` is rendered at the root level in `AppShell` but controlled via `uiStore`.
 
 ### Key Database RPCs (Power Tools)
 *   **Data Fetching:**
-    *   `get_map_markers()`: Lightweight, high-performance fetch for the initial map load.
-    *   `get_winery_details_by_id(id)`: Lazy-loads full details (reviews, hours) only when a modal is opened.
-    *   `get_all_user_visits_list()`: Aggregates all user visits for the history view.
+    *   `get_map_markers(user_id_param)`: Lightweight fetch for initial map load. Accepts explicit user ID to ensure flags (`is_favorite`) are correct.
+    *   `get_winery_details_by_id(id)`: Lazy-loads full details (reviews, hours).
+    *   `get_paginated_visits_with_winery_and_friends`: Fetches visit history efficiently.
 *   **Logic & Transactions:**
-    *   `create_trip_with_winery()`: Atomically creates a trip and adds the first winery.
-    *   `add_winery_to_trip()`: Handles the upsert logic for wineries when adding to a trip.
-    *   `remove_winery_from_trip()`: Safely removes a winery from a trip.
-
-### Social Graph Management
-*   `remove_friend(target_friend_id)`: Deletes a friendship record between the current user and `target_friend_id`, used for both removing friends and cancelling sent requests.
-*   `get_friends_and_requests()`: Fetches the social graph, now including accepted friends, incoming friend requests, and outgoing (sent) friend requests in a single round-trip.
+    *   `create_trip_with_winery`: Atomically creates a trip and adds the first winery.
+    *   `add_winery_to_trip`: Handles upsert logic for wineries.
+*   **Social:**
+    *   `get_friends_activity_for_winery`: Returns JSON of friends who favorited/wishlisted a winery.
 
 ### Core Custom Hooks
-*   **`useWineryMap`:** The "Brain" of the map view. Aggregates store data, handles map clicks (fetching details for non-DB places), and manages the Google Maps instance.
-*   **`useTripActions`:** Encapsulates trip-specific logic like "Export to Google Maps" and Friend selection for trip members.
+*   **`useWineryMap`:** The "Brain" of the map view. Aggregates store data, handles map clicks, and manages the Google Maps instance.
+*   **`useTripActions`:** Encapsulates trip-specific logic like "Export to Google Maps".
 
 ## Project Structure
 
@@ -114,10 +114,9 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 /
 ├── app/                 # Next.js App Router pages and API routes
 │   ├── actions.ts       # Server Actions (Auth, Favorites)
-│   ├── api/             # Backend API endpoints
+│   ├── api/             # (Deprecated) Legacy API endpoints
 │   ├── (routes)/        # Page routes
 │   └── layout.tsx       # Root layout
-├── proxy.ts             # Middleware logic
 ├── components/          # React components
 │   ├── ui/              # Reusable UI components (shadcn/ui)
 │   ├── VisitCardHistory.tsx # Reusable history list
@@ -126,56 +125,36 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 ├── lib/                 # Core logic
 │   ├── stores/          # Zustand stores (Logic Hub)
 │   ├── services/        # Service layer (API Wrappers)
-│   └── types.ts         # TypeScript interfaces
+│   ├── utils/           # Utility functions (winery.ts data standardization)
+│   ├── database.types.ts # Generated Supabase types
+│   └── types.ts         # TypeScript interfaces (Branded types)
 └── supabase/            # Database configuration
 ```
 
-## Key Commands
+## Common Pitfalls & "Gotchas"
 
-*   **Development Server:** `npm run dev`
-*   **Build:** `npm run build`
-*   **Lint:** `npm run lint`
-*   **Type Check:** `npm run type-check` (or `npx tsc --noEmit`)
-*   **Test:** `npm run test`
-
-## Development Conventions
-
-*   **Imports:** Use absolute imports (`@/components/...`, `@/lib/...`) as defined in `tsconfig.json`.
-*   **Components:** Prefer functional components with TypeScript interfaces for props.
-*   **State:** Use Zustand stores for complex global state.
-*   **Services:** Use dedicated services in `lib/services/` for API logic.
-*   **Styling:** Use Tailwind utility classes. Avoid custom CSS files unless necessary (`globals.css`).
-*   **Icons:** Lucide React icons.
-
-## Key Data Models (`lib/types.ts`)
-
-*   **`Winery`:** Represents a winery location (Google Place ID, coordinates, reviews).
-*   **`Trip`:** A planned itinerary containing a list of wineries and members.
-*   **`Visit`:** A record of a user visiting a winery, including photos and reviews.
-*   **`Friend`:** Social connection between users.
-
-## General Considerations
-
-*   **Error Handling:** Ensure robust error handling for API calls and user interactions.
-*   **Edge Cases:** Consider valid but unusual user inputs or states.
-*   **Performance:** Optimize for speed, especially with map interactions and data fetching.
-*   **Best Practices:** Follow established best practices for React, Next.js, Zustand, Supabase, and the Google Maps API.
-
-## Common Pitfalls & "Gotchas" (Read Before Coding)
-
-### 1. The Dual-ID System (Critical)
-*   **Concept:** Wineries have **two** identifiers:
-    *   `id` (String): The Google Place ID. Used for API lookups and Map markers.
-    *   `dbId` (Number): The Supabase Primary Key. Used for relational data (visits, favorites, trips).
-*   **The Trap:** Mixing these up causes foreign key constraints to fail or lookups to return null.
-*   **The Fix:** Always verify which ID an RPC expects. Most "heavy" RPCs (`add_winery_to_trip`) handle the upsert/lookup automatically using the Google ID (`id`), but deletions (`remove_winery_from_trip`) strictly require the `dbId`.
+### 1. The Dual-ID System (Solved but Dangerous)
+*   **Concept:** Wineries have `id` (Google String) and `dbId` (Supabase Integer).
+*   **The Trap:** Mixing these up causes foreign key constraints to fail.
+*   **The Fix:** Use `GooglePlaceId` and `WineryDbId` types. RPCs for *actions* (like adding a visit) usually require the `dbId`.
 
 ### 2. Derived State in Optimistic Updates
 *   **Concept:** Zustand stores often have derived arrays (e.g., `trips` vs `tripsForDate`).
-*   **The Trap:** Updating the "main" array (`trips`) during an optimistic update **does not** automatically re-compute the derived array (`tripsForDate`) if the logic is manual. This leads to UI lag where one view updates but another doesn't.
-*   **The Fix:** When writing optimistic logic in a store, you must manually update **all** relevant state arrays (e.g., `set({ trips: ..., tripsForDate: ... })`).
+*   **The Trap:** Updating the "main" array (`trips`) during an optimistic update **does not** automatically re-compute the derived array (`tripsForDate`) if the logic is manual.
+*   **The Fix:** When writing optimistic logic, update **all** relevant state arrays.
 
 ### 3. Testing Zustand with Mocks
-*   **Concept:** We use `jest.mock` to bypass the actual Zustand store implementation in component tests.
-*   **The Trap:** Tests will crash with `TypeError: func is not a function` if you add a new action to the Store but forget to add a mock implementation for it in the test file (e.g., `setSelectedTrip`).
-*   **The Fix:** Always check the `beforeEach` block in the test file and ensure the mock implementation returns a complete state object matching the interface required by the component under test.
+*   **Concept:** We use `jest.mock` to bypass the actual Zustand store.
+*   **The Trap:** Tests will crash if you add a new action to the Store but forget to add a mock implementation for it.
+*   **The Fix:** Always check the `beforeEach` block in the test file.
+
+## Recent Changes & Known Issues (December 2025)
+
+### Completed Refactors
+1.  **Architecture:** Moved to "Supabase Native". Removed API routes for Trips and Friends.
+2.  **Store Split:** `wineryStore.ts` split into Data/UI stores.
+3.  **Optimization:** Initial load only fetches markers. Visits are lazy-loaded.
+
+### **KNOWN BUG: Missing Map Markers Flags**
+*   **Symptom:** On initial load, the map pins for "Visited", "Favorite", and "Wishlist" may default to blue "Discovered" if the user context isn't correctly passed.
+*   **Status:** A fix was applied (passing `userId` explicitly to `get_map_markers` RPC), but the user reported the issue persisting. Ensure the database migration `20251215120003` is deployed and `auth.uid()` / passed parameter logic is sound.

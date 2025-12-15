@@ -77,6 +77,11 @@ export const standardizeWineryData = (
 ): Winery | null => {
   if (!source) return null;
 
+  if ('user_visited' in source && !isMapMarkerRpc(source)) {
+    console.warn('[standardizeWineryData] Source has user_visited but isMapMarkerRpc returned false. Keys:', Object.keys(source));
+    if ('id' in source) console.warn('ID type:', typeof (source as any).id);
+  }
+
   // 1. Resolve ID (Google Place ID)
   const googleId = (
     (isGoogleWinery(source) && (source.google_place_id || source.place_id || (typeof source.id === 'string' ? source.id : undefined))) ||
