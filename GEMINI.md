@@ -58,18 +58,17 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 *   **Service Layer (`lib/services/`):** Static classes that encapsulate API calls. Stores call Services; Components call Stores.
 
 ### 2. "Supabase Native" Architecture (Mobile-First)
-**⚠️ CURRENT STATE WARNING:** The application is in a **hybrid transitional phase**.
-*   **Goal:** 100% RPCs and Server Actions.
-*   **Reality:** Legacy API routes (`app/api/auth`, `app/api/friends`, `app/api/wineries`) are **still active and critical**.
-*   **Rule:** Do NOT delete "deprecated" files without grepping the codebase for usage. Trust the code over this document regarding what is "dead".
+**⚠️ ARCHITECTURE STATE:** The application uses a **Hybrid Architecture**.
+*   **API Routes (`app/api/*`):** These are **ACTIVE and CRITICAL**. They handle Authentication, Friend management, and complex server-side logic that requires middleware processing or third-party integrations. Do NOT delete these.
+*   **RPCs & Server Actions:** These are the **preferred method for Data Fetching** and simple user interactions (e.g., toggles) to ensure performance and type safety.
 
 We enforce a "Thick Client, Thin Server" architecture to support future mobile development.
 
-*   **Authentication:** Currently in a **hybrid state**. While some logic uses `app/actions.ts`, core flows like Signup, Login, and Logout still rely on legacy API routes (`app/api/auth/*`). **Do not delete `app/api/auth`** until these are fully migrated.
-*   **Data Fetching:** Hybrid approach.
-    *   **Goal:** Client-side stores communicate **directly** with Supabase using `@supabase/supabase-js` or RPCs.
-    *   **Current Reality:** Legacy API routes (`app/api/friends`, `app/api/wineries`) are still heavily used by Stores and Components.
-    *   **Migration Status:** API routes are deprecated but **active**. Do not delete `app/api/*` without verifying usage.
+*   **Authentication:** **Hybrid State.** Core flows (Login, Signup, Logout) rely on standard API routes (`app/api/auth/*`). Some newer interactions use Server Actions (`app/actions.ts`). Both are valid.
+*   **Data Fetching:**
+    *   **Preference:** Client-side stores should communicate **directly** with Supabase using `@supabase/supabase-js` or RPCs for read operations to minimize latency.
+    *   **Usage:** `app/api/*` is used for logic-heavy operations (e.g., Friends, syncing Wineries from Google).
+    *   **Rule:** Do not migrate logic from `app/api` to RPCs unless there is a clear performance benefit. Do NOT delete `app/api/*`.
 *   **RPCs:** We rely heavily on PostgreSQL functions (RPCs) for complex joins and logic.
 *   **Type Safety:** `lib/database.types.ts` is the generated source of truth for DB types. `lib/types.ts` imports from it.
 
@@ -123,7 +122,7 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 /
 ├── app/                 # Next.js App Router pages and API routes
 │   ├── actions.ts       # Server Actions (Auth, Favorites)
-│   ├── api/             # (Deprecated) Legacy API endpoints
+│   ├── api/             # Active API Routes (Auth, Friends, Wineries)
 │   ├── (routes)/        # Page routes
 │   └── layout.tsx       # Root layout
 ├── components/          # React components
