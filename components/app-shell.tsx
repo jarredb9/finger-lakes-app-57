@@ -144,7 +144,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
         </div>
 
         {/* Mobile Navigation Bar */}
-        <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-background border-t flex items-center justify-around z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+        <div className="md:hidden fixed bottom-0 left-0 right-0 h-auto min-h-16 bg-background border-t flex items-center justify-around z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
             <Button 
                 variant="ghost" 
                 className={cn("flex flex-col gap-1 h-auto w-16", !isMobileSheetOpen && "text-primary")}
