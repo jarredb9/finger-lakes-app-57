@@ -143,6 +143,7 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 │   ├── VisitCardHistory.tsx # Reusable history list
 │   ├── VisitHistoryView.tsx # Full page history view
 │   └── [feature].tsx    # Feature-specific components
+├── e2e/                 # Playwright E2E tests
 ├── lib/                 # Core logic
 │   ├── stores/          # Zustand stores (Logic Hub)
 │   ├── services/        # Service layer (API Wrappers)

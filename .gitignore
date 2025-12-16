@@ -31,3 +31,15 @@ next-env.d.ts
 ./GEMINI.md
 # Local environment variables
 .env.local
+
+# Playwright
+node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+# Testing
+coverage/
+*.log
