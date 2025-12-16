@@ -20,13 +20,28 @@ test.describe('Trip Planning Flow', () => {
       // Verify we are on the dashboard with increased timeout (20s)
       await expect(page.getByRole('heading', { name: 'Winery Tracker' })).toBeVisible({ timeout: 20000 });
     } catch (error) {
-      // If dashboard failed to load, check for login error message
-      const alert = page.getByRole('alert');
-      if (await alert.isVisible()) {
-        const errorText = await alert.textContent();
-        console.error(`Login Failed with Alert: "${errorText}"`);
-        throw new Error(`Login failed: ${errorText}`);
+      // If dashboard failed to load, check for ANY visible alerts
+      // using .locator instead of getByRole to avoid strict mode errors on multiple alerts
+      const alerts = page.locator('[role="alert"]');
+      const count = await alerts.count();
+      
+      if (count > 0) {
+        const errorMessages = [];
+        for (let i = 0; i < count; i++) {
+          const text = await alerts.nth(i).textContent();
+          if (text) errorMessages.push(text);
+        }
+        
+        console.error(`Login Failed. Visible Alerts: ${JSON.stringify(errorMessages)}`);
+        
+        // Check for specific known issues
+        if (errorMessages.some(msg => msg.includes("Google Maps"))) {
+           throw new Error("Login failed due to missing Google Maps API Key. Please add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to GitHub Secrets.");
+        }
+        
+        throw new Error(`Login failed with alerts: ${errorMessages.join(', ')}`);
       }
+      
       // If no alert, re-throw the original timeout error
       throw error;
     }
