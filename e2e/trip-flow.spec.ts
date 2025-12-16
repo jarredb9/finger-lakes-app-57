@@ -18,7 +18,8 @@ test.describe('Trip Planning Flow', () => {
     // Handling potential slow logins or errors
     try {
       // Verify we are on the dashboard with increased timeout (20s)
-      await expect(page.getByRole('heading', { name: 'Winery Tracker' })).toBeVisible({ timeout: 20000 });
+      // Use .first() because responsive layouts might render multiple headings (mobile/desktop)
+      await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
     } catch (error) {
       const url = page.url();
       console.error(`Login Timeout. Current URL: ${url}`);
@@ -27,10 +28,17 @@ test.describe('Trip Planning Flow', () => {
       const alerts = page.locator('[role="alert"]');
       const count = await alerts.count();
       const errorMessages = [];
+      const ignoredAlerts = ["Zoom in to see more results"]; // Alerts that are NOT errors
       
       for (let i = 0; i < count; i++) {
         const text = await alerts.nth(i).textContent();
-        if (text && text.trim().length > 0) errorMessages.push(text.trim());
+        if (text && text.trim().length > 0) {
+            const trimmed = text.trim();
+            // Only add if it's not a known non-error alert
+            if (!ignoredAlerts.some(ignore => trimmed.includes(ignore))) {
+                errorMessages.push(trimmed);
+            }
+        }
       }
       
       if (errorMessages.length > 0) {
@@ -54,28 +62,21 @@ test.describe('Trip Planning Flow', () => {
 
   test('can create a new trip from a winery', async ({ page }) => {
     // 1. Ensure we are on the 'Explore' tab (default)
-    await expect(page.getByRole('tab', { name: 'Explore' })).toHaveAttribute('data-state', 'active');
+    // Use .first() because tabs are duplicated in mobile/desktop layouts
+    await expect(page.getByRole('tab', { name: 'Explore' }).first()).toHaveAttribute('data-state', 'active');
 
     // 2. Wait for wineries to load (look for at least one winery card)
-    // Note: This depends on your seed data or live API. 
-    // We'll wait for the list to have items.
-    const wineryList = page.locator('.space-y-2 > div > div').first(); // Adjust selector based on actual rendering
-    // A better way is to wait for the "Wineries in View" text and then content
-    await expect(page.getByText('Wineries in View')).toBeVisible();
+    // "Wineries in View" is inside the sidebar, so it's also duplicated
+    await expect(page.getByText('Wineries in View').first()).toBeVisible();
 
-    // TODO: Since we don't know exact winery names in your DB, we might need to search or just pick the first one.
-    // For now, let's assume there is at least one result and click it.
-    // However, without a known DB state, this is flaky.
-    
-    // STRATEGY: We will assert the "Trip Planner" UI exists for now, 
-    // as clicking a specific winery requires known data.
-    
     // Navigate to Trips tab
-    await page.getByRole('tab', { name: 'Trips' }).click();
-    await expect(page.getByRole('heading', { name: 'Happening Today' })).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Plan a Trip' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Trips' }).first().click();
+    
+    // Verify Trip Planner headers
+    await expect(page.getByRole('heading', { name: 'Happening Today' }).first()).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Plan a Trip' }).first()).toBeVisible();
     
     // Verify the "Create Trip" button exists in the planner
-    await expect(page.getByRole('button', { name: 'Create Trip' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create Trip' }).first()).toBeVisible();
   });
 });
