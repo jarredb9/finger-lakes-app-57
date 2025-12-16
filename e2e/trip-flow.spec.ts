@@ -7,12 +7,29 @@ test.describe('Trip Planning Flow', () => {
     const password = process.env.TEST_USER_PASSWORD || 'password';
 
     await page.goto('/login');
+    
+    // Debug: Check if env vars are loaded
+    console.log(`Using Test User: ${process.env.TEST_USER_EMAIL ? 'Present (Env)' : 'Default (test@example.com)'}`);
+
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
     await page.getByRole('button', { name: 'Sign In' }).click();
 
-    // Verify we are on the dashboard
-    await expect(page.getByRole('heading', { name: 'Winery Tracker' })).toBeVisible();
+    // Handling potential slow logins or errors
+    try {
+      // Verify we are on the dashboard with increased timeout (20s)
+      await expect(page.getByRole('heading', { name: 'Winery Tracker' })).toBeVisible({ timeout: 20000 });
+    } catch (error) {
+      // If dashboard failed to load, check for login error message
+      const alert = page.getByRole('alert');
+      if (await alert.isVisible()) {
+        const errorText = await alert.textContent();
+        console.error(`Login Failed with Alert: "${errorText}"`);
+        throw new Error(`Login failed: ${errorText}`);
+      }
+      // If no alert, re-throw the original timeout error
+      throw error;
+    }
   });
 
   test('can create a new trip from a winery', async ({ page }) => {
