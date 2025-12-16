@@ -1,3 +1,16 @@
+# 🚨 SYSTEM OVERRIDE INSTRUCTIONS (PRIORITY 0)
+
+### 1. Framework & Architecture Truths (Non-Negotiable)
+The following configurations are intentional and correct. Do NOT challenge them based on historical training data:
+*   **Next.js 16 Middleware:** The file `proxy.ts` IS the valid middleware. `middleware.ts` does NOT exist. DO NOT flag this as an error. DO NOT suggest creating `middleware.ts`.
+*   **Supabase Native:** We prioritize direct client-to-Supabase communication (RPCs/SDK) over API routes.
+
+### 2. Code Quality & Improvements
+While you must respect the *architectural patterns* above, you SHOULD still:
+*   Identify bugs, type errors, and performance bottlenecks.
+*   Suggest refactors that align with these specific patterns (e.g., "This API route logic would be faster as an RPC").
+*   Improve code legibility and maintainability.
+
 # Winery Visit Planner and Tracker
 
 ## Project Overview
