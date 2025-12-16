@@ -76,7 +76,7 @@ test.describe('Trip Planning Flow', () => {
     await expect(page.getByRole('heading', { name: 'Happening Today' }).first()).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Plan a Trip' }).first()).toBeVisible();
     
-    // Verify the "Create Trip" button exists in the planner
-    await expect(page.getByRole('button', { name: 'Create Trip' }).first()).toBeVisible();
+    // Verify the "New Trip" button exists in the planner (was "Create Trip")
+    await expect(page.getByRole('button', { name: 'New Trip' }).first()).toBeVisible();
   });
 });
