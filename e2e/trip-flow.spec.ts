@@ -20,29 +20,34 @@ test.describe('Trip Planning Flow', () => {
       // Verify we are on the dashboard with increased timeout (20s)
       await expect(page.getByRole('heading', { name: 'Winery Tracker' })).toBeVisible({ timeout: 20000 });
     } catch (error) {
-      // If dashboard failed to load, check for ANY visible alerts
-      // using .locator instead of getByRole to avoid strict mode errors on multiple alerts
+      const url = page.url();
+      console.error(`Login Timeout. Current URL: ${url}`);
+      
+      // Check for visible alerts (excluding empty ones like route announcers)
       const alerts = page.locator('[role="alert"]');
       const count = await alerts.count();
+      const errorMessages = [];
       
-      if (count > 0) {
-        const errorMessages = [];
-        for (let i = 0; i < count; i++) {
-          const text = await alerts.nth(i).textContent();
-          if (text) errorMessages.push(text);
-        }
-        
+      for (let i = 0; i < count; i++) {
+        const text = await alerts.nth(i).textContent();
+        if (text && text.trim().length > 0) errorMessages.push(text.trim());
+      }
+      
+      if (errorMessages.length > 0) {
         console.error(`Login Failed. Visible Alerts: ${JSON.stringify(errorMessages)}`);
-        
-        // Check for specific known issues
         if (errorMessages.some(msg => msg.includes("Google Maps"))) {
-           throw new Error("Login failed due to missing Google Maps API Key. Please add NEXT_PUBLIC_GOOGLE_MAPS_API_KEY to GitHub Secrets.");
+           throw new Error("Login failed due to missing Google Maps API Key.");
         }
-        
         throw new Error(`Login failed with alerts: ${errorMessages.join(', ')}`);
       }
       
-      // If no alert, re-throw the original timeout error
+      // If we are still on login page but no alerts, maybe the button is still 'Signing in...'
+      if (url.includes('/login')) {
+         const btnText = await page.getByRole('button', { name: /Sign In|Signing in/ }).textContent();
+         console.error(`Stuck on Login Page. Submit button text: "${btnText}"`);
+      }
+
+      // Re-throw the original timeout if we couldn't find a specific cause
       throw error;
     }
   });
