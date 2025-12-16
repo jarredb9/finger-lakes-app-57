@@ -1,4 +1,15 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Locator } from '@playwright/test';
+
+// Helper function to get the appropriate sidebar container based on viewport
+function getSidebarContainer(page: any): Locator {
+  // Playwright's default viewport is wide enough for desktop.
+  // We'll consider anything smaller than 'md' breakpoint (768px in Tailwind) as mobile.
+  const isMobileViewport = page.viewportSize() && page.viewportSize().width < 768;
+  if (isMobileViewport) {
+    return page.getByTestId('mobile-sidebar-container');
+  }
+  return page.getByTestId('desktop-sidebar-container');
+}
 
 test.describe('Trip Planning Flow', () => {
   test.beforeEach(async ({ page }) => {
@@ -18,8 +29,9 @@ test.describe('Trip Planning Flow', () => {
     // Handling potential slow logins or errors
     try {
       // Verify we are on the dashboard with increased timeout (20s)
-      // Use .first() because responsive layouts might render multiple headings (mobile/desktop)
-      await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
+      // Now using a specific test ID to avoid ambiguity from responsive rendering
+      const sidebarContainer = getSidebarContainer(page);
+      await expect(sidebarContainer.getByRole('heading', { name: 'Winery Tracker' })).toBeVisible({ timeout: 20000 });
     } catch (error) {
       const url = page.url();
       console.error(`Login Timeout. Current URL: ${url}`);
@@ -61,34 +73,36 @@ test.describe('Trip Planning Flow', () => {
   });
 
   test('can create a new trip from a winery', async ({ page }) => {
+    const sidebarContainer = getSidebarContainer(page);
+
     // 1. Ensure we are on the 'Explore' tab (default)
-    // Use .first() because tabs are duplicated in mobile/desktop layouts
-    await expect(page.getByRole('tab', { name: 'Explore' }).first()).toHaveAttribute('data-state', 'active');
+    await expect(sidebarContainer.getByRole('tab', { name: 'Explore' })).toHaveAttribute('data-state', 'active');
 
     // 2. Wait for wineries to load (look for at least one winery card)
-    // "Wineries in View" is inside the sidebar, so it's also duplicated
-    await expect(page.getByText('Wineries in View').first()).toBeVisible();
+    await expect(sidebarContainer.getByText('Wineries in View')).toBeVisible();
 
     // Navigate to Trips tab
-    await page.getByRole('tab', { name: 'Trips' }).first().click();
+    await sidebarContainer.getByRole('tab', { name: 'Trips' }).click();
     
     // Verify Trip Planner headers
-    await expect(page.getByRole('heading', { name: 'Happening Today' }).first()).toBeVisible();
-    await expect(page.getByRole('heading', { name: 'Plan a Trip' }).first()).toBeVisible();
+    await expect(sidebarContainer.getByRole('heading', { name: 'Happening Today' })).toBeVisible();
+    await expect(sidebarContainer.getByRole('heading', { name: 'Plan a Trip' })).toBeVisible();
     
-    // Verify the "New Trip" button exists in the planner (was "Create Trip")
-    await expect(page.getByRole('button', { name: 'New Trip' }).first()).toBeVisible();
+    // Verify the "New Trip" button exists in the planner
+    await expect(sidebarContainer.getByRole('button', { name: 'New Trip' })).toBeVisible();
   });
 
   test('can create a new trip from winery details', async ({ page }) => {
+    const sidebarContainer = getSidebarContainer(page);
+
     // 1. Open the first winery modal
     // Wait for results to load
-    await expect(page.getByText('Results In View').first()).toBeVisible();
+    await expect(sidebarContainer.getByText('Wineries in View')).toBeVisible();
     
     // Click the first winery card (assuming cards are in the results container)
     // The structure is roughly: Card -> CardContent -> div -> div (winery items)
     // We'll target the first item that has a "font-medium" class (winery name)
-    const firstWinery = page.locator('.space-y-2 > div > p.font-medium').first();
+    const firstWinery = sidebarContainer.locator('.space-y-2 > div > p.font-medium').first();
     await firstWinery.click();
 
     // 2. Wait for Modal

@@ -75,7 +75,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
           )}
         >
           <div className="flex-1 overflow-hidden">
-             <div className="w-[400px] h-full">
+             <div data-testid="desktop-sidebar-container" className="w-[400px] h-full">
                 <AppSidebar 
                     user={user} 
                     activeTab={activeTab}
@@ -186,6 +186,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
         {/* Custom Mobile Bottom Sheet */}
         <InteractiveBottomSheet
+            data-testid="mobile-sidebar-container"
             isOpen={isMobileSheetOpen}
             onOpenChange={setIsMobileSheetOpen}
             mode={sheetMode}
