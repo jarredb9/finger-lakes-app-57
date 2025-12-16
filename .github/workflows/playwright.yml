@@ -16,6 +16,7 @@ jobs:
       TEST_USER_2_EMAIL: ${{ secrets.TEST_USER_2_EMAIL }}
       TEST_USER_2_PASSWORD: ${{ secrets.TEST_USER_2_PASSWORD }}
       NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
