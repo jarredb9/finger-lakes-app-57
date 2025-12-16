@@ -102,10 +102,10 @@ export default function FriendsManager() {
                   <p className="text-sm text-gray-500">{req.email}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleAccept(req.id)} disabled={isLoading}>
+                  <Button size="sm" onClick={() => handleAccept(req.id)} disabled={isLoading} aria-label="Accept request">
                     <UserCheck className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleReject(req.id)} disabled={isLoading}>
+                  <Button size="sm" variant="destructive" onClick={() => handleReject(req.id)} disabled={isLoading} aria-label="Reject request">
                     <UserX className="h-4 w-4" />
                   </Button>
                 </div>
@@ -133,6 +133,7 @@ export default function FriendsManager() {
                     onClick={() => handleRemove(req.id)} 
                     disabled={isLoading}
                     className="text-muted-foreground hover:text-destructive"
+                    aria-label="Cancel request"
                 >
                     <span className="mr-2 text-xs">Cancel</span>
                     <XIcon className="h-4 w-4" />
@@ -157,7 +158,7 @@ export default function FriendsManager() {
                 </div>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive/90 hover:bg-destructive/10">
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive/90 hover:bg-destructive/10" aria-label="Remove friend">
                             <UserMinus className="h-4 w-4" />
                         </Button>
                     </AlertDialogTrigger>
