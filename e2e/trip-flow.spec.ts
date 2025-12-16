@@ -79,4 +79,50 @@ test.describe('Trip Planning Flow', () => {
     // Verify the "New Trip" button exists in the planner (was "Create Trip")
     await expect(page.getByRole('button', { name: 'New Trip' }).first()).toBeVisible();
   });
+
+  test('can create a new trip from winery details', async ({ page }) => {
+    // 1. Open the first winery modal
+    // Wait for results to load
+    await expect(page.getByText('Results In View').first()).toBeVisible();
+    
+    // Click the first winery card (assuming cards are in the results container)
+    // The structure is roughly: Card -> CardContent -> div -> div (winery items)
+    // We'll target the first item that has a "font-medium" class (winery name)
+    const firstWinery = page.locator('.space-y-2 > div > p.font-medium').first();
+    await firstWinery.click();
+
+    // 2. Wait for Modal
+    const modal = page.getByRole('dialog');
+    await expect(modal).toBeVisible();
+    await expect(modal.getByRole('heading', { name: /Add to a Trip/i })).toBeVisible();
+
+    // 3. Select Date
+    await modal.getByRole('button', { name: 'Pick a date' }).click();
+    // Select the "today" or a specific enabled date. 
+    // react-day-picker usually has role="gridcell" for days. 
+    // We'll pick the first enabled day in the current view.
+    const day = page.getByRole('gridcell', { disabled: false }).first();
+    await day.click();
+
+    // 4. Create New Trip
+    // Wait for the "Create a new trip..." option to appear
+    const createCheckbox = modal.getByLabel('Create a new trip...');
+    await expect(createCheckbox).toBeVisible();
+    await createCheckbox.check();
+
+    // Fill Trip Name
+    const nameInput = modal.getByPlaceholder('New trip name...');
+    await expect(nameInput).toBeVisible();
+    await nameInput.fill('Playwright Test Trip');
+
+    // 5. Submit
+    await modal.getByRole('button', { name: 'Add to Trip' }).click();
+
+    // 6. Verify Success
+    // Check for success toast
+    await expect(page.getByText('Winery added to trip(s).')).toBeVisible();
+
+    // Check for "On Trip" badge in the modal header
+    await expect(modal.getByText(/On Trip: Playwright Test Trip/)).toBeVisible();
+  });
 });
