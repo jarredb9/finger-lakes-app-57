@@ -119,10 +119,10 @@ test.describe('Trip Planning Flow', () => {
     await modal.getByRole('button', { name: 'Add to Trip' }).click();
 
     // 6. Verify Success
-    // Check for success toast
-    await expect(page.getByText('Winery added to trip(s).')).toBeVisible();
+    // Check for success toast (use .first() to handle duplicate accessibility/visible elements)
+    await expect(page.getByText('Winery added to trip(s).').first()).toBeVisible();
 
     // Check for "On Trip" badge in the modal header
-    await expect(modal.getByText(/On Trip: Playwright Test Trip/)).toBeVisible();
+    await expect(modal.getByText(/On Trip: Playwright Test Trip/).first()).toBeVisible();
   });
 });
