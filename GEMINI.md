@@ -182,3 +182,38 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 1.  **Architecture:** Moved to "Supabase Native" for Trips. Removed API routes for Trips.
 2.  **Store Split:** `wineryStore.ts` split into Data/UI stores.
 3.  **Optimization:** Initial load only fetches markers. Visits are lazy-loaded.
+4.  **Testing:** Implemented comprehensive Playwright E2E suite covering Auth, Trips, and Friends.
+
+## End-to-End Testing (Playwright)
+
+We have established a robust E2E testing infrastructure using **Playwright**.
+
+### 1. Key Test Suites (`e2e/`)
+*   **`smoke.spec.ts`:** Verifies basic app health, routing, and auth redirection (e.g., unauthorized users bounced to `/login`).
+*   **`trip-flow.spec.ts`:** Tests the core "Trip Planning" value loop.
+    *   Logs in with test credentials.
+    *   Navigates the Dashboard (handling mobile/desktop responsive layouts).
+    *   Selects a winery from the map list.
+    *   Creates a new trip via the Modal + DatePicker.
+    *   Verifies success toasts and UI updates.
+*   **`friends-flow.spec.ts`:** Tests complex **Multi-User / Real-Time** interactions.
+    *   Spins up two distinct browser contexts (User A and User B).
+    *   User A sends a friend request.
+    *   User B receives and accepts the request.
+    *   Verifies UI updates for both users.
+    *   **Robustness:** Includes "Self-Healing" logic to clean up dirty state (pending requests/friendships) from previous failed runs.
+
+### 2. Testing Environment & Secrets
+The tests run against the local development server (`npm run dev`) in CI.
+*   **Required Secrets (GitHub Actions):**
+    *   `NEXT_PUBLIC_SUPABASE_URL`
+    *   `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+    *   `SUPABASE_SERVICE_ROLE_KEY` (Required for API route admin tasks in Friends flow)
+    *   `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (Required for Map rendering)
+    *   `TEST_USER_EMAIL` / `TEST_USER_PASSWORD` (Alice)
+    *   `TEST_USER_2_EMAIL` / `TEST_USER_2_PASSWORD` (Bob)
+
+### 3. Best Practices Implemented
+*   **Selectors:** We use `data-testid` (e.g., `desktop-sidebar-container`) to avoid "Strict Mode Violations" caused by our responsive layout duplicating components (Mobile Sheet vs Desktop Sidebar).
+*   **Toasts:** We target visible toast elements explicitly (`.text-sm.opacity-90`) to ignore hidden accessibility duplicates.
+*   **Idempotency:** Tests are designed to clean up after themselves or handle "already exists" states gracefully to prevent CI flakiness.
