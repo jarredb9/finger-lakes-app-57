@@ -48,21 +48,43 @@ test.describe('Friends Interaction Flow', () => {
         const sidebar = getSidebarContainer(pageA);
         await sidebar.getByRole('tab', { name: 'Friends' }).click();
         
-        // RESET STATE: Check if already sent and cancel if so
-        // This ensures the test works even if previous runs failed cleanup
-        if (await sidebar.getByText('Sent Requests').isVisible()) {
-             const existingRequest = sidebar.locator('.flex.items-center', { hasText: user2.email });
-             if (await existingRequest.isVisible()) {
-                 console.log("Found lingering request, cancelling...");
-                 await existingRequest.getByRole('button', { name: 'Cancel request' }).click();
-                 await expect(pageA.locator('.text-sm.opacity-90').getByText('Removed successfully.')).toBeVisible();
-                 // Wait for list to update
-                 await expect(existingRequest).not.toBeVisible();
-             }
-        }
+                // RESET STATE: Check if already sent and cancel if so
+                // This ensures the test works even if previous runs failed cleanup
+                
+                // 1. Check Sent Requests
+                const sentRequestsSection = sidebar.locator('.space-y-6', { has: pageA.getByRole('heading', { name: 'Sent Requests' }) });
+                // We use a looser check first to see if the header exists
+                if (await sidebar.getByRole('heading', { name: 'Sent Requests' }).isVisible()) {
+                     // Now find the specific row inside the sent requests section (if it exists)
+                     // We need to be careful not to match the "Add Friend" input or "My Friends" list
+                     // We'll traverse up from the header to the card, then find the item
+                     const sentCard = sidebar.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'Sent Requests' }) });
+                     const existingRequest = sentCard.locator('.flex.items-center', { hasText: user2.email });
+                     
+                     if (await existingRequest.isVisible()) {
+                         console.log("Found lingering sent request, cancelling...");
+                         await existingRequest.getByRole('button', { name: 'Cancel request' }).click();
+                         // Wait for success toast (using visual selector)
+                         await expect(pageA.locator('.text-sm.opacity-90').getByText('Removed successfully.')).toBeVisible();
+                         await expect(existingRequest).not.toBeVisible();
+                     }
+                }
         
-        const emailInput = sidebar.getByPlaceholder("Enter friend's email");
-        await emailInput.fill(user2.email);
+                // 2. Check My Friends (in case they are already friends from a previous run)
+                if (await sidebar.getByRole('heading', { name: 'My Friends' }).isVisible()) {
+                     const friendsCard = sidebar.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'My Friends' }) });
+                     const existingFriend = friendsCard.locator('.flex.items-center', { hasText: user2.email });
+                     
+                     if (await existingFriend.isVisible()) {
+                         console.log("Found existing friend relation, removing...");
+                         await existingFriend.getByRole('button', { name: 'Remove friend' }).click();
+                         await pageA.getByRole('button', { name: 'Remove' }).click(); // Confirm dialog
+                         await expect(pageA.locator('.text-sm.opacity-90').getByText('Removed successfully.')).toBeVisible();
+                         await expect(existingFriend).not.toBeVisible();
+                     }
+                }
+        
+                const emailInput = sidebar.getByPlaceholder("Enter friend's email");        await emailInput.fill(user2.email);
         await sidebar.getByRole('button', { name: 'Add' }).click();
         
         // Verify Sent
