@@ -48,14 +48,31 @@ test.describe('Friends Interaction Flow', () => {
         const sidebar = getSidebarContainer(pageA);
         await sidebar.getByRole('tab', { name: 'Friends' }).click();
         
-        // Check if already friends/requested and clean up if needed (optional robustness)
-        // For now, assume clean state or idempotent behavior logic
+        // RESET STATE: Check if already sent and cancel if so
+        // This ensures the test works even if previous runs failed cleanup
+        if (await sidebar.getByText('Sent Requests').isVisible()) {
+             const existingRequest = sidebar.locator('.flex.items-center', { hasText: user2.email });
+             if (await existingRequest.isVisible()) {
+                 console.log("Found lingering request, cancelling...");
+                 await existingRequest.getByRole('button', { name: 'Cancel request' }).click();
+                 await expect(pageA.locator('.text-sm.opacity-90').getByText('Removed successfully.')).toBeVisible();
+                 // Wait for list to update
+                 await expect(existingRequest).not.toBeVisible();
+             }
+        }
         
         const emailInput = sidebar.getByPlaceholder("Enter friend's email");
         await emailInput.fill(user2.email);
         await sidebar.getByRole('button', { name: 'Add' }).click();
         
         // Verify Sent
+        // Wait for ANY toast first to debug what's happening
+        const toastDescription = pageA.locator('.text-sm.opacity-90').first();
+        await expect(toastDescription).toBeVisible();
+        
+        const toastText = await toastDescription.textContent();
+        console.log(`Add Friend Toast Message: "${toastText}"`);
+
         // Target the visible toast description class explicitly
         await expect(pageA.locator('.text-sm.opacity-90').getByText('Friend request sent!')).toBeVisible();
         await expect(sidebar.getByText('Sent Requests')).toBeVisible();
