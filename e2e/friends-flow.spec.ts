@@ -1,5 +1,4 @@
 import { test, expect, Locator, Page } from '@playwright/test';
-import { createClient } from '@supabase/supabase-js';
 import { createTestUser, deleteTestUser, TestUser } from './utils';
 
 // Helper function to get the appropriate sidebar container based on viewport
