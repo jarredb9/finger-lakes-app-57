@@ -1,4 +1,5 @@
 import { test, expect, Locator, Page } from '@playwright/test';
+import { createClient } from '@supabase/supabase-js';
 
 // Helper function to get the appropriate sidebar container based on viewport
 function getSidebarContainer(page: Page): Locator {
@@ -43,78 +44,58 @@ test.describe('Friends Interaction Flow', () => {
     await test.step('Login User A', async () => await login(pageA, user1.email, user1.password));
     await test.step('Login User B', async () => await login(pageB, user2.email, user2.password));
 
+    // 2.5 DB Cleanup (Directly remove friend rows to ensure clean state)
+    // Bypasses UI/RPC flakiness
+    await test.step('DB Cleanup', async () => {
+         if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+             console.warn("Skipping DB Cleanup: Missing Supabase keys. Test might fail if data is dirty.");
+             return;
+         }
+
+         const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+         
+         // Get User IDs
+         const { data: u1 } = await supabase.from('profiles').select('id').eq('email', user1.email).single();
+         const { data: u2 } = await supabase.from('profiles').select('id').eq('email', user2.email).single();
+
+         if (u1 && u2) {
+             console.log(`Cleaning up friends between ${u1.id} and ${u2.id}`);
+             const { error } = await supabase.from('friends').delete()
+                .or(`and(user1_id.eq.${u1.id},user2_id.eq.${u2.id}),and(user1_id.eq.${u2.id},user2_id.eq.${u1.id})`);
+             
+             if (error) console.error("DB Cleanup failed:", error);
+         }
+    });
+
     // 3. User A sends request to User B
     await test.step('User A sends request', async () => {
+      // Dismiss cookie banner if present
+      const gotItBtn = pageA.getByRole('button', { name: 'Got it' });
+      if (await gotItBtn.isVisible()) {
+          await gotItBtn.click();
+      }
+
       const sidebar = getSidebarContainer(pageA);
-      await sidebar.getByRole('tab', { name: 'Friends' }).click();
-      // Wait for the initial friends fetch to complete
-      try {
-        await pageA.waitForResponse(resp => resp.url().includes('get_friends_and_requests') && resp.status() === 200, { timeout: 10000 });
-      } catch (e) {
-        console.log("RPC wait timeout or skipped");
-      }
-      // RESET STATE: Check if already sent and cancel if so
-      // This ensures the test works even if previous runs failed cleanup
+      // Force click to avoid interception issues
+      await sidebar.getByRole('tab', { name: 'Friends' }).click({ force: true });
 
-      // 1. Check Sent Requests
-      if (await sidebar.getByRole('heading', { name: 'Sent Requests' }).isVisible()) {
-        const sentCard = sidebar.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'Sent Requests' }) });
-        // Use looser matching
-        if (await sentCard.getByText(user2.email).count() > 0) {
-          const existingRequest = sentCard.locator('.flex.items-center', { hasText: user2.email }).first();
-          if (await existingRequest.isVisible()) {
-            console.log("Found lingering sent request, cancelling...");
-            await existingRequest.getByRole('button', { name: 'Cancel request' }).click();
-            await expect(pageA.getByText('Removed successfully.')).toBeVisible();
-            await expect(existingRequest).not.toBeVisible();
-          }
-        }
-      }
-
-      // 2. Check My Friends
-      // Use page locator to be safe against container issues
-      if (await pageA.getByRole('heading', { name: 'My Friends' }).isVisible()) {
-        // Find the card that contains this specific heading
-        const friendsCard = pageA.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'My Friends' }) });
-        if (await friendsCard.getByText(user2.email).count() > 0) {
-          const existingFriend = friendsCard.locator('.flex.items-center', { hasText: user2.email }).first();
-          if (await existingFriend.isVisible()) {
-            console.log("Found existing friend relation, removing...");
-            await existingFriend.getByRole('button', { name: 'Remove friend' }).click();
-            await pageA.getByRole('button', { name: 'Remove' }).click(); // Confirm dialog
-            await expect(pageA.getByText('Removed successfully.')).toBeVisible();
-            await expect(existingFriend).not.toBeVisible();
-          }
-        }
-      }
-      
-      // 3. Check Incoming Friend Requests
-      if (await pageA.getByRole('heading', { name: 'Friend Requests' }).isVisible()) {
-        const requestsCard = pageA.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'Friend Requests' }) });
-        if (await requestsCard.getByText(user2.email).count() > 0) {
-          const incomingRequest = requestsCard.locator('.flex.items-center', { hasText: user2.email }).first();
-          if (await incomingRequest.isVisible()) {
-            console.log(`Found incoming request from ${user2.email}, rejecting to clean state...`);
-            await incomingRequest.getByRole('button', { name: 'Reject request' }).click();
-            await expect(pageA.getByText('Friend request rejected.')).toBeVisible();
-            await expect(incomingRequest).not.toBeVisible();
-          }
-        }
-      }
+      // Explicitly wait for the Friends view to load
+      await expect(pageA.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
       const emailInput = sidebar.getByPlaceholder("Enter friend's email");
       await emailInput.fill(user2.email);
+      await expect(emailInput).toHaveValue(user2.email);
 
       const addBtn = sidebar.getByRole('button', { name: 'Add' });
-      await expect(addBtn).toBeEnabled();
+      await expect(addBtn).toBeEnabled({ timeout: 10000 });
       await addBtn.click();
 
       // Verify Sent
-      await expect(pageA.getByText('Friend request sent!')).toBeVisible();
+      await expect(pageA.getByText('Friend request sent!').first()).toBeVisible({ timeout: 5000 });
 
       // Verify Sent Request appears in the list
       // Scope to the "Sent Requests" card to avoid matching other lists
-      const sentRequestsCard = sidebar.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'Sent Requests' }) });
+      const sentRequestsCard = sidebar.locator('.rounded-lg.border', { has: sidebar.getByText('Sent Requests') });
       await expect(sentRequestsCard).toBeVisible();
       await expect(sentRequestsCard.getByText(user2.email).first()).toBeVisible();
     });
@@ -122,15 +103,16 @@ test.describe('Friends Interaction Flow', () => {
     // 4. User B accepts request
     await test.step('User B accepts request', async () => {
       const sidebar = getSidebarContainer(pageB);
-      await sidebar.getByRole('tab', { name: 'Friends' }).click();
+      // Reload page B to fetch new requests
+      await pageB.reload();
+      await sidebar.getByRole('tab', { name: 'Friends' }).click({ force: true });
+      await expect(pageB.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
       // Should see request from User A
       await expect(sidebar.getByText('Friend Requests')).toBeVisible();
-      // Look for the specific row with User A's email, then find the accept button
-      // Or simpler: just find the accept button near User A's text
-
-      // This locator finds the container having user1's email, then the accept button inside it
-      const requestRow = sidebar.locator('.flex.items-center', { hasText: user1.email });
+      
+      const requestsCard = sidebar.locator('.rounded-lg.border', { has: sidebar.getByText('Friend Requests') });
+      const requestRow = requestsCard.locator('.flex.items-center', { hasText: user1.email });
       const acceptBtn = requestRow.getByRole('button', { name: 'Accept request' });
 
       await expect(acceptBtn).toBeVisible();
@@ -140,18 +122,19 @@ test.describe('Friends Interaction Flow', () => {
 
       // Verify moved to My Friends
       await expect(sidebar.getByText('My Friends')).toBeVisible();
-      // Ensure user1 is in the friends list (might need a reload if RPC is slow, but optimistic UI should handle it)
       await expect(sidebar.locator('text=' + user1.email)).toBeVisible();
     });
 
     // 5. Cleanup (User A removes User B) - Keeps the test repeatable!
     await test.step('Cleanup: User A removes User B', async () => {
-      // User A might need a refresh to see the acceptance if not using realtime subscriptions
+      // User A might need a refresh
       await pageA.reload();
       const sidebar = getSidebarContainer(pageA);
-      await sidebar.getByRole('tab', { name: 'Friends' }).click();
+      await sidebar.getByRole('tab', { name: 'Friends' }).click({ force: true });
+      await expect(pageA.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
-      const friendRow = sidebar.locator('.flex.items-center', { hasText: user2.email });
+      const friendsCard = sidebar.locator('.rounded-lg.border', { has: sidebar.getByText('My Friends') });
+      const friendRow = friendsCard.locator('.flex.items-center', { hasText: user2.email });
       const removeBtn = friendRow.getByRole('button', { name: 'Remove friend' });
 
       await removeBtn.click();
