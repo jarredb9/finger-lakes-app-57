@@ -4,7 +4,8 @@ import { test, expect, Locator, Page } from '@playwright/test';
 function getSidebarContainer(page: Page): Locator {
   // Playwright's default viewport is wide enough for desktop.
   // We'll consider anything smaller than 'md' breakpoint (768px in Tailwind) as mobile.
-  const isMobileViewport = page.viewportSize() && page.viewportSize().width < 768;
+  const viewport = page.viewportSize(); // viewport can be null
+  const isMobileViewport = viewport && viewport.width !== undefined && viewport.width < 768;
   if (isMobileViewport) {
     return page.getByTestId('mobile-sidebar-container');
   }
@@ -13,8 +14,8 @@ function getSidebarContainer(page: Page): Locator {
 
 // Helper to navigate to Trips tab handling mobile/desktop differences
 async function navigateToTrips(page: Page) {
-  const viewport = page.viewportSize();
-  const isMobile = viewport && viewport.width < 768;
+  const viewport = page.viewportSize(); // viewport can be null
+  const isMobile = viewport && viewport.width !== undefined && viewport.width < 768;
   
   if (isMobile) {
       // Use direct URL navigation for robustness on mobile
@@ -64,7 +65,8 @@ test.describe('Trip Planning Flow', () => {
       // So we should NOT wait for "Winery Tracker" on mobile login verification if the sheet is closed.
       // We should wait for the Map or the User Avatar or the Bottom Nav.
       
-      const isMobile = page.viewportSize() && page.viewportSize().width < 768;
+      const viewport = page.viewportSize();
+    const isMobile = viewport && viewport.width !== undefined && viewport.width < 768;
       if (isMobile) {
           // Verify Bottom Nav is visible
           await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
@@ -136,7 +138,8 @@ test.describe('Trip Planning Flow', () => {
     // On mobile, this requires the Explore tab to be open.
     // Default is Explore, but sheet is closed.
     
-    const isMobile = page.viewportSize() && page.viewportSize().width < 768;
+    const viewport = page.viewportSize();
+    const isMobile = viewport && viewport.width !== undefined && viewport.width < 768;
     
     if (isMobile) {
         // Open Explore sheet

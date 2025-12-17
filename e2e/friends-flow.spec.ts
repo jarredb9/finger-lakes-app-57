@@ -108,7 +108,7 @@ test.describe('Friends Interaction Flow', () => {
       const addBtn = sidebar.getByRole('button', { name: 'Add friend' });
       await expect(addBtn).toBeEnabled({ timeout: 10000 });
       // Use JS click to bypass persistent viewport/overlay issues on mobile sheet
-      await addBtn.evaluate(node => node.click());
+      await addBtn.evaluate(node => (node as HTMLElement).click());
 
       // Verify Sent
       const successToast = pageA.getByText('Friend request sent!').first();
