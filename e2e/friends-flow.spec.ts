@@ -95,7 +95,7 @@ test.describe('Friends Interaction Flow', () => {
 
       // Verify Sent Request appears in the list
       // Scope to the "Sent Requests" card to avoid matching other lists
-      const sentRequestsCard = sidebar.locator('.rounded-lg.border', { has: sidebar.getByText('Sent Requests') });
+      const sentRequestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Sent Requests' });
       await expect(sentRequestsCard).toBeVisible();
       await expect(sentRequestsCard.getByText(user2.email).first()).toBeVisible();
     });
@@ -109,9 +109,9 @@ test.describe('Friends Interaction Flow', () => {
       await expect(pageB.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
       // Should see request from User A
-      await expect(sidebar.getByText('Friend Requests')).toBeVisible();
+      const requestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Friend Requests' });
+      await expect(requestsCard).toBeVisible();
       
-      const requestsCard = sidebar.locator('.rounded-lg.border', { has: sidebar.getByText('Friend Requests') });
       const requestRow = requestsCard.locator('.flex.items-center', { hasText: user1.email });
       const acceptBtn = requestRow.getByRole('button', { name: 'Accept request' });
 
@@ -121,8 +121,9 @@ test.describe('Friends Interaction Flow', () => {
       await expect(pageB.locator('.text-sm.opacity-90').getByText('Friend request accepted.')).toBeVisible();
 
       // Verify moved to My Friends
-      await expect(sidebar.getByText('My Friends')).toBeVisible();
-      await expect(sidebar.locator('text=' + user1.email)).toBeVisible();
+      const myFriendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
+      await expect(myFriendsCard).toBeVisible();
+      await expect(myFriendsCard.locator('text=' + user1.email)).toBeVisible();
     });
 
     // 5. Cleanup (User A removes User B) - Keeps the test repeatable!
@@ -133,7 +134,7 @@ test.describe('Friends Interaction Flow', () => {
       await sidebar.getByRole('tab', { name: 'Friends' }).click({ force: true });
       await expect(pageA.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
-      const friendsCard = sidebar.locator('.rounded-lg.border', { has: sidebar.getByText('My Friends') });
+      const friendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
       const friendRow = friendsCard.locator('.flex.items-center', { hasText: user2.email });
       const removeBtn = friendRow.getByRole('button', { name: 'Remove friend' });
 
