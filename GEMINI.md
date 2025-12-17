@@ -122,6 +122,7 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 *   **Logic & Transactions:**
     *   `create_trip_with_winery`: Atomically creates a trip and adds the first winery.
     *   `add_winery_to_trip`: Handles upsert logic for wineries.
+    *   `ensure_winery(p_winery_data)`: Security-definer RPC used to safely insert/get a winery ID, bypassing RLS `UPDATE` restrictions during favorite/wishlist toggles.
 *   **Social:**
     *   `get_friends_activity_for_winery`: Returns JSON of friends who favorited/wishlisted a winery.
 
@@ -189,31 +190,21 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 We have established a robust E2E testing infrastructure using **Playwright**.
 
 ### 1. Key Test Suites (`e2e/`)
-*   **`smoke.spec.ts`:** Verifies basic app health, routing, and auth redirection (e.g., unauthorized users bounced to `/login`).
+*   **`smoke.spec.ts`:** Verifies basic app health, routing, and auth redirection.
 *   **`trip-flow.spec.ts`:** Tests the core "Trip Planning" value loop.
-    *   Logs in with test credentials.
-    *   Navigates the Dashboard (handling mobile/desktop responsive layouts).
-    *   Selects a winery from the map list.
-    *   Creates a new trip via the Modal + DatePicker.
-    *   Verifies success toasts and UI updates.
-*   **`friends-flow.spec.ts`:** Tests complex **Multi-User / Real-Time** interactions.
-    *   Spins up two distinct browser contexts (User A and User B).
-    *   User A sends a friend request.
-    *   User B receives and accepts the request.
-    *   Verifies UI updates for both users.
-    *   **Robustness:** Includes "Self-Healing" logic to clean up dirty state (pending requests/friendships) from previous failed runs.
+*   **`friends-flow.spec.ts`:** Tests complex **Multi-User / Real-Time** interactions using two distinct browser contexts.
 
-### 2. Testing Environment & Secrets
-The tests run against the local development server (`npm run dev`) in CI.
-*   **Required Secrets (GitHub Actions):**
-    *   `NEXT_PUBLIC_SUPABASE_URL`
-    *   `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-    *   `SUPABASE_SERVICE_ROLE_KEY` (Required for API route admin tasks in Friends flow)
-    *   `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` (Required for Map rendering)
-    *   `TEST_USER_EMAIL` / `TEST_USER_PASSWORD` (Alice)
-    *   `TEST_USER_2_EMAIL` / `TEST_USER_2_PASSWORD` (Bob)
+### 2. Testing Environment & Concurrency
+*   **Dynamic User Isolation (`e2e/utils.ts`):** We use a "Fresh User" strategy. Every test creates one or more unique ephemeral users via the Supabase Admin API and deletes them after the test completes. 
+*   **Parallel Execution:** Because tests are fully isolated by user, we run tests in **parallel** (multiple workers) in CI to minimize build times.
+*   **Secrets (GitHub Actions):**
+    *   `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+    *   `SUPABASE_SERVICE_ROLE_KEY` (CRITICAL for dynamic user creation/deletion)
+    *   `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
 
-### 3. Best Practices Implemented
-*   **Selectors:** We use `data-testid` (e.g., `desktop-sidebar-container`) to avoid "Strict Mode Violations" caused by our responsive layout duplicating components (Mobile Sheet vs Desktop Sidebar).
-*   **Toasts:** We target visible toast elements explicitly (`.text-sm.opacity-90`) to ignore hidden accessibility duplicates.
-*   **Idempotency:** Tests are designed to clean up after themselves or handle "already exists" states gracefully to prevent CI flakiness.
+### 3. Best Practices & Stability
+*   **Selectors:** Use `data-testid` to distinguish between responsive duplicates (Mobile Sheet vs Desktop Sidebar).
+*   **Mobile Safari (WebKit) Stability:**
+    *   **Login:** Use `page.keyboard.press('Enter')` instead of clicking the "Sign In" button, which can be flaky in WebKit.
+    *   **Assertions:** Use mobile-aware assertions (e.g., checking for the bottom navigation bar `div.fixed.bottom-0`) to verify successful login on small screens.
+*   **Idempotency:** Tests are self-cleaning via the `afterEach` user deletion hook.
