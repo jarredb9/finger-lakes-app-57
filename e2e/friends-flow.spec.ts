@@ -56,7 +56,8 @@ test.describe('Friends Interaction Flow', () => {
         await sidebar.getByRole('button', { name: 'Add' }).click();
         
         // Verify Sent
-        await expect(pageA.getByText('Friend request sent!').first()).toBeVisible();
+        // Target the visible div explicitly to avoid conflict with hidden a11y span
+        await expect(pageA.locator('div').getByText('Friend request sent!', { exact: true })).toBeVisible();
         await expect(sidebar.getByText('Sent Requests')).toBeVisible();
         await expect(sidebar.getByText(user2.email)).toBeVisible();
     });
@@ -78,7 +79,7 @@ test.describe('Friends Interaction Flow', () => {
         await expect(acceptBtn).toBeVisible();
         await acceptBtn.click();
         
-        await expect(pageB.getByText('Friend request accepted.').first()).toBeVisible();
+        await expect(pageB.locator('div').getByText('Friend request accepted.', { exact: true })).toBeVisible();
         
         // Verify moved to My Friends
         await expect(sidebar.getByText('My Friends')).toBeVisible();
@@ -101,7 +102,7 @@ test.describe('Friends Interaction Flow', () => {
         // Confirm dialog
         await pageA.getByRole('button', { name: 'Remove' }).click(); // The 'Remove' action in AlertDialog
         
-        await expect(pageA.getByText('Removed successfully.').first()).toBeVisible();
+        await expect(pageA.locator('div').getByText('Removed successfully.', { exact: true })).toBeVisible();
     });
 
     await contextA.close();
