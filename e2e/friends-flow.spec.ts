@@ -11,6 +11,21 @@ function getSidebarContainer(page: Page): Locator {
   return page.getByTestId('desktop-sidebar-container');
 }
 
+// Helper to navigate to Friends tab handling mobile/desktop differences
+async function navigateToFriends(page: Page) {
+  const viewport = page.viewportSize();
+  const isMobile = viewport && viewport.width < 768;
+  
+  if (isMobile) {
+      // In mobile, "Friends" is a button in the bottom nav bar
+      // We target it specifically to avoid ambiguity
+      await page.locator('div.fixed.bottom-0').getByRole('button', { name: 'Friends' }).click();
+  } else {
+      const sidebar = getSidebarContainer(page);
+      await sidebar.getByRole('tab', { name: 'Friends' }).click({ force: true });
+  }
+}
+
 async function login(page: Page, email: string, pass: string) {
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
@@ -44,17 +59,15 @@ test.describe('Friends Interaction Flow', () => {
     await test.step('Login User A', async () => await login(pageA, user1.email, user1.password));
     await test.step('Login User B', async () => await login(pageB, user2.email, user2.password));
 
-    // 2.5 DB Cleanup (Directly remove friend rows to ensure clean state)
-    // Bypasses UI/RPC flakiness
+    // 2.5 DB Cleanup
     await test.step('DB Cleanup', async () => {
       if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping DB Cleanup: Missing Supabase keys. Test might fail if data is dirty.");
+        console.warn("Skipping DB Cleanup: Missing Supabase keys.");
         return;
       }
 
       const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-      // Get User IDs
       const { data: u1 } = await supabase.from('profiles').select('id').eq('email', user1.email).single();
       const { data: u2 } = await supabase.from('profiles').select('id').eq('email', user2.email).single();
 
@@ -69,19 +82,19 @@ test.describe('Friends Interaction Flow', () => {
 
     // 3. User A sends request to User B
     await test.step('User A sends request', async () => {
-      // Dismiss cookie banner if present
+      // Dismiss cookie banner
       const gotItBtn = pageA.getByRole('button', { name: 'Got it' });
       if (await gotItBtn.isVisible()) {
         await gotItBtn.click();
       }
 
-      const sidebar = getSidebarContainer(pageA);
-      // Force click to avoid interception issues
-      await sidebar.getByRole('tab', { name: 'Friends' }).click({ force: true });
+      // Navigate to Friends
+      await navigateToFriends(pageA);
 
       // Explicitly wait for the Friends view to load
       await expect(pageA.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
+      const sidebar = getSidebarContainer(pageA);
       const emailInput = sidebar.getByPlaceholder("Enter friend's email");
       await emailInput.fill(user2.email);
       await expect(emailInput).toHaveValue(user2.email);
@@ -105,7 +118,6 @@ test.describe('Friends Interaction Flow', () => {
       }
 
       // Verify Sent Request appears in the list
-      // Scope to the "Sent Requests" card to avoid matching other lists
       const sentRequestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Sent Requests' });
       await expect(sentRequestsCard).toBeVisible();
       await expect(sentRequestsCard.getByText(user2.email).first()).toBeVisible();
@@ -114,9 +126,11 @@ test.describe('Friends Interaction Flow', () => {
     // 4. User B accepts request
     await test.step('User B accepts request', async () => {
       const sidebar = getSidebarContainer(pageB);
-      // Reload page B to fetch new requests
+      // Reload page B
       await pageB.reload();
-      await sidebar.getByRole('tab', { name: 'Friends' }).click({ force: true });
+      
+      // Navigate to Friends
+      await navigateToFriends(pageB);
       await expect(pageB.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
       // Should see request from User A
@@ -137,12 +151,13 @@ test.describe('Friends Interaction Flow', () => {
       await expect(myFriendsCard.locator('text=' + user1.email)).toBeVisible();
     });
 
-    // 5. Cleanup (User A removes User B) - Keeps the test repeatable!
+    // 5. Cleanup (User A removes User B)
     await test.step('Cleanup: User A removes User B', async () => {
       // User A might need a refresh
       await pageA.reload();
       const sidebar = getSidebarContainer(pageA);
-      await sidebar.getByRole('tab', { name: 'Friends' }).click({ force: true });
+      
+      await navigateToFriends(pageA);
       await expect(pageA.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
       const friendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
@@ -152,7 +167,7 @@ test.describe('Friends Interaction Flow', () => {
       await removeBtn.click();
 
       // Confirm dialog
-      await pageA.getByRole('button', { name: 'Remove' }).click(); // The 'Remove' action in AlertDialog
+      await pageA.getByRole('button', { name: 'Remove' }).click(); 
 
       await expect(pageA.locator('.text-sm.opacity-90').getByText('Removed successfully.')).toBeVisible();
     });
