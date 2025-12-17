@@ -80,7 +80,7 @@ export default function FriendsManager() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <Button onClick={handleAddFriend} disabled={isLoading || !email.trim()}>
+          <Button onClick={handleAddFriend} disabled={isLoading || !email.trim()} aria-label="Add friend">
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
             <span className="ml-2 hidden sm:inline">Add</span>
           </Button>
