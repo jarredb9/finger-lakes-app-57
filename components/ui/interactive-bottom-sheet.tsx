@@ -6,14 +6,13 @@ import { ChevronUp, ChevronDown, X } from "lucide-react";
 
 export type SheetMode = "mini" | "full";
 
-interface InteractiveBottomSheetProps {
+interface InteractiveBottomSheetProps extends Omit<React.HTMLAttributes<HTMLDivElement>, "title"> {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
   mode: SheetMode;
   onModeChange: (mode: SheetMode) => void;
   title: React.ReactNode;
   children: React.ReactNode;
-  className?: string;
 }
 
 export function InteractiveBottomSheet({
@@ -24,6 +23,7 @@ export function InteractiveBottomSheet({
   title,
   children,
   className,
+  ...props
 }: InteractiveBottomSheetProps) {
   const touchStart = useRef<number | null>(null);
 
@@ -59,6 +59,7 @@ export function InteractiveBottomSheet({
 
   return (
     <div
+      {...props}
       className={cn(
         "fixed bottom-16 left-0 right-0 z-40 bg-background border-t rounded-t-[15px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex flex-col",
         "transition-transform duration-300 ease-out will-change-transform",
