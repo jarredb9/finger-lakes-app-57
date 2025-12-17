@@ -56,7 +56,7 @@ test.describe('Friends Interaction Flow', () => {
         await sidebar.getByRole('button', { name: 'Add' }).click();
         
         // Verify Sent
-        await expect(pageA.getByText('Friend request sent!')).toBeVisible();
+        await expect(pageA.getByText('Friend request sent!').first()).toBeVisible();
         await expect(sidebar.getByText('Sent Requests')).toBeVisible();
         await expect(sidebar.getByText(user2.email)).toBeVisible();
     });
@@ -78,7 +78,7 @@ test.describe('Friends Interaction Flow', () => {
         await expect(acceptBtn).toBeVisible();
         await acceptBtn.click();
         
-        await expect(pageB.getByText('Friend request accepted.')).toBeVisible();
+        await expect(pageB.getByText('Friend request accepted.').first()).toBeVisible();
         
         // Verify moved to My Friends
         await expect(sidebar.getByText('My Friends')).toBeVisible();
@@ -101,7 +101,7 @@ test.describe('Friends Interaction Flow', () => {
         // Confirm dialog
         await pageA.getByRole('button', { name: 'Remove' }).click(); // The 'Remove' action in AlertDialog
         
-        await expect(pageA.getByText('Removed successfully.')).toBeVisible();
+        await expect(pageA.getByText('Removed successfully.').first()).toBeVisible();
     });
 
     await contextA.close();
