@@ -1,4 +1,5 @@
 import { test, expect, Locator, Page } from '@playwright/test';
+import { createTestUser, deleteTestUser, TestUser } from './utils';
 
 // Helper function to get the appropriate sidebar container based on viewport
 function getSidebarContainer(page: Page): Locator {
@@ -29,15 +30,17 @@ async function navigateToTrips(page: Page) {
 }
 
 test.describe('Trip Planning Flow', () => {
+  let user: TestUser;
+
   test.beforeEach(async ({ page }) => {
-    // login logic
-    const email = process.env.TEST_USER_EMAIL || 'test@example.com';
-    const password = process.env.TEST_USER_PASSWORD || 'password';
+    // Create ephemeral test user
+    user = await createTestUser();
+    const { email, password } = user;
 
     await page.goto('/login');
     
     // Debug: Check if env vars are loaded
-    console.log(`Using Test User: ${process.env.TEST_USER_EMAIL ? 'Present (Env)' : 'Default (test@example.com)'}`);
+    console.log(`Using Dynamic Test User: ${email}`);
 
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
@@ -59,27 +62,8 @@ test.describe('Trip Planning Flow', () => {
     // Handling potential slow logins or errors
     try {
       // Verify we are on the dashboard with increased timeout (20s)
-      // Now using a specific test ID to avoid ambiguity from responsive rendering
-      // On mobile, the "Winery Tracker" header is in the AppSidebar which is in the Sheet.
-      // But the Sheet might be closed initially on mobile login?
-      // Actually, after login, we redirect to /.
-      // On mobile, / defaults to "Explore" but the Sheet is CLOSED.
-      // So 'mobile-sidebar-container' is NOT visible.
-      // The header "Winery Tracker" is ALSO rendered in the top bar on mobile?
-      // Let's check AppShell. No, only in AppSidebar.
-      // Wait, AppShell has: <h1 className="text-lg font-bold tracking-tight">Winery Tracker</h1> inside AppSidebar.
-      // Does mobile have a top bar?
-      // AppShell: {/* Main Map Area */} contains Mobile User Avatar.
-      // AppSidebar contains "Winery Tracker".
-      
-      // If we are on Desktop, sidebar is visible -> Header visible.
-      // If we are on Mobile, Sheet is closed -> Header NOT visible.
-      
-      // So we should NOT wait for "Winery Tracker" on mobile login verification if the sheet is closed.
-      // We should wait for the Map or the User Avatar or the Bottom Nav.
-      
       const viewport = page.viewportSize();
-    const isMobile = viewport && viewport.width !== undefined && viewport.width < 768;
+      const isMobile = viewport && viewport.width !== undefined && viewport.width < 768;
       if (isMobile) {
           // Verify Bottom Nav is visible
           await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
@@ -125,6 +109,12 @@ test.describe('Trip Planning Flow', () => {
 
       // Re-throw the original timeout if we couldn't find a specific cause
       throw error;
+    }
+  });
+
+  test.afterEach(async () => {
+    if (user) {
+      await deleteTestUser(user.id);
     }
   });
 

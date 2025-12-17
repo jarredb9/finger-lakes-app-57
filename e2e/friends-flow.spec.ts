@@ -1,5 +1,6 @@
 import { test, expect, Locator, Page } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
+import { createTestUser, deleteTestUser, TestUser } from './utils';
 
 // Helper function to get the appropriate sidebar container based on viewport
 function getSidebarContainer(page: Page): Locator {
@@ -57,49 +58,23 @@ async function login(page: Page, email: string, pass: string) {
 }
 
 test.describe('Friends Interaction Flow', () => {
-  // Skip if 2nd user is not configured
-  test.skip(!process.env.TEST_USER_2_EMAIL, 'TEST_USER_2_EMAIL not configured');
+  let user1: TestUser;
+  let user2: TestUser;
 
   test('User A can send friend request and User B can accept it', async ({ browser }) => {
-    // 1. Create two isolated browser contexts
+    // 1. CreateEphemeral test users
+    user1 = await createTestUser();
+    user2 = await createTestUser();
+
+    // 2. Create two isolated browser contexts
     const contextA = await browser.newContext();
     const contextB = await browser.newContext();
     const pageA = await contextA.newPage();
     const pageB = await contextB.newPage();
 
-    const user1 = {
-      email: process.env.TEST_USER_EMAIL || 'alice@example.com',
-      password: process.env.TEST_USER_PASSWORD || 'password'
-    };
-    const user2 = {
-      email: process.env.TEST_USER_2_EMAIL || 'bob@example.com',
-      password: process.env.TEST_USER_2_PASSWORD || 'password'
-    };
-
-    // 2. Login both users
+    // 3. Login both users
     await test.step('Login User A', async () => await login(pageA, user1.email, user1.password));
     await test.step('Login User B', async () => await login(pageB, user2.email, user2.password));
-
-    // 2.5 DB Cleanup
-    await test.step('DB Cleanup', async () => {
-      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-        console.warn("Skipping DB Cleanup: Missing Supabase keys.");
-        return;
-      }
-
-      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-
-      const { data: u1 } = await supabase.from('profiles').select('id').eq('email', user1.email).single();
-      const { data: u2 } = await supabase.from('profiles').select('id').eq('email', user2.email).single();
-
-      if (u1 && u2) {
-        console.log(`Cleaning up friends between ${u1.id} and ${u2.id}`);
-        const { error } = await supabase.from('friends').delete()
-          .or(`and(user1_id.eq.${u1.id},user2_id.eq.${u2.id}),and(user1_id.eq.${u2.id},user2_id.eq.${u1.id})`);
-
-        if (error) console.error("DB Cleanup failed:", error);
-      }
-    });
 
     // 3. User A sends request to User B
     await test.step('User A sends request', async () => {
@@ -209,5 +184,10 @@ test.describe('Friends Interaction Flow', () => {
 
     await contextA.close();
     await contextB.close();
+  });
+
+  test.afterEach(async () => {
+    if (user1) await deleteTestUser(user1.id);
+    if (user2) await deleteTestUser(user2.id);
   });
 });
