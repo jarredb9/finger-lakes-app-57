@@ -30,10 +30,30 @@ async function login(page: Page, email: string, pass: string) {
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(pass);
-  // Force click to bypass overlays (toasts/cookie banners) on mobile
-  await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
-  // Wait for login to complete
-  await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
+  
+  // Use Enter key to submit, which is often more reliable on Mobile Safari than clicking
+  await page.getByLabel('Password').press('Enter');
+  
+  // Fallback: If button is still 'Sign In' after 500ms, click it
+  try {
+    const btn = page.getByRole('button', { name: 'Sign In' });
+    if (await btn.isVisible({ timeout: 500 })) {
+        await btn.click({ force: true });
+    }
+  } catch (e) {
+    // Ignore timeout, meaning it likely transitioned to 'Signing in...'
+  }
+
+  // Wait for login to complete with mobile-aware check
+  const viewport = page.viewportSize();
+  const isMobile = viewport && viewport.width < 768;
+
+  if (isMobile) {
+      // Verify Bottom Nav is visible
+      await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
+  } else {
+      await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
+  }
 }
 
 test.describe('Friends Interaction Flow', () => {

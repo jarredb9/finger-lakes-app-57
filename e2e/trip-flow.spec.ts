@@ -41,7 +41,20 @@ test.describe('Trip Planning Flow', () => {
 
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(password);
-    await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
+    
+    // Use Enter key to submit, which is often more reliable on Mobile Safari than clicking
+    await page.getByLabel('Password').press('Enter');
+    
+    // Fallback check: If the button is still clickable and visible after a short delay, click it.
+    // This handles cases where Enter might not trigger the form submit event on some virtual keyboards/browsers.
+    const signInBtn = page.getByRole('button', { name: 'Sign In' });
+    try {
+        if (await signInBtn.isVisible({ timeout: 500 })) {
+             await signInBtn.click({ force: true });
+        }
+    } catch (e) {
+        // Ignore, button likely changed to 'Signing in...' or disappeared
+    }
 
     // Handling potential slow logins or errors
     try {
