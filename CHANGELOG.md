@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.2.1] - 2025-12-17
+
+### 🚀 Features
+*   **Testing Infrastructure:**
+    *   Introduced comprehensive **Playwright E2E Testing** suite covering Auth, Friends, and Trip planning flows.
+    *   Implemented **Dynamic Test User** isolation, allowing tests to run in parallel without race conditions.
+    *   Added GitHub Actions workflow for automated Playwright testing in CI.
+    *   Enabled `.env.local` support for Playwright.
+
+### 🐛 Bug Fixes
+*   **Database & Security:**
+    *   Refactored `toggleFavorite` and `toggleWishlist` to use the `ensure_winery` RPC, successfully bypassing RLS `UPDATE` restrictions for wineries not yet in the database.
+    *   Fixed data fetching in `app/api/friends` to support sent requests and improve reliability.
+    *   Fixed `get_friends` RPC to correctly handle friend request statuses.
+*   **UI/UX:**
+    *   Improved login reliability for Mobile Safari (WebKit) by prioritizing `Enter` key submission and robust UI assertions.
+    *   Fixed TypeScript interface error in `InteractiveBottomSheet`.
+    *   Resolved responsive layout logic issues in `AppShell` for better mobile navigation.
+*   **State Management:**
+    *   Cleaned up unused `createClient` imports to resolve type-check errors.
+
 ## [2.0.0] - 2025-12-02
 
 ### ⚠ BREAKING CHANGES
