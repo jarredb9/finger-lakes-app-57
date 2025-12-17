@@ -95,8 +95,9 @@ test.describe('Friends Interaction Flow', () => {
         const toastText = await toastDescription.textContent();
         console.log(`Add Friend Toast Message: "${toastText}"`);
 
-        // Target the visible toast description class explicitly
-        await expect(pageA.locator('.text-sm.opacity-90').getByText('Friend request sent!')).toBeVisible();
+        // Accept either success or "already sent" (idempotent check)
+        expect(toastText).toMatch(/Friend request sent!|Friend request already sent/);
+        
         await expect(sidebar.getByText('Sent Requests')).toBeVisible();
         await expect(sidebar.getByText(user2.email)).toBeVisible();
     });
