@@ -47,24 +47,24 @@ test.describe('Friends Interaction Flow', () => {
     // 2.5 DB Cleanup (Directly remove friend rows to ensure clean state)
     // Bypasses UI/RPC flakiness
     await test.step('DB Cleanup', async () => {
-         if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
-             console.warn("Skipping DB Cleanup: Missing Supabase keys. Test might fail if data is dirty.");
-             return;
-         }
+      if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+        console.warn("Skipping DB Cleanup: Missing Supabase keys. Test might fail if data is dirty.");
+        return;
+      }
 
-         const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
-         
-         // Get User IDs
-         const { data: u1 } = await supabase.from('profiles').select('id').eq('email', user1.email).single();
-         const { data: u2 } = await supabase.from('profiles').select('id').eq('email', user2.email).single();
+      const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-         if (u1 && u2) {
-             console.log(`Cleaning up friends between ${u1.id} and ${u2.id}`);
-             const { error } = await supabase.from('friends').delete()
-                .or(`and(user1_id.eq.${u1.id},user2_id.eq.${u2.id}),and(user1_id.eq.${u2.id},user2_id.eq.${u1.id})`);
-             
-             if (error) console.error("DB Cleanup failed:", error);
-         }
+      // Get User IDs
+      const { data: u1 } = await supabase.from('profiles').select('id').eq('email', user1.email).single();
+      const { data: u2 } = await supabase.from('profiles').select('id').eq('email', user2.email).single();
+
+      if (u1 && u2) {
+        console.log(`Cleaning up friends between ${u1.id} and ${u2.id}`);
+        const { error } = await supabase.from('friends').delete()
+          .or(`and(user1_id.eq.${u1.id},user2_id.eq.${u2.id}),and(user1_id.eq.${u2.id},user2_id.eq.${u1.id})`);
+
+        if (error) console.error("DB Cleanup failed:", error);
+      }
     });
 
     // 3. User A sends request to User B
@@ -72,7 +72,7 @@ test.describe('Friends Interaction Flow', () => {
       // Dismiss cookie banner if present
       const gotItBtn = pageA.getByRole('button', { name: 'Got it' });
       if (await gotItBtn.isVisible()) {
-          await gotItBtn.click();
+        await gotItBtn.click();
       }
 
       const sidebar = getSidebarContainer(pageA);
@@ -91,7 +91,18 @@ test.describe('Friends Interaction Flow', () => {
       await addBtn.click();
 
       // Verify Sent
-      await expect(pageA.getByText('Friend request sent!').first()).toBeVisible({ timeout: 5000 });
+      const successToast = pageA.getByText('Friend request sent!').first();
+      const errorToast = pageA.locator('.destructive');
+
+      try {
+        await expect(successToast).toBeVisible({ timeout: 5000 });
+      } catch (e) {
+        if (await errorToast.isVisible()) {
+          const errorText = await errorToast.textContent();
+          throw new Error(`Friend request failed: ${errorText}`);
+        }
+        throw e;
+      }
 
       // Verify Sent Request appears in the list
       // Scope to the "Sent Requests" card to avoid matching other lists
@@ -111,7 +122,7 @@ test.describe('Friends Interaction Flow', () => {
       // Should see request from User A
       const requestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Friend Requests' });
       await expect(requestsCard).toBeVisible();
-      
+
       const requestRow = requestsCard.locator('.flex.items-center', { hasText: user1.email });
       const acceptBtn = requestRow.getByRole('button', { name: 'Accept request' });
 
