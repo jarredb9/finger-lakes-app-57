@@ -43,61 +43,257 @@ test.describe('Friends Interaction Flow', () => {
     await test.step('Login User A', async () => await login(pageA, user1.email, user1.password));
     await test.step('Login User B', async () => await login(pageB, user2.email, user2.password));
 
-    // 3. User A sends request to User B
-    await test.step('User A sends request', async () => {
-        const sidebar = getSidebarContainer(pageA);
-        await sidebar.getByRole('tab', { name: 'Friends' }).click();
+            // 3. User A sends request to User B
+
+            await test.step('User A sends request', async () => {
+
+                const sidebar = getSidebarContainer(pageA);
+
+                await sidebar.getByRole('tab', { name: 'Friends' }).click();
+
         
-                // RESET STATE: Check if already sent and cancel if so
-                // This ensures the test works even if previous runs failed cleanup
+
+                // Wait for the initial friends fetch to complete
+
+                try {
+
+                  await pageA.waitForResponse(resp => resp.url().includes('get_friends_and_requests') && resp.status() === 200, { timeout: 10000 });
+
+                } catch (e) {
+
+                  console.log("RPC wait timeout or skipped");
+
+                }
+
                 
+
+                // RESET STATE: Check if already sent and cancel if so
+
+                // This ensures the test works even if previous runs failed cleanup
+
+                
+
                 // 1. Check Sent Requests
-                const sentRequestsSection = sidebar.locator('.space-y-6', { has: pageA.getByRole('heading', { name: 'Sent Requests' }) });
-                // We use a looser check first to see if the header exists
+
                 if (await sidebar.getByRole('heading', { name: 'Sent Requests' }).isVisible()) {
-                     // Now find the specific row inside the sent requests section (if it exists)
-                     // We need to be careful not to match the "Add Friend" input or "My Friends" list
-                     // We'll traverse up from the header to the card, then find the item
+
                      const sentCard = sidebar.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'Sent Requests' }) });
-                     const existingRequest = sentCard.locator('.flex.items-center', { hasText: user2.email });
-                     
-                     if (await existingRequest.isVisible()) {
-                         console.log("Found lingering sent request, cancelling...");
-                         await existingRequest.getByRole('button', { name: 'Cancel request' }).click();
-                         // Wait for success toast (using visual selector)
-                         await expect(pageA.locator('.text-sm.opacity-90').getByText('Removed successfully.')).toBeVisible();
-                         await expect(existingRequest).not.toBeVisible();
+
+                     // Use looser matching
+
+                     if (await sentCard.getByText(user2.email).count() > 0) {
+
+                         const existingRequest = sentCard.locator('.flex.items-center', { hasText: user2.email }).first();
+
+                         if (await existingRequest.isVisible()) {
+
+                             console.log("Found lingering sent request, cancelling...");
+
+                             await existingRequest.getByRole('button', { name: 'Cancel request' }).click();
+
+                             await expect(pageA.getByText('Removed successfully.')).toBeVisible();
+
+                             await expect(existingRequest).not.toBeVisible();
+
+                         }
+
                      }
+
                 }
+
         
-                // 2. Check My Friends (in case they are already friends from a previous run)
-                if (await sidebar.getByRole('heading', { name: 'My Friends' }).isVisible()) {
-                     const friendsCard = sidebar.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'My Friends' }) });
-                     const existingFriend = friendsCard.locator('.flex.items-center', { hasText: user2.email });
-                     
-                     if (await existingFriend.isVisible()) {
-                         console.log("Found existing friend relation, removing...");
-                         await existingFriend.getByRole('button', { name: 'Remove friend' }).click();
-                         await pageA.getByRole('button', { name: 'Remove' }).click(); // Confirm dialog
-                         await expect(pageA.locator('.text-sm.opacity-90').getByText('Removed successfully.')).toBeVisible();
-                         await expect(existingFriend).not.toBeVisible();
-                     }
-                }
+
+                                // 2. Check My Friends
+
         
-                const emailInput = sidebar.getByPlaceholder("Enter friend's email");        await emailInput.fill(user2.email);
-        await sidebar.getByRole('button', { name: 'Add' }).click();
+
+                                // Use page locator to be safe against container issues
+
         
-        // Verify Sent
-        // Wait for ANY toast first to debug what's happening
-        // Target the visible toast description class explicitly
-        await expect(pageA.locator('.text-sm.opacity-90').getByText('Friend request sent!')).toBeVisible();
+
+                                if (await pageA.getByRole('heading', { name: 'My Friends' }).isVisible()) {
+
         
-        // Verify Sent Request appears in the list
-        // Scope to the "Sent Requests" card to avoid matching other lists
-        const sentRequestsCard = sidebar.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'Sent Requests' }) });
-        await expect(sentRequestsCard).toBeVisible();
-        await expect(sentRequestsCard.getByText(user2.email).first()).toBeVisible();
-    });
+
+                                     // Find the card that contains this specific heading
+
+        
+
+                                     const friendsCard = pageA.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'My Friends' }) });
+
+        
+
+                                     
+
+        
+
+                                     if (await friendsCard.getByText(user2.email).count() > 0) {
+
+        
+
+                                         const existingFriend = friendsCard.locator('.flex.items-center', { hasText: user2.email }).first();
+
+        
+
+                                         if (await existingFriend.isVisible()) {
+
+        
+
+                                             console.log("Found existing friend relation, removing...");
+
+        
+
+                                             await existingFriend.getByRole('button', { name: 'Remove friend' }).click();
+
+        
+
+                                             await pageA.getByRole('button', { name: 'Remove' }).click(); // Confirm dialog
+
+        
+
+                                             await expect(pageA.getByText('Removed successfully.')).toBeVisible();
+
+        
+
+                                             await expect(existingFriend).not.toBeVisible();
+
+        
+
+                                         }
+
+        
+
+                                     }
+
+        
+
+                                }
+
+        
+
+                        
+
+        
+
+                                // 3. Check Incoming Friend Requests
+
+        
+
+                                if (await pageA.getByRole('heading', { name: 'Friend Requests' }).isVisible()) {
+
+        
+
+                                    const requestsCard = pageA.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'Friend Requests' }) });
+
+        
+
+                                    
+
+        
+
+                                    if (await requestsCard.getByText(user2.email).count() > 0) {
+
+        
+
+                                         const incomingRequest = requestsCard.locator('.flex.items-center', { hasText: user2.email }).first();
+
+        
+
+                                         if (await incomingRequest.isVisible()) {
+
+        
+
+                                             console.log(`Found incoming request from ${user2.email}, rejecting to clean state...`);
+
+        
+
+                                             await incomingRequest.getByRole('button', { name: 'Reject request' }).click();
+
+        
+
+                                             await expect(pageA.getByText('Friend request rejected.')).toBeVisible();
+
+        
+
+                                             await expect(incomingRequest).not.toBeVisible();
+
+        
+
+                                         }
+
+        
+
+                                    }
+
+        
+
+                                }
+
+        
+
+                        
+
+        
+
+                                const emailInput = sidebar.getByPlaceholder("Enter friend's email");
+
+        
+
+                                await emailInput.fill(user2.email);
+
+        
+
+                                
+
+        
+
+                                const addBtn = sidebar.getByRole('button', { name: 'Add' });
+
+        
+
+                                await expect(addBtn).toBeEnabled();
+
+        
+
+                                await addBtn.click();
+
+        
+
+                                
+
+        
+
+                                // Verify Sent
+
+        
+
+                                await expect(pageA.getByText('Friend request sent!')).toBeVisible();
+
+        
+
+                                
+
+        
+
+                                // Verify Sent Request appears in the list
+
+        
+
+                                // Scope to the "Sent Requests" card to avoid matching other lists
+
+        
+
+                                const sentRequestsCard = sidebar.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'Sent Requests' }) });
+
+        
+
+                                await expect(sentRequestsCard).toBeVisible();
+
+        
+
+                                await expect(sentRequestsCard.getByText(user2.email).first()).toBeVisible();
+
+        });
 
     // 4. User B accepts request
     await test.step('User B accepts request', async () => {

@@ -70,7 +70,55 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "You cannot add yourself as a friend." }, { status: 400 });
         }
 
-        // Insert a new pending friend request
+        // Check for existing relationship in EITHER direction
+        const { data: existingRows, error: checkError } = await supabase
+            .from('friends')
+            .select('*')
+            .or(`and(user1_id.eq.${user.id},user2_id.eq.${friendUser.id}),and(user1_id.eq.${friendUser.id},user2_id.eq.${user.id})`);
+
+        if (checkError) {
+             console.error("Error checking existing friend status:", checkError);
+        }
+
+        if (existingRows && existingRows.length > 0) {
+             // Check if ANY of the existing rows are active
+             const accepted = existingRows.find(r => r.status === 'accepted');
+             if (accepted) {
+                 return NextResponse.json({ error: "You are already friends." }, { status: 409 });
+             }
+             
+             const pending = existingRows.find(r => r.status === 'pending');
+             if (pending) {
+                 return NextResponse.json({ error: "Friend request already sent or pending." }, { status: 409 });
+             }
+             
+             // If we are here, all existing rows are 'declined' (or some other inactive status)
+             // We pick the first one to revive.
+             const rowToUpdate = existingRows[0];
+             
+             // We update the existing row to be a NEW request from ME (user.id) -> THEM (friendUser.id)
+             const { error: updateError } = await supabase
+                .from('friends')
+                .update({ 
+                    status: 'pending', 
+                    user1_id: user.id, 
+                    user2_id: friendUser.id,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', rowToUpdate.id);
+            
+             if (updateError) {
+                 console.error("Error updating declined friend request:", updateError);
+                 throw updateError;
+             }
+             
+             // Optional: If there are multiple "declined" rows (duplicates), we could delete the others
+             // but let's just revive one for now.
+             
+             return NextResponse.json({ success: true });
+        }
+
+        // Insert a new pending friend request if no prior record exists
         const { error: insertError } = await supabase
             .from('friends')
             .insert({ user1_id: user.id, user2_id: friendUser.id, status: 'pending' });
