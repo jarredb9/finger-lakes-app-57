@@ -89,17 +89,14 @@ test.describe('Friends Interaction Flow', () => {
         
         // Verify Sent
         // Wait for ANY toast first to debug what's happening
-        const toastDescription = pageA.locator('.text-sm.opacity-90').first();
-        await expect(toastDescription).toBeVisible();
+        // Target the visible toast description class explicitly
+        await expect(pageA.locator('.text-sm.opacity-90').getByText('Friend request sent!')).toBeVisible();
         
-        const toastText = await toastDescription.textContent();
-        console.log(`Add Friend Toast Message: "${toastText}"`);
-
-        // Accept either success or "already sent" (idempotent check)
-        expect(toastText).toMatch(/Friend request sent!|Friend request already sent/);
-        
-        await expect(sidebar.getByText('Sent Requests')).toBeVisible();
-        await expect(sidebar.getByText(user2.email)).toBeVisible();
+        // Verify Sent Request appears in the list
+        // Scope to the "Sent Requests" card to avoid matching other lists
+        const sentRequestsCard = sidebar.locator('.rounded-lg.border', { has: pageA.getByRole('heading', { name: 'Sent Requests' }) });
+        await expect(sentRequestsCard).toBeVisible();
+        await expect(sentRequestsCard.getByText(user2.email).first()).toBeVisible();
     });
 
     // 4. User B accepts request
