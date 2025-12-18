@@ -185,6 +185,7 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 3.  Optimization: Initial load only fetches markers. Visits are lazy-loaded.
 4.  Testing: Implemented comprehensive Playwright E2E suite covering Auth, Trips, and Friends. Removed navigation workarounds after stabilizing hydration.
 5.  Stability: Fixed critical hydration error in TripPlanner by implementing client-side mounting guards for date rendering, resolving mobile navigation state failures.
+6.  UI Stability: Fixed DatePicker popover persistence in Tablet/Desktop viewports which was obstructing interactions (checkboxes/inputs) during E2E tests. Implemented controlled state to auto-close on selection.
 
 ## End-to-End Testing (Playwright)
 
