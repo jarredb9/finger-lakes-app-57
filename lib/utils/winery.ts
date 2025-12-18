@@ -34,7 +34,12 @@ function isGoogleWinery(source: DbWinery | GoogleWinery | MapMarkerRpc | WineryD
 
 // Helper to check if a source is MapMarkerRpc
 function isMapMarkerRpc(source: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData): source is MapMarkerRpc {
-  return 'is_favorite' in source && 'on_wishlist' in source && 'user_visited' in source && 'id' in source && typeof source.id === 'number';
+  // Must have MapMarker fields
+  const hasFields = 'is_favorite' in source && 'on_wishlist' in source && 'user_visited' in source && 'id' in source;
+  // Must NOT have detailed fields (otherwise it's WineryDetailsRpc)
+  const isNotDetailed = !('opening_hours' in source) && !('visits' in source);
+  
+  return hasFields && isNotDetailed;
 }
 
 // Helper to check if a source is WineryDetailsRpc
@@ -77,7 +82,7 @@ export const standardizeWineryData = (
 ): Winery | null => {
   if (!source) return null;
 
-  if ('user_visited' in source && !isMapMarkerRpc(source)) {
+  if ('user_visited' in source && !isMapMarkerRpc(source) && !isWineryDetailsRpc(source)) {
     console.warn('[standardizeWineryData] Source has user_visited but isMapMarkerRpc returned false. Keys:', Object.keys(source));
     if ('id' in source) console.warn('ID type:', typeof (source as any).id);
   }
@@ -101,10 +106,10 @@ export const standardizeWineryData = (
   
   if (!isGoogleWinery(source) && !isMapMarkerRpc(source) && !isWineryDetailsRpc(source) && typeof (source as DbWinery).id === 'number') {
       resolvedDbId = (source as DbWinery).id;
-  } else if (isMapMarkerRpc(source) && typeof source.id === 'number') {
-      resolvedDbId = source.id;
-  } else if (isWineryDetailsRpc(source) && typeof source.id === 'number') {
-      resolvedDbId = source.id;
+  } else if (isMapMarkerRpc(source)) {
+      resolvedDbId = Number(source.id);
+  } else if (isWineryDetailsRpc(source)) {
+      resolvedDbId = Number(source.id);
   } else {
       resolvedDbId = typeof existing?.dbId === 'number' ? existing.dbId : undefined;
   }
