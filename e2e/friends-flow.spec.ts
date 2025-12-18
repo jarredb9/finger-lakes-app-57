@@ -13,16 +13,25 @@ function getSidebarContainer(page: Page): Locator {
 
 // Helper to navigate to Friends tab
 async function navigateToFriends(page: Page) {
-  // Use direct URL navigation for robustness
-  // This ensures initialTab="friends" is set correctly by the page component
-  await page.goto('/friends');
-  
-  // Wait for the view to be ready
+  // Dismiss cookie banner if present, as it might block bottom nav
+  const gotItBtn = page.getByRole('button', { name: 'Got it' });
+  if (await gotItBtn.isVisible()) {
+    await gotItBtn.click();
+  }
+
   const viewport = page.viewportSize();
   const isMobile = viewport && viewport.width < 768;
   
   if (isMobile) {
+      // Mobile: Click the bottom nav button
+      // Use force: true to bypass potential overlapping toasts/banners
+      await page.getByRole('button', { name: 'Friends' }).click({ force: true });
       await expect(page.getByTestId('mobile-sidebar-container')).toBeVisible({ timeout: 10000 });
+  } else {
+      // Desktop: Scope to desktop container to avoid ambiguity
+      await page.getByTestId('desktop-sidebar-container')
+          .getByRole('tab', { name: 'Friends' })
+          .click();
   }
 }
 
