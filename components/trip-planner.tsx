@@ -15,8 +15,13 @@ import TripForm from "./trip-form";
 export default function TripPlanner({ initialDate, user, hideCalendar = false, hideTrips = false }: { initialDate: Date, user: AuthenticatedUser, hideCalendar?: boolean, hideTrips?: boolean }) {
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
     const [isCreateTripModalOpen, setCreateTripModalOpen] = useState(false);
+    const [isMounted, setIsMounted] = useState(false);
 
     const { tripsForDate, isLoading, fetchTripsForDate } = useTripStore();
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
 
     useEffect(() => {
         if (selectedDate) {
@@ -48,7 +53,7 @@ export default function TripPlanner({ initialDate, user, hideCalendar = false, h
                 <div className="space-y-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <h2 className="text-lg font-bold">
-                        {selectedDate ? selectedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '...'}
+                        {isMounted && selectedDate ? selectedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '...'}
                     </h2>
                     <Dialog open={isCreateTripModalOpen} onOpenChange={setCreateTripModalOpen}>
                         <DialogTrigger asChild>
