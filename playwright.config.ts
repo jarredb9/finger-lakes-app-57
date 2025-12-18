@@ -57,6 +57,11 @@ export default defineConfig({
       use: { ...devices['iPhone 12'] },
     },
 
+    {
+      name: 'Mobile Safari (Tablet)',
+      use: { ...devices['iPad (gen 7)'] },
+    },
+
     /* Test against branded browsers. */
     // {
     //   name: 'Microsoft Edge',
