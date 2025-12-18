@@ -180,10 +180,11 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
 
 ### Completed Refactors
-1.  **Architecture:** Moved to "Supabase Native" for Trips. Removed API routes for Trips.
-2.  **Store Split:** `wineryStore.ts` split into Data/UI stores.
-3.  **Optimization:** Initial load only fetches markers. Visits are lazy-loaded.
-4.  **Testing:** Implemented comprehensive Playwright E2E suite covering Auth, Trips, and Friends.
+1.  Architecture: Moved to "Supabase Native" for Trips. Removed API routes for Trips.
+2.  Store Split: wineryStore.ts split into Data/UI stores.
+3.  Optimization: Initial load only fetches markers. Visits are lazy-loaded.
+4.  Testing: Implemented comprehensive Playwright E2E suite covering Auth, Trips, and Friends. Removed navigation workarounds after stabilizing hydration.
+5.  Stability: Fixed critical hydration error in TripPlanner by implementing client-side mounting guards for date rendering, resolving mobile navigation state failures.
 
 ## End-to-End Testing (Playwright)
 
@@ -208,3 +209,11 @@ We have established a robust E2E testing infrastructure using **Playwright**.
     *   **Login:** Use `page.keyboard.press('Enter')` instead of clicking the "Sign In" button, which can be flaky in WebKit.
     *   **Assertions:** Use mobile-aware assertions (e.g., checking for the bottom navigation bar `div.fixed.bottom-0`) to verify successful login on small screens.
 *   **Idempotency:** Tests are self-cleaning via the `afterEach` user deletion hook.
+
+### 4. Local Execution
+*   **Secrets:** Local execution is supported via `.env.local`. Ensure `SUPABASE_SERVICE_ROLE_KEY` is present for user isolation logic.
+*   **Reporter:** The HTML reporter is configured with `open: 'never'` in `playwright.config.ts`. This prevents the agent/CLI from getting stuck waiting for a browser to open the report on failure.
+*   **Command:** 
+    ```bash
+    export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && npx playwright test
+    ```
