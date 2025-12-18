@@ -1,6 +1,6 @@
 
 // components/DatePicker.tsx
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -23,6 +23,7 @@ interface DatePickerProps {
 }
 
 export function DatePicker({ date, onSelect }: DatePickerProps) {
+    const [open, setOpen] = useState(false);
     const isMobile = useIsMobile();
     const closeButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -30,6 +31,8 @@ export function DatePicker({ date, onSelect }: DatePickerProps) {
         onSelect(selectedDate);
         if (isMobile) {
             closeButtonRef.current?.click();
+        } else {
+            setOpen(false);
         }
     };
     
@@ -62,7 +65,7 @@ export function DatePicker({ date, onSelect }: DatePickerProps) {
     }
 
     return (
-        <Popover>
+        <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal">
                     <CalendarIcon className="mr-2 h-4 w-4" />
@@ -73,7 +76,7 @@ export function DatePicker({ date, onSelect }: DatePickerProps) {
                 <Calendar
                     mode="single"
                     selected={date}
-                    onSelect={onSelect}
+                    onSelect={handleDateSelect}
                     initialFocus
                 />
             </PopoverContent>
