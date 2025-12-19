@@ -1,5 +1,5 @@
-import { test, expect, Locator, Page } from '@playwright/test';
-import { createTestUser, deleteTestUser, TestUser } from './utils';
+import { test, expect, Page, Locator } from '@playwright/test';
+import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
 
 function getSidebarContainer(page: Page): Locator {
   const viewport = page.viewportSize();
@@ -52,7 +52,6 @@ async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends
     // Desktop: The sidebar is always visible.
     // Explicitly scope to the desktop container to avoid ambiguity with the mobile sidebar
     const sidebar = page.getByTestId('desktop-sidebar-container');
-    
     const tab = sidebar.getByRole('tab', { name: tabName });
     
     await expect(tab).toBeVisible({ timeout: 15000 });
@@ -65,6 +64,7 @@ test.describe('Visit Logging Flow', () => {
 
   test.beforeEach(async ({ page }) => {
     user = await createTestUser();
+    await mockGoogleMapsApi(page);
     await login(page, user);
   });
 
@@ -91,7 +91,7 @@ test.describe('Visit Logging Flow', () => {
     } else {
         await firstWinery.click();
     }
-
+    
     // 2. Fill Visit Form in Modal
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
@@ -113,163 +113,51 @@ test.describe('Visit Logging Flow', () => {
     await modal.getByRole('button', { name: 'Close' }).click();
     await expect(modal).not.toBeVisible();
 
-        // 3. Navigate to History and verify
-        await navigateToTab(page, 'History');
-        
-                // Wait for potential loading spinner
-        
-                await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
-        
-                
-        
-                        // Find the container that has the winery name
-        
-                
-        
-                        // We target the card by finding the Edit button and going up to the card container.
-        
-                
-        
-                        // This avoids matching the entire sidebar.
-        
-                
-        
-                        const editBtn = sidebar.getByRole('button', { name: 'Edit visit' }).first();
-        
-                
-        
-                            const cardWithText = editBtn.locator('xpath=./ancestor::div[contains(@class, "rounded-lg")][1]');
-        
-                
-        
-                            
-        
-                
-        
-                            await expect(cardWithText).toBeVisible({ timeout: 10000 });
-        
-                
-        
-                            // Winery name is rendered outside the card in GlobalVisitHistory, so we don't check for it inside the card.
-        
-                
-        
-                            await expect(cardWithText.getByText('Excellent wine and view!')).toBeVisible();
-        
-                
-        
-                        
-        
-                
-        
-                            // Debug: Check button
-        
-                
-        
-                            await expect(editBtn).toBeVisible();
-        
-                
-        
-                        
-        
-                
-        
-                
-        
-                            await expect(editBtn).toBeEnabled();
-        
-                        
-        
-                            // NOTE: Skipping Edit step because clicking Edit does not open the modal.
-        
-                            // Suspect 'google_place_id' is missing in the RPC response used by GlobalVisitHistory,
-        
-                            // causing handleEditClick to return early.
-        
-                            // await editBtn.click({ force: true });
-        
-                            // await expect(page.getByText('Opening winery details to edit visit...')).toBeVisible({ timeout: 5000 });
-        
-                            // await expect(modal).toBeVisible({ timeout: 15000 });
-        
-                            // await modal.getByLabel('Your Review').fill('Actually, the view was just okay, but the wine was superb.');
-        
-                            // await modal.getByRole('button', { name: 'Save Changes' }).click();
-        
-                            // await expect(page.getByText('Visit updated successfully.').first()).toBeVisible();
-        
-                        
-        
-                            // 5. Delete Visit
-        
-                            const deleteBtn = cardWithText.getByRole('button', { name: 'Delete visit' });
-        
-                            await expect(deleteBtn).toBeVisible();
-        
-                            await deleteBtn.click();
-        
-                            
-        
-                            // Check if a confirmation dialog appears. global-visit-history.tsx calls deleteVisitAction directly?
-        
-                            // Let's check: handleDeleteVisit calls deleteVisitAction.
-        
-                            // Does deleteVisitAction have a confirmation?
-        
-                            // Usually no, unless wrapped.
-        
-                            // But VisitCardHistory.tsx just has onClick={() => onDeleteVisit(...)}.
-        
-                            // So it might be immediate.
-        
-                            
-        
-                                // Verify toast
-        
-                            
-        
-                                await expect(page.getByText('Visit deleted successfully.').first()).toBeVisible();
-        
-                            
-        
-                                
-        
-                            
-        
-                                // Verify it's gone
-        
-                            
-        
-                                // Force a reload to ensure DB state is reflected if UI state update failed
-        
-                            
-        
-                                await page.reload();
-        
-                            
-        
-                                await navigateToTab(page, 'History');
-        
-                            
-        
-                                // Wait for spinner
-        
-                            
-        
-                                await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
-        
-                            
-        
-                                
-        
-                            
-        
-                                await expect(cardWithText).not.toBeVisible();
-        
-                            
-        
-                            
-        
-                        
+    // 3. Navigate to History and verify
+    await navigateToTab(page, 'History');
+    
+    // Wait for potential loading spinner
+    await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
+    
+    // Find the container that has the winery name
+    // We target the card by finding the Edit button and going up to the card container.
+    // This avoids matching the entire sidebar.
+    const editBtn = sidebar.getByRole('button', { name: 'Edit visit' }).first();
+    const cardWithText = editBtn.locator('xpath=./ancestor::div[contains(@class, "rounded-lg")][1]');
+    
+    await expect(cardWithText).toBeVisible({ timeout: 10000 });
+    // Winery name is rendered outside the card in GlobalVisitHistory, so we don't check for it inside the card.
+    await expect(cardWithText.getByText('Excellent wine and view!')).toBeVisible();
+
+    // Debug: Check button
+    await expect(editBtn).toBeVisible();
+    await expect(editBtn).toBeEnabled();
+
+    // NOTE: Skipping Edit step because clicking Edit does not open the modal.
+    // Suspect 'google_place_id' is missing in the RPC response used by GlobalVisitHistory,
+    // causing handleEditClick to return early.
+    // await editBtn.click({ force: true });
+    // await expect(page.getByText('Opening winery details to edit visit...')).toBeVisible({ timeout: 5000 });
+    // await expect(modal).toBeVisible({ timeout: 15000 });
+    // await modal.getByLabel('Your Review').fill('Actually, the view was just okay, but the wine was superb.');
+    // await modal.getByRole('button', { name: 'Save Changes' }).click();
+    // await expect(page.getByText('Visit updated successfully.').first()).toBeVisible();
+
+    // 5. Delete Visit
+    const deleteBtn = cardWithText.getByRole('button', { name: 'Delete visit' });
+    await expect(deleteBtn).toBeVisible();
+    await deleteBtn.click();
+    
+    // Verify toast
+    await expect(page.getByText('Visit deleted successfully.').first()).toBeVisible();
+    
+    // Verify it's gone
+    // Force a reload to ensure DB state is reflected if UI state update failed
+    await page.reload();
+    await navigateToTab(page, 'History');
+    // Wait for spinner
+    await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
+    
+    await expect(cardWithText).not.toBeVisible();
   });
 });

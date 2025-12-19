@@ -1,5 +1,5 @@
 import { test, expect, Page } from '@playwright/test';
-import { createTestUser, deleteTestUser, TestUser } from './utils';
+import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
 
 async function login(page: Page, user: TestUser) {
   await page.goto('/login');
@@ -55,6 +55,7 @@ test.describe('Trip Management Flow', () => {
 
   test.beforeEach(async ({ page }) => {
     user = await createTestUser();
+    await mockGoogleMapsApi(page);
     await login(page, user);
   });
 

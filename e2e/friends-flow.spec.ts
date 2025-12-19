@@ -1,5 +1,5 @@
 import { test, expect, Locator, Page } from '@playwright/test';
-import { createTestUser, deleteTestUser, TestUser } from './utils';
+import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
 
 // Helper function to get the appropriate sidebar container based on viewport
 function getSidebarContainer(page: Page): Locator {
@@ -81,8 +81,14 @@ test.describe('Friends Interaction Flow', () => {
     const pageB = await contextB.newPage();
 
     // 3. Login both users
-    await test.step('Login User A', async () => await login(pageA, user1.email, user1.password));
-    await test.step('Login User B', async () => await login(pageB, user2.email, user2.password));
+    await test.step('Login User A', async () => {
+      await mockGoogleMapsApi(pageA);
+      await login(pageA, user1.email, user1.password);
+    });
+    await test.step('Login User B', async () => {
+      await mockGoogleMapsApi(pageB);
+      await login(pageB, user2.email, user2.password)
+    });
 
     // 3. User A sends request to User B
     await test.step('User A sends request', async () => {

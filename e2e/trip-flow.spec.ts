@@ -1,5 +1,5 @@
 import { test, expect, Locator, Page } from '@playwright/test';
-import { createTestUser, deleteTestUser, TestUser } from './utils';
+import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
 
 // Helper function to get the appropriate sidebar container based on viewport
 function getSidebarContainer(page: Page): Locator {
@@ -37,6 +37,7 @@ test.describe('Trip Planning Flow', () => {
     user = await createTestUser();
     const { email, password } = user;
 
+    await mockGoogleMapsApi(page);
     await page.goto('/login');
     
     // Debug: Check if env vars are loaded

@@ -35,7 +35,7 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   hitApiLimit: false,
   searchResults: [],
   filter: ['all'],
-  autoSearch: true,
+  autoSearch: false,
   selectedTrip: null,
   searchLocation: "", // Initialize searchLocation
   setMap: (map) => set({ map }),

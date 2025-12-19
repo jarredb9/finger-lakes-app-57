@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import { Page } from '@playwright/test';
+import mockPlaces from './mocks/places-search.json';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -13,7 +15,49 @@ const supabase = createClient(supabaseUrl, serviceRoleKey);
 export interface TestUser {
   id: string;
   email: string;
-  password: string;
+  password:string;
+}
+
+/**
+ * Mocks the Google Maps Places API responses for E2E tests.
+ * This prevents real API calls to Google, saving costs and making tests deterministic.
+ */
+export async function mockGoogleMapsApi(page: Page) {
+  // Intercept the Places API text search
+  await page.route('https://maps.googleapis.com/maps/api/place/js/PlaceService.SearchByText', (route) => {
+    console.log('✅ Mocking Google Places API: SearchByText');
+    const jsonResponse = { places: mockPlaces };
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(jsonResponse),
+    });
+  });
+
+  // Mock geocoding as well to prevent calls when searching by location text
+  await page.route('https://maps.googleapis.com/maps/api/geocode/json**', (route) => {
+    console.log('✅ Mocking Google Geocoding API');
+    const mockGeocodeResponse = {
+      results: [
+        {
+          geometry: {
+            viewport: {
+              south: 42.5,
+              west: -77.0,
+              north: 42.9,
+              east: -76.8,
+            },
+          },
+        },
+      ],
+      status: 'OK',
+    };
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(mockGeocodeResponse),
+    });
+  });
 }
 
 export async function createTestUser(): Promise<TestUser> {

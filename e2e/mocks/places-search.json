@@ -1,0 +1,32 @@
+[
+  {
+    "id": "ch-12345-mock-winery-1",
+    "displayName": "Mock Winery One",
+    "formattedAddress": "123 Mockingbird Lane, Fakeville, FK 12345",
+    "rating": 4.5,
+    "location": {
+      "latitude": 42.7,
+      "longitude": -76.9
+    }
+  },
+  {
+    "id": "ch-67890-mock-winery-2",
+    "displayName": "Vineyard of Illusion",
+    "formattedAddress": "456 Deception Drive, Notreal City, NR 67890",
+    "rating": 4.2,
+    "location": {
+      "latitude": 42.75,
+      "longitude": -76.85
+    }
+  },
+  {
+    "id": "ch-abcde-mock-winery-3",
+    "displayName": "The Phantom Cellar",
+    "formattedAddress": "789 Vineyard Vanish, Ghost Town, GT 54321",
+    "rating": 4.8,
+    "location": {
+      "latitude": 42.8,
+      "longitude": -76.8
+    }
+  }
+]
