@@ -109,13 +109,11 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
   }, [isVisitHistoryModalOpen]);
 
 
-  const handleRowClick = (visit: Visit) => {
+  const handleRowClick = (visit: VisitWithModalContext) => {
      setVisitHistoryModalOpen(false) // Close the current modal first
      
-     // @ts-ignore - We know this visit object has the wineryId attached from the parent mapping
      if (visit.wineries?.google_place_id) {
         // Open the winery modal and tell it to return to history when closed
-        // @ts-ignore
         openWineryModal(visit.wineries.google_place_id, true)
      }
   }
@@ -278,7 +276,7 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
             {/* Desktop View: Data Table */}
             <div className="hidden md:block">
                 <div className="overflow-x-auto">
-                    <DataTable columns={columns} data={allVisits} onRowClick={handleRowClick} />
+                    <DataTable columns={columns as any} data={allVisits} onRowClick={handleRowClick} />
                 </div>
             </div>
         </div>

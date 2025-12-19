@@ -186,11 +186,11 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 4.  Testing: Implemented comprehensive Playwright E2E suite covering Auth, Trips, and Friends. Removed navigation workarounds after stabilizing hydration.
 5.  Stability: Fixed critical hydration error in TripPlanner by implementing client-side mounting guards for date rendering, resolving mobile navigation state failures.
 6.  UI Stability: Fixed DatePicker popover persistence in Tablet/Desktop viewports which was obstructing interactions (checkboxes/inputs) during E2E tests. Implemented controlled state to auto-close on selection.
-7.  **E2E Test Expansion:**
-    *   Implemented `e2e/visit-flow.spec.ts` to cover the "Visit Logging" lifecycle (Create, Read, Delete).
+    *   **Edit Visit Fixed:** Resolved a bug where the 'Edit' button in the global history view failed to open the winery modal. Updated the `get_paginated_visits_with_winery_and_friends` RPC to return `google_place_id` and refactored `VisitHistoryModal` for improved type safety.
+8.  **E2E Test Expansion:**
+    *   Implemented `e2e/visit-flow.spec.ts` to cover the full "Visit Logging" lifecycle (Create, Read, Update, Delete).
     *   Implemented `e2e/trip-management.spec.ts` but skipped it due to a UI interaction bug in the test environment where the "New Trip" button was unresponsive.
     *   Improved test stability by adding `aria-label`s to sidebar tabs and refining Playwright selectors to handle modal focus traps and duplicated mobile/desktop elements.
-    *   **Identified Bug:** The "Edit Visit" feature from the global history view is non-functional, likely due to a missing `google_place_id` in the data returned by the `get_paginated_visits_with_winery_and_friends` RPC, preventing the winery modal from opening.
 
 ## End-to-End Testing (Playwright)
 

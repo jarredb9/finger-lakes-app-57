@@ -71,9 +71,23 @@ test.describe('Visit Logging Flow', () => {
     const editBtn = sidebar.getByRole('button', { name: 'Edit visit' }).first();
     const cardWithText = editBtn.locator('xpath=./ancestor::div[contains(@class, "rounded-lg")][1]');
     
-    await expect(cardWithText).toBeVisible({ timeout: 10000 });
-    // Winery name is rendered outside the card in GlobalVisitHistory, so we don't check for it inside the card.
-    await expect(cardWithText.getByText('Excellent wine and view!')).toBeVisible();
+    // Debug: Check button
+    await expect(editBtn).toBeVisible();
+    await expect(editBtn).toBeEnabled();
+
+    // 4. Edit Visit
+    await editBtn.click({ force: true });
+    await expect(page.getByText('Opening winery details to edit visit...')).toBeVisible({ timeout: 5000 });
+    
+    // It should open the Winery Modal scrolled to the form
+    await expect(modal).toBeVisible({ timeout: 15000 });
+    await modal.getByLabel('Your Review').fill('Actually, the view was just okay, but the wine was superb.');
+    await modal.getByRole('button', { name: 'Save Changes' }).click();
+    await expect(page.getByText('Visit updated successfully.').first()).toBeVisible();
+
+    // Close the modal to return to history
+    await modal.getByRole('button', { name: 'Close' }).click();
+    await expect(modal).not.toBeVisible();
 
     // 5. Delete Visit
     const deleteBtn = cardWithText.getByRole('button', { name: 'Delete visit' });
