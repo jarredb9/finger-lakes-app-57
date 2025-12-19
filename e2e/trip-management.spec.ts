@@ -1,4 +1,4 @@
-import { test, expect, Locator, Page } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import { createTestUser, deleteTestUser, TestUser } from './utils';
 
 async function login(page: Page, user: TestUser) {

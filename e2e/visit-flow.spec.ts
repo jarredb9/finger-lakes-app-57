@@ -83,7 +83,7 @@ test.describe('Visit Logging Flow', () => {
     await expect(sidebar.getByText('Wineries in View')).toBeVisible({ timeout: 15000 });
     const firstWinery = sidebar.locator('.space-y-2 > div > p.font-medium').first();
     await firstWinery.scrollIntoViewIfNeeded();
-    const wineryName = await firstWinery.textContent();
+    // const wineryName = await firstWinery.textContent(); // Keep for debugging, but unused in test logic.
     
     // Use force click or evaluate for mobile if standard click fails due to sheet positioning
     if (isMobile) {
