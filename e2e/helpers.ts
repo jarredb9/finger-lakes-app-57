@@ -32,7 +32,7 @@ export async function login(page: Page, email: string, pass: string) {
         await btn.click({ force: true });
     }
   } catch (e) {
-    // Ignore timeout, meaning it likely transitioned to 'Signing in...'
+    // Ignore timeout
   }
 
   // Wait for login to complete with mobile-aware check
@@ -40,7 +40,6 @@ export async function login(page: Page, email: string, pass: string) {
   const isMobile = viewport && viewport.width < 768;
 
   if (isMobile) {
-      // Confirm the bottom navigation bar is visible
       await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
   } else {
       // Use .first() to resolve strict mode violation between mobile/desktop headings
@@ -51,7 +50,7 @@ export async function login(page: Page, email: string, pass: string) {
 }
 
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
-  // Dismiss cookie banner if present, as it might block bottom nav
+  // Dismiss cookie banner if present
   const gotItBtn = page.getByRole('button', { name: 'Got it' });
   if (await gotItBtn.isVisible()) {
     await gotItBtn.click();
@@ -59,7 +58,6 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
 
   const viewport = page.viewportSize();
   const isMobile = viewport && viewport.width < 768;
-  console.log(`Navigating to ${tabName} (Mobile: ${isMobile})`);
   
   if (isMobile) {
     const bottomNavNames: Record<string, string> = {

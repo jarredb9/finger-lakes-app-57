@@ -96,44 +96,51 @@ export function useWinerySearch() {
               return;
             }
       
-                  const searchTerm = "winery OR vineyard OR \"wine tasting\"";
+                  const searchTerms = ["winery", "vineyard", "wine tasting room"];
                   const allFoundPlaces = new Map<string, google.maps.places.Place>();
                   let hitApiLimit = false;
             
-                  const request = {
-                    textQuery: searchTerm,
-                    fields: [
-                      "displayName",
-                      "location",
-                      "formattedAddress",
-                      "rating",
-                      "id",
-                    ],
-                    locationRestriction: finalSearchBounds,
-                  };
-
-                  try {
-                    const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-                    
-                    if (foundPlaces.length === 20) {
-                      hitApiLimit = true;
-                    }
-                    
-                    foundPlaces.forEach((place) => {
-                      if (place.id) {
-                        allFoundPlaces.set(place.id, place);
+                  // Parallelize search requests for better performance
+                  await Promise.all(
+                    searchTerms.map(async (term) => {
+                      const request = {
+                        textQuery: term,
+                        fields: [
+                          "displayName",
+                          "location",
+                          "formattedAddress",
+                          "rating",
+                          "id",
+                        ],
+                        locationRestriction: finalSearchBounds,
+                      };
+            
+                      try {
+                        console.log(`🔍 Executing Google Search for: "${term}"`);
+                        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
+                        console.log(`✅ Found ${foundPlaces.length} places for "${term}"`);
+                        
+                        if (foundPlaces.length === 20) {
+                          hitApiLimit = true;
+                        }
+                        
+                        foundPlaces.forEach((place) => {
+                          if (place.id) {
+                            allFoundPlaces.set(place.id, place);
+                          }
+                        });
+                      } catch (error) {
+                        console.error(`Google Places search error for term "${term}":`, error);
                       }
-                    });
-                  } catch (error) {
-                    console.error(`Google Places search error for term "${searchTerm}":`, error);
-                  }
+                    })
+                  );
       
             const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place: google.maps.places.Place) => ({
                 id: place.id! as GooglePlaceId,
-                name: place.displayName!,
-                address: place.formattedAddress!,
-                lat: place.location!.lat(),
-                lng: place.location!.lng(),
+                name: place.displayName || '',
+                address: place.formattedAddress || '',
+                lat: place.location?.lat() || 0,
+                lng: place.location?.lng() || 0,
                 rating: place.rating ?? undefined,
                 // Expensive fields removed from initial search to save costs. 
                 // These will be fetched on demand by 'ensureWineryDetails' when a user interacts.

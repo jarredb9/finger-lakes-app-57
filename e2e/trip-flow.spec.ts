@@ -30,7 +30,7 @@ test.describe('Trip Planning Flow', () => {
 
     await expect(sidebarContainer.getByText('Wineries in View')).toBeVisible({ timeout: 15000 });
     
-    // Wait for results
+    // Wait for results - pick the first one regardless of name
     const firstWinery = sidebarContainer.locator('.space-y-2 > div > p.font-medium').first();
     await expect(firstWinery).toBeVisible({ timeout: 15000 });
     await firstWinery.click();
