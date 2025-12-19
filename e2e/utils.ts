@@ -25,6 +25,11 @@ export interface TestUser {
  * while strictly blocking all costly data API calls.
  */
 export async function mockGoogleMapsApi(page: Page) {
+  // Check if we should skip mocking for "Full Integrity" verification
+  if (process.env.E2E_REAL_DATA === 'true') {
+    console.log('⚠️ RUNNING IN REAL DATA MODE: Google API costs will be incurred.');
+    return;
+  }
   
   // 1. Mock the internal proxy route for winery details (Highest cost call)
   await page.route('**/api/wineries/details', (route) => {

@@ -12,7 +12,9 @@
     "audit": "npm audit",
     "prepare": "husky",
     "start": "next start",
-    "type-check": "npx tsc -p tsconfig.json --noEmit"
+    "type-check": "npx tsc -p tsconfig.json --noEmit",
+    "test:e2e": "npx playwright test",
+    "test:e2e:real": "E2E_REAL_DATA=true npx playwright test"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",

@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Winery } from "@/lib/types";
 import { Star, Phone, Globe, MapPin, Clock, ChevronDown, ChevronUp } from "lucide-react";
-import { DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "./ui/separator";
 import WineryQnA from "./WineryQnA";
 

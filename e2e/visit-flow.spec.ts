@@ -35,9 +35,10 @@ test.describe('Visit Logging Flow', () => {
     // The list should load our MOCK data
     await expect(sidebar.getByText('Wineries in View')).toBeVisible({ timeout: 15000 });
     
-    // Verify the mock winery is present
-    const firstWinery = sidebar.getByText('Mock Winery One').first();
+    // Verify a winery is present
+    const firstWinery = sidebar.locator('.space-y-2 > div > p.font-medium').first();
     await expect(firstWinery).toBeVisible({ timeout: 15000 });
+    const wineryName = await firstWinery.innerText();
     
     await firstWinery.scrollIntoViewIfNeeded();
     
@@ -51,8 +52,8 @@ test.describe('Visit Logging Flow', () => {
     // 2. Fill Visit Form in Modal
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
-    // The modal name should match mock
-    await expect(modal.getByText('Mock Winery One').first()).toBeVisible();
+    // The modal name should match the selected winery
+    await expect(modal.getByText(wineryName).first()).toBeVisible();
 
     // Fill rating (5 stars)
     await modal.getByLabel('Set rating to 5').click();
@@ -95,6 +96,6 @@ test.describe('Visit Logging Flow', () => {
     await page.reload();
     await navigateToTab(page, 'History');
     await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
-    await expect(sidebar.getByText('Mock Winery One')).not.toBeVisible();
+    await expect(sidebar.getByText(wineryName)).not.toBeVisible();
   });
 });

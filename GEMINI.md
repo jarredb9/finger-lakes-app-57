@@ -57,7 +57,7 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 *   **Database/Auth:** Supabase (`@supabase/supabase-js`, `@supabase/ssr`)
 *   **Maps:** Google Maps Platform (`@vis.gl/react-google-maps`)
 *   **Forms:** React Hook Form + Zod
-*   **Testing:** Jest + React Testing Library
+*   **Testing:** Jest + React Testing Library + Playwright E2E
 
 ## System Architecture & Patterns
 
@@ -176,6 +176,11 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 *   **The Trap:** Including such a getter function in a `useMemo` dependency array (e.g., `[getWineries]`) will NOT cause `useMemo` to re-evaluate when the underlying data (`persistentWineries`) changes. The `useMemo` will only re-run if the *function reference* itself changes, which it typically does not. This leads to stale data being used by components.
 *   **The Fix:** Always subscribe directly to the specific reactive state from the Zustand store you need. For example, instead of `const { getWineries } = useWineryStore();`, use `const persistentWineries = useWineryDataStore((state) => state.persistentWineries);` and include `persistentWineries` in your `useMemo` dependency array. This ensures components re-render when the data truly changes.
 
+### 5. Map Lifecycle & `idle` Events in E2E
+*   **Concept:** The winery list relies on the map's `idle` event to trigger initial search.
+*   **The Trap:** In mocked E2E environments where map tiles are blocked, the `idle` event may not fire, resulting in an empty winery list.
+*   **The Fix:** Use a manual "Search This Area" trigger in E2E tests to bypass the map's lifecycle dependency.
+
 ## Future Implementations
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
 
@@ -186,7 +191,7 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 4.  Testing: Implemented comprehensive Playwright E2E suite covering Auth, Trips, and Friends. Removed navigation workarounds after stabilizing hydration.
 5.  Stability: Fixed critical hydration error in TripPlanner by implementing client-side mounting guards for date rendering, resolving mobile navigation state failures.
 6.  UI Stability: Fixed DatePicker popover persistence in Tablet/Desktop viewports which was obstructing interactions (checkboxes/inputs) during E2E tests. Implemented controlled state to auto-close on selection.
-7.  **Edit Visit Bug Fixed (Pending DB):** Resolved a bug where the 'Edit' button in the global history view failed to open the winery modal. Created migration `20251219132855_fix_get_paginated_visits_return_fields.sql` to add `google_place_id` to the RPC and refactored `VisitHistoryModal` for type safety.
+7.  **Edit Visit Bug Fixed:** Resolved a bug where the 'Edit' button in the global history view failed to open the winery modal. Created migration `20251219132855_fix_get_paginated_visits_return_fields.sql` to add `google_place_id` to the RPC and refactored `VisitHistoryModal` for type safety.
 8.  **E2E Test Suite Refactor & Stabilization:** 
     *   Centralized helpers in `e2e/helpers.ts` to ensure 100% consistency across `friends`, `trip`, and `visit` flows.
     *   Implemented robust mobile navigation: helpers now automatically handle expanding the `InteractiveBottomSheet` and account for animation delays.
@@ -194,7 +199,11 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 9.  **Zero-Cost E2E Infrastructure:**
     *   Implemented a **Strict Blocking & Mocking** policy in `e2e/utils.ts`. 
     *   All costly Google Maps API requests (Places, Search, Details) are intercepted or aborted at the network level, ensuring **$0 API spend** during testing.
+    *   **Ghost Tiles:** Map tile requests are fulfilled with transparent PNGs to maintain Map SDK functionality without hitting Google servers.
+    *   **RPC Mocking:** The `get_map_markers` RPC is mocked to provide stable, name-agnostic data for testing.
+    *   **Full Integrity Toggle:** Added `E2E_REAL_DATA=true` flag to bypass all mocks for periodic real-world verification.
 10. **Test Environment Reliability:** Implemented automated cleanup of stale `.next` lock files and zombie `next dev` processes to resolve runner stalling issues.
+11. **Hydration Error Fix:** Resolved a React hydration error in `WineryDetails.tsx` by replacing an invalid nested `DialogDescription` (rendered as `p`) with a standard `div`.
 
 ## End-to-End Testing (Playwright)
 
@@ -203,6 +212,7 @@ We have established a robust E2E testing infrastructure using **Playwright**.
 ### 1. Key Test Suites (`e2e/`)
 *   **`smoke.spec.ts`:** Verifies basic app health, routing, and auth redirection.
 *   **`trip-flow.spec.ts`:** Tests the core "Trip Planning" value loop.
+*   **`visit-flow.spec.ts`:** Tests visit logging, editing, and deletion (name-agnostic).
 *   **`friends-flow.spec.ts`:** Tests complex **Multi-User / Real-Time** interactions using two distinct browser contexts.
 
 ### 2. Testing Environment & Concurrency
@@ -219,11 +229,12 @@ We have established a robust E2E testing infrastructure using **Playwright**.
     *   **Login:** Use `page.keyboard.press('Enter')` instead of clicking the "Sign In" button, which can be flaky in WebKit.
     *   **Assertions:** Use mobile-aware assertions (e.g., checking for the bottom navigation bar `div.fixed.bottom-0`) to verify successful login on small screens.
 *   **Idempotency:** Tests are self-cleaning via the `afterEach` user deletion hook.
+*   **Hydration Awareness:** The `login` helper explicitly waits for the `AuthProvider` "Loading..." screen to disappear and for network stability.
 
-### 4. Local Execution
-*   **Secrets:** Local execution is supported via `.env.local`. Ensure `SUPABASE_SERVICE_ROLE_KEY` is present for user isolation logic.
-*   **Reporter:** The HTML reporter is configured with `open: 'never'` in `playwright.config.ts`. This prevents the agent/CLI from getting stuck waiting for a browser to open the report on failure.
-*   **Command:** 
+### 4. Execution Scripts
+*   **Zero-Cost (Daily):** `npm run test:e2e` (Mocks Google/Supabase Reads)
+*   **Full Integrity (Monthly):** `npm run test:e2e:real` (Uses real Google/Supabase data)
+*   **Manual Runner:**
     ```bash
-    export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && npx playwright test
+    export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && npm run test:e2e
     ```
