@@ -164,15 +164,15 @@ export function AppSidebar({
       <Tabs defaultValue="explore" value={activeTab} onValueChange={onTabChange} className="flex-1 flex flex-col overflow-hidden">
         <div className="px-4 py-2 border-b bg-muted/10 shrink-0">
           <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="explore" className="flex items-center gap-2 px-1">
+            <TabsTrigger value="explore" className="flex items-center gap-2 px-1" aria-label="Explore">
               <MapPin className="w-4 h-4" />
               <span className="hidden sm:inline">Explore</span>
             </TabsTrigger>
-            <TabsTrigger value="trips" className="flex items-center gap-2 px-1">
+            <TabsTrigger value="trips" className="flex items-center gap-2 px-1" aria-label="Trips">
               <Route className="w-4 h-4" />
               <span className="hidden sm:inline">Trips</span>
             </TabsTrigger>
-            <TabsTrigger value="friends" className="relative flex items-center gap-2 px-1">
+            <TabsTrigger value="friends" className="relative flex items-center gap-2 px-1" aria-label="Friends">
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Friends</span>
               {friendRequestCount > 0 && (
@@ -181,7 +181,7 @@ export function AppSidebar({
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="history" className="flex items-center gap-2 px-1">
+            <TabsTrigger value="history" className="flex items-center gap-2 px-1" aria-label="History">
               <History className="w-4 h-4" />
               <span className="hidden sm:inline">History</span>
             </TabsTrigger>

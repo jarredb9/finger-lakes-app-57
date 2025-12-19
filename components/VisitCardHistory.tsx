@@ -33,7 +33,7 @@ export default function VisitHistory({ visits, editingVisitId, onEditClick, onDe
                 )}
               </div>
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="sm" onClick={() => onEditClick(visit)}>
+                <Button variant="ghost" size="sm" onClick={() => onEditClick(visit)} aria-label="Edit visit">
                   <Edit className="w-4 h-4" />
                 </Button>
                 {visit.id && (
