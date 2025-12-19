@@ -44,3 +44,8 @@ export const useUserStore = createWithEqualityFn<UserState>((set) => ({
     }
   },
 }));
+
+// Expose store for E2E testing
+if (typeof window !== 'undefined') {
+  (window as any).useUserStore = useUserStore;
+}

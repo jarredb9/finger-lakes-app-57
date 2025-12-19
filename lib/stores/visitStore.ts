@@ -193,15 +193,22 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
 
   deleteVisit: async (visitId) => {
     const { optimisticallyDeleteVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
+    const supabase = createClient();
     
     optimisticallyDeleteVisit(visitId);
 
     try {
-        const response = await fetch(`/api/visits/${visitId}`, { method: 'DELETE' });
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || "Failed to delete visit.");
-        }
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("User not authenticated.");
+
+        const { error } = await supabase
+            .from('visits')
+            .delete()
+            .eq('id', visitId)
+            .eq('user_id', user.id);
+
+        if (error) throw error;
+        
         confirmOptimisticUpdate();
     } catch (error) {
         console.error("Failed to delete visit, reverting:", error);

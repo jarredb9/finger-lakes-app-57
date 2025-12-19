@@ -3,32 +3,6 @@ import { createClient } from "@/utils/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { getUser } from "@/lib/auth";
 
-// GET handler to fetch friends and friend requests
-export async function GET() {
-    const user = await getUser();
-    if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const supabase = await createClient();
-
-    try {
-        const { data, error } = await supabase.rpc('get_friends_and_requests');
-
-        if (error) {
-            console.error("Error calling get_friends_and_requests RPC:", error);
-            throw error;
-        }
-
-        // The RPC returns { friends: [...], requests: [...] }
-        return NextResponse.json(data || { friends: [], requests: [] });
-
-    } catch (error) {
-        console.error("Error in /api/friends GET:", error);
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
-}
-
 // POST handler to send a new friend request
 export async function POST(request: NextRequest) {
     const user = await getUser();
@@ -170,36 +144,6 @@ export async function PUT(request: NextRequest) {
 
         return NextResponse.json({ success: true });
     } catch(error) {
-        return NextResponse.json({ error: "Internal server error" }, { status: 500 });
-    }
-}
-
-// DELETE handler to remove a friend
-export async function DELETE(request: NextRequest) {
-    const user = await getUser();
-    if (!user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    try {
-        const { friendId } = await request.json();
-        if (!friendId) {
-            return NextResponse.json({ error: "Friend ID is required" }, { status: 400 });
-        }
-
-        const supabase = await createClient();
-
-        // Call the RPC to remove the friend
-        const { error } = await supabase.rpc('remove_friend', { target_friend_id: friendId });
-
-        if (error) {
-            console.error("Error removing friend via RPC:", error);
-            throw error;
-        }
-
-        return NextResponse.json({ success: true });
-    } catch (error) {
-        console.error("Error in /api/friends DELETE:", error);
         return NextResponse.json({ error: "Internal server error" }, { status: 500 });
     }
 }

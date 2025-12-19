@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Star, ArrowUp, ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from "@/components/ui/pagination"
+import { createClient } from "@/utils/supabase/client"
 
 const VISITS_PER_PAGE = 10;
 
@@ -47,16 +48,29 @@ export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (
 
     const fetchVisits = useCallback(async (page = 1) => {
         setLoading(true);
+        const supabase = createClient();
         try {
-            const response = await fetch(`/api/visits?page=${page}&limit=${VISITS_PER_PAGE}`);
-            if (response.ok) {
-                const { visits, count } = await response.json();
-                setVisits(visits || []);
-                setTotalPages(Math.ceil(count / VISITS_PER_PAGE));
-                setCurrentPage(page);
-            } else {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) {
                 setVisits([]);
+                return;
             }
+
+            const rangeFrom = (page - 1) * VISITS_PER_PAGE;
+            const rangeTo = rangeFrom + VISITS_PER_PAGE - 1;
+
+            const { data, count, error } = await supabase
+                .from("visits")
+                .select("*, wineries(*)", { count: 'exact' })
+                .eq("user_id", user.id)
+                .order("visit_date", { ascending: false })
+                .range(rangeFrom, rangeTo);
+            
+            if (error) throw error;
+
+            setVisits(data || []);
+            setTotalPages(Math.ceil((count || 0) / VISITS_PER_PAGE));
+            setCurrentPage(page);
         } catch (error) {
             console.error("Failed to fetch visit history", error);
             setVisits([]);

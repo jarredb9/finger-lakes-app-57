@@ -48,5 +48,11 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   setFilter: (filter) => set({ filter }),
   setAutoSearch: (autoSearch) => set({ autoSearch }),
   setSelectedTrip: (trip) => set({ selectedTrip: trip }),
-  setSearchLocation: (searchLocation) => set({ searchLocation }),
-}));
+    setSearchLocation: (searchLocation) => set({ searchLocation }),
+  }));
+  
+  // Expose store for E2E testing
+  if (typeof window !== 'undefined') {
+    (window as any).useMapStore = useMapStore;
+  }
+  

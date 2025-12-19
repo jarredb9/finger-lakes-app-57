@@ -40,8 +40,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
     set({ isLoading: true, error: null });
     const supabase = createClient();
     try {
-      // Only fetch lightweight markers for initial load
-      // Pass userId explicitly to ensure flags are correct
+      // Use the lightweight RPC 
       const { data: markers, error: markersError } = await supabase.rpc('get_map_markers', { user_id_param: userId }); 
       if (markersError) throw markersError;
 
@@ -191,3 +190,8 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
       return dbId as WineryDbId;
   }
 }));
+
+// Expose store for E2E testing
+if (typeof window !== 'undefined') {
+  (window as any).useWineryDataStore = useWineryDataStore;
+}

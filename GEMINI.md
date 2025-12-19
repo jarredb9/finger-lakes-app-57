@@ -181,6 +181,11 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 *   **The Trap:** In mocked E2E environments where map tiles are blocked, the `idle` event may not fire, resulting in an empty winery list.
 *   **The Fix:** Use a manual "Search This Area" trigger in E2E tests to bypass the map's lifecycle dependency.
 
+### 6. Radix UI & Pointer Events in Playwright Mobile
+*   **Concept:** Radix UI primitives (like `TabsTrigger`) often rely on complex pointer event sequences (`pointerdown`, `mousedown`, `pointerup`, `mouseup`, `click`) to handle focus and state changes correctly.
+*   **The Trap:** In Playwright mobile emulation (especially with touch enabled), a simple `page.click()` or `element.evaluate(el => el.click())` may fail to trigger the state change because it lacks the full event sequence Radix expects.
+*   **The Fix:** Manually dispatch the full pointer event sequence using `element.dispatchEvent` in an `evaluate` block. See `e2e/helpers.ts` -> `navigateToTab` for the implementation.
+
 ## Future Implementations
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
 
@@ -204,6 +209,9 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
     *   **Full Integrity Toggle:** Added `E2E_REAL_DATA=true` flag to bypass all mocks for periodic real-world verification.
 10. **Test Environment Reliability:** Implemented automated cleanup of stale `.next` lock files and zombie `next dev` processes to resolve runner stalling issues.
 11. **Hydration Error Fix:** Resolved a React hydration error in `WineryDetails.tsx` by replacing an invalid nested `DialogDescription` (rendered as `p`) with a standard `div`.
+12. **Mobile Test Fixes:** Resolved `visit-flow` failures on mobile by implementing robust pointer event dispatching for Radix UI `TabsTrigger` in `e2e/helpers.ts`.
+13. **Supabase Native Refactor (Visits):** Refactored `visitStore` and `VisitHistoryView` to use the Supabase SDK directly, eliminating dependency on `app/api/visits`.
+14. **Dead Code Removal:** Deleted obsolete `app/api/visits` directory and unused handlers in `app/api/friends`.
 
 ## End-to-End Testing (Playwright)
 

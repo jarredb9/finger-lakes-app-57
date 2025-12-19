@@ -20,48 +20,70 @@ export interface TestUser {
 
 /**
  * MOCKS & BLOCKS the Google Maps API for E2E tests.
- * 
- * This strategy ensures $0 cost by allowing free initialization assets 
- * while strictly blocking all costly data API calls.
  */
 export async function mockGoogleMapsApi(page: Page) {
-  // Check if we should skip mocking for "Full Integrity" verification
-  if (process.env.E2E_REAL_DATA === 'true') {
-    console.log('⚠️ RUNNING IN REAL DATA MODE: Google API costs will be incurred.');
-    return;
-  }
-  
-  // 1. Mock the internal proxy route for winery details (Highest cost call)
+  if (process.env.E2E_REAL_DATA === 'true') return;
+
+  // 1. Inject a mock bounds object into the store to satisfy the useWineryFilter hook
+  // This bypasses the need for real map tiles/initialization.
+  await page.addInitScript(() => {
+    const mockBounds = { 
+      contains: () => true,
+      getCenter: () => ({ lat: () => 42.7, lng: () => -76.9 }),
+      extend: () => {},
+      getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
+      getSouthWest: () => ({ lat: () => 42, lng: () => -77 })
+    };
+
+    const interval = setInterval(() => {
+      const store = (window as any).useMapStore;
+      if (store && store.setState) {
+        // 1. Inject bounds directly
+        store.setState({ bounds: mockBounds });
+
+        // 2. Patch the map instance if it exists to prevent overwriting
+        const state = store.getState();
+        if (state.map && !state.map._isPatched) {
+            console.log('[E2E Mock] Patching map.getBounds');
+            state.map.getBounds = () => mockBounds;
+            state.map._isPatched = true;
+            // Clear interval only after we've patched the map, or after a safety timeout?
+            // Actually, keep doing it for a bit to be safe, or just clear now.
+            // Let's clear if map is patched.
+            clearInterval(interval);
+        }
+      }
+    }, 100);
+  });
+
+  // 2. Mock the internal proxy route for winery details
   await page.route('**/api/wineries/details', (route) => {
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
         google_place_id: mockPlaces[0].id,
-        name: "Mock Winery One",
-        address: "123 Mockingbird Lane, Fakeville, FK 12345",
-        latitude: 42.7,
-        longitude: -76.9,
-        google_rating: 4.5,
+        name: mockPlaces[0].displayName,
+        address: mockPlaces[0].formattedAddress,
+        latitude: mockPlaces[0].location.latitude,
+        longitude: mockPlaces[0].location.longitude,
+        google_rating: mockPlaces[0].rating,
         opening_hours: { weekday_text: ["Monday: 10:00 AM – 5:00 PM"] },
         reviews: [],
-        phone: '555-MOCK',
-        website: 'https://mock.example.com'
       }),
     });
   });
 
   // 2. Mock the Supabase RPC for map markers
-  // We use a broad regex to ensure we catch the RPC call regardless of the full URL
   await page.route(/\/rpc\/get_map_markers/, (route) => {
-    console.log(`[MOCK] Intercepted get_map_markers: ${route.request().url()}`);
+    console.log('[E2E Mock] Intercepted get_map_markers RPC');
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(mockPlaces.map((p, index) => ({
         id: index + 1,
         google_place_id: p.id,
-        name: p.displayName, // Corrected mapping
+        name: p.displayName,
         address: p.formattedAddress,
         lat: p.location.latitude,
         lng: p.location.longitude,
@@ -72,43 +94,61 @@ export async function mockGoogleMapsApi(page: Page) {
     });
   });
 
-  // 3. Surgical blocking of Google Data APIs
+  // 2.5 Mock the Supabase RPC for visit history
+  await page.route(/\/rpc\/get_paginated_visits_with_winery_and_friends/, (route) => {
+    console.log('[E2E Mock] Intercepted get_paginated_visits RPC');
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([{
+        visit_id: 'mock-visit-1',
+        user_id: 'mock-user-1',
+        visit_date: new Date().toISOString().split('T')[0],
+        user_review: 'Excellent wine and view!',
+        rating: 5,
+        photos: [],
+        winery_id: 1,
+        winery_name: 'Mock Winery One',
+        google_place_id: mockPlaces[0].id,
+        winery_address: mockPlaces[0].formattedAddress,
+        friend_visits: []
+      }]),
+    });
+  });
+
+  // 2.6 Mock log_visit RPC
+  await page.route(/\/rpc\/log_visit/, (route) => {
+    console.log('[E2E Mock] Intercepted log_visit RPC');
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ visit_id: 'mock-visit-new' }),
+    });
+  });
+
+  // 2.7 Mock delete visit (Supabase REST)
+  await page.route(/\/rest\/v1\/visits\?/, (route) => {
+    if (route.request().method() === 'DELETE') {
+        console.log('[E2E Mock] Intercepted Supabase DELETE Visit');
+        route.fulfill({
+            status: 204, // Supabase returns 204 No Content for successful deletes usually
+        });
+    } else {
+        route.continue();
+    }
+  });
+
+  // 3. Block costly Google Data APIs
   await page.route(/(google|googleapis|places)/, async (route) => {
     const url = route.request().url();
     const type = route.request().resourceType();
 
-    // ALLOW: Library scripts, fonts, and CSS
+    // ALLOW: Library scripts and fonts (Free)
     if (type === 'script' || type === 'font' || type === 'stylesheet' || url.includes('js?key=')) {
       return route.continue();
     }
 
-    // BLOCK & MOCK: Map Tiles (Transparent PNG)
-    if (url.includes('vt/lyrs') || url.includes('khms') || url.includes('StaticMapService')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'image/png',
-        body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'),
-      });
-    }
-
-    // BLOCK & MOCK: Places Search (For any network level calls)
-    if (url.includes('searchByText') || url.includes('SearchByText') || url.includes('places:search')) {
-        return route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({ 
-                places: mockPlaces.map(p => ({
-                    id: p.id,
-                    displayName: { text: p.displayName },
-                    formattedAddress: p.formattedAddress,
-                    location: { latitude: p.location.latitude, longitude: p.location.longitude },
-                    rating: p.rating
-                })) 
-            }),
-        });
-    }
-
-    // BLOCK everything else
+    // BLOCK everything else (Tiles, Search, Telemetry)
     return route.abort('failed');
   });
 }
@@ -116,27 +156,11 @@ export async function mockGoogleMapsApi(page: Page) {
 export async function createTestUser(): Promise<TestUser> {
   const email = `test-${uuidv4()}@example.com`;
   const password = `pass-${uuidv4()}`;
-
-  const { data, error } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-
-  if (error || !data.user) {
-    throw new Error(`Failed to create test user: ${error?.message}`);
-  }
-
-  return {
-    id: data.user.id,
-    email,
-    password,
-  };
+  const { data, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
+  if (error || !data.user) throw new Error(`Failed: ${error?.message}`);
+  return { id: data.user.id, email, password };
 }
 
 export async function deleteTestUser(userId: string): Promise<void> {
-  const { error } = await supabase.auth.admin.deleteUser(userId);
-  if (error) {
-    console.error(`Failed to delete test user ${userId}:`, error);
-  }
+  await supabase.auth.admin.deleteUser(userId);
 }
