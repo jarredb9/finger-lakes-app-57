@@ -19,21 +19,20 @@ export interface TestUser {
 }
 
 /**
- * MOCKS the Google Maps API by injecting overrides into the browser's JS environment.
- * This is more robust than network-level mocking for the Google Maps SDK.
+ * MOCKS & BLOCKS the Google Maps API for E2E tests.
+ * 
+ * This strategy ensures $0 cost by allowing free initialization assets 
+ * while strictly blocking all costly data API calls.
  */
 export async function mockGoogleMapsApi(page: Page) {
   
-  // 1. Mock the internal proxy route for winery details (The highest cost call)
+  // 1. Mock the internal proxy route for winery details (Highest cost call)
   await page.route('**/api/wineries/details', (route) => {
-    const postData = route.request().postDataJSON();
-    const placeId = postData?.placeId;
-    
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        google_place_id: placeId || mockPlaces[0].id,
+        google_place_id: mockPlaces[0].id,
         name: "Mock Winery One",
         address: "123 Mockingbird Lane, Fakeville, FK 12345",
         latitude: 42.7,
@@ -47,54 +46,45 @@ export async function mockGoogleMapsApi(page: Page) {
     });
   });
 
-  // 2. Inject a script to override the JS SDK methods
-  await page.addInitScript((mockData) => {
-    // Polling function to wait for the Google SDK to load
-    const interval = setInterval(() => {
-      // @ts-ignore
-      if (window.google && window.google.maps && window.google.maps.places && window.google.maps.places.Place) {
-        clearInterval(interval);
-        
-        // @ts-ignore
-        const Place = window.google.maps.places.Place;
-        
-        // Override searchByText
-        Place.searchByText = async (request: any) => {
-          console.log('✅ JS MOCK: Intercepted Place.searchByText', request);
-          return {
-            places: mockData.map(item => new Place({
-                id: item.id,
-                // Ensure the properties match what the app expects
-                displayName: item.displayName.text,
-                formattedAddress: item.formattedAddress,
-                location: {
-                    lat: () => item.location.latitude,
-                    lng: () => item.location.longitude
-                },
-                rating: item.rating
-            }))
-          };
-        };
-        console.log('🎭 JS Overrides Applied to google.maps.places.Place');
-      }
-    }, 100);
-  }, mockPlaces);
+  // 2. Surgical blocking of Google Data APIs
+  await page.route(/(google|googleapis|places)/, async (route) => {
+    const url = route.request().url();
+    const type = route.request().resourceType();
 
-  // 3. Mock Geocoding at network level (it's a simple REST call)
-  await page.route(/.*geocode.*/, (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        results: [{ 
-          geometry: { 
-              location: { lat: 42.7, lng: -76.9 },
-              viewport: { south: 42.5, west: -77.0, north: 42.9, east: -76.8 } 
-          } 
-        }],
-        status: 'OK',
-      }),
-    });
+    // ALLOW: Library scripts, fonts, and CSS (These are free and required for initialization)
+    if (type === 'script' || type === 'font' || type === 'stylesheet') {
+      return route.continue();
+    }
+
+    // BLOCK & MOCK: Places Search calls
+    if (url.includes('searchByText') || url.includes('SearchByText')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ places: mockPlaces }),
+      });
+    }
+
+    // BLOCK & MOCK: Geocoding
+    if (url.includes('geocode')) {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          results: [{ 
+            geometry: { 
+                location: { lat: 42.7, lng: -76.9 },
+                viewport: { south: 42.5, west: -77.0, north: 42.9, east: -76.8 } 
+            } 
+          }],
+          status: 'OK',
+        }),
+      });
+    }
+
+    // BLOCK: Everything else (Tiles, Logging, Details, Telemetry)
+    // This ensures no real data is fetched and no cost is incurred.
+    return route.abort('failed');
   });
 }
 
@@ -105,7 +95,7 @@ export async function createTestUser(): Promise<TestUser> {
   const { data, error } = await supabase.auth.admin.createUser({
     email,
     password,
-    email_confirm: true, // Auto-confirm the email
+    email_confirm: true,
   });
 
   if (error || !data.user) {
@@ -121,7 +111,6 @@ export async function createTestUser(): Promise<TestUser> {
 
 export async function deleteTestUser(userId: string): Promise<void> {
   const { error } = await supabase.auth.admin.deleteUser(userId);
-  
   if (error) {
     console.error(`Failed to delete test user ${userId}:`, error);
   }

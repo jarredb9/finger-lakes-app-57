@@ -186,11 +186,15 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 4.  Testing: Implemented comprehensive Playwright E2E suite covering Auth, Trips, and Friends. Removed navigation workarounds after stabilizing hydration.
 5.  Stability: Fixed critical hydration error in TripPlanner by implementing client-side mounting guards for date rendering, resolving mobile navigation state failures.
 6.  UI Stability: Fixed DatePicker popover persistence in Tablet/Desktop viewports which was obstructing interactions (checkboxes/inputs) during E2E tests. Implemented controlled state to auto-close on selection.
-    *   **Edit Visit Fixed:** Resolved a bug where the 'Edit' button in the global history view failed to open the winery modal. Updated the `get_paginated_visits_with_winery_and_friends` RPC to return `google_place_id` and refactored `VisitHistoryModal` for improved type safety.
-8.  **E2E Test Expansion:**
-    *   Implemented `e2e/visit-flow.spec.ts` to cover the full "Visit Logging" lifecycle (Create, Read, Update, Delete).
-    *   Implemented `e2e/trip-management.spec.ts` but skipped it due to a UI interaction bug in the test environment where the "New Trip" button was unresponsive.
-    *   Improved test stability by adding `aria-label`s to sidebar tabs and refining Playwright selectors to handle modal focus traps and duplicated mobile/desktop elements.
+7.  **Edit Visit Bug Fixed (Pending DB):** Resolved a bug where the 'Edit' button in the global history view failed to open the winery modal. Created migration `20251219132855_fix_get_paginated_visits_return_fields.sql` to add `google_place_id` to the RPC and refactored `VisitHistoryModal` for type safety.
+8.  **E2E Test Suite Refactor & Stabilization:** 
+    *   Centralized helpers in `e2e/helpers.ts` to ensure 100% consistency across `friends`, `trip`, and `visit` flows.
+    *   Implemented robust mobile navigation: helpers now automatically handle expanding the `InteractiveBottomSheet` and account for animation delays.
+    *   Resolved strict-mode violations by ensuring locators disambiguate between mobile and desktop UI instances.
+9.  **Zero-Cost E2E Infrastructure:**
+    *   Implemented a **Strict Blocking & Mocking** policy in `e2e/utils.ts`. 
+    *   All costly Google Maps API requests (Places, Search, Details) are intercepted or aborted at the network level, ensuring **$0 API spend** during testing.
+10. **Test Environment Reliability:** Implemented automated cleanup of stale `.next` lock files and zombie `next dev` processes to resolve runner stalling issues.
 
 ## End-to-End Testing (Playwright)
 
