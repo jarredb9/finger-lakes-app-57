@@ -23,8 +23,8 @@ export interface TestUser {
  * This prevents real API calls to Google, saving costs and making tests deterministic.
  */
 export async function mockGoogleMapsApi(page: Page) {
-  // Intercept the Places API text search
-  await page.route('https://maps.googleapis.com/maps/api/place/js/PlaceService.SearchByText', (route) => {
+  // Intercept the Places API text search - use glob to be more flexible with query params
+  await page.route('**/PlaceService.SearchByText*', (route) => {
     console.log('✅ Mocking Google Places API: SearchByText');
     const jsonResponse = { places: mockPlaces };
     return route.fulfill({
@@ -34,8 +34,8 @@ export async function mockGoogleMapsApi(page: Page) {
     });
   });
 
-  // Mock geocoding as well to prevent calls when searching by location text
-  await page.route('https://maps.googleapis.com/maps/api/geocode/json**', (route) => {
+  // Mock geocoding as well
+  await page.route('**/maps/api/geocode/json*', (route) => {
     console.log('✅ Mocking Google Geocoding API');
     const mockGeocodeResponse = {
       results: [

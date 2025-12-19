@@ -97,6 +97,7 @@ export function useWinerySearch() {
             }
       
                   const searchTerm = "winery OR vineyard OR \"wine tasting\"";
+                  const allFoundPlaces = new Map<string, google.maps.places.Place>();
                   let hitApiLimit = false;
             
                   const request = {
@@ -127,22 +128,23 @@ export function useWinerySearch() {
                     console.error(`Google Places search error for term "${searchTerm}":`, error);
                   }
       
-            const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place) => ({        id: place.id! as GooglePlaceId,
-        name: place.displayName!,
-        address: place.formattedAddress!,
-        lat: place.location!.lat(),
-        lng: place.location!.lng(),
-        rating: place.rating ?? undefined,
-        // Expensive fields removed from initial search to save costs. 
-        // These will be fetched on demand by 'ensureWineryDetails' when a user interacts.
-        website: undefined,
-        phone: undefined,
-        reviews: undefined,
-      }));
+            const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place: google.maps.places.Place) => ({
+                id: place.id! as GooglePlaceId,
+                name: place.displayName!,
+                address: place.formattedAddress!,
+                lat: place.location!.lat(),
+                lng: place.location!.lng(),
+                rating: place.rating ?? undefined,
+                // Expensive fields removed from initial search to save costs. 
+                // These will be fetched on demand by 'ensureWineryDetails' when a user interacts.
+                website: undefined,
+                phone: undefined,
+                reviews: undefined,
+            }));
 
-      setSearchResults(wineries);
-      setIsSearching(false);
-      setHitApiLimit(hitApiLimit);
+            setSearchResults(wineries);
+            setIsSearching(false);
+            setHitApiLimit(hitApiLimit);
     },
     [map, places, geocoder, toast, setIsSearching, setSearchResults, setHitApiLimit]
   );

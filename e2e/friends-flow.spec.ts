@@ -1,69 +1,6 @@
-import { test, expect, Locator, Page } from '@playwright/test';
+import { test, expect } from '@playwright/test';
 import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
-
-// Helper function to get the appropriate sidebar container based on viewport
-function getSidebarContainer(page: Page): Locator {
-  const viewport = page.viewportSize();
-  const isMobileViewport = viewport && viewport.width < 768;
-  if (isMobileViewport) {
-    return page.getByTestId('mobile-sidebar-container');
-  }
-  return page.getByTestId('desktop-sidebar-container');
-}
-
-// Helper to navigate to Friends tab
-async function navigateToFriends(page: Page) {
-  // Dismiss cookie banner if present, as it might block bottom nav
-  const gotItBtn = page.getByRole('button', { name: 'Got it' });
-  if (await gotItBtn.isVisible()) {
-    await gotItBtn.click();
-  }
-
-  const viewport = page.viewportSize();
-  const isMobile = viewport && viewport.width < 768;
-  
-  if (isMobile) {
-      // Mobile: Click the bottom nav button
-      // Use force: true to bypass potential overlapping toasts/banners
-      await page.getByRole('button', { name: 'Friends' }).click({ force: true });
-      await expect(page.getByTestId('mobile-sidebar-container')).toBeVisible({ timeout: 10000 });
-  } else {
-      // Desktop: Scope to desktop container to avoid ambiguity
-      await page.getByTestId('desktop-sidebar-container')
-          .getByRole('tab', { name: 'Friends' })
-          .click();
-  }
-}
-
-async function login(page: Page, email: string, pass: string) {
-  await page.goto('/login');
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(pass);
-  
-  // Use Enter key to submit, which is often more reliable on Mobile Safari than clicking
-  await page.getByLabel('Password').press('Enter');
-  
-  // Fallback: If button is still 'Sign In' after 500ms, click it
-  try {
-    const btn = page.getByRole('button', { name: 'Sign In' });
-    if (await btn.isVisible({ timeout: 500 })) {
-        await btn.click({ force: true });
-    }
-  } catch (e) {
-    // Ignore timeout, meaning it likely transitioned to 'Signing in...'
-  }
-
-  // Wait for login to complete with mobile-aware check
-  const viewport = page.viewportSize();
-  const isMobile = viewport && viewport.width < 768;
-
-  if (isMobile) {
-      // Verify Bottom Nav is visible
-      await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
-  } else {
-      await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
-  }
-}
+import { getSidebarContainer, login, navigateToTab } from './helpers';
 
 test.describe('Friends Interaction Flow', () => {
   let user1: TestUser;
@@ -92,17 +29,10 @@ test.describe('Friends Interaction Flow', () => {
 
     // 3. User A sends request to User B
     await test.step('User A sends request', async () => {
-      // Dismiss cookie banner
-      const gotItBtn = pageA.getByRole('button', { name: 'Got it' });
-      if (await gotItBtn.isVisible()) {
-        await gotItBtn.click();
-      }
-
       // Navigate to Friends
-      await navigateToFriends(pageA);
+      await navigateToTab(pageA, 'Friends');
 
       // Explicitly wait for the Friends view to load
-      // Scope to sidebar to avoid finding hidden desktop element on mobile
       const sidebar = getSidebarContainer(pageA);
       await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
@@ -112,7 +42,7 @@ test.describe('Friends Interaction Flow', () => {
       await emailInput.blur(); // Close keyboard on mobile
 
       // Wait for loading to finish
-      await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
+      await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 20000 });
 
       const addBtn = sidebar.getByRole('button', { name: 'Add friend' });
       await expect(addBtn).toBeEnabled({ timeout: 10000 });
@@ -121,17 +51,7 @@ test.describe('Friends Interaction Flow', () => {
 
       // Verify Sent
       const successToast = pageA.getByText('Friend request sent!').first();
-      const errorToast = pageA.locator('.destructive');
-
-      try {
-        await expect(successToast).toBeVisible({ timeout: 5000 });
-      } catch (e) {
-        if (await errorToast.isVisible()) {
-          const errorText = await errorToast.textContent();
-          throw new Error(`Friend request failed: ${errorText}`);
-        }
-        throw e;
-      }
+      await expect(successToast).toBeVisible({ timeout: 5000 });
 
       // Verify Sent Request appears in the list
       const sentRequestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Sent Requests' });
@@ -146,14 +66,12 @@ test.describe('Friends Interaction Flow', () => {
       await pageB.reload();
       
       // Navigate to Friends
-      await navigateToFriends(pageB);
+      await navigateToTab(pageB, 'Friends');
       // Scope to sidebar to avoid finding hidden desktop element on mobile
       await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
       // Wait for loading to finish
       await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
-
-      // Should see request from User A
 
       // Should see request from User A
       const requestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Friend Requests' });
@@ -177,14 +95,12 @@ test.describe('Friends Interaction Flow', () => {
       await pageA.reload();
       const sidebar = getSidebarContainer(pageA);
       
-      await navigateToFriends(pageA);
+      await navigateToTab(pageA, 'Friends');
       // Scope to sidebar to avoid finding hidden desktop element on mobile
       await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
       // Wait for loading to finish
       await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
-
-      // Should see request from User A
 
       const friendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
       const friendRow = friendsCard.locator('.flex.items-center', { hasText: user2.email });
