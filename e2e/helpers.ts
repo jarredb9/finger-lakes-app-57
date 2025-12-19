@@ -18,6 +18,18 @@ export function getSidebarContainer(page: Page): Locator {
 // --- Common Actions ---
 
 export async function login(page: Page, email: string, pass: string) {
+  // Capture all console messages
+  page.on('console', msg => {
+    if (msg.type() === 'error' || msg.type() === 'warning') {
+      console.log(`[Browser ${msg.type()}] ${msg.text()}`);
+    }
+  });
+
+  // Capture page errors
+  page.on('pageerror', (err) => {
+    console.error(`[Page Error] ${err.message}`);
+  });
+
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(pass);
@@ -39,13 +51,24 @@ export async function login(page: Page, email: string, pass: string) {
   const viewport = page.viewportSize();
   const isMobile = viewport && viewport.width < 768;
 
-  if (isMobile) {
-      await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
-  } else {
-      // Use .first() to resolve strict mode violation between mobile/desktop headings
-      // Also confirm it's visible in the desktop container specifically
-      const sidebar = page.getByTestId('desktop-sidebar-container');
-      await expect(sidebar.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
+  try {
+      // 1. Wait for AuthProvider loading screen to disappear
+      await expect(page.getByText('Loading...')).not.toBeVisible({ timeout: 15000 });
+      
+      // 2. Wait for the main UI element
+      if (isMobile) {
+          await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
+      } else {
+          // Use a broader selector for the branding header
+          await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
+      }
+  } catch (error) {
+      console.error(`Login failed for ${email}. Current URL: ${page.url()}`);
+      // Log some page content to see what's actually rendered
+      const bodyText = await page.evaluate(() => document.body.innerText.slice(0, 500));
+      console.log(`Page body snippet: ${bodyText}`);
+      await page.screenshot({ path: `test-results/login-failed-${Date.now()}.png` });
+      throw error;
   }
 }
 

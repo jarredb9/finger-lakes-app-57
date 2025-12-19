@@ -31,7 +31,7 @@ BEGIN
             v.winery_id,
             w.name as winery_name,
             w.address as winery_address,
-            w.google_place_id,
+            w.google_place_id::character varying(255),
             v.user_id
         FROM visits v
         JOIN wineries w ON v.winery_id = w.id

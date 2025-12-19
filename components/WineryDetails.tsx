@@ -29,7 +29,7 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
   };
 
   return (
-    <DialogDescription className="space-y-2 pt-2 !mt-2">
+    <div className="text-sm text-muted-foreground space-y-2 pt-2 !mt-2">
       <div className="flex items-start space-x-2">
         <MapPin className="w-4 h-4 mt-1 shrink-0" />
         <span>{winery.address}</span>
@@ -90,6 +90,6 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
           <WineryQnA winery={winery} />
         </>
       )}
-    </DialogDescription>
+    </div>
   );
 }

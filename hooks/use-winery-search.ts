@@ -135,19 +135,29 @@ export function useWinerySearch() {
                     })
                   );
       
-            const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place: google.maps.places.Place) => ({
-                id: place.id! as GooglePlaceId,
-                name: place.displayName || '',
-                address: place.formattedAddress || '',
-                lat: place.location?.lat() || 0,
-                lng: place.location?.lng() || 0,
-                rating: place.rating ?? undefined,
-                // Expensive fields removed from initial search to save costs. 
-                // These will be fetched on demand by 'ensureWineryDetails' when a user interacts.
-                website: undefined,
-                phone: undefined,
-                reviews: undefined,
-            }));
+            const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place: google.maps.places.Place) => {
+                const lat = typeof place.location?.lat === 'function' 
+                    ? place.location.lat() 
+                    : (place.location as any)?.latitude || 0;
+                const lng = typeof place.location?.lng === 'function' 
+                    ? place.location.lng() 
+                    : (place.location as any)?.longitude || 0;
+                const name = typeof place.displayName === 'string' 
+                    ? place.displayName 
+                    : (place.displayName as any)?.text || '';
+
+                return {
+                    id: place.id! as GooglePlaceId,
+                    name,
+                    address: place.formattedAddress || '',
+                    lat,
+                    lng,
+                    rating: place.rating ?? undefined,
+                    website: undefined,
+                    phone: undefined,
+                    reviews: undefined,
+                };
+            });
 
             setSearchResults(wineries);
             setIsSearching(false);

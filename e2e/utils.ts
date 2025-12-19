@@ -46,44 +46,64 @@ export async function mockGoogleMapsApi(page: Page) {
     });
   });
 
-  // 2. Surgical blocking of Google Data APIs
+  // 2. Mock the Supabase RPC for map markers
+  // We use a broad regex to ensure we catch the RPC call regardless of the full URL
+  await page.route(/\/rpc\/get_map_markers/, (route) => {
+    console.log(`[MOCK] Intercepted get_map_markers: ${route.request().url()}`);
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(mockPlaces.map((p, index) => ({
+        id: index + 1,
+        google_place_id: p.id,
+        name: p.displayName, // Corrected mapping
+        address: p.formattedAddress,
+        lat: p.location.latitude,
+        lng: p.location.longitude,
+        is_favorite: false,
+        on_wishlist: false,
+        user_visited: false
+      }))),
+    });
+  });
+
+  // 3. Surgical blocking of Google Data APIs
   await page.route(/(google|googleapis|places)/, async (route) => {
     const url = route.request().url();
     const type = route.request().resourceType();
 
-    // ALLOW: Library scripts, fonts, and CSS (These are free and required for initialization)
-    if (type === 'script' || type === 'font' || type === 'stylesheet') {
+    // ALLOW: Library scripts, fonts, and CSS
+    if (type === 'script' || type === 'font' || type === 'stylesheet' || url.includes('js?key=')) {
       return route.continue();
     }
 
-    // BLOCK & MOCK: Places Search calls
-    if (url.includes('searchByText') || url.includes('SearchByText')) {
+    // BLOCK & MOCK: Map Tiles (Transparent PNG)
+    if (url.includes('vt/lyrs') || url.includes('khms') || url.includes('StaticMapService')) {
       return route.fulfill({
         status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ places: mockPlaces }),
+        contentType: 'image/png',
+        body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64'),
       });
     }
 
-    // BLOCK & MOCK: Geocoding
-    if (url.includes('geocode')) {
-      return route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({
-          results: [{ 
-            geometry: { 
-                location: { lat: 42.7, lng: -76.9 },
-                viewport: { south: 42.5, west: -77.0, north: 42.9, east: -76.8 } 
-            } 
-          }],
-          status: 'OK',
-        }),
-      });
+    // BLOCK & MOCK: Places Search (For any network level calls)
+    if (url.includes('searchByText') || url.includes('SearchByText') || url.includes('places:search')) {
+        return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify({ 
+                places: mockPlaces.map(p => ({
+                    id: p.id,
+                    displayName: { text: p.displayName },
+                    formattedAddress: p.formattedAddress,
+                    location: { latitude: p.location.latitude, longitude: p.location.longitude },
+                    rating: p.rating
+                })) 
+            }),
+        });
     }
 
-    // BLOCK: Everything else (Tiles, Logging, Details, Telemetry)
-    // This ensures no real data is fetched and no cost is incurred.
+    // BLOCK everything else
     return route.abort('failed');
   });
 }

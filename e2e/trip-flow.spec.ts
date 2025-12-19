@@ -28,6 +28,11 @@ test.describe('Trip Planning Flow', () => {
     const sidebarContainer = getSidebarContainer(page);
     await navigateToTab(page, 'Explore');
 
+    // Trigger manual search to ensure mock wineries appear in sidebar
+    const searchBtn = sidebarContainer.getByRole('button', { name: 'Search This Area' });
+    await expect(searchBtn).toBeVisible();
+    await searchBtn.click();
+
     await expect(sidebarContainer.getByText('Wineries in View')).toBeVisible({ timeout: 15000 });
     
     // Wait for results - pick the first one regardless of name

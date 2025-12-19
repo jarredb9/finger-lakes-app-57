@@ -24,8 +24,15 @@ test.describe('Visit Logging Flow', () => {
     // 1. Open Explore (default)
     await navigateToTab(page, 'Explore');
     
-    // The list should load our MOCK data because the mock script 'importLibrary'
-    // ALWAYS returns our mock wineries and ALWAYS says they are within bounds.
+    // Give hydration and initial RPCs a moment
+    await page.waitForTimeout(2000);
+
+    // If the map idle event didn't fire (common when tiles are blocked), trigger search manually
+    const searchBtn = sidebar.getByRole('button', { name: 'Search This Area' });
+    await expect(searchBtn).toBeVisible();
+    await searchBtn.click();
+
+    // The list should load our MOCK data
     await expect(sidebar.getByText('Wineries in View')).toBeVisible({ timeout: 15000 });
     
     // Verify the mock winery is present
