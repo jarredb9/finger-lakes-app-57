@@ -47,7 +47,7 @@ export default function WineryModal() {
   const prevVisitsLength = useRef(visits.length);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    // Reset edit state only when modal opens or winery changes
     setEditingVisitId(null);
     setPhotosToDelete([]);
     
@@ -61,7 +61,16 @@ export default function WineryModal() {
         scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
       });
     }
-  }, [isWineryModalOpen, activeWineryId, isLoading, visits.length]);
+  }, [isWineryModalOpen, activeWineryId]); // Removed isLoading and visits.length from here
+
+  useEffect(() => {
+    // Reset scroll to top if loading finishes after the modal is already open
+    if (isWineryModalOpen && !isLoading) {
+      requestAnimationFrame(() => {
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+      });
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     // Only scroll to history if the modal is already open and NOT in a loading state
@@ -111,7 +120,7 @@ export default function WineryModal() {
     visitHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const editingVisit = editingVisitId ? visits.find((v) => v.id === editingVisitId) : null;
+  const editingVisit = editingVisitId ? visits.find((v) => String(v.id) === editingVisitId) : null;
 
   const handleTripBadgeClick = async (tripId: number) => {
     closeWineryModal(); // Close the winery modal first
