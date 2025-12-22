@@ -65,11 +65,8 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
   const watchedDate = form.watch("date");
   const selectedWineries = form.watch("wineries") as Winery[];
 
-  useEffect(() => {
-    if (watchedDate) {
-      fetchTripsForDate(watchedDate.toISOString().split('T')[0]);
-    }
-  }, [watchedDate, fetchTripsForDate]);
+  // Removed conflicting useEffect that updated global tripsForDate state
+
 
   useEffect(() => {
     if (!winerySearch.trim() || !places) {

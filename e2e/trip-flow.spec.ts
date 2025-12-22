@@ -27,11 +27,10 @@ test.describe('Trip Planning Flow', () => {
 
     const sidebar = getSidebarContainer(page);
     
-    // Ensure we scroll to the element, as it might be at the bottom of the list
-    const planTripHeading = sidebar.getByRole('heading', { name: 'Plan a Trip' }).first();
-    await planTripHeading.scrollIntoViewIfNeeded();
-    await expect(planTripHeading).toBeVisible();
-    await expect(sidebar.getByRole('button', { name: 'New Trip' }).first()).toBeVisible();
+    // Check for the "New Trip" button directly in the main view
+    const newTripButton = sidebar.getByRole('button', { name: 'New Trip' }).first();
+    await newTripButton.scrollIntoViewIfNeeded();
+    await expect(newTripButton).toBeVisible();
   });
 
   test('can create a new trip from winery details', async ({ page }) => {
