@@ -16,6 +16,7 @@ export default function TripDetailClientPage({ tripId }: { tripId: string }) {
     // Clear selected trip on mount so it doesn't persist as "active" on the map
     setSelectedTrip(null);
     fetchTripById(tripId);
+    return () => setSelectedTrip(null);
   }, [fetchTripById, setSelectedTrip, tripId]);
 
   if (isLoading || !trip) {

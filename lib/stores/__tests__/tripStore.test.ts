@@ -75,7 +75,7 @@ describe('tripStore', () => {
       });
 
       const state = useTripStore.getState();
-      expect(state.tripsForDate).toContainEqual(createdTrip);
+      expect(state.trips).toContainEqual(createdTrip);
     });
   });
 
