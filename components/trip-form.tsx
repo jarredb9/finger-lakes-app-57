@@ -42,7 +42,7 @@ type TripFormValues = z.infer<typeof tripSchema>
 
 export default function TripForm({ initialDate, user }: TripFormProps) {
   const { toast } = useToast();
-  const { fetchTripsForDate, createTrip } = useTripStore();
+  const { createTrip } = useTripStore();
   const { ensureInDb, upsertWinery } = useWineryDataStore();
   
   // Local state for search (not part of the form schema directly)
@@ -62,7 +62,6 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
     },
   })
 
-  const watchedDate = form.watch("date");
   const selectedWineries = form.watch("wineries") as Winery[];
 
   // Removed conflicting useEffect that updated global tripsForDate state

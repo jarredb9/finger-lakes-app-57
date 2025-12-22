@@ -12,8 +12,6 @@ import TripList from "@/components/trip-list";
 // Import VisitHistoryModal and List icon
 import { VisitHistoryModal } from "@/components/visit-history-modal";
 import { List } from "lucide-react";
-
-import TripPlanner from "@/components/trip-planner";
 import GlobalVisitHistory from "@/components/global-visit-history"; // Import GlobalVisitHistory
 import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon, FileText, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -63,20 +61,7 @@ export function AppSidebar({
   // Memoize expensive tab contents
   const tripsContent = useMemo(() => (
     <div className="p-4 space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Happening Today</h3>
-        <TripPlanner initialDate={new Date()} user={user} hideCalendar={true} />
-      </div>
-      <Separator />
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Your Upcoming Trips</h3>
-        <TripList />
-      </div>
-      <Separator />
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Plan a Trip</h3>
-        <TripPlanner initialDate={new Date()} user={user} hideTrips={true} />
-      </div>
+      <TripList user={user} />
     </div>
   ), [user]);
 
