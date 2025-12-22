@@ -149,6 +149,7 @@ export interface Trip {
     name?: string;
     members?: string[];
     wineries: Winery[];
+    wineries_count?: number;
     
     // UI-specific fields for form handling
     wineryOrder?: WineryDbId[]; // Use new distinct type

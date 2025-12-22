@@ -133,7 +133,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
             <CardContent>
                 <div className="flex justify-between items-center">
                     <Button onClick={() => handleViewTrip(trip.id)}>View Details <ArrowRight className="ml-2 h-4 w-4" /></Button>
-                    <Badge variant="secondary"><Wine className="w-3 h-3 mr-1" /> {trip.wineries?.length || 0} Wineries</Badge>
+                    <Badge variant="secondary"><Wine className="w-3 h-3 mr-1" /> {trip.wineries_count ?? trip.wineries?.length ?? 0} Wineries</Badge>
                 </div>
             </CardContent>
         </Card>
