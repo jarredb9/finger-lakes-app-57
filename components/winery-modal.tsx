@@ -50,38 +50,40 @@ export default function WineryModal() {
     // Reset edit state only when modal opens or winery changes
     setEditingVisitId(null);
     setPhotosToDelete([]);
-    
-    // Reset visits length tracker to current length during hydration/winery switch.
-    // This prevents the 'scroll to history' effect from triggering when the modal opens.
-    prevVisitsLength.current = visits.length;
+  }, [isWineryModalOpen, activeWineryId]);
 
-    // Reset scroll to top when modal opens or when it finishes loading
+  useEffect(() => {
+    // Sync visits length tracker while loading or when modal opens
+    // This prevents hydration from being seen as a "new visit" jump
+    if (isLoading || !isWineryModalOpen) {
+      prevVisitsLength.current = visits.length;
+    }
+
+    // Reset scroll to top when modal is open and data has finished loading
     if (isWineryModalOpen && !isLoading) {
       requestAnimationFrame(() => {
         scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
       });
     }
-  }, [isWineryModalOpen, activeWineryId]); // Removed isLoading and visits.length from here
+  }, [isWineryModalOpen, activeWineryId, isLoading]);
 
   useEffect(() => {
-    // Reset scroll to top if loading finishes after the modal is already open
-    if (isWineryModalOpen && !isLoading) {
-      requestAnimationFrame(() => {
-        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
-      });
-    }
-  }, [isLoading]);
-
-  useEffect(() => {
-    // Only scroll to history if the modal is already open and NOT in a loading state
-    // when the visits length increases. This prevents hydration from triggering the scroll.
+    // Only scroll to history if:
+    // 1. Modal is already open
+    // 2. We are NOT currently loading (prevents hydration scroll)
+    // 3. The visits count increased (indicates a new visit added)
     if (isWineryModalOpen && !isLoading && visits.length > prevVisitsLength.current) {
       // Small delay to ensure the new visit card is rendered
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         visitHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 100);
+      
+      prevVisitsLength.current = visits.length;
+      return () => clearTimeout(timer);
     }
+    
     prevVisitsLength.current = visits.length;
+    return undefined;
   }, [visits.length, isWineryModalOpen, isLoading]);
 
   if (!isWineryModalOpen) {
