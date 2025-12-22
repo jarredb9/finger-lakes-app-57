@@ -18,9 +18,9 @@ export function WineryMapProvider({
   const wineryMapData = useWineryMap(user.id);
 
   return (
-    <WineryMapContext.Provider value={wineryMapData}>
+    <WineryMapContext value={wineryMapData}>
       {children}
-    </WineryMapContext.Provider>
+    </WineryMapContext>
   );
 }
 
