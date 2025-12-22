@@ -170,6 +170,9 @@ export default function WineryModal() {
                         </div>
                         <WineryActions winery={activeWinery} />
                     </div>
+                    <DialogDescription className="sr-only">
+                        Detailed information about {activeWinery.name}, including address, rating, hours, and visit history.
+                    </DialogDescription>
                     <WineryDetails winery={activeWinery} />
                 </DialogHeader>
                 <Separator className="my-4" />

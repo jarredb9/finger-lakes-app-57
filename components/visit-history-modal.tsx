@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
 import { DataTable } from "@/components/ui/data-table"
 import { columns } from "@/components/visits-table-columns"
 import { Visit, GooglePlaceId, WineryDbId } from "@/lib/types" // Import new types
@@ -9,7 +9,7 @@ import { useUIStore } from "@/lib/stores/uiStore"
 import { useWineryStore } from "@/lib/stores/wineryStore"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Star, Calendar, Search, ArrowUp, ArrowDown, Loader2 } from "lucide-react"
+import { Star, Calendar, Search, ArrowUp, ArrowDown, X, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Select,
@@ -170,6 +170,12 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
               A complete log of all your winery visits.
             </DialogDescription>
           </DialogHeader>
+          <DialogClose asChild>
+            <Button variant="ghost" size="icon" className="-mt-2 -mr-2" onClick={() => setVisitHistoryModalOpen(false)}>
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+            </Button>
+          </DialogClose>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
