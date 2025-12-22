@@ -107,11 +107,16 @@ export const standardizeWineryData = (
   if (!isGoogleWinery(source) && !isMapMarkerRpc(source) && !isWineryDetailsRpc(source) && typeof (source as DbWinery).id === 'number') {
       resolvedDbId = (source as DbWinery).id;
   } else if (isMapMarkerRpc(source)) {
-      resolvedDbId = Number(source.id);
+      resolvedDbId = typeof source.id === 'number' ? source.id : (source.id ? Number(source.id) : undefined);
   } else if (isWineryDetailsRpc(source)) {
-      resolvedDbId = Number(source.id);
+      resolvedDbId = typeof source.id === 'number' ? source.id : (source.id ? Number(source.id) : undefined);
   } else {
       resolvedDbId = typeof existing?.dbId === 'number' ? existing.dbId : undefined;
+  }
+
+  // Final fallback to avoid NaN
+  if (resolvedDbId !== undefined && isNaN(resolvedDbId)) {
+      resolvedDbId = undefined;
   }
 
   const dbId = resolvedDbId as WineryDbId | undefined;

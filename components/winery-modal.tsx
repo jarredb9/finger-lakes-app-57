@@ -174,7 +174,7 @@ export default function WineryModal() {
                 </DialogHeader>
                 <Separator className="my-4" />
 
-                {activeWinery.dbId && <FriendActivity wineryDbId={activeWinery.dbId} />}
+                {!!activeWinery.dbId && <FriendActivity wineryDbId={activeWinery.dbId} />}
                 {friendsRatings.length > 0 && <FriendRatings />}
 
                 <TripPlannerSection winery={activeWinery} onClose={closeWineryModal} />
