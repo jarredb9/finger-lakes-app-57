@@ -48,8 +48,8 @@ export default function TripList({ user }: { user: AuthenticatedUser }) {
     }
 
     return (
-        <div className="space-y-8">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div className="space-y-8 pb-4">
+            <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h2 className="text-2xl font-bold">{tripType === 'upcoming' ? 'My Trips' : 'Past Trips'}</h2>
                     {tripType === 'upcoming' && (
@@ -66,9 +66,6 @@ export default function TripList({ user }: { user: AuthenticatedUser }) {
                         </Dialog>
                     )}
                 </div>
-                <Button variant="outline" onClick={() => setTripType(tripType === 'upcoming' ? 'past' : 'upcoming')}>
-                    View {tripType === 'upcoming' ? 'Past' : 'Upcoming'} Trips
-                </Button>
             </div>
 
             {tripType === 'upcoming' && todaysTrips.length > 0 && (
@@ -109,6 +106,14 @@ export default function TripList({ user }: { user: AuthenticatedUser }) {
                     </PaginationContent>
                 </Pagination>
             )}
+
+            <Button 
+                variant="outline" 
+                className="w-full mt-4" 
+                onClick={() => setTripType(tripType === 'upcoming' ? 'past' : 'upcoming')}
+            >
+                View {tripType === 'upcoming' ? 'Past' : 'Upcoming'} Trips
+            </Button>
         </div>
     );
 }
