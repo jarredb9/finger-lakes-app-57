@@ -66,7 +66,7 @@ This is a Next.js web application for planning and tracking visits to wineries. 
     *   **`wineryStore`:** (UI Store) Manages UI state (modal open/close, loading), filtering, and delegates data operations to `wineryDataStore`.
     *   **`wineryDataStore`:** (Data Store) Manages the global cache of `Winery` objects, handles hydration, CRUD operations, and syncs with Supabase.
     *   **`tripStore`:** Manages trip creation, updates, and the "Active Trip" state (`selectedTrip`) for the map overlay.
-    *   **`visitStore`:** Manages logging and updating user visits.
+    *   **`visitStore`:** Manages the global `visits` list, handles creation/editing/deletion with optimistic updates across all history views.
     *   **`friendStore`:** Manages friend list, requests, and activity.
 *   **Service Layer (`lib/services/`):** Static classes that encapsulate API calls. Stores call Services; Components call Stores.
 
@@ -95,16 +95,23 @@ To prevent "Dual-ID" confusion, we use branded types in `lib/types.ts`:
 We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 *   **Pattern:** Update Zustand store immediately -> Call API/RPC -> Revert store on error -> (Optional) Refetch/Confirm on success.
 *   **Key Implementations:**
-    *   **`visitStore`:** Creates temp ID, adds via `wineryDataStore`, replaces with real ID after RPC.
-    *   **`tripStore`:** Optimistically appends wineries to trips before RPC.
+    *   **`visitStore`:** Manages a global `visits` list. Optimistically adds/removes visits from both the global list and the specific winery in `wineryDataStore`.
+    *   **`tripStore`:** Optimistically appends wineries to trips and updates both 'Upcoming' and 'Date-specific' lists.
 
 ### 5. Navigation & Map Context Logic
 *   **Active Trip (`selectedTrip`):**
     *   **Activation:** Occurs when a user selects a trip from the dropdown on the Map controls OR clicks the "On Trip" badge in a `WineryModal`.
     *   **Persistence:** This state is global (Zustand) and persists across client-side navigation.
-    *   **Reset Rule:** To prevent the map from getting "stuck" on a trip, navigating to a **Trip Details Page** (`/trips/[id]`) **MUST** explicitly clear the active trip (`setSelectedTrip(null)`) on mount.
+    *   **Reset Rule:** To prevent the map from getting "stuck" on a trip, navigating to or away from a **Trip Details Page** (`/trips/[id]`) **MUST** explicitly clear the active trip (`setSelectedTrip(null)`).
 
-### 6. Friend Request Notifications
+### 6. Trips Tab Architecture
+The Trips tab is consolidated into a single view managed by `TripList`.
+*   **Happening Today:** Priority section for trips occurring on the current date.
+*   **Upcoming:** Chronological list of future trips.
+*   **Past:** Toggleable view for historical data.
+*   **New Trip:** Integrated modal trigger in the header.
+
+### 7. Friend Request Notifications
 *   **Immediate Fetch:** Friend data, including pending requests, is fetched immediately upon user authentication to ensure notification badges are up-to-date.
 *   **Notification Badges:** Visual indicators (red circles with counts) are displayed on the "Friends" tab.
 
@@ -112,7 +119,7 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 
 ### UI Architecture (Layout)
 *   **Responsive Controller:** `AppShell` (`components/app-shell.tsx`) is the central orchestrator. It manages the state for switching between the **Desktop Sidebar** (`AppSidebar`) and the **Mobile Bottom Drawer** (`InteractiveBottomSheet`).
-*   **Modals:** `WineryModal` is rendered at the root level in `AppShell` but controlled via `uiStore`.
+*   **Modals:** `WineryModal` and `VisitHistoryModal` are rendered at the root level in `AppShell` to prevent duplicate mounting and ARIA conflicts.
 
 ### Key Database RPCs (Power Tools)
 *   **Data Fetching:**
@@ -186,6 +193,21 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 *   **The Trap:** In Playwright mobile emulation (especially with touch enabled), a simple `page.click()` or `element.evaluate(el => el.click())` may fail to trigger the state change because it lacks the full event sequence Radix expects.
 *   **The Fix:** Manually dispatch the full pointer event sequence using `element.dispatchEvent` in an `evaluate` block. See `e2e/helpers.ts` -> `navigateToTab` for the implementation.
 
+### 7. Temporary IDs and Interaction Guards
+*   **Concept:** Newly created trips use negative temporary IDs until saved to Supabase.
+*   **The Trap:** Attempting to add wineries or modify members of a trip with a negative ID will fail at the database level.
+*   **The Fix:** Components (like `TripCard`) must disable modification buttons (Edit, Add Member) when `trip.id < 0`.
+
+### 8. Modal Scrolling Race Conditions
+*   **Concept:** Hydrating visits after a modal opens can trigger "scroll to history" effects.
+*   **The Trap:** Modals may jump to the middle or bottom during initial load.
+*   **The Fix:** Use a `hasHydrated` ref to distinguish between initial data load and manual visit additions. Consolidate scroll resets into effects that fire only when `isLoading` is false.
+
+### 9. ARIA Hidden Conflicts (Nesting)
+*   **Concept:** Radix `Dialog` applies `aria-hidden` to siblings to enforce modality.
+*   **The Trap:** Rendering multiple dialogs or nesting them inside components that are duplicated (like a mobile/desktop sidebar) causes "Blocked aria-hidden" warnings and focus loss.
+*   **The Fix:** Render global modals (`WineryModal`, `VisitHistoryModal`) exactly once at the app root (`AppShell`). Decouple modal transitions with small `setTimeout` delays to allow one to start closing before the next opens.
+
 ## Future Implementations
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
 
@@ -211,7 +233,13 @@ We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 11. **Hydration Error Fix:** Resolved a React hydration error in `WineryDetails.tsx` by replacing an invalid nested `DialogDescription` (rendered as `p`) with a standard `div`.
 12. **Mobile Test Fixes:** Resolved `visit-flow` failures on mobile by implementing robust pointer event dispatching for Radix UI `TabsTrigger` in `e2e/helpers.ts`.
 13. **Supabase Native Refactor (Visits):** Refactored `visitStore` and `VisitHistoryView` to use the Supabase SDK directly, eliminating dependency on `app/api/visits`.
-14. **Dead Code Removal:** Deleted obsolete `app/api/visits` directory and unused handlers in `app/api/friends`.
+14. Dead Code Removal:** Deleted obsolete `app/api/visits` directory and unused handlers in `app/api/friends`.
+15. **v2.2.2 UX & Data Overhaul:**
+    *   **Centralized Visit Management:** Unified visit state in a global store with cross-component optimistic updates.
+    *   **Trips UI Refactor:** Consolidated trip views, removed legacy calendar, and implemented a mobile-optimized chronological layout.
+    *   **Modal Stability:** Resolved race conditions in modal scrolling and ARIA hidden conflicts by moving modals to the app root and implementing hydration guards.
+    *   **Type Safety:** Implemented `VisitWithWinery` type and resolved ID type mismatches in store mutations.
+    *   **Hydration Fixes:** Ensured winery details are always fetched when opening modals from history or table views.
 
 ## End-to-End Testing (Playwright)
 
