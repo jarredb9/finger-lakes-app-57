@@ -1,20 +1,79 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { shallow } from 'zustand/shallow';
-import { Winery, Visit } from '@/lib/types';
+import { Winery, Visit, VisitWithWinery, GooglePlaceId, WineryDbId } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { useWineryStore } from './wineryStore';
 
 interface VisitState {
+  visits: VisitWithWinery[];
+  isLoading: boolean;
   isSavingVisit: boolean;
   lastMutation: number;
+  page: number;
+  totalPages: number;
+  hasMore: boolean;
+  fetchVisits: (page?: number, refresh?: boolean) => Promise<void>;
   saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[] }) => Promise<void>;
   updateVisit: (visitId: string, visitData: Partial<Visit>, newPhotos: File[], photosToDelete: string[]) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
 }
 
-export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
+const VISITS_PER_PAGE = 10;
+
+export const useVisitStore = createWithEqualityFn<VisitState>((set, get) => ({
+  visits: [],
+  isLoading: false,
   isSavingVisit: false,
   lastMutation: 0,
+  page: 1,
+  totalPages: 1,
+  hasMore: false,
+
+  fetchVisits: async (pageNumber = 1, refresh = false) => {
+    set({ isLoading: true });
+    const supabase = createClient();
+    try {
+      const { data, error, count } = await supabase.rpc('get_paginated_visits_with_winery_and_friends', {
+        page_number: pageNumber,
+        page_size: VISITS_PER_PAGE
+      });
+
+      if (error) throw error;
+
+      const fetchedVisits: VisitWithWinery[] = (data || []).map((v: any) => ({
+        id: v.visit_id,
+        user_id: v.user_id,
+        visit_date: v.visit_date,
+        user_review: v.user_review,
+        rating: v.rating,
+        photos: v.photos,
+        winery_id: v.winery_id as WineryDbId,
+        wineryName: v.winery_name,
+        wineryId: v.google_place_id as GooglePlaceId,
+        friend_visits: v.friend_visits,
+        wineries: {
+          id: v.winery_id as WineryDbId,
+          google_place_id: v.google_place_id as GooglePlaceId,
+          name: v.winery_name,
+          address: v.winery_address,
+          latitude: '0',
+          longitude: '0',
+        }
+      }));
+
+      set(state => ({
+        visits: refresh || pageNumber === 1 ? fetchedVisits : [...state.visits, ...fetchedVisits],
+        page: pageNumber,
+        totalPages: Math.ceil((count || 0) / VISITS_PER_PAGE),
+        hasMore: fetchedVisits.length === VISITS_PER_PAGE,
+        isLoading: false
+      }));
+
+    } catch (error) {
+      console.error("Failed to fetch visits:", error);
+      set({ isLoading: false });
+    }
+  },
 
   saveVisit: async (winery, visitData) => {
     set({ isSavingVisit: true });
@@ -23,24 +82,33 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
 
     // Create temporary ID and Visit object
     const tempId = `temp-${Date.now()}`;
-    // Assuming user is available for the optimistic object (will be validated later)
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated.");
 
-    const tempVisit: Visit = {
+    const tempVisit: VisitWithWinery = {
         id: tempId,
         user_id: user.id,
         visit_date: visitData.visit_date,
         rating: visitData.rating,
         user_review: visitData.user_review,
-        photos: visitData.photos.map(file => URL.createObjectURL(file)), // Use object URLs for preview
+        photos: visitData.photos.map(file => URL.createObjectURL(file)),
+        wineryName: winery.name,
+        wineryId: winery.id,
+        wineries: {
+            id: winery.dbId || 0 as WineryDbId,
+            google_place_id: winery.id,
+            name: winery.name,
+            address: winery.address,
+            latitude: winery.lat.toString(),
+            longitude: winery.lng.toString(),
+        }
     };
 
-    // 1. Optimistic Add
+    // 1. Optimistic Add to both stores
     addVisitToWinery(winery.id, tempVisit);
+    set(state => ({ visits: [tempVisit, ...state.visits] }));
 
     try {
-      // Prepare winery data for RPC
       const rpcWineryData = {
         id: winery.id,
         name: winery.name,
@@ -52,40 +120,33 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
         rating: winery.rating || null,
       };
 
-      // Prepare visit data for RPC
       const rpcVisitData = {
         visit_date: visitData.visit_date,
         user_review: visitData.user_review,
         rating: visitData.rating,
-        photos: [], // Photos are handled after RPC for ID
+        photos: [],
       };
 
-      // Call the RPC to log the visit and ensure the winery exists
       const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
         p_winery_data: rpcWineryData,
         p_visit_data: rpcVisitData,
       });
 
       if (rpcError) throw rpcError;
-      if (!rpcResult || !rpcResult.visit_id) throw new Error("RPC did not return visit ID.");
-
+      
       const visitId = rpcResult.visit_id;
-      let finalVisit = { ...rpcVisitData, id: visitId, user_id: user.id, photos: [] as string[] };
+      let finalVisit: VisitWithWinery = { 
+          ...tempVisit, 
+          id: visitId, 
+          photos: [] 
+      };
 
       if (visitData.photos.length > 0) {
         const uploadPromises = visitData.photos.map(async (photoFile) => {
           const fileName = `${Date.now()}-${photoFile.name}`;
           const filePath = `${user.id}/${visitId}/${fileName}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('visit-photos')
-            .upload(filePath, photoFile);
-
-          if (uploadError) {
-            console.error('Error uploading photo:', uploadError);
-            return null;
-          }
-          return filePath;
+          const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile);
+          return uploadError ? null : filePath;
         });
 
         const photoPathsForDb = (await Promise.all(uploadPromises)).filter((path): path is string => path !== null);
@@ -95,27 +156,32 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
             .from('visits')
             .update({ photos: photoPathsForDb })
             .eq('id', visitId)
-            .select()
+            .select('*, wineries(*)')
             .single();
 
-          if (updateError) {
-            console.error('Error updating visit with photo paths:', updateError);
-            finalVisit.photos = photoPathsForDb; // Best effort to show paths locally
-          } else {
-            finalVisit = updatedVisitWithPhotos;
+          if (!updateError) {
+              finalVisit = {
+                  ...finalVisit,
+                  ...updatedVisitWithPhotos,
+                  wineryName: winery.name,
+                  wineryId: winery.id
+              };
           }
         }
       }
       
-      // 2. Replace temp visit with final real visit
+      // 2. Replace temp visit in both stores
       replaceVisit(winery.id, tempId, finalVisit);
-      set({ lastMutation: Date.now() });
+      set(state => ({
+          visits: state.visits.map(v => String(v.id) === tempId ? finalVisit : v),
+          lastMutation: Date.now()
+      }));
 
     } catch (error) {
       console.error("Failed to save visit, removing optimistic update:", error);
-      // 3. Rollback: Remove temp visit
       optimisticallyDeleteVisit(tempId);
-      confirmOptimisticUpdate(); // Commit deletion immediately
+      set(state => ({ visits: state.visits.filter(v => String(v.id) !== tempId) }));
+      confirmOptimisticUpdate();
       throw error;
     } finally {
       set({ isSavingVisit: false });
@@ -127,68 +193,65 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
     const supabase = createClient();
     const { optimisticallyUpdateVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
 
-    // Find the original visit to get the existing photos
     const winery = useWineryStore.getState().getWineries().find(w => w.visits?.some(v => String(v.id) === String(visitId)));
     const originalVisit = winery?.visits?.find(v => String(v.id) === String(visitId));
-    if (!originalVisit) {
-      throw new Error("Original visit not found for update.");
-    }
+    if (!originalVisit) throw new Error("Original visit not found.");
 
     const existingPhotos = originalVisit.photos || [];
-
-    // 1. Optimistic update for the UI
     const newOptimisticPhotos = existingPhotos.filter(p => !photosToDelete.includes(p));
+    
+    // Optimistic update in both stores
     optimisticallyUpdateVisit(visitId, { ...visitData, photos: newOptimisticPhotos });
+    set(state => ({
+        visits: state.visits.map(v => String(v.id) === String(visitId) ? { ...v, ...visitData, photos: newOptimisticPhotos } : v)
+    }));
 
     try {
-      // 2. Upload new photos
       let newPhotoPaths: string[] = [];
       if (newPhotos.length > 0) {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not authenticated for photo upload.");
+        if (!user) throw new Error("Unauthorized.");
 
         const uploadPromises = newPhotos.map(async (photoFile) => {
           const fileName = `${Date.now()}-${photoFile.name}`;
           const filePath = `${user.id}/${visitId}/${fileName}`;
-          const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile);
-          if (uploadError) {
-            console.error('Error uploading photo during update:', uploadError);
-            return null;
-          }
-          return filePath;
+          const { error } = await supabase.storage.from('visit-photos').upload(filePath, photoFile);
+          return error ? null : filePath;
         });
         newPhotoPaths = (await Promise.all(uploadPromises)).filter((p): p is string => p !== null);
       }
 
-      // 3. Combine photo arrays for the final database update
       const finalPhotoPaths = [...newOptimisticPhotos, ...newPhotoPaths];
-
-      // 4. Update the visit in the database
-      const { data: updatedVisit, error: updateError } = await supabase
+      const { data: updatedVisit, error } = await supabase
         .from('visits')
         .update({ ...visitData, photos: finalPhotoPaths })
         .eq('id', visitId)
-        .select()
+        .select('*, wineries(*)')
         .single();
 
-      if (updateError) throw updateError;
+      if (error) throw error;
 
-      // 5. Delete photos from storage if there are any to delete
       if (photosToDelete.length > 0) {
-        const { error: storageError } = await supabase.storage.from('visit-photos').remove(photosToDelete);
-        if (storageError) {
-          // Log the error but don't throw, as the main visit update succeeded
-          console.error("Error deleting photos from storage:", storageError);
-        }
+        await supabase.storage.from('visit-photos').remove(photosToDelete);
       }
 
-      // 6. Confirm the final state in the store
-      confirmOptimisticUpdate(updatedVisit);
-      set({ lastMutation: Date.now() });
+      const finalVisit: VisitWithWinery = {
+          ...updatedVisit,
+          wineryName: updatedVisit.wineries.name,
+          wineryId: updatedVisit.wineries.google_place_id
+      };
+
+      confirmOptimisticUpdate(finalVisit);
+      set(state => ({
+          visits: state.visits.map(v => String(v.id) === String(visitId) ? finalVisit : v),
+          lastMutation: Date.now()
+      }));
 
     } catch (error) {
       console.error("Failed to update visit, reverting:", error);
       revertOptimisticUpdate();
+      // Re-fetching is the safest way to revert the global list
+      get().fetchVisits(get().page, true);
       throw error;
     } finally {
       set({ isSavingVisit: false });
@@ -199,18 +262,16 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
     const { optimisticallyDeleteVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
     const supabase = createClient();
     
+    // 1. Optimistic remove from both stores
     optimisticallyDeleteVisit(visitId);
+    const originalVisits = get().visits;
+    set(state => ({ visits: state.visits.filter(v => String(v.id) !== String(visitId)) }));
 
     try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not authenticated.");
+        if (!user) throw new Error("Unauthorized.");
 
-        const { error } = await supabase
-            .from('visits')
-            .delete()
-            .eq('id', visitId)
-            .eq('user_id', user.id);
-
+        const { error } = await supabase.from('visits').delete().eq('id', visitId).eq('user_id', user.id);
         if (error) throw error;
         
         confirmOptimisticUpdate();
@@ -218,6 +279,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
     } catch (error) {
         console.error("Failed to delete visit, reverting:", error);
         revertOptimisticUpdate();
+        set({ visits: originalVisits });
         throw error;
     }
   },

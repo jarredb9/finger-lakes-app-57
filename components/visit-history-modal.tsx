@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/ui/dialog"
 import { DataTable } from "@/components/ui/data-table"
 import { columns } from "@/components/visits-table-columns"
-import { Visit, GooglePlaceId, WineryDbId } from "@/lib/types" // Import new types
+import { VisitWithWinery } from "@/lib/types" // Import new types
 import { useUIStore } from "@/lib/stores/uiStore"
 import { useWineryStore } from "@/lib/stores/wineryStore"
 import { useVisitStore } from "@/lib/stores/visitStore"
@@ -19,25 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { createClient } from "@/utils/supabase/client";
 import { Pagination, PaginationContent, PaginationItem, PaginationNext } from "@/components/ui/pagination";
-
-
-// Extended Visit type for display context in the global history modal view
-export interface VisitWithModalContext extends Visit {
-  wineryName: string;
-  wineryId: GooglePlaceId; // This is GooglePlaceId
-  friend_visits?: any[]; // From RPC
-  // Add temporary 'wineries' field for table compatibility
-  wineries: {
-    id: WineryDbId; // This is the DB ID
-    google_place_id: GooglePlaceId;
-    name: string;
-    address: string;
-    latitude: string;
-    longitude: string;
-  };
-}
 
 
 interface VisitHistoryModalProps {
@@ -47,73 +29,29 @@ interface VisitHistoryModalProps {
 type SortField = "date" | "rating" | "name"
 type SortDirection = "asc" | "desc"
 
-const PAGE_SIZE = 10;
-
 export function VisitHistoryModal({}: VisitHistoryModalProps) {
   const { openWineryModal, isVisitHistoryModalOpen, setVisitHistoryModalOpen } = useUIStore()
   const { ensureWineryDetails } = useWineryStore()
-  const { lastMutation } = useVisitStore()
-  const [allVisits, setAllVisits] = useState<VisitWithModalContext[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const { 
+      visits, 
+      isLoading, 
+      page, 
+      hasMore, 
+      fetchVisits 
+  } = useVisitStore()
+  
   const [mobileSearch, setMobileSearch] = useState("")
   const [sortField, setSortField] = useState<SortField>("date")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
-  const fetchVisits = async (pageNumber: number) => {
-    setIsLoading(true);
-    const supabase = createClient();
-    try {
-      const { data, error } = await supabase.rpc('get_paginated_visits_with_winery_and_friends', {
-        page_number: pageNumber,
-        page_size: PAGE_SIZE
-      });
-
-      if (error) throw error;
-
-      const fetchedVisits: VisitWithModalContext[] = (data || []).map((v: any) => ({
-        id: v.visit_id, // RPC returns visit_id
-        user_id: v.user_id,
-        visit_date: v.visit_date,
-        user_review: v.user_review,
-        rating: v.rating,
-        photos: v.photos,
-        winery_id: v.winery_id as WineryDbId,
-        wineryName: v.winery_name,
-        wineryId: v.google_place_id as GooglePlaceId, // Assuming RPC returns this too or derive
-        friend_visits: v.friend_visits,
-        wineries: { // Structure needed for VisitWithModalContext
-          id: v.winery_id as WineryDbId,
-          google_place_id: v.google_place_id as GooglePlaceId,
-          name: v.winery_name,
-          address: v.winery_address,
-          latitude: '0', // Placeholder
-          longitude: '0', // Placeholder
-        }
-      }));
-
-      setAllVisits(prev => (pageNumber === 1 ? fetchedVisits : [...prev, ...fetchedVisits]));
-      setHasMore(fetchedVisits.length === PAGE_SIZE);
-
-    } catch (error) {
-      console.error("Failed to fetch visits:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
     if (isVisitHistoryModalOpen) {
-        setPage(1); // Reset page when modal opens
-        fetchVisits(1);
-    } else {
-        setAllVisits([]); // Clear visits when modal closes
+        fetchVisits(1, true);
     }
-  }, [isVisitHistoryModalOpen, lastMutation]);
+  }, [isVisitHistoryModalOpen, fetchVisits]);
 
 
-  const handleRowClick = (visit: VisitWithModalContext) => {
+  const handleRowClick = (visit: VisitWithWinery) => {
      setVisitHistoryModalOpen(false) // Close the current modal first
      
      if (visit.wineries?.google_place_id) {
@@ -134,7 +72,7 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
   }
 
   const filteredAndSortedVisits = useMemo(() => {
-    let result = [...allVisits]
+    let result = [...visits]
 
     // Filter
     if (mobileSearch) {
@@ -165,7 +103,7 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
     })
 
     return result
-  }, [allVisits, mobileSearch, sortField, sortDirection])
+  }, [visits, mobileSearch, sortField, sortDirection])
 
   return (
     <Dialog open={isVisitHistoryModalOpen} onOpenChange={setVisitHistoryModalOpen}>
@@ -227,7 +165,7 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
                 </div>
 
                 <div className="space-y-3">
-                    {isLoading && allVisits.length === 0 ? (
+                    {isLoading && visits.length === 0 ? (
                         <div className="flex justify-center items-center py-8">
                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>
@@ -278,7 +216,7 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
                             <PaginationItem>
                                 <PaginationNext 
                                     href="#" 
-                                    onClick={(e) => { e.preventDefault(); setPage(prev => prev + 1); fetchVisits(page + 1); }} 
+                                    onClick={(e) => { e.preventDefault(); fetchVisits(page + 1); }} 
                                     aria-label="Load more visits"
                                 />
                             </PaginationItem>
@@ -290,7 +228,7 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
             {/* Desktop View: Data Table */}
             <div className="hidden md:block">
                 <div className="overflow-x-auto">
-                    <DataTable columns={columns as any} data={allVisits} onRowClick={handleRowClick} />
+                    <DataTable columns={columns as any} data={visits} onRowClick={handleRowClick} />
                 </div>
             </div>
         </div>

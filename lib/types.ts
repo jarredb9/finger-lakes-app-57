@@ -159,6 +159,20 @@ export interface Trip {
     owner_id?: string;
 }
 
+export interface VisitWithWinery extends Visit {
+  wineryName?: string; // Optional convenience fields
+  wineryId?: GooglePlaceId;
+  friend_visits?: any[]; // From social joined queries
+  wineries: {
+    id: WineryDbId;
+    google_place_id: GooglePlaceId;
+    name: string;
+    address: string;
+    latitude: string;
+    longitude: string;
+  };
+}
+
 export interface Friend {
   id: string;
   name: string;

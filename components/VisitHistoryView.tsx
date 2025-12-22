@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useMemo, useCallback } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Visit } from "@/lib/types"
 import { useVisitStore } from "@/lib/stores/visitStore"
 import { DataTable } from "@/components/ui/data-table"
@@ -11,9 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Star, ArrowUp, ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from "@/components/ui/pagination"
-import { createClient } from "@/utils/supabase/client"
-
-const VISITS_PER_PAGE = 10;
 
 const MobileVisitCard = ({ visit, onWinerySelect }: { visit: Visit; onWinerySelect: (visit: Visit) => void; }) => (
     <Card className="mb-4" onClick={() => onWinerySelect(visit)}>
@@ -40,54 +37,24 @@ type SortConfig = {
 };
 
 export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (wineryDbId: number) => void; }) {
-    const { lastMutation } = useVisitStore();
-    const [visits, setVisits] = useState<Visit[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { 
+        visits, 
+        isLoading, 
+        page, 
+        totalPages, 
+        fetchVisits 
+    } = useVisitStore();
+    
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
     const [filter, setFilter] = useState("");
-    const [currentPage, setCurrentPage] = useState(1);
-    const [totalPages, setTotalPages] = useState(1);
-
-    const fetchVisits = useCallback(async (page = 1) => {
-        setLoading(true);
-        const supabase = createClient();
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                setVisits([]);
-                return;
-            }
-
-            const rangeFrom = (page - 1) * VISITS_PER_PAGE;
-            const rangeTo = rangeFrom + VISITS_PER_PAGE - 1;
-
-            const { data, count, error } = await supabase
-                .from("visits")
-                .select("*, wineries(*)", { count: 'exact' })
-                .eq("user_id", user.id)
-                .order("visit_date", { ascending: false })
-                .range(rangeFrom, rangeTo);
-            
-            if (error) throw error;
-
-            setVisits(data || []);
-            setTotalPages(Math.ceil((count || 0) / VISITS_PER_PAGE));
-            setCurrentPage(page);
-        } catch (error) {
-            console.error("Failed to fetch visit history", error);
-            setVisits([]);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
 
     useEffect(() => {
-        fetchVisits(1);
-    }, [fetchVisits, lastMutation]);
+        fetchVisits(1, true);
+    }, [fetchVisits]);
 
-    const handlePageChange = (page: number) => {
-        if (page > 0 && page <= totalPages) {
-            fetchVisits(page);
+    const handlePageChange = (newPage: number) => {
+        if (newPage > 0 && newPage <= totalPages) {
+            fetchVisits(newPage);
         }
     };
     
@@ -109,8 +76,8 @@ export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (
                 return sortConfig.direction === 'asc' ? dateA - dateB : dateB - dateA;
             }
             if (sortConfig.key === 'name') {
-                const nameA = a.wineries?.name || "";
-                const nameB = b.wineries?.name || "";
+                const nameA = a.wineries?.name || ""
+                const nameB = b.wineries?.name || ""
                 return sortConfig.direction === 'asc' ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
             }
             if (sortConfig.key === 'rating') {
@@ -128,7 +95,7 @@ export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (
         }
     };
     
-    if (loading && visits.length === 0) {
+    if (isLoading && visits.length === 0) {
         return (
             <div className="space-y-4">
                 <Skeleton className="h-10 w-1/3" />
@@ -187,17 +154,17 @@ export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (
                 <Pagination className="mt-8">
                     <PaginationContent>
                         <PaginationItem>
-                            <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage - 1); }} />
+                            <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(page - 1); }} />
                         </PaginationItem>
                         {[...Array(totalPages)].map((_, i) => (
                              <PaginationItem key={i}>
-                                <PaginationLink href="#" isActive={currentPage === i + 1} onClick={(e) => { e.preventDefault(); handlePageChange(i + 1); }}>
+                                <PaginationLink href="#" isActive={page === i + 1} onClick={(e) => { e.preventDefault(); handlePageChange(i + 1); }}>
                                     {i + 1}
                                 </PaginationLink>
                             </PaginationItem>
                         ))}
                         <PaginationItem>
-                            <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(currentPage + 1); }} />
+                            <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(page + 1); }} />
                         </PaginationItem>
                     </PaginationContent>
                 </Pagination>
