@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from "react"
 import { Visit } from "@/lib/types"
+import { useVisitStore } from "@/lib/stores/visitStore"
 import { DataTable } from "@/components/ui/data-table"
 import { columns } from "@/components/visits-table-columns"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -39,6 +40,7 @@ type SortConfig = {
 };
 
 export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (wineryDbId: number) => void; }) {
+    const { lastMutation } = useVisitStore();
     const [visits, setVisits] = useState<Visit[]>([]);
     const [loading, setLoading] = useState(true);
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'date', direction: 'desc' });
@@ -81,7 +83,7 @@ export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (
 
     useEffect(() => {
         fetchVisits(1);
-    }, [fetchVisits]);
+    }, [fetchVisits, lastMutation]);
 
     const handlePageChange = (page: number) => {
         if (page > 0 && page <= totalPages) {

@@ -7,6 +7,7 @@ import { columns } from "@/components/visits-table-columns"
 import { Visit, GooglePlaceId, WineryDbId } from "@/lib/types" // Import new types
 import { useUIStore } from "@/lib/stores/uiStore"
 import { useWineryStore } from "@/lib/stores/wineryStore"
+import { useVisitStore } from "@/lib/stores/visitStore"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Star, Calendar, Search, ArrowUp, ArrowDown, X, Loader2 } from "lucide-react"
@@ -51,6 +52,7 @@ const PAGE_SIZE = 10;
 export function VisitHistoryModal({}: VisitHistoryModalProps) {
   const { openWineryModal, isVisitHistoryModalOpen, setVisitHistoryModalOpen } = useUIStore()
   const { ensureWineryDetails } = useWineryStore()
+  const { lastMutation } = useVisitStore()
   const [allVisits, setAllVisits] = useState<VisitWithModalContext[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -108,7 +110,7 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
     } else {
         setAllVisits([]); // Clear visits when modal closes
     }
-  }, [isVisitHistoryModalOpen]);
+  }, [isVisitHistoryModalOpen, lastMutation]);
 
 
   const handleRowClick = (visit: VisitWithModalContext) => {

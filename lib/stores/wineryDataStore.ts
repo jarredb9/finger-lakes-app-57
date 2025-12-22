@@ -82,10 +82,10 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
           // Backup for rollback if needed (implied context)
           return {
               persistentWineries: state.persistentWineries.map(w => {
-                  if (!w.visits?.some(v => v.id === visitId)) return w;
+                  if (!w.visits?.some(v => String(v.id) === String(visitId))) return w;
                   return {
                       ...w,
-                      visits: w.visits.map(v => v.id === visitId ? { ...v, ...updates } : v)
+                      visits: w.visits.map(v => String(v.id) === String(visitId) ? { ...v, ...updates } : v)
                   };
               })
           };
@@ -95,8 +95,8 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
   removeVisit: (visitId: string) => {
       set(state => ({
           persistentWineries: state.persistentWineries.map(w => {
-               if (!w.visits?.some(v => v.id === visitId)) return w;
-               const newVisits = w.visits.filter(v => v.id !== visitId);
+               if (!w.visits?.some(v => String(v.id) === String(visitId))) return w;
+               const newVisits = w.visits.filter(v => String(v.id) !== String(visitId));
                return { ...w, visits: newVisits, userVisited: newVisits.length > 0 };
           })
       }));

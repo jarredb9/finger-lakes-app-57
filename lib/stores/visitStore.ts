@@ -6,6 +6,7 @@ import { useWineryStore } from './wineryStore';
 
 interface VisitState {
   isSavingVisit: boolean;
+  lastMutation: number;
   saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[] }) => Promise<void>;
   updateVisit: (visitId: string, visitData: Partial<Visit>, newPhotos: File[], photosToDelete: string[]) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
@@ -13,6 +14,7 @@ interface VisitState {
 
 export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
   isSavingVisit: false,
+  lastMutation: 0,
 
   saveVisit: async (winery, visitData) => {
     set({ isSavingVisit: true });
@@ -107,6 +109,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
       
       // 2. Replace temp visit with final real visit
       replaceVisit(winery.id, tempId, finalVisit);
+      set({ lastMutation: Date.now() });
 
     } catch (error) {
       console.error("Failed to save visit, removing optimistic update:", error);
@@ -125,8 +128,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
     const { optimisticallyUpdateVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
 
     // Find the original visit to get the existing photos
-    const winery = useWineryStore.getState().getWineries().find(w => w.visits?.some(v => v.id === visitId));
-    const originalVisit = winery?.visits?.find(v => v.id === visitId);
+    const winery = useWineryStore.getState().getWineries().find(w => w.visits?.some(v => String(v.id) === String(visitId)));
+    const originalVisit = winery?.visits?.find(v => String(v.id) === String(visitId));
     if (!originalVisit) {
       throw new Error("Original visit not found for update.");
     }
@@ -181,6 +184,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
 
       // 6. Confirm the final state in the store
       confirmOptimisticUpdate(updatedVisit);
+      set({ lastMutation: Date.now() });
 
     } catch (error) {
       console.error("Failed to update visit, reverting:", error);
@@ -210,6 +214,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set) => ({
         if (error) throw error;
         
         confirmOptimisticUpdate();
+        set({ lastMutation: Date.now() });
     } catch (error) {
         console.error("Failed to delete visit, reverting:", error);
         revertOptimisticUpdate();
