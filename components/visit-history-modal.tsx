@@ -112,7 +112,6 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
 
 
   const handleRowClick = (visit: VisitWithModalContext) => {
-     console.log(`[VisitHistoryModal] Row clicked for ${visit.wineryName} (${visit.wineries?.google_place_id})`);
      setVisitHistoryModalOpen(false) // Close the current modal first
      
      if (visit.wineries?.google_place_id) {

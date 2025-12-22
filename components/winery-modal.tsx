@@ -51,37 +51,22 @@ export default function WineryModal() {
     setEditingVisitId(null);
     setPhotosToDelete([]);
     
+    // Reset visits length tracker to current length during hydration/winery switch.
+    // This prevents the 'scroll to history' effect from triggering when the modal opens.
+    prevVisitsLength.current = visits.length;
+
     // Reset scroll to top when modal opens or when it finishes loading
     if (isWineryModalOpen && !isLoading) {
-      console.log(`[WineryModal] Resetting scroll for ${activeWineryId}. Container:`, scrollContainerRef.current);
       requestAnimationFrame(() => {
-        if (scrollContainerRef.current) {
-          console.log(`[WineryModal] Performing instant scroll to 0. Current top: ${scrollContainerRef.current.scrollTop}`);
-          scrollContainerRef.current.scrollTo({ top: 0, behavior: 'instant' });
-        }
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
       });
     }
-  }, [isWineryModalOpen, activeWineryId, isLoading]);
-
-  useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (!container) return;
-
-    const handleScroll = () => {
-      if (container.scrollTop > 0) {
-        console.log(`[WineryModal] Scroll detected! scrollTop: ${container.scrollTop}`);
-      }
-    };
-
-    container.addEventListener('scroll', handleScroll);
-    return () => container.removeEventListener('scroll', handleScroll);
-  }, [isWineryModalOpen, activeWineryId]);
+  }, [isWineryModalOpen, activeWineryId, isLoading, visits.length]);
 
   useEffect(() => {
     // Only scroll to history if the modal is already open and NOT in a loading state
     // when the visits length increases. This prevents hydration from triggering the scroll.
     if (isWineryModalOpen && !isLoading && visits.length > prevVisitsLength.current) {
-      console.log(`[WineryModal] New visit detected (${visits.length}). Scrolling to history.`);
       // Small delay to ensure the new visit card is rendered
       setTimeout(() => {
         visitHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
