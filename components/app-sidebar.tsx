@@ -9,8 +9,6 @@ import { AuthenticatedUser } from "@/lib/types";
 import { useWineryMapContext } from "@/components/winery-map-context";
 import WinerySearchResults from "@/components/map/WinerySearchResults";
 import TripList from "@/components/trip-list";
-// Import VisitHistoryModal and List icon
-import { VisitHistoryModal } from "@/components/visit-history-modal";
 import { List } from "lucide-react";
 import GlobalVisitHistory from "@/components/global-visit-history"; // Import GlobalVisitHistory
 import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon, FileText, Shield } from "lucide-react";
@@ -53,7 +51,7 @@ export function AppSidebar({
     handleFilterChange,
   } = useWineryMapContext();
 
-  const { isVisitHistoryModalOpen, setVisitHistoryModalOpen } = useUIStore();
+  const { setVisitHistoryModalOpen } = useUIStore();
   const { friendRequests } = useFriendStore();
 
   const friendRequestCount = friendRequests.length;
@@ -82,10 +80,8 @@ export function AppSidebar({
       <div className="p-4 space-y-4 flex-1 overflow-y-auto"> {/* Added p-4 here for padding, flex-1 for content */}
         <GlobalVisitHistory />
       </div>
-      {/* Render VisitHistoryModal here */}
-      <VisitHistoryModal />
     </div>
-  ), [isVisitHistoryModalOpen, setVisitHistoryModalOpen]); // Dependencies for historyContent
+  ), [setVisitHistoryModalOpen]); // Removed isVisitHistoryModalOpen dependency
 
   const friendsContent = useMemo(() => (
     <div className="p-4 space-y-4">

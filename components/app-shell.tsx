@@ -22,6 +22,7 @@ import {
 import Link from "next/link";
 import { InteractiveBottomSheet, SheetMode } from "@/components/ui/interactive-bottom-sheet";
 import { useFriendStore } from "@/lib/stores/friendStore";
+import { VisitHistoryModal } from "@/components/visit-history-modal";
 
 const WineryModal = dynamic(() => import("@/components/winery-modal"), {
   ssr: false,
@@ -66,6 +67,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
   return (
       <div className="flex h-screen w-screen overflow-hidden flex-col md:flex-row relative">
         <WineryModal />
+        <VisitHistoryModal />
         
         {/* Desktop Sidebar */}
         <div
