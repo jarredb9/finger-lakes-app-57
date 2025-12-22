@@ -47,41 +47,70 @@ export default function WineryModal() {
   const prevVisitsLength = useRef(visits.length);
 
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log(`[WineryModal] Modal State Change: Open=${isWineryModalOpen}, ID=${activeWineryId}, Loading=${isLoading}, Visits=${visits.length}`);
+    
     // Reset edit state only when modal opens or winery changes
-    setEditingVisitId(null);
-    setPhotosToDelete([]);
+    // Wrap in a small delay to avoid "setState in effect" lint error and cascading renders
+    const timer = setTimeout(() => {
+      setEditingVisitId(null);
+      setPhotosToDelete([]);
+    }, 0);
+    return () => clearTimeout(timer);
   }, [isWineryModalOpen, activeWineryId]);
 
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log(`[WineryModal] Sync/ScrollTop Effect: Open=${isWineryModalOpen}, Loading=${isLoading}, Visits=${visits.length}, PrevRef=${prevVisitsLength.current}`);
+    
     // Sync visits length tracker while loading or when modal opens
     // This prevents hydration from being seen as a "new visit" jump
     if (isLoading || !isWineryModalOpen) {
+      // eslint-disable-next-line no-console
+      console.log(`[WineryModal] Syncing prevVisitsLength to ${visits.length}`);
       prevVisitsLength.current = visits.length;
     }
 
     // Reset scroll to top when modal is open and data has finished loading
     if (isWineryModalOpen && !isLoading) {
+      // eslint-disable-next-line no-console
+      console.log(`[WineryModal] Requesting scroll to top for ${activeWineryId}`);
       requestAnimationFrame(() => {
-        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+        if (scrollContainerRef.current) {
+          // eslint-disable-next-line no-console
+          console.log(`[WineryModal] Performing instant scroll to top. Current scrollTop: ${scrollContainerRef.current.scrollTop}`);
+          scrollContainerRef.current.scrollTo({ top: 0, behavior: 'instant' });
+        }
       });
     }
   }, [isWineryModalOpen, activeWineryId, isLoading]);
 
   useEffect(() => {
+    // eslint-disable-next-line no-console
+    console.log(`[WineryModal] ScrollToHistory Effect: Open=${isWineryModalOpen}, Loading=${isLoading}, Visits=${visits.length}, PrevRef=${prevVisitsLength.current}`);
+    
     // Only scroll to history if:
     // 1. Modal is already open
     // 2. We are NOT currently loading (prevents hydration scroll)
     // 3. The visits count increased (indicates a new visit added)
     if (isWineryModalOpen && !isLoading && visits.length > prevVisitsLength.current) {
+      // eslint-disable-next-line no-console
+      console.log(`[WineryModal] TRIGGERING SCROLL TO HISTORY. Diff: ${visits.length} > ${prevVisitsLength.current}`);
       // Small delay to ensure the new visit card is rendered
       const timer = setTimeout(() => {
-        visitHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        if (visitHistoryRef.current) {
+          // eslint-disable-next-line no-console
+          console.log(`[WineryModal] Executing scrollIntoView for history`);
+          visitHistoryRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
       }, 100);
       
       prevVisitsLength.current = visits.length;
       return () => clearTimeout(timer);
     }
     
+    // eslint-disable-next-line no-console
+    console.log(`[WineryModal] Updating prevVisitsLength ref to ${visits.length}`);
     prevVisitsLength.current = visits.length;
     return undefined;
   }, [visits.length, isWineryModalOpen, isLoading]);
