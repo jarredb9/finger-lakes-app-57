@@ -35,13 +35,15 @@ export default function WineryModal() {
   const { deleteVisit: deleteVisitAction } = useVisitStore();
   const { friendsRatings } = useFriendStore();
 
+  const isLoading = loadingWineryId === activeWineryId; // Check if THIS winery is loading
+  const visits = activeWinery?.visits || [];
+
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const visitHistoryRef = useRef<HTMLDivElement>(null);
   const visitFormRef = useRef<HTMLDivElement>(null);
 
-  const visits = activeWinery?.visits || [];
   const prevVisitsLength = useRef(visits.length);
 
   useEffect(() => {
@@ -49,24 +51,31 @@ export default function WineryModal() {
     setEditingVisitId(null);
     setPhotosToDelete([]);
     
-    // Reset scroll to top when modal opens or winery changes
-    if (isWineryModalOpen) {
-      scrollContainerRef.current?.scrollTo(0, 0);
+    // Reset scroll to top when modal opens or when it finishes loading
+    if (isWineryModalOpen && !isLoading) {
+      // Use requestAnimationFrame to ensure the DOM is ready and any 
+      // other competing scrolls (like focus management) have finished.
+      requestAnimationFrame(() => {
+        scrollContainerRef.current?.scrollTo(0, 0);
+      });
     }
-  }, [isWineryModalOpen, activeWineryId]);
+  }, [isWineryModalOpen, activeWineryId, isLoading]);
 
   useEffect(() => {
-    if (visits.length > prevVisitsLength.current) {
-      visitHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Only scroll to history if the modal is already open and NOT in a loading state
+    // when the visits length increases. This prevents hydration from triggering the scroll.
+    if (isWineryModalOpen && !isLoading && visits.length > prevVisitsLength.current) {
+      // Small delay to ensure the new visit card is rendered
+      setTimeout(() => {
+        visitHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 100);
     }
     prevVisitsLength.current = visits.length;
-  }, [visits.length]);
+  }, [visits.length, isWineryModalOpen, isLoading]);
 
   if (!isWineryModalOpen) {
     return null;
   }
-
-  const isLoading = loadingWineryId === activeWineryId; // Check if THIS winery is loading
 
   const handleTogglePhotoForDeletion = (photoPath: string) => {
     setPhotosToDelete(prev => 
