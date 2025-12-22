@@ -167,7 +167,10 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
 
   return (
     <Dialog open={isVisitHistoryModalOpen} onOpenChange={setVisitHistoryModalOpen}>
-      <DialogContent className="max-w-4xl max-h-[85dvh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent 
+        className="max-w-4xl max-h-[85dvh] flex flex-col p-0 gap-0 overflow-hidden"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <div className="p-6 pb-4 border-b bg-background z-10 flex items-start justify-between">
           <DialogHeader>
             <DialogTitle>Full Visit History</DialogTitle>
