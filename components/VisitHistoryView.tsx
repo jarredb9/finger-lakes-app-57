@@ -36,6 +36,11 @@ type SortConfig = {
     direction: 'asc' | 'desc';
 };
 
+const SortIcon = ({ sortKey, currentKey, direction }: { sortKey: SortConfig['key'], currentKey: SortConfig['key'], direction: SortConfig['direction'] }) => {
+    if (currentKey !== sortKey) return null;
+    return direction === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />;
+};
+
 export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (wineryId: string) => void; }) {
     const { 
         visits, 
@@ -104,11 +109,6 @@ export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (
         );
     }
 
-    const SortIcon = ({ sortKey }: { sortKey: SortConfig['key'] }) => {
-        if (sortConfig.key !== sortKey) return null;
-        return sortConfig.direction === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />;
-    };
-    
     return (
         <div>
             <h1 className="text-2xl font-bold mb-4">Your Visit History</h1>
@@ -125,13 +125,13 @@ export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (
                 <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-medium">Sort by:</span>
                     <Button variant={sortConfig.key === 'date' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'date', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                        Date <SortIcon sortKey="date" />
+                        Date <SortIcon sortKey="date" currentKey={sortConfig.key} direction={sortConfig.direction} />
                     </Button>
                     <Button variant={sortConfig.key === 'name' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'name', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                        Winery <SortIcon sortKey="name" />
+                        Winery <SortIcon sortKey="name" currentKey={sortConfig.key} direction={sortConfig.direction} />
                     </Button>
                     <Button variant={sortConfig.key === 'rating' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'rating', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                        Rating <SortIcon sortKey="rating" />
+                        Rating <SortIcon sortKey="rating" currentKey={sortConfig.key} direction={sortConfig.direction} />
                     </Button>
                 </div>
             </div>
