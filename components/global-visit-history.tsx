@@ -3,6 +3,7 @@ import { Visit, VisitWithWinery } from "@/lib/types";
 import VisitCardHistory from "./VisitCardHistory";
 import { useVisitStore } from "@/lib/stores/visitStore";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, MapPin, Loader2 } from "lucide-react";
 import { Pagination, PaginationContent, PaginationItem, PaginationNext } from "@/components/ui/pagination";
@@ -13,6 +14,7 @@ interface GlobalVisitHistoryProps {
 
 export default function GlobalVisitHistory({}: GlobalVisitHistoryProps) {
   const { openWineryModal } = useUIStore();
+  const { ensureWineryDetails } = useWineryStore();
   const { 
       visits, 
       isLoading, 
@@ -30,6 +32,7 @@ export default function GlobalVisitHistory({}: GlobalVisitHistoryProps) {
   const handleEditClick = (visit: Visit) => {
     const visitWithContext = visit as VisitWithWinery;
     if (visitWithContext.wineryId) {
+        ensureWineryDetails(visitWithContext.wineryId);
         openWineryModal(visitWithContext.wineryId);
         toast({ description: "Opening winery details to edit visit..." });
     }

@@ -36,7 +36,7 @@ type SortConfig = {
     direction: 'asc' | 'desc';
 };
 
-export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (wineryDbId: number) => void; }) {
+export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (wineryId: string) => void; }) {
     const { 
         visits, 
         isLoading, 
@@ -90,8 +90,8 @@ export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (
     }, [visits, sortConfig, filter]);
 
     const handleRowClick = (visit: Visit) => {
-        if (visit.wineries?.id) {
-            onWinerySelect(visit.wineries.id);
+        if (visit.wineries?.google_place_id) {
+            onWinerySelect(visit.wineries.google_place_id);
         }
     };
     

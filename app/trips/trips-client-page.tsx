@@ -3,12 +3,17 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import TripList from "@/components/trip-list"
 import VisitHistoryView from "@/components/VisitHistoryView"
-import { AuthenticatedUser } from "@/lib/types"
+import { AuthenticatedUser, GooglePlaceId } from "@/lib/types"
+import { useUIStore } from "@/lib/stores/uiStore"
+import { useWineryStore } from "@/lib/stores/wineryStore"
 
 export default function TripsClientPage({ user }: { user: AuthenticatedUser }) {
+  const { openWineryModal } = useUIStore();
+  const { ensureWineryDetails } = useWineryStore();
 
-  const handleWinerySelect = () => {
-    
+  const handleWinerySelect = (wineryId: string) => {
+    ensureWineryDetails(wineryId as GooglePlaceId);
+    openWineryModal(wineryId);
   }
 
   return (
