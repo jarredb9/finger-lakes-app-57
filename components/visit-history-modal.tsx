@@ -6,6 +6,7 @@ import { DataTable } from "@/components/ui/data-table"
 import { columns } from "@/components/visits-table-columns"
 import { Visit, GooglePlaceId, WineryDbId } from "@/lib/types" // Import new types
 import { useUIStore } from "@/lib/stores/uiStore"
+import { useWineryStore } from "@/lib/stores/wineryStore"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Star, Calendar, Search, ArrowUp, ArrowDown, X, Loader2 } from "lucide-react"
@@ -49,6 +50,7 @@ const PAGE_SIZE = 10;
 
 export function VisitHistoryModal({}: VisitHistoryModalProps) {
   const { openWineryModal, isVisitHistoryModalOpen, setVisitHistoryModalOpen } = useUIStore()
+  const { ensureWineryDetails } = useWineryStore()
   const [allVisits, setAllVisits] = useState<VisitWithModalContext[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [page, setPage] = useState(1);
@@ -113,6 +115,8 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
      setVisitHistoryModalOpen(false) // Close the current modal first
      
      if (visit.wineries?.google_place_id) {
+        // Ensure data is loaded
+        ensureWineryDetails(visit.wineries.google_place_id);
         // Open the winery modal and tell it to return to history when closed
         openWineryModal(visit.wineries.google_place_id, true)
      }
