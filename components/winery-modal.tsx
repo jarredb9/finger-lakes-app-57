@@ -53,10 +53,9 @@ export default function WineryModal() {
     
     // Reset scroll to top when modal opens or when it finishes loading
     if (isWineryModalOpen && !isLoading) {
-      // Use requestAnimationFrame to ensure the DOM is ready and any 
-      // other competing scrolls (like focus management) have finished.
+      // Use requestAnimationFrame to ensure the DOM is ready
       requestAnimationFrame(() => {
-        scrollContainerRef.current?.scrollTo(0, 0);
+        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
       });
     }
   }, [isWineryModalOpen, activeWineryId, isLoading]);
@@ -128,8 +127,9 @@ export default function WineryModal() {
       <DialogContent
         className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
         onFocusOutside={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="overflow-y-auto" ref={scrollContainerRef}>
+        <div className="overflow-y-auto" ref={scrollContainerRef} key={activeWineryId || 'none'}>
           {isLoading || !activeWinery ? (
             <div className="p-6 space-y-4">
               <DialogHeader>
