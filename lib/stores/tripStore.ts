@@ -142,24 +142,41 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
       members: trip.members || [],
     };
 
-    // Optimistically add to tripsForDate
-    set(state => ({
-      tripsForDate: [...state.tripsForDate, tempTrip]
-    }));
+    const isFuture = new Date(tempTrip.trip_date) >= new Date(new Date().setHours(0, 0, 0, 0));
+
+    // Optimistically update ALL lists
+    set(state => {
+      const newUpcoming = isFuture ? [...state.upcomingTrips, tempTrip] : state.upcomingTrips;
+      // Prepend to 'trips' to ensure visibility. 
+      // Note: This might momentarily violate strict sort order until next fetch, but guarantees user feedback.
+      const newTrips = [tempTrip, ...state.trips];
+
+      return {
+        tripsForDate: [...state.tripsForDate, tempTrip],
+        upcomingTrips: newUpcoming,
+        trips: newTrips
+      };
+    });
 
     try {
       const createdTrip = await TripService.createTrip(trip);
 
-      // Replace temporary trip with the real one from the server
+      // Replace temporary trip with the real one from the server in ALL lists
       set(state => ({
-        tripsForDate: state.tripsForDate.map(t => t.id === tempId ? createdTrip! : t)
+        tripsForDate: state.tripsForDate.map(t => t.id === tempId ? createdTrip! : t),
+        upcomingTrips: state.upcomingTrips.map(t => t.id === tempId ? createdTrip! : t),
+        trips: state.trips.map(t => t.id === tempId ? createdTrip! : t)
       }));
 
       return createdTrip;
     } catch (error) {
       console.error("Failed to create trip, reverting optimistic update.", error);
-      // On failure, remove the temporary trip
-      set(state => ({ tripsForDate: state.tripsForDate.filter(t => t.id !== tempId) }));
+      // On failure, remove the temporary trip from ALL lists
+      set(state => ({ 
+        tripsForDate: state.tripsForDate.filter(t => t.id !== tempId),
+        upcomingTrips: state.upcomingTrips.filter(t => t.id !== tempId),
+        trips: state.trips.filter(t => t.id !== tempId)
+      }));
       throw error; // Re-throw to be caught by the UI
     }
   },

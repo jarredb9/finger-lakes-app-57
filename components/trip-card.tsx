@@ -293,7 +293,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
           {isEditing && (
               <Popover>
                   <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm"><UserPlus className="w-4 h-4 mr-2"/>Add/Remove</Button>
+                      <Button variant="outline" size="sm" disabled={trip.id < 0}><UserPlus className="w-4 h-4 mr-2"/>Add/Remove</Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[200px] p-0">
                       <Command>
@@ -326,7 +326,14 @@ const TripCard = memo(({ trip }: TripCardProps) => {
           {isEditing ? (
             <Button onClick={handleSave} className="flex-1 sm:flex-none"><Save className="w-4 h-4 mr-2"/>Save Changes</Button>
           ) : (
-            <Button variant="outline" onClick={() => setIsEditing(true)} className="flex-1 sm:flex-none"><Edit className="w-4 h-4 mr-2"/>Edit Trip</Button>
+            <Button 
+                variant="outline" 
+                onClick={() => setIsEditing(true)} 
+                className="flex-1 sm:flex-none"
+                disabled={trip.id < 0}
+            >
+                {trip.id < 0 ? "Creating..." : <><Edit className="w-4 h-4 mr-2"/>Edit Trip</>}
+            </Button>
           )}
           <TooltipProvider>
             <Tooltip>
