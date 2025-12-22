@@ -147,12 +147,15 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     // Optimistically update ALL lists
     set(state => {
       const newUpcoming = isFuture ? [...state.upcomingTrips, tempTrip] : state.upcomingTrips;
-      // Prepend to 'trips' to ensure visibility. 
-      // Note: This might momentarily violate strict sort order until next fetch, but guarantees user feedback.
       const newTrips = [tempTrip, ...state.trips];
 
+      // Only add to tripsForDate if it matches the current view's date context
+      // If tripsForDate is empty, we can't be sure, so we skip optimistic update for safety.
+      const currentViewDate = state.tripsForDate[0]?.trip_date;
+      const shouldAddToPlanner = currentViewDate && currentViewDate === tempTrip.trip_date;
+      
       return {
-        tripsForDate: [...state.tripsForDate, tempTrip],
+        tripsForDate: shouldAddToPlanner ? [...state.tripsForDate, tempTrip] : state.tripsForDate,
         upcomingTrips: newUpcoming,
         trips: newTrips
       };
