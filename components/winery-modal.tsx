@@ -37,6 +37,7 @@ export default function WineryModal() {
 
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const visitHistoryRef = useRef<HTMLDivElement>(null);
   const visitFormRef = useRef<HTMLDivElement>(null);
 
@@ -47,6 +48,11 @@ export default function WineryModal() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setEditingVisitId(null);
     setPhotosToDelete([]);
+    
+    // Reset scroll to top when modal opens or winery changes
+    if (isWineryModalOpen) {
+      scrollContainerRef.current?.scrollTo(0, 0);
+    }
   }, [isWineryModalOpen, activeWineryId]);
 
   useEffect(() => {
@@ -114,7 +120,7 @@ export default function WineryModal() {
         className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
         onFocusOutside={(e) => e.preventDefault()}
       >
-        <div className="overflow-y-auto">
+        <div className="overflow-y-auto" ref={scrollContainerRef}>
           {isLoading || !activeWinery ? (
             <div className="p-6 space-y-4">
               <DialogHeader>
