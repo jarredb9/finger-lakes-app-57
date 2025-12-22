@@ -117,8 +117,13 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
      if (visit.wineries?.google_place_id) {
         // Ensure data is loaded
         ensureWineryDetails(visit.wineries.google_place_id);
-        // Open the winery modal and tell it to return to history when closed
-        openWineryModal(visit.wineries.google_place_id, true)
+        
+        // Decouple the open call to avoid ARIA hidden/focus conflicts 
+        // between the closing and opening dialogs.
+        setTimeout(() => {
+            // Open the winery modal and tell it to return to history when closed
+            openWineryModal(visit.wineries.google_place_id, true)
+        }, 100);
      }
   }
 

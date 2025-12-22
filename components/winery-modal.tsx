@@ -115,14 +115,19 @@ export default function WineryModal() {
 
   const handleTripBadgeClick = async (tripId: number) => {
     closeWineryModal(); // Close the winery modal first
-    await fetchTripById(tripId.toString());
-    const updatedTrip = useTripStore.getState().trips.find((t) => t.id === tripId);
-    if (updatedTrip) {
-      setSelectedTrip(updatedTrip);
-      toast({ description: `Map updated to show trip: ${updatedTrip.name}` });
-    } else {
-      toast({ variant: "destructive", description: "Failed to load trip details." });
-    }
+    
+    // Small delay to allow modal to start closing before potentially triggering
+    // complex state updates or navigation that might conflict with focus restoration.
+    setTimeout(async () => {
+        await fetchTripById(tripId.toString());
+        const updatedTrip = useTripStore.getState().trips.find((t) => t.id === tripId);
+        if (updatedTrip) {
+          setSelectedTrip(updatedTrip);
+          toast({ description: `Map updated to show trip: ${updatedTrip.name}` });
+        } else {
+          toast({ variant: "destructive", description: "Failed to load trip details." });
+        }
+    }, 100);
   };
 
   return (
