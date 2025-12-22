@@ -1,5 +1,41 @@
 # Changelog
 
+## [2.2.2] - 2025-12-22
+
+**Streamlined Trips & Unified Visit Management**
+
+Version 2.2.2 focuses on UX refinement and data consistency. We have completely refactored the Trips tab to prioritize immediate relevance, centralized the visit management system for real-time synchronization across all views, and squashed a suite of persistent UI bugs to provide a smoother, more reliable experience.
+
+### 🚀 Features
+*   **Trips Tab Overhaul:**
+    *   Consolidated the "Plan a Trip" and "My Trips" views into a unified, high-performance interface.
+    *   Introduced a **"Happening Today"** section at the top of the Trips tab for immediate relevance.
+    *   Simplified navigation by removing the legacy calendar view in favor of a chronological "Upcoming" list.
+    *   Optimized the mobile layout by moving secondary actions (like "View Past Trips") to the bottom of the drawer.
+*   **Centralized Visit Management:**
+    *   Implemented a global visit store to ensure 100% data consistency across the Map, History tab, and full table views.
+    *   Added comprehensive **Optimistic UI updates** for visit creation, editing, and deletion, ensuring the UI feels instantaneous.
+    *   Refactored visit data structures to a unified `VisitWithWinery` type, improving reliability and type safety.
+
+### 🐛 Bug Fixes
+*   **UI/UX Stability:**
+    *   Resolved multiple race conditions in the **Winery Modal scrolling**; the modal now consistently opens at the top regardless of previous interactions.
+    *   Fixed a bug where the winery modal opened as a blank skeleton when accessed from the History table.
+    *   Fixed the "Edit Visit" feature in the winery modal which previously failed to populate existing review data.
+    *   Corrected an issue where the winery counter on trip cards incorrectly displayed "0".
+*   **Data Integrity:**
+    *   Fixed a critical bug where deleted visits persisted on map pins and in history lists due to ID type mismatches.
+    *   Resolved an issue where selecting a future date in the "New Trip" form would accidentally clobber the current "Happening Today" view.
+*   **Accessibility & Technical Debt:**
+    *   Eliminated "aria-hidden" console warnings by resolving duplicate modal rendering on mobile devices.
+    *   Removed redundant "X" buttons and aligned focus management across all dialogs.
+    *   Fixed several TypeScript and Lint errors, including "setState in render" patterns in the history views.
+    *   Cleaned up the codebase by removing the legacy `TripPlanner` calendar component.
+
+### ⚙ Refactoring
+*   **Architecture:** Completed the transition to "Supabase Native" for all Visit and Trip operations, communicating directly with the database for better performance.
+*   **Testing:** Enhanced the Playwright E2E suite with robust zero-cost mocking for Google Maps API and Supabase RPCs.
+
 ## [2.2.1] - 2025-12-17
 
 ### 🚀 Features
