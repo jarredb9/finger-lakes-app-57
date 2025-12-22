@@ -240,6 +240,10 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Modal Stability:** Resolved race conditions in modal scrolling and ARIA hidden conflicts by moving modals to the app root and implementing hydration guards.
     *   **Type Safety:** Implemented `VisitWithWinery` type and resolved ID type mismatches in store mutations.
     *   **Hydration Fixes:** Ensured winery details are always fetched when opening modals from history or table views.
+16. **React 19 / Next.js 16 Alignment:**
+    *   **Type Safety:** Replaced deprecated `React.ElementRef` with `React.ComponentRef` across all UI components.
+    *   **Context Refactor:** Updated `<Context.Provider>` to the new direct `<Context>` usage pattern.
+    *   **Verification:** Validated changes with full TypeScript check and E2E test suite.
 
 ## End-to-End Testing (Playwright)
 
