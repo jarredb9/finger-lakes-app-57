@@ -34,9 +34,9 @@ jobs:
         run: npm run type-check
 
       - name: Run Database Linting
-        run: npm run db:lint -- --db-url ${{ secrets.SUPABASE_DB_URL }}
+        run: npm run db:lint -- --db-url ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
 
       - name: Run Tests
         run: npm run test
