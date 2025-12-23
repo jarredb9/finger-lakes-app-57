@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Info, AlertTriangle, Loader2 } from "lucide-react"
+import { createClient } from "@/utils/supabase/client"
 
 export default function SignupForm() {
   const [error, setError] = useState("")
@@ -49,27 +50,33 @@ export default function SignupForm() {
     }
 
     try {
-      const response = await fetch("/api/auth/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+      const supabase = createClient()
+      const { data, error: signupError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name,
+          },
+        },
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        if (data.needsConfirmation) {
-          setNeedsConfirmation(true)
-          setUserEmail(email)
-          setSuccess(data.message || "Account created but needs email confirmation.")
-        } else if (data.userExists) {
-          setSuccess(data.message)
+      if (signupError) {
+        if (signupError.message.includes("User already registered")) {
+          setSuccess("Account already exists. Try signing in, or if that fails, the account may need email confirmation.")
         } else {
-          router.push("/")
-          router.refresh()
+          setError(signupError.message || "Signup failed")
         }
-      } else {
-        setError(data.error || "Signup failed")
+        return
+      }
+
+      if (data.session) {
+        router.push("/")
+        router.refresh()
+      } else if (data.user) {
+        setNeedsConfirmation(true)
+        setUserEmail(email)
+        setSuccess("Account created but requires email confirmation. Since email is not configured, you can try the manual confirmation below.")
       }
     } catch (err) {
       console.error("Signup error:", err)

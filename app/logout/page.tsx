@@ -3,27 +3,26 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { useUserStore } from "@/lib/stores/userStore";
 
 export default function LogoutPage() {
   const router = useRouter();
+  const logout = useUserStore(state => state.logout);
 
   useEffect(() => {
     const performLogout = async () => {
       try {
-        // Call the logout API endpoint
-        await fetch('/api/auth/logout', { method: 'POST' });
+        await logout();
       } catch (error) {
         console.error("Logout failed", error);
       } finally {
-        // Redirect to the login page regardless of API call success
         router.push('/login');
-        // Refresh the router cache to ensure all user data is cleared
         router.refresh();
       }
     };
 
     performLogout();
-  }, [router]);
+  }, [router, logout]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">

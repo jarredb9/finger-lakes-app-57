@@ -1,4 +1,5 @@
 import { createWithEqualityFn } from 'zustand/traditional';
+import { createClient } from '@/utils/supabase/client';
 
 interface User {
   id: string;
@@ -21,11 +22,17 @@ export const useUserStore = createWithEqualityFn<UserState>((set) => ({
 
   fetchUser: async () => {
     set({ isLoading: true });
+    const supabase = createClient();
     try {
-      const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const user = await response.json();
-        set({ user, isAuthenticated: true, isLoading: false });
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (user && !error) {
+        // Map Supabase user to our internal User interface
+        const formattedUser: User = {
+            id: user.id,
+            name: user.user_metadata?.name || user.email?.split('@')[0] || 'User',
+            email: user.email || ''
+        };
+        set({ user: formattedUser, isAuthenticated: true, isLoading: false });
       } else {
         set({ user: null, isAuthenticated: false, isLoading: false });
       }
@@ -36,8 +43,9 @@ export const useUserStore = createWithEqualityFn<UserState>((set) => ({
   },
 
   logout: async () => {
+    const supabase = createClient();
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await supabase.auth.signOut();
       set({ user: null, isAuthenticated: false });
     } catch (error) {
       console.error('Logout failed', error);
