@@ -2,7 +2,6 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import { Winery, Visit, GooglePlaceId, WineryDbId, DbWinery, MapMarkerRpc, WineryDetailsRpc, DbWineryWithUserData } from '@/lib/types'; // Import new types
 import { createClient } from '@/utils/supabase/client';
 import { standardizeWineryData, GoogleWinery } from '@/lib/utils/winery'; // Import GoogleWinery
-import { toggleFavorite, toggleWishlist } from '@/app/actions';
 
 interface WineryDataState {
   persistentWineries: Winery[]; // The Master Cache
@@ -112,6 +111,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
           persistentWineries: original.map(w => w.id === wineryId ? { ...w, isFavorite: !w.isFavorite } : w)
       });
 
+      const supabase = createClient();
       try {
           const rpcWineryData = {
               id: winery.id,
@@ -123,8 +123,10 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
               website: winery.website || null,
               rating: winery.rating || null,
           };
-          const result = await toggleFavorite(rpcWineryData, true);
-          if (!result.success) throw new Error(result.error);
+          
+          const { error } = await supabase.rpc('toggle_favorite', { p_winery_data: rpcWineryData });
+          
+          if (error) throw error;
       } catch (err) {
           console.error("Fav toggle failed:", err);
           set({ persistentWineries: original }); // Revert
@@ -143,6 +145,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
         persistentWineries: original.map(w => w.id === wineryId ? { ...w, onWishlist: !isOnWishlist } : w)
     });
 
+    const supabase = createClient();
     try {
         const rpcWineryData = {
             id: winery.id,
@@ -154,8 +157,10 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
             website: winery.website || null,
             rating: winery.rating || null,
         };
-        const result = await toggleWishlist(rpcWineryData, true);
-        if (!result.success) throw new Error(result.error);
+        
+        const { error } = await supabase.rpc('toggle_wishlist', { p_winery_data: rpcWineryData });
+        
+        if (error) throw error;
     } catch (err) {
         console.error("Wishlist toggle failed:", err);
         set({ persistentWineries: original }); // Revert
