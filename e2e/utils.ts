@@ -155,6 +155,25 @@ export async function mockGoogleMapsApi(page: Page) {
     });
   });
 
+  // 2.6.7 Mock List Toggles
+  await page.route(/\/rpc\/toggle_wishlist/, (route) => {
+    console.log('[E2E Mock] Intercepted toggle_wishlist RPC');
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(true),
+    });
+  });
+
+  await page.route(/\/rpc\/toggle_favorite/, (route) => {
+    console.log('[E2E Mock] Intercepted toggle_favorite RPC');
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(true),
+    });
+  });
+
   // 2.7 Mock delete visit (Supabase REST - Legacy/Compatibility)
   await page.route(/\/rest\/v1\/visits\?/, (route) => {
     if (route.request().method() === 'DELETE') {
