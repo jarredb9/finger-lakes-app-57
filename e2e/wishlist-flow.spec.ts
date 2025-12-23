@@ -38,51 +38,61 @@ test.describe('Wishlist Flow', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
 
-    // Find "Want to Go" button (Wishlist)
+    // Get the winery ID from the store to be precise in our checks
+    const wineryId = await page.evaluate(() => {
+        const store = (window as any).useWineryDataStore;
+        return store.getState().persistentWineries[0].id;
+    });
+
+    // 1. Wishlist Toggle ON
     const wishlistBtn = modal.getByRole('button', { name: 'Want to Go' });
     await expect(wishlistBtn).toBeVisible();
+    await wishlistBtn.click();
     
-    // Toggle ON
-    await wishlistBtn.evaluate((node) => (node as HTMLElement).click());
-    
-    // Check for "On List" label
-    await expect(modal.getByRole('button', { name: 'On List' })).toBeVisible();
+    // Check UI update (label change)
+    await expect(modal.getByRole('button', { name: 'On List' })).toBeVisible({ timeout: 10000 });
 
-    // Wait for store update
-    await page.waitForFunction(() => {
+    // Verify Store state
+    await page.waitForFunction((id) => {
         const store = (window as any).useWineryDataStore;
-        return store.getState().persistentWineries[0].onWishlist === true;
-    });
+        const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
+        return w?.onWishlist === true;
+    }, wineryId);
 
-    // Toggle OFF
-    await modal.getByRole('button', { name: 'On List' }).evaluate((node) => (node as HTMLElement).click());
+    // 2. Wishlist Toggle OFF
+    const onListBtn = modal.getByRole('button', { name: 'On List' });
+    await onListBtn.click();
 
-    // Wait for store update
-    await page.waitForFunction(() => {
+    // Check UI update back to "Want to Go"
+    await expect(modal.getByRole('button', { name: 'Want to Go' })).toBeVisible({ timeout: 10000 });
+
+    // Verify Store state
+    await page.waitForFunction((id) => {
         const store = (window as any).useWineryDataStore;
-        return store.getState().persistentWineries[0].onWishlist === false;
-    });
+        const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
+        return w?.onWishlist === false;
+    }, wineryId);
 
-    // Find Favorite button
+    // 3. Favorite Toggle ON
     const favoriteBtn = modal.getByRole('button', { name: 'Favorite' }).first();
     await expect(favoriteBtn).toBeVisible();
+    await favoriteBtn.click();
 
-    // Toggle ON
-    await favoriteBtn.evaluate((node) => (node as HTMLElement).click());
-
-    // Wait for store update
-    await page.waitForFunction(() => {
+    // Wait for store update (Favorite label doesn't change text, but the variant/icon might)
+    await page.waitForFunction((id) => {
         const store = (window as any).useWineryDataStore;
-        return store.getState().persistentWineries[0].isFavorite === true;
-    });
+        const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
+        return w?.isFavorite === true;
+    }, wineryId);
 
-    // Toggle OFF
-    await favoriteBtn.evaluate((node) => (node as HTMLElement).click());
+    // 4. Favorite Toggle OFF
+    await favoriteBtn.click();
 
-    // Wait for store update
-    await page.waitForFunction(() => {
+    // Verify Store state
+    await page.waitForFunction((id) => {
         const store = (window as any).useWineryDataStore;
-        return store.getState().persistentWineries[0].isFavorite === false;
-    });
+        const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
+        return w?.isFavorite === false;
+    }, wineryId);
   });
 });
