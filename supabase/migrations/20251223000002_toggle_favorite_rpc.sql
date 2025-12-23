@@ -1,6 +1,6 @@
--- Migration to add toggle_wishlist RPC
+-- Migration to add toggle_favorite RPC
 
-CREATE OR REPLACE FUNCTION toggle_wishlist(p_winery_data jsonb)
+CREATE OR REPLACE FUNCTION toggle_favorite(p_winery_data jsonb)
 RETURNS boolean
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -16,24 +16,23 @@ BEGIN
     RAISE EXCEPTION 'Unauthorized';
   END IF;
 
-  -- Ensure winery exists (using existing RPC logic or calling it if possible)
-  -- Since ensure_winery is SECURITY DEFINER, we can call it.
+  -- Ensure winery exists
   v_winery_id := ensure_winery(p_winery_data);
 
-  -- Check if already in wishlist
+  -- Check if already a favorite
   SELECT EXISTS (
-    SELECT 1 FROM wishlist 
+    SELECT 1 FROM favorites 
     WHERE user_id = v_user_id AND winery_id = v_winery_id
   ) INTO v_exists;
 
   IF v_exists THEN
     -- Remove
-    DELETE FROM wishlist 
+    DELETE FROM favorites 
     WHERE user_id = v_user_id AND winery_id = v_winery_id;
     RETURN false; -- Removed
   ELSE
     -- Add
-    INSERT INTO wishlist (user_id, winery_id)
+    INSERT INTO favorites (user_id, winery_id)
     VALUES (v_user_id, v_winery_id);
     RETURN true; -- Added
   END IF;
@@ -41,4 +40,4 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION toggle_wishlist(jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION toggle_favorite(jsonb) TO authenticated;
