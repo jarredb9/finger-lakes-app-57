@@ -160,24 +160,26 @@ export const TripService = {
     // 3. Handle Note Updates
     if ('updateNote' in updates) {
        const { wineryId, notes } = updates.updateNote;
-       // Single Update
+       
        if (typeof notes === 'string') {
-           const { error } = await supabase
-            .from("trip_wineries")
-            .update({ notes })
-            .eq("trip_id", tripId)
-            .eq("winery_id", wineryId);
+           const { error } = await supabase.rpc('update_trip_winery_notes', {
+               p_trip_id: parseInt(tripId),
+               p_winery_id: wineryId,
+               p_notes: notes
+           });
            if (error) throw error;
        } 
-       // Batch Update (Object)
        else if (typeof notes === 'object') {
            const promises = Object.entries(notes).map(([wId, text]) => 
-                supabase.from('trip_wineries')
-                    .update({ notes: text as string })
-                    .eq('trip_id', tripId)
-                    .eq('winery_id', wId)
+                supabase.rpc('update_trip_winery_notes', {
+                    p_trip_id: parseInt(tripId),
+                    p_winery_id: parseInt(wId),
+                    p_notes: text as string
+                })
            );
-           await Promise.all(promises);
+           const results = await Promise.all(promises);
+           const firstError = results.find(r => r.error)?.error;
+           if (firstError) throw firstError;
        }
        return;
     }
@@ -189,6 +191,21 @@ export const TripService = {
         .eq("id", tripId);
 
     if (error) throw error;
+  },
+
+  async addMemberByEmail(tripId: number, email: string) {
+    const supabase = createClient();
+    const { data, error } = await supabase.rpc('add_trip_member_by_email', {
+        p_trip_id: tripId,
+        p_email: email
+    });
+
+    if (error) {
+        console.error("Error adding member by email:", error);
+        throw new Error(error.message || "Failed to add member.");
+    }
+
+    return data;
   },
 
   async addWineryToNewTrip(date: string, wineryId: number, notes: string, name: string) {
