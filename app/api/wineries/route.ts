@@ -78,31 +78,31 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: "Internal server error during Google search" }, { status: 500 });
         }
     } 
-    // Otherwise, fetch paginated wineries from the database
+    // Otherwise, fetch paginated wineries from the database using RPC
     else {
         const page = parseInt(searchParams.get("page") || "1", 10);
         const limit = parseInt(searchParams.get("limit") || "20", 10);
-        const rangeFrom = (page - 1) * limit;
-        const rangeTo = rangeFrom + limit - 1;
 
         try {
-            const { data: wineries, error, count } = await supabase
-                .from('wineries')
-                .select('*', { count: 'exact' })
-                .range(rangeFrom, rangeTo);
+            const { data, error } = await supabase.rpc('get_paginated_wineries', { 
+                p_page: page, 
+                p_limit: limit 
+            });
 
-            if (error) {
-                throw error;
-            }
+            if (error) throw error;
+
+            const totalCount = data && data.length > 0 ? data[0].total_count : 0;
+            
             // Standardize the output to match the Winery type
-            const formattedWineries = wineries.map(w => ({
+            const formattedWineries = data.map((w: any) => ({
                 id: w.google_place_id,
                 dbId: w.id,
                 ...w
             }));
-            return NextResponse.json({ wineries: formattedWineries || [], count: count || 0 });
+
+            return NextResponse.json({ wineries: formattedWineries || [], count: totalCount });
         } catch (error) {
-            console.error("Error fetching wineries:", error);
+            console.error("Error fetching wineries via RPC:", error);
             return NextResponse.json({ error: "Internal server error" }, { status: 500 });
         }
     }

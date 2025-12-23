@@ -127,6 +127,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   `get_winery_details_by_id(id)`: Lazy-loads full details (reviews, hours).
     *   `get_paginated_visits_with_winery_and_friends`: Fetches visit history efficiently.
     *   `get_trip_details(trip_id)`: Fetches full trip data including wineries and nested member visits in one call.
+    *   `get_paginated_wineries(page, limit)`: Fetches wineries with user-specific flags and total count for browsing.
 *   **Logic & Transactions:**
     *   `create_trip_with_winery`: Atomically creates a trip and adds the first winery.
     *   `add_winery_to_trip`: Handles upsert logic for wineries and additions to trips.
@@ -256,6 +257,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 19. **Supabase Native Refactor (Auth & Cleanup):** Eliminated redundant "wrapper" API routes (`/api/auth/me`, `/api/auth/logout`, `/api/auth/signup`, `/api/wishlist`, `/api/wineries/[id]`) in favor of direct Supabase SDK usage on the client. Refactored `userStore.ts` and `SignupForm` to use the SDK directly. Cleaned up empty directories and updated `proxy.ts` middleware.
 20. **Supabase Native Refactor (Trip Management):** Refactored `TripService.ts` to use atomic Supabase RPCs (`get_trip_details`, `create_trip_with_winery`, `add_winery_to_trips`, `reorder_trip_wineries`, `delete_trip`). Eliminated multi-step client-side merging logic and inefficient bulk inserts, ensuring atomic transactions and improved performance for trip planning and management.
 21. **Postgres Security Patch:** Applied `SET search_path = public` to all `SECURITY DEFINER` RPC functions to resolve "Function Search Path Mutable" security warnings and prevent potential hijacking vulnerabilities. Verified via `npx supabase db lint`.
+22. **Supabase Native Refactor (Winery Browsing):** Migrated the "Browse" list fetching from standard table select to `get_paginated_wineries` RPC. This move ensures the browsing view includes rich user-specific state (favorites, wishlist, visited) while improving backend performance.
 
 ## End-to-End Testing (Playwright)
 
