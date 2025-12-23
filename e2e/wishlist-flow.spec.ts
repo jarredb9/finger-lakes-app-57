@@ -47,7 +47,12 @@ test.describe('Wishlist Flow', () => {
     // 1. Wishlist Toggle ON
     const wishlistBtn = modal.getByRole('button', { name: 'Want to Go' });
     await expect(wishlistBtn).toBeVisible();
-    await wishlistBtn.click();
+    
+    // Wait for the RPC response AND the click
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('toggle_wishlist') && resp.status() === 200),
+        wishlistBtn.click()
+    ]);
     
     // Check UI update (label change)
     await expect(modal.getByRole('button', { name: 'On List' })).toBeVisible({ timeout: 10000 });
@@ -57,11 +62,14 @@ test.describe('Wishlist Flow', () => {
         const store = (window as any).useWineryDataStore;
         const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
         return w?.onWishlist === true;
-    }, wineryId);
+    }, wineryId, { timeout: 15000 });
 
     // 2. Wishlist Toggle OFF
     const onListBtn = modal.getByRole('button', { name: 'On List' });
-    await onListBtn.click();
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('toggle_wishlist') && resp.status() === 200),
+        onListBtn.click()
+    ]);
 
     // Check UI update back to "Want to Go"
     await expect(modal.getByRole('button', { name: 'Want to Go' })).toBeVisible({ timeout: 10000 });
@@ -71,28 +79,34 @@ test.describe('Wishlist Flow', () => {
         const store = (window as any).useWineryDataStore;
         const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
         return w?.onWishlist === false;
-    }, wineryId);
+    }, wineryId, { timeout: 15000 });
 
     // 3. Favorite Toggle ON
     const favoriteBtn = modal.getByRole('button', { name: 'Favorite' }).first();
     await expect(favoriteBtn).toBeVisible();
-    await favoriteBtn.click();
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('toggle_favorite') && resp.status() === 200),
+        favoriteBtn.click()
+    ]);
 
-    // Wait for store update (Favorite label doesn't change text, but the variant/icon might)
+    // Wait for store update
     await page.waitForFunction((id) => {
         const store = (window as any).useWineryDataStore;
         const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
         return w?.isFavorite === true;
-    }, wineryId);
+    }, wineryId, { timeout: 15000 });
 
     // 4. Favorite Toggle OFF
-    await favoriteBtn.click();
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('toggle_favorite') && resp.status() === 200),
+        favoriteBtn.click()
+    ]);
 
     // Verify Store state
     await page.waitForFunction((id) => {
         const store = (window as any).useWineryDataStore;
         const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
         return w?.isFavorite === false;
-    }, wineryId);
+    }, wineryId, { timeout: 15000 });
   });
 });

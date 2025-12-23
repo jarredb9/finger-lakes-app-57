@@ -134,6 +134,9 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   `add_winery_to_trips`: Bulk adds a winery to multiple trips atomically.
     *   `reorder_trip_wineries`: Updates visit order for multiple wineries in a trip.
     *   `delete_trip`: Atomically deletes a trip and its winery relationships.
+    *   `log_visit`: Atomically creates/gets a winery and logs a new visit.
+    *   `update_visit`: Updates an existing visit and returns rich winery data.
+    *   `delete_visit`: Securely deletes a visit record.
     *   `ensure_winery(p_winery_data)`: Security-definer RPC used to safely insert/get a winery ID, bypassing RLS `UPDATE` restrictions.
     *   `toggle_wishlist` / `toggle_favorite`: Atomic toggles for user winery lists.
 *   **Social:**
@@ -258,6 +261,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 20. **Supabase Native Refactor (Trip Management):** Refactored `TripService.ts` to use atomic Supabase RPCs (`get_trip_details`, `create_trip_with_winery`, `add_winery_to_trips`, `reorder_trip_wineries`, `delete_trip`). Eliminated multi-step client-side merging logic and inefficient bulk inserts, ensuring atomic transactions and improved performance for trip planning and management.
 21. **Postgres Security Patch:** Applied `SET search_path = public` to all `SECURITY DEFINER` RPC functions to resolve "Function Search Path Mutable" security warnings and prevent potential hijacking vulnerabilities. Verified via `npx supabase db lint`.
 22. **Supabase Native Refactor (Winery Browsing):** Migrated the "Browse" list fetching from standard table select to `get_paginated_wineries` RPC. This move ensures the browsing view includes rich user-specific state (favorites, wishlist, visited) while improving backend performance.
+23. **Supabase Native Refactor (Visit Mutations):** Refactored `visitStore.ts` to use atomic Supabase RPCs (`update_visit`, `delete_visit`). This eliminates redundant select calls after updates and ensures only authorized owners can delete visits through a secure database layer.
 
 ## End-to-End Testing (Playwright)
 
