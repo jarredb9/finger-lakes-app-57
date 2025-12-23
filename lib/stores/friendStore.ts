@@ -67,14 +67,11 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   },
 
   addFriend: async (email: string) => {
-    const response = await fetch('/api/friends', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    if (!response.ok) {
-      const { error } = await response.json();
-      throw new Error(error || "Failed to send friend request.");
+    const supabase = createClient();
+    const { error } = await supabase.rpc('send_friend_request', { target_email: email });
+
+    if (error) {
+      throw new Error(error.message || "Failed to send friend request.");
     }
     await get().fetchFriends(); // Refetch to show pending request in "Sent Requests"
   },
@@ -134,18 +131,15 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
         set({ friends: newFriends, friendRequests: newRequests });
     }
 
+    const supabase = createClient();
     try {
-      // We keep the fetch call here for now as 'respond_to_friend_request' RPC might not exist or logic is complex
-      // TODO: Migrate to RPC if available
-      const response = await fetch('/api/friends', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requesterId, accept }),
+      const { error } = await supabase.rpc('respond_to_friend_request', { 
+        requester_id: requesterId, 
+        accept: accept 
       });
       
-      if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.error || "Failed to update friend request.");
+      if (error) {
+          throw new Error(error.message || "Failed to update friend request.");
       }
       
       await get().fetchFriends(); 

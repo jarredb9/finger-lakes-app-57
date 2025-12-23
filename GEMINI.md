@@ -80,7 +80,7 @@ We enforce a "Thick Client, Thin Server" architecture to support future mobile d
 *   **Authentication:** **Hybrid State.** Core flows (Login, Signup, Logout) rely on standard API routes (`app/api/auth/*`). Some newer interactions use Server Actions (`app/actions.ts`). Both are valid.
 *   **Data Fetching:**
     *   **Preference:** Client-side stores should communicate **directly** with Supabase using `@supabase/supabase-js` or RPCs for read operations to minimize latency.
-    *   **Usage:** `app/api/*` is used for logic-heavy operations (e.g., Friends, syncing Wineries from Google).
+    *   **Usage:** `app/api/*` is used for logic-heavy operations (e.g., Auth, syncing Wineries from Google).
     *   **Rule:** Do not migrate logic from `app/api` to RPCs unless there is a clear performance benefit. Do NOT delete `app/api/*`.
 *   **RPCs:** We rely heavily on PostgreSQL functions (RPCs) for complex joins and logic.
 *   **Type Safety:** `lib/database.types.ts` is the generated source of truth for DB types. `lib/types.ts` imports from it.
@@ -143,7 +143,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 /
 ├── app/                 # Next.js App Router pages and API routes
 │   ├── actions.ts       # Server Actions (Auth, Favorites)
-│   ├── api/             # Active API Routes (Auth, Friends, Wineries)
+│   ├── api/             # Active API Routes (Auth, Wineries)
 │   ├── (routes)/        # Page routes
 │   └── layout.tsx       # Root layout
 ├── components/          # React components
@@ -244,6 +244,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Type Safety:** Replaced deprecated `React.ElementRef` with `React.ComponentRef` across all UI components.
     *   **Context Refactor:** Updated `<Context.Provider>` to the new direct `<Context>` usage pattern.
     *   **Verification:** Validated changes with full TypeScript check and E2E test suite.
+17. **Supabase Native Refactor (Friends):** Refactored friend request and response logic to use Supabase RPCs (`send_friend_request`, `respond_to_friend_request`), eliminating dependency on `app/api/friends`. Verified via multi-user E2E tests.
 
 ## End-to-End Testing (Playwright)
 
