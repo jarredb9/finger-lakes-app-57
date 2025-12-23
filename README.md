@@ -14,10 +14,9 @@ This is a Next.js web application for planning and tracking visits to wineries i
 *   **Language:** TypeScript
 *   **Styling:** Tailwind CSS, Radix UI (via shadcn/ui)
 *   **State Management:** Zustand
-*   **Database/Auth:** Supabase
+*   **Database/Auth:** Supabase (**Supabase Native Architecture**: Business logic resides in RPCs or direct client SDK calls)
 *   **Maps:** Google Maps Platform
-*   **Forms:** React Hook Form + Zod
-*   **Testing:** Jest + React Testing Library
+*   **Testing:** Jest + React Testing Library + Playwright E2E
 
 ## Key Commands
 
@@ -44,7 +43,7 @@ We use a strict **Migration-First** workflow. The `supabase/migrations` folder i
 
 ## Project Structure
 
-*   `app/`: Next.js App Router pages and API routes.
+*   `app/`: Next.js App Router pages and minimal API routes (Auth & Google proxying).
 *   `components/`: React components (UI library and feature-specific).
 *   `lib/`: Core logic, including Zustand stores (`lib/stores`), Services (`lib/services`), and types (`lib/types.ts`).
 *   `supabase/`: Database configuration and migrations.
@@ -54,6 +53,7 @@ We use a strict **Migration-First** workflow. The `supabase/migrations` folder i
 
 *   **Imports:** Use absolute imports (e.g., `@/components/...`).
 *   **State:** Use Zustand for global state management.
-*   **Services:** Use dedicated services in `lib/services/` for API logic.
+*   **Data:** Use database RPCs or the Supabase SDK directly for all data-related tasks. Avoid creating new API routes for CRUD.
+*   **Services:** Use dedicated services in `lib/services/` to wrap complex RPC or SDK logic.
 *   **Styling:** Use Tailwind utility classes.
 *   **Icons:** Use Lucide React icons.

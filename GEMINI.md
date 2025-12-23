@@ -71,18 +71,18 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 *   **Service Layer (`lib/services/`):** Static classes that encapsulate API calls. Stores call Services; Components call Stores.
 
 ### 2. "Supabase Native" Architecture (Mobile-First)
-**⚠️ ARCHITECTURE STATE:** The application uses a **Hybrid Architecture**.
-*   **API Routes (`app/api/*`):** These are **ACTIVE and CRITICAL**. They handle Authentication, Friend management, and complex server-side logic that requires middleware processing or third-party integrations. Do NOT delete these.
-*   **RPCs & Server Actions:** These are the **preferred method for Data Fetching** and simple user interactions (e.g., toggles) to ensure performance and type safety.
+**⚠️ ARCHITECTURE STATE:** The application uses a **Supabase Native Architecture**.
+*   **API Routes (`app/api/*`):** These are **LIMITED and SPECIFIC**. They primarily handle Authentication flows (reset/confirm) and proxy Google Maps API calls to hide keys. Business logic has been migrated to RPCs or direct SDK usage.
+*   **RPCs & Server Actions:** These are the **primary method for Data Fetching** and all data mutations (toggles, trip management, friends) to ensure atomicity, performance, and type safety.
 
 We enforce a "Thick Client, Thin Server" architecture to support future mobile development.
 
-*   **Authentication:** **Hybrid State.** Core flows (Login, Signup, Logout) rely on standard API routes (`app/api/auth/*`). Some newer interactions use Server Actions (`app/actions.ts`). Both are valid.
+*   **Authentication:** **Hybrid State.** Sign-up and Sign-in use the Supabase SDK directly on the client. Password reset and confirmation use specific API routes. Logout uses the SDK directly.
 *   **Data Fetching:**
-    *   **Preference:** Client-side stores should communicate **directly** with Supabase using `@supabase/supabase-js` or RPCs for read operations to minimize latency.
-    *   **Usage:** `app/api/*` is used for logic-heavy operations (e.g., Auth, syncing Wineries from Google).
-    *   **Rule:** Do not migrate logic from `app/api` to RPCs unless there is a clear performance benefit. Do NOT delete `app/api/*`.
-*   **RPCs:** We rely heavily on PostgreSQL functions (RPCs) for complex joins and logic.
+    *   **Preference:** Client-side stores communicate **directly** with Supabase using the SDK or RPCs for all read/write operations.
+    *   **Usage:** `app/api/*` is reserved for third-party integrations (Google Places) and complex auth flows.
+    *   **Rule:** Do not create new API routes for CRUD. Use RPCs or the SDK directly.
+*   **RPCs:** We rely heavily on PostgreSQL functions (RPCs) for complex joins, transactional logic (e.g., adding wineries to trips), and security-sensitive lookups (e.g., friend email lookup).
 *   **Type Safety:** `lib/database.types.ts` is the generated source of truth for DB types. `lib/types.ts` imports from it.
 
 ### 3. ID System (Strict Typing)
@@ -126,11 +126,18 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   `get_map_markers(user_id_param)`: Lightweight fetch for initial map load. Accepts explicit user ID to ensure flags (`is_favorite`) are correct.
     *   `get_winery_details_by_id(id)`: Lazy-loads full details (reviews, hours).
     *   `get_paginated_visits_with_winery_and_friends`: Fetches visit history efficiently.
+    *   `get_trip_details(trip_id)`: Fetches full trip data including wineries and nested member visits in one call.
 *   **Logic & Transactions:**
     *   `create_trip_with_winery`: Atomically creates a trip and adds the first winery.
-    *   `add_winery_to_trip`: Handles upsert logic for wineries.
-    *   `ensure_winery(p_winery_data)`: Security-definer RPC used to safely insert/get a winery ID, bypassing RLS `UPDATE` restrictions during favorite/wishlist toggles.
+    *   `add_winery_to_trip`: Handles upsert logic for wineries and additions to trips.
+    *   `add_winery_to_trips`: Bulk adds a winery to multiple trips atomically.
+    *   `reorder_trip_wineries`: Updates visit order for multiple wineries in a trip.
+    *   `delete_trip`: Atomically deletes a trip and its winery relationships.
+    *   `ensure_winery(p_winery_data)`: Security-definer RPC used to safely insert/get a winery ID, bypassing RLS `UPDATE` restrictions.
+    *   `toggle_wishlist` / `toggle_favorite`: Atomic toggles for user winery lists.
 *   **Social:**
+    *   `send_friend_request(target_email)`: Securely look up user by email and create/revive friend requests.
+    *   `respond_to_friend_request(requester_id, accept)`: Updates pending request status.
     *   `get_friends_activity_for_winery`: Returns JSON of friends who favorited/wishlisted a winery.
 
 ### Core Custom Hooks
@@ -248,6 +255,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 18. **Supabase Native Refactor (Wishlist & Favorites):** Refactored `toggleWishlist` and `toggleFavorite` logic to use Supabase RPCs (`toggle_wishlist`, `toggle_favorite`), streamlining database interactions and removing "Thick Server" logic from `app/actions.ts`. Verified with E2E tests.
 19. **Supabase Native Refactor (Auth & Cleanup):** Eliminated redundant "wrapper" API routes (`/api/auth/me`, `/api/auth/logout`, `/api/auth/signup`, `/api/wishlist`, `/api/wineries/[id]`) in favor of direct Supabase SDK usage on the client. Refactored `userStore.ts` and `SignupForm` to use the SDK directly. Cleaned up empty directories and updated `proxy.ts` middleware.
 20. **Supabase Native Refactor (Trip Management):** Refactored `TripService.ts` to use atomic Supabase RPCs (`get_trip_details`, `create_trip_with_winery`, `add_winery_to_trips`, `reorder_trip_wineries`, `delete_trip`). Eliminated multi-step client-side merging logic and inefficient bulk inserts, ensuring atomic transactions and improved performance for trip planning and management.
+21. **Postgres Security Patch:** Applied `SET search_path = public` to all `SECURITY DEFINER` RPC functions to resolve "Function Search Path Mutable" security warnings and prevent potential hijacking vulnerabilities. Verified via `npx supabase db lint`.
 
 ## End-to-End Testing (Playwright)
 
