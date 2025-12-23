@@ -126,7 +126,36 @@ export async function mockGoogleMapsApi(page: Page) {
     });
   });
 
-  // 2.7 Mock delete visit (Supabase REST)
+  // 2.6.6 Mock Visit Mutation RPCs
+  await page.route(/\/rpc\/update_visit/, (route) => {
+    console.log('[E2E Mock] Intercepted update_visit RPC');
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        id: 1,
+        visit_date: new Date().toISOString().split('T')[0],
+        user_review: 'Updated review!',
+        rating: 4,
+        photos: [],
+        winery_id: 1,
+        winery_name: 'Mock Winery One',
+        winery_address: mockPlaces[0].formattedAddress,
+        google_place_id: mockPlaces[0].id
+      }),
+    });
+  });
+
+  await page.route(/\/rpc\/delete_visit/, (route) => {
+    console.log('[E2E Mock] Intercepted delete_visit RPC');
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ success: true }),
+    });
+  });
+
+  // 2.7 Mock delete visit (Supabase REST - Legacy/Compatibility)
   await page.route(/\/rest\/v1\/visits\?/, (route) => {
     if (route.request().method() === 'DELETE') {
         console.log('[E2E Mock] Intercepted Supabase DELETE Visit');

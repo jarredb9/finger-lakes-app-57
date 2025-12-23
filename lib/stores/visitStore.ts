@@ -222,12 +222,10 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set, get) => ({
       }
 
       const finalPhotoPaths = [...newOptimisticPhotos, ...newPhotoPaths];
-      const { data: updatedVisit, error } = await supabase
-        .from('visits')
-        .update({ ...visitData, photos: finalPhotoPaths })
-        .eq('id', visitId)
-        .select('*, wineries(*)')
-        .single();
+      const { data: updatedVisit, error } = await supabase.rpc('update_visit', {
+          p_visit_id: parseInt(visitId),
+          p_visit_data: { ...visitData, photos: finalPhotoPaths }
+      });
 
       if (error) throw error;
 
@@ -237,8 +235,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set, get) => ({
 
       const finalVisit: VisitWithWinery = {
           ...updatedVisit,
-          wineryName: updatedVisit.wineries.name,
-          wineryId: updatedVisit.wineries.google_place_id
+          wineryName: updatedVisit.winery_name,
+          wineryId: updatedVisit.google_place_id
       };
 
       confirmOptimisticUpdate(finalVisit);
@@ -268,10 +266,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set, get) => ({
     set(state => ({ visits: state.visits.filter(v => String(v.id) !== String(visitId)) }));
 
     try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Unauthorized.");
-
-        const { error } = await supabase.from('visits').delete().eq('id', visitId).eq('user_id', user.id);
+        const { error } = await supabase.rpc('delete_visit', { p_visit_id: parseInt(visitId) });
         if (error) throw error;
         
         confirmOptimisticUpdate();
