@@ -63,69 +63,17 @@ export const TripService = {
 
   async getTripById(tripId: string) {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
-
-    // 1. Fetch Trip & Wineries
-    const { data: trip, error: tripError } = await supabase
-      .from("trips")
-      .select("*, trip_wineries(*, wineries(*))")
-      .eq("id", tripId)
-      .single();
-
-    if (tripError || !trip) throw new Error("Trip not found");
-
-    // 2. Fetch Visits (for historical context on the trip planner)
-    const allWineryIds = new Set<number>();
-    const allMemberIds = new Set<string>();
     
-    trip.trip_wineries?.forEach((tw: DbTripWinery) => {
-      if (tw.wineries?.id) allWineryIds.add(tw.wineries.id);
+    const { data, error } = await supabase.rpc('get_trip_details', { 
+      trip_id_param: parseInt(tripId) 
     });
-    
-    trip.members?.forEach((m: string) => allMemberIds.add(m));
-    allMemberIds.add(trip.user_id);
 
-    let visitsByWinery = new Map<number, Visit[]>();
-
-    if (allWineryIds.size > 0) {
-      const { data: visits } = await supabase
-        .from("visits")
-        .select("*, profiles(name)")
-        .in("winery_id", Array.from(allWineryIds))
-        .in("user_id", Array.from(allMemberIds))
-        .eq("visit_date", trip.trip_date);
-
-      visits?.forEach((visit: any) => {
-        if (!visitsByWinery.has(visit.winery_id)) {
-            visitsByWinery.set(visit.winery_id, []);
-        }
-        visitsByWinery.get(visit.winery_id)?.push(visit);
-      });
+    if (error) {
+      console.error("Error fetching trip details:", error);
+      throw new Error(error.message || "Trip not found");
     }
 
-    // 3. Format Response
-    const wineriesWithVisits = trip.trip_wineries
-      ?.sort((a: any, b: any) => a.visit_order - b.visit_order)
-      .map((tw: DbTripWinery) => {
-          if (!tw.wineries) return null;
-          return {
-              id: tw.wineries.google_place_id,
-              dbId: tw.wineries.id,
-              name: tw.wineries.name,
-              address: tw.wineries.address,
-              lat: tw.wineries.latitude,
-              lng: tw.wineries.longitude,
-              phone: tw.wineries.phone,
-              website: tw.wineries.website,
-              rating: tw.wineries.google_rating,
-              notes: tw.notes,
-              visits: visitsByWinery.get(tw.wineries.id) || [],
-          };
-      })
-      .filter(Boolean);
-
-    return { ...trip, wineries: wineriesWithVisits || [] };
+    return data as Trip;
   },
 
   async getUpcomingTrips() {
@@ -144,47 +92,62 @@ export const TripService = {
 
   async createTrip(trip: Partial<Trip>) {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    
+    // Note: The RPC 'create_trip_with_winery' handles one winery at a time.
+    // If multiple wineries are provided (rare in our current UI flow for NEW trips), 
+    // we take the first one or just create the trip normally if empty.
+    
+    if (trip.wineries && trip.wineries.length > 0) {
+        const w = trip.wineries[0];
+        const { data, error } = await supabase.rpc('create_trip_with_winery', {
+            p_trip_name: trip.name || 'New Trip',
+            p_trip_date: trip.trip_date,
+            p_winery_data: {
+                id: w.id,
+                name: w.name,
+                address: w.address,
+                lat: w.lat,
+                lng: w.lng,
+                phone: w.phone,
+                website: w.website,
+                rating: w.rating
+            },
+            p_members: trip.members || null
+        });
 
-    // Basic Trip Creation
+        if (error) throw error;
+        
+        // If there were more wineries, add them to the existing trip
+        if (trip.wineries.length > 1) {
+            const extraWineries = trip.wineries.slice(1);
+            for (const extra of extraWineries) {
+                await this.addWineryToExistingTrip(data.trip_id, extra.dbId || 0, null);
+            }
+        }
+
+        return this.getTripById(data.trip_id.toString());
+    }
+
+    // Fallback for trip without wineries (Basic Insert)
+    const { data: { user } } = await supabase.auth.getUser();
     const { data: newTrip, error } = await supabase
         .from("trips")
         .insert({ 
-            user_id: user.id, 
+            user_id: user?.id, 
             trip_date: trip.trip_date, 
             name: trip.name, 
-            members: [user.id] 
+            members: [user?.id] 
         })
         .select("*")
         .single();
 
     if (error) throw error;
-
-    // Handle initial wineries if provided
-    if (trip.wineries && trip.wineries.length > 0) {
-        const tripWineriesToInsert = trip.wineries.map((w: Winery, index: number) => ({
-            trip_id: newTrip.id,
-            winery_id: w.dbId,
-            visit_order: index,
-        }));
-
-        const { error: wError } = await supabase
-            .from("trip_wineries")
-            .insert(tripWineriesToInsert);
-        
-        if (wError) console.error("Error adding initial wineries:", wError);
-    }
-
-    return { ...newTrip, wineries: trip.wineries || [] } as Trip;
+    return { ...newTrip, wineries: [] } as Trip;
   },
 
   async deleteTrip(tripId: string) {
     const supabase = createClient();
-    // Cascade delete is not set on DB (assumed), so delete relations first
-    await supabase.from("trip_wineries").delete().eq("trip_id", tripId);
-    
-    const { error } = await supabase.from("trips").delete().eq("id", tripId);
+    const { error } = await supabase.rpc('delete_trip', { p_trip_id: parseInt(tripId) });
     if (error) throw error;
   },
 
@@ -193,25 +156,10 @@ export const TripService = {
 
     // 1. Handle Winery Reordering
     if ('wineryOrder' in updates && Array.isArray(updates.wineryOrder)) {
-        // Fetch existing notes to preserve them
-        const { data: existingRelations } = await supabase
-            .from('trip_wineries')
-            .select('winery_id, notes')
-            .eq('trip_id', tripId);
-            
-        const notesMap = new Map(existingRelations?.map(r => [r.winery_id, r.notes]) || []);
-
-        const upsertData = updates.wineryOrder.map((wineryId, index) => ({
-            trip_id: parseInt(tripId),
-            winery_id: wineryId,
-            visit_order: index,
-            notes: notesMap.get(wineryId) || null 
-        }));
-
-        // Upsert is safer than delete-then-insert
-        const { error } = await supabase
-            .from('trip_wineries')
-            .upsert(upsertData, { onConflict: 'trip_id,winery_id' });
+        const { error } = await supabase.rpc('reorder_trip_wineries', {
+            p_trip_id: parseInt(tripId),
+            p_winery_ids: updates.wineryOrder
+        });
             
         if (error) throw error;
         return;
@@ -264,72 +212,83 @@ export const TripService = {
 
   async addWineryToNewTrip(date: string, wineryId: number, notes: string, name: string) {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Unauthorized");
+    const dataStore = (window as any).useWineryDataStore?.getState();
+    const winery = dataStore?.persistentWineries.find((w: any) => w.dbId === wineryId);
 
-    // 1. Create Trip
-    const { data: newTrip, error: tripError } = await supabase
-        .from("trips")
-        .insert({ 
-            user_id: user.id, 
-            trip_date: date, 
-            name: name, 
-            members: [user.id] 
-        })
-        .select("id")
-        .single();
-    
-    if (tripError) throw tripError;
+    if (!winery) {
+        throw new Error("Winery data not found in local store for creation.");
+    }
 
-    // 2. Add Winery
-    const { error: wError } = await supabase
-        .from("trip_wineries")
-        .insert({
-            trip_id: newTrip.id,
-            winery_id: wineryId,
-            visit_order: 0,
-            notes: notes
-        });
+    const { data, error } = await supabase.rpc('create_trip_with_winery', {
+        p_trip_name: name,
+        p_trip_date: date,
+        p_winery_data: {
+            id: winery.id,
+            name: winery.name,
+            address: winery.address,
+            lat: winery.lat,
+            lng: winery.lng,
+            phone: winery.phone,
+            website: winery.website,
+            rating: winery.rating
+        },
+        p_notes: notes
+    });
 
-    if (wError) throw wError; // Note: Trip exists without winery if this fails. Acceptable for now.
-    
-    return { success: true, tripId: newTrip.id };
+    if (error) throw error;
+    return { success: true, tripId: data.trip_id };
   },
 
   async addWineryToExistingTrip(tripId: number, wineryId: number, notes: string | null) {
     const supabase = createClient();
-    // Get max order
-    const { data: existing } = await supabase
-        .from("trip_wineries")
-        .select('visit_order')
-        .eq("trip_id", tripId)
-        .order('visit_order', { ascending: false })
-        .limit(1)
-        .single();
-    
-    const nextOrder = (existing?.visit_order ?? -1) + 1;
+    const dataStore = (window as any).useWineryDataStore?.getState();
+    const winery = dataStore?.persistentWineries.find((w: any) => w.dbId === wineryId);
 
-    const { error } = await supabase
-      .from('trip_wineries')
-      .insert({
-          trip_id: tripId,
-          winery_id: wineryId,
-          visit_order: nextOrder,
-          notes: notes
-      });
+    if (!winery) {
+        // If not in store, we might just have the ID. 
+        // We can't use add_winery_to_trip RPC if it requires full winery data.
+        // Let's check the RPC signature for add_winery_to_trip.
+        // Actually, we have two: 
+        // 1. add_winery_to_trip(integer, integer, text) -> 20251201000005
+        // 2. add_winery_to_trip(integer, jsonb, text) -> 20251209000000
+        
+        // We should use the simple ID one if we only have wineryId.
+        const { error } = await supabase.rpc('add_winery_to_trip', {
+            trip_id_param: tripId,
+            winery_id_param: wineryId,
+            notes_param: notes
+        });
+        if (error) throw error;
+        return { success: true };
+    }
+
+    const { error } = await supabase.rpc('add_winery_to_trip', {
+        p_trip_id: tripId,
+        p_winery_data: {
+            id: winery.id,
+            name: winery.name,
+            address: winery.address,
+            lat: winery.lat,
+            lng: winery.lng,
+            phone: winery.phone,
+            website: winery.website,
+            rating: winery.rating
+        },
+        p_notes: notes
+    });
 
     if (error) throw error;
     return { success: true };
   },
 
   async addWineryToTripByApi(wineryId: number, tripIds: number[]) {
-     // We simply loop and insert. 
-     // For a 'New Trip' included in the list, the UI usually calls createTrip separately, 
-     // but if tripIds includes IDs, we just add to them.
+     const supabase = createClient();
+     const { error } = await supabase.rpc('add_winery_to_trips', {
+         p_winery_id: wineryId,
+         p_trip_ids: tripIds
+     });
      
-     const promises = tripIds.map(tripId => this.addWineryToExistingTrip(tripId, wineryId, ""));
-     await Promise.all(promises);
-     
+     if (error) throw error;
      return { success: true };
   }
 };
