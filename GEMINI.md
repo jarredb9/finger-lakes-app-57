@@ -134,6 +134,8 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   `add_winery_to_trips`: Bulk adds a winery to multiple trips atomically.
     *   `reorder_trip_wineries`: Updates visit order for multiple wineries in a trip.
     *   `delete_trip`: Atomically deletes a trip and its winery relationships.
+    *   `add_trip_member_by_email`: Securely adds a trip member using their email address.
+    *   `update_trip_winery_notes`: Atomically updates notes for a specific winery within a trip.
     *   `log_visit`: Atomically creates/gets a winery and logs a new visit.
     *   `update_visit`: Updates an existing visit and returns rich winery data.
     *   `delete_visit`: Securely deletes a visit record.
@@ -263,6 +265,10 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 22. **Supabase Native Refactor (Winery Browsing):** Migrated the "Browse" list fetching from standard table select to `get_paginated_wineries` RPC. This move ensures the browsing view includes rich user-specific state (favorites, wishlist, visited) while improving backend performance.
 23. **Supabase Native Refactor (Visit Mutations):** Refactored `visitStore.ts` to use atomic Supabase RPCs (`update_visit`, `delete_visit`). This eliminates redundant select calls after updates and ensures only authorized owners can delete visits through a secure database layer.
 24. **Supabase Native Refactor (Trip Sharing & Notes):** Migrated trip member addition and winery note updates to RPCs (`add_trip_member_by_email`, `update_trip_winery_notes`). This enables secure, email-based trip sharing without exposing full profile lists and ensures atomic updates for winery-specific metadata.
+
+### 4. Security & Quality Control
+*   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
+*   **Search Path Security:** All `SECURITY DEFINER` functions **must** explicitly set `SET search_path = public` to prevent schema hijacking vulnerabilities.
 
 ## End-to-End Testing (Playwright)
 
