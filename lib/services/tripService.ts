@@ -1,24 +1,5 @@
 import { createClient } from '@/utils/supabase/client';
-import { Trip, Winery, Visit } from '@/lib/types';
-
-// Helper types to match DB response structure
-interface DbTripWinery {
-  visit_order: number;
-  notes: string | null;
-  wineries: {
-    id: number;
-    google_place_id: string;
-    name: string;
-    address: string;
-    latitude: number;
-    longitude: number;
-    phone?: string;
-    website?: string;
-    google_rating?: number;
-    opening_hours?: any;
-    reviews?: any;
-  } | null;
-}
+import { Trip } from '@/lib/types';
 
 export const TripService = {
   async getTrips(page: number, type: 'upcoming' | 'past', limit = 6) {
