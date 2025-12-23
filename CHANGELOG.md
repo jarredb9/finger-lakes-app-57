@@ -1,5 +1,32 @@
 # Changelog
 
+## [2.2.3] - 2025-12-23
+
+**Supabase Native Architecture & Enhanced Security**
+
+Version 2.2.3 marks the completion of our "Supabase Native" transition. We have eliminated almost all internal API routes in favor of high-performance, atomic PostgreSQL functions (RPCs). This release also significantly hardens database security, streamlines the CI/CD pipeline with automated schema linting, and stabilizes our end-to-end testing suite.
+
+### 🚀 Features
+*   **Supabase Native Refactor:**
+    *   Migrated **Friends** management (requests/responses) to atomic RPCs, removing the `/api/friends` route.
+    *   Migrated **Trip Management** (creation, sharing by email, reordering, and deletion) to a consolidated RPC layer, eliminating complex client-side merging logic.
+    *   Migrated **Visit Mutations** (updates and deletions) to secure RPCs, ensuring transactional integrity.
+    *   Migrated **Wishlist & Favorites** toggles to atomic RPCs.
+    *   Migrated **Winery Browsing** to a rich RPC that includes user-specific state (favorites/wishlist) directly in the list fetch.
+*   **Direct SDK Integration:** Refactored Auth flows (Sign-up, Logout, Session retrieval) to use the Supabase SDK directly on the client, removing redundant intermediary API "wrapper" routes.
+
+### 🛡 Security & Reliability
+*   **Database Hardening:** Implemented a security patch across all `SECURITY DEFINER` functions to enforce `search_path = public`, resolving "Function Search Path Mutable" vulnerabilities.
+*   **Automated Linting:** Integrated `supabase db lint` into the CI/CD pipeline to catch security and performance issues automatically.
+*   **Test Suite Stabilization:** 
+    *   Introduced a dedicated **Wishlist Flow** E2E test.
+    *   Refactored E2E mocks to support the new RPC-based architecture.
+    *   Implemented robust response waiting and auto-retrying assertions to eliminate flakiness in high-latency CI environments.
+
+### ⚙ Refactoring & Cleanup
+*   **API Deletion:** Removed 7+ redundant API routes (`/api/auth/me`, `/api/auth/logout`, `/api/auth/signup`, `/api/wishlist`, `/api/friends`, etc.), significantly reducing technical debt.
+*   **Service Layer Cleanup:** Streamlined `TripService.ts` and Zustand stores by removing obsolete data transformation logic.
+
 ## [2.2.2] - 2025-12-22
 
 **Streamlined Trips & Unified Visit Management**
