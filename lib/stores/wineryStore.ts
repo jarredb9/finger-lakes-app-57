@@ -47,7 +47,9 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
   getVisited: () => useWineryDataStore.getState().persistentWineries.filter(w => w.userVisited),
   getWishlist: () => useWineryDataStore.getState().persistentWineries.filter(w => w.onWishlist),
   getFavorites: () => useWineryDataStore.getState().persistentWineries.filter(w => w.isFavorite),
-  error: useWineryDataStore.getState().error,
+  
+  // Proxy error correctly (Note: state.error might not be reactive if not used in a hook)
+  get error() { return useWineryDataStore.getState().error; },
 
   fetchWineryData: async (userId: string) => {
       await useWineryDataStore.getState().hydrateWineries(userId);

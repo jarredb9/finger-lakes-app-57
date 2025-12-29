@@ -10,6 +10,7 @@ interface TripState {
   upcomingTrips: Trip[];
   isLoading: boolean;
   isSaving: boolean;
+  error: string | null;
   selectedTrip: Trip | null;
   page: number;
   count: number;
@@ -41,6 +42,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   upcomingTrips: [],
   isLoading: false,
   isSaving: false,
+  error: null,
   selectedTrip: null,
   page: 1,
   count: 0,
@@ -49,7 +51,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
   setPage: (page: number) => set({ page }),
 
   fetchTrips: async (page: number, type: 'upcoming' | 'past', refresh = false) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       const { trips: newTrips, count } = await TripService.getTrips(page, type);
       set(state => {
@@ -62,9 +64,9 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
           isLoading: false,
         };
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to fetch trips", error);
-      set({ isLoading: false });
+      set({ isLoading: false, error: error.message || "Failed to load trips." });
     }
   },
 
@@ -537,6 +539,7 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
     upcomingTrips: [],
     isLoading: false,
     isSaving: false,
+    error: null,
     selectedTrip: null,
     page: 1,
     count: 0,

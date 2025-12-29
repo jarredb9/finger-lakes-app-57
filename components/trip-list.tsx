@@ -4,15 +4,16 @@ import { useState, useEffect } from 'react';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { Trip, AuthenticatedUser } from '@/lib/types';
 import { Button } from './ui/button';
-import { Loader2, PlusCircle } from 'lucide-react';
+import { Loader2, PlusCircle, AlertTriangle } from 'lucide-react';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 import { useToast } from '@/hooks/use-toast';
 import TripCardSimple from './trip-card-simple';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import TripForm from "./trip-form";
+import { Alert, AlertDescription } from './ui/alert';
 
 export default function TripList({ user }: { user: AuthenticatedUser }) {
-    const { trips, isLoading, page, hasMore, fetchTrips, setPage, deleteTrip } = useTripStore();
+    const { trips, isLoading, error, page, hasMore, fetchTrips, setPage, deleteTrip } = useTripStore();
     const [tripType, setTripType] = useState<'upcoming' | 'past'>('upcoming');
     const [isCreateTripModalOpen, setCreateTripModalOpen] = useState(false);
     const { toast } = useToast();
@@ -45,6 +46,15 @@ export default function TripList({ user }: { user: AuthenticatedUser }) {
 
     if (isLoading && trips.length === 0) {
         return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
+    }
+
+    if (error) {
+        return (
+            <Alert variant="destructive" className="my-4">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+            </Alert>
+        );
     }
 
     return (
