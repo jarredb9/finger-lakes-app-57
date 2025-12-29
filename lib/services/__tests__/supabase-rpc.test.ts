@@ -1,4 +1,9 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+import path from 'path';
+
+// Load env vars immediately at the top of the file
+dotenv.config({ path: path.resolve(__dirname, '../../../../.env.local') });
 
 // Integration test for Supabase RPCs
 // These tests run against the live Supabase instance.
@@ -8,20 +13,14 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-// Only run these tests if environment variables are present (Isolation for CI)
-const runIntegrationTests = !!(supabaseUrl && anonKey && serviceRoleKey);
+if (!supabaseUrl || !anonKey || !serviceRoleKey) {
+    throw new Error('Supabase RPC Integration tests failed to start: Missing credentials in process.env');
+}
 
-if (!runIntegrationTests) {
-  describe('Supabase RPC Integration Tests (SKIPPED)', () => {
-    it('skipping integration tests due to missing environment variables', () => {
-      console.warn('Skipping Supabase RPC Integration tests: Missing credentials.');
-    });
-  });
-} else {
-  // Admin client for setup/teardown
-  const adminClient = createClient(supabaseUrl!, serviceRoleKey!);
+// Admin client for setup/teardown
+const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
-  describe('Supabase RPC Integration Tests', () => {
+describe('Supabase RPC Integration Tests', () => {
     let user1: { id: string; email: string; client: SupabaseClient };
     let user2: { id: string; email: string; client: SupabaseClient };
 
@@ -151,9 +150,8 @@ if (!runIntegrationTests) {
           .eq('user1_id', user1.id)
           .eq('user2_id', user2.id)
           .single();
-        expect(friendship).not.toBeNull();
-        expect(friendship?.status).toBe('accepted');
-      });
-    });
-  });
-}
+              expect(friendship).not.toBeNull();
+              expect(friendship?.status).toBe('accepted');
+            });
+          });
+        });
