@@ -29,6 +29,8 @@ test.describe('Trip Planning Flow', () => {
   test('can create a new trip from winery details', async ({ page }) => {
     await navigateToTab(page, 'Explore');
 
+    const uniqueTripName = `Trip ${Date.now()}`;
+
     // Wait for wineries to appear in the UI
     const sidebar = getSidebarContainer(page);
     const firstWinery = sidebar.locator('text=Mock Winery One').first();
@@ -51,13 +53,45 @@ test.describe('Trip Planning Flow', () => {
     await expect(modal.getByRole('heading', { name: /Add to a Trip/i })).toBeVisible();
 
     await modal.getByRole('button', { name: 'Pick a date' }).click();
-    await page.getByRole('gridcell', { disabled: false }).first().click();
+    
+    // Select today's date - shadcn calendar uses bg-accent text-accent-foreground for today
+    // Fallback to day number if needed
+    const today = new Date().getDate().toString();
+    const todayCell = page.locator('button.bg-accent.text-accent-foreground, .rdp-day_today, button[aria-current="date"]').first();
+    await expect(todayCell).toBeVisible({ timeout: 10000 });
+    await todayCell.click();
 
     await modal.getByLabel('Create a new trip...').check();
-    await modal.getByPlaceholder('New trip name...').fill('Playwright Test Trip');
+    await modal.getByPlaceholder('Trip Name').fill(uniqueTripName);
     await modal.getByRole('button', { name: 'Add to Trip' }).click();
 
     await expect(page.getByText('Winery added to trip(s).').first()).toBeVisible();
-    await expect(modal.getByText(/On Trip: Playwright Test Trip/)).toBeVisible();
+    await expect(modal.getByText(new RegExp(`On Trip: ${uniqueTripName}`))).toBeVisible();
+
+    // --- Cleanup: Delete the trip ---
+    // 1. Close the modal
+    const closeBtn = modal.getByRole('button', { name: 'Close' });
+    if (await closeBtn.isVisible()) {
+        await closeBtn.click();
+    } else {
+        await page.keyboard.press('Escape');
+    }
+
+    // 2. Navigate to Trips tab (No reload needed now that optimistic UI is fixed)
+    await navigateToTab(page, 'Trips');
+
+    // 3. Find and delete the trip
+    const tripCard = sidebar.locator('div.rounded-lg.border', { hasText: uniqueTripName }).first();
+    await expect(tripCard).toBeVisible({ timeout: 15000 });
+    await tripCard.scrollIntoViewIfNeeded();
+    
+    const deleteBtn = tripCard.getByRole('button').filter({ has: page.locator('svg.lucide-trash2') });
+    await deleteBtn.click();
+
+    // 4. Confirm deletion
+    await page.getByRole('button', { name: 'Delete' }).click();
+
+    // 5. Verify it is gone
+    await expect(sidebar.getByText(uniqueTripName)).not.toBeVisible();
   });
 });

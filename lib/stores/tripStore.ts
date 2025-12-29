@@ -437,7 +437,8 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         // Re-fetch to get actual IDs and confirm data
         await Promise.all([
           get().fetchUpcomingTrips(),
-          get().fetchTripsForDate(dateString)
+          get().fetchTripsForDate(dateString),
+          get().fetchTrips(1, 'upcoming', true) // NEW: Refresh the main list used by TripList
         ]);
 
     } catch (error) {
