@@ -1,6 +1,7 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import path from 'path';
+import { createMockWinery, createMockVisit } from '@/lib/test-utils/fixtures';
 
 // Load env vars immediately at the top of the file
 // In CI, .env.local won't exist, so we use the provided process.env
@@ -64,13 +65,14 @@ describe('Supabase RPC Integration Tests', () => {
 
     describe('Trip Management RPCs', () => {
       it('should create a trip with a winery atomically using create_trip_with_winery', async () => {
+        const mockWinery = createMockWinery();
         const wineryData = {
           id: `mock-winery-${crypto.randomUUID()}`,
-          name: 'RPC Test Winery',
-          address: '123 SQL Lane',
-          lat: 42.5,
-          lng: -76.5,
-          rating: 4.5
+          name: mockWinery.name,
+          address: mockWinery.address,
+          lat: mockWinery.lat,
+          lng: mockWinery.lng,
+          rating: mockWinery.rating
         };
 
         const { data, error } = await user1.client.rpc('create_trip_with_winery', {
@@ -91,19 +93,21 @@ describe('Supabase RPC Integration Tests', () => {
 
     describe('Visit Logging RPCs', () => {
       it('should log a visit atomically using log_visit', async () => {
+        const mockWinery = createMockWinery();
         const wineryData = {
           id: `mock-winery-visit-${crypto.randomUUID()}`,
-          name: 'Visit Test Winery',
-          address: '456 Review St',
-          lat: 42.6,
-          lng: -76.6,
-          rating: 4.0
+          name: mockWinery.name,
+          address: mockWinery.address,
+          lat: mockWinery.lat,
+          lng: mockWinery.lng,
+          rating: mockWinery.rating
         };
 
+        const mockVisit = createMockVisit();
         const visitData = {
-          visit_date: new Date().toISOString().split('T')[0],
-          rating: 5,
-          user_review: 'Excellent RPC!'
+          visit_date: mockVisit.visit_date,
+          rating: mockVisit.rating,
+          user_review: mockVisit.user_review
         };
 
         const { data, error } = await user1.client.rpc('log_visit', {
@@ -117,7 +121,7 @@ describe('Supabase RPC Integration Tests', () => {
         // Verify visit exists and belongs to user1
         const { data: visit } = await adminClient.from('visits').select('*').eq('id', data.visit_id).single();
         expect(visit.user_id).toBe(user1.id);
-        expect(visit.rating).toBe(5);
+        expect(visit.rating).toBe(mockVisit.rating);
       });
     });
 
