@@ -5,6 +5,12 @@ import { getSidebarContainer, login, navigateToTab } from './helpers';
 test.describe('Visual Regression Testing', () => {
   let user: TestUser;
 
+  test.beforeEach(({ browserName }) => {
+    // Only run visual tests on chromium to avoid maintaining multiple sets of snapshots
+    // and because different engines render slightly differently.
+    test.skip(browserName !== 'chromium', 'Visual tests are chromium-only');
+  });
+
   test.afterEach(async () => {
     if (user) await deleteTestUser(user.id);
   });
