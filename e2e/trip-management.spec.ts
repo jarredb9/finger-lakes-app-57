@@ -34,13 +34,18 @@ test.describe('Trip Management Flow', () => {
     await expect(nameInput).toBeVisible();
     await nameInput.fill('Management Test Trip');
     
-    // Save
-    await page.getByRole('button', { name: 'Create Trip' }).click();
+    // Save and wait for the refresh request to complete
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('rpc/get_paginated_wineries') || resp.url().includes('trips')),
+        page.getByRole('button', { name: 'Create Trip' }).click()
+    ]);
     
-    // Wait for the trip card to appear
-    await expect(sidebar.getByText('Management Test Trip')).toBeVisible({ timeout: 10000 });
-    
+    // Ensure the dialog is gone
+    await expect(page.getByRole('dialog')).not.toBeVisible();
+
+    // Now check for the card - standard timeout is fine now because data is guaranteed
     const tripCard = sidebar.locator('div.rounded-lg.border', { hasText: 'Management Test Trip' }).first();
+    await expect(tripCard).toBeVisible();
     await tripCard.scrollIntoViewIfNeeded();
 
     // 3. Rename Trip

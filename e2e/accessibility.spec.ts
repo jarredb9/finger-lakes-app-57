@@ -58,6 +58,9 @@ test.describe('Accessibility (A11y)', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
 
+    // WAIT for the loading spinner to disappear (Logical state check)
+    await expect(modal.locator('svg.animate-spin')).not.toBeVisible({ timeout: 15000 });
+
     // Scan only the modal content
     const accessibilityScanResults = await new AxeBuilder({ page })
       .include('[role="dialog"]')

@@ -168,6 +168,7 @@ export default function WineryModal() {
               <DialogHeader>
                 <DialogTitle>
                   <Skeleton className="h-8 w-3/4" />
+                  <span className="sr-only">Loading winery details...</span>
                 </DialogTitle>
               </DialogHeader>
               <DialogDescription className="sr-only">Loading winery details...</DialogDescription>
