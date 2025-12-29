@@ -190,7 +190,16 @@ export async function mockGoogleMapsApi(page: Page) {
       return route.continue();
     }
 
-    // BLOCK everything else (Tiles, Search, Telemetry)
+    // GHOST TILES: Fulfill tile requests with a transparent PNG to keep the Map SDK happy
+    // but avoid $ spending and visual flakiness.
+    if (url.includes('vt?') || url.includes('kh?')) {
+        return route.fulfill({
+            contentType: 'image/png',
+            body: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=', 'base64')
+        });
+    }
+
+    // BLOCK everything else (Search, Telemetry)
     return route.abort('failed');
   });
 }
