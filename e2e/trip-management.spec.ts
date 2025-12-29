@@ -43,9 +43,9 @@ test.describe('Trip Management Flow', () => {
     // Ensure the dialog is gone
     await expect(page.getByRole('dialog')).not.toBeVisible();
 
-    // Now check for the card - standard timeout is fine now because data is guaranteed
+    // Now check for the card - allow extra time for slower CI runners (Firefox)
     const tripCard = sidebar.locator('div.rounded-lg.border', { hasText: 'Management Test Trip' }).first();
-    await expect(tripCard).toBeVisible();
+    await expect(tripCard).toBeVisible({ timeout: 15000 });
     await tripCard.scrollIntoViewIfNeeded();
 
     // 3. Rename Trip

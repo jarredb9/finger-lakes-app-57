@@ -66,6 +66,14 @@ test.describe('Error Handling (Unhappy Path)', () => {
 
     // 2. Attempt login
     await page.goto('/login');
+
+    // Dismiss cookie banner as it blocks the 'Sign In' button on mobile
+    const cookieBanner = page.getByText('Cookie Notice');
+    if (await cookieBanner.isVisible()) {
+        await page.getByRole('button', { name: 'Got it' }).click();
+        await expect(cookieBanner).not.toBeVisible();
+    }
+
     await page.getByLabel('Email').fill('fail@example.com');
     await page.getByLabel('Password').fill('wrongpassword');
     await page.getByRole('button', { name: 'Sign In' }).click();
