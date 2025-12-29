@@ -65,14 +65,12 @@ test.describe('Error Handling (Unhappy Path)', () => {
     });
 
     // 2. Attempt login
-    await page.goto('/login');
+    // Pre-emptively dismiss cookie banner by setting localStorage before load
+    await page.addInitScript(() => {
+        window.localStorage.setItem('cookie-consent', 'true');
+    });
 
-    // Dismiss cookie banner as it blocks the 'Sign In' button on mobile
-    const cookieBanner = page.getByText('Cookie Notice');
-    if (await cookieBanner.isVisible()) {
-        await page.getByRole('button', { name: 'Got it' }).click();
-        await expect(cookieBanner).not.toBeVisible();
-    }
+    await page.goto('/login');
 
     await page.getByLabel('Email').fill('fail@example.com');
     await page.getByLabel('Password').fill('wrongpassword');

@@ -14,6 +14,11 @@ export function getSidebarContainer(page: Page): Locator {
 // --- Common Actions ---
 
 export async function login(page: Page, email: string, pass: string) {
+  // Pre-emptively dismiss cookie banner by setting localStorage before load
+  await page.addInitScript(() => {
+    window.localStorage.setItem('cookie-consent', 'true');
+  });
+
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(pass);
@@ -30,13 +35,6 @@ export async function login(page: Page, email: string, pass: string) {
       await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
   } else {
       await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
-  }
-
-  // Dismiss cookie banner if it appears, as it blocks bottom navigation
-  const cookieBanner = page.getByText('Cookie Notice');
-  if (await cookieBanner.isVisible()) {
-      await page.getByRole('button', { name: 'Got it' }).click();
-      await expect(cookieBanner).not.toBeVisible();
   }
 }
 
