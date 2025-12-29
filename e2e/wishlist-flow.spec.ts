@@ -18,22 +18,18 @@ test.describe('Wishlist Flow', () => {
   test('can toggle winery on wishlist', async ({ page }) => {
     await navigateToTab(page, 'Explore');
 
-    // Wait for wineries to load into the store
-    await page.waitForFunction(() => {
-        const store = (window as any).useWineryDataStore;
-        return store && store.getState().persistentWineries.length > 0;
-    }, { timeout: 15000 });
+    const sidebar = getSidebarContainer(page);
+    const firstWinery = sidebar.locator('text=Mock Winery One').first();
+    await expect(firstWinery).toBeVisible({ timeout: 15000 });
 
     // Expand sheet on mobile
     const expandButton = page.getByRole('button', { name: 'Expand to full screen' });
     if (await expandButton.isVisible()) {
-        await expandButton.evaluate((node) => (node as HTMLElement).click());
-        await page.waitForTimeout(1000); 
+        await expandButton.click();
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/);
     }
 
-    const sidebar = getSidebarContainer(page);
-    const firstWinery = sidebar.locator('text=Mock Winery One').first();
-    await firstWinery.evaluate((node) => (node as HTMLElement).click());
+    await firstWinery.click();
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();

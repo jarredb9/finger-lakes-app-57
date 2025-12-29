@@ -31,6 +31,13 @@ export async function login(page: Page, email: string, pass: string) {
   } else {
       await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
   }
+
+  // Dismiss cookie banner if it appears, as it blocks bottom navigation
+  const cookieBanner = page.getByText('Cookie Notice');
+  if (await cookieBanner.isVisible()) {
+      await page.getByRole('button', { name: 'Got it' }).click();
+      await expect(cookieBanner).not.toBeVisible();
+  }
 }
 
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
@@ -47,32 +54,33 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
     if (bottomNavNames[tabName]) {
       const navBtn = page.getByRole('button', { name: bottomNavNames[tabName] });
       await expect(navBtn).toBeVisible();
-      await navBtn.evaluate(node => (node as HTMLElement).click());
+      await navBtn.click();
       
       // Wait for the sheet to appear
       await expect(page.getByTestId('mobile-sidebar-container')).toBeVisible({ timeout: 5000 });
       
-      // Give animation time to finish
-      await page.waitForTimeout(500);
-
       // Ensure the sheet is actually on the right tab after opening
       const sidebar = page.getByTestId('mobile-sidebar-container');
       const tab = sidebar.getByRole('tab', { name: tabName });
+      
       if (await tab.isVisible()) {
-          // Use evaluate click to bypass "outside of viewport" errors
-          await tab.evaluate(node => (node as HTMLElement).click());
+          await tab.click();
       }
     } else {
       // For tabs inside the sheet (like History)
-      const isSheetOpen = await page.getByTestId('mobile-sidebar-container').isVisible();
+      let isSheetOpen = await page.getByTestId('mobile-sidebar-container').isVisible();
       if (!isSheetOpen) {
-        await page.getByRole('button', { name: 'Explore' }).click({ force: true });
+        await page.getByRole('button', { name: 'Explore' }).click();
+        await expect(page.getByTestId('mobile-sidebar-container')).toBeVisible({ timeout: 5000 });
       }
       
       const expandButton = page.getByRole('button', { name: 'Expand to full screen' });
       if (await expandButton.isVisible()) {
-        await expandButton.evaluate(node => (node as HTMLElement).click());
-        await page.waitForTimeout(500);
+        await expandButton.scrollIntoViewIfNeeded();
+        await expandButton.click();
+        
+        // Wait for animation by ensuring a known element is stable or checking attribute
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/);
       }
 
       // Ensure tab list is there and visible
@@ -82,11 +90,12 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
 
       // Use a very specific selector for the mobile tab trigger to avoid any ambiguity
       const tabToClick = sidebar.locator(`button[role="tab"][aria-label="${tabName}"]`).first();
-      console.log(`Clicking mobile tab: ${tabName}`);
       
       await tabToClick.scrollIntoViewIfNeeded();
       
-      // Try dispatching a sequence of events for Radix UI (pointerdown is often critical)
+      // NOTE: We dispatch a full pointer event sequence here because Radix UI primitives 
+      // sometimes fail to trigger 'click' events in Playwright's mobile emulation 
+      // without the preceding pointer/mouse down events.
       await tabToClick.evaluate(node => {
           const opts = { bubbles: true, cancelable: true, view: window };
           node.dispatchEvent(new PointerEvent('pointerdown', opts));
@@ -95,9 +104,6 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
           node.dispatchEvent(new MouseEvent('mouseup', opts));
           node.dispatchEvent(new MouseEvent('click', opts));
       });
-      
-      // Give content time to render
-      await page.waitForTimeout(1000);
     }
   } else {
       const sidebar = page.getByTestId('desktop-sidebar-container');

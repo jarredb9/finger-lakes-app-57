@@ -39,15 +39,14 @@ test.describe('Friends Interaction Flow', () => {
       const emailInput = sidebar.getByPlaceholder("Enter friend's email");
       await emailInput.fill(user2.email);
       await expect(emailInput).toHaveValue(user2.email);
-      await emailInput.blur(); // Close keyboard on mobile
 
       // Wait for loading to finish
       await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 20000 });
 
       const addBtn = sidebar.getByRole('button', { name: 'Add friend' });
       await expect(addBtn).toBeEnabled({ timeout: 10000 });
-      // Use JS click to bypass persistent viewport/overlay issues on mobile sheet
-      await addBtn.evaluate(node => (node as HTMLElement).click());
+      // Use standard click to verify UI accessibility
+      await addBtn.click();
 
       // Verify Sent
       const successToast = pageA.getByText('Friend request sent!').first();
@@ -81,7 +80,7 @@ test.describe('Friends Interaction Flow', () => {
       const acceptBtn = requestRow.getByRole('button', { name: 'Accept request' });
 
       await expect(acceptBtn).toBeVisible();
-      await acceptBtn.evaluate(node => (node as HTMLElement).click());
+      await acceptBtn.click();
 
       // Verify moved to My Friends
       const myFriendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
@@ -106,7 +105,7 @@ test.describe('Friends Interaction Flow', () => {
       const friendRow = friendsCard.locator('.flex.items-center', { hasText: user2.email });
       const removeBtn = friendRow.getByRole('button', { name: 'Remove friend' });
 
-      await removeBtn.evaluate(node => (node as HTMLElement).click());
+      await removeBtn.click();
 
       // Confirm dialog
       await pageA.getByRole('button', { name: 'Remove' }).click(); 

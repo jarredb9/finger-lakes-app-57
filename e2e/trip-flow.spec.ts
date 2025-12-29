@@ -18,13 +18,6 @@ test.describe('Trip Planning Flow', () => {
   test('can create a new trip from a winery', async ({ page }) => {
     await navigateToTab(page, 'Trips');
     
-    // Check store state
-    const boundsState = await page.evaluate(() => {
-        const store = (window as any).useMapStore;
-        return store ? !!store.getState().bounds : 'Store not found';
-    });
-    console.log('BOUNDS STATE:', boundsState);
-
     const sidebar = getSidebarContainer(page);
     
     // Check for the "New Trip" button directly in the main view
@@ -36,32 +29,24 @@ test.describe('Trip Planning Flow', () => {
   test('can create a new trip from winery details', async ({ page }) => {
     await navigateToTab(page, 'Explore');
 
-    // Wait for wineries to load into the store
-    await page.waitForFunction(() => {
-        const store = (window as any).useWineryDataStore;
-        return store && store.getState().persistentWineries.length > 0;
-    }, { timeout: 15000 }).catch(() => console.log('Timeout waiting for wineries in store'));
+    // Wait for wineries to appear in the UI
+    const sidebar = getSidebarContainer(page);
+    const firstWinery = sidebar.locator('text=Mock Winery One').first();
+    await expect(firstWinery).toBeVisible({ timeout: 15000 });
 
     // Expand sheet on mobile to ensure visibility
     const expandButton = page.getByRole('button', { name: 'Expand to full screen' });
     if (await expandButton.isVisible()) {
-        await expandButton.evaluate((node) => (node as HTMLElement).click());
-        // Wait a moment for expansion animation
-        await page.waitForTimeout(1000); 
+        await expandButton.click();
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/);
     }
 
     // Robust click for both mobile and desktop
-    const sidebar = getSidebarContainer(page);
-    const firstWinery = sidebar.locator('text=Mock Winery One').first();
     await firstWinery.scrollIntoViewIfNeeded();
     await expect(firstWinery).toBeVisible({ timeout: 15000 });
-    await firstWinery.evaluate((node) => (node as HTMLElement).click());
+    await firstWinery.click();
 
     const modal = page.getByRole('dialog');
-    await firstWinery.scrollIntoViewIfNeeded();
-    await expect(firstWinery).toBeVisible({ timeout: 15000 });
-    await firstWinery.evaluate((node) => (node as HTMLElement).click());
-
     await expect(modal).toBeVisible();
     await expect(modal.getByRole('heading', { name: /Add to a Trip/i })).toBeVisible();
 

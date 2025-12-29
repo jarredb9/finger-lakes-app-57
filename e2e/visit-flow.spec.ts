@@ -19,30 +19,26 @@ test.describe('Visit Logging Flow', () => {
     // 1. Open Explore (default)
     await navigateToTab(page, 'Explore');
 
-    // Wait for wineries to load into the store
-    await page.waitForFunction(() => {
-        const store = (window as any).useWineryDataStore;
-        return store && store.getState().persistentWineries.length > 0;
-    }, { timeout: 15000 }).catch(() => console.log('Timeout waiting for wineries in store'));
+    // Wait for wineries to appear in the UI
+    const sidebar = getSidebarContainer(page);
+    const firstWinery = sidebar.locator('text=Mock Winery One').first();
+    await expect(firstWinery).toBeVisible({ timeout: 15000 });
 
     // Expand sheet on mobile to ensure visibility
     const expandButton = page.getByRole('button', { name: 'Expand to full screen' });
     if (await expandButton.isVisible()) {
-        await expandButton.evaluate((node) => (node as HTMLElement).click());
-        // Wait a moment for expansion animation
-        await page.waitForTimeout(500); 
+        await expandButton.click();
+        // Wait for expansion animation by checking the class
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/); 
     }
 
     // 2. Open Winery Modal
     // Use a robust locator for the winery name
-    const sidebar = getSidebarContainer(page);
-    const firstWinery = sidebar.locator('text=Mock Winery One').first();
-    
     // On mobile, the sheet might hide the element below the fold. 
-    // evaluate click ensures we trigger the event even if Playwright thinks it is "hidden".
+    // click() ensures we trigger the event only if it's truly actionable.
     await firstWinery.scrollIntoViewIfNeeded();
     await expect(firstWinery).toBeVisible({ timeout: 15000 });
-    await firstWinery.evaluate((node) => (node as HTMLElement).click());
+    await firstWinery.click();
     
     // 3. Fill Visit Form in Modal
     const modal = page.getByRole('dialog');
@@ -56,25 +52,23 @@ test.describe('Visit Logging Flow', () => {
     await expect(page.getByText('Visit added successfully.').first()).toBeVisible();
     await modal.getByRole('button', { name: 'Close' }).click();
 
-    // 4. Navigate to History and verify
+    // Navigate to History and verify
     await navigateToTab(page, 'History');
     
     // Ensure sheet is expanded on mobile for history view
     if (await page.getByRole('button', { name: 'Expand to full screen' }).isVisible()) {
-        await page.getByRole('button', { name: 'Expand to full screen' }).evaluate(node => (node as HTMLElement).click());
-        await page.waitForTimeout(1000);
+        await page.getByRole('button', { name: 'Expand to full screen' }).click();
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/);
     }
 
     // Verify the visit appears in history
     const historySidebar = getSidebarContainer(page);
     
     const historyItem = historySidebar.getByText('Excellent wine and view!').first();
-    await historyItem.scrollIntoViewIfNeeded();
     await expect(historyItem).toBeVisible({ timeout: 15000 });
 
     // 5. Delete Visit
     const deleteBtn = historySidebar.getByRole('button', { name: 'Delete visit' }).first();
-    await deleteBtn.scrollIntoViewIfNeeded();
     await deleteBtn.click();
     
     await expect(page.getByText('Visit deleted successfully.').first()).toBeVisible();

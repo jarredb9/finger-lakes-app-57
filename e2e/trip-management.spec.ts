@@ -15,9 +15,8 @@ test.describe('Trip Management Flow', () => {
     if (user) await deleteTestUser(user.id);
   });
 
-  // Skipped: The 'New Trip' button in TripPlanner sidebar is not triggering the form in the test environment,
-  // possibly due to a hydration race condition or overlay issue specific to the test runner.
-  test.skip('User can create, rename, and delete a trip', async ({ page }) => {
+  // Unskipped: Overlay issue is resolved.
+  test('User can create, rename, and delete a trip', async ({ page }) => {
     const sidebar = getSidebarContainer(page);
     
     // 1. Navigate to Trips
@@ -27,41 +26,58 @@ test.describe('Trip Management Flow', () => {
     
     // 2. Create New Trip directly
     const newTripBtn = sidebar.getByRole('button', { name: 'New Trip' });
-    // Use JS click to bypass potential overlays/event capturing issues
-    await newTripBtn.evaluate(node => (node as HTMLElement).click());
+    // Use standard click to verify accessibility
+    await newTripBtn.click();
     
-    const nameInput = sidebar.getByPlaceholder('Trip Name');
+    // The Dialog renders in a Portal, so we check the global page
+    const nameInput = page.getByPlaceholder('Trip Name');
     await expect(nameInput).toBeVisible();
     await nameInput.fill('Management Test Trip');
     
     // Save
-    await sidebar.getByRole('button', { name: 'Create Trip' }).click();
+    await page.getByRole('button', { name: 'Create Trip' }).click();
     
     // Wait for the trip card to appear
     await expect(sidebar.getByText('Management Test Trip')).toBeVisible({ timeout: 10000 });
     
     const tripCard = sidebar.locator('div.rounded-lg.border', { hasText: 'Management Test Trip' }).first();
+    await tripCard.scrollIntoViewIfNeeded();
 
     // 3. Rename Trip
-    // Click the trip to view details
-    await tripCard.click();
+    // Use "View Details" to go to the full detail page
+    // The button has an icon, so we use text matching
+    const viewDetailsBtn = tripCard.getByText('View Details');
+    await viewDetailsBtn.click();
     
-    // Look for "Edit Trip" button
-    const editTripBtn = sidebar.getByRole('button', { name: 'Edit Trip' });
-    await expect(editTripBtn).toBeVisible();
+    // 4. On the details page (Standalone, no sidebar)
+    // Wait for the detailed view to load
+    const editTripBtn = page.getByRole('button', { name: 'Edit Trip' });
+    await expect(editTripBtn).toBeVisible({ timeout: 15000 });
     await editTripBtn.click();
     
     // Rename
-    const editNameInput = sidebar.getByPlaceholder('Trip Name');
+    const editNameInput = page.getByPlaceholder('Trip Name');
+    await expect(editNameInput).toBeVisible();
     await editNameInput.fill('Renamed Test Trip');
-    await sidebar.getByRole('button', { name: 'Save Changes' }).click();
+    await page.getByRole('button', { name: 'Save Changes' }).click();
     
     await expect(page.getByText('Trip updated successfully.').first()).toBeVisible();
-    await expect(sidebar.getByText('Renamed Test Trip')).toBeVisible();
+    
+    // Navigate back to trips to verify deletion
+    await page.getByRole('link', { name: 'Back to Map' }).click();
+    await navigateToTab(page, 'Trips');
 
-    // 4. Delete Trip
-    const deleteBtn = sidebar.getByRole('button').filter({ has: page.locator('svg.lucide-trash2') });
+    // 5. Delete Trip
+    // The delete button is on the TripCardSimple
+    const updatedTripCard = sidebar.locator('div.rounded-lg.border', { hasText: 'Renamed Test Trip' }).first();
+    await updatedTripCard.scrollIntoViewIfNeeded();
+    
+    // Use role and icon filter instead of CSS classes
+    const deleteBtn = updatedTripCard.getByRole('button').filter({ has: page.locator('svg.lucide-trash2') });
     await deleteBtn.click();
+    
+    // Confirm deletion in the alert dialog
+    await page.getByRole('button', { name: 'Delete' }).click();
     
     // Verify deleted
     await expect(sidebar.getByText('Renamed Test Trip')).not.toBeVisible();

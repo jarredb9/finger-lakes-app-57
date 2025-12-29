@@ -61,7 +61,11 @@ export default function TripList({ user }: { user: AuthenticatedUser }) {
                                 <DialogHeader>
                                     <DialogTitle>Create a New Trip</DialogTitle>
                                 </DialogHeader>
-                                <TripForm user={user} initialDate={new Date()} />
+                                <TripForm 
+                                    user={user} 
+                                    initialDate={new Date()} 
+                                    onClose={() => setCreateTripModalOpen(false)}
+                                />
                             </DialogContent>
                         </Dialog>
                     )}

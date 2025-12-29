@@ -27,6 +27,7 @@ import {
 interface TripFormProps {
   initialDate?: Date;
   user: AuthenticatedUser;
+  onClose?: () => void;
 }
 
 // Define the schema for validation
@@ -40,7 +41,7 @@ const tripSchema = z.object({
 
 type TripFormValues = z.infer<typeof tripSchema>
 
-export default function TripForm({ initialDate, user }: TripFormProps) {
+export default function TripForm({ initialDate, user, onClose }: TripFormProps) {
   const { toast } = useToast();
   const { createTrip } = useTripStore();
   const { ensureInDb, upsertWinery } = useWineryDataStore();
@@ -141,6 +142,7 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
       });
       setWinerySearch("");
       setSearchResults([]);
+      onClose?.(); // Close the modal
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to create trip." });
     }
@@ -162,7 +164,7 @@ export default function TripForm({ initialDate, user }: TripFormProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Input placeholder="New trip name..." {...field} />
+                      <Input placeholder="Trip Name" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
