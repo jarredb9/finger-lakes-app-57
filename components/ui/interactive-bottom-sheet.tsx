@@ -64,7 +64,7 @@ export function InteractiveBottomSheet({
         "fixed bottom-16 left-0 right-0 z-40 bg-background border-t rounded-t-[15px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex flex-col",
         "transition-transform duration-300 ease-out will-change-transform",
         mode === "full" ? "h-[calc(100vh-4rem)] top-4" : "h-[45vh]",
-        !isOpen ? "translate-y-[150%]" : "translate-y-0",
+        !isOpen ? "translate-y-[150%] pointer-events-none" : "translate-y-0 pointer-events-auto",
         className
       )}
     >
