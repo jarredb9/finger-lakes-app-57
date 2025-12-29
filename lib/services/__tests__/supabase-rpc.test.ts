@@ -16,10 +16,6 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!supabaseUrl || !anonKey || !serviceRoleKey) {
-    console.error('Environment Check Failure:');
-    console.error('- NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? 'PRESENT' : 'MISSING');
-    console.error('- NEXT_PUBLIC_SUPABASE_ANON_KEY:', anonKey ? 'PRESENT' : 'MISSING');
-    console.error('- SUPABASE_SERVICE_ROLE_KEY:', serviceRoleKey ? 'PRESENT' : 'MISSING');
     throw new Error('Supabase RPC Integration tests failed to start: Missing credentials in process.env');
 }
 
