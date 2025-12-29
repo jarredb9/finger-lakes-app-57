@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { Page } from '@playwright/test';
-import mockPlaces from './mocks/places-search.json';
+import { createMockWinery, createMockMapMarkerRpc, createMockVisitWithWinery } from '@/lib/test-utils/fixtures';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -23,6 +23,8 @@ export interface TestUser {
  */
 export async function mockGoogleMapsApi(page: Page) {
   if (process.env.E2E_REAL_DATA === 'true') return;
+
+  const mockWinery = createMockWinery();
 
   // 1. Inject a mock bounds object into the store to satisfy the useWineryFilter hook
   // This bypasses the need for real map tiles/initialization.
@@ -47,9 +49,6 @@ export async function mockGoogleMapsApi(page: Page) {
             console.log('[E2E Mock] Patching map.getBounds');
             state.map.getBounds = () => mockBounds;
             state.map._isPatched = true;
-            // Clear interval only after we've patched the map, or after a safety timeout?
-            // Actually, keep doing it for a bit to be safe, or just clear now.
-            // Let's clear if map is patched.
             clearInterval(interval);
         }
       }
@@ -62,12 +61,12 @@ export async function mockGoogleMapsApi(page: Page) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        google_place_id: mockPlaces[0].id,
-        name: mockPlaces[0].displayName,
-        address: mockPlaces[0].formattedAddress,
-        latitude: mockPlaces[0].location.latitude,
-        longitude: mockPlaces[0].location.longitude,
-        google_rating: mockPlaces[0].rating,
+        google_place_id: mockWinery.id,
+        name: mockWinery.name,
+        address: mockWinery.address,
+        latitude: mockWinery.lat,
+        longitude: mockWinery.lng,
+        google_rating: mockWinery.rating,
         opening_hours: { weekday_text: ["Monday: 10:00 AM – 5:00 PM"] },
         reviews: [],
       }),
@@ -80,37 +79,31 @@ export async function mockGoogleMapsApi(page: Page) {
     route.fulfill({
       status: 200,
       contentType: 'application/json',
-      body: JSON.stringify(mockPlaces.map((p, index) => ({
-        id: index + 1,
-        google_place_id: p.id,
-        name: p.displayName,
-        address: p.formattedAddress,
-        lat: p.location.latitude,
-        lng: p.location.longitude,
-        is_favorite: false,
-        on_wishlist: false,
-        user_visited: false
-      }))),
+      body: JSON.stringify([
+          createMockMapMarkerRpc(),
+          createMockMapMarkerRpc({ id: 2 as any, google_place_id: 'ch-mock-winery-2' as any, name: 'Vineyard of Illusion' })
+      ]),
     });
   });
 
   // 2.5 Mock the Supabase RPC for visit history
   await page.route(/\/rpc\/get_paginated_visits_with_winery_and_friends/, (route) => {
     console.log('[E2E Mock] Intercepted get_paginated_visits RPC');
+    const mockVisit = createMockVisitWithWinery();
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify([{
-        visit_id: 'mock-visit-1',
-        user_id: 'mock-user-1',
-        visit_date: new Date().toISOString().split('T')[0],
-        user_review: 'Excellent wine and view!',
-        rating: 5,
-        photos: [],
-        winery_id: 1,
-        winery_name: 'Mock Winery One',
-        google_place_id: mockPlaces[0].id,
-        winery_address: mockPlaces[0].formattedAddress,
+        visit_id: mockVisit.id,
+        user_id: mockVisit.user_id,
+        visit_date: mockVisit.visit_date,
+        user_review: mockVisit.user_review,
+        rating: mockVisit.rating,
+        photos: mockVisit.photos,
+        winery_id: mockVisit.winery_id,
+        winery_name: mockVisit.wineryName,
+        google_place_id: mockVisit.wineryId,
+        winery_address: mockVisit.wineries.address,
         friend_visits: []
       }]),
     });
@@ -129,19 +122,20 @@ export async function mockGoogleMapsApi(page: Page) {
   // 2.6.6 Mock Visit Mutation RPCs
   await page.route(/\/rpc\/update_visit/, (route) => {
     console.log('[E2E Mock] Intercepted update_visit RPC');
+    const mockVisit = createMockVisitWithWinery({ user_review: 'Updated review!', rating: 4 });
     route.fulfill({
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        id: 1,
-        visit_date: new Date().toISOString().split('T')[0],
-        user_review: 'Updated review!',
-        rating: 4,
-        photos: [],
-        winery_id: 1,
-        winery_name: 'Mock Winery One',
-        winery_address: mockPlaces[0].formattedAddress,
-        google_place_id: mockPlaces[0].id
+        id: mockVisit.id,
+        visit_date: mockVisit.visit_date,
+        user_review: mockVisit.user_review,
+        rating: mockVisit.rating,
+        photos: mockVisit.photos,
+        winery_id: mockVisit.winery_id,
+        winery_name: mockVisit.wineryName,
+        winery_address: mockVisit.wineries.address,
+        google_place_id: mockVisit.wineryId
       }),
     });
   });
@@ -179,7 +173,7 @@ export async function mockGoogleMapsApi(page: Page) {
     if (route.request().method() === 'DELETE') {
         console.log('[E2E Mock] Intercepted Supabase DELETE Visit');
         route.fulfill({
-            status: 204, // Supabase returns 204 No Content for successful deletes usually
+            status: 204, 
         });
     } else {
         route.continue();

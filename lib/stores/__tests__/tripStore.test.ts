@@ -1,4 +1,5 @@
 import { act } from '@testing-library/react';
+import { createMockTrip } from '@/lib/test-utils/fixtures';
 
 // Define the mock outside to share it across tests
 const mockTripService = {
@@ -43,6 +44,9 @@ jest.mock('@/utils/supabase/client', () => ({
 describe('tripStore', () => {
   // Use let for the store so we can reset it if needed
   let useTripStore: any;
+  const mockTrip = createMockTrip();
+  const mockTrips = [mockTrip];
+  const mockCount = 1;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -54,8 +58,6 @@ describe('tripStore', () => {
 
   describe('fetchTrips', () => {
     it('should fetch trips successfully and update state', async () => {
-      const mockTrips = [{ id: 1, name: 'Test Trip' }];
-      const mockCount = 1;
       mockTripService.getTrips.mockResolvedValue({ trips: mockTrips, count: mockCount });
 
       await act(async () => {
@@ -83,12 +85,12 @@ describe('tripStore', () => {
 
   describe('createTrip', () => {
     it('should optimistically add a trip and update with server response', async () => {
-      const newTrip = { name: 'New Trip', trip_date: '2023-01-01' };
-      const createdTrip = { ...newTrip, id: 123, user_id: 'user1', wineries: [], members: [] };
+      const newTripParams = { name: 'New Trip', trip_date: '2023-01-01' };
+      const createdTrip = createMockTrip({ ...newTripParams, id: 123 });
       mockTripService.createTrip.mockResolvedValue(createdTrip);
 
       await act(async () => {
-        await useTripStore.getState().createTrip(newTrip);
+        await useTripStore.getState().createTrip(newTripParams);
       });
 
       const state = useTripStore.getState();
@@ -98,10 +100,10 @@ describe('tripStore', () => {
 
   describe('deleteTrip', () => {
     it('should optimistically remove a trip', async () => {
-      const initialTrip = { id: 123, name: 'To Delete' };
+      const initialTrip = createMockTrip({ id: 123, name: 'To Delete' });
       
       await act(async () => {
-          useTripStore.setState({ trips: [initialTrip as any], tripsForDate: [initialTrip as any] });
+          useTripStore.setState({ trips: [initialTrip], tripsForDate: [initialTrip] });
       });
 
       mockTripService.deleteTrip.mockResolvedValue(undefined);
