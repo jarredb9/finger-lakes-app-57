@@ -36,7 +36,7 @@ export default function LoginForm() {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Sign In</CardTitle>
+        <CardTitle><h1 className="text-2xl font-bold">Sign In</h1></CardTitle>
         <CardDescription>Enter your credentials to access your account</CardDescription>
       </CardHeader>
       <form action={formAction}>
@@ -53,7 +53,7 @@ export default function LoginForm() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Password</Label>
-              <Link href="/forgot-password" className="text-sm text-blue-600 hover:underline">
+              <Link href="/forgot-password" className="text-sm text-blue-700 hover:underline font-medium">
                 Forgot password?
               </Link>
             </div>
@@ -64,9 +64,9 @@ export default function LoginForm() {
           <Button type="submit" className="w-full" disabled={isPending} aria-label="Sign In">
             {isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Signing in...</> : "Sign In"}
           </Button>
-          <p className="text-sm text-center text-gray-600">
+          <p className="text-sm text-center text-gray-700 font-medium">
             {"Don't have an account? "}
-            <Link href="/signup" className="text-blue-600 hover:underline">
+            <Link href="/signup" className="text-blue-700 hover:underline underline-offset-4">
               Sign up
             </Link>
           </p>

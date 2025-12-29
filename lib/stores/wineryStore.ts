@@ -37,6 +37,7 @@ interface WineryUIState {
   confirmOptimisticUpdate: (updatedVisit?: Visit) => void;
   revertOptimisticUpdate: () => void;
   updateWinery: (id: GooglePlaceId, updates: Partial<Winery>) => void;
+  reset: () => void;
 }
 
 export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
@@ -131,7 +132,11 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
       if (existing) {
           useWineryDataStore.getState().upsertWinery({ ...existing, ...updates });
       }
-  }
+  },
+
+  reset: () => set({
+    loadingWineryId: null,
+  }),
 }));
 
 // Backward compatibility helper

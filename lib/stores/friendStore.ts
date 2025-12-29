@@ -31,6 +31,7 @@ interface FriendState {
   removeFriend: (friendId: string) => Promise<void>;
   respondToRequest: (requesterId: string, accept: boolean) => Promise<void>;
   fetchFriendDataForWinery: (wineryId: WineryDbId) => Promise<void>;
+  reset: () => void;
 }
 
 export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
@@ -218,4 +219,14 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       set({ isLoading: false });
     }
   },
+
+  reset: () => set({
+    friends: [],
+    friendRequests: [],
+    sentRequests: [],
+    isLoading: false,
+    error: null,
+    friendsRatings: [],
+    friendsActivity: { favoritedBy: [], wishlistedBy: [] },
+  }),
 }), shallow);

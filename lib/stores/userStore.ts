@@ -13,6 +13,7 @@ interface UserState {
   isLoading: boolean;
   fetchUser: () => Promise<void>;
   logout: () => Promise<void>;
+  reset: () => void;
 }
 
 export const useUserStore = createWithEqualityFn<UserState>((set) => ({
@@ -51,6 +52,12 @@ export const useUserStore = createWithEqualityFn<UserState>((set) => ({
       console.error('Logout failed', error);
     }
   },
+
+  reset: () => set({
+    user: null,
+    isAuthenticated: false,
+    isLoading: false, // Default to false for test isolation
+  }),
 }));
 
 // Expose store for E2E testing

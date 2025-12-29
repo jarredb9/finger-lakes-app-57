@@ -29,6 +29,7 @@ interface UIState {
   removeNotification: (id: number) => void;
   openModal: (content: ReactNode, title?: string, description?: string) => void;
   closeModal: () => void;
+  reset: () => void;
 }
 
 export const useUIStore = createWithEqualityFn<UIState>((set) => ({
@@ -69,4 +70,17 @@ export const useUIStore = createWithEqualityFn<UIState>((set) => ({
     })),
   openModal: (content, title = '', description = '') => set({ isModalOpen: true, modalContent: content, modalTitle: title, modalDescription: description }),
   closeModal: () => set({ isModalOpen: false, modalContent: null, modalTitle: '', modalDescription: '' }),
+  reset: () => set({
+    isSidebarOpen: false,
+    isWineryModalOpen: false,
+    activeWineryId: null,
+    theme: 'light',
+    notifications: [],
+    isModalOpen: false,
+    modalContent: null,
+    modalTitle: '',
+    modalDescription: '',
+    isVisitHistoryModalOpen: false,
+    returnToVisitHistory: false,
+  }),
 }));

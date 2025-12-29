@@ -94,7 +94,7 @@ export function AppSidebar({
       {/* Branding Header & User Avatar */}
       <div className="p-4 border-b flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
-            <Image src="/wine-glass.svg" alt="Logo" width={24} height={24} />
+            <Image src="/wine-glass.svg" alt="Winery Tracker Logo" width={24} height={24} />
             <h1 className="text-lg font-bold tracking-tight">Winery Tracker</h1>
         </div>
         
@@ -102,9 +102,9 @@ export function AppSidebar({
         <div className="hidden md:block">
             <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+                    <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="User menu">
                         <Avatar className="h-8 w-8 border">
-                            <AvatarImage src="/placeholder-user.jpg" />
+                            <AvatarImage src="/placeholder-user.jpg" alt={user.name || "User avatar"} />
                             <AvatarFallback>{user.name?.charAt(0) || <UserIcon className="h-4 w-4" />}</AvatarFallback>
                         </Avatar>
                     </Button>

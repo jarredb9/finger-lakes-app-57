@@ -32,6 +32,7 @@ interface TripState {
   addWineryToTrips: (winery: Winery, tripDate: Date, selectedTrips: Set<string>, newTripName: string, addTripNotes: string) => Promise<void>;
   toggleWineryOnTrip: (winery: Winery, trip: Trip) => Promise<void>;
   setPage: (page: number) => void;
+  reset: () => void;
 }
 
 export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
@@ -528,6 +529,18 @@ export const useTripStore = createWithEqualityFn<TripState>((set, get) => ({
         throw error;
     }
   },
+
+  reset: () => set({
+    trips: [],
+    tripsForDate: [],
+    upcomingTrips: [],
+    isLoading: false,
+    isSaving: false,
+    selectedTrip: null,
+    page: 1,
+    count: 0,
+    hasMore: true,
+  }),
 }));
 
 // Expose store for E2E testing

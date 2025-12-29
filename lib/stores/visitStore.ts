@@ -16,6 +16,7 @@ interface VisitState {
   saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[] }) => Promise<void>;
   updateVisit: (visitId: string, visitData: Partial<Visit>, newPhotos: File[], photosToDelete: string[]) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
+  reset: () => void;
 }
 
 const VISITS_PER_PAGE = 10;
@@ -278,4 +279,14 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set, get) => ({
         throw error;
     }
   },
+
+  reset: () => set({
+    visits: [],
+    isLoading: false,
+    isSavingVisit: false,
+    lastMutation: 0,
+    page: 1,
+    totalPages: 1,
+    hasMore: false,
+  }),
 }), shallow);

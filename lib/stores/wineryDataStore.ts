@@ -25,6 +25,7 @@ interface WineryDataState {
   
   // Sync
   ensureInDb: (wineryId: GooglePlaceId) => Promise<WineryDbId | null>;
+  reset: () => void;
 }
 
 export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, get) => ({
@@ -193,7 +194,14 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
       }));
       
       return dbId as WineryDbId;
-  }
+  },
+
+  reset: () => set({
+    persistentWineries: [],
+    isLoading: false,
+    error: null,
+    _backup: null,
+  }),
 }));
 
 // Expose store for E2E testing

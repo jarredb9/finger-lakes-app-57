@@ -36,7 +36,10 @@ export function CookieConsent() {
   if (!showConsent) return null
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-[340px] md:max-w-sm">
+    <aside 
+        className="fixed bottom-4 right-4 z-50 w-[calc(100vw-2rem)] max-w-[340px] md:max-w-sm"
+        aria-label="Cookie consent"
+    >
       <Card className="shadow-lg border-primary/20">
         <CardHeader className="p-4 pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
@@ -56,6 +59,6 @@ export function CookieConsent() {
           </Button>
         </CardFooter>
       </Card>
-    </div>
+    </aside>
   )
 }

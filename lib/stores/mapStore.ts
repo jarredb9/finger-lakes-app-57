@@ -24,6 +24,7 @@ interface MapState {
   setAutoSearch: (autoSearch: boolean) => void;
   setSelectedTrip: (trip: Trip | null) => void;
   setSearchLocation: (searchLocation: string) => void; // Add setter for searchLocation
+  reset: () => void;
 }
 
 export const useMapStore = createWithEqualityFn<MapState>((set) => ({
@@ -49,6 +50,19 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   setAutoSearch: (autoSearch) => set({ autoSearch }),
   setSelectedTrip: (trip) => set({ selectedTrip: trip }),
     setSearchLocation: (searchLocation) => set({ searchLocation }),
+  reset: () => set({
+    map: null,
+    center: { lat: 40, lng: -98 },
+    zoom: 4,
+    bounds: null,
+    isSearching: false,
+    hitApiLimit: false,
+    searchResults: [],
+    filter: ['all'],
+    autoSearch: false,
+    selectedTrip: null,
+    searchLocation: "",
+  }),
   }));
   
   // Expose store for E2E testing

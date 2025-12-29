@@ -66,6 +66,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
   return (
       <div className="flex h-screen w-screen overflow-hidden flex-col md:flex-row relative">
+        <h1 className="sr-only">Winery Visit Planner and Tracker</h1>
         <WineryModal />
         <VisitHistoryModal />
         
@@ -94,6 +95,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             className="hidden md:flex absolute top-4 left-4 z-20 bg-background shadow-md"
             style={{ left: isSidebarOpen ? "416px" : "16px", transition: "left 0.3s ease-in-out" }}
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+            aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
         >
             {isSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
         </Button>
@@ -106,9 +108,13 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
           <div className="md:hidden absolute top-4 right-4 z-10">
              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                    <div className="bg-background/80 backdrop-blur-sm p-1 rounded-full shadow-sm border cursor-pointer hover:bg-background/90 transition-colors">
+                    <div 
+                        className="bg-background/80 backdrop-blur-sm p-1 rounded-full shadow-sm border cursor-pointer hover:bg-background/90 transition-colors"
+                        role="button"
+                        aria-label="User profile and navigation"
+                    >
                         <Avatar className="h-8 w-8">
-                            <AvatarImage src="/placeholder-user.jpg" />
+                            <AvatarImage src="/placeholder-user.jpg" alt={user.name || "User avatar"} />
                             <AvatarFallback>{user.name?.charAt(0) || <UserIcon className="h-4 w-4" />}</AvatarFallback>
                         </Avatar>
                     </div>

@@ -58,8 +58,9 @@ export function MapControls({
             value={searchLocation}
             onChange={(e) => setSearchLocation(e.target.value)}
             className="flex-1 h-9"
+            aria-label="Search location"
           />
-          <Button type="submit" size="icon" className="h-9 w-9" disabled={isSearching}>
+          <Button type="submit" size="icon" className="h-9 w-9" disabled={isSearching} aria-label="Submit search">
             {isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />}
           </Button>
         </form>
