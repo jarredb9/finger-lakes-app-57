@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.2.4] - 2025-12-29
+
+**Industrial-Strength Testing & Mobile UX Stability**
+
+Version 2.2.4 introduces a professional-grade testing infrastructure and resolves critical mobile interaction issues. We have implemented comprehensive logical, functional, visual, and accessibility safeguards while streamlining the mobile user experience.
+
+### 🚀 Features
+*   **Comprehensive Testing Suite:**
+    *   **Visual Regression Testing:** Established baseline snapshots for core views with "Ghost Tiles" mocking for deterministic map backgrounds.
+    *   **Automated Accessibility (A11y):** Integrated `@axe-core/playwright` to automatically catch accessibility violations in CI.
+    *   **RPC Integration Tests:** New suite verifying core PostgreSQL business logic using authenticated clients against live data.
+    *   **Unhappy Path Testing:** Verified UI resilience and error surfacing for network failures and server errors.
+    *   **Standardized Fixtures:** Centralized all mock data factory functions, ensuring type safety and maintainability across all test types.
+*   **Mobile UX Improvements:**
+    *   Implemented conditional rendering for the **Interactive Bottom Sheet**, ensuring it is fully unmounted when closed to prevent invisible click-blocking.
+    *   Optimized **Toast notifications** by moving the viewport to the top on mobile and enabling click-through on the container.
+    *   Automated the "Create Trip" modal closure upon successful submission.
+
+### 🛡 Security & Reliability
+*   **State Isolation:** Enforced global Zustand store resets between every unit test to eliminate state bleed and ensure deterministic results.
+*   **Robust Synchronization:** Replaced fragile timeouts in E2E tests with high-fidelity network-bound synchronization (`waitForResponse`) and logical state transitions.
+*   **Automated Pre-commit Checks:** Re-enabled Husky and `lint-staged` to enforce linting and type-checking before every commit.
+
+### 🐛 Bug Fixes
+*   **Accessibility:** Resolved critical violations including missing `aria-labels` on buttons, missing `alt` text on images, and landmark nesting issues.
+*   **CI/CD:** Fixed pipeline failures by correctly mapping repository secrets to the integration test environment.
+*   **UI Stability:** Resolved a "detached from DOM" race condition in the visit history list on mobile.
+
 ## [2.2.3] - 2025-12-23
 
 **Supabase Native Architecture & Enhanced Security**

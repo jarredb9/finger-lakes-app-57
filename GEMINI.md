@@ -85,7 +85,18 @@ We enforce a "Thick Client, Thin Server" architecture to support future mobile d
 *   **RPCs:** We rely heavily on PostgreSQL functions (RPCs) for complex joins, transactional logic (e.g., adding wineries to trips), and security-sensitive lookups (e.g., friend email lookup).
 *   **Type Safety:** `lib/database.types.ts` is the generated source of truth for DB types. `lib/types.ts` imports from it.
 
-### 3. ID System (Strict Typing)
+### 3. Testing Standards (Industrial Strength)
+The project maintains a rigorous multi-layered testing strategy:
+*   **Unit Tests (Jest):** Standardized using `lib/test-utils/fixtures.ts`. Stores must implement a `reset()` method, which is called automatically before every test in `jest.setup.ts` to ensure isolation.
+*   **RPC Integration (Jest):** Critical business logic in Postgres is verified via `lib/services/__tests__/supabase-rpc.test.ts`. These tests require valid credentials and run against live data in CI.
+*   **E2E (Playwright):**
+    *   **Synchronization:** Never use `waitForTimeout`. Use `waitForResponse` for network-bound actions or assert on logical UI states (e.g., absence of spinners).
+    *   **Visual Regression:** Screenshots are maintained for Chromium. Use `--update-snapshots` only for intentional UI changes.
+    *   **Ghost Tiles:** Map backgrounds are mocked with static PNGs in `e2e/utils.ts` for visual stability.
+    *   **Self-Cleaning:** Tests must delete created trips/users in `afterEach` or a final step to prevent DB pollution.
+*   **Accessibility:** Every major view is scanned using `@axe-core/playwright`.
+
+### 4. ID System (Strict Typing)
 To prevent "Dual-ID" confusion, we use branded types in `lib/types.ts`:
 *   **`GooglePlaceId` (string):** Used for API lookups and Map markers.
 *   **`WineryDbId` (number):** The Supabase Primary Key. Used for relational data.
@@ -221,6 +232,14 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **The Trap:** Rendering multiple dialogs or nesting them inside components that are duplicated (like a mobile/desktop sidebar) causes "Blocked aria-hidden" warnings and focus loss.
 *   **The Fix:** Render global modals (`WineryModal`, `VisitHistoryModal`) exactly once at the app root (`AppShell`). Decouple modal transitions with small `setTimeout` delays to allow one to start closing before the next opens.
 
+### 10. A11y Scanning & Skeletons
+*   **Concept:** Scanning a page while it's loading results in "Empty Heading" or "Missing Label" violations.
+*   **The Fix:** E2E tests must wait for logical loading states (e.g., `svg.animate-spin`) to disappear before running `AxeBuilder.analyze()`.
+
+### 11. Visual Regression & Engines
+*   **Concept:** Different browser engines render fonts and borders with sub-pixel differences.
+*   **The Fix:** Visual regression tests are restricted to `chromium`. Snapshots for Firefox/Webkit are not maintained to reduce overhead.
+
 ## Future Implementations
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
 
@@ -265,7 +284,14 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 22. **Supabase Native Refactor (Winery Browsing):** Migrated the "Browse" list fetching from standard table select to `get_paginated_wineries` RPC. This move ensures the browsing view includes rich user-specific state (favorites, wishlist, visited) while improving backend performance.
 23. **Supabase Native Refactor (Visit Mutations):** Refactored `visitStore.ts` to use atomic Supabase RPCs (`update_visit`, `delete_visit`). This eliminates redundant select calls after updates and ensures only authorized owners can delete visits through a secure database layer.
 24. **Supabase Native Refactor (Trip Sharing & Notes):** Migrated trip member addition and winery note updates to RPCs (`add_trip_member_by_email`, `update_trip_winery_notes`). This enables secure, email-based trip sharing without exposing full profile lists and ensures atomic updates for winery-specific metadata.
-25. **Mobile Interaction Fix:** Resolved a critical issue where the `InteractiveBottomSheet` blocked interactions with the map and bottom navigation tray on mobile devices after login. Applied `pointer-events-none` to the sheet container when closed (`!isOpen`) to ensure clicks pass through correctly, bypassing potential browser hit-testing glitches with translated elements.
+25. **Mobile Interaction Fix:** Resolved a critical issue where the `InteractiveBottomSheet` blocked interactions with the map and bottom navigation tray on mobile devices after login. Applied conditional rendering to the sheet to ensure it is fully unmounted when closed.
+26. **Testing Overhaul (v2.2.4):**
+    *   **RPC Integration:** Implemented live database logic verification.
+    *   **Visual Regression:** Established baseline snapshots with "Ghost Tiles" map mocking.
+    *   **A11y Scanning:** Automated accessibility verification in CI.
+    *   **State Isolation:** Enforced global store resets in Jest.
+    *   **Standardized Fixtures:** Centralized all mock data factory functions.
+    *   **Error Resilience:** Verified UI behavior for server/network failures.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
