@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/utils/supabase/middleware';
 
-const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password', '/auth/callback', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/confirm-user'];
+const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password', '/auth/callback', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/confirm-user', '/manifest.webmanifest', '/sw.js'];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -36,10 +36,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - manifest.webmanifest (PWA manifest)
-     * - sw.js (Service Worker)
-     * - placeholder images
      */
-    '/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|sw.js|placeholder-logo.png|wine-glass.svg).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
