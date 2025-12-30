@@ -5,6 +5,7 @@ const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  console.log(`[Middleware] Processing path: ${pathname}`);
 
   // Handle session update for all routes
   const { response, user } = await updateSession(request);
