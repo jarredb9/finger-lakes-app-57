@@ -5,17 +5,23 @@ const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password'
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  console.log(`[Middleware] Path: ${pathname}`);
 
   // Handle session update for all routes
   const { response, user } = await updateSession(request);
 
+  const isPublic = publicRoutes.includes(pathname);
+  console.log(`[Middleware] Is Public: ${isPublic}, User Found: ${!!user}`);
+
   // Skip auth check for public routes
-  if (publicRoutes.includes(pathname)) {
+  if (isPublic) {
+    console.log(`[Middleware] Allowing public route: ${pathname}`);
     return response;
   }
 
   // Check for user on protected routes
   if (!user) {
+    console.log(`[Middleware] No user found, blocking protected route: ${pathname}`);
     if (pathname.startsWith('/api/')) {
       return new NextResponse(JSON.stringify({ message: 'Unauthorized' }), {
         status: 401,
@@ -23,9 +29,11 @@ export async function proxy(request: NextRequest) {
       });
     }
     // Redirect to login if no user and not a public route
+    console.log(`[Middleware] Redirecting to /login`);
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
+  console.log(`[Middleware] User found, allowing protected route: ${pathname}`);
   return response;
 }
 
