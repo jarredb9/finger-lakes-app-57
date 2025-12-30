@@ -24,6 +24,7 @@ export default function RootLayout({
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
       <head>
         <link rel="icon" href="/placeholder-logo.png" sizes="any" />
+        <link rel="manifest" href="/manifest.webmanifest" />
       </head>
       <body>
         <TooltipProvider>
