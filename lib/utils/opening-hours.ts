@@ -1,0 +1,64 @@
+import { OpeningHours } from "@/lib/types";
+
+/**
+ * Determines if a business is currently open based on its OpeningHours periods.
+ * Falls back to 'open_now' property if periods are missing (though this may be stale).
+ */
+export function isOpenNow(openingHours: OpeningHours | null | undefined): boolean {
+  if (!openingHours) return false;
+
+  // 1. If we have periods, calculate dynamically (Trusted Source)
+  if (openingHours.periods && openingHours.periods.length > 0) {
+    const now = new Date();
+    const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTime = currentHours * 100 + currentMinutes; // e.g., 1430 for 2:30 PM
+
+    // Check if open 24/7 (single period, day 0, time 0000, no close)
+    if (openingHours.periods.length === 1 && 
+        openingHours.periods[0].open.day === 0 && 
+        openingHours.periods[0].open.hour === 0 && 
+        openingHours.periods[0].open.minute === 0 &&
+        !openingHours.periods[0].close) {
+      return true;
+    }
+
+    // Iterate through all periods to see if 'now' falls inside any of them
+    for (const period of openingHours.periods) {
+      const open = period.open;
+      const close = period.close;
+
+      if (!close) continue; // Should have a close time unless 24/7 (handled above)
+
+      const openTime = open.hour * 100 + open.minute;
+      const closeTime = close.hour * 100 + close.minute;
+
+      // Case A: Standard Intraday (e.g., 10:00 to 17:00 on Monday)
+      if (open.day === close.day) {
+        if (currentDay === open.day) {
+          if (currentTime >= openTime && currentTime < closeTime) {
+            return true;
+          }
+        }
+      } 
+      // Case B: Spans Midnight (e.g., Sat 20:00 to Sun 02:00)
+      else {
+        // Current time is on the "Start Day" (after open time)
+        if (currentDay === open.day && currentTime >= openTime) {
+          return true;
+        }
+        // Current time is on the "End Day" (before close time)
+        if (currentDay === close.day && currentTime < closeTime) {
+          return true;
+        }
+      }
+    }
+
+    return false; // Not found in any open period
+  }
+
+  // 2. Fallback to stale 'open_now' if periods are missing
+  // This is risky but better than nothing if data is limited
+  return !!openingHours.open_now;
+}

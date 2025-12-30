@@ -5,6 +5,7 @@ import { Winery } from "@/lib/types";
 import { Star, Phone, Globe, MapPin, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { Separator } from "./ui/separator";
 import WineryQnA from "./WineryQnA";
+import { isOpenNow } from "@/lib/utils/opening-hours";
 
 interface WineryDetailsProps {
   winery: Winery;
@@ -26,6 +27,8 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
     const hours = todaysLine.substring(todaysLine.indexOf(':') + 2);
     return hours;
   };
+  
+  const isOpen = isOpenNow(winery.openingHours);
 
   return (
     <div className="text-sm text-muted-foreground space-y-2 pt-2 !mt-2">
@@ -54,10 +57,10 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
             <div className="flex items-center">
               <span
                 className={`font-semibold mr-2 ${
-                  winery.openingHours?.open_now ? 'text-green-600' : 'text-red-600'
+                  isOpen ? 'text-green-600' : 'text-red-600'
                 }`}
               >
-                {winery.openingHours?.open_now ? 'Open' : 'Closed'}
+                {isOpen ? 'Open' : 'Closed'}
               </span>
               <span className="text-sm">{getTodaysHours()}</span>
               {winery.openingHours.weekday_text && (
