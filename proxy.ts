@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/utils/supabase/middleware';
 
-const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password', '/auth/callback', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/confirm-user', '/manifest.webmanifest', '/sw.js'];
+const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password', '/auth/callback', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/confirm-user', '/site.webmanifest', '/sw.js'];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
