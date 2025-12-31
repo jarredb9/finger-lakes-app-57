@@ -35,6 +35,7 @@ export function useWinerySearch() {
       locationText?: string,
       searchBounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral
     ) => {
+      console.log("[executeSearch] Called with:", { locationText, hasBounds: !!searchBounds });
       if (!places || !geocoder) return;
       if (useMapStore.getState().isSearching) return;
 
