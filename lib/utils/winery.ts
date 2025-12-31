@@ -89,7 +89,7 @@ export const standardizeWineryData = (
 
   // 1. Resolve ID (Google Place ID)
   const googleId = (
-    (isGoogleWinery(source) && (source.google_place_id || source.place_id || (typeof source.id === 'string' ? source.id : undefined))) ||
+    (isGoogleWinery(source) && (source.id || source.google_place_id || source.place_id)) ||
     (isRawDbWinery(source) && source.google_place_id) || // DbWinery
     (isMapMarkerRpc(source) && source.google_place_id) || // MapMarkerRpc
     (isWineryDetailsRpc(source) && source.google_place_id) || // WineryDetailsRpc
