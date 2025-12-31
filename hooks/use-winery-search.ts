@@ -16,6 +16,7 @@ export function useWinerySearch() {
     setSearchResults,
     setHitApiLimit,
     setLastSearchedBounds,
+    setLastSearchedZoom,
   } = useMapStore();
   const { bulkUpsertWineries } = useWineryDataStore();
   const { toast } = useToast();
@@ -85,6 +86,9 @@ export function useWinerySearch() {
       }
 
       setLastSearchedBounds(finalSearchBounds);
+      if (map) {
+        setLastSearchedZoom(map.getZoom() ?? null);
+      }
 
       const bounds = new google.maps.LatLngBounds(finalSearchBounds);
       const supabase = createClient();

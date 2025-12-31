@@ -7,6 +7,7 @@ interface MapState {
   zoom: number;
   bounds: google.maps.LatLngBounds | null;
   lastSearchedBounds: google.maps.LatLngBounds | null;
+  lastSearchedZoom: number | null;
   isSearching: boolean;
   hitApiLimit: boolean;
   searchResults: Winery[];
@@ -19,6 +20,7 @@ interface MapState {
   setZoom: (zoom: number) => void;
   setBounds: (bounds: google.maps.LatLngBounds | null) => void;
   setLastSearchedBounds: (bounds: google.maps.LatLngBounds | null) => void;
+  setLastSearchedZoom: (zoom: number | null) => void;
   setIsSearching: (isSearching: boolean) => void;
   setHitApiLimit: (hitApiLimit: boolean) => void;
   setSearchResults: (results: Winery[]) => void;
@@ -35,6 +37,7 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   zoom: 4,
   bounds: null,
   lastSearchedBounds: null,
+  lastSearchedZoom: null,
   isSearching: false,
   hitApiLimit: false,
   searchResults: [],
@@ -47,6 +50,7 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   setZoom: (zoom) => set({ zoom }),
   setBounds: (bounds) => set({ bounds }),
   setLastSearchedBounds: (bounds) => set({ lastSearchedBounds: bounds }),
+  setLastSearchedZoom: (zoom) => set({ lastSearchedZoom: zoom }),
   setIsSearching: (isSearching) => set({ isSearching }),
   setHitApiLimit: (hitApiLimit) => set({ hitApiLimit }),
   setSearchResults: (results) => set({ searchResults: results }),
@@ -60,6 +64,7 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
     zoom: 4,
     bounds: null,
     lastSearchedBounds: null,
+    lastSearchedZoom: null,
     isSearching: false,
     hitApiLimit: false,
     searchResults: [],
