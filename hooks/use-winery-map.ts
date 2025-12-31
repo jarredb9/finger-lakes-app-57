@@ -17,6 +17,7 @@ export function useWineryMap(userId: string) {
     setMap,
     map,
     hitApiLimit,
+    searchResults: listResultsInView, // Directly use searchResults for the list
   } = useMapStore();
 
   const { error } = useWineryDataStore();
@@ -46,7 +47,6 @@ export function useWineryMap(userId: string) {
 
   const {
     mapWineries,
-    listResultsInView,
     filter,
     handleFilterChange,
   } = useWineryFilter();
@@ -174,16 +174,16 @@ export function useWineryMap(userId: string) {
     isSearching,
     hitApiLimit,
     searchLocation,
-    setSearchLocation,
     autoSearch,
-    setAutoSearch,
     filter,
     handleSearchSubmit,
     handleManualSearchArea,
     handleFilterChange,
     handleOpenModal,
     proposedWinery,
-    setProposedWinery,
     selectedTrip,
+    setSearchLocation, 
+    setAutoSearch,
+    setProposedWinery
   ]);
 }
