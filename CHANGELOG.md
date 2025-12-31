@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.2.5] - 2025-12-31
+
+**PWA Support, Search Caching & Exploration Stability**
+
+Version 2.2.5 transforms the application into an installable **Progressive Web App (PWA)** and significantly optimizes the winery discovery experience. We have implemented a robust database caching layer for searches, reducing API costs while improving speed, and refined the map behavior to ensure seamless exploration.
+
+### 🚀 Features
+*   **Progressive Web App (PWA):**
+    *   **Installability:** The app is now fully installable on mobile and desktop devices via Serwist.
+    *   **Smart Caching:** Implemented a precise Service Worker strategy to cache static assets while avoiding `QuotaExceededError` on constrained devices.
+    *   **Offline Capability:** Core app shell and static resources are now available offline.
+*   **Search Caching & Optimization:**
+    *   **Database Caching:** Search results are now cached in Supabase, reducing Google Maps API calls and speeding up repeat searches.
+    *   **Smart Zoom:** The map now intelligently forces a new search when zooming into clusters, revealing wineries that Google hides at lower zoom levels.
+    *   **Stable UX:** Eliminated UI "blinking" by seamlessly merging cached data with live API results in the background.
+*   **Winery Details:**
+    *   **Dynamic Hours:** Implemented real-time "Open/Closed" status calculation based on current winery hours.
+
+### 🐛 Bug Fixes
+*   **Data Persistence:** Resolved a critical issue where searching would temporarily overwrite local user data (Favorites/Visited status) with raw API data.
+*   **Map Interaction:**
+    *   Fixed the "Results in View" list failing to update when panning.
+    *   Fixed map middleware blocking PWA static assets (manifest, icons).
+*   **Global Branding:** Removed regional specific branding to support a broader global scope.
+
 ## [2.2.4] - 2025-12-29
 
 **Industrial-Strength Testing & Mobile UX Stability**
