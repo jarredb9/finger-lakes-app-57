@@ -133,8 +133,7 @@ export function useWinerySearch() {
           "location",
           "formattedAddress",
           "rating",
-          "id",
-          "place_id" // Ensure place_id is requested
+          "id", // This is the correct field for the place ID
         ],
         locationRestriction: finalSearchBounds,
       };
@@ -146,7 +145,7 @@ export function useWinerySearch() {
         const wineries: Winery[] = foundPlaces.map((place: any) => {
           return {
               id: place.id! as GooglePlaceId,
-              place_id: place.place_id! as GooglePlaceId,
+              place_id: place.id! as GooglePlaceId, // Use the 'id' field here as well
               name: place.displayName || '',
               address: place.formattedAddress || '',
               lat: place.location?.lat() || 0,
