@@ -79,17 +79,27 @@ export function useWineryMap(userId: string) {
         const lastSearched = useMapStore.getState().lastSearchedBounds;
         const hitApiLimit = useMapStore.getState().hitApiLimit;
         
+        console.log("[MapIdle] Checking search trigger:", { 
+          autoSearch: useMapStore.getState().autoSearch,
+          hasLastSearched: !!lastSearched, 
+          hitApiLimit 
+        });
+
         if (lastSearched) {
           const isContained = lastSearched.contains(currentBounds.getNorthEast()) && 
                               lastSearched.contains(currentBounds.getSouthWest());
           
+          console.log("[MapIdle] Bounds check:", { isContained });
+
           // If we are fully contained in the last search area AND we didn't hit the API limit,
           // we can assume we already have all the results for this area.
           if (isContained && !hitApiLimit) {
+            console.log("[MapIdle] Skipping search: Contained in previous clean search.");
             return;
           }
         }
         
+        console.log("[MapIdle] Triggering search.");
         executeSearch(undefined, currentBounds);
 
       }, 750);
