@@ -1,6 +1,5 @@
-import { defaultCache } from "@serwist/next/worker";
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist, NetworkOnly } from "serwist";
+import { Serwist, NetworkOnly, StaleWhileRevalidate, ExpirationPlugin } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -16,12 +15,29 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
+    // Supabase Caching Rule (unchanged)
     {
-      matcher: ({ url }: { url: URL }) => 
-        url.hostname.includes("supabase.co"),
+      matcher: ({ url }: { url: URL }) => url.hostname.includes("supabase.co"),
       handler: new NetworkOnly(),
     },
-    ...defaultCache,
+    // More specific caching for pages and static assets
+    {
+      matcher: ({ request }) =>
+        request.destination === "document" ||
+        request.destination === "script" ||
+        request.destination === "style" ||
+        request.destination === "font" ||
+        request.destination === "image",
+      handler: new StaleWhileRevalidate({
+        cacheName: "static-assets",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 128, // Max number of items to cache
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+          }),
+        ],
+      }),
+    },
   ],
 });
 
