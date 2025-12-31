@@ -77,9 +77,17 @@ export function useWineryMap(userId: string) {
         if (!currentBounds) return;
 
         const lastSearched = useMapStore.getState().lastSearchedBounds;
+        const hitApiLimit = useMapStore.getState().hitApiLimit;
         
-        if (lastSearched && lastSearched.contains(currentBounds.getCenter()) && lastSearched.intersects(currentBounds)) {
-          return;
+        if (lastSearched) {
+          const isContained = lastSearched.contains(currentBounds.getNorthEast()) && 
+                              lastSearched.contains(currentBounds.getSouthWest());
+          
+          // If we are fully contained in the last search area AND we didn't hit the API limit,
+          // we can assume we already have all the results for this area.
+          if (isContained && !hitApiLimit) {
+            return;
+          }
         }
         
         executeSearch(undefined, currentBounds);
