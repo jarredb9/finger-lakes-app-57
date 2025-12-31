@@ -20,7 +20,7 @@ export function useWinerySearch() {
     setSearchLocation,
     autoSearch,
     setAutoSearch,
-    setBounds,
+    setLastSearchedBounds,
   } = useMapStore();
   const { bulkUpsertWineries } = useWineryDataStore();
 
@@ -28,17 +28,10 @@ export function useWinerySearch() {
   const places = useMapsLibrary("places");
   const geocoding = useMapsLibrary("geocoding");
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
-  const searchFnRef = useRef<
-    | ((
-        locationText?: string,
-        bounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral
-      ) => Promise<void>)
-    | null
-  >(null);
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (geocoding && !geocoder) {
-       
       setGeocoder(new google.maps.Geocoder());
     }
   }, [geocoding, geocoder]);
@@ -49,12 +42,16 @@ export function useWinerySearch() {
       searchBounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral
     ) => {
       if (!places || !geocoder) return;
+      if (useMapStore.getState().isSearching) return;
+
       setIsSearching(true);
-      setSearchResults([]);
+      
+      if (locationText) {
+        setSearchResults([]);
+      }
 
       let finalSearchBounds: google.maps.LatLngBounds;
       
-      // Case 1: Text-based location search (e.g., "Geneva, NY")
       if (locationText) {
         try {
           const { results } = await geocoder.geocode({ address: locationText });
@@ -65,10 +62,9 @@ export function useWinerySearch() {
               map?.fitBounds(finalSearchBounds);
             } else if (geometry.location) {
               map?.setCenter(geometry.location);
-              map?.setZoom(13); // Reasonable default zoom for a point
-              // Create a small bounds around the point for the search context
+              map?.setZoom(13);
               const point = geometry.location;
-              const offset = 0.05; // Roughly 5km
+              const offset = 0.05;
               finalSearchBounds = new google.maps.LatLngBounds(
                 { lat: point.lat() - offset, lng: point.lng() - offset },
                 { lat: point.lat() + offset, lng: point.lng() + offset }
@@ -79,10 +75,7 @@ export function useWinerySearch() {
                return;
             }
           } else {
-            toast({
-              variant: "destructive",
-              description: "Could not find that location.",
-            });
+            toast({ variant: "destructive", description: "Could not find that location." });
             setIsSearching(false);
             return;
           }
@@ -91,18 +84,15 @@ export function useWinerySearch() {
           setIsSearching(false);
           return;
         }
-      } 
-            // Case 2: Bounds-based search (current map view)
-            else if (searchBounds) {
-              finalSearchBounds = new google.maps.LatLngBounds(searchBounds);
-            } else {
-              setIsSearching(false);
-              return;
-            }
-      
-      // --- STALE-WHILE-REVALIDATE STRATEGY ---
+      } else if (searchBounds) {
+        finalSearchBounds = new google.maps.LatLngBounds(searchBounds);
+      } else {
+        setIsSearching(false);
+        return;
+      }
 
-      // 1. Show cached results immediately (Stale)
+      setLastSearchedBounds(finalSearchBounds);
+
       const bounds = new google.maps.LatLngBounds(finalSearchBounds);
       const supabase = createClient();
       const { data: cachedWineries, error: rpcError } = await supabase.rpc('get_wineries_in_bounds', {
@@ -112,9 +102,7 @@ export function useWinerySearch() {
         max_lng: bounds.getNorthEast().lng(),
       });
 
-      if (rpcError) {
-        console.error("Error fetching cached wineries:", rpcError);
-      }
+      if (rpcError) console.error("Error fetching cached wineries:", rpcError);
 
       if (cachedWineries && cachedWineries.length > 0) {
         console.log(`✅ Displaying ${cachedWineries.length} cached wineries immediately.`);
@@ -122,19 +110,12 @@ export function useWinerySearch() {
         setSearchResults(wineries);
       }
       
-      // 2. Fetch fresh results in the background (Revalidate)
       console.log(`ℹ️ Fetching fresh data from Google API in the background...`);
       
       const combinedQuery = `winery OR vineyard OR "wine tasting room"`;
       const request = {
         textQuery: combinedQuery,
-        fields: [
-          "displayName",
-          "location",
-          "formattedAddress",
-          "rating",
-          "id", // This is the correct field for the place ID
-        ],
+        fields: ["displayName", "location", "formattedAddress", "rating", "id"],
         locationRestriction: finalSearchBounds,
       };
 
@@ -142,24 +123,20 @@ export function useWinerySearch() {
         const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
         console.log(`✅ Found ${foundPlaces.length} fresh places from Google.`);
         
-        const wineries: Winery[] = foundPlaces.map((place: any) => {
-          return {
+        const wineries: Winery[] = foundPlaces.map((place: any) => ({
               id: place.id! as GooglePlaceId,
-              place_id: place.id! as GooglePlaceId, // Use the 'id' field here as well
+              place_id: place.id! as GooglePlaceId,
               name: place.displayName || '',
               address: place.formattedAddress || '',
               lat: place.location?.lat() || 0,
               lng: place.location?.lng() || 0,
               rating: place.rating ?? undefined,
-          };
-        });
+        }));
 
-        // This will merge with existing results and save to DB
         if (wineries.length > 0) {
           bulkUpsertWineries(wineries);
         }
         
-        // Update the search results with the full, fresh list
         setSearchResults(wineries);
         setHitApiLimit(foundPlaces.length === 20);
 
@@ -169,40 +146,65 @@ export function useWinerySearch() {
         setIsSearching(false);
       }
     },
-    [map, places, geocoder, toast, setIsSearching, setSearchResults, setHitApiLimit, bulkUpsertWineries]
+    [
+      map, 
+      places, 
+      geocoder, 
+      toast,
+      setIsSearching, 
+      setSearchResults, 
+      bulkUpsertWineries, 
+      setHitApiLimit,
+      setLastSearchedBounds,
+    ]
   );
   
-  // Keep a ref to the latest search function for the idle listener
-  useEffect(() => {
-    searchFnRef.current = executeSearch;
-  });
-
-  // Auto-search on map idle
   useEffect(() => {
     if (!map) return;
+
     const idleListener = map.addListener("idle", () => {
-      const currentBounds = map.getBounds();
-      if (currentBounds) {
-        setBounds(currentBounds);
-        if (autoSearch) {
-          searchFnRef.current?.(undefined, currentBounds);
-        }
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
       }
+      
+      debounceTimeoutRef.current = setTimeout(() => {
+        if (!autoSearch) return;
+        
+        const currentBounds = map.getBounds();
+        if (!currentBounds) return;
+
+        const lastSearched = useMapStore.getState().lastSearchedBounds;
+
+        if (lastSearched && lastSearched.contains(currentBounds.getCenter())) {
+          console.log("🗺️ Map center is still within last search area, skipping search.");
+          return;
+        }
+
+        console.log("🗺️ New area detected, executing search.");
+        executeSearch(undefined, currentBounds);
+
+      }, 750);
     });
+
     return () => {
       google.maps.event.removeListener(idleListener);
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current);
+      }
     };
-  }, [map, autoSearch, setBounds]);
+  }, [map, autoSearch, executeSearch]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchLocation.trim()) {
+      setLastSearchedBounds(null); 
       executeSearch(searchLocation.trim());
     }
   };
 
   const handleManualSearchArea = () => {
     if (map) {
+      setLastSearchedBounds(null); 
       executeSearch(undefined, map.getBounds());
     }
   };
