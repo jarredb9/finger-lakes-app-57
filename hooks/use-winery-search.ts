@@ -5,7 +5,9 @@ import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useToast } from "@/hooks/use-toast";
-import { Winery, GooglePlaceId } from "@/lib/types";
+import { Winery, GooglePlaceId, DbWinery } from "@/lib/types";
+import { createClient } from "@/utils/supabase/client";
+import { standardizeWineryData } from "@/lib/utils/winery";
 
 export function useWinerySearch() {
   const {
@@ -98,7 +100,39 @@ export function useWinerySearch() {
               return;
             }
       
-                  const combinedQuery = `winery OR vineyard OR "wine tasting room"`;
+                  // --- READ FROM CACHE FIRST ---
+      const bounds = new google.maps.LatLngBounds(finalSearchBounds);
+      const minLat = bounds.getSouthWest().lat();
+      const minLng = bounds.getSouthWest().lng();
+      const maxLat = bounds.getNorthEast().lat();
+      const maxLng = bounds.getNorthEast().lng();
+
+      const supabase = createClient();
+      const { data: cachedWineries, error: rpcError } = await supabase.rpc('get_wineries_in_bounds', {
+        min_lat: minLat,
+        min_lng: minLng,
+        max_lat: maxLat,
+        max_lng: maxLng,
+      });
+
+      if (rpcError) {
+        console.error("Error fetching cached wineries:", rpcError);
+      }
+
+      // If we find a good number of wineries in our DB, just use them.
+      // The threshold (e.g., 10) can be adjusted.
+      if (cachedWineries && cachedWineries.length > 10) {
+        console.log(`✅ Found ${cachedWineries.length} cached wineries in bounds. Skipping Google API call.`);
+        const wineries = cachedWineries.map((w: DbWinery) => standardizeWineryData(w)).filter(Boolean) as Winery[];
+        setSearchResults(wineries);
+        setIsSearching(false);
+        return;
+      }
+      
+      console.log(`ℹ️ Only found ${cachedWineries?.length || 0} cached wineries. Proceeding with Google API search.`);
+      // --- END READ FROM CACHE ---
+
+      const combinedQuery = `winery OR vineyard OR "wine tasting room"`;
       const allFoundPlaces = new Map<string, google.maps.places.Place>();
       let hitApiLimit = false;
 
