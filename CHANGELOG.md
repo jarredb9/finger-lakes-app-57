@@ -23,6 +23,7 @@ Version 2.2.5 transforms the application into an installable **Progressive Web A
 *   **Map Interaction:**
     *   Fixed the "Results in View" list failing to update when panning.
     *   Fixed map middleware blocking PWA static assets (manifest, icons).
+*   **Test Data Pollution:** Implemented automatic cleanup for integration tests to prevent mock wineries from persisting in the live database and appearing on the map.
 *   **Global Branding:** Removed regional specific branding to support a broader global scope.
 
 ## [2.2.4] - 2025-12-29

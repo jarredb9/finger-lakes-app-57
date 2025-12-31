@@ -26,6 +26,7 @@ const adminClient = createClient(supabaseUrl, serviceRoleKey);
 describe('Supabase RPC Integration Tests', () => {
     let user1: { id: string; email: string; client: SupabaseClient };
     let user2: { id: string; email: string; client: SupabaseClient };
+    const createdWineryIds: string[] = [];
 
     const createAuthenticatedUser = async () => {
       const email = `rpc-test-${crypto.randomUUID()}@example.com`;
@@ -61,6 +62,10 @@ describe('Supabase RPC Integration Tests', () => {
     afterAll(async () => {
       if (user1) await adminClient.auth.admin.deleteUser(user1.id);
       if (user2) await adminClient.auth.admin.deleteUser(user2.id);
+      
+      if (createdWineryIds.length > 0) {
+        await adminClient.from('wineries').delete().in('google_place_id', createdWineryIds);
+      }
     });
 
     describe('Trip Management RPCs', () => {
@@ -74,6 +79,7 @@ describe('Supabase RPC Integration Tests', () => {
           lng: mockWinery.lng,
           rating: mockWinery.rating
         };
+        createdWineryIds.push(wineryData.id);
 
         const { data, error } = await user1.client.rpc('create_trip_with_winery', {
           p_trip_name: 'Integration Test Trip',
@@ -102,6 +108,7 @@ describe('Supabase RPC Integration Tests', () => {
           lng: mockWinery.lng,
           rating: mockWinery.rating
         };
+        createdWineryIds.push(wineryData.id);
 
         const mockVisit = createMockVisit();
         const visitData = {
