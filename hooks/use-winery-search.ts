@@ -96,72 +96,67 @@ export function useWinerySearch() {
               return;
             }
       
-                  const searchTerms = ["winery", "vineyard", "wine tasting room"];
-                  const allFoundPlaces = new Map<string, google.maps.places.Place>();
-                  let hitApiLimit = false;
-            
-                  // Parallelize search requests for better performance
-                  await Promise.all(
-                    searchTerms.map(async (term) => {
-                      const request = {
-                        textQuery: term,
-                        fields: [
-                          "displayName",
-                          "location",
-                          "formattedAddress",
-                          "rating",
-                          "id",
-                        ],
-                        locationRestriction: finalSearchBounds,
-                      };
-            
-                      try {
-                        console.log(`🔍 Executing Google Search for: "${term}"`);
-                        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-                        console.log(`✅ Found ${foundPlaces.length} places for "${term}"`);
-                        
-                        if (foundPlaces.length === 20) {
-                          hitApiLimit = true;
-                        }
-                        
-                        foundPlaces.forEach((place) => {
-                          if (place.id) {
-                            allFoundPlaces.set(place.id, place);
-                          }
-                        });
-                      } catch (error) {
-                        console.error(`Google Places search error for term "${term}":`, error);
-                      }
-                    })
-                  );
+                  const combinedQuery = `winery OR vineyard OR "wine tasting room"`;
+      const allFoundPlaces = new Map<string, google.maps.places.Place>();
+      let hitApiLimit = false;
+
+      const request = {
+        textQuery: combinedQuery,
+        fields: [
+          "displayName",
+          "location",
+          "formattedAddress",
+          "rating",
+          "id",
+        ],
+        locationRestriction: finalSearchBounds,
+      };
+
+      try {
+        console.log(`🔍 Executing single Google Search for: "${combinedQuery}"`);
+        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
+        console.log(`✅ Found ${foundPlaces.length} places.`);
+        
+        if (foundPlaces.length === 20) {
+          hitApiLimit = true;
+        }
+        
+        foundPlaces.forEach((place) => {
+          if (place.id) {
+            allFoundPlaces.set(place.id, place);
+          }
+        });
+      } catch (error) {
+        console.error(`Google Places search error:`, error);
+      }
       
-            const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place: google.maps.places.Place) => {
-                const lat = typeof place.location?.lat === 'function' 
-                    ? place.location.lat() 
-                    : (place.location as any)?.latitude || 0;
-                const lng = typeof place.location?.lng === 'function' 
-                    ? place.location.lng() 
-                    : (place.location as any)?.longitude || 0;
-                const name = typeof place.displayName === 'string' 
-                    ? place.displayName 
-                    : (place.displayName as any)?.text || '';
+      const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place: google.maps.places.Place) => {
+          const lat = typeof place.location?.lat === 'function' 
+              ? place.location.lat() 
+              : (place.location as any)?.latitude || 0;
+          const lng = typeof place.location?.lng === 'function' 
+              ? place.location.lng() 
+              : (place.location as any)?.longitude || 0;
+          const name = typeof place.displayName === 'string' 
+              ? place.displayName 
+              : (place.displayName as any)?.text || '';
+          
+          return {
+              id: place.id! as GooglePlaceId,
+              name,
+              address: place.formattedAddress || '',
+              lat,
+              lng,
+              rating: place.rating ?? undefined,
+              website: undefined,
+              phone: undefined,
+              reviews: undefined,
+          };
+      });
 
-                return {
-                    id: place.id! as GooglePlaceId,
-                    name,
-                    address: place.formattedAddress || '',
-                    lat,
-                    lng,
-                    rating: place.rating ?? undefined,
-                    website: undefined,
-                    phone: undefined,
-                    reviews: undefined,
-                };
-            });
-
-            setSearchResults(wineries);
-            setIsSearching(false);
-            setHitApiLimit(hitApiLimit);
+      setSearchResults(wineries);
+      setIsSearching(false);
+      setHitApiLimit(hitApiLimit);
     },
     [map, places, geocoder, toast, setIsSearching, setSearchResults, setHitApiLimit]
   );
