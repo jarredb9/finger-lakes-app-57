@@ -1,5 +1,6 @@
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist, NetworkOnly, StaleWhileRevalidate, ExpirationPlugin } from "serwist";
+import { Serwist, NetworkOnly, CacheFirst, NetworkFirst } from "serwist";
+import { ExpirationPlugin } from "serwist";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -15,25 +16,34 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
-    // Supabase Caching Rule (unchanged)
+    // Supabase Caching Rule
     {
-      matcher: ({ url }: { url: URL }) => url.hostname.includes("supabase.co"),
+      matcher: ({ url }) => url.hostname.includes("supabase.co"),
       handler: new NetworkOnly(),
     },
-    // More specific caching for pages and static assets
+    // Cache static assets (fonts, images) with CacheFirst
     {
       matcher: ({ request }) =>
-        request.destination === "document" ||
-        request.destination === "script" ||
-        request.destination === "style" ||
-        request.destination === "font" ||
-        request.destination === "image",
-      handler: new StaleWhileRevalidate({
+        request.destination === "font" || request.destination === "image",
+      handler: new CacheFirst({
         cacheName: "static-assets",
         plugins: [
           new ExpirationPlugin({
-            maxEntries: 128, // Max number of items to cache
+            maxEntries: 64,
             maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+          }),
+        ],
+      }),
+    },
+    // Cache documents (pages) with NetworkFirst
+    {
+      matcher: ({ request }) => request.destination === "document",
+      handler: new NetworkFirst({
+        cacheName: "pages",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 32,
+            maxAgeSeconds: 24 * 60 * 60, // 24 hours
           }),
         ],
       }),
