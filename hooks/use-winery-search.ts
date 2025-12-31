@@ -103,13 +103,15 @@ export function useWinerySearch() {
       if (rpcError) console.error("Error fetching cached wineries:", rpcError);
 
       const { persistentWineries } = useWineryDataStore.getState();
+      let preloadedWineries: Winery[] = [];
 
       if (cachedWineries && cachedWineries.length > 0) {
-        const wineries = cachedWineries.map((w: DbWinery) => {
+        preloadedWineries = cachedWineries.map((w: DbWinery) => {
            const existing = persistentWineries.find(pw => pw.id === w.google_place_id);
            return standardizeWineryData(w, existing);
         }).filter(Boolean) as Winery[];
-        setSearchResults(wineries);
+        // NOTE: We do NOT set search results here to avoid UI blinking.
+        // We will merge these with Google results later.
       }
       
       const combinedQuery = `winery OR vineyard OR "wine tasting room"`;
@@ -138,13 +140,12 @@ export function useWinerySearch() {
         
         // Re-fetch latest state after upsert to ensure we have the merged data
         const updatedPersistentWineries = useWineryDataStore.getState().persistentWineries;
-        const existingResults = useMapStore.getState().searchResults;
         const combinedResults = new Map();
 
-        // Add existing search results (which came from cache/bounds earlier)
-        existingResults.forEach(w => combinedResults.set(w.id, w));
+        // 1. Add Preloaded (Cached) Wineries
+        preloadedWineries.forEach(w => combinedResults.set(w.id, w));
         
-        // Add new Google results, BUT pull the "rich" version from the store
+        // 2. Add/Update with Google Results
         wineriesFromGoogle.forEach(w => {
             const richWinery = updatedPersistentWineries.find(pw => pw.id === w.id);
             if (richWinery) {
@@ -159,6 +160,10 @@ export function useWinerySearch() {
 
       } catch (error) {
         console.error(`Google Places search error:`, error);
+        // Fallback: If Google search fails, at least show what we have in cache
+        if (preloadedWineries.length > 0) {
+            setSearchResults(preloadedWineries);
+        }
       } finally {
         setIsSearching(false);
       }
@@ -173,6 +178,7 @@ export function useWinerySearch() {
       bulkUpsertWineries, 
       setHitApiLimit,
       setLastSearchedBounds,
+      setLastSearchedZoom,
     ]
   );
 

@@ -81,34 +81,22 @@ export function useWineryMap(userId: string) {
         const hitApiLimit = useMapStore.getState().hitApiLimit;
         const currentZoom = map.getZoom();
 
-        console.log("[MapIdle] Checking search trigger:", { 
-          autoSearch: useMapStore.getState().autoSearch,
-          hasLastSearched: !!lastSearched, 
-          hitApiLimit,
-          currentZoom,
-          lastSearchedZoom
-        });
-
         if (lastSearched) {
           const isContained = lastSearched.contains(currentBounds.getNorthEast()) && 
                               lastSearched.contains(currentBounds.getSouthWest());
           
-          console.log("[MapIdle] Bounds check:", { isContained });
-
           // If we are fully contained in the last search area AND we didn't hit the API limit,
           // we normally skip. HOWEVER, if we zoomed in AT ALL, we should search again
           // because Google Places hides results at lower zoom levels.
           if (isContained && !hitApiLimit) {
             if (currentZoom && lastSearchedZoom && (currentZoom > lastSearchedZoom)) {
-                 console.log("[MapIdle] Force search: Zoomed in.");
+                 // Force search: Zoomed in.
             } else {
-                 console.log("[MapIdle] Skipping search: Contained in previous clean search & no zoom in.");
                  return;
             }
           }
         }
         
-        console.log("[MapIdle] Triggering search.");
         executeSearch(undefined, currentBounds);
 
       }, 750);
