@@ -53,7 +53,7 @@ export default function LoginForm() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Password</Label>
-              <Link href="/forgot-password" className="text-sm text-blue-700 hover:underline font-medium">
+              <Link href="/forgot-password" className="text-sm text-blue-800 underline hover:text-blue-900 font-medium">
                 Forgot password?
               </Link>
             </div>
@@ -66,7 +66,7 @@ export default function LoginForm() {
           </Button>
           <p className="text-sm text-center text-gray-700 font-medium">
             {"Don't have an account? "}
-            <Link href="/signup" className="text-blue-700 hover:underline underline-offset-4">
+            <Link href="/signup" className="text-blue-800 underline hover:text-blue-900 underline-offset-4">
               Sign up
             </Link>
           </p>

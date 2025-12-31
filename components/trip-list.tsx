@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import TripForm from "./trip-form";
 import { Alert, AlertDescription } from './ui/alert';
 
-export default function TripList({ user }: { user: AuthenticatedUser }) {
+export default function TripList({ user, onExploreClick }: { user: AuthenticatedUser, onExploreClick?: () => void }) {
     const { trips, isLoading, error, page, hasMore, fetchTrips, setPage, deleteTrip } = useTripStore();
     const [tripType, setTripType] = useState<'upcoming' | 'past'>('upcoming');
     const [isCreateTripModalOpen, setCreateTripModalOpen] = useState(false);
@@ -102,13 +102,20 @@ export default function TripList({ user }: { user: AuthenticatedUser }) {
                         ))}
                     </div>
                 ) : (
-                    <p className="text-muted-foreground">
-                        {tripType === 'upcoming' && todaysTrips.length === 0 
-                            ? "You have no upcoming trips." 
-                            : tripType === 'past' 
-                                ? "You have no past trips." 
-                                : "No other upcoming trips."}
-                    </p>
+                    <div className="flex flex-col items-center justify-center p-8 text-center space-y-4">
+                        <p className="text-muted-foreground">
+                            {tripType === 'upcoming' && todaysTrips.length === 0 
+                                ? "You have no upcoming trips." 
+                                : tripType === 'past' 
+                                    ? "You have no past trips." 
+                                    : "No other upcoming trips."}
+                        </p>
+                        {tripType === 'upcoming' && todaysTrips.length === 0 && onExploreClick && (
+                            <Button variant="outline" size="sm" onClick={onExploreClick}>
+                                Browse Wineries to Plan a Trip
+                            </Button>
+                        )}
+                    </div>
                 )}
             </div>
 

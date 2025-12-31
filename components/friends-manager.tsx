@@ -87,7 +87,7 @@ export default function FriendsManager() {
         </CardContent>
       </Card>
 
-      {error && <p className="text-red-500">{error}</p>}
+      {error && <p className="text-red-500" role="alert">{error}</p>}
 
       {friendRequests.length > 0 && (
         <Card>

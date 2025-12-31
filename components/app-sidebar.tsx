@@ -59,9 +59,9 @@ export function AppSidebar({
   // Memoize expensive tab contents
   const tripsContent = useMemo(() => (
     <div className="p-4 space-y-6">
-      <TripList user={user} />
+      <TripList user={user} onExploreClick={() => onTabChange?.("explore")} />
     </div>
-  ), [user]);
+  ), [user, onTabChange]);
 
   const historyContent = useMemo(() => (
     <div className="flex flex-col flex-1 overflow-y-auto"> {/* Changed div to flex-col and overflow-y-auto */}
