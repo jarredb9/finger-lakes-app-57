@@ -1,7 +1,38 @@
 {
-    "context": {
-        "fileName": ["GEMINI.md"],
-        "includeDirectories": ["/home/byrnesjd4821/Git/finger-lakes-app-57"],
-        "loadFromIncludeDirectories": true
+  "context": {
+    "fileName": [
+      "GEMINI.md"
+    ],
+    "includeDirectories": [
+      "/home/byrnesjd4821/Git/finger-lakes-app-57"
+    ],
+    "loadFromIncludeDirectories": true
+  },
+  "mcpServers": {
+    "google-maps-platform-code-assist": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@googlemaps/code-assist-mcp@latest"
+      ]
+    },
+    "a11y-mcp": {
+      "command": "npx",
+      "args": [
+        "a11y-mcp@latest"
+      ]
+    },
+    "next-devtools": {
+      "command": "npx",
+      "args": [
+        "next-devtools-mcp@latest"
+      ]
+    },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ]
     }
+  }
 }

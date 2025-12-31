@@ -292,6 +292,15 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **State Isolation:** Enforced global store resets in Jest.
     *   **Standardized Fixtures:** Centralized all mock data factory functions.
     *   **Error Resilience:** Verified UI behavior for server/network failures.
+27. **PWA & Search Optimization (v2.2.5):**
+    *   **Progressive Web App:** Enabled full PWA support with installability, offline caching, and service worker strategies via `@serwist/next`.
+    *   **Search Caching:** Implemented Supabase-backed caching for Google Places API searches to reduce costs and improve performance.
+    *   **Smart Zoom:** Added logic to force re-search when zooming into clusters.
+    *   **Dynamic Hours:** Added real-time "Open/Closed" status calculation.
+28. **Accessibility & UX Polish (Post-v2.2.5):**
+    *   **Contrast Fixes:** Updated login links to use darker blue (`text-blue-800`) and permanent underlines for WCAG compliance.
+    *   **Form Feedback:** Added `aria-live="polite"` to form validation messages and `role="alert"` to friend request errors for screen reader announcements.
+    *   **Empty State CTA:** Added a "Browse Wineries" button to the Trips tab when no trips exist, linking directly to the Explore view.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
