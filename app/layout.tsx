@@ -10,8 +10,8 @@ import { GlobalModalRenderer } from '@/components/global-modal-renderer'
 import { CookieConsent } from '@/components/cookie-consent'
 
 export const metadata: Metadata = {
-  title: 'Finger Lakes Winery Visit Planner',
-  description: 'Plan and track your visits to wineries in the Finger Lakes region.',
+  title: 'Winery Visit Planner',
+  description: 'Plan and track your visits to wineries worldwide.',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

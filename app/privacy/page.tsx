@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
         <section>
           <h2 className="text-xl font-semibold mb-2">1. Introduction</h2>
           <p>
-            Welcome to the Finger Lakes Winery Planner (&#34;we,&#34; &#34;our,&#34; or &#34;us&#34;). We are committed to protecting your privacy. 
+            Welcome to the Winery Planner (&#34;we,&#34; &#34;our,&#34; or &#34;us&#34;). We are committed to protecting your privacy. 
             This Privacy Policy explains how we collect, use, and safeguard your information when you use our application.
           </p>
         </section>

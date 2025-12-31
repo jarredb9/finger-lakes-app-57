@@ -1,7 +1,7 @@
 {
-  "name": "Finger Lakes Winery Visit Planner",
-  "short_name": "FLX Winery",
-  "description": "Plan and track your visits to wineries in the Finger Lakes region.",
+  "name": "Winery Visit Planner",
+  "short_name": "Winery App",
+  "description": "Plan and track your visits to wineries worldwide.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
