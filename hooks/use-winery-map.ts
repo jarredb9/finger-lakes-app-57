@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { useMap } from "@vis.gl/react-google-maps";
-import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import { useMap, useMapsLibrary } from "@vis.gl/react-google-maps";
 import { Winery, GooglePlaceId } from "@/lib/types";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
@@ -17,44 +16,26 @@ export function useWineryMap(userId: string) {
     setMap,
     map,
     hitApiLimit,
-    searchResults: listResultsInView, // Directly use searchResults for the list
-  } = useMapStore();
-
-  const { error } = useWineryDataStore();
-
-  const {
-    fetchWineryData,
-    ensureWineryDetails,
-    getWineries,
-  } = useWineryStore();
-
-  const { openWineryModal } = useUIStore();
-  const { fetchUpcomingTrips, selectedTrip } = useTripStore();
-  const { toast } = useToast();
-
-  // Import sub-hooks
-  const {
     isSearching,
     searchLocation,
     setSearchLocation,
     autoSearch,
     setAutoSearch,
-    handleSearchSubmit,
-    handleManualSearchArea,
-    placesLibrary,
-    geocodingLibrary,
-  } = useWinerySearch();
+  } = useMapStore();
 
-  const {
-    mapWineries,
-    filter,
-    handleFilterChange,
-  } = useWineryFilter();
+  const { error } = useWineryDataStore();
+  const { fetchWineryData, ensureWineryDetails, getWineries } = useWineryStore();
+  const { openWineryModal } = useUIStore();
+  const { fetchUpcomingTrips, selectedTrip } = useTripStore();
+  const { executeSearch } = useWinerySearch();
+  const { mapWineries, listResultsInView, filter, handleFilterChange } = useWineryFilter();
 
   const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
   const googleMapInstance = useMap();
+  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Data Fetching Initialization
+  // --- Effects ---
+
   useEffect(() => {
     if (userId) {
       fetchWineryData(userId);
@@ -62,21 +43,14 @@ export function useWineryMap(userId: string) {
     }
   }, [userId, fetchWineryData, fetchUpcomingTrips]);
 
-  // Map Instance syncing
   useEffect(() => {
     if (googleMapInstance) {
       setMap(googleMapInstance);
     }
   }, [googleMapInstance, setMap]);
 
-  // Fit bounds to trip if selected
   useEffect(() => {
-    if (
-      map &&
-      selectedTrip &&
-      selectedTrip.wineries &&
-      selectedTrip.wineries.length > 0
-    ) {
+    if (map && selectedTrip?.wineries?.length) {
       const bounds = new google.maps.LatLngBounds();
       selectedTrip.wineries.forEach((winery) => {
         bounds.extend({ lat: winery.lat, lng: winery.lng });
@@ -85,69 +59,86 @@ export function useWineryMap(userId: string) {
     }
   }, [map, selectedTrip]);
 
-  // Map Click Interaction (Fetch details for non-persistent places)
-  const handleMapClick = useCallback(
-    async (e: google.maps.IconMouseEvent) => {
-      if (!placesLibrary || !geocodingLibrary || !e.latLng || !e.placeId) return;
-      e.stop();
+  // Debounced search on map idle
+  useEffect(() => {
+    if (!map) return;
+    const idleListener = map.addListener("idle", () => {
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       
-      const isKnown = getWineries().some((w) => w.id === e.placeId);
-      if (isKnown) return;
+      debounceTimeoutRef.current = setTimeout(() => {
+        if (!useMapStore.getState().autoSearch) return;
+        
+        const currentBounds = map.getBounds();
+        if (!currentBounds) return;
 
-      try {
-        const placeDetails = new placesLibrary.Place({ id: e.placeId });
-        await placeDetails.fetchFields({
-          fields: [
-            "displayName",
-            "formattedAddress",
-            "location",
-          ],
-        });
-
-        if (!placeDetails.location) {
-          toast({
-            variant: "destructive",
-            description: "Could not get details for this location.",
-          });
+        const lastSearched = useMapStore.getState().lastSearchedBounds;
+        
+        if (lastSearched && lastSearched.contains(currentBounds.getCenter()) && lastSearched.intersects(currentBounds)) {
           return;
         }
+        
+        executeSearch(undefined, currentBounds);
 
-        const newWinery: Winery = {
-          id: e.placeId as GooglePlaceId,
-          name: placeDetails.displayName || "Unnamed Location",
-          address: placeDetails.formattedAddress || "N/A",
-          lat: placeDetails.location.lat(),
-          lng: placeDetails.location.lng(),
-        };
-        setProposedWinery(newWinery);
-      } catch (error) {
-        console.error("Error fetching place details on click:", error);
-        toast({
-          variant: "destructive",
-          description: "An error occurred while fetching location details.",
-        });
-      }
-    },
-    [placesLibrary, geocodingLibrary, toast, getWineries]
-  );
+      }, 750);
+    });
+    return () => {
+      idleListener.remove();
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    };
+  }, [map, executeSearch]);
+
+  const places = useMapsLibrary("places");
+
+  const handleMapClick = useCallback(async (e: google.maps.IconMouseEvent) => {
+    if (!places || !e.placeId) return;
+    e.stop();
+    
+    const isKnown = getWineries().some((w) => w.id === e.placeId);
+    if (isKnown) return;
+
+    try {
+      const placeDetails = new places.Place({ id: e.placeId });
+      await placeDetails.fetchFields({ fields: ["displayName", "formattedAddress", "location"] });
+      if (!placeDetails.location) return;
+
+      const newWinery: Winery = {
+        id: e.placeId as GooglePlaceId,
+        name: placeDetails.displayName || "Unnamed Location",
+        address: placeDetails.formattedAddress || "N/A",
+        lat: placeDetails.location.lat(),
+        lng: placeDetails.location.lng(),
+      };
+      setProposedWinery(newWinery);
+    } catch (err) {
+      console.error("Error fetching place details on click:", err);
+    }
+  }, [places, getWineries]);
 
   useEffect(() => {
     if (!map) return;
     const clickListener = map.addListener("click", handleMapClick);
-    return () => {
-      clickListener.remove();
-    };
+    return () => clickListener.remove();
   }, [map, handleMapClick]);
 
-  const handleOpenModal = useCallback(
-    async (winery: Winery) => {
-      // Open modal immediately with lightweight data
-      openWineryModal(winery.id);
-      // Fetch full details in the background
-      ensureWineryDetails(winery.id);
-    },
-    [openWineryModal, ensureWineryDetails]
-  );
+  const handleOpenModal = useCallback(async (winery: Winery) => {
+    openWineryModal(winery.id);
+    ensureWineryDetails(winery.id);
+  }, [openWineryModal, ensureWineryDetails]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchLocation.trim()) {
+      useMapStore.getState().setLastSearchedBounds(null);
+      executeSearch(searchLocation.trim());
+    }
+  };
+
+  const handleManualSearchArea = () => {
+    if (map) {
+      useMapStore.getState().setLastSearchedBounds(null);
+      executeSearch(undefined, map.getBounds());
+    }
+  };
 
   return useMemo(() => ({
     error,
@@ -168,22 +159,9 @@ export function useWineryMap(userId: string) {
     setProposedWinery,
     selectedTrip,
   }), [
-    error,
-    mapWineries,
-    listResultsInView,
-    isSearching,
-    hitApiLimit,
-    searchLocation,
-    autoSearch,
-    filter,
-    handleSearchSubmit,
-    handleManualSearchArea,
-    handleFilterChange,
-    handleOpenModal,
-    proposedWinery,
-    selectedTrip,
-    setSearchLocation, 
-    setAutoSearch,
-    setProposedWinery
+    error, mapWineries, listResultsInView, isSearching, hitApiLimit,
+    searchLocation, autoSearch, filter, handleFilterChange, handleOpenModal,
+    proposedWinery, selectedTrip, setSearchLocation, setAutoSearch, setProposedWinery,
+    handleSearchSubmit, handleManualSearchArea
   ]);
 }

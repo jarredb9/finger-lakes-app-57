@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
@@ -12,23 +12,16 @@ import { standardizeWineryData } from "@/lib/utils/winery";
 export function useWinerySearch() {
   const {
     map,
-    isSearching,
     setIsSearching,
     setSearchResults,
     setHitApiLimit,
-    searchLocation,
-    setSearchLocation,
-    autoSearch,
-    setAutoSearch,
     setLastSearchedBounds,
   } = useMapStore();
   const { bulkUpsertWineries } = useWineryDataStore();
-
   const { toast } = useToast();
   const places = useMapsLibrary("places");
   const geocoding = useMapsLibrary("geocoding");
   const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (geocoding && !geocoder) {
@@ -104,13 +97,15 @@ export function useWinerySearch() {
 
       if (rpcError) console.error("Error fetching cached wineries:", rpcError);
 
+      const { persistentWineries } = useWineryDataStore.getState();
+
       if (cachedWineries && cachedWineries.length > 0) {
-        console.log(`✅ Displaying ${cachedWineries.length} cached wineries immediately.`);
-        const wineries = cachedWineries.map((w: DbWinery) => standardizeWineryData(w)).filter(Boolean) as Winery[];
+        const wineries = cachedWineries.map((w: DbWinery) => {
+           const existing = persistentWineries.find(pw => pw.id === w.google_place_id);
+           return standardizeWineryData(w, existing);
+        }).filter(Boolean) as Winery[];
         setSearchResults(wineries);
       }
-      
-      console.log(`ℹ️ Fetching fresh data from Google API in the background...`);
       
       const combinedQuery = `winery OR vineyard OR "wine tasting room"`;
       const request = {
@@ -121,9 +116,8 @@ export function useWinerySearch() {
 
       try {
         const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-        console.log(`✅ Found ${foundPlaces.length} fresh places from Google.`);
         
-        const wineries: Winery[] = foundPlaces.map((place: any) => ({
+        const wineriesFromGoogle: Winery[] = foundPlaces.map((place: any) => ({
               id: place.id! as GooglePlaceId,
               place_id: place.id! as GooglePlaceId,
               name: place.displayName || '',
@@ -133,16 +127,27 @@ export function useWinerySearch() {
               rating: place.rating ?? undefined,
         }));
 
-        // This will merge with existing results and save to DB
-        if (wineries.length > 0) {
-          bulkUpsertWineries(wineries);
+        if (wineriesFromGoogle.length > 0) {
+          await bulkUpsertWineries(wineriesFromGoogle);
         }
         
-        // Merge cached results with new results
+        // Re-fetch latest state after upsert to ensure we have the merged data
+        const updatedPersistentWineries = useWineryDataStore.getState().persistentWineries;
         const existingResults = useMapStore.getState().searchResults;
         const combinedResults = new Map();
+
+        // Add existing search results (which came from cache/bounds earlier)
         existingResults.forEach(w => combinedResults.set(w.id, w));
-        wineries.forEach(w => combinedResults.set(w.id, w));
+        
+        // Add new Google results, BUT pull the "rich" version from the store
+        wineriesFromGoogle.forEach(w => {
+            const richWinery = updatedPersistentWineries.find(pw => pw.id === w.id);
+            if (richWinery) {
+                combinedResults.set(w.id, richWinery);
+            } else {
+                combinedResults.set(w.id, w);
+            }
+        });
 
         setSearchResults(Array.from(combinedResults.values()));
         setHitApiLimit(foundPlaces.length === 20);
@@ -165,66 +170,6 @@ export function useWinerySearch() {
       setLastSearchedBounds,
     ]
   );
-  
-  useEffect(() => {
-    if (!map) return;
 
-    const idleListener = map.addListener("idle", () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-      
-      debounceTimeoutRef.current = setTimeout(() => {
-        if (!autoSearch) return;
-        
-        const currentBounds = map.getBounds();
-        if (!currentBounds) return;
-
-        const lastSearched = useMapStore.getState().lastSearchedBounds;
-
-        if (lastSearched && lastSearched.contains(currentBounds.getCenter())) {
-          console.log("🗺️ Map center is still within last search area, skipping search.");
-          return;
-        }
-
-        console.log("🗺️ New area detected, executing search.");
-        executeSearch(undefined, currentBounds);
-
-      }, 750);
-    });
-
-    return () => {
-      google.maps.event.removeListener(idleListener);
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-    };
-  }, [map, autoSearch, executeSearch]);
-
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (searchLocation.trim()) {
-      setLastSearchedBounds(null); 
-      executeSearch(searchLocation.trim());
-    }
-  };
-
-  const handleManualSearchArea = () => {
-    if (map) {
-      setLastSearchedBounds(null); 
-      executeSearch(undefined, map.getBounds());
-    }
-  };
-
-  return {
-    isSearching,
-    searchLocation,
-    setSearchLocation,
-    autoSearch,
-    setAutoSearch,
-    handleSearchSubmit,
-    handleManualSearchArea,
-    placesLibrary: places,
-    geocodingLibrary: geocoding,
-  };
+  return { executeSearch };
 }
