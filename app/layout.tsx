@@ -10,9 +10,24 @@ import { GlobalModalRenderer } from '@/components/global-modal-renderer'
 import { CookieConsent } from '@/components/cookie-consent'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
-  description: 'Created with v0',
-  generator: 'v0.dev',
+  title: 'Finger Lakes Winery Visit Planner',
+  description: 'Plan and track your visits to wineries in the Finger Lakes region.',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'FLX Winery',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+}
+
+export const viewport = {
+  themeColor: '#7c2d12',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
 }
 
 export default function RootLayout({
@@ -25,6 +40,21 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/placeholder-logo.png" sizes="any" />
         <link rel="manifest" href="/site.webmanifest" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                  }, function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                  });
+                });
+              }
+            `,
+          }}
+        />
       </head>
       <body>
         <TooltipProvider>
