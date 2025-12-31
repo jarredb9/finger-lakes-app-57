@@ -28,8 +28,8 @@ export interface GoogleWinery {
 }
 
 // Helper to check if a source is GoogleWinery
-function isGoogleWinery(source: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData): source is GoogleWinery {
-  return 'place_id' in source || 'geometry' in source || 'formatted_address' in source;
+function isGoogleWinery(source: any): source is GoogleWinery {
+  return 'place_id' in source && 'geometry' in source;
 }
 
 // Helper to check if a source is MapMarkerRpc
@@ -89,10 +89,9 @@ export const standardizeWineryData = (
 
   // 1. Resolve ID (Google Place ID)
   const googleId = (
-    (isGoogleWinery(source) && (source.id || source.google_place_id || source.place_id)) ||
-    (isRawDbWinery(source) && source.google_place_id) || // DbWinery
-    (isMapMarkerRpc(source) && source.google_place_id) || // MapMarkerRpc
-    (isWineryDetailsRpc(source) && source.google_place_id) || // WineryDetailsRpc
+    (isGoogleWinery(source) && source.place_id) ||
+    source.google_place_id ||
+    (typeof source.id === 'string' ? source.id : undefined) ||
     existing?.id
   ) as GooglePlaceId;
 

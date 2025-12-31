@@ -167,26 +167,14 @@ export function useWinerySearch() {
       }
       
       const wineries: Winery[] = Array.from(allFoundPlaces.values()).map((place: google.maps.places.Place) => {
-          const lat = typeof place.location?.lat === 'function' 
-              ? place.location.lat() 
-              : (place.location as any)?.latitude || 0;
-          const lng = typeof place.location?.lng === 'function' 
-              ? place.location.lng() 
-              : (place.location as any)?.longitude || 0;
-          const name = typeof place.displayName === 'string' 
-              ? place.displayName 
-              : (place.displayName as any)?.text || '';
-          
           return {
-              id: place.id! as GooglePlaceId,
-              name,
+              id: place.id! as GooglePlaceId, // Keep for map key
+              place_id: place.id! as GooglePlaceId, // Explicitly pass for standardization
+              name: place.displayName || '',
               address: place.formattedAddress || '',
-              lat,
-              lng,
+              lat: place.location?.lat() || 0,
+              lng: place.location?.lng() || 0,
               rating: place.rating ?? undefined,
-              website: undefined,
-              phone: undefined,
-              reviews: undefined,
           };
       });
 
