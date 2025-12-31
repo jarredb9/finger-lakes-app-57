@@ -133,11 +133,18 @@ export function useWinerySearch() {
               rating: place.rating ?? undefined,
         }));
 
+        // This will merge with existing results and save to DB
         if (wineries.length > 0) {
           bulkUpsertWineries(wineries);
         }
         
-        setSearchResults(wineries);
+        // Merge cached results with new results
+        const existingResults = useMapStore.getState().searchResults;
+        const combinedResults = new Map();
+        existingResults.forEach(w => combinedResults.set(w.id, w));
+        wineries.forEach(w => combinedResults.set(w.id, w));
+
+        setSearchResults(Array.from(combinedResults.values()));
         setHitApiLimit(foundPlaces.length === 20);
 
       } catch (error) {
