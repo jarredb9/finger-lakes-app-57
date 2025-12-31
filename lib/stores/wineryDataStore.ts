@@ -25,6 +25,7 @@ interface WineryDataState {
   
   // Sync
   ensureInDb: (wineryId: GooglePlaceId) => Promise<WineryDbId | null>;
+  bulkUpsertWineries: (wineries: (GoogleWinery | Winery)[]) => Promise<void>;
   reset: () => void;
 }
 
@@ -194,6 +195,39 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>((set, ge
       }));
       
       return dbId as WineryDbId;
+  },
+
+  bulkUpsertWineries: async (wineries) => {
+    const standardizedWineries = wineries.map(w => standardizeWineryData(w)).filter(Boolean) as Winery[];
+    if (standardizedWineries.length === 0) return;
+
+    // Optimistically update the local store
+    set(state => {
+      const existingWineries = new Map(state.persistentWineries.map(w => [w.id, w]));
+      standardizedWineries.forEach(newWinery => {
+        existingWineries.set(newWinery.id, { ...(existingWineries.get(newWinery.id) || {}), ...newWinery });
+      });
+      return { persistentWineries: Array.from(existingWineries.values()) };
+    });
+
+    // Prepare data for RPC
+    const rpcData = standardizedWineries.map(w => ({
+      google_place_id: w.id,
+      name: w.name,
+      address: w.address,
+      latitude: w.lat,
+      longitude: w.lng,
+      google_rating: w.rating,
+    }));
+
+    const supabase = createClient();
+    const { error } = await supabase.rpc('upsert_wineries_from_search', { wineries_data: rpcData });
+
+    if (error) {
+      console.error("Failed to bulk upsert wineries:", error);
+      // Note: We are not reverting the optimistic update here as the data is still valid for the user's session.
+      // A more robust implementation could have a rollback mechanism.
+    }
   },
 
   reset: () => set({

@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { useMapStore } from "@/lib/stores/mapStore";
+import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useToast } from "@/hooks/use-toast";
 import { Winery, GooglePlaceId } from "@/lib/types";
 
@@ -19,6 +20,7 @@ export function useWinerySearch() {
     setAutoSearch,
     setBounds,
   } = useMapStore();
+  const { bulkUpsertWineries } = useWineryDataStore();
 
   const { toast } = useToast();
   const places = useMapsLibrary("places");
@@ -155,12 +157,16 @@ export function useWinerySearch() {
       });
 
       setSearchResults(wineries);
+      // Don't await this, let it run in the background
+      if (wineries.length > 0) {
+        bulkUpsertWineries(wineries);
+      }
       setIsSearching(false);
       setHitApiLimit(hitApiLimit);
     },
-    [map, places, geocoder, toast, setIsSearching, setSearchResults, setHitApiLimit]
+    [map, places, geocoder, toast, setIsSearching, setSearchResults, setHitApiLimit, bulkUpsertWineries]
   );
-
+  
   // Keep a ref to the latest search function for the idle listener
   useEffect(() => {
     searchFnRef.current = executeSearch;
