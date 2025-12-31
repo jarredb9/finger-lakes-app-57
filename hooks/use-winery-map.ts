@@ -21,6 +21,7 @@ export function useWineryMap(userId: string) {
     setSearchLocation,
     autoSearch,
     setAutoSearch,
+    setBounds,
   } = useMapStore();
 
   const { error } = useWineryDataStore();
@@ -63,12 +64,16 @@ export function useWineryMap(userId: string) {
   useEffect(() => {
     if (!map) return;
     const idleListener = map.addListener("idle", () => {
+      const currentBounds = map.getBounds();
+      if (currentBounds) {
+        setBounds(currentBounds);
+      }
+
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       
       debounceTimeoutRef.current = setTimeout(() => {
         if (!useMapStore.getState().autoSearch) return;
         
-        const currentBounds = map.getBounds();
         if (!currentBounds) return;
 
         const lastSearched = useMapStore.getState().lastSearchedBounds;
@@ -85,7 +90,7 @@ export function useWineryMap(userId: string) {
       idleListener.remove();
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
     };
-  }, [map, executeSearch]);
+  }, [map, executeSearch, setBounds]);
 
   const places = useMapsLibrary("places");
 
