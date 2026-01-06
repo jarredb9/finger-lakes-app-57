@@ -19,7 +19,7 @@ export default function VisitHistory({ visits, editingVisitId, onEditClick, onDe
   return (
     <div className="space-y-3">
       {sortedVisits.map((visit) => (
-        <Card key={visit.id} className="bg-slate-50 border-slate-200">
+        <Card key={visit.id} className="bg-slate-50 border-slate-200" data-testid="visit-card">
           <CardContent className="p-4 space-y-3">
             <div className="flex items-start justify-between">
               <div className="flex-1 space-y-1">

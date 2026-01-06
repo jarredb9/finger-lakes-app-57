@@ -199,7 +199,7 @@ export default function WineryModal() {
                                 </div>
                             )}
                         </div>
-                        <WineryActions winery={activeWinery} />
+                        <WineryActions winery={activeWinery} data-testid="log-visit-button" />
                     </div>
                     <DialogDescription className="sr-only">
                         Detailed information about {activeWinery.name}, including address, rating, hours, and visit history.

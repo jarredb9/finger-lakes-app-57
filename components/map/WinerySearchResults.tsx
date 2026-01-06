@@ -54,6 +54,7 @@ const WinerySearchResults = memo(
                     listResultsInView.map((winery) => (
                     <div
                         key={winery.id}
+                        data-testid="winery-card"
                         className="p-3 border rounded-lg cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] transition-all duration-200"
                         onClick={(e) => {
                              e.stopPropagation(); // Prevent closing the card when clicking an item

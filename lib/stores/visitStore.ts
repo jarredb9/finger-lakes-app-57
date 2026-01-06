@@ -109,7 +109,23 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set, get) => ({
     addVisitToWinery(winery.id, tempVisit);
     set(state => ({ visits: [tempVisit, ...state.visits] }));
 
+    let uploadedPaths: string[] = [];
+    const folderUuid = crypto.randomUUID();
+
     try {
+      // 2. Parallel Uploads (Pre-RPC)
+      if (visitData.photos.length > 0) {
+        const uploadPromises = visitData.photos.map(async (photoFile) => {
+          const fileName = `${Date.now()}-${photoFile.name}`;
+          const filePath = `${user.id}/${folderUuid}/${fileName}`;
+          const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile);
+          if (uploadError) throw uploadError;
+          return filePath;
+        });
+
+        uploadedPaths = await Promise.all(uploadPromises);
+      }
+
       const rpcWineryData = {
         id: winery.id,
         name: winery.name,
@@ -124,10 +140,11 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set, get) => ({
       const rpcVisitData = {
         visit_date: visitData.visit_date,
         user_review: visitData.user_review,
-        rating: visitData.rating,
-        photos: [],
+        rating: visitData.rating > 0 ? visitData.rating : 1, // Ensure rating is always 1-5
+        photos: uploadedPaths,
       };
 
+      // 3. Log Visit (Atomic)
       const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
         p_winery_data: rpcWineryData,
         p_visit_data: rpcVisitData,
@@ -136,42 +153,13 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set, get) => ({
       if (rpcError) throw rpcError;
       
       const visitId = rpcResult.visit_id;
-      let finalVisit: VisitWithWinery = { 
+      const finalVisit: VisitWithWinery = { 
           ...tempVisit, 
           id: visitId, 
-          photos: [] 
+          photos: uploadedPaths // Use the real server paths
       };
 
-      if (visitData.photos.length > 0) {
-        const uploadPromises = visitData.photos.map(async (photoFile) => {
-          const fileName = `${Date.now()}-${photoFile.name}`;
-          const filePath = `${user.id}/${visitId}/${fileName}`;
-          const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile);
-          return uploadError ? null : filePath;
-        });
-
-        const photoPathsForDb = (await Promise.all(uploadPromises)).filter((path): path is string => path !== null);
-
-        if (photoPathsForDb.length > 0) {
-          const { data: updatedVisitWithPhotos, error: updateError } = await supabase
-            .from('visits')
-            .update({ photos: photoPathsForDb })
-            .eq('id', visitId)
-            .select('*, wineries(*)')
-            .single();
-
-          if (!updateError) {
-              finalVisit = {
-                  ...finalVisit,
-                  ...updatedVisitWithPhotos,
-                  wineryName: winery.name,
-                  wineryId: winery.id
-              };
-          }
-        }
-      }
-      
-      // 2. Replace temp visit in both stores
+      // 4. Replace temp visit in both stores
       replaceVisit(winery.id, tempId, finalVisit);
       set(state => ({
           visits: state.visits.map(v => String(v.id) === tempId ? finalVisit : v),
@@ -179,7 +167,13 @@ export const useVisitStore = createWithEqualityFn<VisitState>((set, get) => ({
       }));
 
     } catch (error) {
-      console.error("Failed to save visit, removing optimistic update:", error);
+      console.error("Failed to save visit, reverting:", error);
+      
+      // Cleanup orphaned photos if RPC failed
+      if (uploadedPaths.length > 0) {
+        await supabase.storage.from('visit-photos').remove(uploadedPaths);
+      }
+
       optimisticallyDeleteVisit(tempId);
       set(state => ({ visits: state.visits.filter(v => String(v.id) !== tempId) }));
       confirmOptimisticUpdate();
