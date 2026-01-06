@@ -92,10 +92,9 @@ The project maintains a rigorous multi-layered testing strategy:
 *   **E2E (Playwright):**
     *   **Synchronization:** Never use `waitForTimeout`. Use `waitForResponse` for network-bound actions or assert on logical UI states (e.g., absence of spinners).
     *   **Visual Regression:** Screenshots are maintained for Chromium. Use `--update-snapshots` only for intentional UI changes.
-    *   **Ghost Tiles:** Map backgrounds are mocked with static PNGs in `e2e/utils.ts` for visual stability.
-    *   **Self-Cleaning:** Tests must delete created trips/users in `afterEach` or a final step to prevent DB pollution.
-*   **Accessibility:** Every major view is scanned using `@axe-core/playwright`.
-
+        *   **Ghost Tiles:** Map backgrounds are mocked with static PNGs in `e2e/utils.ts` for visual stability.
+        *   **Self-Cleaning:** Tests must delete created trips/users in `afterEach`. `deleteTestUser` utility is enhanced to recursively purge Supabase Storage files associated with the user to prevent bucket bloat.
+        *   **Accessibility:** Every major view is scanned using `@axe-core/playwright`.
 ### 4. ID System (Strict Typing)
 To prevent "Dual-ID" confusion, we use branded types in `lib/types.ts`:
 *   **`GooglePlaceId` (string):** Used for API lookups and Map markers.
@@ -147,7 +146,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   `delete_trip`: Atomically deletes a trip and its winery relationships.
     *   `add_trip_member_by_email`: Securely adds a trip member using their email address.
     *   `update_trip_winery_notes`: Atomically updates notes for a specific winery within a trip.
-    *   `log_visit`: Atomically creates/gets a winery and logs a new visit.
+    *   `log_visit`: Atomically creates/gets a winery and logs a new visit with photo array support.
     *   `update_visit`: Updates an existing visit and returns rich winery data.
     *   `delete_visit`: Securely deletes a visit record.
     *   `ensure_winery(p_winery_data)`: Security-definer RPC used to safely insert/get a winery ID, bypassing RLS `UPDATE` restrictions.
@@ -301,6 +300,8 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Contrast Fixes:** Updated login links to use darker blue (`text-blue-800`) and permanent underlines for WCAG compliance.
     *   **Form Feedback:** Added `aria-live="polite"` to form validation messages and `role="alert"` to friend request errors for screen reader announcements.
     *   **Empty State CTA:** Added a "Browse Wineries" button to the Trips tab when no trips exist, linking directly to the Explore view.
+29. **Parallel Photo Uploads (v2.2.6):** Refactored `visitStore.ts` to implement a parallel upload strategy for visit photos using optimistic updates with 'blob:' URLs, backed by Supabase Storage and an atomic `log_visit` RPC. This replaces the previous multi-step update process with a more robust and faster atomic transaction.
+30. **Photo Upload E2E Coverage:** Implemented `e2e/add-photo.spec.ts` for real-world integration testing of the storage and database loop. Enhanced `deleteTestUser` utility in `e2e/utils.ts` to perform recursive storage cleanup, ensuring tests leave zero orphaned artifacts in the Supabase bucket.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
