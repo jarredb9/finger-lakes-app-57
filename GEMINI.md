@@ -301,7 +301,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Form Feedback:** Added `aria-live="polite"` to form validation messages and `role="alert"` to friend request errors for screen reader announcements.
     *   **Empty State CTA:** Added a "Browse Wineries" button to the Trips tab when no trips exist, linking directly to the Explore view.
 29. **Parallel Photo Uploads (v2.2.6):** Refactored `visitStore.ts` to implement a parallel upload strategy for visit photos using optimistic updates with 'blob:' URLs, backed by Supabase Storage and an atomic `log_visit` RPC. This replaces the previous multi-step update process with a more robust and faster atomic transaction.
-30. **Photo Upload E2E Coverage:** Implemented `e2e/add-photo.spec.ts` for real-world integration testing of the storage and database loop. Enhanced `deleteTestUser` utility in `e2e/utils.ts` to perform recursive storage cleanup, ensuring tests leave zero orphaned artifacts in the Supabase bucket.
+30. **Photo Management E2E Coverage:** Implemented `e2e/photo-flow.spec.ts` for real-world integration testing of the photo lifecycle (add/verify/delete) within the storage and database loop. Enhanced `deleteTestUser` utility in `e2e/utils.ts` to perform recursive storage cleanup, ensuring tests leave zero orphaned artifacts in the Supabase bucket.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
@@ -315,6 +315,7 @@ We have established a robust E2E testing infrastructure using **Playwright**.
 *   **`smoke.spec.ts`:** Verifies basic app health, routing, and auth redirection.
 *   **`trip-flow.spec.ts`:** Tests the core "Trip Planning" value loop.
 *   **`visit-flow.spec.ts`:** Tests visit logging, editing, and deletion (name-agnostic).
+*   **`photo-flow.spec.ts`:** Tests the full lifecycle of photo management (add, verify, delete).
 *   **`friends-flow.spec.ts`:** Tests complex **Multi-User / Real-Time** interactions using two distinct browser contexts.
 
 ### 2. Testing Environment & Concurrency
