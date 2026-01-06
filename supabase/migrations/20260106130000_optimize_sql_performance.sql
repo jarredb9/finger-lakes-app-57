@@ -19,7 +19,11 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- 3. Optimize get_map_markers function signature (default value)
+<<<<<<< HEAD
 CREATE OR REPLACE FUNCTION public.get_map_markers(user_id_param uuid DEFAULT auth.uid())
+=======
+CREATE OR REPLACE FUNCTION public.get_map_markers(user_id_param uuid DEFAULT (SELECT auth.uid()))
+>>>>>>> a35fc78660e5f491083eb264b597625b2523b7fc
 RETURNS TABLE (
     id integer,
     google_place_id text,

@@ -33,6 +33,32 @@
       "args": [
         "chrome-devtools-mcp@latest"
       ]
+    },
+    "supabase": {
+      "httpUrl": "https://mcp.supabase.com/mcp?project_ref=jfsxclrdxmvftxacjuqf"
+    },
+    "pg-aiguide": {
+      "url": "https://mcp.tigerdata.com/docs"
+    },
+    "vercel": {
+      "command": "npx",
+      "args": ["mcp-remote", "https://mcp.vercel.com"]
+    },
+    "github": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "$GITHUB_MCP_PAT"
+      }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp@latest"
+      ]
     }
   }
 }
