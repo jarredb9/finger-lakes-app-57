@@ -213,5 +213,47 @@ export async function createTestUser(): Promise<TestUser> {
 }
 
 export async function deleteTestUser(userId: string): Promise<void> {
+  // 1. Cleanup Storage (visit-photos)
+  try {
+    const { data: files } = await supabase.storage.from('visit-photos').list(`${userId}`, {
+       limit: 100,
+       offset: 0,
+       sortBy: { column: 'name', order: 'asc' },
+    });
+
+    if (files && files.length > 0) {
+        // We need to recursively find files because .list() is shallow? 
+        // Actually, for this app structure, files are in userId/visitId/filename or userId/uuid/filename.
+        // Listing the root userId folder returns the subfolders (visitIds).
+        // We need to delete everything under userId.
+        
+        // Strategy: Use a recursive deletion or just empty known paths.
+        // Since Supabase Storage doesn't support recursive delete of a folder easily via SDK without listing,
+        // and we might have nested folders.
+        
+        // Simplified approach for standard test artifacts:
+        // The artifacts are usually explicitly deep.
+        // Let's try to just delete the user and rely on a periodic cleanup script if we can't easily recurse here without bloat.
+        
+        // BETTER APPROACH for E2E speed: 
+        // Just empty the bucket for this user prefix if possible.
+        // Unfortuantely Supabase SDK .remove() expects full paths to files, not folders.
+        
+        // Let's list the top level folders (visit IDs)
+        const folderPaths = files.map(f => `${userId}/${f.name}`);
+        
+        for (const folder of folderPaths) {
+            const { data: subFiles } = await supabase.storage.from('visit-photos').list(folder.replace(`${userId}/`, ''), { search: '' });
+            if (subFiles && subFiles.length > 0) {
+                const pathsToDelete = subFiles.map(sf => `${folder}/${sf.name}`);
+                await supabase.storage.from('visit-photos').remove(pathsToDelete);
+            }
+        }
+    }
+  } catch (err) {
+      console.warn(`[Test Cleanup] Failed to clean storage for user ${userId}:`, err);
+  }
+
+  // 2. Delete User (Cascades to DB rows)
   await supabase.auth.admin.deleteUser(userId);
 }
