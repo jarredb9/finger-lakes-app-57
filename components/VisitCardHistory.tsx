@@ -44,7 +44,7 @@ export default function VisitHistory({ visits, editingVisitId, onEditClick, onDe
               </div>
             </div>
             {visit.user_review && <p className="text-sm text-slate-700 bg-white p-3 rounded-md border">{visit.user_review}</p>}
-            {visit.photos && visit.photos.length > 0 && editingVisitId !== visit.id && (
+            {visit.photos && visit.photos.length > 0 && editingVisitId !== String(visit.id) && (
               <div className="flex gap-2 mt-2 flex-wrap">
                 {visit.photos.map((photoPath, index) => (
                   <PhotoCard key={index} photoPath={photoPath} onDelete={() => onTogglePhotoForDeletion(photoPath)} isEditing={false} isMarkedForDeletion={false} />
