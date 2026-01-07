@@ -1,5 +1,35 @@
 # Changelog
 
+## [2.2.6] - 2026-01-07
+
+**Supabase Native Architecture Completion & UX Polish**
+
+Version 2.2.6 represents a major architectural milestone, completing the transition to a fully "Supabase Native" backend. We have replaced legacy API routes with high-performance RPCs and Edge Functions, enforced strict database typing across the application, and significantly improved the social and planning user experience.
+
+### 🚀 Features
+*   **Supabase Edge Functions:**
+    *   **Mobile-Ready Backend:** Replaced the legacy `/api/wineries/details` route with a new `get-winery-details` Edge Function. This ensures full compatibility with Bearer Token authentication used by native mobile apps.
+    *   **Direct Invocation:** Updated client-side stores to invoke Supabase Functions directly, bypassing the Next.js server layer for faster response times.
+*   **Social & Friends:**
+    *   **Sent Requests:** Added a new "Sent Requests" section in the Friends Manager, allowing users to view and cancel pending outgoing requests.
+    *   **Notification Badges:** Implemented visual notification badges on the Friends tab for incoming requests.
+    *   **Real-time Updates:** Updated `AuthProvider` to fetch friend data immediately on mount, ensuring badges are accurate the moment the user logs in.
+*   **Trip Planning:**
+    *   **Hydration Stability:** Fixed a critical hydration mismatch in `TripPlanner` date rendering that caused navigation instability on mobile devices.
+
+### 🛡 Security & Type Safety
+*   **Strict Database Typing:** Created a manual `database.types.ts` definition to enforce strict schema alignment across the entire codebase, resolving the "Maintenance Nightmare" of loose typing.
+*   **Middleware Security:** Fixed a critical logic gap in `proxy.ts` where API routes were inadvertently excluded from the authentication matcher. All `/api/*` endpoints are now properly protected.
+*   **RPC Types:** Defined strict return types for `MapMarkerRpc` and `WineryDetailsRpc` to eliminate `any` usage in critical data paths.
+
+### ⚙ Refactoring
+*   **Store Architecture:**
+    *   **Split Stores:** Refactored the monolithic `wineryStore.ts` into `wineryDataStore.ts` (Data/Caching) and `wineryStore.ts` (UI State). This separation of concerns improves maintainability and performance.
+    *   **Standardized Data:** Created `lib/utils/winery.ts` to centralize data standardization logic using the new strict types.
+*   **Trip Service Migration:** Refactored `TripService` to use the Supabase JS client directly, allowing for the deletion of the entire `app/api/trips` directory.
+*   **Legacy Code Removal:** Completely deleted the obsolete `app/api/wineries` directory and associated routing logic.
+*   **Test Infrastructure:** Updated E2E test mocks to intercept Edge Function calls, ensuring zero-cost testing persists with the new architecture.
+
 ## [2.2.5] - 2025-12-31
 
 **PWA Support, Search Caching & Exploration Stability**
