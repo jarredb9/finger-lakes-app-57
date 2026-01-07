@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, Wine, ChevronUp, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
+import WineryCardThumbnail from "@/components/winery-card-thumbnail";
+
 interface WinerySearchResultsProps {
   listResultsInView: Winery[];
   isSearching: boolean;
@@ -52,25 +54,11 @@ const WinerySearchResults = memo(
                 )}
                 {!isSearching &&
                     listResultsInView.map((winery) => (
-                    <div
+                    <WineryCardThumbnail
                         key={winery.id}
-                        data-testid="winery-card"
-                        className="p-3 border rounded-lg cursor-pointer hover:bg-muted hover:shadow-md hover:scale-[1.02] transition-all duration-200"
-                        onClick={(e) => {
-                             e.stopPropagation(); // Prevent closing the card when clicking an item
-                             handleOpenModal(winery);
-                        }}
-                    >
-                        <p className="font-medium text-sm">{winery.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                        {winery.address}
-                        </p>
-                        {winery.rating && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                            ★ {winery.rating}/5.0
-                        </p>
-                        )}
-                    </div>
+                        winery={winery}
+                        onClick={() => handleOpenModal(winery)}
+                    />
                     ))}
                 </div>
             </CardContent>
