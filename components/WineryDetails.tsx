@@ -55,13 +55,15 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
           <Clock className="w-4 h-4 mt-1 shrink-0" />
           <div>
             <div className="flex items-center">
-              <span
-                className={`font-semibold mr-2 ${
-                  isOpen ? 'text-green-600' : 'text-red-600'
-                }`}
-              >
-                {isOpen ? 'Open' : 'Closed'}
-              </span>
+              {isOpen !== null && (
+                <span
+                  className={`font-semibold mr-2 ${
+                    isOpen ? 'text-green-600' : 'text-red-600'
+                  }`}
+                >
+                  {isOpen ? 'Open' : 'Closed'}
+                </span>
+              )}
               <span className="text-sm">{getTodaysHours()}</span>
               {winery.openingHours.weekday_text && (
                 <button onClick={() => setShowAllHours(!showAllHours)} className="ml-2 p-1 rounded-full hover:bg-gray-100">

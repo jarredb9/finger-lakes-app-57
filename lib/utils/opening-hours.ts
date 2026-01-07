@@ -4,8 +4,8 @@ import { OpeningHours } from "@/lib/types";
  * Determines if a business is currently open based on its OpeningHours periods.
  * Falls back to 'open_now' property if periods are missing (though this may be stale).
  */
-export function isOpenNow(openingHours: OpeningHours | null | undefined): boolean {
-  if (!openingHours) return false;
+export function isOpenNow(openingHours: OpeningHours | null | undefined): boolean | null {
+  if (!openingHours) return null;
 
   // 1. If we have periods, calculate dynamically (Trusted Source)
   if (openingHours.periods && openingHours.periods.length > 0) {
@@ -58,7 +58,7 @@ export function isOpenNow(openingHours: OpeningHours | null | undefined): boolea
     return false; // Not found in any open period
   }
 
-  // 2. Fallback to stale 'open_now' if periods are missing
-  // This is risky but better than nothing if data is limited
-  return !!openingHours.open_now;
+  // 2. Fallback: If no periods, we cannot determine status reliably.
+  // Do NOT use open_now as it is a static snapshot from fetch time.
+  return null;
 }
