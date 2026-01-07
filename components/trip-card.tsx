@@ -16,6 +16,7 @@ import DailyHours from "@/components/DailyHours";
 import WineryNoteEditor from "./WineryNoteEditor";
 import { cn } from "@/lib/utils";
 import { useTripActions } from "@/hooks/use-trip-actions";
+import { calculateDistance, formatDistance } from "@/lib/utils/geo";
 
 interface TripCardProps {
   trip: Trip;
@@ -207,33 +208,61 @@ const TripCard = memo(({ trip }: TripCardProps) => {
           <Droppable droppableId={`trip-${trip.id}`}>
             {(provided) => (
               <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y" data-testid="winery-list">
-                {tripWineries.map((winery, index) => (
-                  <Draggable key={winery.id} draggableId={winery.id.toString()} index={index}>
-                    {(provided) => (
-                      <div ref={provided.innerRef} {...provided.draggableProps} className="flex items-start gap-3 p-4 bg-white hover:bg-gray-50">
-                        <div {...provided.dragHandleProps} className="pt-1">
-                          <GripVertical className="w-5 h-5 text-gray-400" />
+                {tripWineries.map((winery, index) => {
+                  const nextWinery = tripWineries[index + 1];
+                  const hasCoordinates = winery.lat !== undefined && winery.lng !== undefined;
+                  const nextHasCoordinates = nextWinery?.lat !== undefined && nextWinery?.lng !== undefined;
+                  
+                  let distanceText = "";
+                  if (hasCoordinates && nextHasCoordinates) {
+                    const dist = calculateDistance(
+                      { lat: Number(winery.lat), lng: Number(winery.lng) },
+                      { lat: Number(nextWinery.lat), lng: Number(nextWinery.lng) }
+                    );
+                    distanceText = formatDistance(dist);
+                  }
+
+                  return (
+                    <Draggable key={winery.id} draggableId={winery.id.toString()} index={index}>
+                      {(provided) => (
+                        <div ref={provided.innerRef} {...provided.draggableProps} className="bg-white">
+                          <div className="flex items-start gap-3 p-4 hover:bg-gray-50">
+                            <div {...provided.dragHandleProps} className="pt-1">
+                              <GripVertical className="w-5 h-5 text-gray-400" />
+                            </div>
+                            <div className="flex-grow">
+                              <p className="font-semibold">{winery.name}</p>
+                              <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
+                              <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
+                              <WineryNoteEditor
+                                wineryDbId={winery.dbId as number}
+                                initialNotes={winery.notes || ''}
+                                onSave={handleSaveNote}
+                              />
+                              <WineryReviews visits={winery.visits || []} currentUserId={trip.user_id} members={currentMembers} />
+                            </div>
+                            {isEditing && (
+                              <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">
+                                <X className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                          
+                          {/* Distance to next stop */}
+                          {distanceText && (
+                            <div className="relative h-8 flex items-center px-12 overflow-hidden">
+                              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-dashed border-l-2 border-dashed border-gray-300 ml-[1px]"></div>
+                              <div className="z-10 bg-white border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-medium text-gray-500 flex items-center gap-1 shadow-sm">
+                                <MapPin className="w-2.5 h-2.5" />
+                                <span>{distanceText} to next stop</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex-grow">
-                          <p className="font-semibold">{winery.name}</p>
-                          <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
-                          <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
-                          <WineryNoteEditor
-                            wineryDbId={winery.dbId as number}
-                            initialNotes={winery.notes || ''}
-                            onSave={handleSaveNote}
-                          />
-                          <WineryReviews visits={winery.visits || []} currentUserId={trip.user_id} members={currentMembers} />
-                        </div>
-                        {isEditing && (
-                          <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">
-                            <X className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </Draggable>
-                ))}
+                      )}
+                    </Draggable>
+                  );
+                })}
                 {provided.placeholder}
               </div>
             )}
