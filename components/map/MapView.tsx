@@ -3,6 +3,7 @@ import { memo } from "react";
 import { Map } from "@vis.gl/react-google-maps";
 import { Winery, Trip } from "@/lib/types";
 import GenericMarkerClusterer from "../generic-marker-clusterer";
+import { Polyline } from "./polyline";
 
 interface MapViewProps {
   discoveredWineries: Winery[];
@@ -24,6 +25,11 @@ const MapView = memo(
     onMarkerClick,
     selectedTrip,
   }: MapViewProps) => {
+    // Prepare trip path if a trip is selected
+    const tripPath = selectedTrip?.wineries
+      ? selectedTrip.wineries.map((w) => ({ lat: Number(w.lat), lng: Number(w.lng) }))
+      : [];
+
     return (
       <div className="h-full w-full bg-muted">
         <Map
@@ -35,14 +41,36 @@ const MapView = memo(
           clickableIcons={true}
         >
           {selectedTrip && (
-            <GenericMarkerClusterer
-              wineries={selectedTrip.wineries}
-              onClick={onMarkerClick}
-              color="#f17e3a"
-              strokeColor="#d26e32"
-              zIndexBase={30}
-              numbered={true}
-            />
+            <>
+              <GenericMarkerClusterer
+                wineries={selectedTrip.wineries}
+                onClick={onMarkerClick}
+                color="#f17e3a"
+                strokeColor="#d26e32"
+                zIndexBase={30}
+                numbered={true}
+              />
+              {tripPath.length > 1 && (
+                <Polyline
+                  path={tripPath}
+                  strokeColor="#f17e3a"
+                  strokeOpacity={0}
+                  strokeWeight={3}
+                  icons={[
+                    {
+                      icon: {
+                        path: "M 0,-1 0,1",
+                        strokeOpacity: 1,
+                        scale: 3,
+                        strokeColor: "#f17e3a",
+                      },
+                      offset: "0",
+                      repeat: "20px",
+                    },
+                  ]}
+                />
+              )}
+            </>
           )}
 
           {!selectedTrip && (
