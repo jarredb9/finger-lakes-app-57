@@ -34,6 +34,18 @@ test.describe('Runtime & Performance Audit', () => {
     await login(page, user.email, user.password);
 
     // 4. Wait for the map/wineries to load (indicator of hydration completion)
+    // On mobile, explicitly tap 'Explore' to ensure the sheet is open/visible
+    const viewport = page.viewportSize();
+    const isMobile = viewport && viewport.width < 768;
+    
+    if (isMobile) {
+        // Ensure we are on the Explore tab and the sheet is visible
+        const exploreBtn = page.getByRole('button', { name: 'Explore' });
+        if (await exploreBtn.isVisible()) {
+            await exploreBtn.click();
+        }
+    }
+
     const sidebar = getSidebarContainer(page);
     
     // Ensure search results or dashboard is ready
