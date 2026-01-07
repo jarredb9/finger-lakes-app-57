@@ -1,7 +1,8 @@
 import { Winery } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { Star, MapPin } from "lucide-react";
+import { Star, MapPin, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isOpenNow } from "@/lib/utils/opening-hours";
 
 interface WineryCardProps {
   winery: Winery;
@@ -13,7 +14,10 @@ export default function WineryCardThumbnail({ winery, onClick }: WineryCardProps
   let statusColor = "bg-muted"; // Default gray
   if (winery.isFavorite) statusColor = "bg-amber-500";
   else if (winery.userVisited) statusColor = "bg-emerald-500";
-  else if (winery.onWishlist) statusColor = "bg-blue-500";
+  else if (winery.onWishlist) statusColor = "bg-purple-500";
+
+  // Check opening status if data available
+  const isOpen = winery.openingHours ? isOpenNow(winery.openingHours) : null;
 
   return (
     <div
@@ -42,7 +46,7 @@ export default function WineryCardThumbnail({ winery, onClick }: WineryCardProps
           <span className="line-clamp-1">{winery.address}</span>
         </div>
 
-        <div className="flex gap-2 mt-1 items-center">
+        <div className="flex gap-2 mt-1 items-center flex-wrap">
           {/* Status Badges - Text Only for high density */}
           {winery.isFavorite && (
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-amber-100 text-amber-800 hover:bg-amber-100">
@@ -55,8 +59,22 @@ export default function WineryCardThumbnail({ winery, onClick }: WineryCardProps
             </Badge>
           )}
           {winery.onWishlist && !winery.userVisited && (
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-blue-100 text-blue-800 hover:bg-blue-100">
+            <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-purple-100 text-purple-800 hover:bg-purple-100">
               Want to Go
+            </Badge>
+          )}
+
+          {/* Open/Closed Badge */}
+          {isOpen !== null && (
+            <Badge 
+              variant="outline" 
+              className={cn(
+                "text-[10px] px-1.5 py-0 h-5 flex items-center gap-1 border-none",
+                isOpen ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
+              )}
+            >
+              <Clock className="w-2.5 h-2.5" />
+              {isOpen ? "Open" : "Closed"}
             </Badge>
           )}
         </div>

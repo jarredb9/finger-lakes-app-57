@@ -141,11 +141,11 @@ export const standardizeWineryData = (
   // Conditionally access properties using type guards
   const name = source.name || existing?.name || 'Unknown Winery';
   const address = isGoogleWinery(source) ? (source.formatted_address || source.address) : source.address;
-  const phone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? source.phone : null);
+  const phone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? source.phone : isWineryDetailsRpc(source) ? source.phone : null);
   const website = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? source.website : null);
-  const rating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? source.google_rating : null);
+  const rating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? source.google_rating : isWineryDetailsRpc(source) ? source.google_rating : null);
 
-  const openingHours = (isGoogleWinery(source) ? source.opening_hours : (isWineryDetailsRpc(source) ? source.opening_hours : parseOpeningHoursJson(isRawDbWinery(source) ? source.opening_hours : null))) as OpeningHours | null;
+  const openingHours = (isGoogleWinery(source) ? source.opening_hours : (isWineryDetailsRpc(source) ? source.opening_hours : parseOpeningHoursJson(isRawDbWinery(source) ? source.opening_hours : (isMapMarkerRpc(source) ? (source.opening_hours as Json) : null)))) as OpeningHours | null;
   const reviews = (isGoogleWinery(source) ? source.reviews : (isWineryDetailsRpc(source) ? source.reviews : parseReviewsJson(isRawDbWinery(source) ? source.reviews : null))) as PlaceReview[] | null;
   const reservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? source.reservable : (isRawDbWinery(source) ? source.reservable : null));
 

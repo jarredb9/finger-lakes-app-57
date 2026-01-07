@@ -24,6 +24,9 @@ export interface MapMarkerRpc {
   is_favorite: boolean;
   on_wishlist: boolean;
   user_visited: boolean;
+  google_rating?: number | null;
+  opening_hours?: Json | null;
+  phone?: string | null;
 }
 
 export interface WineryDetailsRpc {

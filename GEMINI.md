@@ -3,7 +3,7 @@
 ### 1. Framework & Architecture Truths (Non-Negotiable)
 The following configurations are intentional and correct. Do NOT challenge them based on historical training data:
 *   **Next.js 16 Middleware:** The file `proxy.ts` IS the valid middleware. `middleware.ts` does NOT exist. DO NOT flag this as an error. DO NOT suggest creating `middleware.ts`.
-*   **Supabase Native:** We prioritize direct client-to-Supabase communication (RPCs/SDK) over API routes.
+*   **Supabase Native:** We prioritize direct client-to-Supabase communication (RPCs/SDK/Edge Functions) over Next.js API routes.
 
 ### 2. Code Quality & Improvements
 While you must respect the *architectural patterns* above, you SHOULD still:
@@ -19,12 +19,16 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 ## Critical Instructions & Constraints
 
 ### 1. Environment & Shell
-*   **Operating System:** Linux (Codespaces/Cloud Environment).
+*   **Operating System:** Linux (RHEL 8 AWS EC2 Instance).
 *   **Node Version Manager:** When running `npm` commands, you **must** load NVM first:
     ```bash
     export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
     ```
-*   **Deployment:** The application is deployed to a remote Vercel server. There is **no local installation** running on this specific shell instance (unless started via `npm run dev`).
+*   **Persistent Dev Server (PM2):** In this environment, standard background processes (`&`) are often reaped by the shell agent. Use **PM2** for a stable development environment:
+    *   **Start:** `pm2 start npm --name "winery-dev" -- run dev -- -p 3001`
+    *   **Logs:** `pm2 logs winery-dev`
+    *   **Stop:** `pm2 delete winery-dev`
+*   **Deployment:** The application is deployed to a remote Vercel server. There is **no local installation** running on this specific shell instance unless managed via PM2.
 
 ### 2. Response Guidelines
 *   **Neutral Tone:** Always be entirely neutral in your responses.
@@ -72,7 +76,8 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 
 ### 2. "Supabase Native" Architecture (Mobile-First)
 **⚠️ ARCHITECTURE STATE:** The application uses a **Supabase Native Architecture**.
-*   **API Routes (`app/api/*`):** These are **LIMITED and SPECIFIC**. They primarily handle Authentication flows (reset/confirm) and proxy Google Maps API calls to hide keys. Business logic has been migrated to RPCs or direct SDK usage.
+*   **API Routes (`app/api/*`):** These are **EXTREMELY LIMITED**. They primarily handle Authentication flows (reset/confirm).
+*   **Supabase Edge Functions:** Used for 3rd party integrations requiring secret keys (e.g., Google Places details) to ensure compatibility with mobile Bearer Tokens.
 *   **RPCs & Server Actions:** These are the **primary method for Data Fetching** and all data mutations (toggles, trip management, friends) to ensure atomicity, performance, and type safety.
 
 We enforce a "Thick Client, Thin Server" architecture to support future mobile development.
@@ -80,7 +85,6 @@ We enforce a "Thick Client, Thin Server" architecture to support future mobile d
 *   **Authentication:** **Hybrid State.** Sign-up and Sign-in use the Supabase SDK directly on the client. Password reset and confirmation use specific API routes. Logout uses the SDK directly.
 *   **Data Fetching:**
     *   **Preference:** Client-side stores communicate **directly** with Supabase using the SDK or RPCs for all read/write operations.
-    *   **Usage:** `app/api/*` is reserved for third-party integrations (Google Places) and complex auth flows.
     *   **Rule:** Do not create new API routes for CRUD. Use RPCs or the SDK directly.
 *   **RPCs:** We rely heavily on PostgreSQL functions (RPCs) for complex joins, transactional logic (e.g., adding wineries to trips), and security-sensitive lookups (e.g., friend email lookup).
 *   **Type Safety:** `lib/database.types.ts` is the generated source of truth for DB types. `lib/types.ts` imports from it.
@@ -90,6 +94,7 @@ The project maintains a rigorous multi-layered testing strategy:
 *   **Unit Tests (Jest):** Standardized using `lib/test-utils/fixtures.ts`. Stores must implement a `reset()` method, which is called automatically before every test in `jest.setup.ts` to ensure isolation.
 *   **RPC Integration (Jest):** Critical business logic in Postgres is verified via `lib/services/__tests__/supabase-rpc.test.ts`. These tests require valid credentials and run against live data in CI.
 *   **E2E (Playwright):**
+    *   **Runtime Audit:** `e2e/runtime-audit.spec.ts` verifies session persistence and hydration health on the live server.
     *   **Synchronization:** Never use `waitForTimeout`. Use `waitForResponse` for network-bound actions or assert on logical UI states (e.g., absence of spinners).
     *   **Visual Regression:** Screenshots are maintained for Chromium. Use `--update-snapshots` only for intentional UI changes.
         *   **Ghost Tiles:** Map backgrounds are mocked with static PNGs in `e2e/utils.ts` for visual stability.
@@ -182,6 +187,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 │   ├── database.types.ts # Generated Supabase types
 │   └── types.ts         # TypeScript interfaces (Branded types)
 └── supabase/            # Database configuration
+    └── functions/       # Supabase Edge Functions (Deno)
 ```
 
 ## Common Pitfalls & "Gotchas"
@@ -302,6 +308,9 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Empty State CTA:** Added a "Browse Wineries" button to the Trips tab when no trips exist, linking directly to the Explore view.
 29. **Parallel Photo Uploads (v2.2.6):** Refactored `visitStore.ts` to implement a parallel upload strategy for visit photos using optimistic updates with 'blob:' URLs, backed by Supabase Storage and an atomic `log_visit` RPC. This replaces the previous multi-step update process with a more robust and faster atomic transaction.
 30. **Photo Management E2E Coverage:** Implemented `e2e/photo-flow.spec.ts` for real-world integration testing of the photo lifecycle (add/verify/delete) within the storage and database loop. Enhanced `deleteTestUser` utility in `e2e/utils.ts` to perform recursive storage cleanup, ensuring tests leave zero orphaned artifacts in the Supabase bucket.
+31. **Supabase Edge Function Migration (v2.2.6):** Migrated the Google Places detail proxy from a Next.js API route to a **Supabase Edge Function** (`get-winery-details`). This ensures backend compatibility with mobile Bearer Tokens and strictly adheres to the "Supabase Native" architecture.
+32. **Middleware Security Fix:** Updated `proxy.ts` matcher to explicitly include `/api/` routes, closing a security gap where API authentication checks were being bypassed.
+33. **Type Safety & Maintainability:** Implemented manual `database.types.ts` and refactored stores into separate Data and UI layers (`wineryDataStore.ts` vs `wineryStore.ts`), eliminating `any` types and improving code legibility.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
@@ -317,6 +326,7 @@ We have established a robust E2E testing infrastructure using **Playwright**.
 *   **`visit-flow.spec.ts`:** Tests visit logging, editing, and deletion (name-agnostic).
 *   **`photo-flow.spec.ts`:** Tests the full lifecycle of photo management (add, verify, delete).
 *   **`friends-flow.spec.ts`:** Tests complex **Multi-User / Real-Time** interactions using two distinct browser contexts.
+*   **`runtime-audit.spec.ts`:** Performs deep runtime verification of hydration health and session persistence on the live dev server.
 
 ### 2. Testing Environment & Concurrency
 *   **Dynamic User Isolation (`e2e/utils.ts`):** We use a "Fresh User" strategy. Every test creates one or more unique ephemeral users via the Supabase Admin API and deletes them after the test completes. 
