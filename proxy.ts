@@ -33,11 +33,12 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - any path containing a dot (e.g., .js, .css, .png, .ico)
+     * 
+     * Note: We now INCLUDE /api/ routes so the auth check in the proxy function runs.
      */
-    '/((?!api|_next/static|_next/image|.*\\..*).*)',
+    '/((?!_next/static|_next/image|.*\\..*).*)',
   ],
 };

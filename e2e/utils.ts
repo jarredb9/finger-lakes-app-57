@@ -55,8 +55,8 @@ export async function mockGoogleMapsApi(page: Page) {
     }, 100);
   });
 
-  // 2. Mock the internal proxy route for winery details
-  await page.route('**/api/wineries/details', (route) => {
+  // 2. Mock the Supabase Edge Function for winery details
+  await page.route(/\/functions\/v1\/get-winery-details/, (route) => {
     route.fulfill({
       status: 200,
       contentType: 'application/json',

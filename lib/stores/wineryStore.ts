@@ -84,16 +84,16 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
 
         // 3. Fallback to Google API (if alphanumeric place ID)
         if (!/^\d+$/.test(placeId)) {
-            const response = await fetch('/api/wineries/details', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ placeId }),
+            const { data: googleData, error } = await supabase.functions.invoke('get-winery-details', {
+                body: { placeId }
             });
-            if (response.ok) {
-                const googleData = await response.json();
+
+            if (!error && googleData) {
                 const updated = dataStore.upsertWinery(googleData);
                 set({ loadingWineryId: null });
                 return updated;
+            } else if (error) {
+                console.error("Edge Function failed:", error);
             }
         }
     } catch (error) {
