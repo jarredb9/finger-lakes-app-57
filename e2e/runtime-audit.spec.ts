@@ -1,41 +1,58 @@
 import { test, expect } from '@playwright/test';
+import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
+import { login, getSidebarContainer } from './helpers';
 
 test.describe('Runtime & Performance Audit', () => {
+  let user: TestUser;
+
+  test.beforeEach(async ({ page }) => {
+    // 1. Create unique user
+    user = await createTestUser();
+    // 2. Mock expensive APIs to keep audit fast/free
+    await mockGoogleMapsApi(page);
+  });
+
+  test.afterEach(async () => {
+    if (user) await deleteTestUser(user.id);
+  });
+
   test('should login and check for hydration/console errors', async ({ page }) => {
     const consoleMessages: string[] = [];
+    
+    // Listen for hydration errors specifically
     page.on('console', msg => {
-      if (msg.type() === 'error' || msg.text().includes('hydration')) {
-        consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
+      const text = msg.text();
+      if (msg.type() === 'error' || text.toLowerCase().includes('hydration') || text.includes('React')) {
+        // Filter out known noise if necessary
+        if (!text.includes('Vector Map')) {
+             consoleMessages.push(`[${msg.type()}] ${text}`);
+        }
       }
     });
 
-    await page.goto('http://localhost:3001/login');
+    // 3. Robust Login (Handles cookie banner & Safari)
+    await login(page, user.email, user.password);
+
+    // 4. Wait for the map/wineries to load (indicator of hydration completion)
+    const sidebar = getSidebarContainer(page);
     
-    // Fill credentials
-    await page.getByLabel('Email').fill('$TEST_USER_EMAIL');
-    await page.getByLabel('Password').fill('$TEST_USER_PASSWORD');
-    await page.getByRole('button', { name: 'Sign In' }).click();
-
-    // Wait for navigation to dashboard
-    await expect(page).toHaveURL('http://localhost:3001/', { timeout: 15000 });
-
-    // Wait for the map/wineries to load (indicator of hydration completion)
-    const sidebar = page.locator('[data-testid="desktop-sidebar-container"], [data-testid="mobile-sidebar-container"]').filter({ visible: true }).first();
+    // Ensure search results or dashboard is ready
     await expect(sidebar.getByText(/Wineries/i).first()).toBeVisible({ timeout: 20000 });
 
-    // Check for errors
-    console.log('--- Runtime Error Log ---');
-    if (consoleMessages.length > 0) {
-      consoleMessages.forEach(msg => console.log(msg));
-    } else {
-      console.log('No critical console errors or hydration mismatches detected.');
-    }
-    console.log('-------------------------');
-
-    // Performance markers (Optional check for key elements)
+    // 5. Performance Check: Count elements
     const wineries = await page.locator('[data-testid="winery-card"]').count();
-    console.log(`Loaded ${wineries} winery cards.`);
+    console.log(`[Audit] Loaded ${wineries} winery cards.`);
     
-    expect(consoleMessages.filter(m => m.includes('hydration')).length).toBe(0);
+    // 6. Fail if critical errors occurred
+    const hydrationErrors = consoleMessages.filter(m => 
+        m.toLowerCase().includes('hydration') || 
+        m.includes('Minified React error')
+    );
+    
+    if (hydrationErrors.length > 0) {
+        console.error('Hydration Errors Detected:', hydrationErrors);
+    }
+    
+    expect(hydrationErrors.length).toBe(0);
   });
 });
