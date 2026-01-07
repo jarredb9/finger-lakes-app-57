@@ -37,14 +37,14 @@ describe('WineryCardThumbnail', () => {
     const favWinery = { ...mockWinery, isFavorite: true };
     render(<WineryCardThumbnail winery={favWinery} />);
     
-    expect(screen.getByText('Loved')).toBeInTheDocument();
+    expect(screen.getByText('Favorite')).toBeInTheDocument();
   });
 
   it('renders "Want" badge when onWishlist is true and NOT visited', () => {
     const wishWinery = { ...mockWinery, onWishlist: true, userVisited: false };
     render(<WineryCardThumbnail winery={wishWinery} />);
     
-    expect(screen.getByText('Want')).toBeInTheDocument();
+    expect(screen.getByText('Want to Go')).toBeInTheDocument();
   });
 
   it('does NOT render "Want" badge if already visited', () => {
@@ -52,7 +52,7 @@ describe('WineryCardThumbnail', () => {
     render(<WineryCardThumbnail winery={wishAndVisited} />);
     
     expect(screen.getByText('Visited')).toBeInTheDocument();
-    expect(screen.queryByText('Want')).not.toBeInTheDocument();
+    expect(screen.queryByText('Want to Go')).not.toBeInTheDocument();
   });
 
   it('calls onClick when clicked', () => {
