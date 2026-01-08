@@ -48,8 +48,13 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const { data: markers, error: markersError } = await supabase.rpc('get_map_markers', { user_id_param: userId }); 
           if (markersError) throw markersError;
 
-          const processedWineries = (markers as MapMarkerRpc[] || []).map((m) => { // Cast here
-             return standardizeWineryData(m); // Pass m directly
+          // Create a map of existing wineries for preservation of details (visits, reviews, etc.)
+          const currentWineries = get().persistentWineries;
+          const existingMap = new Map(currentWineries.map(w => [w.id, w]));
+
+          const processedWineries = (markers as MapMarkerRpc[] || []).map((m) => { 
+             const existing = existingMap.get(m.google_place_id);
+             return standardizeWineryData(m, existing); 
           }).filter(Boolean) as Winery[];
 
           set({ persistentWineries: processedWineries, isLoading: false });
