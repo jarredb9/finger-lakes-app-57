@@ -4,7 +4,7 @@ import { persist } from 'zustand/middleware';
 import { Winery, Visit, VisitWithWinery, GooglePlaceId, WineryDbId } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { useWineryStore } from './wineryStore';
-import { addOfflineVisit, getOfflineVisits, removeOfflineVisit, OfflineVisit } from '@/lib/utils/offline-queue';
+import { addOfflineMutation, getOfflineMutations, removeOfflineMutation } from '@/lib/utils/offline-queue';
 
 interface VisitState {
   visits: VisitWithWinery[];
@@ -118,8 +118,9 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
 
         // 2. Offline Handling
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
-            console.log("Offline detected. Queuing visit for sync.");
-            const offlineVisit: OfflineVisit = {
+            console.log("Offline detected. Queuing create visit for sync.");
+            await addOfflineMutation({
+                type: 'create',
                 id: tempId,
                 winery: winery,
                 visitData: {
@@ -127,9 +128,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                     photos: visitData.photos // Store Blobs/Files directly in IDB
                 },
                 timestamp: Date.now()
-            };
+            });
             
-            await addOfflineVisit(offlineVisit);
             set({ isSavingVisit: false });
             return; // Stop here, sync will handle the rest later
         }
@@ -209,97 +209,173 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       },
 
       syncOfflineVisits: async () => {
-        const offlineVisits = await getOfflineVisits();
-        if (offlineVisits.length === 0) return;
+        const mutations = await getOfflineMutations();
+        if (mutations.length === 0) return;
 
-        console.log(`Syncing ${offlineVisits.length} offline visits...`);
+        console.log(`Syncing ${mutations.length} offline mutations...`);
         const supabase = createClient();
-        const { replaceVisit } = useWineryStore.getState();
+        const { replaceVisit, confirmOptimisticUpdate } = useWineryStore.getState();
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) return; // Can't sync if not logged in
 
-        for (const visit of offlineVisits) {
+        for (const mutation of mutations) {
             try {
-                // Reuse logic similar to saveVisit but for specific IDB items
-                let uploadedPaths: string[] = [];
-                const folderUuid = crypto.randomUUID(); // New folder for each visit
-                
-                // 1. Upload Photos
-                if (visit.visitData.photos.length > 0) {
-                    const uploadPromises = visit.visitData.photos.map(async (blob) => {
-                        // Cast blob to File if needed or just upload blob with metadata
-                        const file = blob as File; // IDB stores Files as is
-                        const fileName = `${Date.now()}-${file.name || 'photo.jpg'}`;
-                        const filePath = `${session.user.id}/${folderUuid}/${fileName}`;
-                        const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file);
-                        if (uploadError) throw uploadError;
-                        return filePath;
+                if (mutation.type === 'create') {
+                    // --- REPLAY CREATE ---
+                    let uploadedPaths: string[] = [];
+                    const folderUuid = crypto.randomUUID();
+                    
+                    if (mutation.visitData.photos.length > 0) {
+                        const uploadPromises = mutation.visitData.photos.map(async (blob) => {
+                            const file = blob as File;
+                            const fileName = `${Date.now()}-${file.name || 'photo.jpg'}`;
+                            const filePath = `${session.user.id}/${folderUuid}/${fileName}`;
+                            const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file);
+                            if (uploadError) throw uploadError;
+                            return filePath;
+                        });
+                        uploadedPaths = await Promise.all(uploadPromises);
+                    }
+
+                    const rpcWineryData = {
+                        id: mutation.winery.id,
+                        name: mutation.winery.name,
+                        address: mutation.winery.address,
+                        lat: mutation.winery.lat,
+                        lng: mutation.winery.lng,
+                        phone: mutation.winery.phone || null,
+                        website: mutation.winery.website || null,
+                        rating: mutation.winery.rating || null,
+                    };
+
+                    const rpcVisitData = {
+                        visit_date: mutation.visitData.visit_date,
+                        user_review: mutation.visitData.user_review,
+                        rating: mutation.visitData.rating > 0 ? mutation.visitData.rating : 1,
+                        photos: uploadedPaths,
+                    };
+
+                    const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
+                        p_winery_data: rpcWineryData,
+                        p_visit_data: rpcVisitData,
                     });
-                    uploadedPaths = await Promise.all(uploadPromises);
+
+                    if (rpcError) throw rpcError;
+
+                    const finalVisit: VisitWithWinery = {
+                        id: rpcResult.visit_id,
+                        user_id: session.user.id,
+                        visit_date: mutation.visitData.visit_date,
+                        rating: mutation.visitData.rating,
+                        user_review: mutation.visitData.user_review,
+                        photos: uploadedPaths,
+                        wineryName: mutation.winery.name,
+                        wineryId: mutation.winery.id,
+                        wineries: {
+                            id: mutation.winery.dbId || 0 as WineryDbId,
+                            google_place_id: mutation.winery.id,
+                            name: mutation.winery.name,
+                            address: mutation.winery.address,
+                            latitude: mutation.winery.lat.toString(),
+                            longitude: mutation.winery.lng.toString(),
+                        }
+                    };
+
+                    replaceVisit(mutation.winery.id, mutation.id, finalVisit);
+                    set(state => ({
+                        visits: state.visits.map(v => String(v.id) === mutation.id ? finalVisit : v),
+                        lastMutation: Date.now()
+                    }));
+
+                } else if (mutation.type === 'update') {
+                    // --- REPLAY UPDATE ---
+                    let newPhotoPaths: string[] = [];
+                    if (mutation.newPhotos.length > 0) {
+                        const uploadPromises = mutation.newPhotos.map(async (blob) => {
+                            const file = blob as File;
+                            const fileName = `${Date.now()}-${file.name || 'photo.jpg'}`;
+                            const filePath = `${session.user.id}/${mutation.visitId}/${fileName}`;
+                            const { error } = await supabase.storage.from('visit-photos').upload(filePath, file);
+                            return error ? null : filePath;
+                        });
+                        newPhotoPaths = (await Promise.all(uploadPromises)).filter((p): p is string => p !== null);
+                    }
+
+                    // Get current visit state to merge photos if needed, but we rely on what's in the store/RPC
+                    // Ideally we fetch the latest, but for sync we just assume we append to what was known or the RPC handles it?
+                    // The 'update_visit' RPC replaces the photo array. We need the FINAL array.
+                    // The mutation stores `newPhotos` (to be uploaded) and `photosToDelete` (to be removed).
+                    // We need the *existing* photos that are NOT deleted.
+                    
+                    // Problem: We can't easily know the "existing" photos at the time of sync without fetching.
+                    // Solution: The offline mutation should probably store the *final* intended state of the photo array?
+                    // Or we just fetch the visit first.
+                    
+                    // Optimization: We can reconstruct the "final" array if we trust the offline logic passed it correctly.
+                    // But `updateVisit` in the store takes `newPhotos` and `photosToDelete`.
+                    
+                    // Let's fetch the current visit from DB to be safe before applying updates?
+                    // Or trust the client provided the diff? The RPC takes the *final* array.
+                    // The offline queue should have stored the `visitData` which *includes* the preserved photos? 
+                    // No, `visitData` in `updateVisit` is `Partial<Visit>`.
+                    
+                    // Let's look at `updateVisit` implementation below. It calculates `finalPhotoPaths`.
+                    // We'll need to replicate that logic.
+                    // We need the "preserved" photos.
+                    // Let's assume the client state at the time of offline action had the correct "base".
+                    
+                    // Actually, we can fetch the visit from Supabase to get current photos, 
+                    // filter out `photosToDelete`, and add `newPhotoPaths`.
+                    // This handles race conditions better.
+                    
+                    const { data: currentVisit } = await supabase
+                        .from('visits')
+                        .select('photos')
+                        .eq('id', mutation.visitId)
+                        .single();
+                        
+                    const existingServerPhotos = (currentVisit?.photos as string[]) || [];
+                    const preservedPhotos = existingServerPhotos.filter(p => !mutation.photosToDelete.includes(p));
+                    const finalPhotoPaths = [...preservedPhotos, ...newPhotoPaths];
+
+                    const { data: updatedVisit, error } = await supabase.rpc('update_visit', {
+                        p_visit_id: parseInt(mutation.visitId),
+                        p_visit_data: { ...mutation.visitData, photos: finalPhotoPaths }
+                    });
+
+                    if (error) throw error;
+
+                    if (mutation.photosToDelete.length > 0) {
+                        await supabase.storage.from('visit-photos').remove(mutation.photosToDelete);
+                    }
+                    
+                    // Sync success
+                    const finalVisit: VisitWithWinery = {
+                        ...updatedVisit,
+                        wineryName: updatedVisit.winery_name,
+                        wineryId: updatedVisit.google_place_id
+                    };
+                    
+                    confirmOptimisticUpdate(finalVisit);
+                    set(state => ({
+                        visits: state.visits.map(v => String(v.id) === String(mutation.visitId) ? finalVisit : v),
+                        lastMutation: Date.now()
+                    }));
+
+                } else if (mutation.type === 'delete') {
+                    // --- REPLAY DELETE ---
+                    const { error } = await supabase.rpc('delete_visit', { p_visit_id: parseInt(mutation.visitId) });
+                    if (error) throw error;
+                    
+                    confirmOptimisticUpdate();
+                    set({ lastMutation: Date.now() });
                 }
 
-                // 2. Prepare RPC Data
-                const rpcWineryData = {
-                    id: visit.winery.id,
-                    name: visit.winery.name,
-                    address: visit.winery.address,
-                    lat: visit.winery.lat,
-                    lng: visit.winery.lng,
-                    phone: visit.winery.phone || null,
-                    website: visit.winery.website || null,
-                    rating: visit.winery.rating || null,
-                };
-
-                const rpcVisitData = {
-                    visit_date: visit.visitData.visit_date,
-                    user_review: visit.visitData.user_review,
-                    rating: visit.visitData.rating > 0 ? visit.visitData.rating : 1,
-                    photos: uploadedPaths,
-                };
-
-                // 3. Call RPC
-                const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
-                    p_winery_data: rpcWineryData,
-                    p_visit_data: rpcVisitData,
-                });
-
-                if (rpcError) throw rpcError;
-
-                // 4. Success: Update Store & Clean IDB
-                const finalVisit: VisitWithWinery = {
-                    id: rpcResult.visit_id,
-                    user_id: session.user.id,
-                    visit_date: visit.visitData.visit_date,
-                    rating: visit.visitData.rating,
-                    user_review: visit.visitData.user_review,
-                    photos: uploadedPaths,
-                    wineryName: visit.winery.name,
-                    wineryId: visit.winery.id,
-                    wineries: {
-                        id: visit.winery.dbId || 0 as WineryDbId,
-                        google_place_id: visit.winery.id,
-                        name: visit.winery.name,
-                        address: visit.winery.address,
-                        latitude: visit.winery.lat.toString(),
-                        longitude: visit.winery.lng.toString(),
-                    }
-                };
-
-                replaceVisit(visit.winery.id, visit.id, finalVisit);
-                set(state => ({
-                    visits: state.visits.map(v => String(v.id) === visit.id ? finalVisit : v),
-                    lastMutation: Date.now()
-                }));
-
-                await removeOfflineVisit(visit.id);
-                console.log(`Synced visit ${visit.id}`);
+                await removeOfflineMutation(mutation.id);
+                console.log(`Synced mutation ${mutation.id} (${mutation.type})`);
 
             } catch (error) {
-                console.error(`Failed to sync visit ${visit.id}:`, error);
-                // On permanent failure, we might want to notify the user or keep retrying.
-                // For now, we leave it in the queue.
-                // Optionally remove the optimistic visit if it's a fatal 400 error to avoid stale UI?
-                // Keeping it is safer for user data retention.
+                console.error(`Failed to sync mutation ${mutation.id}:`, error);
             }
         }
       },
@@ -316,11 +392,27 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         const existingPhotos = originalVisit.photos || [];
         const newOptimisticPhotos = existingPhotos.filter(p => !photosToDelete.includes(p));
         
-        // Optimistic update in both stores
+        // 1. Optimistic update in both stores
         optimisticallyUpdateVisit(visitId, { ...visitData, photos: newOptimisticPhotos });
         set(state => ({
             visits: state.visits.map(v => String(v.id) === String(visitId) ? { ...v, ...visitData, photos: newOptimisticPhotos } : v)
         }));
+
+        // 2. Offline Handling
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            console.log("Offline detected. Queuing update visit for sync.");
+            await addOfflineMutation({
+                type: 'update',
+                id: `update-${visitId}-${Date.now()}`,
+                visitId: visitId,
+                visitData: visitData,
+                newPhotos: newPhotos, // Blobs
+                photosToDelete: photosToDelete,
+                timestamp: Date.now()
+            });
+            set({ isSavingVisit: false });
+            return;
+        }
 
         try {
           let newPhotoPaths: string[] = [];
@@ -380,6 +472,18 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         optimisticallyDeleteVisit(visitId);
         const originalVisits = get().visits;
         set(state => ({ visits: state.visits.filter(v => String(v.id) !== String(visitId)) }));
+
+        // 2. Offline Handling
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            console.log("Offline detected. Queuing delete visit for sync.");
+            await addOfflineMutation({
+                type: 'delete',
+                id: `delete-${visitId}-${Date.now()}`,
+                visitId: visitId,
+                timestamp: Date.now()
+            });
+            return;
+        }
 
         try {
             const { error } = await supabase.rpc('delete_visit', { p_visit_id: parseInt(visitId) });

@@ -33,10 +33,22 @@ export default function WineryModal() {
   
   const loadingWineryId = useWineryStore((state) => state.loadingWineryId); // Get loading state
   const { deleteVisit: deleteVisitAction } = useVisitStore();
+  
+  // Fetch visits from the global store to ensure offline/optimistic updates are visible
+  const storeVisits = useVisitStore((state) => 
+    activeWineryId ? state.visits.filter(v => v.wineryId === activeWineryId || v.wineries?.google_place_id === activeWineryId) : []
+  );
+
   const { friendsRatings } = useFriendStore();
 
   const isLoading = loadingWineryId === activeWineryId; // Check if THIS winery is loading
-  const visits = activeWinery?.visits || [];
+  
+  // Merge visits from both sources, preferring storeVisits (which contains offline/optimistic state)
+  const wineryVisits = activeWinery?.visits || [];
+  const visits = [
+    ...storeVisits,
+    ...wineryVisits.filter(wv => !storeVisits.some(sv => String(sv.id) === String(wv.id)))
+  ].sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
 
   const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
   const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
@@ -124,7 +136,12 @@ export default function WineryModal() {
     if (!deleteVisitAction || !visitId) return;
     try {
       await deleteVisitAction(visitId);
-      toast({ description: "Visit deleted successfully." });
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      toast({ 
+        description: isOffline 
+          ? "Deletion cached. It will be synced once you're back online." 
+          : "Visit deleted successfully." 
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to delete visit.";
       toast({ variant: "destructive", description: message });

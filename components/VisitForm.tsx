@@ -56,11 +56,21 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
     try {
       if (editingVisit) {
         await updateVisit(String(editingVisit.id!), { visit_date: visitDate, user_review: userReview, rating }, photos, photosToDelete);
-        toast({ description: "Visit updated successfully." });
+        const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+        toast({ 
+          description: isOffline 
+            ? "Edit cached. It will be synced once you're back online." 
+            : "Visit updated successfully." 
+        });
         onCancelEdit();
       } else {
         await saveVisit(winery, { visit_date: visitDate, user_review: userReview, rating, photos });
-        toast({ description: "Visit added successfully." });
+        const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+        toast({ 
+          description: isOffline 
+            ? "Visit cached. It will be synced once you're back online." 
+            : "Visit added successfully." 
+        });
         resetForm();
       }
     } catch (error) {

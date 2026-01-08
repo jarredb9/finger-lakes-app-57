@@ -42,7 +42,12 @@ export default function GlobalVisitHistory({}: GlobalVisitHistoryProps) {
     if (!deleteVisitAction || !visitId) return;
     try {
       await deleteVisitAction(visitId);
-      toast({ description: "Visit deleted successfully." });
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      toast({ 
+        description: isOffline 
+          ? "Deletion cached. It will be synced once you're back online." 
+          : "Visit deleted successfully." 
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to delete visit.";
       toast({ variant: "destructive", description: message });
