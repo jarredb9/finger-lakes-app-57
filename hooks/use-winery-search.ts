@@ -35,7 +35,31 @@ export function useWinerySearch() {
       locationText?: string,
       searchBounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral
     ) => {
-      console.log("[executeSearch] Called with:", { locationText, hasBounds: !!searchBounds });
+      
+      // OFFLINE HANDLING
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        if (locationText) {
+          toast({ variant: "destructive", description: "Online connection required for text search." });
+          setIsSearching(false);
+          return;
+        }
+
+        if (searchBounds) {
+          setIsSearching(true);
+          const bounds = new google.maps.LatLngBounds(searchBounds);
+          const { persistentWineries } = useWineryDataStore.getState();
+          
+          const localResults = persistentWineries.filter(w => 
+            bounds.contains({ lat: w.lat, lng: w.lng })
+          );
+
+          setSearchResults(localResults);
+          toast({ description: `Offline: Found ${localResults.length} cached wineries in this area.` });
+          setIsSearching(false);
+          return;
+        }
+      }
+
       if (!places || !geocoder) return;
       if (useMapStore.getState().isSearching) return;
 
@@ -75,7 +99,6 @@ export function useWinerySearch() {
             return;
           }
         } catch (error) {
-          console.error("Geocoding failed:", error);
           setIsSearching(false);
           return;
         }
@@ -93,14 +116,12 @@ export function useWinerySearch() {
 
       const bounds = new google.maps.LatLngBounds(finalSearchBounds);
       const supabase = createClient();
-      const { data: cachedWineries, error: rpcError } = await supabase.rpc('get_wineries_in_bounds', {
+      const { data: cachedWineries } = await supabase.rpc('get_wineries_in_bounds', {
         min_lat: bounds.getSouthWest().lat(),
         min_lng: bounds.getSouthWest().lng(),
         max_lat: bounds.getNorthEast().lat(),
         max_lng: bounds.getNorthEast().lng(),
       });
-
-      if (rpcError) console.error("Error fetching cached wineries:", rpcError);
 
       const { persistentWineries } = useWineryDataStore.getState();
       let preloadedWineries: Winery[] = [];
@@ -159,7 +180,6 @@ export function useWinerySearch() {
         setHitApiLimit(foundPlaces.length === 20);
 
       } catch (error) {
-        console.error(`Google Places search error:`, error);
         // Fallback: If Google search fails, at least show what we have in cache
         if (preloadedWineries.length > 0) {
             setSearchResults(preloadedWineries);

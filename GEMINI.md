@@ -68,9 +68,9 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 ### 1. State Management & Data Flow
 *   **Zustand Stores (`lib/stores/`):** The primary source of truth for client-side state.
     *   **`wineryStore`:** (UI Store) Manages UI state (modal open/close, loading), filtering, and delegates data operations to `wineryDataStore`.
-    *   **`wineryDataStore`:** (Data Store) Manages the global cache of `Winery` objects, handles hydration, CRUD operations, and syncs with Supabase.
+    *   **`wineryDataStore`:** (Data Store) Manages the global cache of `Winery` objects, handles hydration, CRUD operations, and syncs with Supabase. It uses the **"Merge on Hydrate"** pattern to prevent detailed data loss when refreshing lightweight map markers.
     *   **`tripStore`:** Manages trip creation, updates, and the "Active Trip" state (`selectedTrip`) for the map overlay.
-    *   **`visitStore`:** Manages the global `visits` list, handles creation/editing/deletion with optimistic updates across all history views.
+    *   **`visitStore`:** The **Single Source of Truth** for visit history. Manages the global `visits` list and handles offline queueing/syncing for create/edit/delete operations.
     *   **`friendStore`:** Manages friend list, requests, and activity.
 *   **Service Layer (`lib/services/`):** Static classes that encapsulate API calls. Stores call Services; Components call Stores.
 
@@ -89,9 +89,21 @@ We enforce a "Thick Client, Thin Server" architecture to support future mobile d
 *   **RPCs:** We rely heavily on PostgreSQL functions (RPCs) for complex joins, transactional logic (e.g., adding wineries to trips), and security-sensitive lookups (e.g., friend email lookup).
 *   **Type Safety:** `lib/database.types.ts` is the generated source of truth for DB types. `lib/types.ts` imports from it.
 
-### 3. Testing Standards (Industrial Strength)
+### 3. PWA & Offline Architecture
+The application is a fully offline-capable Progressive Web App (PWA).
+*   **Service Worker (`app/sw.ts`):** Uses `@serwist/next` to cache static assets and pages. It includes a custom **Navigation Fallback** that serves `/~offline` when a network request fails for an uncached page.
+*   **Store Persistence:** All major stores (`wineryDataStore`, `tripStore`, `visitStore`) use Zustand's `persist` middleware to save state to `localStorage`. This ensures the UI hydrates instantly even in Airplane mode.
+*   **Offline Queue (`lib/utils/offline-queue.ts`):** 
+    *   Uses **IndexedDB** (`idb-keyval`) to store offline mutations (`create`, `update`, `delete` visits) and large assets (photo Blobs) that exceed LocalStorage limits.
+    *   **Background Sync:** The `visitStore` automatically replays queued mutations via `syncOfflineVisits` when the `online` window event fires.
+*   **UI Feedback:**
+    *   **`OfflineIndicator`:** A translucent yellow banner appears globally when `navigator.onLine` is false.
+    *   **Toasts:** Action toasts (e.g., "Visit Saved") change contextually to "Visit Cached" when offline.
+
+### 4. Testing Standards (Industrial Strength)
 The project maintains a rigorous multi-layered testing strategy:
-*   **Unit Tests (Jest):** Standardized using `lib/test-utils/fixtures.ts`. Stores must implement a `reset()` method, which is called automatically before every test in `jest.setup.ts` to ensure isolation.
+*   **Unit Tests (Jest):** Standardized using `lib/test-utils/fixtures.ts`. Stores must implement a `reset()` method.
+    *   **Mocking Rule:** Tests involving stores with side-effects (IDB, Supabase) **MUST** use `jest.doMock` and `require` inside `beforeEach` to ensure strict isolation and prevent module hoisting issues.
 *   **RPC Integration (Jest):** Critical business logic in Postgres is verified via `lib/services/__tests__/supabase-rpc.test.ts`. These tests require valid credentials and run against live data in CI.
 *   **E2E (Playwright):**
     *   **Runtime Audit:** `e2e/runtime-audit.spec.ts` verifies session persistence and hydration health on the live server.
@@ -100,33 +112,31 @@ The project maintains a rigorous multi-layered testing strategy:
         *   **Ghost Tiles:** Map backgrounds are mocked with static PNGs in `e2e/utils.ts` for visual stability.
         *   **Self-Cleaning:** Tests must delete created trips/users in `afterEach`. `deleteTestUser` utility is enhanced to recursively purge Supabase Storage files associated with the user to prevent bucket bloat.
         *   **Accessibility:** Every major view is scanned using `@axe-core/playwright`.
-### 4. ID System (Strict Typing)
+### 5. ID System (Strict Typing)
 To prevent "Dual-ID" confusion, we use branded types in `lib/types.ts`:
 *   **`GooglePlaceId` (string):** Used for API lookups and Map markers.
 *   **`WineryDbId` (number):** The Supabase Primary Key. Used for relational data.
 *   **Rule:** Always cast explicit IDs to these types. Never assume `string | number`.
 
-### 4. Optimistic Updates Strategy
+### 6. Optimistic Updates Strategy
 We use a comprehensive optimistic update strategy to ensure UI responsiveness.
 *   **Pattern:** Update Zustand store immediately -> Call API/RPC -> Revert store on error -> (Optional) Refetch/Confirm on success.
-*   **Key Implementations:**
-    *   **`visitStore`:** Manages a global `visits` list. Optimistically adds/removes visits from both the global list and the specific winery in `wineryDataStore`.
-    *   **`tripStore`:** Optimistically appends wineries to trips and updates both 'Upcoming' and 'Date-specific' lists.
+*   **Offline Handling:** When offline, the "API/RPC" step is replaced by "Add to Offline Queue", and the optimistic update persists.
 
-### 5. Navigation & Map Context Logic
+### 7. Navigation & Map Context Logic
 *   **Active Trip (`selectedTrip`):**
     *   **Activation:** Occurs when a user selects a trip from the dropdown on the Map controls OR clicks the "On Trip" badge in a `WineryModal`.
     *   **Persistence:** This state is global (Zustand) and persists across client-side navigation.
     *   **Reset Rule:** To prevent the map from getting "stuck" on a trip, navigating to or away from a **Trip Details Page** (`/trips/[id]`) **MUST** explicitly clear the active trip (`setSelectedTrip(null)`).
 
-### 6. Trips Tab Architecture
+### 8. Trips Tab Architecture
 The Trips tab is consolidated into a single view managed by `TripList`.
 *   **Happening Today:** Priority section for trips occurring on the current date.
 *   **Upcoming:** Chronological list of future trips.
 *   **Past:** Toggleable view for historical data.
 *   **New Trip:** Integrated modal trigger in the header.
 
-### 7. Friend Request Notifications
+### 9. Friend Request Notifications
 *   **Immediate Fetch:** Friend data, including pending requests, is fetched immediately upon user authentication to ensure notification badges are up-to-date.
 *   **Notification Badges:** Visual indicators (red circles with counts) are displayed on the "Friends" tab.
 
@@ -311,6 +321,12 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 31. **Supabase Edge Function Migration (v2.2.6):** Migrated the Google Places detail proxy from a Next.js API route to a **Supabase Edge Function** (`get-winery-details`). This ensures backend compatibility with mobile Bearer Tokens and strictly adheres to the "Supabase Native" architecture.
 32. **Middleware Security Fix:** Updated `proxy.ts` matcher to explicitly include `/api/` routes, closing a security gap where API authentication checks were being bypassed.
 33. **Type Safety & Maintainability:** Implemented manual `database.types.ts` and refactored stores into separate Data and UI layers (`wineryDataStore.ts` vs `wineryStore.ts`), eliminating `any` types and improving code legibility.
+34. **Robust PWA & Offline Support (v2.2.7):**
+    *   **Offline Queue:** Implemented a mutation queue using IndexedDB (`idb-keyval`) to support creating, editing, and deleting visits while offline.
+    *   **Background Sync:** Added `syncOfflineVisits` to automatically replay queued mutations upon reconnection.
+    *   **Store Persistence:** Enabled `persist` middleware for all major stores (`wineryDataStore`, `tripStore`, `visitStore`) to ensure instant hydration in offline mode.
+    *   **Hydration Fix:** Refactored `wineryDataStore` to merge incoming map markers with existing detailed data, preventing data loss during refresh.
+    *   **Fallback UI:** Implemented `/~offline` page and a translucent `OfflineIndicator` banner for enhanced user feedback.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
