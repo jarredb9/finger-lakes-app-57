@@ -4,6 +4,7 @@ import { persist } from 'zustand/middleware';
 import { Winery, Visit, VisitWithWinery, GooglePlaceId, WineryDbId } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { useWineryStore } from './wineryStore';
+import { addOfflineVisit, getOfflineVisits, removeOfflineVisit, OfflineVisit } from '@/lib/utils/offline-queue';
 
 interface VisitState {
   visits: VisitWithWinery[];
@@ -17,6 +18,7 @@ interface VisitState {
   saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[] }) => Promise<void>;
   updateVisit: (visitId: string, visitData: Partial<Visit>, newPhotos: File[], photosToDelete: string[]) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
+  syncOfflineVisits: () => Promise<void>;
   reset: () => void;
 }
 
@@ -84,11 +86,13 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         const supabase = createClient();
         const { addVisitToWinery, replaceVisit, optimisticallyDeleteVisit, confirmOptimisticUpdate } = useWineryStore.getState();
 
+        // Use getSession for better offline support (getUser requires network often)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) throw new Error("User not authenticated.");
+        const user = session.user;
+
         // Create temporary ID and Visit object
         const tempId = `temp-${Date.now()}`;
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("User not authenticated.");
-
         const tempVisit: VisitWithWinery = {
             id: tempId,
             user_id: user.id,
@@ -112,11 +116,29 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         addVisitToWinery(winery.id, tempVisit);
         set(state => ({ visits: [tempVisit, ...state.visits] }));
 
+        // 2. Offline Handling
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+            console.log("Offline detected. Queuing visit for sync.");
+            const offlineVisit: OfflineVisit = {
+                id: tempId,
+                winery: winery,
+                visitData: {
+                    ...visitData,
+                    photos: visitData.photos // Store Blobs/Files directly in IDB
+                },
+                timestamp: Date.now()
+            };
+            
+            await addOfflineVisit(offlineVisit);
+            set({ isSavingVisit: false });
+            return; // Stop here, sync will handle the rest later
+        }
+
         let uploadedPaths: string[] = [];
         const folderUuid = crypto.randomUUID();
 
         try {
-          // 2. Parallel Uploads (Pre-RPC)
+          // 3. Parallel Uploads (Pre-RPC)
           if (visitData.photos.length > 0) {
             const uploadPromises = visitData.photos.map(async (photoFile) => {
               const fileName = `${Date.now()}-${photoFile.name}`;
@@ -147,7 +169,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             photos: uploadedPaths,
           };
 
-          // 3. Log Visit (Atomic)
+          // 4. Log Visit (Atomic)
           const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
             p_winery_data: rpcWineryData,
             p_visit_data: rpcVisitData,
@@ -162,7 +184,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
               photos: uploadedPaths // Use the real server paths
           };
 
-          // 4. Replace temp visit in both stores
+          // 5. Replace temp visit in both stores
           replaceVisit(winery.id, tempId, finalVisit);
           set(state => ({
               visits: state.visits.map(v => String(v.id) === tempId ? finalVisit : v),
@@ -183,6 +205,102 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           throw error;
         } finally {
           set({ isSavingVisit: false });
+        }
+      },
+
+      syncOfflineVisits: async () => {
+        const offlineVisits = await getOfflineVisits();
+        if (offlineVisits.length === 0) return;
+
+        console.log(`Syncing ${offlineVisits.length} offline visits...`);
+        const supabase = createClient();
+        const { replaceVisit } = useWineryStore.getState();
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return; // Can't sync if not logged in
+
+        for (const visit of offlineVisits) {
+            try {
+                // Reuse logic similar to saveVisit but for specific IDB items
+                let uploadedPaths: string[] = [];
+                const folderUuid = crypto.randomUUID(); // New folder for each visit
+                
+                // 1. Upload Photos
+                if (visit.visitData.photos.length > 0) {
+                    const uploadPromises = visit.visitData.photos.map(async (blob) => {
+                        // Cast blob to File if needed or just upload blob with metadata
+                        const file = blob as File; // IDB stores Files as is
+                        const fileName = `${Date.now()}-${file.name || 'photo.jpg'}`;
+                        const filePath = `${session.user.id}/${folderUuid}/${fileName}`;
+                        const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file);
+                        if (uploadError) throw uploadError;
+                        return filePath;
+                    });
+                    uploadedPaths = await Promise.all(uploadPromises);
+                }
+
+                // 2. Prepare RPC Data
+                const rpcWineryData = {
+                    id: visit.winery.id,
+                    name: visit.winery.name,
+                    address: visit.winery.address,
+                    lat: visit.winery.lat,
+                    lng: visit.winery.lng,
+                    phone: visit.winery.phone || null,
+                    website: visit.winery.website || null,
+                    rating: visit.winery.rating || null,
+                };
+
+                const rpcVisitData = {
+                    visit_date: visit.visitData.visit_date,
+                    user_review: visit.visitData.user_review,
+                    rating: visit.visitData.rating > 0 ? visit.visitData.rating : 1,
+                    photos: uploadedPaths,
+                };
+
+                // 3. Call RPC
+                const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
+                    p_winery_data: rpcWineryData,
+                    p_visit_data: rpcVisitData,
+                });
+
+                if (rpcError) throw rpcError;
+
+                // 4. Success: Update Store & Clean IDB
+                const finalVisit: VisitWithWinery = {
+                    id: rpcResult.visit_id,
+                    user_id: session.user.id,
+                    visit_date: visit.visitData.visit_date,
+                    rating: visit.visitData.rating,
+                    user_review: visit.visitData.user_review,
+                    photos: uploadedPaths,
+                    wineryName: visit.winery.name,
+                    wineryId: visit.winery.id,
+                    wineries: {
+                        id: visit.winery.dbId || 0 as WineryDbId,
+                        google_place_id: visit.winery.id,
+                        name: visit.winery.name,
+                        address: visit.winery.address,
+                        latitude: visit.winery.lat.toString(),
+                        longitude: visit.winery.lng.toString(),
+                    }
+                };
+
+                replaceVisit(visit.winery.id, visit.id, finalVisit);
+                set(state => ({
+                    visits: state.visits.map(v => String(v.id) === visit.id ? finalVisit : v),
+                    lastMutation: Date.now()
+                }));
+
+                await removeOfflineVisit(visit.id);
+                console.log(`Synced visit ${visit.id}`);
+
+            } catch (error) {
+                console.error(`Failed to sync visit ${visit.id}:`, error);
+                // On permanent failure, we might want to notify the user or keep retrying.
+                // For now, we leave it in the queue.
+                // Optionally remove the optimistic visit if it's a fatal 400 error to avoid stale UI?
+                // Keeping it is safer for user data retention.
+            }
         }
       },
 

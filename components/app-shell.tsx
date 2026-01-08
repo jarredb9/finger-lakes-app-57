@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AuthenticatedUser } from "@/lib/types";
 import { WineryMapProvider } from "@/components/winery-map-context";
 import WineryMap from "@/components/WineryMap";
@@ -25,6 +25,7 @@ import { useFriendStore } from "@/lib/stores/friendStore";
 import { VisitHistoryModal } from "@/components/visit-history-modal";
 
 import { OfflineIndicator } from "@/components/offline-indicator";
+import { useVisitStore } from "@/lib/stores/visitStore";
 
 const WineryModal = dynamic(() => import("@/components/winery-modal"), {
   ssr: false,
@@ -43,6 +44,17 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
   const { friendRequests } = useFriendStore();
 
   const friendRequestCount = friendRequests.length;
+
+  // Sync offline visits on mount and when coming back online
+  useEffect(() => {
+    const sync = () => useVisitStore.getState().syncOfflineVisits();
+    
+    // Try to sync immediately on load
+    sync();
+
+    window.addEventListener("online", sync);
+    return () => window.removeEventListener("online", sync);
+  }, []);
 
   // Handle mobile nav click
   const handleMobileNav = (tab: "explore" | "trips" | "friends" | "history") => {
