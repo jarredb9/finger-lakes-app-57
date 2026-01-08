@@ -36,8 +36,8 @@ function isGoogleWinery(source: any): source is GoogleWinery {
 function isMapMarkerRpc(source: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData): source is MapMarkerRpc {
   // Must have MapMarker fields
   const hasFields = 'is_favorite' in source && 'on_wishlist' in source && 'user_visited' in source && 'id' in source;
-  // Must NOT have detailed fields (otherwise it's WineryDetailsRpc)
-  const isNotDetailed = !('opening_hours' in source) && !('visits' in source);
+  // Must NOT have detailed fields (visits distinguishes it from WineryDetailsRpc)
+  const isNotDetailed = !('visits' in source);
   
   return hasFields && isNotDetailed;
 }
