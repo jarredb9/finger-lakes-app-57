@@ -24,6 +24,8 @@ import { InteractiveBottomSheet, SheetMode } from "@/components/ui/interactive-b
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { VisitHistoryModal } from "@/components/visit-history-modal";
 
+import { OfflineIndicator } from "@/components/offline-indicator";
+
 const WineryModal = dynamic(() => import("@/components/winery-modal"), {
   ssr: false,
 });
@@ -67,6 +69,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
   return (
       <div className="flex h-screen w-screen overflow-hidden flex-col md:flex-row relative">
         <h1 className="sr-only">Winery Visit Planner and Tracker</h1>
+        <OfflineIndicator />
         <WineryModal />
         <VisitHistoryModal />
         
