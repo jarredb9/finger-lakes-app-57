@@ -1,5 +1,5 @@
 import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist, NetworkOnly, CacheFirst, NetworkFirst, StaleWhileRevalidate } from "serwist";
+import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate } from "serwist";
 import { ExpirationPlugin } from "serwist";
 
 declare global {
@@ -78,15 +78,15 @@ const serwist = new Serwist({
         ],
       }),
     },
-    // Cache documents (pages) with NetworkFirst
+    // Cache documents (pages) with StaleWhileRevalidate for instant PWA load
     {
       matcher: ({ request }) => request.destination === "document",
-      handler: new NetworkFirst({
+      handler: new StaleWhileRevalidate({
         cacheName: "pages",
         plugins: [
           new ExpirationPlugin({
-            maxEntries: 32,
-            maxAgeSeconds: 24 * 60 * 60, // 24 hours
+            maxEntries: 64,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
           }),
         ],
       }),
