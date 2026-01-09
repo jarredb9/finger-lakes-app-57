@@ -1,4 +1,5 @@
 import { createClient } from "@/utils/supabase/server"
+import { DebugClientTools } from "@/components/debug-client-tools"
 
 export default async function DebugPage() {
   const supabase = await createClient()
@@ -27,6 +28,9 @@ export default async function DebugPage() {
     <div className="min-h-screen bg-gray-50 py-12 px-4">
       <div className="max-w-4xl mx-auto space-y-8">
         <h1 className="text-3xl font-bold text-center">Debug Information</h1>
+
+        {/* Client Tools */}
+        <DebugClientTools />
 
         {/* Current User */}
         <div className="bg-white p-6 rounded-lg shadow">

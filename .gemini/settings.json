@@ -35,7 +35,7 @@
       ]
     },
     "supabase": {
-      "httpUrl": "https://mcp.supabase.com/mcp?project_ref=jfsxclrdxmvftxacjuqf"
+      "httpUrl": "https://mcp.supabase.com/mcp"
     },
     "pg-aiguide": {
       "url": "https://mcp.tigerdata.com/docs"
