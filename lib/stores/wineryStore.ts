@@ -59,7 +59,11 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
     const dataStore = useWineryDataStore.getState();
     const existing = dataStore.getWinery(placeId);
 
-    if (existing && existing.openingHours !== undefined) {
+    // Optimization: Return cached details if we have them
+    // BUT verify we aren't missing user data (visits) if we know they visited
+    const hasMissingVisits = existing?.userVisited && (!existing.visits || existing.visits.length === 0);
+
+    if (existing && existing.openingHours !== undefined && !hasMissingVisits) {
         return existing;
     }
 
