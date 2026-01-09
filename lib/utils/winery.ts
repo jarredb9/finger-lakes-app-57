@@ -152,7 +152,16 @@ export const standardizeWineryData = (
   const userVisited = isMapMarkerRpc(source) ? source.user_visited : (isWineryDetailsRpc(source) ? source.user_visited : ((source as DbWineryWithUserData).user_visited ?? existing?.userVisited ?? false));
   const onWishlist = isMapMarkerRpc(source) ? source.on_wishlist : (isWineryDetailsRpc(source) ? source.on_wishlist : ((source as DbWineryWithUserData).on_wishlist ?? existing?.onWishlist ?? false));
   const isFavorite = isMapMarkerRpc(source) ? source.is_favorite : (isWineryDetailsRpc(source) ? source.is_favorite : ((source as DbWineryWithUserData).is_favorite ?? existing?.isFavorite ?? false));
-  const visits = (isWineryDetailsRpc(source) && source.visits) ? source.visits : ((source as DbWineryWithUserData).visits || existing?.visits || []);
+  
+  // Logic to preserve existing visits unless new data overrides it
+  // CRITICAL FIX: If source explicitly says userVisited is false, we MUST clear the visits array to prevent "ghost visits"
+  // from persisting in the local cache after a deletion sync.
+  let visits = (isWineryDetailsRpc(source) && source.visits) ? source.visits : ((source as DbWineryWithUserData).visits || existing?.visits || []);
+  
+  if ('user_visited' in source && source.user_visited === false) {
+      visits = [];
+  }
+
   const trip_id = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_id) ? source.trip_info[0].trip_id : ((source as DbWineryWithUserData).trip_id || existing?.trip_id);
   const trip_name = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_name) ? source.trip_info[0].trip_name : ((source as DbWineryWithUserData).trip_name || existing?.trip_name);
   const trip_date = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_date) ? source.trip_info[0].trip_date : ((source as DbWineryWithUserData).trip_date || existing?.trip_date);
