@@ -44,7 +44,9 @@ function isMapMarkerRpc(source: DbWinery | GoogleWinery | MapMarkerRpc | WineryD
 
 // Helper to check if a source is WineryDetailsRpc
 function isWineryDetailsRpc(source: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData): source is WineryDetailsRpc {
-    return 'visits' in source && 'trip_info' in source && 'opening_hours' in source; // Using more specific properties
+    // We check for visits and opening_hours to distinguish from MapMarkerRpc
+    // trip_info is optional or might be missing in some RPC versions
+    return 'visits' in source && 'opening_hours' in source; 
 }
 
 // Helper to check if a source has raw DbWinery properties (without extended user data from RPC)

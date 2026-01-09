@@ -46,7 +46,7 @@ export interface WineryDetailsRpc {
   on_wishlist: boolean;
   user_visited: boolean;
   visits: Visit[]; // Assuming this RPC also returns visits
-  trip_info: any; // Untyped for now as we don't use it directly
+  trip_info?: any; // Optional as it's not always returned
 }
 
 // A more complete DbWinery type that includes the joined user data from RPCs
