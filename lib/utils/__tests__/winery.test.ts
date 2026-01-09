@@ -56,4 +56,29 @@ describe('standardizeWineryData', () => {
     expect(result?.visits).toHaveLength(1); // Should preserve existing visits
     expect(result?.visits?.[0].id).toBe(existingVisit.id);
   });
+
+  it('correctly identifies RPC data even without trip_info', () => {
+    // 1. Mock RPC data (WineryDetailsRpc without trip_info)
+    const rpcData: any = {
+      id: 123 as WineryDbId,
+      google_place_id: 'ChIJ-mock-id',
+      name: 'Mock Winery',
+      address: '123 Fake St',
+      lat: 42,
+      lng: -76,
+      visits: [{ id: 'visit-1', visit_date: '2023-01-01', user_review: 'Great!' }],
+      opening_hours: { weekday_text: ['Mon: Open'] },
+      user_visited: true,
+      is_favorite: false,
+      on_wishlist: false
+    };
+
+    // 2. Execution
+    const result = standardizeWineryData(rpcData);
+
+    // 3. Assertion
+    expect(result).not.toBeNull();
+    expect(result?.visits).toHaveLength(1);
+    expect(result?.visits?.[0].user_review).toBe('Great!');
+  });
 });
