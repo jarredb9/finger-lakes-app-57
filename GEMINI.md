@@ -316,17 +316,22 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Contrast Fixes:** Updated login links to use darker blue (`text-blue-800`) and permanent underlines for WCAG compliance.
     *   **Form Feedback:** Added `aria-live="polite"` to form validation messages and `role="alert"` to friend request errors for screen reader announcements.
     *   **Empty State CTA:** Added a "Browse Wineries" button to the Trips tab when no trips exist, linking directly to the Explore view.
-29. **Parallel Photo Uploads (v2.2.6):** Refactored `visitStore.ts` to implement a parallel upload strategy for visit photos using optimistic updates with 'blob:' URLs, backed by Supabase Storage and an atomic `log_visit` RPC. This replaces the previous multi-step update process with a more robust and faster atomic transaction.
+29. **Parallel Photo Uploads:** Refactored `visitStore.ts` to implement a parallel upload strategy for visit photos using optimistic updates with 'blob:' URLs, backed by Supabase Storage and an atomic `log_visit` RPC. This replaces the previous multi-step update process with a more robust and faster atomic transaction.
 30. **Photo Management E2E Coverage:** Implemented `e2e/photo-flow.spec.ts` for real-world integration testing of the photo lifecycle (add/verify/delete) within the storage and database loop. Enhanced `deleteTestUser` utility in `e2e/utils.ts` to perform recursive storage cleanup, ensuring tests leave zero orphaned artifacts in the Supabase bucket.
-31. **Supabase Edge Function Migration (v2.2.6):** Migrated the Google Places detail proxy from a Next.js API route to a **Supabase Edge Function** (`get-winery-details`). This ensures backend compatibility with mobile Bearer Tokens and strictly adheres to the "Supabase Native" architecture.
+31. **Supabase Edge Function Migration:** Migrated the Google Places detail proxy from a Next.js API route to a **Supabase Edge Function** (`get-winery-details`). This ensures backend compatibility with mobile Bearer Tokens and strictly adheres to the "Supabase Native" architecture.
 32. **Middleware Security Fix:** Updated `proxy.ts` matcher to explicitly include `/api/` routes, closing a security gap where API authentication checks were being bypassed.
 33. **Type Safety & Maintainability:** Implemented manual `database.types.ts` and refactored stores into separate Data and UI layers (`wineryDataStore.ts` vs `wineryStore.ts`), eliminating `any` types and improving code legibility.
-34. **Robust PWA & Offline Support (v2.2.7):**
+34. **Robust PWA & Offline Support:**
     *   **Offline Queue:** Implemented a mutation queue using IndexedDB (`idb-keyval`) to support creating, editing, and deleting visits while offline.
     *   **Background Sync:** Added `syncOfflineVisits` to automatically replay queued mutations upon reconnection.
     *   **Store Persistence:** Enabled `persist` middleware for all major stores (`wineryDataStore`, `tripStore`, `visitStore`) to ensure instant hydration in offline mode.
     *   **Hydration Fix:** Refactored `wineryDataStore` to merge incoming map markers with existing detailed data, preventing data loss during refresh.
     *   **Fallback UI:** Implemented `/~offline` page and a translucent `OfflineIndicator` banner for enhanced user feedback.
+35. **Data Consistency & Recovery:**
+    *   **Ghost Status Fix:** Updated `standardizeWineryData` to forcibly clear local `visits` if the server reports `user_visited: false`, ensuring pins correctly revert to "New" status.
+    *   **Cache Recovery:** Enhanced `ensureWineryDetails` to bypass the local cache and force a fresh fetch if a winery is marked as visited but has zero visits locally. This resolves "Hidden Visit" bugs for existing stale caches.
+    *   **Debug Tools:** Implemented a "Hard Reset Cache" tool on the `/debug` page to allow manual purging of local data stores in extreme sync failure scenarios.
+    *   **Type Safety:** Relaxed RPC type guards to handle optional `trip_info` fields, ensuring consistent data merging across different API versions.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.

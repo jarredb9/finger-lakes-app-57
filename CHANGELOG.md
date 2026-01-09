@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.2.7] - 2026-01-09
+
+**Offline Reliability & Data Consistency**
+
+Version 2.2.7 hardens the application's offline-first capabilities and resolves critical data consistency edge cases. We have implemented a robust mutation queue for offline interactions and added self-healing logic to prevent "Ghost Visits" where local cache could drift from the server state.
+
+### 🚀 Features
+*   **Offline Mutation Queue:**
+    *   **Full CRUD Support:** Users can now create, edit, and delete visits while offline. Actions are queued locally in IndexedDB and automatically synchronized when the connection is restored.
+    *   **Background Sync:** The `visitStore` now actively monitors network status to replay queued mutations without user intervention.
+*   **Offline Map Experience:**
+    *   **Tile Fallbacks:** Improved map rendering during offline sessions to gracefully handle missing tiles.
+    *   **Local Search:** Enhanced the ability to search and interact with previously cached wineries without a network connection.
+*   **Debug Tools:**
+    *   **Cache Management:** Added a user-facing "Clear Cache" tool in the debug menu, allowing for manual resolution of stuck data states if necessary.
+
+### 🐛 Bug Fixes
+*   **Data Consistency (Ghost Visits):**
+    *   **Stale Cache Recovery:** Fixed an issue where wineries marked as "Visited" on the server but missing visit details locally would remain in a broken state. The app now forces a fresh fetch to resolve this discrepancy.
+    *   **Visit Reversion:** Fixed a bug where clearing all visits for a winery failed to revert its status to "Unvisited" locally. `standardizeWineryData` now explicitly clears the visits array when the server reports `user_visited: false`.
+*   **Type Safety:**
+    *   **RPC Compatibility:** Relaxed `isWineryDetailsRpc` type guards to correctly handle optional `trip_info` fields, ensuring consistent data merging across different API response shapes.
+
 ## [2.2.6] - 2026-01-07
 
 **Supabase Native Architecture Completion & UX Polish**
