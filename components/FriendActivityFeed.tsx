@@ -93,12 +93,16 @@ export default function FriendActivityFeed() {
 
             {item.visit_photos && item.visit_photos.length > 0 && (
                <div className="flex gap-2 overflow-x-auto pb-2 pt-1 scrollbar-hide">
-                  {/* Since photos might be private paths, we ideally need signed URLs. 
-                      Displaying placeholders or indicating photos exist for now. 
-                      In a real implementation, we'd sign these URLs. */}
-                  <div className="flex items-center justify-center bg-muted h-16 w-16 rounded-md shrink-0">
-                     <span className="text-xs text-muted-foreground">{item.visit_photos.length} photos</span>
-                  </div>
+                  {item.visit_photos.map((photo, i) => (
+                    <div key={i} className="relative h-20 w-20 shrink-0 rounded-md overflow-hidden border bg-muted">
+                      <img 
+                        src={photo} 
+                        alt={`Visit photo ${i + 1}`}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  ))}
                </div>
             )}
           </CardContent>

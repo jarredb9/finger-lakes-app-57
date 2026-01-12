@@ -205,10 +205,19 @@ export async function mockGoogleMapsApi(page: Page) {
 }
 
 export async function createTestUser(): Promise<TestUser> {
-  const email = `test-${uuidv4()}@example.com`;
-  const password = `pass-${uuidv4()}`;
-  const { data, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true });
-  if (error || !data.user) throw new Error(`Failed: ${error?.message}`);
+  const id = uuidv4();
+  const email = `test-${id}@example.com`;
+  const password = `pass-${id}`;
+  const name = `Test User ${id.slice(0, 8)}`;
+  
+  const { data, error } = await supabase.auth.admin.createUser({ 
+    email, 
+    password, 
+    email_confirm: true,
+    user_metadata: { name }
+  });
+  
+  if (error || !data.user) throw new Error(`Failed to create test user: ${error?.message}`);
   return { id: data.user.id, email, password };
 }
 

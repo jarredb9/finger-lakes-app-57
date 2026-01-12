@@ -92,8 +92,28 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       
       if (error) throw error;
 
-      set({ friendActivityFeed: data || [] });
+      let feedItems: FriendActivityItem[] = data || [];
+
+      // Collect all photo paths
+      const allPhotos = feedItems.flatMap((item) => item.visit_photos || []);
+      
+      if (allPhotos.length > 0) {
+        const { data: signedUrlsData, error: signedError } = await supabase.storage
+          .from('visit-photos')
+          .createSignedUrls(allPhotos, 3600);
+        
+        if (!signedError && signedUrlsData) {
+          const urlMap = new Map(signedUrlsData.map(u => [u.path, u.signedUrl]));
+          feedItems = feedItems.map(item => ({
+            ...item,
+            visit_photos: item.visit_photos?.map(p => urlMap.get(p) || p) || []
+          }));
+        }
+      }
+
+      set({ friendActivityFeed: feedItems });
     } catch (error: any) {
+      console.error('Error fetching friend activity feed:', error);
       // Don't set global error state here to avoid blocking other UI
     } finally {
       set({ isLoading: false });

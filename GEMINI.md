@@ -333,6 +333,10 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Debug Tools:** Implemented a "Hard Reset Cache" tool on the `/debug` page to allow manual purging of local data stores in extreme sync failure scenarios.
     *   **Type Safety:** Relaxed RPC type guards to handle optional `trip_info` fields, ensuring consistent data merging across different API versions.
 36. **PWA Reliability (iOS Offline Cold Start):** Switched the Service Worker caching strategy for documents (pages) from `NetworkFirst` to `StaleWhileRevalidate` with a 30-day expiration. This resolves a critical issue on iOS where the app would fail to open from a cold start in "lie-fi" or offline conditions.
+37. **Fixed "Want to Go" 404 (Schema Drift):** Resolved a critical bug where the `toggle_wishlist` RPC was missing from the remote database despite having a migration file. Manually re-applied the SQL with `SECURITY DEFINER` and `SET search_path = public` to restore functionality.
+38. **PWA Storage Reliability:** Fixed `QuotaExceededError` in the Service Worker by reducing the `google-maps-tiles` cache limit from 1000 to 200 items and enabling `purgeOnQuotaError`. This prevents the browser cache from filling up with map tiles.
+39. **Social Activity Feed:** Implemented the frontend for the Friend Activity Feed (`FriendActivityFeed.tsx`) and integrated it into the Friends Manager. Added `fetchFriendActivityFeed` to `friendStore.ts` and defined the RPC type in `database.types.ts`.
+40. **Mobile Navigation Polish:** Improved mobile UX by removing redundant tabs from the `InteractiveBottomSheet` and adding a dedicated "History" button to the mobile bottom navigation bar in `app-shell.tsx`.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
