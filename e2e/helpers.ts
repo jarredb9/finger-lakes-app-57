@@ -15,20 +15,33 @@ export function getSidebarContainer(page: Page): Locator {
 
 // --- Helper to dismiss Next.js Error Overlay ---
 async function dismissErrorOverlay(page: Page) {
+  // Strategy 1: CSS Injection (Most Robust)
+  // This effectively "deletes" the portal visually and interaction-wise even if it appears later
+  await page.addStyleTag({ 
+    content: `
+      nextjs-portal { 
+        display: none !important; 
+        pointer-events: none !important; 
+        visibility: hidden !important;
+      }
+    ` 
+  });
+
+  // Strategy 2: Immediate Removal (for existing ones)
   // Check for the Next.js portal which intercepts events
   const portal = page.locator('nextjs-portal');
   if (await portal.count() > 0 && await portal.isVisible()) {
     console.log('[Helper] Detected Next.js Error Overlay. Attempting to extract error and dismiss...');
     
-    // Extract error text if possible (shadow DOM might make this tricky, but innerText often works)
+    // Extract error text if possible
     try {
         const errorText = await portal.evaluate(el => el.shadowRoot?.textContent || el.textContent);
-        console.log('[Helper] Next.js Overlay Content:', errorText?.slice(0, 500)); // Log first 500 chars
+        console.log('[Helper] Next.js Overlay Content:', errorText?.slice(0, 500)); 
     } catch (e) {
         console.log('[Helper] Could not extract error text.');
     }
 
-    // Force remove the portal from the DOM to unblock clicks
+    // Force remove
     await page.evaluate(() => {
       const p = document.querySelector('nextjs-portal');
       if (p) p.remove();
