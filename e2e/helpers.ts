@@ -64,15 +64,32 @@ export async function login(page: Page, email: string, pass: string) {
   // Use Enter key to submit, which is often more reliable on Mobile Safari
   await page.getByLabel('Password').press('Enter');
   
-  // Wait for login to complete
+  // Wait for login to complete with retry logic for invalid credentials flake
   // On mobile, we look for the bottom nav. On desktop, the sidebar header.
   const viewport = page.viewportSize();
   const isMobile = viewport && viewport.width < 768;
 
-  if (isMobile) {
-      await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
-  } else {
-      await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
+  try {
+    if (isMobile) {
+        await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
+    } else {
+        await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
+    }
+  } catch (e) {
+    // Check for "Invalid login credentials" toast or error
+    if (await page.getByText('Invalid login credentials').isVisible()) {
+        console.log('[Helper] Login failed with invalid credentials. Retrying...');
+        await page.getByLabel('Password').fill(pass);
+        await page.getByLabel('Password').press('Enter');
+        
+        if (isMobile) {
+            await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
+        } else {
+            await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
+        }
+    } else {
+        throw e;
+    }
   }
   await dismissErrorOverlay(page); // Check after login
 }
