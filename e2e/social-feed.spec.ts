@@ -36,6 +36,7 @@ test.describe('Social Activity Feed Flow', () => {
         await page.route(/\/rpc\/respond_to_friend_request/, async route => await route.continue());
         await page.route(/\/rpc\/get_friend_activity_feed/, async route => await route.continue());
         await page.route(/\/rpc\/log_visit/, async route => await route.continue());
+        await page.route(/\/rpc\/get_paginated_visits_with_winery_and_friends/, async route => await route.continue());
         // We leave get_map_markers MOCKED. This means the UI will show "Mock Winery One".
         // When we log a visit, it will send the mock winery data to the Real DB.
         // The real DB's log_visit -> ensure_winery logic will create/update this mock winery row.

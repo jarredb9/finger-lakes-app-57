@@ -84,7 +84,8 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
     const bottomNavNames: Record<string, string> = {
       'Explore': 'Explore',
       'Trips': 'Trips',
-      'Friends': 'Friends'
+      'Friends': 'Friends',
+      'History': 'History'
     };
 
     if (bottomNavNames[tabName]) {
@@ -95,51 +96,11 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
       // Wait for the sheet to appear
       await expect(page.getByTestId('mobile-sidebar-container')).toBeVisible({ timeout: 5000 });
       
-      // Ensure the sheet is actually on the right tab after opening
-      const sidebar = page.getByTestId('mobile-sidebar-container');
-      const tab = sidebar.getByRole('tab', { name: tabName });
-      
-      if (await tab.isVisible()) {
-          await tab.click();
-      }
+      // NOTE: We no longer click the tab *inside* the sidebar on mobile because 
+      // AppShell passes `hideTabs={true}` to AppSidebar when in the mobile sheet.
+      // The bottom nav button itself sets the active tab state.
     } else {
-      // For tabs inside the sheet (like History)
-      let isSheetOpen = await page.getByTestId('mobile-sidebar-container').isVisible();
-      if (!isSheetOpen) {
-        await page.getByRole('button', { name: 'Explore' }).click();
-        await expect(page.getByTestId('mobile-sidebar-container')).toBeVisible({ timeout: 5000 });
-      }
-      
-      const expandButton = page.getByRole('button', { name: 'Expand to full screen' });
-      if (await expandButton.isVisible()) {
-        await expandButton.scrollIntoViewIfNeeded();
-        await expandButton.click();
-        
-        // Wait for animation by ensuring a known element is stable or checking attribute
-        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/);
-      }
-
-      // Ensure tab list is there and visible
-      const sidebar = page.getByTestId('mobile-sidebar-container');
-      const tabsList = sidebar.locator('[role="tablist"]');
-      await expect(tabsList).toBeVisible({ timeout: 10000 });
-
-      // Use a very specific selector for the mobile tab trigger to avoid any ambiguity
-      const tabToClick = sidebar.locator(`button[role="tab"][aria-label="${tabName}"]`).first();
-      
-      await tabToClick.scrollIntoViewIfNeeded();
-      
-      // NOTE: We dispatch a full pointer event sequence here because Radix UI primitives 
-      // sometimes fail to trigger 'click' events in Playwright's mobile emulation 
-      // without the preceding pointer/mouse down events.
-      await tabToClick.evaluate(node => {
-          const opts = { bubbles: true, cancelable: true, view: window };
-          node.dispatchEvent(new PointerEvent('pointerdown', opts));
-          node.dispatchEvent(new MouseEvent('mousedown', opts));
-          node.dispatchEvent(new PointerEvent('pointerup', opts));
-          node.dispatchEvent(new MouseEvent('mouseup', opts));
-          node.dispatchEvent(new MouseEvent('click', opts));
-      });
+       throw new Error(`Tab "${tabName}" is not defined in bottom navigation for mobile.`);
     }
   } else {
       const sidebar = page.getByTestId('desktop-sidebar-container');
