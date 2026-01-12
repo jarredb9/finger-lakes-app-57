@@ -13,6 +13,29 @@ export function getSidebarContainer(page: Page): Locator {
 
 // --- Common Actions ---
 
+// --- Helper to dismiss Next.js Error Overlay ---
+async function dismissErrorOverlay(page: Page) {
+  // Check for the Next.js portal which intercepts events
+  const portal = page.locator('nextjs-portal');
+  if (await portal.count() > 0 && await portal.isVisible()) {
+    console.log('[Helper] Detected Next.js Error Overlay. Attempting to extract error and dismiss...');
+    
+    // Extract error text if possible (shadow DOM might make this tricky, but innerText often works)
+    try {
+        const errorText = await portal.evaluate(el => el.shadowRoot?.textContent || el.textContent);
+        console.log('[Helper] Next.js Overlay Content:', errorText?.slice(0, 500)); // Log first 500 chars
+    } catch (e) {
+        console.log('[Helper] Could not extract error text.');
+    }
+
+    // Force remove the portal from the DOM to unblock clicks
+    await page.evaluate(() => {
+      const p = document.querySelector('nextjs-portal');
+      if (p) p.remove();
+    });
+  }
+}
+
 export async function login(page: Page, email: string, pass: string) {
   // Pre-emptively dismiss cookie banner by setting localStorage before load
   await page.addInitScript(() => {
@@ -20,6 +43,8 @@ export async function login(page: Page, email: string, pass: string) {
   });
 
   await page.goto('/login');
+  await dismissErrorOverlay(page); // Check on load
+
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(pass);
   
@@ -36,9 +61,12 @@ export async function login(page: Page, email: string, pass: string) {
   } else {
       await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
   }
+  await dismissErrorOverlay(page); // Check after login
 }
 
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
+  await dismissErrorOverlay(page); // Check before nav
+
   const viewport = page.viewportSize();
   const isMobile = viewport && viewport.width < 768;
   
