@@ -20,6 +20,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+import FriendActivityFeed from "@/components/FriendActivityFeed";
+
 export default function FriendsManager() {
   const { toast } = useToast();
   const { friends, friendRequests, sentRequests, fetchFriends, addFriend, acceptFriend, rejectFriend, removeFriend, isLoading, error } = useFriendStore();
@@ -143,6 +145,8 @@ export default function FriendsManager() {
           </CardContent>
         </Card>
       )}
+
+      <FriendActivityFeed />
 
       <Card>
         <CardHeader>

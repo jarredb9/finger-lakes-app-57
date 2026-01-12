@@ -332,6 +332,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Cache Recovery:** Enhanced `ensureWineryDetails` to bypass the local cache and force a fresh fetch if a winery is marked as visited but has zero visits locally. This resolves "Hidden Visit" bugs for existing stale caches.
     *   **Debug Tools:** Implemented a "Hard Reset Cache" tool on the `/debug` page to allow manual purging of local data stores in extreme sync failure scenarios.
     *   **Type Safety:** Relaxed RPC type guards to handle optional `trip_info` fields, ensuring consistent data merging across different API versions.
+36. **PWA Reliability (iOS Offline Cold Start):** Switched the Service Worker caching strategy for documents (pages) from `NetworkFirst` to `StaleWhileRevalidate` with a 30-day expiration. This resolves a critical issue on iOS where the app would fail to open from a cold start in "lie-fi" or offline conditions.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.

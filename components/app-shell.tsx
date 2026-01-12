@@ -6,7 +6,7 @@ import { WineryMapProvider } from "@/components/winery-map-context";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, User as UserIcon, LogOut, FileText, Shield } from "lucide-react";
+import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, User as UserIcon, LogOut, FileText, Shield, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GoogleMapsProvider } from "@/components/google-maps-provider";
 import dynamic from "next/dynamic";
@@ -205,6 +205,14 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                   </span>
                 )}
             </Button>
+            <Button 
+                variant="ghost" 
+                className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "history" && isMobileSheetOpen && "text-primary")}
+                onClick={() => handleMobileNav("history")}
+            >
+                <Clock className="h-5 w-5" />
+                <span className="text-[10px]">History</span>
+            </Button>
         </div>
 
         {/* Custom Mobile Bottom Sheet */}
@@ -221,6 +229,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                 className="border-none h-full"
                 activeTab={activeTab}
                 onTabChange={(val) => setActiveTab(val as any)}
+                hideTabs={true}
             />
         </InteractiveBottomSheet>
       </div>

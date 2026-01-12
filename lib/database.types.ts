@@ -318,6 +318,23 @@ export interface Database {
       [_ in never]: never
     }
     Functions: {
+      get_friend_activity_feed: {
+        Args: {
+          limit_val?: number
+        }
+        Returns: {
+          activity_type: string
+          created_at: string
+          user_id: string
+          user_name: string
+          user_email: string
+          winery_id: number
+          winery_name: string
+          visit_rating: number | null
+          visit_review: string | null
+          visit_photos: string[] | null
+        }[]
+      }
       get_friends_activity_for_winery: {
         Args: {
           winery_id_param: number

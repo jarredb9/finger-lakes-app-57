@@ -41,8 +41,9 @@ const serwist = new Serwist({
           cacheName: "google-maps-tiles",
           plugins: [
             new ExpirationPlugin({
-              maxEntries: 1000,
+              maxEntries: 200,
               maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+              purgeOnQuotaError: true,
             }),
           ],
         });
@@ -72,8 +73,9 @@ const serwist = new Serwist({
         cacheName: "static-assets",
         plugins: [
           new ExpirationPlugin({
-            maxEntries: 500,
+            maxEntries: 200,
             maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+            purgeOnQuotaError: true,
           }),
         ],
       }),

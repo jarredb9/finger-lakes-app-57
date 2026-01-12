@@ -16,15 +16,30 @@ interface FriendActivityData {
   wishlistedBy: Friend[];
 }
 
+export interface FriendActivityItem {
+  activity_type: string;
+  created_at: string;
+  user_id: string;
+  user_name: string;
+  user_email: string;
+  winery_id: number;
+  winery_name: string;
+  visit_rating: number | null;
+  visit_review: string | null;
+  visit_photos: string[] | null;
+}
+
 interface FriendState {
   friends: Friend[];
   friendRequests: Friend[];
   sentRequests: Friend[];
+  friendActivityFeed: FriendActivityItem[];
   isLoading: boolean;
   error: string | null;
   friendsRatings: FriendRating[];
   friendsActivity: FriendActivityData;
   fetchFriends: () => Promise<void>;
+  fetchFriendActivityFeed: () => Promise<void>;
   addFriend: (email: string) => Promise<void>;
   acceptFriend: (requesterId: string) => Promise<void>;
   rejectFriend: (requesterId: string) => Promise<void>;
@@ -38,6 +53,7 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   friends: [],
   friendRequests: [],
   sentRequests: [],
+  friendActivityFeed: [],
   isLoading: false,
   error: null,
   friendsRatings: [],
@@ -62,8 +78,25 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
           isLoading: false 
       });
     } catch (error: any) {
-      console.error(error);
       set({ isLoading: false, error: error.message });
+    }
+  },
+
+  fetchFriendActivityFeed: async () => {
+    // Only set loading if not already loading friends (to avoid double spinner)
+    if (!get().isLoading) set({ isLoading: true });
+    
+    const supabase = createClient();
+    try {
+      const { data, error } = await supabase.rpc('get_friend_activity_feed');
+      
+      if (error) throw error;
+
+      set({ friendActivityFeed: data || [] });
+    } catch (error: any) {
+      // Don't set global error state here to avoid blocking other UI
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -106,7 +139,6 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
 
       if (error) throw error;
     } catch (error) {
-      console.error("Failed to remove friend, reverting:", error);
       // Revert state
       if (isFriend) set({ friends: originalFriends });
       if (isSentRequest) set({ sentRequests: originalSentRequests });
@@ -145,7 +177,6 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       
       await get().fetchFriends(); 
     } catch (error) {
-      console.error("Failed to respond to friend request, reverting:", error);
       set({ friends: originalFriends, friendRequests: originalRequests });
       throw error;
     }
@@ -154,7 +185,6 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   fetchFriendDataForWinery: async (wineryId: WineryDbId) => {
     // Runtime guard: Ensure wineryId is a number
     if (typeof wineryId !== 'number') {
-        console.warn('fetchFriendDataForWinery called with invalid ID type:', typeof wineryId, wineryId);
         return;
     }
 
@@ -168,7 +198,6 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       ]);
 
       if (ratingsResult.error) {
-          console.error('Failed to fetch friends ratings:', ratingsResult.error);
           set({ friendsRatings: [] });
       } else {
           // Transform signed URLs if needed, but RPC returns public URLs or paths?
@@ -200,7 +229,6 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       }
 
       if (activityResult.error) {
-          console.error('Failed to fetch friends activity:', activityResult.error);
           set({ friendsActivity: { favoritedBy: [], wishlistedBy: [] } });
       } else {
           // Cast the JSON result to the expected type
@@ -213,7 +241,6 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
           });
       }
     } catch (error) {
-      console.error('Error fetching friend data for winery:', error);
       set({ friendsRatings: [], friendsActivity: { favoritedBy: [], wishlistedBy: [] } });
     } finally {
       set({ isLoading: false });
@@ -224,6 +251,7 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
     friends: [],
     friendRequests: [],
     sentRequests: [],
+    friendActivityFeed: [],
     isLoading: false,
     error: null,
     friendsRatings: [],
