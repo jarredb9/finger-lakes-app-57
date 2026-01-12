@@ -64,31 +64,13 @@ export async function login(page: Page, email: string, pass: string) {
   // Use Enter key to submit
   await page.getByLabel('Password').press('Enter');
   
-  // Wait for login to complete with robust retry logic
+  // Wait for login to complete
   const viewport = page.viewportSize();
   const isMobile = viewport && viewport.width < 768;
   const successSelector = isMobile ? 'div.fixed.bottom-0' : 'h1:has-text("Winery Tracker")';
 
-  try {
-    // Shorter timeout for first attempt to catch failures quickly
-    await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 8000 });
-  } catch (e) {
-    console.log(`[Helper] Login attempt 1 failed (UI element '${successSelector}' not found). Retrying...`);
-    
-    // Ensure we are still on login page / form is visible
-    if (await page.getByLabel('Password').isVisible()) {
-        await page.getByLabel('Password').fill(pass);
-        await page.getByLabel('Password').press('Enter');
-        
-        // Wait longer for second attempt
-        await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 30000 });
-    } else {
-        // If password field is gone, maybe we did login but it's just slow loading?
-        // Or we are on a different page.
-        console.log('[Helper] Password field not visible, checking for success element again...');
-        await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 30000 });
-    }
-  }
+  await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 30000 });
+
   await dismissErrorOverlay(page); // Check after login
 }
 
