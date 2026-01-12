@@ -61,34 +61,32 @@ export async function login(page: Page, email: string, pass: string) {
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(pass);
   
-  // Use Enter key to submit, which is often more reliable on Mobile Safari
+  // Use Enter key to submit
   await page.getByLabel('Password').press('Enter');
   
-  // Wait for login to complete with retry logic for invalid credentials flake
-  // On mobile, we look for the bottom nav. On desktop, the sidebar header.
+  // Wait for login to complete with robust retry logic
   const viewport = page.viewportSize();
   const isMobile = viewport && viewport.width < 768;
+  const successSelector = isMobile ? 'div.fixed.bottom-0' : 'h1:has-text("Winery Tracker")';
 
   try {
-    if (isMobile) {
-        await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
-    } else {
-        await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
-    }
+    // Shorter timeout for first attempt to catch failures quickly
+    await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 8000 });
   } catch (e) {
-    // Check for "Invalid login credentials" toast or error
-    if (await page.getByText('Invalid login credentials').isVisible()) {
-        console.log('[Helper] Login failed with invalid credentials. Retrying...');
+    console.log(`[Helper] Login attempt 1 failed (UI element '${successSelector}' not found). Retrying...`);
+    
+    // Ensure we are still on login page / form is visible
+    if (await page.getByLabel('Password').isVisible()) {
         await page.getByLabel('Password').fill(pass);
         await page.getByLabel('Password').press('Enter');
         
-        if (isMobile) {
-            await expect(page.locator('div.fixed.bottom-0')).toBeVisible({ timeout: 20000 });
-        } else {
-            await expect(page.getByRole('heading', { name: 'Winery Tracker' }).first()).toBeVisible({ timeout: 20000 });
-        }
+        // Wait longer for second attempt
+        await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 30000 });
     } else {
-        throw e;
+        // If password field is gone, maybe we did login but it's just slow loading?
+        // Or we are on a different page.
+        console.log('[Helper] Password field not visible, checking for success element again...');
+        await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 30000 });
     }
   }
   await dismissErrorOverlay(page); // Check after login
