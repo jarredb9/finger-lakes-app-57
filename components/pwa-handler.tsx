@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePwa } from "@/hooks/use-pwa";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -9,10 +9,13 @@ import { Download, RefreshCw } from "lucide-react";
 export function PwaHandler() {
   const { isInstallable, installApp, isUpdateAvailable, updateApp } = usePwa();
   const { toast, dismiss } = useToast();
+  const updateToastShown = useRef(false);
+  const installToastShown = useRef(false);
 
   // Handle Update Notification
   useEffect(() => {
-    if (isUpdateAvailable) {
+    if (isUpdateAvailable && !updateToastShown.current) {
+      updateToastShown.current = true;
       const { id } = toast({
         title: "Update Available",
         description: "A new version of the app is ready. Reload to update.",
@@ -33,9 +36,10 @@ export function PwaHandler() {
     }
   }, [isUpdateAvailable, toast, updateApp, dismiss]);
 
-  // Handle Install Notification (only show once per session or use a different trigger)
+  // Handle Install Notification
   useEffect(() => {
-    if (isInstallable) {
+    if (isInstallable && !installToastShown.current) {
+      installToastShown.current = true;
       const { id } = toast({
         title: "Install App",
         description: "Install our app for a better experience and offline access.",
