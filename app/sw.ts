@@ -26,9 +26,27 @@ const serwist = new Serwist({
     ],
   },
   runtimeCaching: [
-    // Supabase Caching Rule
+    // Supabase Storage (Images) - Cache First/SWR
     {
-      matcher: ({ url }) => url.hostname.includes("supabase.co"),
+      matcher: ({ url }) => 
+        url.hostname.includes("supabase.co") && 
+        url.pathname.includes("/storage/v1/object/public"),
+      handler: new StaleWhileRevalidate({
+        cacheName: "supabase-storage",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 100,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+            purgeOnQuotaError: true,
+          }),
+        ],
+      }),
+    },
+    // Supabase API - Network Only (Let App Handle Persistence)
+    {
+      matcher: ({ url }) => 
+        url.hostname.includes("supabase.co") && 
+        !url.pathname.includes("/storage/v1/object/public"), // Explicitly exclude storage
       handler: new NetworkOnly(),
     },
     // Cache Google Maps Tiles with Fallback

@@ -60,7 +60,12 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           set({ persistentWineries: processedWineries, isLoading: false });
         } catch (err) {
           console.error("Hydration failed:", err);
-          set({ error: "Failed to load data", isLoading: false });
+          // If we have persistent data, don't block the UI with an error
+          if (get().persistentWineries.length > 0) {
+            set({ isLoading: false });
+          } else {
+            set({ error: "Failed to load data", isLoading: false });
+          }
         }
       },
 

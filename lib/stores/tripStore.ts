@@ -69,7 +69,12 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           });
         } catch (error: any) {
           console.error("Failed to fetch trips", error);
-          set({ isLoading: false, error: error.message || "Failed to load trips." });
+          // Only set global error if we have no trips, otherwise silent failure (keep data)
+          if (get().trips.length > 0) {
+            set({ isLoading: false });
+          } else {
+            set({ isLoading: false, error: error.message || "Failed to load trips." });
+          }
         }
       },
 
@@ -119,7 +124,8 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           set({ upcomingTrips: trips, isLoading: false });
         } catch (error) {
           console.error("Failed to fetch upcoming trips", error);
-          set({ upcomingTrips: [], isLoading: false });
+          // Do NOT clear data on error. Just stop loading.
+          set({ isLoading: false });
         }
       },
 
@@ -133,7 +139,8 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           });
         } catch (error) {
           console.error(`[tripStore] fetchTripsForDate: Error during fetch for date ${dateString}.`, error);
-          set({ tripsForDate: [], isLoading: false });
+          // Do NOT clear data on error. Just stop loading.
+          set({ isLoading: false });
         }
       },
 
