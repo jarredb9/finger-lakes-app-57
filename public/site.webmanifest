@@ -4,9 +4,19 @@
   "description": "Plan and track your visits to wineries worldwide.",
   "start_url": "/",
   "display": "standalone",
+  "orientation": "portrait",
+  "dir": "ltr",
+  "lang": "en-US",
   "background_color": "#ffffff",
   "theme_color": "#7c2d12",
+  "categories": ["travel", "food", "lifestyle"],
   "icons": [
+    {
+      "src": "/wine-glass.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
     {
       "src": "/placeholder-logo.png",
       "sizes": "192x192",

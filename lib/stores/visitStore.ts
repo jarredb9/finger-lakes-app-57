@@ -24,6 +24,16 @@ interface VisitState {
 
 const VISITS_PER_PAGE = 10;
 
+const isNetworkError = (error: any) => {
+  return (
+    error?.message?.includes("Failed to fetch") ||
+    error?.message?.includes("Network request failed") ||
+    error?.message?.includes("timeout") ||
+    error?.status === 503 ||
+    error?.status === 504
+  );
+};
+
 export const useVisitStore = createWithEqualityFn<VisitState>()(
   persist(
     (set, get) => ({
@@ -192,6 +202,22 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           }));
 
         } catch (error) {
+          if (isNetworkError(error)) {
+             console.log("Network error during save. Queuing for sync instead of reverting.");
+             await addOfflineMutation({
+                type: 'create',
+                id: tempId,
+                winery: winery,
+                visitData: {
+                    ...visitData,
+                    photos: visitData.photos
+                },
+                timestamp: Date.now()
+            });
+            set({ isSavingVisit: false });
+            return;
+          }
+
           console.error("Failed to save visit, reverting:", error);
           
           // Cleanup orphaned photos if RPC failed
@@ -454,6 +480,21 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           }));
 
         } catch (error) {
+          if (isNetworkError(error)) {
+             console.log("Network error during update. Queuing for sync.");
+             await addOfflineMutation({
+                type: 'update',
+                id: `update-${visitId}-${Date.now()}`,
+                visitId: visitId,
+                visitData: visitData,
+                newPhotos: newPhotos, 
+                photosToDelete: photosToDelete,
+                timestamp: Date.now()
+            });
+            set({ isSavingVisit: false });
+            return;
+          }
+
           console.error("Failed to update visit, reverting:", error);
           revertOptimisticUpdate();
           // Re-fetching is the safest way to revert the global list
@@ -492,6 +533,17 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             confirmOptimisticUpdate();
             set({ lastMutation: Date.now() });
         } catch (error) {
+            if (isNetworkError(error)) {
+                console.log("Network error during delete. Queuing for sync.");
+                await addOfflineMutation({
+                    type: 'delete',
+                    id: `delete-${visitId}-${Date.now()}`,
+                    visitId: visitId,
+                    timestamp: Date.now()
+                });
+                return;
+            }
+
             console.error("Failed to delete visit, reverting:", error);
             revertOptimisticUpdate();
             set({ visits: originalVisits });
