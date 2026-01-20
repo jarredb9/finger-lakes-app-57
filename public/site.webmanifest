@@ -10,6 +10,38 @@
   "background_color": "#ffffff",
   "theme_color": "#7c2d12",
   "categories": ["travel", "food", "lifestyle"],
+  "screenshots": [
+    {
+      "src": "/screenshot-mobile.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Login Screen"
+    },
+    {
+      "src": "/screenshot-desktop.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Login Screen"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Explore Wineries",
+      "short_name": "Explore",
+      "description": "Find and discover wineries in the Finger Lakes region",
+      "url": "/",
+      "icons": [{ "src": "/wine-glass.svg", "sizes": "any" }]
+    },
+    {
+      "name": "My Trips",
+      "short_name": "Trips",
+      "description": "View and manage your planned winery trips",
+      "url": "/trips",
+      "icons": [{ "src": "/wine-glass.svg", "sizes": "any" }]
+    }
+  ],
   "icons": [
     {
       "src": "/wine-glass.svg",

@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from '@/components/auth-provider'
 import { GlobalModalRenderer } from '@/components/global-modal-renderer'
+import { PwaHandler } from '@/components/pwa-handler'
 
 import { CookieConsent } from '@/components/cookie-consent'
 
@@ -61,6 +62,7 @@ export default function RootLayout({
           <div className="relative flex min-h-screen flex-col">
             <main className="flex-1"><AuthProvider>{children}</AuthProvider></main>
             <Toaster />
+            <PwaHandler />
             <GlobalModalRenderer />
             <CookieConsent />
           </div>

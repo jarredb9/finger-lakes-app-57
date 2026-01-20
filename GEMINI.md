@@ -337,6 +337,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 38. **PWA Storage Reliability:** Fixed `QuotaExceededError` in the Service Worker by reducing the `google-maps-tiles` cache limit from 1000 to 200 items and enabling `purgeOnQuotaError`. This prevents the browser cache from filling up with map tiles.
 39. **Social Activity Feed:** Implemented the frontend for the Friend Activity Feed (`FriendActivityFeed.tsx`) and integrated it into the Friends Manager. Added `fetchFriendActivityFeed` to `friendStore.ts` and defined the RPC type in `database.types.ts`.
 40. **Mobile Navigation Polish:** Improved mobile UX by removing redundant tabs from the `InteractiveBottomSheet` and adding a dedicated "History" button to the mobile bottom navigation bar in `app-shell.tsx`.
+41. **E2E Fix (Mobile & Social):** Updated `navigateToTab` helper to correctly target the 'History' button in the mobile bottom bar (aligning with v2.2.5 UI changes) and patched `social-feed.spec.ts` to use real DB reads for visit history, ensuring data consistency in hybrid tests.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
