@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.2.8] - 2026-01-22
+
+**Social Activity Feed, PWA 2.0 & Security Hardening**
+
+Version 2.2.8 is a feature-rich release that introduces the **Social Activity Feed**, upgrades the app to a "Rich Install" PWA experience, and hardens security. We have also significantly stabilized the CI/CD pipeline with robust mobile-first E2E testing.
+
+### 🚀 Features
+*   **Social Activity Feed:**
+    *   **Activity Stream:** Users can now see a real-time feed of their friends' recent visits, wishlist additions, and favorites.
+    *   **Signed Photos:** Implemented secure URL signing for private activity feed photos.
+    *   **Empty State:** Added a helpful empty state prompt for users with no friend activity.
+*   **PWA 2.0 (Rich Install):**
+    *   **Rich Manifest:** Added mobile and desktop screenshots, categories, and "Explore" / "Trips" shortcuts to the web manifest for a native App Store-like install card.
+    *   **Custom Install UI:** Implemented a non-intrusive "Install App" prompt (Bottom Card on Desktop, Slim Banner on Mobile) that reacts to the `beforeinstallprompt` event.
+    *   **Reliable Offline Start:** Switched the Service Worker strategy to `StaleWhileRevalidate` for the document shell, resolving iOS "White Screen" issues during cold starts in poor network conditions.
+    *   **Infinite Loop Fix:** Resolved a toast notification loop in the PWA handler.
+
+### 🛡 Security
+*   **Dependency Hardening:** Resolved high-severity vulnerabilities in the dependency tree via `npm audit fix`, ensuring a secure baseline for production deployments.
+
+### ⚙ Infrastructure & Testing
+*   **Mobile PWA Testing:**
+    *   **Offline Verification:** Restored and enhanced End-to-End (E2E) tests for PWA offline functionality, optimizing for mobile touch interactions and bottom sheet navigation.
+    *   **Store Exposure:** Implemented `E2EStoreExposer` to safely inject state during tests without polluting production code.
+*   **CI Stabilization:**
+    *   **Error Overlays:** Implemented forceful CSS injection to hide Next.js development error overlays that were intercepting clicks in CI.
+    *   **Login Reliability:** Simplified the login helper logic to be unconditional and robust against high-latency environments.
+
 ## [2.2.7] - 2026-01-09
 
 **Offline Reliability & Data Consistency**
