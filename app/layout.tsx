@@ -7,6 +7,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from '@/components/auth-provider'
 import { GlobalModalRenderer } from '@/components/global-modal-renderer'
 import { PwaHandler } from '@/components/pwa-handler'
+import { E2EStoreExposer } from '@/components/e2e-store-exposer'
 
 import { CookieConsent } from '@/components/cookie-consent'
 
@@ -63,6 +64,7 @@ export default function RootLayout({
             <main className="flex-1"><AuthProvider>{children}</AuthProvider></main>
             <Toaster />
             <PwaHandler />
+            {process.env.NODE_ENV !== 'production' && <E2EStoreExposer />}
             <GlobalModalRenderer />
             <CookieConsent />
           </div>

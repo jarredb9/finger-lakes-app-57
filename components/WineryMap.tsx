@@ -62,7 +62,7 @@ export default function WineryMap({ className }: WineryMapProps) {
   }
 
   return (
-    <div className={`relative w-full h-full group ${className || ''}`}>
+    <div data-testid="map-container" className={`relative w-full h-full group ${className || ''}`}>
       {/* Main Map View */}
       <div className="w-full h-full">
         <MapView
