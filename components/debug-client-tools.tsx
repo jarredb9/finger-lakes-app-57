@@ -30,7 +30,7 @@ export function DebugClientTools() {
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow space-y-4">
+    <div className="bg-white p-6 rounded-lg shadow-sm space-y-4">
       <h2 className="text-xl font-semibold">Client-Side Debug Tools</h2>
       
       <div className="flex flex-col gap-4">

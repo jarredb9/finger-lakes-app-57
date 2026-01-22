@@ -59,6 +59,9 @@
       "args": [
         "@playwright/mcp@latest"
       ]
+    },
+    "tailwindcss-server": {
+      "command": "tailwindcss-server"
     }
   }
 }

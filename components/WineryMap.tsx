@@ -78,8 +78,8 @@ export default function WineryMap({ className }: WineryMapProps) {
 
       {/* Offline Map Warning */}
       {isOffline && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[5] pointer-events-none">
-           <div className="bg-background/90 backdrop-blur-md border rounded-full px-4 py-1.5 shadow-sm text-xs font-medium flex items-center gap-2 text-muted-foreground">
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-5 pointer-events-none">
+           <div className="bg-background/90 backdrop-blur-md border rounded-full px-4 py-1.5 shadow-xs text-xs font-medium flex items-center gap-2 text-muted-foreground">
               <WifiOff className="w-3 h-3" />
               <span>Offline: Map detail limited</span>
            </div>

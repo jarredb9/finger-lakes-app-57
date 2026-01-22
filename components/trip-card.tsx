@@ -230,7 +230,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                             <div {...provided.dragHandleProps} className="pt-1">
                               <GripVertical className="w-5 h-5 text-gray-400" />
                             </div>
-                            <div className="flex-grow">
+                            <div className="grow">
                               <p className="font-semibold">{winery.name}</p>
                               <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
                               <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
@@ -251,8 +251,8 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                           {/* Distance to next stop */}
                           {distanceText && (
                             <div className="relative h-8 flex items-center px-12 overflow-hidden">
-                              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-dashed border-l-2 border-dashed border-gray-300 ml-[1px]"></div>
-                              <div className="z-10 bg-white border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-medium text-gray-500 flex items-center gap-1 shadow-sm">
+                              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-dashed border-l-2 border-dashed border-gray-300 ml-px"></div>
+                              <div className="z-10 bg-white border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-medium text-gray-500 flex items-center gap-1 shadow-xs">
                                 <MapPin className="w-2.5 h-2.5" />
                                 <span>{distanceText} to next stop</span>
                               </div>

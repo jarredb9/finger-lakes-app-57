@@ -124,7 +124,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                     <div 
-                        className="bg-background/80 backdrop-blur-sm p-1 rounded-full shadow-sm border cursor-pointer hover:bg-background/90 transition-colors"
+                        className="bg-background/80 backdrop-blur-xs p-1 rounded-full shadow-xs border cursor-pointer hover:bg-background/90 transition-colors"
                         role="button"
                         aria-label="User profile and navigation"
                     >

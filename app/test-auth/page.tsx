@@ -11,7 +11,7 @@ export default function TestAuthPage() {
       <div className="max-w-md w-full space-y-8">
         <div className="text-center">
           <h2 className="text-2xl font-bold">Zustand Auth Test</h2>
-          <div className="mt-4 p-4 bg-white rounded-lg shadow">
+          <div className="mt-4 p-4 bg-white rounded-lg shadow-sm">
             <h3 className="font-semibold mb-2">Current User State:</h3>
             {isLoading ? (
               <p>Loading...</p>
@@ -35,14 +35,14 @@ export default function TestAuthPage() {
             {isAuthenticated ? (
               <button
                 onClick={logout}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
               >
                 Log Out
               </button>
             ) : (
               <Link
                 href="/login"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-xs text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-hidden focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
               >
                 Go to Login
               </Link>
