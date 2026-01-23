@@ -347,10 +347,25 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Mobile Layout:** Condensed `CookieConsent` to a slim bottom bar on mobile to prevent obstruction of login links.
     *   **Stale-While-Revalidate:** Switched Service Worker strategy for document shell to resolve iOS offline startup issues.
 43. **Social Activity Feed:** Implemented real-time friend activity tracking, signed private photos, and empty state prompts.
-44. **CI/Test Stabilization:**
+44. CI/Test Stabilization:
     *   **Store Exposure:** Implemented `E2EStoreExposer` to safely inject/read Zustand state during tests via `window`.
     *   **Mobile Robustness:** Fixed PWA tests to handle bottom sheet navigation and responsive visibility.
     *   **Error Overlays:** Added forced CSS injection to hide Next.js error overlays in CI.
+45. **Tailwind CSS v4 Migration:**
+    *   **Framework Upgrade:** Migrated from Tailwind v3 to v4 using `@tailwindcss/upgrade`.
+    *   **CSS-Native Config:** Moved theme configuration and plugin integration (e.g., `tailwindcss-animate`) to `app/globals.css`.
+    *   **PostCSS v4:** Switched to `@tailwindcss/postcss` for standard build integration.
+46. **Mobile Layout Optimization (v2.2.9):**
+    *   **PWA Install Prompt:** Refactored into a slim full-width top bar on mobile with a dismiss button.
+    *   **Cookie Consent:** Refactored into a slim full-width bottom bar on mobile.
+    *   **Desktop Layout:** Positioned PWA card at bottom-left and Cookie card at bottom-right for zero overlap.
+    *   **Verification:** Added `e2e/pwa-install-layout.spec.ts` to ensure layout stability across viewports.
+47. **PWA Install/Update Menu Refactor:**
+    *   **User Menu Integration:** Refactored PWA controls into the user avatar dropdown menu for both Desktop (Sidebar) and Mobile (Floating Header).
+    *   **Always-On Logic:** Implemented "Smart Install" logic that remains visible in browsers even when native prompts are unavailable.
+    *   **Dynamic Labels:** Conditional button text switches between "Install App" (native) and "Add to Home Screen" (manual) based on browser state.
+    *   **Standalone Detection:** Enhanced `usePwa` hook to detect existing installations and hide redundant controls.
+    *   **UX Consistency:** Reverted to Lucide iconography (`Download`, `RefreshCw`) for visual alignment with the system design language.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
