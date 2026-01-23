@@ -13,14 +13,15 @@ test.describe('PWA Install & Layout', () => {
     const cookieBox = await cookieConsent.boundingBox();
     
     // Verify Cookie Consent Position (Left & Bottom)
-    // Left should be ~16px (left-4)
-    expect(cookieBox?.x).toBeCloseTo(16, 0); 
+    // Left should be 0 (full width)
+    expect(cookieBox?.x).toBe(0); 
     // Bottom should be > 600 (screen is 667)
     expect(cookieBox?.y).toBeGreaterThan(500);
 
     // 3. Trigger PWA Install Prompt manually
+    // 3. Trigger PWA Install Prompt manually
     await page.evaluate(() => {
-      window.dispatchEvent(new Event('beforeinstallprompt'));
+      window.dispatchEvent(new Event('beforeinstallprompt', { cancelable: true }));
     });
 
     // 4. Verify Install Toast Appearance
@@ -58,12 +59,13 @@ test.describe('PWA Install & Layout', () => {
     expect(cookieBox?.y).toBeGreaterThan(600);
 
     // 3. Trigger PWA Install Prompt
+    // 3. Trigger PWA Install Prompt manually
     await page.evaluate(() => {
-      window.dispatchEvent(new Event('beforeinstallprompt'));
+      window.dispatchEvent(new Event('beforeinstallprompt', { cancelable: true }));
     });
 
     // 4. Verify Install Toast Appearance
-    const installToast = page.locator('text=Install App').first();
+    const installToast = page.locator('text=Install Now').first();
     await expect(installToast).toBeVisible({ timeout: 5000 });
 
     // 5. Verify Install Toast Position (Bottom-Left)
