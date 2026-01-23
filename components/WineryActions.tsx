@@ -38,11 +38,11 @@ export default function WineryActions({ winery }: WineryActionsProps) {
 
   return (
     <div className="flex items-center gap-2">
-      <Button size="sm" variant={winery.isFavorite ? "default" : "outline"} onClick={handleFavoriteToggle}>
+      <Button size="sm" variant={winery.isFavorite ? "default" : "outline-solid"} onClick={handleFavoriteToggle}>
         <Star className={`mr-2 h-4 w-4 ${winery.isFavorite ? "text-yellow-400 fill-yellow-400" : ""}`} />
         Favorite
       </Button>
-      <Button size="sm" variant={winery.onWishlist ? "secondary" : "outline"} onClick={handleWishlistToggle} disabled={winery.userVisited}>
+      <Button size="sm" variant={winery.onWishlist ? "secondary" : "outline-solid"} onClick={handleWishlistToggle} disabled={winery.userVisited}>
         {winery.onWishlist ? <Check className="mr-2 h-4 w-4" /> : <ListPlus className="mr-2 h-4 w-4" />}
         {winery.onWishlist ? "On List" : "Want to Go"}
       </Button>

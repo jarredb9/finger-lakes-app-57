@@ -22,7 +22,7 @@ export default function WineryCardThumbnail({ winery, onClick }: WineryCardProps
   return (
     <div
       data-testid="winery-card"
-      className="group relative flex flex-col border rounded-lg bg-card text-card-foreground shadow-sm hover:shadow-md cursor-pointer transition-all duration-200 overflow-hidden"
+      className="group relative flex flex-col border rounded-lg bg-card text-card-foreground shadow-xs hover:shadow-md cursor-pointer transition-all duration-200 overflow-hidden"
       onClick={onClick}
     >
       {/* Left Status Indicator Strip */}

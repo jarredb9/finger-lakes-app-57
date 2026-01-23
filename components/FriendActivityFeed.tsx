@@ -50,7 +50,7 @@ export default function FriendActivityFeed() {
     <div className="space-y-4">
       <h3 className="font-semibold text-lg px-1">Friend Activity</h3>
       {friendActivityFeed.map((item, index) => (
-        <Card key={`${item.user_id}-${item.created_at}-${index}`} className="overflow-hidden hover:shadow-sm transition-shadow">
+        <Card key={`${item.user_id}-${item.created_at}-${index}`} className="overflow-hidden hover:shadow-xs transition-shadow">
           <CardHeader className="p-4 pb-2 flex flex-row items-start gap-3 space-y-0">
             <Avatar className="h-10 w-10 border">
               <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.user_name}`} />

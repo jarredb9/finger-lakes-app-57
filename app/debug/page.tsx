@@ -33,7 +33,7 @@ export default async function DebugPage() {
         <DebugClientTools />
 
         {/* Current User */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
           <h2 className="text-xl font-semibold mb-4">Current User</h2>
           {user ? (
             <div className="space-y-2">
@@ -60,7 +60,7 @@ export default async function DebugPage() {
         </div>
 
         {/* All Users */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
           <h2 className="text-xl font-semibold mb-4">All Users (Admin View)</h2>
           {users ? (
             <div className="space-y-4">
@@ -85,7 +85,7 @@ export default async function DebugPage() {
         </div>
 
         {/* Visits */}
-        <div className="bg-white p-6 rounded-lg shadow">
+        <div className="bg-white p-6 rounded-lg shadow-sm">
           <h2 className="text-xl font-semibold mb-4">Visits Table</h2>
           {visits ? (
             <div>

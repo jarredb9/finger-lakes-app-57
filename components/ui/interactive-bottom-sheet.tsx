@@ -98,7 +98,7 @@ export function InteractiveBottomSheet({
               <div
                 role="button"
                 tabIndex={0}
-                className="h-8 w-8 flex items-center justify-center rounded-full bg-muted/50 hover:bg-muted text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-8 w-8 flex items-center justify-center rounded-full bg-muted/50 hover:bg-muted text-muted-foreground focus:outline-hidden focus:ring-2 focus:ring-ring"
                 onClick={(e) => {
                   e.stopPropagation();
                   onOpenChange(false);

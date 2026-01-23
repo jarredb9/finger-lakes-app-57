@@ -48,7 +48,7 @@ export default function FriendActivity({ wineryDbId }: FriendActivityProps) {
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {friendsActivity.favoritedBy.map((friend: Friend) => (
-                    <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
+                    <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-xs">
                       <Avatar className="h-6 w-6">
                         <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
                         <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
@@ -67,7 +67,7 @@ export default function FriendActivity({ wineryDbId }: FriendActivityProps) {
                 </p>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {friendsActivity.wishlistedBy.map((friend: Friend) => (
-                    <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-sm">
+                    <div key={friend.id} className="flex items-center gap-2 bg-white py-1 px-2 rounded-full border shadow-xs">
                       <Avatar className="h-6 w-6">
                         <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} />
                         <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>

@@ -31,7 +31,7 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
   const isOpen = isOpenNow(winery.openingHours);
 
   return (
-    <div className="text-sm text-muted-foreground space-y-2 pt-2 !mt-2">
+    <div className="text-sm text-muted-foreground space-y-2 pt-2 mt-2!">
       <div className="flex items-start space-x-2">
         <MapPin className="w-4 h-4 mt-1 shrink-0" />
         <span>{winery.address}</span>
@@ -90,7 +90,7 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
 
       {((winery.reviews && winery.reviews.length > 0) || winery.reservable !== undefined) && (
         <>
-          <Separator className="!my-4" />
+          <Separator className="my-4!" />
           <WineryQnA winery={winery} />
         </>
       )}

@@ -6,6 +6,12 @@ export function usePwa() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
+  const [isStandalone] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.matchMedia("(display-mode: standalone)").matches
+      || (window.navigator as any).standalone
+      || document.referrer.includes("android-app://");
+  });
 
   useEffect(() => {
     // 1. Handle Install Prompt
@@ -72,5 +78,6 @@ export function usePwa() {
     installApp,
     isUpdateAvailable,
     updateApp,
+    isStandalone
   };
 }

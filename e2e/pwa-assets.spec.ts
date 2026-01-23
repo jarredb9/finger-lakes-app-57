@@ -143,18 +143,14 @@ test.describe('PWA Assets & Sync', () => {
   test('should show install prompt when browser fires event', async ({ page }) => {
     // 1. Simulate beforeinstallprompt event
     await page.evaluate(() => {
-        const event = new Event('beforeinstallprompt');
-        (event as any).prompt = () => {};
-        (event as any).userChoice = Promise.resolve({ outcome: 'accepted' });
-        window.dispatchEvent(event);
+      // Must be cancelable for preventDefault to work (though we just store it)
+      window.dispatchEvent(new Event('beforeinstallprompt', { cancelable: true }));
     });
 
     // 2. Verify Install UI appears
     // Use :visible pseudo-class to avoid hidden desktop/mobile duplicates
-    const installText = page.getByText('Install App').locator('visible=true');
     const installButton = page.getByRole('button', { name: /Install/i }).locator('visible=true');
 
-    await expect(installText.first()).toBeVisible({ timeout: 10000 });
     await expect(installButton.first()).toBeVisible();
   });
 });

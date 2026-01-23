@@ -90,7 +90,7 @@ export default function WineryQnA({ winery }: WineryQnAProps) {
         {questions.map((q) => (
           <Button
             key={q.id}
-            variant={activeQuestionId === q.id ? "secondary" : "outline"}
+            variant={activeQuestionId === q.id ? "secondary" : "outline-solid"}
             size="sm"
             onClick={() => setActiveQuestionId(activeQuestionId === q.id ? null : q.id)}
           >

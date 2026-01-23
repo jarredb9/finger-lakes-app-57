@@ -338,6 +338,39 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 39. **Social Activity Feed:** Implemented the frontend for the Friend Activity Feed (`FriendActivityFeed.tsx`) and integrated it into the Friends Manager. Added `fetchFriendActivityFeed` to `friendStore.ts` and defined the RPC type in `database.types.ts`.
 40. **Mobile Navigation Polish:** Improved mobile UX by removing redundant tabs from the `InteractiveBottomSheet` and adding a dedicated "History" button to the mobile bottom navigation bar in `app-shell.tsx`.
 41. **E2E Fix (Mobile & Social):** Updated `navigateToTab` helper to correctly target the 'History' button in the mobile bottom bar (aligning with v2.2.5 UI changes) and patched `social-feed.spec.ts` to use real DB reads for visit history, ensuring data consistency in hybrid tests.
+42. **PWA v2 - Offline Robustness & Rich Install:**
+    *   **Offline Images:** Added `sw.ts` caching rule for Supabase Storage images, ensuring photos load offline.
+    *   **Non-Blocking Errors:** Updated `wineryDataStore` and `tripStore` to suppress network errors when cached data is available, allowing navigation in "Lie-Fi" conditions.
+    *   **Mutation Queue:** Enhanced `visitStore` to automatically queue mutations (save/edit/delete) on network timeout/failure, preserving the optimistic UI update.
+    *   **Rich Manifest:** Added screenshots and shortcuts to `site.webmanifest` for an App Store-like install card.
+    *   **Install/Update UI:** Implemented `PwaHandler` (with loop fix) to show custom, non-intrusive "Install App" and "Update Available" notifications (Desktop: Bottom-Left Card, Mobile: Slim Top Banner).
+    *   **Mobile Layout:** Condensed `CookieConsent` to a slim bottom bar on mobile to prevent obstruction of login links.
+    *   **Stale-While-Revalidate:** Switched Service Worker strategy for document shell to resolve iOS offline startup issues.
+43. **Social Activity Feed:** Implemented real-time friend activity tracking, signed private photos, and empty state prompts.
+44. CI/Test Stabilization:
+    *   **Store Exposure:** Implemented `E2EStoreExposer` to safely inject/read Zustand state during tests via `window`.
+    *   **Mobile Robustness:** Fixed PWA tests to handle bottom sheet navigation and responsive visibility.
+    *   **Error Overlays:** Added forced CSS injection to hide Next.js error overlays in CI.
+45. **Tailwind CSS v4 Migration:**
+    *   **Framework Upgrade:** Migrated from Tailwind v3 to v4 using `@tailwindcss/upgrade`.
+    *   **CSS-Native Config:** Moved theme configuration and plugin integration (e.g., `tailwindcss-animate`) to `app/globals.css`.
+    *   **PostCSS v4:** Switched to `@tailwindcss/postcss` for standard build integration.
+46. **Mobile Layout Optimization (v2.2.9):**
+    *   **PWA Install Prompt:** Refactored into a slim full-width top bar on mobile with a dismiss button.
+    *   **Cookie Consent:** Refactored into a slim full-width bottom bar on mobile.
+    *   **Desktop Layout:** Positioned PWA card at bottom-left and Cookie card at bottom-right for zero overlap.
+    *   **Verification:** Added `e2e/pwa-install-layout.spec.ts` to ensure layout stability across viewports.
+47. **PWA Install/Update Menu Refactor:**
+    *   **User Menu Integration:** Refactored PWA controls into the user avatar dropdown menu for both Desktop (Sidebar) and Mobile (Floating Header).
+    *   **Always-On Logic:** Implemented "Smart Install" logic that remains visible in browsers even when native prompts are unavailable.
+    *   **Dynamic Labels:** Conditional button text switches between "Install App" (native) and "Add to Home Screen" (manual) based on browser state.
+    *   **Standalone Detection:** Enhanced `usePwa` hook to detect existing installations and hide redundant controls.
+    *   **UX Consistency:** Reverted to Lucide iconography (`Download`, `RefreshCw`) for visual alignment with the system design language.
+48. **Tailwind v4 Optimization & Polish:**
+    *   **Container Queries:** Refactored `responsive-table` utility to use modern `@container` queries, ensuring robust responsiveness in nested layouts (sidebar/cards) regardless of viewport width.
+    *   **Field Sizing:** Implemented `field-sizing-content` in `Textarea` component, enabling native automatic height adjustment without JavaScript.
+    *   **Configuration Cleanup:** Removed legacy `border-color` compatibility shims from `globals.css` and updated `components.json` to reflect the removal of `tailwind.config.ts`.
+    *   **Visual Baseline:** Updated E2E visual regression snapshots to align with the new v4 rendering engine.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
@@ -354,6 +387,8 @@ We have established a robust E2E testing infrastructure using **Playwright**.
 *   **`photo-flow.spec.ts`:** Tests the full lifecycle of photo management (add, verify, delete).
 *   **`friends-flow.spec.ts`:** Tests complex **Multi-User / Real-Time** interactions using two distinct browser contexts.
 *   **`runtime-audit.spec.ts`:** Performs deep runtime verification of hydration health and session persistence on the live dev server.
+*   **`pwa-offline.spec.ts`:** Verifies offline capabilities including navigation cache, offline indicator, and mutation queueing logic.
+*   **`pwa-assets.spec.ts`:** Verifies manifest validity, install prompt triggers, and asset caching/syncing.
 
 ### 2. Testing Environment & Concurrency
 *   **Dynamic User Isolation (`e2e/utils.ts`):** We use a "Fresh User" strategy. Every test creates one or more unique ephemeral users via the Supabase Admin API and deletes them after the test completes. 
@@ -364,6 +399,7 @@ We have established a robust E2E testing infrastructure using **Playwright**.
     *   `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
 
 ### 3. Best Practices & Stability
+*   **Store Exposure:** We use `components/e2e-store-exposer.tsx` to expose internal Zustand stores to `window` (only in dev/test) for precise state injection and verification.
 *   **Selectors:** Use `data-testid` to distinguish between responsive duplicates (Mobile Sheet vs Desktop Sidebar).
 *   **Mobile Safari (WebKit) Stability:**
     *   **Login:** Use `page.keyboard.press('Enter')` instead of clicking the "Sign In" button, which can be flaky in WebKit.

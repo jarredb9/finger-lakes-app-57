@@ -43,7 +43,7 @@ export default function TripPlanner({ initialDate, user, hideCalendar = false, h
                             mode="single"
                             selected={selectedDate}
                             onSelect={setSelectedDate}
-                            className="rounded-md border shadow-sm"
+                            className="rounded-md border shadow-xs"
                         />
                     </CardContent>
                 </Card>
