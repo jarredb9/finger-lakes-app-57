@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.3.0] - 2026-01-23
+
+**Tailwind CSS v4 Migration & PWA Refinement**
+
+Version 2.3.0 is a major technical milestone that migrates the entire styling engine to **Tailwind CSS v4** and delivers a polished, "Always-On" **PWA installation experience**. This release significantly improves UI performance, reduces technical debt, and enhances mobile accessibility.
+
+### 🚀 Features
+*   **Tailwind CSS v4 Migration:**
+    *   **CSS-Native Architecture:** Fully migrated from Tailwind v3 to v4, replacing the JavaScript-based `tailwind.config.ts` with a modern, CSS-native `@theme` configuration in `globals.css`.
+    *   **Container Queries:** Refactored the `responsive-table` utility to use modern CSS Container Queries (`@container`), ensuring tables adapt perfectly to their parent container's width regardless of the viewport.
+    *   **Native Field Sizing:** Implemented `field-sizing-content` in the `Textarea` component, enabling automatic, jump-free height adjustment using native browser capabilities.
+    *   **Optimized Engine:** Leveraged the v4 lightning-fast build process and reduced the overall CSS bundle size.
+*   **PWA User Experience Refactor:**
+    *   **User Menu Integration:** PWA installation and update controls are now integrated directly into the user avatar dropdown menu, providing a clean and consistent way to manage the app on all platforms.
+    *   **Smart "Add to Home Screen":** Implemented dynamic logic that switches between "Install App" (native) and "Add to Home Screen" (manual instructions) based on browser capabilities.
+    *   **Layout Polish:** Refined the PWA install prompts and Cookie Consent banners to be slimmer and less intrusive on mobile devices, ensuring they don't obstruct critical navigation.
+    *   **Standalone Detection:** Enhanced the `usePwa` hook to detect existing installations and automatically hide redundant controls.
+
+### 🐛 Bug Fixes
+*   **Mobile Accessibility:** Fixed a critical issue where large banners could obstruct login links on smaller mobile viewports.
+*   **UI Consistency:** Updated all shadcn/ui components to use Tailwind v4 compatible utility classes (e.g., `backdrop-blur-xs`, `shadow-xs`, `outline-hidden`).
+*   **Navigation Logic:** Resolved responsive state mismatches in `AppShell` that occasionally caused the sidebar and map controls to overlap.
+
+### ⚙ Infrastructure & Testing
+*   **PWA Layout Testing:** Introduced `e2e/pwa-install-layout.spec.ts` to ensure PWA and Cookie banners maintain perfect layout across Desktop, Tablet, and Mobile viewports.
+*   **Visual Baseline:** Updated all E2E visual regression snapshots to align with the refined rendering and spacing of the Tailwind v4 engine.
+*   **Dependency Cleanup:** Removed legacy PostCSS configuration and `tailwind.config.ts`, streamlining the project structure.
+
 ## [2.2.8] - 2026-01-22
 
 **Social Activity Feed, PWA 2.0 & Security Hardening**

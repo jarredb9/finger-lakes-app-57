@@ -366,6 +366,11 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Dynamic Labels:** Conditional button text switches between "Install App" (native) and "Add to Home Screen" (manual) based on browser state.
     *   **Standalone Detection:** Enhanced `usePwa` hook to detect existing installations and hide redundant controls.
     *   **UX Consistency:** Reverted to Lucide iconography (`Download`, `RefreshCw`) for visual alignment with the system design language.
+48. **Tailwind v4 Optimization & Polish:**
+    *   **Container Queries:** Refactored `responsive-table` utility to use modern `@container` queries, ensuring robust responsiveness in nested layouts (sidebar/cards) regardless of viewport width.
+    *   **Field Sizing:** Implemented `field-sizing-content` in `Textarea` component, enabling native automatic height adjustment without JavaScript.
+    *   **Configuration Cleanup:** Removed legacy `border-color` compatibility shims from `globals.css` and updated `components.json` to reflect the removal of `tailwind.config.ts`.
+    *   **Visual Baseline:** Updated E2E visual regression snapshots to align with the new v4 rendering engine.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
