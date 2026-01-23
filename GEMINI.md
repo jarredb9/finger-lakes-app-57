@@ -255,6 +255,16 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **Concept:** Different browser engines render fonts and borders with sub-pixel differences.
 *   **The Fix:** Visual regression tests are restricted to `chromium`. Snapshots for Firefox/Webkit are not maintained to reduce overhead.
 
+### 12. PWA Simulation in E2E
+*   **Concept:** To test the PWA installation UI, we simulate the `beforeinstallprompt` browser event.
+*   **The Trap:** If the event is dispatched without `{ cancelable: true }`, browser handlers (including the `usePwa` hook) may not correctly intercept it.
+*   **The Fix:** Always dispatch with options: `new Event('beforeinstallprompt', { cancelable: true })`.
+
+### 13. E2E Store Exposure
+*   **Concept:** We use `E2EStoreExposer` to inject Zustand stores into the `window` object for testing.
+*   **The Trap:** This component is gated behind `process.env.NODE_ENV !== 'production'`. Running Playwright tests against a production build will cause `page.evaluate` calls accessing the stores to fail.
+*   **The Fix:** Ensure the development server is running in `dev` mode (not `start`) during tests that require store access.
+
 ## Future Implementations
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
 
