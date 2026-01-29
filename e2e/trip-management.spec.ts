@@ -22,6 +22,13 @@ test.describe('Trip Management Flow', () => {
     // 1. Navigate to Trips
     await navigateToTab(page, 'Trips');
     
+    // Expand sheet on mobile to ensure visibility (Shared pattern from trip-flow.spec.ts)
+    const expandButton = page.getByRole('button', { name: 'Expand to full screen' });
+    if (await expandButton.isVisible()) {
+        await expandButton.click();
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/);
+    }
+    
     await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
     
     // 2. Create New Trip directly
