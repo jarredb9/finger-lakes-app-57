@@ -61,6 +61,7 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 *   **Database/Auth:** Supabase (`@supabase/supabase-js`, `@supabase/ssr`)
 *   **Maps:** Google Maps Platform (`@vis.gl/react-google-maps`)
 *   **Forms:** React Hook Form + Zod
+*   **Dates:** date-fns v4, react-day-picker v9
 *   **Testing:** Jest + React Testing Library + Playwright E2E
 
 ## System Architecture & Patterns
@@ -265,6 +266,11 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **The Trap:** This component is gated behind `process.env.NODE_ENV !== 'production'`. Running Playwright tests against a production build will cause `page.evaluate` calls accessing the stores to fail.
 *   **The Fix:** Ensure the development server is running in `dev` mode (not `start`) during tests that require store access.
 
+### 14. react-day-picker v9 API Changes
+*   **Concept:** Version 9 introduces significant breaking changes to `classNames` and internal component structure.
+*   **The Trap:** Legacy class names like `cell`, `day_selected`, and `nav_button` are removed or renamed.
+*   **The Fix:** Use `month_grid` (for `table`), `day` (for `cell`), `day_button` (for the clickable element), `selected` (for `day_selected`), and `button_previous/next` (for navigation). Custom icons must now be passed via the `Chevron` component instead of `IconLeft/Right`.
+
 ## Future Implementations
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
 
@@ -381,6 +387,11 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Field Sizing:** Implemented `field-sizing-content` in `Textarea` component, enabling native automatic height adjustment without JavaScript.
     *   **Configuration Cleanup:** Removed legacy `border-color` compatibility shims from `globals.css` and updated `components.json` to reflect the removal of `tailwind.config.ts`.
     *   **Visual Baseline:** Updated E2E visual regression snapshots to align with the new v4 rendering engine.
+49. **Major Library Upgrade (v2.3.0):**
+    *   **Date Utilities:** Migrated to `react-day-picker` v9 and `date-fns` v4.
+    *   **Calendar Refactor:** Fully refactored `Calendar` component to the v9 API, fixing mobile alignment and desktop navigation overlap.
+    *   **Stability Fixes:** Resolved infinite render loops in `PwaHandler` and `useToast` by stabilizing callbacks and using `useRef` for effect guards.
+50. **Type Safety (Supabase Utilities):** Resolved implicit 'any' errors in `utils/supabase/server.ts` and `admin.ts` by explicitly typing the `setAll` cookie signature for compatibility with latest `@supabase/ssr` versions.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
