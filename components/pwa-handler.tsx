@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { usePwa } from "@/hooks/use-pwa";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,12 @@ export function PwaHandler() {
 
   // Handle Update Notification (Rare, so we can keep it as a high-priority Toast or use the banner)
   // We'll use a Toast for updates as they are critical, but the user specifically asked about the "install card".
+  // We use a ref to track if the toast has been shown to avoid dependency on state during render/effect cycles.
+  const toastShownRef = React.useRef(false);
+
   useEffect(() => {
-    if (isUpdateAvailable) {
+    if (isUpdateAvailable && !toastShownRef.current) {
+      toastShownRef.current = true;
       const { id } = toast({
         title: "Update Available",
         description: "A new version is ready.",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 
 export function usePwa() {
   const [installPrompt, setInstallPrompt] = useState<any>(null);
@@ -56,22 +56,22 @@ export function usePwa() {
     };
   }, []);
 
-  const installApp = async () => {
+  const installApp = React.useCallback(async () => {
     if (!installPrompt) return;
     installPrompt.prompt();
     const { outcome } = await installPrompt.userChoice;
     if (outcome === "accepted") {
       setInstallPrompt(null);
     }
-  };
+  }, [installPrompt]);
 
-  const updateApp = () => {
+  const updateApp = React.useCallback(() => {
     if (registration?.waiting) {
       // Send message to SW to skipWaiting
       registration.waiting.postMessage({ type: "SKIP_WAITING" });
       window.location.reload();
     }
-  };
+  }, [registration]);
 
   return {
     isInstallable: !!installPrompt,
