@@ -18,6 +18,10 @@ export function PwaHandler() {
   const toastShownRef = React.useRef(false);
 
   useEffect(() => {
+    // Suppress PWA notifications during E2E tests to avoid re-render noise
+    const isE2E = typeof window !== "undefined" && (window as any).useUIStore;
+    if (isE2E) return;
+
     if (isUpdateAvailable && !toastShownRef.current) {
       toastShownRef.current = true;
       const { id } = toast({

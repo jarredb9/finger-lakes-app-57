@@ -40,6 +40,12 @@ test.describe('Trip Management Flow', () => {
     const nameInput = page.getByPlaceholder('Trip Name');
     await expect(nameInput).toBeVisible();
     await nameInput.fill('Management Test Trip');
+
+    // Pick a date (required by schema)
+    await page.getByRole('button', { name: 'Pick a date' }).click();
+    const todayCell = page.locator('button[aria-current="date"], .rdp-day_today button, button.bg-accent.text-accent-foreground').first();
+    await expect(todayCell).toBeVisible();
+    await todayCell.click();
     
     // Save and wait for the refresh request to complete
     await Promise.all([

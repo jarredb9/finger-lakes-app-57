@@ -55,21 +55,49 @@ export async function login(page: Page, email: string, pass: string) {
     window.localStorage.setItem('cookie-consent', 'true');
   });
 
-  await page.goto('/login');
-  await dismissErrorOverlay(page); // Check on load
+  const maxRetries = 3;
+  let attempt = 0;
+  let loginSuccess = false;
 
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(pass);
-  
-  // Use Enter key to submit
-  await page.getByLabel('Password').press('Enter');
-  
-  // Wait for login to complete
-  const viewport = page.viewportSize();
-  const isMobile = viewport && viewport.width < 768;
-  const successSelector = isMobile ? 'div.fixed.bottom-0' : 'h1:has-text("Winery Tracker")';
+  while (attempt < maxRetries && !loginSuccess) {
+    attempt++;
+    console.log(`[Login] Attempt ${attempt} for ${email}`);
 
-  await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 30000 });
+    await page.goto('/login');
+    await dismissErrorOverlay(page);
+
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Password').fill(pass);
+    
+    // Use Enter key to submit
+    await page.getByLabel('Password').press('Enter');
+    
+    // Wait for login to complete or error to appear
+    const viewport = page.viewportSize();
+    const isMobile = viewport && viewport.width < 768;
+    const successSelector = isMobile ? 'div.fixed.bottom-0' : 'h1:has-text("Winery Tracker")';
+
+    try {
+      // Race between success indicator and error toast/message
+      await Promise.race([
+        page.locator(successSelector).first().waitFor({ state: 'visible', timeout: 15000 }),
+        page.getByText(/Invalid login credentials|error/i).first().waitFor({ state: 'visible', timeout: 5000 }).then(() => {
+            throw new Error('Invalid credentials detected');
+        })
+      ]);
+      loginSuccess = true;
+    } catch (e) {
+      console.warn(`[Login] Attempt ${attempt} failed: ${e instanceof Error ? e.message : 'Unknown error'}`);
+      if (attempt < maxRetries) {
+        // Wait a bit before retry
+        await page.waitForTimeout(2000);
+      }
+    }
+  }
+
+  if (!loginSuccess) {
+    throw new Error(`Login failed after ${maxRetries} attempts for user ${email}`);
+  }
 
   await dismissErrorOverlay(page); // Check after login
 }

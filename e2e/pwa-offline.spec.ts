@@ -27,7 +27,7 @@ test.describe('PWA Offline Functionality', () => {
 
     // 3. Verify Offline Indicator
     // The indicator is global, so it should be visible
-    await expect(page.locator('text=Offline: Map detail limited').first()).toBeVisible();
+    await expect(page.getByText('You are offline. Showing cached data.').first()).toBeVisible();
 
     // 4. Verify Navigation (Cache) works
     await navigateToTab(page, 'Explore');

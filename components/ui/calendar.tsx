@@ -38,14 +38,11 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         weekday:
           "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem] flex items-center justify-center",
         week: "flex justify-center w-full mt-2",
-        day: "h-9 w-9 text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+        day: "h-9 w-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
         day_button: cn(
           buttonVariants({ variant: "ghost" }),
           "h-9 w-9 p-0 font-normal aria-selected:opacity-100"
         ),
-        selected:
-          "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-        today: "bg-accent text-accent-foreground",
         outside: "text-muted-foreground opacity-50",
         disabled: "text-muted-foreground opacity-50",
         range_middle:
@@ -59,6 +56,21 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
             return <ChevronLeftIcon className="h-4 w-4" />
           }
           return <ChevronRightIcon className="h-4 w-4" />
+        },
+        DayButton: (props) => {
+          const { day, modifiers, ...buttonProps } = props;
+          return (
+            <button
+              {...buttonProps}
+              className={cn(
+                buttonVariants({ variant: "ghost" }),
+                "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
+                modifiers.today && "bg-accent text-accent-foreground",
+                modifiers.selected && "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+                props.className
+              )}
+            />
+          );
         }
       }}
       {...props}
