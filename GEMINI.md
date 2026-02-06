@@ -271,6 +271,16 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **The Trap:** Legacy class names like `cell`, `day_selected`, and `nav_button` are removed or renamed.
 *   **The Fix:** Use `month_grid` (for `table`), `day` (for `cell`), `day_button` (for the clickable element), `selected` (for `day_selected`), and `button_previous/next` (for navigation). Custom icons must now be passed via the `Chevron` component instead of `IconLeft/Right`.
 
+### 15. E2E Selectors for react-day-picker v9
+*   **Concept:** The "Today" marker (`data-today="true"`) and active styles (`bg-accent`) are now applied to the **parent `<td>` cell**, not the `<button>` element itself.
+*   **The Trap:** Selectors like `button.bg-accent` or `button[aria-current="date"]` (if not explicitly passed) will fail to find the clickable element for "Today".
+*   **The Fix:** Use a nested selector: `td[data-today="true"] button`.
+
+### 16. Login Logic Complexity
+*   **Concept:** The `login` helper in E2E tests should be simple and deterministic.
+*   **The Trap:** Adding complex retry loops or `Promise.race` logic to handle "flakiness" often masks underlying issues (like incorrect selectors or network mocking) and leads to timeouts or detached DOM element errors.
+*   **The Fix:** Rely on standard Playwright auto-waiting (`await page.fill`, `await page.click`). If a test is flaky, investigate the application state or test environment first.
+
 ## Future Implementations
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
 
