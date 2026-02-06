@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.3.1] - 2026-02-06
+
+**Core Library Upgrades & Supabase SSR Refinement**
+
+Version 2.3.1 is a maintenance and stability release that upgrades several core libraries to their latest major versions, refines the Supabase SSR cookie handling, and ensures full compatibility with the new component APIs in our testing suite.
+
+### 🚀 Features
+*   **Major Library Migrations:**
+    *   **React Day Picker v9:** Upgraded to the latest version of `react-day-picker`, involving a complete refactor of the `Calendar` component to support the new v9 API and component structure.
+    *   **Date-fns v4:** Upgraded to the latest major version of `date-fns` for improved performance and modern ESM support.
+    *   **Supabase SSR v0.8.0:** Migrated to the latest `@supabase/ssr` package, refactoring cookie management to use the new `setAll` pattern for better reliability across different environments.
+*   **Dependency Modernization:** Updated critical dependencies including `lucide-react`, `zustand`, `tailwind-merge`, and `@vis.gl/react-google-maps` to their latest stable versions.
+
+### 🐛 Bug Fixes
+*   **E2E Selector Compatibility:** Resolved failures in Playwright tests caused by breaking changes in `react-day-picker` v9's DOM structure. Updated selectors to accurately target the "Today" marker and active states.
+*   **Supabase Type Safety:** Fixed implicit `any` type errors in server-side Supabase utilities by providing explicit types for cookie store operations.
+*   **Mobile Interaction:** Fixed a race condition in mobile E2E tests by ensuring the interactive bottom sheet is fully expanded before attempting to click nested elements.
+
+### 🛡 Security
+*   **Audit Resolution:** Resolved a high-severity vulnerability in the `tar` dependency by implementing a version override in `package.json`.
+
+### ⚙ Infrastructure & Testing
+*   **PWA Cache Refinement:** Updated the Service Worker configuration to optimize resource caching and improve offline startup reliability.
+*   **Test Environment Hardening:** Enhanced the Playwright helper suite with more robust mobile navigation guards and updated visual regression targets.
+
 ## [2.3.0] - 2026-01-23
 
 **Tailwind CSS v4 Migration & PWA Refinement**
