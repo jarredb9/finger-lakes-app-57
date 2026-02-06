@@ -54,8 +54,8 @@ test.describe('Trip Planning Flow', () => {
 
     await modal.getByRole('button', { name: 'Pick a date' }).click();
     
-    // Select today's date - shadcn calendar uses bg-accent text-accent-foreground for today
-    const todayCell = page.locator('button.bg-accent.text-accent-foreground, .rdp-day_today, button[aria-current="date"]').first();
+    // Select today's date - react-day-picker v9 puts data-today on the td cell
+    const todayCell = page.locator('td[data-today="true"] button, button[aria-label*="Today"]').first();
     await expect(todayCell).toBeVisible({ timeout: 10000 });
     await todayCell.click();
 
