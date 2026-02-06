@@ -1,10 +1,10 @@
 # Changelog
 
-## [2.3.1] - 2026-02-06
+## [2.4.0] - 2026-02-06
 
-**Core Library Upgrades & Supabase SSR Refinement**
+**Core Library Refresh & Supabase SSR Migration**
 
-Version 2.3.1 is a maintenance and stability release that upgrades several core libraries to their latest major versions, refines the Supabase SSR cookie handling, and ensures full compatibility with the new component APIs in our testing suite.
+Version 2.4.0 is a significant technical refresh that upgrades core dependencies to their latest major versions, including **React Day Picker v9** and **Date-fns v4**. It also implements a critical refactor of our **Supabase SSR** logic to align with modern authentication patterns and resolves high-priority security findings.
 
 ### 🚀 Features
 *   **Major Library Migrations:**
