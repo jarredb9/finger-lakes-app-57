@@ -40,7 +40,9 @@ test.describe('PWA Assets & Sync', () => {
         (window as any).useUIStore.getState().openWineryModal('ch-mock-winery-sync');
     });
 
-    await expect(page.getByRole('dialog')).toBeVisible();
+    const modal = page.getByRole('dialog');
+    await expect(modal).toBeVisible();
+    await expect(modal.getByText('Sync Test Winery').first()).toBeVisible();
 
     // 2. Go Offline
     await context.setOffline(true);
