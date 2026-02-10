@@ -70,6 +70,9 @@ export async function login(page: Page, email: string, pass: string) {
   const successSelector = isMobile ? 'div.fixed.bottom-0' : 'h1:has-text("Winery Tracker")';
 
   await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 30000 });
+  
+  // Wait for initial data fetches to stabilize
+  await page.waitForLoadState('networkidle');
 
   await dismissErrorOverlay(page); // Check after login
 }

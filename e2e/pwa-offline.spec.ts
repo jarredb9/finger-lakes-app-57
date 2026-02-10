@@ -69,7 +69,9 @@ test.describe('PWA Offline Functionality', () => {
         (window as any).useUIStore.getState().openWineryModal('ch-mock-winery-1');
     });
 
+    // Verify winery is loaded and modal is open
     await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByRole('dialog').getByRole('heading', { name: 'Test Winery' })).toBeVisible();
 
     // 2. Go Offline
     await context.setOffline(true);
@@ -86,6 +88,9 @@ test.describe('PWA Offline Functionality', () => {
     // 5. Verify Optimistic UI Update
     await expect(page.getByText(/Visit (Saved|cached)/).first()).toBeVisible();
     
+    // Give a small cushion for IndexedDB write
+    await page.waitForTimeout(500);
+
     // 6. Verify Data in UI (Optimistic)
     // The visit should appear in the history list within the modal
     await expect(page.getByText('Offline note test').locator('visible=true')).toBeVisible();
