@@ -5,19 +5,18 @@ import { login, navigateToTab } from './helpers';
 test.describe('Error Handling (Unhappy Path)', () => {
   let user: TestUser;
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async () => {
     user = await createTestUser();
-    // Start with basic mocks
-    await mockGoogleMapsApi(page);
   });
 
   test.afterEach(async () => {
     if (user) await deleteTestUser(user.id);
   });
 
-  test('should show error alert when map markers fail to load', async ({ page }) => {
+  test('should show error alert when map markers fail to load', async ({ page, context }) => {
     // 1. Intercept the marker RPC and force a 500 error
-    await page.route(/\/rpc\/get_map_markers/, (route) => {
+    // Using context.route to ensure it captures all requests in this context
+    await context.route(/\/rpc\/get_map_markers/, (route) => {
       route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -25,17 +24,25 @@ test.describe('Error Handling (Unhappy Path)', () => {
       });
     });
 
-    // 2. Login
+    // 2. Load other necessary mocks, but exclude the one we're overriding
+    await mockGoogleMapsApi(page, { exclude: [/\/rpc\/get_map_markers/] });
+
+    // 3. Reset store on next load
+    await page.addInitScript(() => {
+        window.localStorage.removeItem('winery-data-storage');
+    });
+
+    // 3. Login
     await login(page, user.email, user.password);
 
-    // 3. Verify Error Alert is visible on the map area
+    // 4. Verify Error Alert is visible on the map area
     const errorAlert = page.getByRole('alert').filter({ hasText: 'Failed to load data' });
     await expect(errorAlert).toBeVisible({ timeout: 10000 });
   });
 
-  test('should show error alert when trips fail to load', async ({ page }) => {
+  test('should show error alert when trips fail to load', async ({ page, context }) => {
     // 1. Intercept the trips REST/RPC call and force a 500 error
-    await page.route(/\/rest\/v1\/trips/, (route) => {
+    await context.route(/\/rest\/v1\/trips/, (route) => {
       route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -43,10 +50,18 @@ test.describe('Error Handling (Unhappy Path)', () => {
       });
     });
 
-    // 2. Login
+    // 2. Load other mocks
+    await mockGoogleMapsApi(page, { exclude: [/\/rest\/v1\/trips/] });
+
+    // 3. Reset store on next load
+    await page.addInitScript(() => {
+        window.localStorage.removeItem('trip-storage');
+    });
+
+    // 3. Login
     await login(page, user.email, user.password);
 
-    // 3. Navigate to Trips
+    // 4. Navigate to Trips
     await navigateToTab(page, 'Trips');
 
     // 4. Verify Error Alert is visible in the sidebar
@@ -55,6 +70,7 @@ test.describe('Error Handling (Unhappy Path)', () => {
   });
 
   test('should handle failed login attempts gracefully', async ({ page }) => {
+    await mockGoogleMapsApi(page);
     // 1. Intercept the auth call
     await page.route('**/auth/v1/token**', (route) => {
         route.fulfill({

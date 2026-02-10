@@ -44,6 +44,10 @@ test.describe('PWA Assets & Sync', () => {
     await expect(modal).toBeVisible();
     await expect(modal.getByText('Sync Test Winery').first()).toBeVisible();
 
+    // Ensure form is ready
+    const addVisitButton = page.getByRole('button', { name: 'Add Visit' });
+    await expect(addVisitButton).toBeVisible();
+
     // 2. Go Offline
     await context.setOffline(true);
     await page.route('**/rest/v1/rpc/log_visit*', route => route.abort()); // Block RPC
@@ -55,6 +59,9 @@ test.describe('PWA Assets & Sync', () => {
     
     // Verify toast says cached
     await expect(page.getByText(/Visit (Saved|cached)/).first()).toBeVisible();
+    
+    // Give a small cushion for IndexedDB write
+    await page.waitForTimeout(500);
 
     // 4. Setup Interception for Sync
     let syncRequestMade = false;
@@ -72,6 +79,9 @@ test.describe('PWA Assets & Sync', () => {
 
     // 5. Go Online
     await context.setOffline(false);
+    // Production SW might trigger reloads or background tasks, wait for stability
+    await page.waitForLoadState('load');
+    await page.waitForTimeout(1000);
     
     // 6. Trigger Sync (Window online event)
     await page.evaluate(() => {

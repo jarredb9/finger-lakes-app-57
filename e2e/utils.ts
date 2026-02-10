@@ -21,8 +21,13 @@ export interface TestUser {
 /**
  * MOCKS & BLOCKS the Google Maps API for E2E tests.
  */
-export async function mockGoogleMapsApi(page: Page) {
+export async function mockGoogleMapsApi(page: Page, options: { exclude?: (string | RegExp)[] } = {}) {
   if (process.env.E2E_REAL_DATA === 'true') return;
+
+  const { exclude = [] } = options;
+  const isExcluded = (pattern: string | RegExp) => {
+      return exclude.some(e => e.toString() === pattern.toString());
+  };
 
   const mockWinery = createMockWinery();
 
@@ -56,131 +61,142 @@ export async function mockGoogleMapsApi(page: Page) {
   });
 
   // 2. Mock the Supabase Edge Function for winery details
-  await page.route(/\/functions\/v1\/get-winery-details/, (route) => {
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        google_place_id: mockWinery.id,
-        name: mockWinery.name,
-        address: mockWinery.address,
-        latitude: mockWinery.lat,
-        longitude: mockWinery.lng,
-        google_rating: mockWinery.rating,
-        opening_hours: { weekday_text: ["Monday: 10:00 AM – 5:00 PM"] },
-        reviews: [],
-      }),
+  if (!isExcluded(/\/functions\/v1\/get-winery-details/)) {
+    await page.route(/\/functions\/v1\/get-winery-details/, (route) => {
+        route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+            google_place_id: mockWinery.id,
+            name: mockWinery.name,
+            address: mockWinery.address,
+            latitude: mockWinery.lat,
+            longitude: mockWinery.lng,
+            google_rating: mockWinery.rating,
+            opening_hours: { weekday_text: ["Monday: 10:00 AM – 5:00 PM"] },
+            reviews: [],
+        }),
+        });
     });
-  });
+  }
 
   // 2. Mock the Supabase RPC for map markers
-  await page.route(/\/rpc\/get_map_markers/, (route) => {
-    console.log('[E2E Mock] Intercepted get_map_markers RPC');
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([
-          createMockMapMarkerRpc(),
-          createMockMapMarkerRpc({ id: 2 as any, google_place_id: 'ch-mock-winery-2' as any, name: 'Vineyard of Illusion' })
-      ]),
+  if (!isExcluded(/\/rpc\/get_map_markers/)) {
+    await page.route(/\/rpc\/get_map_markers/, (route) => {
+        route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+            createMockMapMarkerRpc(),
+            createMockMapMarkerRpc({ id: 2 as any, google_place_id: 'ch-mock-winery-2' as any, name: 'Vineyard of Illusion' })
+        ]),
+        });
     });
-  });
+  }
 
   // 2.5 Mock the Supabase RPC for visit history
-  await page.route(/\/rpc\/get_paginated_visits_with_winery_and_friends/, (route) => {
-    console.log('[E2E Mock] Intercepted get_paginated_visits RPC');
-    const mockVisit = createMockVisitWithWinery();
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([{
-        visit_id: mockVisit.id,
-        user_id: mockVisit.user_id,
-        visit_date: mockVisit.visit_date,
-        user_review: mockVisit.user_review,
-        rating: mockVisit.rating,
-        photos: mockVisit.photos,
-        winery_id: mockVisit.winery_id,
-        winery_name: mockVisit.wineryName,
-        google_place_id: mockVisit.wineryId,
-        winery_address: mockVisit.wineries.address,
-        friend_visits: []
-      }]),
+  if (!isExcluded(/\/rpc\/get_paginated_visits_with_winery_and_friends/)) {
+    await page.route(/\/rpc\/get_paginated_visits_with_winery_and_friends/, (route) => {
+        const mockVisit = createMockVisitWithWinery();
+        route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{
+            visit_id: mockVisit.id,
+            user_id: mockVisit.user_id,
+            visit_date: mockVisit.visit_date,
+            user_review: mockVisit.user_review,
+            rating: mockVisit.rating,
+            photos: mockVisit.photos,
+            winery_id: mockVisit.winery_id,
+            winery_name: mockVisit.wineryName,
+            google_place_id: mockVisit.wineryId,
+            winery_address: mockVisit.wineries.address,
+            friend_visits: []
+        }]),
+        });
     });
-  });
+  }
 
   // 2.6 Mock log_visit RPC
-  await page.route(/\/rpc\/log_visit/, (route) => {
-    console.log('[E2E Mock] Intercepted log_visit RPC');
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ visit_id: 'mock-visit-new' }),
+  if (!isExcluded(/\/rpc\/log_visit/)) {
+    await page.route(/\/rpc\/log_visit/, (route) => {
+        route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ visit_id: 'mock-visit-new' }),
+        });
     });
-  });
+  }
 
   // 2.6.6 Mock Visit Mutation RPCs
-  await page.route(/\/rpc\/update_visit/, (route) => {
-    console.log('[E2E Mock] Intercepted update_visit RPC');
-    const mockVisit = createMockVisitWithWinery({ user_review: 'Updated review!', rating: 4 });
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({
-        id: mockVisit.id,
-        visit_date: mockVisit.visit_date,
-        user_review: mockVisit.user_review,
-        rating: mockVisit.rating,
-        photos: mockVisit.photos,
-        winery_id: mockVisit.winery_id,
-        winery_name: mockVisit.wineryName,
-        winery_address: mockVisit.wineries.address,
-        google_place_id: mockVisit.wineryId
-      }),
+  if (!isExcluded(/\/rpc\/update_visit/)) {
+    await page.route(/\/rpc\/update_visit/, (route) => {
+        const mockVisit = createMockVisitWithWinery({ user_review: 'Updated review!', rating: 4 });
+        route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+            id: mockVisit.id,
+            visit_date: mockVisit.visit_date,
+            user_review: mockVisit.user_review,
+            rating: mockVisit.rating,
+            photos: mockVisit.photos,
+            winery_id: mockVisit.winery_id,
+            winery_name: mockVisit.wineryName,
+            winery_address: mockVisit.wineries.address,
+            google_place_id: mockVisit.wineryId
+        }),
+        });
     });
-  });
+  }
 
-  await page.route(/\/rpc\/delete_visit/, (route) => {
-    console.log('[E2E Mock] Intercepted delete_visit RPC');
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ success: true }),
+  if (!isExcluded(/\/rpc\/delete_visit/)) {
+    await page.route(/\/rpc\/delete_visit/, (route) => {
+        route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
+        });
     });
-  });
+  }
 
   // 2.6.7 Mock List Toggles
-  await page.route(/\/rpc\/toggle_wishlist/, (route) => {
-    console.log('[E2E Mock] Intercepted toggle_wishlist RPC');
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(true),
+  if (!isExcluded(/\/rpc\/toggle_wishlist/)) {
+    await page.route(/\/rpc\/toggle_wishlist/, (route) => {
+        route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(true),
+        });
     });
-  });
+  }
 
-  await page.route(/\/rpc\/toggle_favorite/, (route) => {
-    console.log('[E2E Mock] Intercepted toggle_favorite RPC');
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify(true),
+  if (!isExcluded(/\/rpc\/toggle_favorite/)) {
+    await page.route(/\/rpc\/toggle_favorite/, (route) => {
+        route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(true),
+        });
     });
-  });
+  }
 
   // 2.7 Mock delete visit (Supabase REST - Legacy/Compatibility)
-  await page.route(/\/rest\/v1\/visits\?/, (route) => {
-    if (route.request().method() === 'DELETE') {
-        console.log('[E2E Mock] Intercepted Supabase DELETE Visit');
-        route.fulfill({
-            status: 204, 
-        });
-    } else {
-        route.continue();
-    }
-  });
+  if (!isExcluded(/\/rest\/v1\/visits\?/)) {
+    await page.route(/\/rest\/v1\/visits\?/, (route) => {
+        if (route.request().method() === 'DELETE') {
+            route.fulfill({
+                status: 204, 
+            });
+        } else {
+            route.continue();
+        }
+    });
+  }
 
   // 3. Block costly Google Data APIs
+  // No exclusion for these as they are core safety
   await page.route(/(google|googleapis|places)/, async (route) => {
     const url = route.request().url();
     const type = route.request().resourceType();
