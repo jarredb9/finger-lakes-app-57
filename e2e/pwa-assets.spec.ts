@@ -26,23 +26,17 @@ test.describe('PWA Assets & Sync', () => {
   });
 
   test('should sync queued visits when back online', async ({ page, context }) => {
-    // 1. Setup: Go to Explore and open modal
+    // 1. Setup: Go to Explore and open modal via UI
     await navigateToTab(page, 'Explore');
-    await page.evaluate(() => {
-        (window as any).useWineryDataStore.getState().upsertWinery({
-            id: 'ch-mock-winery-sync',
-            google_place_id: 'ch-mock-winery-sync',
-            name: 'Sync Test Winery',
-            address: '123 Sync Lane',
-            lat: 42.0,
-            lng: -76.0
-        });
-        (window as any).useUIStore.getState().openWineryModal('ch-mock-winery-sync');
-    });
+    
+    // The mockGoogleMapsApi utility already provides markers. 
+    // We'll click one to open the modal.
+    const wineryMarker = page.getByText('Vineyard of Illusion').first();
+    await wineryMarker.click();
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
-    await expect(modal.getByText('Sync Test Winery').first()).toBeVisible();
+    await expect(modal.getByRole('heading', { name: 'Vineyard of Illusion' })).toBeVisible();
 
     // Ensure form is ready
     const addVisitButton = page.getByRole('button', { name: 'Add Visit' });

@@ -51,27 +51,16 @@ test.describe('PWA Offline Functionality', () => {
   });
 
   test('should queue visit creation when offline (Lie-Fi)', async ({ page, context }) => {
-    // 1. Setup: Go to Explore and open a winery modal
+    // 1. Setup: Go to Explore and open a winery modal via UI
     await navigateToTab(page, 'Explore');
     
-    // Force open a known winery modal (mocked data)
-    await page.evaluate(() => {
-        // Upsert to Data Store first
-        (window as any).useWineryDataStore.getState().upsertWinery({
-            id: 'ch-mock-winery-1',
-            google_place_id: 'ch-mock-winery-1',
-            name: 'Test Winery',
-            address: '123 Vine St',
-            lat: 42.0,
-            lng: -76.0
-        });
-        // Open via UI Store
-        (window as any).useUIStore.getState().openWineryModal('ch-mock-winery-1');
-    });
+    // The mockGoogleMapsApi utility provides 'Vineyard of Illusion' as a marker
+    const wineryMarker = page.getByText('Vineyard of Illusion').first();
+    await wineryMarker.click();
 
     // Verify winery is loaded and modal is open
     await expect(page.getByRole('dialog')).toBeVisible();
-    await expect(page.getByRole('dialog').getByRole('heading', { name: 'Test Winery' })).toBeVisible();
+    await expect(page.getByRole('dialog').getByRole('heading', { name: 'Vineyard of Illusion' })).toBeVisible();
 
     // 2. Go Offline
     await context.setOffline(true);
@@ -102,7 +91,7 @@ test.describe('PWA Offline Functionality', () => {
     await navigateToTab(page, 'History');
     
     // Use locator('visible=true') to handle potential duplicates in responsive DOM (desktop sidebar vs mobile sheet)
-    await expect(page.getByText('Test Winery').locator('visible=true')).toBeVisible();
+    await expect(page.getByText('Vineyard of Illusion').locator('visible=true')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Offline note test').locator('visible=true')).toBeVisible();
   });
 });
