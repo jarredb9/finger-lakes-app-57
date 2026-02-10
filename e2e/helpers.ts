@@ -71,8 +71,12 @@ export async function login(page: Page, email: string, pass: string) {
 
   await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 30000 });
   
-  // Wait for initial data fetches to stabilize
-  await page.waitForLoadState('networkidle');
+  // Wait for critical initial data fetches to stabilize deterministically
+  // We wait for markers as they are usually the last thing to load
+  await Promise.all([
+    page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 10000 }).catch(() => {}),
+    page.waitForResponse(resp => resp.url().includes('get_map_markers'), { timeout: 10000 }).catch(() => {})
+  ]);
 
   await dismissErrorOverlay(page); // Check after login
 }
