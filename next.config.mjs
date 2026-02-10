@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  env: {
-    IS_E2E: process.env.IS_E2E,
-  },
   reactCompiler: true,
   images: {
     unoptimized: true,

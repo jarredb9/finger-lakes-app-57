@@ -64,7 +64,7 @@ export default function RootLayout({
             <main className="flex-1"><AuthProvider>{children}</AuthProvider></main>
             <Toaster />
             <PwaHandler />
-            {(process.env.NODE_ENV !== 'production' || process.env.IS_E2E === 'true') && <E2EStoreExposer />}
+            {process.env.NODE_ENV !== 'production' && <E2EStoreExposer />}
             <GlobalModalRenderer />
             <CookieConsent />
           </div>
