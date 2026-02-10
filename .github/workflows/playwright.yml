@@ -32,10 +32,44 @@ jobs:
     - name: Install Playwright Browsers
       run: npx playwright install --with-deps
     - name: Run Playwright tests
-      run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+      run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --grep-invert "pwa-"
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
         name: playwright-report-${{ matrix.shardIndex }}
+        path: playwright-report/
+        retention-days: 30
+
+  test-pwa:
+    name: PWA Production Audit
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+      TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+      TEST_USER_2_EMAIL: ${{ secrets.TEST_USER_2_EMAIL }}
+      TEST_USER_2_PASSWORD: ${{ secrets.TEST_USER_2_PASSWORD }}
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      IS_E2E: 'true'
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    - name: Install dependencies
+      run: npm ci
+    - name: Install Playwright Browsers
+      run: npx playwright install --with-deps chromium
+    - name: Build Next.js app
+      run: npm run build
+    - name: Run PWA tests (Production)
+      run: npx playwright test e2e/pwa-assets.spec.ts e2e/pwa-offline.spec.ts e2e/pwa-install-layout.spec.ts --project=chromium
+    - uses: actions/upload-artifact@v4
+      if: ${{ !cancelled() }}
+      with:
+        name: playwright-report-pwa
         path: playwright-report/
         retention-days: 30

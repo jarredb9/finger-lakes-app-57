@@ -86,9 +86,9 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'npm run dev -- -p 3001',
+    command: process.env.IS_E2E === 'true' ? 'npm run start -- -p 3001' : 'npm run dev -- -p 3001',
     url: 'http://localhost:3001',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !process.env.CI || process.env.IS_E2E !== 'true',
     timeout: 120 * 1000,
   },
 });
