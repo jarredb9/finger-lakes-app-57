@@ -1,18 +1,10 @@
-import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
+import { test, expect } from './utils';
 import { getSidebarContainer, login, navigateToTab } from './helpers';
 
 test.describe('Visit Logging Flow', () => {
-  let user: TestUser;
-
-  test.beforeEach(async ({ page }) => {
-    user = await createTestUser();
-    await mockGoogleMapsApi(page);
+  test.beforeEach(async ({ page, user }) => {
+    // mockMaps is auto-initialized by the fixture
     await login(page, user.email, user.password);
-  });
-
-  test.afterEach(async () => {
-    if (user) await deleteTestUser(user.id);
   });
 
   test('User can log, view, and delete a visit (Mocked $0 Cost)', async ({ page }) => {
@@ -33,9 +25,6 @@ test.describe('Visit Logging Flow', () => {
     }
 
     // 2. Open Winery Modal
-    // Use a robust locator for the winery name
-    // On mobile, the sheet might hide the element below the fold. 
-    // click() ensures we trigger the event only if it's truly actionable.
     await firstWinery.scrollIntoViewIfNeeded();
     await expect(firstWinery).toBeVisible({ timeout: 15000 });
     await firstWinery.click();
@@ -47,7 +36,11 @@ test.describe('Visit Logging Flow', () => {
 
     await modal.getByLabel('Set rating to 5').click();
     await modal.getByLabel('Your Review').fill('Excellent wine and view!');
-    await modal.getByRole('button', { name: 'Add Visit' }).click();
+    
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('log_visit') && resp.status() === 200),
+        modal.getByRole('button', { name: 'Add Visit' }).click()
+    ]);
 
     await expect(page.getByText('Visit added successfully.').first()).toBeVisible();
     await modal.getByRole('button', { name: 'Close' }).click();
@@ -69,7 +62,11 @@ test.describe('Visit Logging Flow', () => {
 
     // 5. Delete Visit
     const deleteBtn = historySidebar.getByRole('button', { name: 'Delete visit' }).first();
-    await deleteBtn.click();
+    
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('delete_visit') && resp.status() === 200),
+        deleteBtn.click()
+    ]);
     
     await expect(page.getByText('Visit deleted successfully.').first()).toBeVisible();
   });

@@ -1,122 +1,106 @@
-import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
+import { test, expect, createTestUser, deleteTestUser, mockGoogleMapsApi } from './utils';
 import { getSidebarContainer, login, navigateToTab } from './helpers';
 
 test.describe('Friends Interaction Flow', () => {
-  let user1: TestUser;
-  let user2: TestUser;
+  test('User A can send friend request and User B can accept it', async ({ browser, user: user1 }) => {
+    // 1. Create second ephemeral test user
+    const user2 = await createTestUser();
 
-  test('User A can send friend request and User B can accept it', async ({ browser }) => {
-    // 1. CreateEphemeral test users
-    user1 = await createTestUser();
-    user2 = await createTestUser();
+    try {
+      // 2. Create two isolated browser contexts
+      const contextA = await browser.newContext();
+      const contextB = await browser.newContext();
+      const pageA = await contextA.newPage();
+      const pageB = await contextB.newPage();
 
-    // 2. Create two isolated browser contexts
-    const contextA = await browser.newContext();
-    const contextB = await browser.newContext();
-    const pageA = await contextA.newPage();
-    const pageB = await contextB.newPage();
+      // 3. Login both users
+      await test.step('Login User A', async () => {
+        await mockGoogleMapsApi(pageA);
+        await login(pageA, user1.email, user1.password);
+      });
+      await test.step('Login User B', async () => {
+        await mockGoogleMapsApi(pageB);
+        await login(pageB, user2.email, user2.password)
+      });
 
-    // 3. Login both users
-    await test.step('Login User A', async () => {
-      await mockGoogleMapsApi(pageA);
-      await login(pageA, user1.email, user1.password);
-    });
-    await test.step('Login User B', async () => {
-      await mockGoogleMapsApi(pageB);
-      await login(pageB, user2.email, user2.password)
-    });
+      // 3. User A sends request to User B
+      await test.step('User A sends request', async () => {
+        // Navigate to Friends
+        await navigateToTab(pageA, 'Friends');
 
-    // 3. User A sends request to User B
-    await test.step('User A sends request', async () => {
-      // Navigate to Friends
-      await navigateToTab(pageA, 'Friends');
+        // Explicitly wait for the Friends view to load
+        const sidebar = getSidebarContainer(pageA);
+        await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
-      // Explicitly wait for the Friends view to load
-      const sidebar = getSidebarContainer(pageA);
-      await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
+        const emailInput = sidebar.getByPlaceholder("Enter friend's email");
+        await emailInput.fill(user2.email);
+        await expect(emailInput).toHaveValue(user2.email);
 
-      const emailInput = sidebar.getByPlaceholder("Enter friend's email");
-      await emailInput.fill(user2.email);
-      await expect(emailInput).toHaveValue(user2.email);
+        // Wait for loading to finish
+        await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 20000 });
 
-      // Wait for loading to finish
-      await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 20000 });
+        const addBtn = sidebar.getByRole('button', { name: 'Add friend' });
+        await expect(addBtn).toBeEnabled({ timeout: 10000 });
+        await addBtn.click();
 
-      const addBtn = sidebar.getByRole('button', { name: 'Add friend' });
-      await expect(addBtn).toBeEnabled({ timeout: 10000 });
-      // Use standard click to verify UI accessibility
-      await addBtn.click();
+        // Verify Sent
+        const successToast = pageA.getByText('Friend request sent!').first();
+        await expect(successToast).toBeVisible({ timeout: 5000 });
 
-      // Verify Sent
-      const successToast = pageA.getByText('Friend request sent!').first();
-      await expect(successToast).toBeVisible({ timeout: 5000 });
+        // Verify Sent Request appears in the list
+        const sentRequestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Sent Requests' });
+        await expect(sentRequestsCard).toBeVisible();
+        await expect(sentRequestsCard.getByText(user2.email).first()).toBeVisible();
+      });
 
-      // Verify Sent Request appears in the list
-      const sentRequestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Sent Requests' });
-      await expect(sentRequestsCard).toBeVisible();
-      await expect(sentRequestsCard.getByText(user2.email).first()).toBeVisible();
-    });
+      // 4. User B accepts request
+      await test.step('User B accepts request', async () => {
+        const sidebar = getSidebarContainer(pageB);
+        await pageB.reload();
+        
+        await navigateToTab(pageB, 'Friends');
+        await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
-    // 4. User B accepts request
-    await test.step('User B accepts request', async () => {
-      const sidebar = getSidebarContainer(pageB);
-      // Reload page B
-      await pageB.reload();
-      
-      // Navigate to Friends
-      await navigateToTab(pageB, 'Friends');
-      // Scope to sidebar to avoid finding hidden desktop element on mobile
-      await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
+        await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
 
-      // Wait for loading to finish
-      await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
+        // Should see request from User A
+        const requestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Friend Requests' });
+        await expect(requestsCard).toBeVisible();
 
-      // Should see request from User A
-      const requestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Friend Requests' });
-      await expect(requestsCard).toBeVisible();
+        const requestRow = requestsCard.locator('.flex.items-center', { hasText: user1.email });
+        const acceptBtn = requestRow.getByRole('button', { name: 'Accept request' });
 
-      const requestRow = requestsCard.locator('.flex.items-center', { hasText: user1.email });
-      const acceptBtn = requestRow.getByRole('button', { name: 'Accept request' });
+        await expect(acceptBtn).toBeVisible();
+        await acceptBtn.click();
 
-      await expect(acceptBtn).toBeVisible();
-      await acceptBtn.click();
+        // Verify moved to My Friends
+        const myFriendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
+        await expect(myFriendsCard).toBeVisible();
+        await expect(myFriendsCard.locator('text=' + user1.email)).toBeVisible();
+      });
 
-      // Verify moved to My Friends
-      const myFriendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
-      await expect(myFriendsCard).toBeVisible();
-      await expect(myFriendsCard.locator('text=' + user1.email)).toBeVisible();
-    });
+      // 5. Cleanup (User A removes User B)
+      await test.step('Cleanup: User A removes User B', async () => {
+        await pageA.reload();
+        const sidebar = getSidebarContainer(pageA);
+        
+        await navigateToTab(pageA, 'Friends');
+        await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
-    // 5. Cleanup (User A removes User B)
-    await test.step('Cleanup: User A removes User B', async () => {
-      // User A might need a refresh
-      await pageA.reload();
-      const sidebar = getSidebarContainer(pageA);
-      
-      await navigateToTab(pageA, 'Friends');
-      // Scope to sidebar to avoid finding hidden desktop element on mobile
-      await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
+        await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
 
-      // Wait for loading to finish
-      await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
+        const friendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
+        const friendRow = friendsCard.locator('.flex.items-center', { hasText: user2.email });
+        const removeBtn = friendRow.getByRole('button', { name: 'Remove friend' });
 
-      const friendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
-      const friendRow = friendsCard.locator('.flex.items-center', { hasText: user2.email });
-      const removeBtn = friendRow.getByRole('button', { name: 'Remove friend' });
+        await removeBtn.click();
+        await pageA.getByRole('button', { name: 'Remove' }).click(); 
+      });
 
-      await removeBtn.click();
-
-      // Confirm dialog
-      await pageA.getByRole('button', { name: 'Remove' }).click(); 
-    });
-
-    await contextA.close();
-    await contextB.close();
-  });
-
-  test.afterEach(async () => {
-    if (user1) await deleteTestUser(user1.id);
-    if (user2) await deleteTestUser(user2.id);
+      await contextA.close();
+      await contextB.close();
+    } finally {
+      await deleteTestUser(user2.id);
+    }
   });
 });

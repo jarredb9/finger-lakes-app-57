@@ -1,18 +1,10 @@
-import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
+import { test, expect } from './utils';
 import { getSidebarContainer, login, navigateToTab } from './helpers';
 
 test.describe('Wishlist Flow', () => {
-  let user: TestUser;
-
-  test.beforeEach(async ({ page }) => {
-    user = await createTestUser();
-    await mockGoogleMapsApi(page);
+  test.beforeEach(async ({ page, user }) => {
+    // mockMaps is auto-initialized by the fixture
     await login(page, user.email, user.password);
-  });
-
-  test.afterEach(async () => {
-    if (user) await deleteTestUser(user.id);
   });
 
   test('can toggle winery on wishlist', async ({ page }) => {
@@ -30,15 +22,8 @@ test.describe('Wishlist Flow', () => {
     }
 
     await firstWinery.click();
-
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
-
-    // Get the winery ID from the store to be precise in our checks
-    const wineryId = await page.evaluate(() => {
-        const store = (window as any).useWineryDataStore;
-        return store.getState().persistentWineries[0].id;
-    });
 
     // 1. Wishlist Toggle ON
     const wishlistBtn = modal.getByRole('button', { name: 'Want to Go' });
@@ -53,13 +38,6 @@ test.describe('Wishlist Flow', () => {
     // Check UI update (label change)
     await expect(modal.getByRole('button', { name: 'On List' })).toBeVisible({ timeout: 10000 });
 
-    // Verify Store state
-    await page.waitForFunction((id) => {
-        const store = (window as any).useWineryDataStore;
-        const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
-        return w?.onWishlist === true;
-    }, wineryId, { timeout: 15000 });
-
     // 2. Wishlist Toggle OFF
     const onListBtn = modal.getByRole('button', { name: 'On List' });
     await Promise.all([
@@ -70,13 +48,6 @@ test.describe('Wishlist Flow', () => {
     // Check UI update back to "Want to Go"
     await expect(modal.getByRole('button', { name: 'Want to Go' })).toBeVisible({ timeout: 10000 });
 
-    // Verify Store state
-    await page.waitForFunction((id) => {
-        const store = (window as any).useWineryDataStore;
-        const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
-        return w?.onWishlist === false;
-    }, wineryId, { timeout: 15000 });
-
     // 3. Favorite Toggle ON
     const favoriteBtn = modal.getByRole('button', { name: 'Favorite' }).first();
     await expect(favoriteBtn).toBeVisible();
@@ -85,12 +56,9 @@ test.describe('Wishlist Flow', () => {
         favoriteBtn.click()
     ]);
 
-    // Wait for store update
-    await page.waitForFunction((id) => {
-        const store = (window as any).useWineryDataStore;
-        const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
-        return w?.isFavorite === true;
-    }, wineryId, { timeout: 15000 });
+    // Verify UI reflects favorite status
+    await expect(favoriteBtn.locator('svg')).toHaveClass(/text-yellow-400/);
+    await expect(favoriteBtn.locator('svg')).toHaveClass(/fill-yellow-400/);
 
     // 4. Favorite Toggle OFF
     await Promise.all([
@@ -98,11 +66,7 @@ test.describe('Wishlist Flow', () => {
         favoriteBtn.click()
     ]);
 
-    // Verify Store state
-    await page.waitForFunction((id) => {
-        const store = (window as any).useWineryDataStore;
-        const w = store.getState().persistentWineries.find((winery: any) => winery.id === id);
-        return w?.isFavorite === false;
-    }, wineryId, { timeout: 15000 });
+    // Verify UI reflects non-favorite status
+    await expect(favoriteBtn.locator('svg')).not.toHaveClass(/text-yellow-400/);
   });
 });

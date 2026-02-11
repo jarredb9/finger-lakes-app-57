@@ -402,6 +402,11 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Calendar Refactor:** Fully refactored `Calendar` component to the v9 API, fixing mobile alignment and desktop navigation overlap.
     *   **Stability Fixes:** Resolved infinite render loops in `PwaHandler` and `useToast` by stabilizing callbacks and using `useRef` for effect guards.
 50. **Type Safety (Supabase Utilities):** Resolved implicit 'any' errors in `utils/supabase/server.ts` and `admin.ts` by explicitly typing the `setAll` cookie signature for compatibility with latest `@supabase/ssr` versions.
+51. **CI Sharding & Parallelization**: Implemented 4-way parallel sharding in GitHub Actions, significantly reducing test suite execution time. Optimized for stability by limiting each CI shard to a single worker to prevent backend resource contention on the dev server.
+52. **PWA Production Audit**: Implemented a dedicated CI job (`test-pwa`) that builds the app and runs high-fidelity tests against a production server (`npm run start`). This verifies real-world Service Worker behavior, offline sync, and manifest validity.
+53. **Safe Store Exposure**: Introduced the `IS_E2E` environment variable to conditionally mount the `E2EStoreExposer` even in production builds, ensuring tests can still inject state while keeping the live production site clean.
+54. **UI-Based PWA Testing**: Refactored PWA spec files to use real UI interactions (searching/clicking markers) instead of store injection, ensuring that offline and sync features are verified through the actual user journey.
+55. **Test Stability & Resilience**: Enhanced E2E reliability with deterministic `waitForResponse` synchronization in the `login` helper and added stability buffers for IndexedDB background writes. Refactored `mockGoogleMapsApi` with a selective exclusion mechanism to allow tests to override global mocks for error-handling scenarios.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.

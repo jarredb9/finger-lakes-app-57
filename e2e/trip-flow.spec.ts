@@ -1,18 +1,10 @@
-import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
+import { test, expect } from './utils';
 import { getSidebarContainer, login, navigateToTab } from './helpers';
 
 test.describe('Trip Planning Flow', () => {
-  let user: TestUser;
-
-  test.beforeEach(async ({ page }) => {
-    user = await createTestUser();
-    await mockGoogleMapsApi(page);
+  test.beforeEach(async ({ page, user }) => {
+    // mockMaps is auto-initialized by the fixture
     await login(page, user.email, user.password);
-  });
-
-  test.afterEach(async () => {
-    if (user) await deleteTestUser(user.id);
   });
 
   test('can create a new trip from a winery', async ({ page }) => {

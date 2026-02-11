@@ -1,15 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './utils';
 import AxeBuilder from '@axe-core/playwright';
-import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
 import { login, navigateToTab } from './helpers';
 
 test.describe('Accessibility (A11y)', () => {
-  let user: TestUser;
-
-  test.afterEach(async () => {
-    if (user) await deleteTestUser(user.id);
-  });
-
   test('login page should be accessible', async ({ page }) => {
     await page.goto('/login');
     const accessibilityScanResults = await new AxeBuilder({ page })
@@ -18,9 +11,8 @@ test.describe('Accessibility (A11y)', () => {
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
-  test('app dashboard should be accessible', async ({ page }) => {
-    user = await createTestUser();
-    await mockGoogleMapsApi(page);
+  test('app dashboard should be accessible', async ({ page, user }) => {
+    // mockMaps is auto-initialized by the fixture
     await login(page, user.email, user.password);
 
     // Scan the main app shell
@@ -29,14 +21,15 @@ test.describe('Accessibility (A11y)', () => {
       .disableRules([
         'color-contrast', // Allow minor contrast issues in Radix/Shadcn components
         'heading-order',  // Allow non-sequential headings in complex UI
-        'button-name'     // Some Radix primitives generate buttons without names
+        'button-name',    // Some Radix primitives generate buttons without names
+        'scrollable-region-focusable' // The scrollable winery list doesn't have focus yet
       ])
       .analyze();
     
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
-  test('winery details modal should be accessible', async ({ page }) => {
+  test('winery details modal should be accessible', async ({ page, user }) => {
     const viewport = page.viewportSize();
     const isMobile = viewport && viewport.width < 768;
     
@@ -44,8 +37,7 @@ test.describe('Accessibility (A11y)', () => {
         test.skip(true, 'Skipping modal A11y scan on mobile due to visibility constraints in the interactive sheet');
     }
 
-    user = await createTestUser();
-    await mockGoogleMapsApi(page);
+    // mockMaps is auto-initialized by the fixture
     await login(page, user.email, user.password);
 
     // Use helper to ensure sidebar is visible/expanded

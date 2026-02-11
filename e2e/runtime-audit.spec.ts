@@ -1,22 +1,9 @@
-import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
+/* eslint-disable no-console */
+import { test, expect } from './utils';
 import { login, getSidebarContainer } from './helpers';
 
 test.describe('Runtime & Performance Audit', () => {
-  let user: TestUser;
-
-  test.beforeEach(async ({ page }) => {
-    // 1. Create unique user
-    user = await createTestUser();
-    // 2. Mock expensive APIs to keep audit fast/free
-    await mockGoogleMapsApi(page);
-  });
-
-  test.afterEach(async () => {
-    if (user) await deleteTestUser(user.id);
-  });
-
-  test('should login and check for hydration/console errors', async ({ page }) => {
+  test('should login and check for hydration/console errors', async ({ page, user }) => {
     const consoleMessages: string[] = [];
     
     // Listen for hydration errors specifically
@@ -30,16 +17,14 @@ test.describe('Runtime & Performance Audit', () => {
       }
     });
 
-    // 3. Robust Login (Handles cookie banner & Safari)
+    // 3. Robust Login
     await login(page, user.email, user.password);
 
-    // 4. Wait for the map/wineries to load (indicator of hydration completion)
-    // On mobile, explicitly tap 'Explore' to ensure the sheet is open/visible
+    // 4. Wait for the map/wineries to load
     const viewport = page.viewportSize();
     const isMobile = viewport && viewport.width < 768;
     
     if (isMobile) {
-        // Ensure we are on the Explore tab and the sheet is visible
         const exploreBtn = page.getByRole('button', { name: 'Explore' });
         if (await exploreBtn.isVisible()) {
             await exploreBtn.click();
@@ -47,11 +32,9 @@ test.describe('Runtime & Performance Audit', () => {
     }
 
     const sidebar = getSidebarContainer(page);
-    
-    // Ensure search results or dashboard is ready
     await expect(sidebar.getByText(/Wineries/i).first()).toBeVisible({ timeout: 20000 });
 
-    // 5. Performance Check: Count elements
+    // 5. Performance Check
     const wineries = await page.locator('[data-testid="winery-card"]').count();
     console.log(`[Audit] Loaded ${wineries} winery cards.`);
     
