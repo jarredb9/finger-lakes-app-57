@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { Page, test as base } from '@playwright/test';
 import { createMockWinery, createMockMapMarkerRpc, createMockVisitWithWinery } from '@/lib/test-utils/fixtures';
+import mockPlacesSearch from './mocks/places-search.json';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -32,10 +33,12 @@ export class MockMapsManager {
   async initDefaultMocks() {
     if (process.env.E2E_REAL_DATA === 'true') return;
 
-    const mockWinery = createMockWinery();
+    // Use consistent ID from mocks/places-search.json
+    const mockWinery = createMockWinery({ id: 'ch-12345-mock-winery-1' as any });
 
-    // 1. Inject a mock bounds object into the store to satisfy the useWineryFilter hook
-    await this.page.addInitScript(() => {
+    // 1. Inject robust Google Maps Mocks (New API + Geocoder)
+    await this.page.addInitScript((mockPlaces) => {
+      // Helper to satisfy useWineryFilter hook
       const mockBounds = { 
         contains: () => true,
         getCenter: () => ({ lat: () => 42.7, lng: () => -76.9 }),
@@ -44,19 +47,82 @@ export class MockMapsManager {
         getSouthWest: () => ({ lat: () => 42, lng: () => -77 })
       };
 
+      // 1.1 Poll for Google Maps and apply overrides
       const interval = setInterval(() => {
-        const store = (window as any).useMapStore;
-        if (store && store.setState) {
-          store.setState({ bounds: mockBounds });
-          const state = store.getState();
-          if (state.map && !state.map._isPatched) {
-              state.map.getBounds = () => mockBounds;
-              state.map._isPatched = true;
-              clearInterval(interval);
+        // @ts-ignore
+        if (window.google && window.google.maps) {
+          // @ts-ignore
+          const maps = window.google.maps;
+
+          // Mock LatLngBounds prototype to ensure contains() always returns true for mocks
+          if (maps.LatLngBounds && !(maps.LatLngBounds as any)._isMocked) {
+              maps.LatLngBounds.prototype.contains = () => true;
+              (maps.LatLngBounds as any)._isMocked = true;
+          }
+
+          // Mock Geocoder
+          if (maps.Geocoder && !(maps.Geocoder as any)._isMocked) {
+              maps.Geocoder.prototype.geocode = (_req: any) => Promise.resolve({
+                  results: [{
+                      geometry: {
+                          location: { lat: () => 42.7, lng: () => -76.9 },
+                          viewport: mockBounds
+                      }
+                  }]
+              }) as any;
+              (maps.Geocoder as any)._isMocked = true;
+          }
+
+          // Mock New Places API (searchByText)
+          if (maps.places && maps.places.Place && !(maps.places.Place as any)._isMocked) {
+              maps.places.Place.searchByText = (req: any) => {
+                  console.log('[E2E Mock] Intercepted searchByText', req.textQuery);
+                  // Transform mock data to satisfy library expectation (lat/lng functions)
+                  const places = mockPlaces.map(p => ({
+                      ...p,
+                      location: {
+                          lat: () => p.location.latitude,
+                          lng: () => p.location.longitude
+                      },
+                      fetchFields: () => Promise.resolve() // Mock fetchFields for lazy Detail calls
+                  }));
+                  return Promise.resolve({ places }) as any;
+              };
+              
+              // Also mock the static constructor for lazy detail fetching if needed
+              const originalPlace = maps.places.Place;
+              (maps.places as any).Place = class extends originalPlace {
+                  constructor(options: any) {
+                      super(options);
+                      // @ts-ignore
+                      this.displayName = "Mock Winery One";
+                      // @ts-ignore
+                      this.formattedAddress = "123 Mockingbird Lane, Fakeville, FK 12345";
+                      // @ts-ignore
+                      this.location = { lat: () => 42.7, lng: () => -76.9 };
+                  }
+                  // @ts-ignore
+                  fetchFields() { return Promise.resolve({ place: this }); }
+              };
+              
+              (maps.places.Place as any)._isMocked = true;
+          }
+
+          // Inject bounds into store
+          // @ts-ignore
+          const store = window.useMapStore;
+          if (store && store.setState) {
+            store.setState({ bounds: mockBounds });
+            const state = store.getState();
+            if (state.map && !state.map._isPatched) {
+                state.map.getBounds = () => mockBounds;
+                state.map._isPatched = true;
+                clearInterval(interval);
+            }
           }
         }
       }, 100);
-    });
+    }, mockPlacesSearch);
 
     // 2. Mock the Supabase Edge Function for winery details
     await this.page.route(/\/functions\/v1\/get-winery-details/, (route) => {
@@ -76,21 +142,55 @@ export class MockMapsManager {
       });
     });
 
-    // 3. Mock the Supabase RPC for map markers
-    await this.page.route(/\/rpc\/get_map_markers/, (route) => {
+    // 2.1 Mock the Supabase RPC for wineries in bounds (used by executeSearch)
+    await this.page.route(/\/rpc\/get_wineries_in_bounds/, (route) => {
+      console.log('[E2E Mock] Intercepted get_wineries_in_bounds RPC');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify([
-            createMockMapMarkerRpc(),
-            createMockMapMarkerRpc({ id: 2 as any, google_place_id: 'ch-mock-winery-2' as any, name: 'Vineyard of Illusion' })
+            createMockMapMarkerRpc({ google_place_id: 'ch-12345-mock-winery-1' as any }),
+            createMockMapMarkerRpc({ id: 2 as any, google_place_id: 'ch-67890-mock-winery-2' as any, name: 'Vineyard of Illusion' })
         ]),
+      });
+    });
+
+    // 3. Mock the Supabase RPC for map markers
+    await this.page.route(/\/rpc\/get_map_markers/, (route) => {
+      console.log('[E2E Mock] Intercepted get_map_markers RPC');
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([
+            createMockMapMarkerRpc({ google_place_id: 'ch-12345-mock-winery-1' as any }),
+            createMockMapMarkerRpc({ id: 2 as any, google_place_id: 'ch-67890-mock-winery-2' as any, name: 'Vineyard of Illusion' })
+        ]),
+      });
+    });
+
+    // 3.1 Intercept New Places API requests (Unified Handler)
+    await this.page.route(/.*places\.googleapis\.com.*SearchText/, async (route) => {
+      console.log('[E2E Mock] Intercepted Places API v1 SearchText via regex');
+      const places = mockPlacesSearch.map(p => ({
+        id: p.id,
+        displayName: { text: p.displayName },
+        formattedAddress: p.formattedAddress,
+        location: {
+          latitude: p.location.latitude,
+          longitude: p.location.longitude
+        },
+        rating: p.rating
+      }));
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ places }),
       });
     });
 
     // 4. Mock the Supabase RPC for visit history
     await this.page.route(/\/rpc\/get_paginated_visits_with_winery_and_friends/, (route) => {
-      const mockVisit = createMockVisitWithWinery();
+      const mockVisit = createMockVisitWithWinery({ wineryId: 'ch-12345-mock-winery-1' as any });
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -121,7 +221,7 @@ export class MockMapsManager {
 
     // 6. Mock Visit Mutation RPCs
     await this.page.route(/\/rpc\/update_visit/, (route) => {
-      const mockVisit = createMockVisitWithWinery({ user_review: 'Updated review!', rating: 4 });
+      const mockVisit = createMockVisitWithWinery({ user_review: 'Updated review!', rating: 4, wineryId: 'ch-12345-mock-winery-1' as any });
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -173,15 +273,17 @@ export class MockMapsManager {
       }
     });
 
-    // 9. Block costly Google Data APIs
+    // 9. Block costly Google Data APIs LAST (specific mocks added earlier will take precedence)
     await this.page.route(/(google|googleapis|places)/, async (route) => {
       const url = route.request().url();
       const type = route.request().resourceType();
 
+      // Allow essential scripts and fonts
       if (type === 'script' || type === 'font' || type === 'stylesheet' || url.includes('js?key=')) {
         return route.continue();
       }
 
+      // Mock map tiles with a tiny transparent PNG
       if (url.includes('vt?') || url.includes('kh?')) {
           return route.fulfill({
               contentType: 'image/png',
@@ -189,6 +291,7 @@ export class MockMapsManager {
           });
       }
 
+      // Default: Abort costly data requests
       return route.abort('failed');
     });
   }
@@ -260,11 +363,11 @@ export const test = base.extend<{
   mockMaps: MockMapsManager;
   user: TestUser;
 }>({
-  mockMaps: async ({ page }, use) => {
+  mockMaps: [async ({ page }, use) => {
     const manager = new MockMapsManager(page);
     await manager.initDefaultMocks();
     await use(manager);
-  },
+  }, { auto: true }],
 
   user: async ({}, use) => {
     const email = `test-${uuidv4()}@example.com`;

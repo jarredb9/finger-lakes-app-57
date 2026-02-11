@@ -7,8 +7,15 @@ import { expect, Locator, Page } from '@playwright/test';
 // --- Reusable Locators ---
 
 export function getSidebarContainer(page: Page): Locator {
-  // Use a locator that finds the visible container
-  return page.locator('[data-testid="desktop-sidebar-container"], [data-testid="mobile-sidebar-container"]').filter({ visible: true }).first();
+  const viewport = page.viewportSize();
+  const isMobile = viewport && viewport.width < 768;
+  
+  const selector = isMobile 
+    ? '[data-testid="mobile-sidebar-container"]' 
+    : '[data-testid="desktop-sidebar-container"]';
+    
+  // Use .first() to handle any accidental duplicates, but scope to visible state
+  return page.locator(selector).filter({ visible: true }).first();
 }
 
 // --- Common Actions ---
@@ -78,6 +85,11 @@ export async function login(page: Page, email: string, pass: string) {
     page.waitForResponse(resp => resp.url().includes('get_map_markers'), { timeout: 10000 }).catch(() => {})
   ]);
 
+  // IMPORTANT: On mobile, the sheet is closed by default. Open Explore so subsequent tests can find wineries.
+  if (isMobile) {
+      await navigateToTab(page, 'Explore');
+  }
+
   await dismissErrorOverlay(page); // Check after login
 }
 
@@ -98,10 +110,19 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
     if (bottomNavNames[tabName]) {
       const navBtn = page.getByRole('button', { name: bottomNavNames[tabName] });
       await expect(navBtn).toBeVisible();
-      await navBtn.click();
+      
+      // Use robust pointer sequence for Radix/Mobile
+      await navBtn.evaluate(el => {
+        const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+        events.forEach(name => {
+          el.dispatchEvent(new PointerEvent(name, { bubbles: true, cancelable: true, pointerType: 'touch' }));
+        });
+      });
       
       // Wait for the sheet to appear
       await expect(page.getByTestId('mobile-sidebar-container')).toBeVisible({ timeout: 5000 });
+      // Ensure it is truly visible (not animating)
+      await expect(page.locator('[data-testid="mobile-sidebar-container"]:visible')).toBeVisible({ timeout: 5000 });
       
       // NOTE: We no longer click the tab *inside* the sidebar on mobile because 
       // AppShell passes `hideTabs={true}` to AppSidebar when in the mobile sheet.

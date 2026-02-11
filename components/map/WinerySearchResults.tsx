@@ -40,6 +40,7 @@ const WinerySearchResults = memo(
                 </div>
                 )}
                 <div
+                data-testid="winery-results-list"
                 className="space-y-2 max-h-[450px] min-h-[200px] overflow-y-auto data-[loaded=true]:animate-in data-[loaded=true]:fade-in-50 px-2"
                 data-loaded={!isSearching}
                 >

@@ -407,6 +407,11 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 53. **Safe Store Exposure**: Introduced the `IS_E2E` environment variable to conditionally mount the `E2EStoreExposer` even in production builds, ensuring tests can still inject state while keeping the live production site clean.
 54. **UI-Based PWA Testing**: Refactored PWA spec files to use real UI interactions (searching/clicking markers) instead of store injection, ensuring that offline and sync features are verified through the actual user journey.
 55. **Test Stability & Resilience**: Enhanced E2E reliability with deterministic `waitForResponse` synchronization in the `login` helper and added stability buffers for IndexedDB background writes. Refactored `mockGoogleMapsApi` with a selective exclusion mechanism to allow tests to override global mocks for error-handling scenarios.
+56. **Fixture-Based E2E Architecture**: Refactored the entire E2E suite to use Playwright fixtures (`mockMaps`, `user`). Introduced `MockMapsManager` to centralize API mocking and `user` fixture to automate lifecycle and storage cleanup.
+57. **Deterministic Waits Expansion**: Replaced all remaining arbitrary timeouts in core flows with `page.waitForResponse` targeting specific Supabase RPC and REST endpoints.
+58. **Black-Box Social Verification**: Updated `wishlist-flow` and `photo-flow` to rely entirely on UI state (colors, labels, image sources) rather than direct Zustand store inspection.
+59. **Mobile Navigation Robustness**: Implemented a hybrid pointer event sequence (`pointerdown` -> `mousedown` -> `click`) in `navigateToTab` to resolve flaky Radix UI interactions in mobile emulation.
+60. **Modern Google Maps Mocking**: Implemented robust mocks for the "New" Google Places API (`searchByText`) and `Geocoder` via `addInitScript` to prevent real API contamination during tests.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
@@ -429,24 +434,24 @@ We have established a robust E2E testing infrastructure using **Playwright**.
 ### 2. Testing Environment & Concurrency
 *   **Dynamic User Isolation (`e2e/utils.ts`):** We use a "Fresh User" strategy. Every test creates one or more unique ephemeral users via the Supabase Admin API and deletes them after the test completes. 
 *   **Parallel Execution:** Because tests are fully isolated by user, we run tests in **parallel** (multiple workers) in CI to minimize build times.
-*   **Secrets (GitHub Actions):**
-    *   `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-    *   `SUPABASE_SERVICE_ROLE_KEY` (CRITICAL for dynamic user creation/deletion)
-    *   `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY`
+*   **Extended Fixtures:** We use Playwright `test.extend` to provide `mockMaps` (API management) and `user` (auth/cleanup) fixtures to every test.
 
 ### 3. Best Practices & Stability
-*   **Store Exposure:** We use `components/e2e-store-exposer.tsx` to expose internal Zustand stores to `window` (only in dev/test) for precise state injection and verification.
-*   **Selectors:** Use `data-testid` to distinguish between responsive duplicates (Mobile Sheet vs Desktop Sidebar).
+*   **Scoping:** Always use `getSidebarContainer(page)` or scope to `:visible` when interacting with sidebars, as both mobile and desktop versions exist in the DOM.
+*   **Mobile Navigation:** To trigger Radix UI components on mobile, use the robust pointer event sequence implemented in `navigateToTab`.
+*   **Deterministic Waits:** Prefer `page.waitForResponse` over `waitForTimeout` or simple visibility checks for network-bound actions.
+*   **Store Exposure:** We use `components/e2e-store-exposer.tsx` to expose internal Zustand stores to `window` (only in dev/test) for precise state injection and verification if absolutely necessary, but UI-based testing is preferred.
 *   **Mobile Safari (WebKit) Stability:**
     *   **Login:** Use `page.keyboard.press('Enter')` instead of clicking the "Sign In" button, which can be flaky in WebKit.
     *   **Assertions:** Use mobile-aware assertions (e.g., checking for the bottom navigation bar `div.fixed.bottom-0`) to verify successful login on small screens.
-*   **Idempotency:** Tests are self-cleaning via the `afterEach` user deletion hook.
+*   **Idempotency:** Tests are self-cleaning via the `user` fixture.
 *   **Hydration Awareness:** The `login` helper explicitly waits for the `AuthProvider` "Loading..." screen to disappear and for network stability.
 
 ### 4. Execution Scripts
-*   **Zero-Cost (Daily):** `npm run test:e2e` (Mocks Google/Supabase Reads)
-*   **Full Integrity (Monthly):** `npm run test:e2e:real` (Uses real Google/Supabase data)
+*   **Zero-Cost (Daily):** `npm run test:e2e -- --project=chromium` (Mocks Google/Supabase Reads)
+*   **Full Integrity (Monthly):** `npm run test:e2e:real -- --project=chromium` (Uses real Google/Supabase data)
 *   **Manual Runner:**
     ```bash
-    export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && npm run test:e2e
+    export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && npm run test:e2e -- --project=chromium
     ```
+

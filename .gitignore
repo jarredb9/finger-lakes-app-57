@@ -28,7 +28,7 @@ next-env.d.ts
 
 # Gemini files
 .gemini/*
-/GEMINI.md
+
 # Local environment variables
 .env.local
 
