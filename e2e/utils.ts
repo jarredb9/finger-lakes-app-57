@@ -155,6 +155,170 @@ export class MockMapsManager {
       });
     });
 
+    // 2.2 Mock the Supabase REST endpoint for trips (Stateful)
+    let mockTrips: any[] = [];
+
+    await this.page.route(/\/rest\/v1\/trips/, (route) => {
+      const method = route.request().method();
+      const url = route.request().url();
+      console.log(`[E2E Mock] Intercepted trips REST (${method}) ${url.slice(0, 50)}`);
+      
+      if (method === 'GET') {
+        if (url.includes('trip_wineries')) {
+            // Main list fetch
+            return route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify(mockTrips),
+                headers: { 'content-range': `0-${mockTrips.length - 1}/${mockTrips.length}` }
+            });
+        }
+        return route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            body: JSON.stringify(mockTrips),
+        });
+      }
+      
+      if (method === 'POST') {
+          const body = JSON.parse(route.request().postData() || '{}');
+          const newTrip = {
+              id: Math.floor(Math.random() * 10000),
+              name: body.name || 'New Trip',
+              trip_date: body.trip_date || new Date().toISOString().split('T')[0],
+              user_id: 'test-user-id',
+              members: ['test-user-id'],
+              trip_wineries: [{ count: 0 }]
+          };
+          mockTrips.unshift(newTrip as any);
+          return route.fulfill({
+              status: 201,
+              contentType: 'application/json',
+              body: JSON.stringify(newTrip)
+          });
+      }
+
+      if (method === 'PATCH') {
+          const body = JSON.parse(route.request().postData() || '{}');
+          const idMatch = url.match(/id=eq\.(\d+)/);
+          const id = idMatch ? parseInt(idMatch[1], 10) : null;
+          if (id !== null) {
+              mockTrips = mockTrips.map(t => t.id === id ? { ...t, ...body } : t);
+          }
+          return route.fulfill({ status: 204 });
+      }
+
+      if (method === 'DELETE') {
+          const idMatch = url.match(/id=eq\.(\d+)/);
+          const id = idMatch ? parseInt(idMatch[1], 10) : null;
+          if (id !== null) {
+              mockTrips = mockTrips.filter(t => t.id !== id);
+          }
+          return route.fulfill({ status: 204 });
+      }
+
+      return route.continue();
+    });
+
+    // 2.3 Mock the upcoming trips RPC
+    await this.page.route(/\/rpc\/get_upcoming_trips/, (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockTrips),
+      });
+    });
+
+    // 2.4 Mock the trip details RPC
+    await this.page.route(/\/rpc\/get_trip_details/, (route) => {
+      const body = JSON.parse(route.request().postData() || '{}');
+      const tripId = body.trip_id_param;
+      const trip = mockTrips.find(t => t.id === tripId);
+      
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(trip ? {
+            ...trip,
+            wineries: [],
+            members: []
+        } : null),
+      });
+    });
+
+    // 2.4.1 Mock the delete trip RPC
+    await this.page.route(/\/rpc\/delete_trip/, (route) => {
+      const body = JSON.parse(route.request().postData() || '{}');
+      const tripId = body.p_trip_id;
+      console.log(`[E2E Mock] RPC delete trip ID: ${tripId}`);
+      mockTrips = mockTrips.filter(t => t.id !== tripId);
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
+      });
+    });
+
+    // 2.4.2 Mock the create trip with winery RPC
+    await this.page.route(/\/rpc\/create_trip_with_winery/, (route) => {
+      const body = JSON.parse(route.request().postData() || '{}');
+      console.log(`[E2E Mock] RPC create_trip_with_winery: ${body.p_trip_name}`);
+      const newTrip = {
+          id: Math.floor(Math.random() * 10000),
+          name: body.p_trip_name || 'New Trip',
+          trip_date: body.p_trip_date || new Date().toISOString().split('T')[0],
+          user_id: 'test-user-id',
+          members: ['test-user-id'],
+          trip_wineries: [{ count: 1 }]
+      };
+      mockTrips.unshift(newTrip as any);
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ trip_id: newTrip.id }),
+      });
+    });
+
+    // 2.4.3 Mock the add winery to trip RPC
+    await this.page.route(/\/rpc\/add_winery_to_trip/, (route) => {
+      console.log(`[E2E Mock] RPC add_winery_to_trip`);
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ success: true }),
+      });
+    });
+
+    // 2.4.4 Mock the get trips for date RPC
+    await this.page.route(/\/rpc\/get_trips_for_date/, (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(mockTrips),
+      });
+    });
+
+    // 2.5 Mock the paginated wineries RPC (Browse List)
+    await this.page.route(/\/rpc\/get_paginated_wineries/, (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify([{
+            google_place_id: 'ch-12345-mock-winery-1',
+            name: 'Mock Winery One',
+            address: '123 Mockingbird Lane',
+            latitude: 42.7,
+            longitude: -76.9,
+            google_rating: 4.5,
+            is_favorite: false,
+            on_wishlist: false,
+            user_visited: false,
+            visit_count: 0
+        }]),
+        headers: { 'x-total-count': '1' }
+      });
+    });
+
     // 3. Mock the Supabase RPC for map markers
     await this.page.route(/\/rpc\/get_map_markers/, (route) => {
       console.log('[E2E Mock] Intercepted get_map_markers RPC');
