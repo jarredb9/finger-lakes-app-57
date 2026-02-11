@@ -62,24 +62,31 @@ export async function login(page: Page, email: string, pass: string) {
     window.localStorage.setItem('cookie-consent', 'true');
   });
 
-  await page.goto('/login');
-  await dismissErrorOverlay(page); // Check on load
-
-  await page.getByLabel('Email').fill(email);
-  await page.getByLabel('Password').fill(pass);
-  
-  // Use Enter key to submit
-  await page.getByLabel('Password').press('Enter');
-  
-  // Wait for login to complete
-  const viewport = page.viewportSize();
-  const isMobile = viewport && viewport.width < 768;
+  const isMobile = page.viewportSize()?.width! < 768;
   const successSelector = isMobile ? 'div.fixed.bottom-0' : 'h1:has-text("Winery Tracker")';
 
-  await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 30000 });
+  // Retry logic for occasional Supabase Auth consistency delays
+  await expect(async () => {
+    await page.goto('/login');
+    await dismissErrorOverlay(page);
+
+    const emailInput = page.getByLabel('Email');
+    await expect(emailInput).toBeVisible({ timeout: 5000 });
+    await emailInput.fill(email);
+    
+    const passInput = page.getByLabel('Password');
+    await passInput.fill(pass);
+    await passInput.press('Enter');
+
+    // Check if we reached the dashboard
+    const dashboard = page.locator(successSelector).first();
+    await expect(dashboard).toBeVisible({ timeout: 10000 });
+  }).toPass({
+    intervals: [2000, 5000],
+    timeout: 45000
+  });
   
   // Wait for critical initial data fetches to stabilize deterministically
-  // We wait for markers as they are usually the last thing to load
   await Promise.all([
     page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 10000 }).catch(() => {}),
     page.waitForResponse(resp => resp.url().includes('get_map_markers'), { timeout: 10000 }).catch(() => {})

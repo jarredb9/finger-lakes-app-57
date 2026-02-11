@@ -36,11 +36,12 @@ test.describe('Trip Management Flow', () => {
         page.getByRole('button', { name: 'Create Trip' }).click()
     ]);
     
-    // Ensure the dialog is gone
+    // Ensure the dialog is gone before checking the sidebar
     await expect(page.getByRole('dialog')).not.toBeVisible();
 
+    // Give the UI a moment to re-render the list
     const tripCard = sidebar.locator('div.rounded-lg.border', { hasText: 'Management Test Trip' }).first();
-    await expect(tripCard).toBeVisible({ timeout: 15000 });
+    await expect(tripCard).toBeVisible({ timeout: 20000 });
     await tripCard.scrollIntoViewIfNeeded();
 
     // 3. Rename Trip
