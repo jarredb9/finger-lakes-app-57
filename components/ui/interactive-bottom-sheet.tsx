@@ -70,31 +70,35 @@ export function InteractiveBottomSheet({
           )}
         >
           {/* Sheet Header / Handle */}
-          <div
-            className="flex items-center justify-between px-4 py-3 border-b bg-muted/10 shrink-0 cursor-pointer w-full active:bg-muted/20 transition-colors rounded-t-[15px] touch-none"
-            onClick={toggleSize}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
-            role="button"
-            aria-label={mode === "mini" ? "Expand to full screen" : "Minimize to half screen"}
-          >
-            <div className="flex-1 text-left truncate pr-2">
-              <div className="text-sm font-semibold text-foreground">{title}</div>
-            </div>
+          <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/10 shrink-0 w-full rounded-t-[15px] relative">
+            {/* Toggle Area (Expand/Collapse) */}
+            <div
+              className="flex-1 flex items-center cursor-pointer active:bg-muted/20 transition-colors touch-none"
+              onClick={toggleSize}
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              role="button"
+              aria-label={mode === "mini" ? "Expand to full screen" : "Minimize to half screen"}
+            >
+              <div className="flex-1 text-left truncate pr-2">
+                <div className="text-sm font-semibold text-foreground">{title}</div>
+              </div>
 
-            {/* Drag Handle Visual */}
-            <div className="w-12 h-1.5 bg-muted-foreground/20 rounded-full absolute left-1/2 -translate-x-1/2" aria-hidden="true" />
-
-            {/* Controls */}
-            <div className="flex-1 flex justify-end gap-2 items-center">
-              <div className="h-8 w-8 flex items-center justify-center text-muted-foreground">
+              {/* Controls */}
+              <div className="h-8 w-8 flex items-center justify-center text-muted-foreground mr-8">
                 {mode === "full" ? (
                   <ChevronDown className="h-4 w-4" />
                 ) : (
                   <ChevronUp className="h-4 w-4" />
                 )}
               </div>
+            </div>
 
+            {/* Drag Handle Visual */}
+            <div className="w-12 h-1.5 bg-muted-foreground/20 rounded-full absolute left-1/2 -translate-x-1/2 top-1.5 pointer-events-none" aria-hidden="true" />
+
+            {/* Close Button (Independent) */}
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
               <div
                 role="button"
                 tabIndex={0}
