@@ -48,7 +48,7 @@ jobs:
       if: steps.playwright-cache.outputs.cache-hit == 'true'
       run: npx playwright install-deps
     - name: Run Playwright tests
-      run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --grep-invert "pwa-" --project=chromium --project="Mobile Chrome"
+      run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --grep-invert "pwa-"
     - uses: actions/upload-artifact@v4
       if: ${{ !cancelled() }}
       with:
