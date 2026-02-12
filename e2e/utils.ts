@@ -157,6 +157,7 @@ export class MockMapsManager {
 
     // 2.2 Mock the Supabase REST endpoint for trips (Stateful)
     let mockTrips: any[] = [];
+    const getTodayCA = () => new Date().toLocaleDateString('en-CA');
 
     await this.page.route(/\/rest\/v1\/trips/, (route) => {
       const method = route.request().method();
@@ -185,10 +186,11 @@ export class MockMapsManager {
           const newTrip = {
               id: Math.floor(Math.random() * 10000),
               name: body.name || 'New Trip',
-              trip_date: body.trip_date || new Date().toISOString().split('T')[0],
+              trip_date: body.trip_date || getTodayCA(),
               user_id: 'test-user-id',
               members: ['test-user-id'],
-              trip_wineries: [{ count: 0 }]
+              trip_wineries: [{ count: 0 }],
+              wineries: []
           };
           mockTrips.unshift(newTrip as any);
           return route.fulfill({
@@ -266,10 +268,11 @@ export class MockMapsManager {
       const newTrip = {
           id: Math.floor(Math.random() * 10000),
           name: body.p_trip_name || 'New Trip',
-          trip_date: body.p_trip_date || new Date().toISOString().split('T')[0],
+          trip_date: body.p_trip_date || getTodayCA(),
           user_id: 'test-user-id',
           members: ['test-user-id'],
-          trip_wineries: [{ count: 1 }]
+          trip_wineries: [{ count: 1 }],
+          wineries: []
       };
       mockTrips.unshift(newTrip as any);
       route.fulfill({
