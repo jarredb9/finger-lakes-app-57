@@ -415,6 +415,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 61. **CI Optimization**: Implemented browser and npm caching in GitHub Actions, reducing setup time from 10+ minutes to <30 seconds per run. Optimized sharding strategy to target specific browser engines for stability.
 62. **Stateful Trip Mocking**: Implemented an in-memory stateful mock for the Supabase `/trips` REST API and related RPCs in `e2e/utils.ts`. This ensures deterministic testing of create/rename/delete flows without database race conditions or eventual consistency delays.
 63. **Accessibility Fix**: Refactored `InteractiveBottomSheet` to resolve a critical "Nested Interactive Controls" violation by moving the close button outside the toggle area.
+64. **PWA Test Infrastructure Refactor**: Migrated E2E mocking to `page.context().route()` and implemented strict `Cache-Control: no-store` headers for all Supabase mock responses. This ensures 100% reliable request interception in production builds with active Service Workers, resolving the long-standing `trip-flow` failure in the PWA audit suite.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
@@ -450,6 +451,7 @@ We have established a robust E2E testing infrastructure using **Playwright**.
     *   **Assertions:** Use mobile-aware assertions (e.g., checking for the bottom navigation bar `div.fixed.bottom-0`) to verify successful login on small screens.
 *   **Idempotency:** Tests are self-cleaning via the `user` fixture.
 *   **Hydration Awareness:** The `login` helper explicitly waits for the `AuthProvider` "Loading..." screen to disappear and for network stability.
+*   **PWA Mocking:** For tests targeting production builds or PWAs, always use `page.context().route()` instead of `page.route()`. This ensures that network requests initiated by the Service Worker are correctly intercepted. Additionally, always include `Cache-Control: no-store` in mock headers to prevent Service Worker caching.
 *   **Zero-Cost Mocking:** The `MockMapsManager` in `e2e/utils.ts` handles both Google Maps and Supabase Data API mocking. It uses a stateful in-memory array for Trips to mimic database behavior without network latency.
 
 ### 4. Execution Scripts
