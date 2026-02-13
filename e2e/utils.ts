@@ -33,8 +33,16 @@ export class MockMapsManager {
   async initDefaultMocks() {
     if (process.env.E2E_REAL_DATA === 'true') return;
 
-    // Use consistent ID from mocks/places-search.json
+    // Use context-level routing to ensure Service Worker requests are intercepted
+    const context = this.page.context();
     const mockWinery = createMockWinery({ id: 'ch-12345-mock-winery-1' as any });
+    const todayCA = new Date().toLocaleDateString('en-CA');
+
+    const commonHeaders = { 
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    };
 
     // 1. Inject robust Google Maps Mocks (New API + Geocoder)
     await this.page.addInitScript((mockPlaces) => {
@@ -75,8 +83,7 @@ export class MockMapsManager {
 
           // Mock New Places API (searchByText)
           if (maps.places && maps.places.Place && !(maps.places.Place as any)._isMocked) {
-              maps.places.Place.searchByText = (req: any) => {
-                  console.log('[E2E Mock] Intercepted searchByText', req.textQuery);
+              maps.places.Place.searchByText = () => {
                   // Transform mock data to satisfy library expectation (lat/lng functions)
                   const places = mockPlaces.map(p => ({
                       ...p,
@@ -125,10 +132,11 @@ export class MockMapsManager {
     }, mockPlacesSearch);
 
     // 2. Mock the Supabase Edge Function for winery details
-    await this.page.route(/\/functions\/v1\/get-winery-details/, (route) => {
+    await context.route(/\/functions\/v1\/get-winery-details/, (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify({
           google_place_id: mockWinery.id,
           name: mockWinery.name,
@@ -143,11 +151,11 @@ export class MockMapsManager {
     });
 
     // 2.1 Mock the Supabase RPC for wineries in bounds (used by executeSearch)
-    await this.page.route(/\/rpc\/get_wineries_in_bounds/, (route) => {
-      console.log('[E2E Mock] Intercepted get_wineries_in_bounds RPC');
+    await context.route(/\/rpc\/get_wineries_in_bounds/, (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify([
             createMockMapMarkerRpc({ google_place_id: 'ch-12345-mock-winery-1' as any }),
             createMockMapMarkerRpc({ id: 2 as any, google_place_id: 'ch-67890-mock-winery-2' as any, name: 'Vineyard of Illusion' })
@@ -157,27 +165,27 @@ export class MockMapsManager {
 
     // 2.2 Mock the Supabase REST endpoint for trips (Stateful)
     let mockTrips: any[] = [];
-    const getTodayCA = () => new Date().toLocaleDateString('en-CA');
 
-    await this.page.route(/\/rest\/v1\/trips/, (route) => {
+    await context.route(/\/rest\/v1\/trips/, (route) => {
       const method = route.request().method();
       const url = route.request().url();
-      console.log(`[E2E Mock] Intercepted trips REST (${method}) ${url.slice(0, 50)}`);
       
       if (method === 'GET') {
+        const count = mockTrips.length;
         if (url.includes('trip_wineries')) {
             // Main list fetch
             return route.fulfill({
                 status: 200,
                 contentType: 'application/json',
                 body: JSON.stringify(mockTrips),
-                headers: { 'content-range': `0-${mockTrips.length - 1}/${mockTrips.length}` }
+                headers: { ...commonHeaders, 'content-range': count > 0 ? `0-${count - 1}/${count}` : '*/0' }
             });
         }
         return route.fulfill({
             status: 200,
             contentType: 'application/json',
             body: JSON.stringify(mockTrips),
+            headers: commonHeaders
         });
       }
       
@@ -186,7 +194,7 @@ export class MockMapsManager {
           const newTrip = {
               id: Math.floor(Math.random() * 10000),
               name: body.name || 'New Trip',
-              trip_date: body.trip_date || getTodayCA(),
+              trip_date: body.trip_date || todayCA,
               user_id: 'test-user-id',
               members: ['test-user-id'],
               trip_wineries: [{ count: 0 }],
@@ -196,7 +204,8 @@ export class MockMapsManager {
           return route.fulfill({
               status: 201,
               contentType: 'application/json',
-              body: JSON.stringify(newTrip)
+              body: JSON.stringify(newTrip),
+              headers: commonHeaders
           });
       }
 
@@ -207,7 +216,7 @@ export class MockMapsManager {
           if (id !== null) {
               mockTrips = mockTrips.map(t => t.id === id ? { ...t, ...body } : t);
           }
-          return route.fulfill({ status: 204 });
+          return route.fulfill({ status: 204, headers: commonHeaders });
       }
 
       if (method === 'DELETE') {
@@ -216,23 +225,24 @@ export class MockMapsManager {
           if (id !== null) {
               mockTrips = mockTrips.filter(t => t.id !== id);
           }
-          return route.fulfill({ status: 204 });
+          return route.fulfill({ status: 204, headers: commonHeaders });
       }
 
       return route.continue();
     });
 
     // 2.3 Mock the upcoming trips RPC
-    await this.page.route(/\/rpc\/get_upcoming_trips/, (route) => {
+    await context.route(/\/rpc\/get_upcoming_trips/, (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify(mockTrips),
+        headers: commonHeaders
       });
     });
 
     // 2.4 Mock the trip details RPC
-    await this.page.route(/\/rpc\/get_trip_details/, (route) => {
+    await context.route(/\/rpc\/get_trip_details/, (route) => {
       const body = JSON.parse(route.request().postData() || '{}');
       const tripId = body.trip_id_param;
       const trip = mockTrips.find(t => t.id === tripId);
@@ -240,6 +250,7 @@ export class MockMapsManager {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify(trip ? {
             ...trip,
             wineries: [],
@@ -249,26 +260,25 @@ export class MockMapsManager {
     });
 
     // 2.4.1 Mock the delete trip RPC
-    await this.page.route(/\/rpc\/delete_trip/, (route) => {
+    await context.route(/\/rpc\/delete_trip/, (route) => {
       const body = JSON.parse(route.request().postData() || '{}');
       const tripId = body.p_trip_id;
-      console.log(`[E2E Mock] RPC delete trip ID: ${tripId}`);
       mockTrips = mockTrips.filter(t => t.id !== tripId);
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify({ success: true }),
       });
     });
 
     // 2.4.2 Mock the create trip with winery RPC
-    await this.page.route(/\/rpc\/create_trip_with_winery/, (route) => {
+    await context.route(/\/rpc\/create_trip_with_winery/, (route) => {
       const body = JSON.parse(route.request().postData() || '{}');
-      console.log(`[E2E Mock] RPC create_trip_with_winery: ${body.p_trip_name}`);
       const newTrip = {
           id: Math.floor(Math.random() * 10000),
           name: body.p_trip_name || 'New Trip',
-          trip_date: body.p_trip_date || getTodayCA(),
+          trip_date: body.p_trip_date || todayCA,
           user_id: 'test-user-id',
           members: ['test-user-id'],
           trip_wineries: [{ count: 1 }],
@@ -278,31 +288,33 @@ export class MockMapsManager {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify({ trip_id: newTrip.id }),
       });
     });
 
     // 2.4.3 Mock the add winery to trip RPC
-    await this.page.route(/\/rpc\/add_winery_to_trip/, (route) => {
-      console.log(`[E2E Mock] RPC add_winery_to_trip`);
+    await context.route(/\/rpc\/add_winery_to_trip/, (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify({ success: true }),
       });
     });
 
     // 2.4.4 Mock the get trips for date RPC
-    await this.page.route(/\/rpc\/get_trips_for_date/, (route) => {
+    await context.route(/\/rpc\/get_trips_for_date/, (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify(mockTrips),
       });
     });
 
     // 2.5 Mock the paginated wineries RPC (Browse List)
-    await this.page.route(/\/rpc\/get_paginated_wineries/, (route) => {
+    await context.route(/\/rpc\/get_paginated_wineries/, (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -318,16 +330,16 @@ export class MockMapsManager {
             user_visited: false,
             visit_count: 0
         }]),
-        headers: { 'x-total-count': '1' }
+        headers: { ...commonHeaders, 'x-total-count': '1' }
       });
     });
 
     // 3. Mock the Supabase RPC for map markers
-    await this.page.route(/\/rpc\/get_map_markers/, (route) => {
-      console.log('[E2E Mock] Intercepted get_map_markers RPC');
+    await context.route(/\/rpc\/get_map_markers/, (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify([
             createMockMapMarkerRpc({ google_place_id: 'ch-12345-mock-winery-1' as any }),
             createMockMapMarkerRpc({ id: 2 as any, google_place_id: 'ch-67890-mock-winery-2' as any, name: 'Vineyard of Illusion' })
@@ -336,8 +348,7 @@ export class MockMapsManager {
     });
 
     // 3.1 Intercept New Places API requests (Unified Handler)
-    await this.page.route(/.*places\.googleapis\.com.*SearchText/, async (route) => {
-      console.log('[E2E Mock] Intercepted Places API v1 SearchText via regex');
+    await context.route(/.*places\.googleapis\.com.*SearchText/, async (route) => {
       const places = mockPlacesSearch.map(p => ({
         id: p.id,
         displayName: { text: p.displayName },
@@ -351,16 +362,18 @@ export class MockMapsManager {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify({ places }),
       });
     });
 
     // 4. Mock the Supabase RPC for visit history
-    await this.page.route(/\/rpc\/get_paginated_visits_with_winery_and_friends/, (route) => {
+    await context.route(/\/rpc\/get_paginated_visits_with_winery_and_friends/, (route) => {
       const mockVisit = createMockVisitWithWinery({ wineryId: 'ch-12345-mock-winery-1' as any });
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify([{
           visit_id: mockVisit.id,
           user_id: mockVisit.user_id,
@@ -378,20 +391,22 @@ export class MockMapsManager {
     });
 
     // 5. Mock log_visit RPC
-    await this.page.route(/\/rpc\/log_visit/, (route) => {
+    await context.route(/\/rpc\/log_visit/, (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify({ visit_id: 'mock-visit-new' }),
       });
     });
 
     // 6. Mock Visit Mutation RPCs
-    await this.page.route(/\/rpc\/update_visit/, (route) => {
+    await context.route(/\/rpc\/update_visit/, (route) => {
       const mockVisit = createMockVisitWithWinery({ user_review: 'Updated review!', rating: 4, wineryId: 'ch-12345-mock-winery-1' as any });
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify({
           id: mockVisit.id,
           visit_date: mockVisit.visit_date,
@@ -406,51 +421,52 @@ export class MockMapsManager {
       });
     });
 
-    await this.page.route(/\/rpc\/delete_visit/, (route) => {
+    await context.route(/\/rpc\/delete_visit/, (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify({ success: true }),
       });
     });
 
     // 7. Mock List Toggles
-    await this.page.route(/\/rpc\/toggle_wishlist/, (route) => {
+    await context.route(/\/rpc\/toggle_wishlist/, (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify(true),
       });
     });
 
-    await this.page.route(/\/rpc\/toggle_favorite/, (route) => {
+    await context.route(/\/rpc\/toggle_favorite/, (route) => {
       route.fulfill({
         status: 200,
         contentType: 'application/json',
+        headers: commonHeaders,
         body: JSON.stringify(true),
       });
     });
 
     // 8. Mock delete visit (Supabase REST)
-    await this.page.route(/\/rest\/v1\/visits\?/, (route) => {
+    await context.route(/\/rest\/v1\/visits\?/, (route) => {
       if (route.request().method() === 'DELETE') {
-          route.fulfill({ status: 204 });
+          route.fulfill({ status: 204, headers: commonHeaders });
       } else {
           route.continue();
       }
     });
 
-    // 9. Block costly Google Data APIs LAST (specific mocks added earlier will take precedence)
+    // 9. Block costly Google Data APIs LAST
     await this.page.route(/(google|googleapis|places)/, async (route) => {
       const url = route.request().url();
       const type = route.request().resourceType();
 
-      // Allow essential scripts and fonts
       if (type === 'script' || type === 'font' || type === 'stylesheet' || url.includes('js?key=')) {
         return route.continue();
       }
 
-      // Mock map tiles with a tiny transparent PNG
       if (url.includes('vt?') || url.includes('kh?')) {
           return route.fulfill({
               contentType: 'image/png',
@@ -458,7 +474,6 @@ export class MockMapsManager {
           });
       }
 
-      // Default: Abort costly data requests
       return route.abort('failed');
     });
   }
@@ -467,27 +482,29 @@ export class MockMapsManager {
    * Bypasses mocks for visit-related RPCs, allowing them to hit the real database.
    */
   async useRealVisits() {
-    await this.page.unroute(/\/rpc\/log_visit/);
-    await this.page.unroute(/\/rpc\/update_visit/);
-    await this.page.unroute(/\/rpc\/delete_visit/);
-    await this.page.unroute(/\/rpc\/get_paginated_visits_with_winery_and_friends/);
+    const context = this.page.context();
+    await context.unroute(/\/rpc\/log_visit/);
+    await context.unroute(/\/rpc\/update_visit/);
+    await context.unroute(/\/rpc\/delete_visit/);
+    await context.unroute(/\/rpc\/get_paginated_visits_with_winery_and_friends/);
   }
 
   /**
    * Bypasses mocks for social-related RPCs.
    */
   async useRealSocial() {
-    await this.page.unroute(/\/rpc\/get_friends_and_requests/);
-    await this.page.unroute(/\/rpc\/send_friend_request/);
-    await this.page.unroute(/\/rpc\/respond_to_friend_request/);
-    await this.page.unroute(/\/rpc\/get_friend_activity_feed/);
+    const context = this.page.context();
+    await context.unroute(/\/rpc\/get_friends_and_requests/);
+    await context.unroute(/\/rpc\/send_friend_request/);
+    await context.unroute(/\/rpc\/respond_to_friend_request/);
+    await context.unroute(/\/rpc\/get_friend_activity_feed/);
   }
 
   /**
    * Simulates a failure when loading map markers.
    */
   async failMarkers() {
-    await this.page.route(/\/rpc\/get_map_markers/, (route) => {
+    await this.page.context().route(/\/rpc\/get_map_markers/, (route) => {
       route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -500,7 +517,7 @@ export class MockMapsManager {
    * Simulates a failure when loading trips.
    */
   async failTrips() {
-    await this.page.route(/\/rest\/v1\/trips/, (route) => {
+    await this.page.context().route(/\/rest\/v1\/trips/, (route) => {
       route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -513,7 +530,7 @@ export class MockMapsManager {
    * Simulates a failure when logging in.
    */
   async failLogin() {
-    await this.page.route('**/auth/v1/token**', (route) => {
+    await this.page.context().route('**/auth/v1/token**', (route) => {
       route.fulfill({
           status: 400,
           contentType: 'application/json',
@@ -565,9 +582,7 @@ export const test = base.extend<{
               }
           }
       }
-    } catch (err) {
-        console.warn(`[Test Cleanup] Failed to clean storage for user ${testUser.id}:`, err);
-    }
+    } catch (err) {}
 
     await supabase.auth.admin.deleteUser(testUser.id);
   }
@@ -618,9 +633,7 @@ export async function deleteTestUser(userId: string): Promise<void> {
             }
         }
     }
-  } catch (err) {
-      console.warn(`[Test Cleanup] Failed to clean storage for user ${userId}:`, err);
-  }
+  } catch (err) {}
 
   await supabase.auth.admin.deleteUser(userId);
 }
