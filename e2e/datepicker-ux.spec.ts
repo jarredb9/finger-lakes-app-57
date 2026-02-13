@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab } from './helpers';
+import { login, navigateToTab, getSidebarContainer } from './helpers';
 
 test.describe('DatePicker UX', () => {
   test('Desktop: should open popover and close on date selection', async ({ page, user }) => {
@@ -7,7 +7,10 @@ test.describe('DatePicker UX', () => {
     await navigateToTab(page, 'Explore');
 
     await test.step('Open Winery Modal', async () => {
-        const firstWinery = page.locator('text=Mock Winery One').first();
+        const sidebar = getSidebarContainer(page);
+        const firstWinery = sidebar.locator('text=Mock Winery One').first();
+        await expect(firstWinery).toBeVisible({ timeout: 15000 });
+        await firstWinery.scrollIntoViewIfNeeded();
         await firstWinery.click();
         await expect(page.getByRole('dialog')).toBeVisible();
     });
@@ -34,22 +37,14 @@ test.describe('DatePicker UX', () => {
   });
 
   test('Mobile: should open drawer and close on date selection', async ({ page, user }) => {
-    // Use Pixel 5 viewport for mobile test
+    // Use Mobile Chrome viewport size
     await page.setViewportSize({ width: 393, height: 851 });
     
     await login(page, user.email, user.password);
     await navigateToTab(page, 'Explore');
 
-    // Expand sheet on mobile to ensure visibility
-    const expandButton = page.getByRole('button', { name: 'Expand to full screen' });
-    if (await expandButton.isVisible()) {
-        await expandButton.click();
-        // Wait for animation
-        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/, { timeout: 10000 });
-    }
-
     await test.step('Open Winery Modal', async () => {
-        const sidebar = page.getByTestId('mobile-sidebar-container');
+        const sidebar = getSidebarContainer(page);
         const firstWinery = sidebar.locator('text=Mock Winery One').first();
         await expect(firstWinery).toBeVisible({ timeout: 15000 });
         await firstWinery.scrollIntoViewIfNeeded();
