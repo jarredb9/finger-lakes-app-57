@@ -2,11 +2,12 @@ import { redirect } from "next/navigation"
 import { getUser } from "@/lib/auth"
 import LoginForm from "@/components/login-form"
 
-export default async function LoginPage() {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ redirectTo?: string }> }) {
+  const { redirectTo } = await searchParams;
   const user = await getUser()
 
   if (user) {
-    redirect("/")
+    redirect(redirectTo || "/")
   }
 
   return (
@@ -16,7 +17,7 @@ export default async function LoginPage() {
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
           <p className="mt-2 text-center text-sm text-gray-600">Track your winery adventures</p>
         </div>
-        <LoginForm />
+        <LoginForm redirectTo={redirectTo} />
       </div>
     </div>
   )

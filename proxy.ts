@@ -23,7 +23,9 @@ export async function proxy(request: NextRequest) {
       });
     }
     // Redirect to login if no user and not a public route
-    return NextResponse.redirect(new URL('/login', request.url));
+    const url = new URL('/login', request.url);
+    url.searchParams.set('redirectTo', pathname);
+    return NextResponse.redirect(url);
   }
 
   return response;

@@ -69,7 +69,7 @@ export default function ResetPasswordForm() {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>Reset Your Password</CardTitle>
+        <CardTitle><h1 className="text-2xl font-bold">Reset Your Password</h1></CardTitle>
         <CardDescription>Enter a new password for your account.</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>

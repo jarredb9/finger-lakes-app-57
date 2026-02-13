@@ -11,7 +11,7 @@ import { Loader2 } from "lucide-react"
 import { useActionState } from "react" // Import useActionState
 import { login } from "@/app/actions" // Import the login server action
 
-export default function LoginForm() {
+export default function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const router = useRouter()
 
   const [state, formAction, isPending] = useActionState(
@@ -25,7 +25,7 @@ export default function LoginForm() {
 
       const result = await login(email, password)
       if (result.success) {
-        router.push("/")
+        router.push(redirectTo || "/")
         router.refresh()
       }
       return result // { success: boolean, message: string }
