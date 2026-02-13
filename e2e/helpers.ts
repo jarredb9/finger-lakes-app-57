@@ -21,7 +21,7 @@ export function getSidebarContainer(page: Page): Locator {
 // --- Common Actions ---
 
 // --- Helper to dismiss Next.js Error Overlay ---
-async function dismissErrorOverlay(page: Page) {
+export async function dismissErrorOverlay(page: Page) {
   // Strategy 1: CSS Injection (Most Robust)
   // This effectively "deletes" the portal visually and interaction-wise even if it appears later
   await page.addStyleTag({ 

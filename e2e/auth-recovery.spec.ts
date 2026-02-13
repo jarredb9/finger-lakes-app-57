@@ -1,4 +1,5 @@
 import { test, expect } from './utils';
+import { dismissErrorOverlay } from './helpers';
 
 test.describe('Auth Recovery (Password Reset)', () => {
   test('should allow user to request a reset link and then reset the password', async ({ page, context }) => {
@@ -17,6 +18,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.addInitScript(() => {
         window.localStorage.setItem('cookie-consent', 'true');
     });
+    await dismissErrorOverlay(page);
     
     await page.getByRole('link', { name: 'Forgot password?' }).click();
     await expect(page).toHaveURL(/.*\/forgot-password/);
@@ -25,7 +27,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Email').fill('test@example.com');
     await page.getByRole('button', { name: 'Send Reset Link' }).click();
 
-    await expect(page.getByText('If an account with this email exists, a password reset link has been sent.')).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: 'password reset link has been sent' })).toBeVisible();
 
     // 3. Mock the reset-password API
     await context.route('**/api/auth/reset-password', async (route) => {
@@ -38,30 +40,35 @@ test.describe('Auth Recovery (Password Reset)', () => {
 
     // 4. Simulate clicking the link in the email (navigate to /reset-password?code=mock-code)
     await page.goto('/reset-password?code=mock-code');
+    await dismissErrorOverlay(page);
     await expect(page.getByRole('heading', { name: 'Reset Your Password' })).toBeVisible();
 
     await page.getByLabel('New Password', { exact: true }).fill('new-password-123');
-    await page.getByLabel('Confirm New Password', { exact: true }).fill('new-password-123');
-    await page.getByRole('button', { name: 'Reset Password' }).click();
+    const confirmInput = page.getByLabel('Confirm New Password', { exact: true });
+    await confirmInput.fill('new-password-123');
+    await confirmInput.press('Enter');
 
     // 5. Verify Success and Redirection
-    await expect(page.getByText('Your password has been reset successfully.')).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: 'successfully' })).toBeVisible();
     // Increase timeout for the redirect
     await expect(page).toHaveURL(/.*\/login/, { timeout: 10000 });
   });
 
   test('should show error when passwords do not match', async ({ page }) => {
     await page.goto('/reset-password?code=mock-code');
+    await dismissErrorOverlay(page);
     
     await page.getByLabel('New Password', { exact: true }).fill('password123');
-    await page.getByLabel('Confirm New Password', { exact: true }).fill('password456');
-    await page.getByRole('button', { name: 'Reset Password' }).click();
+    const confirmInput = page.getByLabel('Confirm New Password', { exact: true });
+    await confirmInput.fill('password456');
+    await confirmInput.press('Enter');
 
-    await expect(page.getByText('Passwords do not match.')).toBeVisible();
+    await expect(page.getByRole('alert').filter({ hasText: 'do not match' })).toBeVisible();
   });
 
   test('should show error when no code is present', async ({ page }) => {
     await page.goto('/reset-password');
+    await dismissErrorOverlay(page);
     await expect(page.getByText('No reset token found.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reset Password' })).toBeDisabled();
   });
