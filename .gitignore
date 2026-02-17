@@ -53,3 +53,4 @@ coverage/
 
 # next-agents-md
 .next-docs/
+.npm/
