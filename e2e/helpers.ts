@@ -101,7 +101,7 @@ export async function clearServiceWorkers(page: Page) {
     });
 }
 
-export async function login(page: Page, email: string, pass: string) {
+export async function login(page: Page, email: string, pass: string, options: { skipMapReady?: boolean } = {}) {
   // Pre-emptively dismiss cookie banner by setting localStorage before load
   await page.addInitScript(() => {
     window.localStorage.setItem('cookie-consent', 'true');
@@ -142,7 +142,9 @@ export async function login(page: Page, email: string, pass: string) {
   ]);
 
   // Ensure map is functional before returning
-  await waitForMapReady(page);
+  if (!options.skipMapReady) {
+    await waitForMapReady(page);
+  }
 
   // IMPORTANT: On mobile, the sheet is closed by default. Open Explore so subsequent tests can find wineries.
   if (isMobile) {

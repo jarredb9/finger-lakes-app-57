@@ -7,7 +7,7 @@ test.describe('Error Handling (Unhappy Path)', () => {
     await mockMaps.failMarkers();
 
     // 2. Login
-    await login(page, user.email, user.password);
+    await login(page, user.email, user.password, { skipMapReady: true });
 
     // 3. Verify Error Alert is visible on the map area
     const errorAlert = page.getByRole('alert').filter({ hasText: 'Failed to load data' });
@@ -19,7 +19,7 @@ test.describe('Error Handling (Unhappy Path)', () => {
     await mockMaps.failTrips();
 
     // 2. Login
-    await login(page, user.email, user.password);
+    await login(page, user.email, user.password, { skipMapReady: true });
 
     // 3. Navigate to Trips
     await navigateToTab(page, 'Trips');

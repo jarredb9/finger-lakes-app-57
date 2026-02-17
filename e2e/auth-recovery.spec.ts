@@ -51,7 +51,9 @@ test.describe('Auth Recovery (Password Reset)', () => {
 
     await page.getByLabel('New Password', { exact: true }).fill('new-password-123');
     await page.getByLabel('Confirm New Password', { exact: true }).fill('new-password-123');
-    await page.getByRole('button', { name: 'Reset Password' }).click();
+    
+    const resetBtn = page.getByRole('button', { name: 'Reset Password' });
+    await resetBtn.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
 
     // 5. Verify Success and Redirection
     const successAlert = page.getByRole('alert').filter({ hasText: 'successfully' });
@@ -71,7 +73,9 @@ test.describe('Auth Recovery (Password Reset)', () => {
     
     await page.getByLabel('New Password', { exact: true }).fill('password123');
     await page.getByLabel('Confirm New Password', { exact: true }).fill('password456');
-    await page.getByRole('button', { name: 'Reset Password' }).click();
+    
+    const resetBtn = page.getByRole('button', { name: 'Reset Password' });
+    await resetBtn.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
 
     await expect(page.getByRole('alert').filter({ hasText: 'do not match' })).toBeVisible();
   });

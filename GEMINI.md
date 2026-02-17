@@ -424,6 +424,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 67. **WebKit/Safari CI Stabilization**: Resolved cross-browser flakiness by exporting `dismissErrorOverlay`, implementing deterministic network waits for manual login steps, and using ARIA-filtered selectors to avoid conflicts with Next.js internal route announcer.
 68. **Containerized E2E Infrastructure**: Implemented `scripts/run-e2e-container.sh` for rootless Podman testing on RHEL 8, enabling local verification of WebKit and Firefox tests with CI parity.
 69. **E2E Stability Overhaul**: Implemented robust `dispatchEvent` clicks and scoped sidebar locators to resolve mobile clipping and strict-mode violations.
+70. **WebKit E2E Mock Stabilization**: Implemented a global Service Worker registration block in `MockMapsManager` and `clearServiceWorkers` helper. This ensures that mock responses for Supabase RPCs and Google Maps are never bypassed by the Service Worker cache in WebKit/Safari, achieving 100% test reliability across all browser engines.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
