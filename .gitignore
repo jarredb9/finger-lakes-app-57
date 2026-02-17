@@ -39,6 +39,8 @@ node_modules/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+.cache/*
+.pki/*
 
 # Testing
 coverage/
@@ -48,5 +50,6 @@ coverage/
 /public/sw.js
 /public/workbox-*.js
 /public/worker-*.js
+
 # next-agents-md
 .next-docs/

@@ -10,50 +10,95 @@ export function getSidebarContainer(page: Page): Locator {
   const viewport = page.viewportSize();
   const isMobile = viewport && viewport.width < 768;
   
-  const selector = isMobile 
-    ? '[data-testid="mobile-sidebar-container"]' 
-    : '[data-testid="desktop-sidebar-container"]';
+  // Explicitly target either desktop OR mobile, ensuring we don't pick a hidden element.
+  const container = isMobile 
+    ? page.locator('[data-testid="mobile-sidebar-container"]')
+    : page.locator('[data-testid="desktop-sidebar-container"]');
     
-  // Use .first() to handle any accidental duplicates, but scope to visible state
-  return page.locator(selector).filter({ visible: true }).first();
+  return container.filter({ visible: true }).first();
+}
+
+/**
+ * Wait for the winery search list to finish loading.
+ */
+export async function waitForSearchComplete(page: Page) {
+  const sidebar = getSidebarContainer(page);
+  const resultsList = sidebar.getByTestId('winery-results-list');
+  
+  // Wait for searching loader to disappear and data-loaded to be true
+  await expect(resultsList).toHaveAttribute('data-loaded', 'true', { timeout: 15000 });
 }
 
 // --- Common Actions ---
 
+/**
+ * Wait for Google Maps and internal state to be ready.
+ */
+export async function waitForMapReady(page: Page) {
+    // Wait for the map container to be in DOM
+    await page.waitForSelector('[data-testid="map-container"]', { state: 'attached', timeout: 10000 });
+    
+    // Wait for internal state bounds to be set via store
+    await expect(async () => {
+        const hasBounds = await page.evaluate(() => {
+            // @ts-ignore
+            return !!(window.useMapStore?.getState?.().bounds);
+        });
+        if (!hasBounds) throw new Error('Map bounds not yet initialized');
+    }).toPass({ timeout: 10000 });
+}
+
 // --- Helper to dismiss Next.js Error Overlay ---
 export async function dismissErrorOverlay(page: Page) {
-  // Strategy 1: CSS Injection (Most Robust)
-  // This effectively "deletes" the portal visually and interaction-wise even if it appears later
-  await page.addStyleTag({ 
-    content: `
-      nextjs-portal { 
-        display: none !important; 
-        pointer-events: none !important; 
-        visibility: hidden !important;
-      }
-    ` 
-  });
+  // Use a safer evaluate that doesn't fail if context is destroyed during navigation
+  try {
+      await page.addStyleTag({ 
+        content: `
+          nextjs-portal { 
+            display: none !important; 
+            pointer-events: none !important; 
+            visibility: hidden !important;
+          }
+        ` 
+      }).catch(() => {}); // Ignore errors if context destroyed
+  } catch (e) {}
 
-  // Strategy 2: Immediate Removal (for existing ones)
   // Check for the Next.js portal which intercepts events
   const portal = page.locator('nextjs-portal');
-  if (await portal.count() > 0 && await portal.isVisible()) {
-    console.log('[Helper] Detected Next.js Error Overlay. Attempting to extract error and dismiss...');
-    
-    // Extract error text if possible
-    try {
-        const errorText = await portal.evaluate(el => el.shadowRoot?.textContent || el.textContent);
-        console.log('[Helper] Next.js Overlay Content:', errorText?.slice(0, 500)); 
-    } catch (e) {
-        console.log('[Helper] Could not extract error text.');
-    }
-
-    // Force remove
+  if (await portal.count() > 0) {
     await page.evaluate(() => {
       const p = document.querySelector('nextjs-portal');
       if (p) p.remove();
-    });
+    }).catch(() => {});
   }
+}
+
+/**
+ * Forcefully unregisters all service workers and clears all caches.
+ * Essential for testing mocks in PWA environments.
+ */
+export async function clearServiceWorkers(page: Page) {
+    await page.evaluate(async () => {
+        try {
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                }
+                const cacheNames = await caches.keys();
+                for (const cacheName of cacheNames) {
+                    await caches.delete(cacheName);
+                }
+            }
+            // Also clear IndexedDB which might hold stale offline queue data
+            const dbs = await window.indexedDB.databases();
+            dbs.forEach(db => {
+                if (db.name) window.indexedDB.deleteDatabase(db.name);
+            });
+        } catch (e) {
+            console.error('Error clearing SW/Caches:', e);
+        }
+    });
 }
 
 export async function login(page: Page, email: string, pass: string) {
@@ -68,6 +113,7 @@ export async function login(page: Page, email: string, pass: string) {
   // Retry logic for occasional Supabase Auth consistency delays
   await expect(async () => {
     await page.goto('/login');
+    await page.waitForLoadState('networkidle');
     await dismissErrorOverlay(page);
 
     const emailInput = page.getByLabel('Email');
@@ -76,71 +122,58 @@ export async function login(page: Page, email: string, pass: string) {
     
     const passInput = page.getByLabel('Password');
     await passInput.fill(pass);
-    await passInput.press('Enter');
+    
+    // Use click instead of press Enter for better reliability across Safari/Browsers
+    await page.getByRole('button', { name: 'Sign In' }).click();
 
     // Check if we reached the dashboard
     const dashboard = page.locator(successSelector).first();
     await expect(dashboard).toBeVisible({ timeout: 10000 });
+    await page.waitForLoadState('networkidle');
   }).toPass({
     intervals: [2000, 5000],
-    timeout: 45000
+    timeout: 30000
   });
   
-  // Wait for critical initial data fetches to stabilize deterministically
+  // Wait for critical initial data fetches to stabilize
   await Promise.all([
     page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 10000 }).catch(() => {}),
     page.waitForResponse(resp => resp.url().includes('get_map_markers'), { timeout: 10000 }).catch(() => {})
   ]);
+
+  // Ensure map is functional before returning
+  await waitForMapReady(page);
 
   // IMPORTANT: On mobile, the sheet is closed by default. Open Explore so subsequent tests can find wineries.
   if (isMobile) {
       await navigateToTab(page, 'Explore');
   }
 
-  await dismissErrorOverlay(page); // Check after login
+  await dismissErrorOverlay(page); 
 }
 
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
-  await dismissErrorOverlay(page); // Check before nav
-
   const viewport = page.viewportSize();
   const isMobile = viewport && viewport.width < 768;
   
   if (isMobile) {
-    const bottomNavNames: Record<string, string> = {
-      'Explore': 'Explore',
-      'Trips': 'Trips',
-      'Friends': 'Friends',
-      'History': 'History'
-    };
-
-    if (bottomNavNames[tabName]) {
-      const navBtn = page.getByRole('button', { name: bottomNavNames[tabName] });
-      await expect(navBtn).toBeVisible();
-      
-      // Use robust pointer sequence for Radix/Mobile
-      await navBtn.evaluate(el => {
-        const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
-        events.forEach(name => {
-          el.dispatchEvent(new PointerEvent(name, { bubbles: true, cancelable: true, pointerType: 'touch' }));
-        });
+    const navBtn = page.getByRole('button', { name: tabName });
+    await expect(navBtn).toBeVisible();
+    
+    // Use robust pointer sequence for Radix/Mobile
+    await navBtn.evaluate(el => {
+      const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+      events.forEach(name => {
+        el.dispatchEvent(new PointerEvent(name, { bubbles: true, cancelable: true, pointerType: 'touch' }));
       });
-      
-      // Wait for the sheet to appear
-      await expect(page.getByTestId('mobile-sidebar-container')).toBeVisible({ timeout: 5000 });
-      // Ensure it is truly visible (not animating)
-      await expect(page.locator('[data-testid="mobile-sidebar-container"]:visible')).toBeVisible({ timeout: 5000 });
-      
-      // NOTE: We no longer click the tab *inside* the sidebar on mobile because 
-      // AppShell passes `hideTabs={true}` to AppSidebar when in the mobile sheet.
-      // The bottom nav button itself sets the active tab state.
-    } else {
-       throw new Error(`Tab "${tabName}" is not defined in bottom navigation for mobile.`);
-    }
+    });
+    
+    // Wait for the sheet to appear
+    await expect(page.getByTestId('mobile-sidebar-container')).toBeVisible({ timeout: 5000 });
   } else {
       const sidebar = page.getByTestId('desktop-sidebar-container');
       const tab = sidebar.locator(`[role="tab"][aria-label="${tabName}"]`);
-      await expect(tab).toBeVisible({ timeout: 10000 });
+      await expect(tab).toBeVisible({ timeout: 5000 });
       await tab.click();
   }
 }

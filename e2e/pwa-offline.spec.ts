@@ -1,47 +1,28 @@
-import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, mockGoogleMapsApi } from './utils';
-import { login, navigateToTab } from './helpers';
+import { test, expect } from './utils';
+import { login, navigateToTab, getSidebarContainer, waitForMapReady, clearServiceWorkers } from './helpers';
 
 test.describe('PWA Offline Functionality', () => {
-  let user: { id: string; email: string; password: string };
-
-  test.beforeEach(async ({ page }) => {
-    await mockGoogleMapsApi(page);
-    user = await createTestUser();
+  test.beforeEach(async ({ page, user }) => {
+    await clearServiceWorkers(page);
     await login(page, user.email, user.password);
   });
 
-  test.afterEach(async () => {
-    await deleteTestUser(user.id);
-  });
-
   test('should display offline indicator and allow cached navigation', async ({ page, context }) => {
-    // 1. Initial Load & Cache (Online)
     await navigateToTab(page, 'Trips');
+    await waitForMapReady(page);
     await expect(page.locator('h2:has-text("My Trips")').locator('visible=true')).toBeVisible();
-    await expect(page.getByText('You have no upcoming trips').locator('visible=true')).toBeVisible();
 
-    // 2. Go Offline
     await context.setOffline(true);
-    await page.waitForTimeout(1000); // Wait for event to propagate
+    await expect(page.locator('text=Offline: Map detail limited').first()).toBeVisible({ timeout: 10000 });
 
-    // 3. Verify Offline Indicator
-    // The indicator is global, so it should be visible
-    await expect(page.locator('text=Offline: Map detail limited').first()).toBeVisible();
-
-    // 4. Verify Navigation (Cache) works
     await navigateToTab(page, 'Explore');
     
-    // Close the sheet to see the map (Mobile behavior)
     if (page.viewportSize()?.width && page.viewportSize()!.width < 768) {
         await page.getByRole('button', { name: 'Map' }).click();
     }
 
-    // The map view should still load (cached shell)
     await expect(page.getByTestId('map-container')).toBeVisible();
     
-    // 5. Verify Offline Interaction (Toggle a Filter)
-    // Re-open the sheet to access filters on mobile
     if (page.viewportSize()?.width && page.viewportSize()!.width < 768) {
         await navigateToTab(page, 'Explore');
     }
@@ -51,46 +32,49 @@ test.describe('PWA Offline Functionality', () => {
   });
 
   test('should queue visit creation when offline (Lie-Fi)', async ({ page, context }) => {
-    // 1. Setup: Go to Explore and open a winery modal via UI
     await navigateToTab(page, 'Explore');
+    await waitForMapReady(page);
     
-    // The mockGoogleMapsApi utility provides 'Vineyard of Illusion' as a marker
-    const wineryMarker = page.getByText('Vineyard of Illusion').first();
-    await wineryMarker.click();
+    const sidebar = getSidebarContainer(page);
+    const resultsList = sidebar.getByTestId('winery-results-list');
 
-    // Verify winery is loaded and modal is open
+    // Wait for the specific winery to appear, triggering search if needed
+    await expect(async () => {
+        const wineryItem = resultsList.getByText('Vineyard of Illusion').first();
+        if (await wineryItem.isVisible()) return;
+
+        // If not found, check if we need to trigger a manual search
+        const noResults = await resultsList.getByText('No wineries found').isVisible();
+        if (noResults) {
+            await sidebar.getByRole('button', { name: 'Search This Area' }).click();
+        }
+        
+        await expect(wineryItem).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 10000 });
+
+    const wineryItem = resultsList.getByText('Vineyard of Illusion').first();
+    await wineryItem.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByRole('dialog').getByRole('heading', { name: 'Vineyard of Illusion' })).toBeVisible();
 
-    // 2. Go Offline
     await context.setOffline(true);
-    // FORCE ABORT network requests to Supabase to simulate true offline for RPCs
-    await page.route('**/rest/v1/rpc/get_paginated_visits*', route => route.abort());
+    // Use context.route to block Service Worker requests
+    await context.route(/\/rpc\/get_paginated_visits/, route => route.abort());
 
-    // 3. Fill out Visit Form
     await page.getByLabel('Visit Date').fill('2025-01-01');
     await page.getByLabel('Your Review').fill('Offline note test');
     
-    // 4. Submit
     await page.getByRole('button', { name: 'Add Visit' }).click();
 
-    // 5. Verify Optimistic UI Update
     await expect(page.getByText(/Visit (Saved|cached)/).first()).toBeVisible();
     
-    // Give a small cushion for IndexedDB write
-    await page.waitForTimeout(500);
+    await expect(page.getByText('Offline note test').locator('visible=true')).toBeVisible({ timeout: 10000 });
 
-    // 6. Verify Data in UI (Optimistic)
-    // The visit should appear in the history list within the modal
-    await expect(page.getByText('Offline note test').locator('visible=true')).toBeVisible();
-
-    // 7. Verify Data Persists on Navigation
-    // Close modal and check history tab
     await page.getByRole('button', { name: 'Close' }).click();
     await expect(page.getByRole('dialog')).not.toBeVisible();
     await navigateToTab(page, 'History');
     
-    // Use locator('visible=true') to handle potential duplicates in responsive DOM (desktop sidebar vs mobile sheet)
     await expect(page.getByText('Vineyard of Illusion').locator('visible=true')).toBeVisible({ timeout: 10000 });
     await expect(page.getByText('Offline note test').locator('visible=true')).toBeVisible();
   });

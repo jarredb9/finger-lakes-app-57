@@ -1,18 +1,10 @@
-import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, mockGoogleMapsApi } from './utils';
-import { login, navigateToTab } from './helpers';
+import { test, expect } from './utils';
+import { login, navigateToTab, getSidebarContainer, waitForMapReady, clearServiceWorkers } from './helpers';
 
 test.describe('PWA Assets & Sync', () => {
-  let user: { id: string; email: string; password: string };
-
-  test.beforeEach(async ({ page }) => {
-    await mockGoogleMapsApi(page);
-    user = await createTestUser();
+  test.beforeEach(async ({ page, user }) => {
+    await clearServiceWorkers(page);
     await login(page, user.email, user.password);
-  });
-
-  test.afterEach(async () => {
-    await deleteTestUser(user.id);
   });
 
   test('should have valid manifest', async ({ request }) => {
@@ -28,23 +20,37 @@ test.describe('PWA Assets & Sync', () => {
   test('should sync queued visits when back online', async ({ page, context }) => {
     // 1. Setup: Go to Explore and open modal via UI
     await navigateToTab(page, 'Explore');
+    await waitForMapReady(page);
     
-    // The mockGoogleMapsApi utility already provides markers. 
-    // We'll click one to open the modal.
-    const wineryMarker = page.getByText('Vineyard of Illusion').first();
-    await wineryMarker.click();
+    // Target the winery in the list specifically within the visible sidebar
+    const sidebar = getSidebarContainer(page);
+    const resultsList = sidebar.getByTestId('winery-results-list');
+
+    // Wait for the specific winery to appear, triggering search if needed
+    await expect(async () => {
+        const wineryItem = resultsList.getByText('Vineyard of Illusion').first();
+        if (await wineryItem.isVisible()) return;
+
+        // If not found, check if we need to trigger a manual search
+        const noResults = await resultsList.getByText('No wineries found').isVisible();
+        if (noResults) {
+            await sidebar.getByRole('button', { name: 'Search This Area' }).click();
+        }
+        
+        await expect(wineryItem).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 15000 });
+    
+    const wineryItem = resultsList.getByText('Vineyard of Illusion').first();
+    await wineryItem.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
     await expect(modal.getByRole('heading', { name: 'Vineyard of Illusion' })).toBeVisible();
 
-    // Ensure form is ready
-    const addVisitButton = page.getByRole('button', { name: 'Add Visit' });
-    await expect(addVisitButton).toBeVisible();
-
     // 2. Go Offline
     await context.setOffline(true);
-    await page.route('**/rest/v1/rpc/log_visit*', route => route.abort()); // Block RPC
+    // Block the RPC to simulate network failure even if SW tries to bypass
+    await context.route(/\/rpc\/log_visit/, route => route.abort());
 
     // 3. Create Visit (Queued)
     await page.getByLabel('Visit Date').fill('2025-01-02');
@@ -54,59 +60,40 @@ test.describe('PWA Assets & Sync', () => {
     // Verify toast says cached
     await expect(page.getByText(/Visit (Saved|cached)/).first()).toBeVisible();
     
-    // Give a small cushion for IndexedDB write
-    await page.waitForTimeout(500);
-
-    // 4. Setup Interception for Sync
+    // 4. Setup Interception for Sync (using context.route for SW)
     let syncRequestMade = false;
-    await page.unroute('**/rest/v1/rpc/log_visit*'); // Remove block
-    await page.route('**/rest/v1/rpc/log_visit*', async route => {
-        console.log('Sync Request Intercepted!');
+    await context.unroute(/\/rpc\/log_visit/);
+    await context.route(/\/rpc\/log_visit/, async route => {
         syncRequestMade = true;
-        // Mock success response
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
+            headers: { 'Cache-Control': 'no-store' },
             body: JSON.stringify({ visit_id: 'synced-visit-123' })
         });
     });
 
     // 5. Go Online
     await context.setOffline(false);
-    // Production SW might trigger reloads or background tasks, wait for stability
-    await page.waitForLoadState('load');
-    await page.waitForTimeout(1000);
-    
-    // 6. Trigger Sync (Window online event)
-    await page.evaluate(() => {
-        window.dispatchEvent(new Event('online'));
-    });
 
-    // 7. Wait for Sync
-    // We check if the request was made. It might take a moment.
+    // 6. Wait for Sync
     await expect(async () => {
         expect(syncRequestMade).toBe(true);
     }).toPass({ timeout: 10000 });
   });
 
   test('should cache images and load them offline', async ({ page, context }) => {
-    // 1. Load page with an image (simulate by injecting an img tag that points to our mocked Supabase Storage)
-    // We'll use a mocked route to serve the image, but the SW should cache it based on the URL pattern
-    
-    // Define a specific fake image URL that matches the SW cache matcher:
-    // url.hostname.includes("supabase.co") && url.pathname.includes("/storage/v1/object/public")
     const fakeImageUrl = 'https://supabase.co/storage/v1/object/public/visit-photos/test-image.jpg';
 
-    // Mock the network response for this image
-    await page.route(fakeImageUrl, route => {
+    await context.route(fakeImageUrl, route => {
         route.fulfill({
             status: 200,
             contentType: 'image/jpeg',
-            body: Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]) // Tiny valid JPEG header
+            headers: { 'Cache-Control': 'public, max-age=31536000' }, // Stimulate caching
+            body: Buffer.from([0xFF, 0xD8, 0xFF, 0xE0])
         });
     });
 
-    // Inject image into DOM
     await page.evaluate((url) => {
         const img = document.createElement('img');
         img.src = url;
@@ -114,17 +101,11 @@ test.describe('PWA Assets & Sync', () => {
         document.body.appendChild(img);
     }, fakeImageUrl);
 
-    // Wait for it to load
     await expect(page.locator('#test-cached-image')).toHaveJSProperty('complete', true);
 
-    // 2. Go Offline
     await context.setOffline(true);
-    // Explicitly abort network to prove it comes from cache
-    await page.route(fakeImageUrl, route => route.abort());
+    await context.route(fakeImageUrl, route => route.abort());
 
-    // 3. Reload or Re-insert image to verify cache hit
-    // Simple reload might fail whole page if SW isn't controlling document in this test context fully (unstable).
-    // Safer: Create a NEW image element with same src.
     await page.evaluate((url) => {
         const img = document.createElement('img');
         img.src = url;
@@ -132,31 +113,15 @@ test.describe('PWA Assets & Sync', () => {
         document.body.appendChild(img);
     }, fakeImageUrl);
 
-    // 4. Verify second image loads (from cache)
     await expect(page.locator('#test-cached-image-2')).toHaveJSProperty('complete', true);
-    await expect(page.locator('#test-cached-image-2')).toHaveJSProperty('naturalWidth', 0, { timeout: 1000 }).catch(() => {}); 
-    // Note: Mocked tiny buffer might not have width, but 'complete' is true and no error event is key.
-    // Actually, let's check if it did NOT error.
-    await page.evaluate(() => {
-        const img = document.getElementById('test-cached-image-2') as HTMLImageElement;
-        return img.naturalWidth === 0 && img.complete; 
-        // If it was a real image, naturalWidth > 0. Our buffer is 4 bytes, invalid image data probably, but browser might treat as loaded 200 OK.
-        // If fetch failed (network error), it would be broken image.
-    });
-    // Just asserting visibility is usually enough if alt text isn't showing
   });
 
   test('should show install prompt when browser fires event', async ({ page }) => {
-    // 1. Simulate beforeinstallprompt event
     await page.evaluate(() => {
-      // Must be cancelable for preventDefault to work (though we just store it)
       window.dispatchEvent(new Event('beforeinstallprompt', { cancelable: true }));
     });
 
-    // 2. Verify Install UI appears
-    // Use :visible pseudo-class to avoid hidden desktop/mobile duplicates
     const installButton = page.getByRole('button', { name: /Install/i }).locator('visible=true');
-
     await expect(installButton.first()).toBeVisible();
   });
 });

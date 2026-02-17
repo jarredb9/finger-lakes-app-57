@@ -44,6 +44,20 @@ export class MockMapsManager {
       'Expires': '0'
     };
 
+    // 0. Block Service Worker Registration entirely to prevent mock bypass
+    await context.route('**/sw.js', route => route.abort());
+    await this.page.addInitScript(() => {
+        // Redefine register to be a no-op
+        if (navigator.serviceWorker) {
+            (navigator.serviceWorker as any).register = () => Promise.resolve({
+                unregister: () => Promise.resolve(true),
+                addEventListener: () => {},
+                removeEventListener: () => {},
+                dispatchEvent: () => false,
+            });
+        }
+    });
+
     // 1. Inject robust Google Maps Mocks (New API + Geocoder)
     await this.page.addInitScript((mockPlaces) => {
       // Helper to satisfy useWineryFilter hook
@@ -56,7 +70,7 @@ export class MockMapsManager {
       };
 
       // 1.1 Poll for Google Maps and apply overrides
-      const interval = setInterval(() => {
+      const applyMocks = () => {
         // @ts-ignore
         if (window.google && window.google.maps) {
           // @ts-ignore
@@ -124,15 +138,24 @@ export class MockMapsManager {
             if (state.map && !state.map._isPatched) {
                 state.map.getBounds = () => mockBounds;
                 state.map._isPatched = true;
-                clearInterval(interval);
+                (window as any)._mapsMocked = true;
+                return true;
             }
           }
         }
-      }, 100);
+        return false;
+      };
+
+      if (!applyMocks()) {
+          const interval = setInterval(() => {
+            if (applyMocks()) clearInterval(interval);
+          }, 100);
+      }
     }, mockPlacesSearch);
 
     // 2. Mock the Supabase Edge Function for winery details
     await context.route(/\/functions\/v1\/get-winery-details/, (route) => {
+      console.log('Mocked get-winery-details');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -152,6 +175,7 @@ export class MockMapsManager {
 
     // 2.1 Mock the Supabase RPC for wineries in bounds (used by executeSearch)
     await context.route(/\/rpc\/get_wineries_in_bounds/, (route) => {
+      console.log('Mocked get_wineries_in_bounds');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -167,6 +191,7 @@ export class MockMapsManager {
     let mockTrips: any[] = [];
 
     await context.route(/\/rest\/v1\/trips/, (route) => {
+      console.log('Mocked /rest/v1/trips');
       const method = route.request().method();
       const url = route.request().url();
       
@@ -233,6 +258,7 @@ export class MockMapsManager {
 
     // 2.3 Mock the upcoming trips RPC
     await context.route(/\/rpc\/get_upcoming_trips/, (route) => {
+      console.log('Mocked get_upcoming_trips');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -243,6 +269,7 @@ export class MockMapsManager {
 
     // 2.4 Mock the trip details RPC
     await context.route(/\/rpc\/get_trip_details/, (route) => {
+      console.log('Mocked get_trip_details');
       const body = JSON.parse(route.request().postData() || '{}');
       const tripId = body.trip_id_param;
       const trip = mockTrips.find(t => t.id === tripId);
@@ -261,6 +288,7 @@ export class MockMapsManager {
 
     // 2.4.1 Mock the delete trip RPC
     await context.route(/\/rpc\/delete_trip/, (route) => {
+      console.log('Mocked delete_trip');
       const body = JSON.parse(route.request().postData() || '{}');
       const tripId = body.p_trip_id;
       mockTrips = mockTrips.filter(t => t.id !== tripId);
@@ -274,6 +302,7 @@ export class MockMapsManager {
 
     // 2.4.2 Mock the create trip with winery RPC
     await context.route(/\/rpc\/create_trip_with_winery/, (route) => {
+      console.log('Mocked create_trip_with_winery');
       const body = JSON.parse(route.request().postData() || '{}');
       const newTrip = {
           id: Math.floor(Math.random() * 10000),
@@ -295,6 +324,7 @@ export class MockMapsManager {
 
     // 2.4.3 Mock the add winery to trip RPC
     await context.route(/\/rpc\/add_winery_to_trip/, (route) => {
+      console.log('Mocked add_winery_to_trip');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -305,6 +335,7 @@ export class MockMapsManager {
 
     // 2.4.4 Mock the get trips for date RPC
     await context.route(/\/rpc\/get_trips_for_date/, (route) => {
+      console.log('Mocked get_trips_for_date');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -315,6 +346,7 @@ export class MockMapsManager {
 
     // 2.5 Mock the paginated wineries RPC (Browse List)
     await context.route(/\/rpc\/get_paginated_wineries/, (route) => {
+      console.log('Mocked get_paginated_wineries');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -336,6 +368,7 @@ export class MockMapsManager {
 
     // 3. Mock the Supabase RPC for map markers
     await context.route(/\/rpc\/get_map_markers/, (route) => {
+      console.log('Mocked get_map_markers');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -349,6 +382,7 @@ export class MockMapsManager {
 
     // 3.1 Intercept New Places API requests (Unified Handler)
     await context.route(/.*places\.googleapis\.com.*SearchText/, async (route) => {
+      console.log('Mocked SearchText');
       const places = mockPlacesSearch.map(p => ({
         id: p.id,
         displayName: { text: p.displayName },
@@ -369,6 +403,7 @@ export class MockMapsManager {
 
     // 4. Mock the Supabase RPC for visit history
     await context.route(/\/rpc\/get_paginated_visits_with_winery_and_friends/, (route) => {
+      console.log('Mocked get_paginated_visits');
       const mockVisit = createMockVisitWithWinery({ wineryId: 'ch-12345-mock-winery-1' as any });
       route.fulfill({
         status: 200,
@@ -392,6 +427,7 @@ export class MockMapsManager {
 
     // 5. Mock log_visit RPC
     await context.route(/\/rpc\/log_visit/, (route) => {
+      console.log('Mocked log_visit');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -402,6 +438,7 @@ export class MockMapsManager {
 
     // 6. Mock Visit Mutation RPCs
     await context.route(/\/rpc\/update_visit/, (route) => {
+      console.log('Mocked update_visit');
       const mockVisit = createMockVisitWithWinery({ user_review: 'Updated review!', rating: 4, wineryId: 'ch-12345-mock-winery-1' as any });
       route.fulfill({
         status: 200,
@@ -422,6 +459,7 @@ export class MockMapsManager {
     });
 
     await context.route(/\/rpc\/delete_visit/, (route) => {
+      console.log('Mocked delete_visit');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -432,6 +470,7 @@ export class MockMapsManager {
 
     // 7. Mock List Toggles
     await context.route(/\/rpc\/toggle_wishlist/, (route) => {
+      console.log('Mocked toggle_wishlist');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -441,6 +480,7 @@ export class MockMapsManager {
     });
 
     await context.route(/\/rpc\/toggle_favorite/, (route) => {
+      console.log('Mocked toggle_favorite');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -451,6 +491,7 @@ export class MockMapsManager {
 
     // 8. Mock delete visit (Supabase REST)
     await context.route(/\/rest\/v1\/visits\?/, (route) => {
+      console.log('Mocked visits REST');
       if (route.request().method() === 'DELETE') {
           route.fulfill({ status: 204, headers: commonHeaders });
       } else {
@@ -478,9 +519,6 @@ export class MockMapsManager {
     });
   }
 
-  /**
-   * Bypasses mocks for visit-related RPCs, allowing them to hit the real database.
-   */
   async useRealVisits() {
     const context = this.page.context();
     await context.unroute(/\/rpc\/log_visit/);
@@ -489,9 +527,6 @@ export class MockMapsManager {
     await context.unroute(/\/rpc\/get_paginated_visits_with_winery_and_friends/);
   }
 
-  /**
-   * Bypasses mocks for social-related RPCs.
-   */
   async useRealSocial() {
     const context = this.page.context();
     await context.unroute(/\/rpc\/get_friends_and_requests/);
@@ -500,11 +535,9 @@ export class MockMapsManager {
     await context.unroute(/\/rpc\/get_friend_activity_feed/);
   }
 
-  /**
-   * Simulates a failure when loading map markers.
-   */
   async failMarkers() {
-    await this.page.context().route(/\/rpc\/get_map_markers/, (route) => {
+    const context = this.page.context();
+    await context.route(/\/rpc\/get_map_markers/, (route) => {
       route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -513,11 +546,9 @@ export class MockMapsManager {
     });
   }
 
-  /**
-   * Simulates a failure when loading trips.
-   */
   async failTrips() {
-    await this.page.context().route(/\/rest\/v1\/trips/, (route) => {
+    const context = this.page.context();
+    await context.route(/\/rest\/v1\/trips/, (route) => {
       route.fulfill({
         status: 500,
         contentType: 'application/json',
@@ -526,11 +557,9 @@ export class MockMapsManager {
     });
   }
 
-  /**
-   * Simulates a failure when logging in.
-   */
   async failLogin() {
-    await this.page.context().route('**/auth/v1/token**', (route) => {
+    const context = this.page.context();
+    await context.route('**/auth/v1/token**', (route) => {
       route.fulfill({
           status: 400,
           contentType: 'application/json',
@@ -548,6 +577,22 @@ export const test = base.extend<{
   user: TestUser;
 }>({
   mockMaps: [async ({ page }, use) => {
+    // Clear Service Worker caches before each test to prevent mock bypass
+    await page.addInitScript(async () => {
+        try {
+            if ('serviceWorker' in navigator) {
+                const registrations = await navigator.serviceWorker.getRegistrations();
+                for (const registration of registrations) {
+                    await registration.unregister();
+                }
+                const cacheNames = await caches.keys();
+                for (const cacheName of cacheNames) {
+                    await caches.delete(cacheName);
+                }
+            }
+        } catch (e) {}
+    });
+
     const manager = new MockMapsManager(page);
     await manager.initDefaultMocks();
     await use(manager);

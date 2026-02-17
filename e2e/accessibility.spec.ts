@@ -43,9 +43,10 @@ test.describe('Accessibility (A11y)', () => {
     // Use helper to ensure sidebar is visible/expanded
     await navigateToTab(page, 'Explore');
 
-    // Open a winery modal
-    const firstWinery = page.locator('text=Mock Winery One').first();
-    await firstWinery.click();
+    // Open a winery modal using robust click
+    const firstWinery = page.getByTestId('winery-results-list').getByText('Mock Winery One').first();
+    await expect(firstWinery).toBeVisible({ timeout: 10000 });
+    await firstWinery.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();

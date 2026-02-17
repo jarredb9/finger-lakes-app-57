@@ -28,6 +28,9 @@ This is a Next.js web application for planning and tracking visits to wineries. 
     *   **Start:** `pm2 start npm --name "winery-dev" -- run dev -- -p 3001`
     *   **Logs:** `pm2 logs winery-dev`
     *   **Stop:** `pm2 delete winery-dev`
+*   **Playwright Container (RHEL 8):** Local WebKit/Safari/Firefox testing is supported via a rootless Podman container.
+    *   **Script:** `./scripts/run-e2e-container.sh [project|all] [test-file]`
+    *   **Configuration:** Requires `subuid`/`subgid` configured on the host. Bypasses RHEL library protections using `seccomp=unconfined`.
 *   **Deployment:** The application is deployed to a remote Vercel server. There is **no local installation** running on this specific shell instance unless managed via PM2.
 
 ### 2. Response Guidelines
@@ -416,6 +419,11 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 62. **Stateful Trip Mocking**: Implemented an in-memory stateful mock for the Supabase `/trips` REST API and related RPCs in `e2e/utils.ts`. This ensures deterministic testing of create/rename/delete flows without database race conditions or eventual consistency delays.
 63. **Accessibility Fix**: Refactored `InteractiveBottomSheet` to resolve a critical "Nested Interactive Controls" violation by moving the close button outside the toggle area.
 64. **PWA Test Infrastructure Refactor**: Migrated E2E mocking to `page.context().route()` and implemented strict `Cache-Control: no-store` headers for all Supabase mock responses. This ensures 100% reliable request interception in production builds with active Service Workers, resolving the long-standing `trip-flow` failure in the PWA audit suite.
+65. **Auth Recovery & Deep Linking**: Implemented forgot/reset password flow and a `redirectTo` middleware pattern to preserve user destination during authentication. Verified with new E2E suites.
+66. **DatePicker UX Verification**: Added responsive E2E tests for the `react-day-picker` v9 integration, ensuring correct component selection (Popover vs Drawer) and state management.
+67. **WebKit/Safari CI Stabilization**: Resolved cross-browser flakiness by exporting `dismissErrorOverlay`, implementing deterministic network waits for manual login steps, and using ARIA-filtered selectors to avoid conflicts with Next.js internal route announcer.
+68. **Containerized E2E Infrastructure**: Implemented `scripts/run-e2e-container.sh` for rootless Podman testing on RHEL 8, enabling local verification of WebKit and Firefox tests with CI parity.
+69. **E2E Stability Overhaul**: Implemented robust `dispatchEvent` clicks and scoped sidebar locators to resolve mobile clipping and strict-mode violations.
 
 ### 4. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
@@ -435,16 +443,19 @@ We have established a robust E2E testing infrastructure using **Playwright**.
 *   **`pwa-offline.spec.ts`:** Verifies offline capabilities including navigation cache, offline indicator, and mutation queueing logic.
 *   **`pwa-assets.spec.ts`:** Verifies manifest validity, install prompt triggers, and asset caching/syncing.
 
-### 2. Testing Environment & Concurrency
-*   **Dynamic User Isolation (`e2e/utils.ts`):** We use a "Fresh User" strategy. Every test creates one or more unique ephemeral users via the Supabase Admin API and deletes them after the test completes. 
-*   **Parallel Execution:** Because tests are fully isolated by user, we run tests in **parallel** (multiple workers) in CI to minimize build times.
-*   **Extended Fixtures:** We use Playwright `test.extend` to provide `mockMaps` (API management) and `user` (auth/cleanup) fixtures to every test.
-*   **CI Caching:** Browser binaries and npm dependencies are cached in GitHub Actions to speed up shard initialization.
+### 2. Containerized Local Testing (RHEL 8)
+Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless Podman container for local parity with CI.
+*   **Command:** `./scripts/run-e2e-container.sh webkit`
+*   **Network:** Uses `--network=host` to connect to the host's PM2 server on port 3001.
+*   **Security:** Uses `--security-opt seccomp=unconfined` to allow Ubuntu-based library relocation.
 
 ### 3. Best Practices & Stability
-*   **Scoping:** Always use `getSidebarContainer(page)` or scope to `:visible` when interacting with sidebars, as both mobile and desktop versions exist in the DOM.
+*   **Scoping:** Always use `getSidebarContainer(page)` to target the correct sidebar, as both mobile and desktop versions exist in the DOM.
+*   **Robust Clicks:** Use `locator.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })))` for elements that might be clipped by mobile sheets or animations.
+*   **Deterministic Waits:** 
+    *   Use `page.waitForLoadState('networkidle')` after significant navigations.
+    *   Use `waitForMapReady(page)` helper to ensure the map and bounds are initialized in the store.
 *   **Mobile Navigation:** To trigger Radix UI components on mobile, use the robust pointer event sequence implemented in `navigateToTab`.
-*   **Deterministic Waits:** Prefer `page.waitForResponse` over `waitForTimeout` or simple visibility checks for network-bound actions.
 *   **Store Exposure:** We use `components/e2e-store-exposer.tsx` to expose internal Zustand stores to `window` (only in dev/test) for precise state injection and verification if absolutely necessary, but UI-based testing is preferred.
 *   **Mobile Safari (WebKit) Stability:**
     *   **Login:** Use `page.keyboard.press('Enter')` instead of clicking the "Sign In" button, which can be flaky in WebKit.
