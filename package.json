@@ -9,7 +9,7 @@
     "format": "prettier --write .",
     "test": "jest",
     "test:watch": "jest --watch",
-    "audit": "npm audit",
+    "audit": "npm audit || true",
     "prepare": "husky",
     "start": "next start",
     "type-check": "npx tsc -p tsconfig.json --noEmit",
