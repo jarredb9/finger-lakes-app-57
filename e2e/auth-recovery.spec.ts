@@ -71,7 +71,10 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('password456');
     
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await resetBtn.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('reset-password') && resp.status() === 400),
+        resetBtn.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+    ]);
 
     await expect(page.getByRole('alert').filter({ hasText: 'do not match' })).toBeVisible();
   });

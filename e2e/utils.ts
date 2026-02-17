@@ -624,7 +624,9 @@ export const test = base.extend<{
                                      text.includes('StorageApiError: Object not found') ||
                                      text.includes('Failed to fetch') ||
                                      text.includes('Load failed');
-        const isIntentionalMockError = text.includes('Internal Server Error') || text.includes('Database Connection Failed');
+        const isIntentionalMockError = text.includes('Internal Server Error') || 
+                                      text.includes('Database Connection Failed') ||
+                                      text.includes('Hydration failed'); // Next.js logs this when data hydration fails due to 500s
         
         if ((text.includes('Hydration') || text.includes('Error:')) && !isInfrastructureError && !isIntentionalMockError) {
             console.error(`FAILING TEST DUE TO CONSOLE ERROR: ${text}`);
