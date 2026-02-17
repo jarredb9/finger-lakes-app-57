@@ -36,7 +36,8 @@ export async function waitForSearchComplete(page: Page) {
  */
 export async function waitForMapReady(page: Page) {
     // Wait for the map container to be in DOM
-    await page.waitForSelector('[data-testid="map-container"]', { state: 'attached', timeout: 10000 });
+    const mapContainer = page.locator('[data-testid="map-container"]');
+    await expect(mapContainer).toBeAttached({ timeout: 10000 });
     
     // Wait for internal state bounds to be set via store
     await expect(async () => {
@@ -112,8 +113,11 @@ export async function login(page: Page, email: string, pass: string, options: { 
   // Wait for critical initial data fetches to stabilize
   await Promise.all([
     page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 10000 }).catch(() => {}),
-    page.waitForResponse(resp => resp.url().includes('get_map_markers'), { timeout: 10000 }).catch(() => {})
+    !options.skipMapReady ? page.waitForResponse(resp => resp.url().includes('get_map_markers'), { timeout: 10000 }).catch(() => {}) : Promise.resolve()
   ]);
+
+  // Small buffer for store hydration/stability
+  await page.waitForTimeout(1000);
 
   // Ensure map is functional before returning
   if (!options.skipMapReady) {

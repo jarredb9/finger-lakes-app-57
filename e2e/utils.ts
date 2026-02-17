@@ -623,7 +623,9 @@ export const test = base.extend<{
                                      text.includes('Cross-Origin Request Blocked') ||
                                      text.includes('StorageApiError: Object not found') ||
                                      text.includes('Failed to fetch') ||
-                                     text.includes('Load failed');
+                                     text.includes('Load failed') ||
+                                     text.includes('Interrupted Hydration') || // Expected during rapid navigations in tests
+                                     text.includes('NEXT_NOT_FOUND'); // Expected during certain redirect/404 tests
         const isIntentionalMockError = text.includes('Internal Server Error') || 
                                       text.includes('Database Connection Failed') ||
                                       text.includes('Hydration failed'); // Next.js logs this when data hydration fails due to 500s
