@@ -48,31 +48,6 @@ export async function waitForMapReady(page: Page) {
     }).toPass({ timeout: 10000 });
 }
 
-// --- Helper to dismiss Next.js Error Overlay ---
-export async function dismissErrorOverlay(page: Page) {
-  // Use a safer evaluate that doesn't fail if context is destroyed during navigation
-  try {
-      await page.addStyleTag({ 
-        content: `
-          nextjs-portal { 
-            display: none !important; 
-            pointer-events: none !important; 
-            visibility: hidden !important;
-          }
-        ` 
-      }).catch(() => {}); // Ignore errors if context destroyed
-  } catch (e) {}
-
-  // Check for the Next.js portal which intercepts events
-  const portal = page.locator('nextjs-portal');
-  if (await portal.count() > 0) {
-    await page.evaluate(() => {
-      const p = document.querySelector('nextjs-portal');
-      if (p) p.remove();
-    }).catch(() => {});
-  }
-}
-
 /**
  * Forcefully unregisters all service workers and clears all caches.
  * Essential for testing mocks in PWA environments.
@@ -114,7 +89,6 @@ export async function login(page: Page, email: string, pass: string, options: { 
   await expect(async () => {
     await page.goto('/login');
     await page.waitForLoadState('networkidle');
-    await dismissErrorOverlay(page);
 
     const emailInput = page.getByLabel('Email');
     await expect(emailInput).toBeVisible({ timeout: 5000 });
@@ -151,7 +125,6 @@ export async function login(page: Page, email: string, pass: string, options: { 
       await navigateToTab(page, 'Explore');
   }
 
-  await dismissErrorOverlay(page); 
 }
 
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {

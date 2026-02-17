@@ -2,8 +2,9 @@ import { test, expect } from './utils';
 import { login, navigateToTab, getSidebarContainer, waitForMapReady, clearServiceWorkers } from './helpers';
 
 test.describe('PWA Offline Functionality', () => {
-  test.beforeEach(async ({ page, user }) => {
+  test.beforeEach(async ({ page, user, mockMaps }) => {
     await clearServiceWorkers(page);
+    mockMaps.enableServiceWorker();
     await login(page, user.email, user.password);
   });
 

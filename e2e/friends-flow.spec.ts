@@ -1,4 +1,4 @@
-import { test, expect, createTestUser, deleteTestUser, mockGoogleMapsApi } from './utils';
+import { test, expect, createTestUser, deleteTestUser, MockMapsManager } from './utils';
 import { getSidebarContainer, login, navigateToTab } from './helpers';
 
 test.describe('Friends Interaction Flow', () => {
@@ -15,11 +15,15 @@ test.describe('Friends Interaction Flow', () => {
 
       // 3. Login both users
       await test.step('Login User A', async () => {
-        await mockGoogleMapsApi(pageA);
+        const managerA = new MockMapsManager(pageA);
+        await managerA.initDefaultMocks();
+        await managerA.useRealSocial();
         await login(pageA, user1.email, user1.password);
       });
       await test.step('Login User B', async () => {
-        await mockGoogleMapsApi(pageB);
+        const managerB = new MockMapsManager(pageB);
+        await managerB.initDefaultMocks();
+        await managerB.useRealSocial();
         await login(pageB, user2.email, user2.password)
       });
 

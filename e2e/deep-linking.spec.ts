@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, dismissErrorOverlay } from './helpers';
+import { login } from './helpers';
 
 test.describe('Deep Linking & Redirection', () => {
   test('should redirect to login when accessing trip detail unauthenticated, then redirect back after login', async ({ page, user }) => {
@@ -10,7 +10,6 @@ test.describe('Deep Linking & Redirection', () => {
     // 2. Expect redirect to login with redirectTo param
     // Next.js 16 might take a moment to process the redirect
     await page.waitForURL(new RegExp(`.*\\/login\\?redirectTo=.*trips.*${tripId}`));
-    await dismissErrorOverlay(page);
 
     // 3. Perform login
     await page.getByLabel('Email').fill(user.email);
@@ -45,7 +44,6 @@ test.describe('Deep Linking & Redirection', () => {
 
     await login(page, user.email, user.password);
     await page.goto('/trips/999');
-    await dismissErrorOverlay(page);
 
     await expect(page.getByText('Deep Link Trip')).toBeVisible({ timeout: 15000 });
 

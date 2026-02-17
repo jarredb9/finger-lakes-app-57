@@ -34,11 +34,32 @@ test.describe('Runtime & Performance Audit', () => {
     const sidebar = getSidebarContainer(page);
     await expect(sidebar.getByText(/Wineries/i).first()).toBeVisible({ timeout: 20000 });
 
-    // 5. Performance Check
+    // 5. Deep State Verification (Exposed Stores)
+    await expect(async () => {
+        const state = await page.evaluate(() => {
+            return {
+                wineriesLoaded: (window as any).useWineryDataStore?.getState().persistentWineries.length > 0,
+                wineriesHydrated: (window as any).useWineryDataStore?.persist?.hasHydrated(),
+                userLoaded: !!(window as any).useUserStore?.getState().user,
+                userLoading: (window as any).useUserStore?.getState().isLoading,
+                tripsHydrated: (window as any).useTripStore?.persist?.hasHydrated(),
+                visitsHydrated: (window as any).useVisitStore?.persist?.hasHydrated()
+            };
+        });
+        
+        expect(state.wineriesLoaded, 'Winery data should be loaded into store').toBe(true);
+        expect(state.wineriesHydrated, 'Winery store should be hydrated from storage').toBe(true);
+        expect(state.userLoaded, 'User session should be in store').toBe(true);
+        expect(state.userLoading, 'User store should have finished loading').toBe(false);
+        expect(state.tripsHydrated, 'Trip store should be hydrated').toBe(true);
+        expect(state.visitsHydrated, 'Visit store should be hydrated').toBe(true);
+    }).toPass({ timeout: 10000 });
+
+    // 6. Performance Check
     const wineries = await page.locator('[data-testid="winery-card"]').count();
     console.log(`[Audit] Loaded ${wineries} winery cards.`);
     
-    // 6. Fail if critical errors occurred
+    // 7. Fail if critical errors occurred
     const hydrationErrors = consoleMessages.filter(m => 
         m.toLowerCase().includes('hydration') || 
         m.includes('Minified React error')

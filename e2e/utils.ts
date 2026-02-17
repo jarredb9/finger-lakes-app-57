@@ -2,7 +2,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { Page, test as base } from '@playwright/test';
-import { createMockWinery, createMockMapMarkerRpc, createMockVisitWithWinery } from '@/lib/test-utils/fixtures';
+import { createMockWinery, createMockMapMarkerRpc, createMockVisitWithWinery, createMockTrip } from '@/lib/test-utils/fixtures';
 import mockPlacesSearch from './mocks/places-search.json';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -24,7 +24,16 @@ export interface TestUser {
  * Manager class for handling API mocks in E2E tests.
  */
 export class MockMapsManager {
+  private allowServiceWorker = false;
+
   constructor(private page: Page) {}
+
+  /**
+   * Enable service worker for high-fidelity PWA testing.
+   */
+  enableServiceWorker() {
+    this.allowServiceWorker = true;
+  }
 
   /**
    * Initializes default mocks for Google Maps and Supabase RPCs.
@@ -44,19 +53,21 @@ export class MockMapsManager {
       'Expires': '0'
     };
 
-    // 0. Block Service Worker Registration entirely to prevent mock bypass
-    await context.route('**/sw.js', route => route.abort());
-    await this.page.addInitScript(() => {
-        // Redefine register to be a no-op
-        if (navigator.serviceWorker) {
-            (navigator.serviceWorker as any).register = () => Promise.resolve({
-                unregister: () => Promise.resolve(true),
-                addEventListener: () => {},
-                removeEventListener: () => {},
-                dispatchEvent: () => false,
-            });
-        }
-    });
+    // 0. Conditionally Block Service Worker Registration
+    if (!this.allowServiceWorker) {
+        await context.route('**/sw.js', route => route.abort());
+        await this.page.addInitScript(() => {
+            // Redefine register to be a no-op
+            if (navigator.serviceWorker) {
+                (navigator.serviceWorker as any).register = () => Promise.resolve({
+                    unregister: () => Promise.resolve(true),
+                    addEventListener: () => {},
+                    removeEventListener: () => {},
+                    dispatchEvent: () => false,
+                });
+            }
+        });
+    }
 
     // 1. Inject robust Google Maps Mocks (New API + Geocoder)
     await this.page.addInitScript((mockPlaces) => {
@@ -153,6 +164,9 @@ export class MockMapsManager {
       }
     }, mockPlacesSearch);
 
+    // 1.2 Mock Social RPCs
+    await this.mockSocial();
+
     // 2. Mock the Supabase Edge Function for winery details
     await context.route(/\/functions\/v1\/get-winery-details/, (route) => {
       console.log('Mocked get-winery-details');
@@ -216,16 +230,16 @@ export class MockMapsManager {
       
       if (method === 'POST') {
           const body = JSON.parse(route.request().postData() || '{}');
-          const newTrip = {
+          const newTrip = createMockTrip({
               id: Math.floor(Math.random() * 10000),
               name: body.name || 'New Trip',
               trip_date: body.trip_date || todayCA,
               user_id: 'test-user-id',
               members: ['test-user-id'],
-              trip_wineries: [{ count: 0 }],
-              wineries: []
-          };
-          mockTrips.unshift(newTrip as any);
+          });
+          // Add extra fields needed for UI
+          (newTrip as any).trip_wineries = [{ count: 0 }];
+          mockTrips.unshift(newTrip);
           return route.fulfill({
               status: 201,
               contentType: 'application/json',
@@ -272,17 +286,17 @@ export class MockMapsManager {
       console.log('Mocked get_trip_details');
       const body = JSON.parse(route.request().postData() || '{}');
       const tripId = body.trip_id_param;
-      const trip = mockTrips.find(t => t.id === tripId);
+      const trip = mockTrips.find(t => t.id === tripId) || createMockTrip({ id: tripId, name: 'Default Mock Trip' });
       
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         headers: commonHeaders,
-        body: JSON.stringify(trip ? {
+        body: JSON.stringify({
             ...trip,
-            wineries: [],
-            members: []
-        } : null),
+            wineries: trip.wineries || [],
+            members: trip.members || []
+        }),
       });
     });
 
@@ -304,16 +318,15 @@ export class MockMapsManager {
     await context.route(/\/rpc\/create_trip_with_winery/, (route) => {
       console.log('Mocked create_trip_with_winery');
       const body = JSON.parse(route.request().postData() || '{}');
-      const newTrip = {
+      const newTrip = createMockTrip({
           id: Math.floor(Math.random() * 10000),
           name: body.p_trip_name || 'New Trip',
           trip_date: body.p_trip_date || todayCA,
           user_id: 'test-user-id',
           members: ['test-user-id'],
-          trip_wineries: [{ count: 1 }],
-          wineries: []
-      };
-      mockTrips.unshift(newTrip as any);
+      });
+      (newTrip as any).trip_wineries = [{ count: 1 }];
+      mockTrips.unshift(newTrip);
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -347,19 +360,17 @@ export class MockMapsManager {
     // 2.5 Mock the paginated wineries RPC (Browse List)
     await context.route(/\/rpc\/get_paginated_wineries/, (route) => {
       console.log('Mocked get_paginated_wineries');
+      const mockMarker = createMockMapMarkerRpc({
+          google_place_id: 'ch-12345-mock-winery-1' as any,
+          name: 'Mock Winery One',
+          address: '123 Mockingbird Lane'
+      });
       route.fulfill({
         status: 200,
         contentType: 'application/json',
         body: JSON.stringify([{
-            google_place_id: 'ch-12345-mock-winery-1',
-            name: 'Mock Winery One',
-            address: '123 Mockingbird Lane',
-            latitude: 42.7,
-            longitude: -76.9,
+            ...mockMarker,
             google_rating: 4.5,
-            is_favorite: false,
-            on_wishlist: false,
-            user_visited: false,
             visit_count: 0
         }]),
         headers: { ...commonHeaders, 'x-total-count': '1' }
@@ -458,6 +469,7 @@ export class MockMapsManager {
       });
     });
 
+
     await context.route(/\/rpc\/delete_visit/, (route) => {
       console.log('Mocked delete_visit');
       route.fulfill({
@@ -535,6 +547,33 @@ export class MockMapsManager {
     await context.unroute(/\/rpc\/get_friend_activity_feed/);
   }
 
+  async mockSocial() {
+    const context = this.page.context();
+    const commonHeaders = { 'Cache-Control': 'no-store' };
+
+    await context.route(/\/rpc\/get_friends_and_requests/, (route) => {
+        route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: commonHeaders,
+            body: JSON.stringify({
+                friends: [],
+                pending_incoming: [],
+                pending_outgoing: []
+            })
+        });
+    });
+
+    await context.route(/\/rpc\/get_friend_activity_feed/, (route) => {
+        route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: commonHeaders,
+            body: JSON.stringify([])
+        });
+    });
+  }
+
   async failMarkers() {
     const context = this.page.context();
     await context.route(/\/rpc\/get_map_markers/, (route) => {
@@ -577,6 +616,22 @@ export const test = base.extend<{
   user: TestUser;
 }>({
   mockMaps: [async ({ page }, use) => {
+    // Fail on Hydration errors or fatal console errors
+    page.on('console', msg => {
+        const text = msg.text();
+        const isInfrastructureError = text.includes('Error clearing SW/Caches') || 
+                                     text.includes('Cross-Origin Request Blocked') ||
+                                     text.includes('StorageApiError: Object not found') ||
+                                     text.includes('Failed to fetch') ||
+                                     text.includes('Load failed');
+        const isIntentionalMockError = text.includes('Internal Server Error') || text.includes('Database Connection Failed');
+        
+        if ((text.includes('Hydration') || text.includes('Error:')) && !isInfrastructureError && !isIntentionalMockError) {
+            console.error(`FAILING TEST DUE TO CONSOLE ERROR: ${text}`);
+            throw new Error(`Hydration or Fatal Error detected in console: ${text}`);
+        }
+    });
+
     // Clear Service Worker caches before each test to prevent mock bypass
     await page.addInitScript(async () => {
         try {

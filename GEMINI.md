@@ -18,6 +18,13 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 
 ## Critical Instructions & Constraints
 
+### 0. Mandatory Global Skills (PRIORITY 1)
+**YOU MUST** activate and follow the expert guidance of global skills for ALL relevant tasks. 
+- **Activation:** Call `activate_skill` immediately when starting a task matching a skill's description.
+- **Expert Guidance:** Treat the instructions in `<activated_skill>` tags as your primary procedural manual, superseding general defaults.
+- **Available Skills:** `codebase-analysis`, `problem-analysis`, `refactor`, `planner`, etc.
+- **Workflow:** Activate -> Read instructions -> Execute using specialized tools (e.g., `python3.11`).
+
 ### 1. Environment & Shell
 *   **Operating System:** Linux (RHEL 8 AWS EC2 Instance).
 *   **Node Version Manager:** When running `npm` commands, you **must** load NVM first:
@@ -28,17 +35,28 @@ This is a Next.js web application for planning and tracking visits to wineries. 
     *   **Start:** `pm2 start npm --name "winery-dev" -- run dev -- -p 3001`
     *   **Logs:** `pm2 logs winery-dev`
     *   **Stop:** `pm2 delete winery-dev`
-*   **Playwright Container (RHEL 8):** Local WebKit/Safari/Firefox testing is supported via a rootless Podman container.
+*   **Playwright Container (RHEL 8):** Local testing **must** use the rootless Podman container to bypass RHEL library protections and security restrictions (e.g., IndexedDB access).
+    *   **Mandatory Usage:** Do not run `npx playwright test` directly on the host. Always use the provided script.
     *   **Script:** `./scripts/run-e2e-container.sh [project|all] [test-file]`
     *   **Configuration:** Requires `subuid`/`subgid` configured on the host. Bypasses RHEL library protections using `seccomp=unconfined`.
 *   **Deployment:** The application is deployed to a remote Vercel server. There is **no local installation** running on this specific shell instance unless managed via PM2.
 
-### 2. Response Guidelines
+### 2. Global Agent Skills
+This environment has specialized agent skills (e.g., `codebase-analysis`, `problem-analysis`) located in the user's home directory.
+*   **Path:** `/home/byrnesjd4821/.gemini/skills`
+*   **Python Requirement:** You **must** use `python3.11` to execute skill scripts. The default `python3` (3.6) is too old and will fail with syntax errors (missing walrus operator support).
+*   **Invocation Pattern:** Always set the `PYTHONPATH` to include the global scripts directory before running.
+    ```bash
+    export PYTHONPATH=$PYTHONPATH:/home/byrnesjd4821/.gemini/skills/scripts && python3.11 -m skills.<skill_name>.analyze --step <N>
+    ```
+*   **Mandatory Usage:** Always check for relevant skills via `activate_skill` before performing complex refactors or deep investigations.
+
+### 3. Response Guidelines
 *   **Neutral Tone:** Always be entirely neutral in your responses.
 *   **Troubleshooting:** Do not guess at error solutions. Include `console.log` statements to troubleshoot issues properly before attempting fixes.
 *   **Caching:** **Never** change the caching strategy for the application.
 
-### 3. Database Management (Supabase)
+### 4. Database Management (Supabase)
 *   **Source of Truth:** The `supabase/migrations` folder is the **single source of truth** for the database schema.
 *   **Forbidden Actions:**
     *   Do NOT manually edit the database via the Supabase Dashboard.
@@ -51,7 +69,7 @@ This is a Next.js web application for planning and tracking visits to wineries. 
     *   **Edit SQL:** Write the specific SQL changes (e.g., `CREATE TABLE`, `ALTER POLICY`) in the newly generated file.
     *   **Deploy:** `npx supabase db push`
 
-### 4. Middleware Configuration
+### 5. Middleware Configuration
 *   **File:** `proxy.ts` is used instead of `middleware.ts`.
 *   **Context:** This project uses Next.js 16+. The standard `middleware.ts` convention is replaced by `proxy.ts` for handling middleware logic (auth checks, session updates). Do not create a `middleware.ts` file.
 
@@ -426,7 +444,15 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 69. **E2E Stability Overhaul**: Implemented robust `dispatchEvent` clicks and scoped sidebar locators to resolve mobile clipping and strict-mode violations.
 70. **WebKit E2E Mock Stabilization**: Implemented a global Service Worker registration block in `MockMapsManager` and `clearServiceWorkers` helper. This ensures that mock responses for Supabase RPCs and Google Maps are never bypassed by the Service Worker cache in WebKit/Safari, achieving 100% test reliability across all browser engines.
 
-### 4. Security & Quality Control
+### 4. Playwright Infrastructure Hardening (Roadmap)
+The testing suite is currently biased toward "passing at all costs" (defensive testing). Future agents should implement the following hardening steps:
+
+1.  **Fail on Console Errors**: Remove `dismissErrorOverlay` from `e2e/helpers.ts`. Implement a global `page.on('console')` listener to fail tests if "Hydration" or "Error:" appears in the browser console.
+2.  **High-Fidelity PWA Testing**: Update `MockMapsManager` in `e2e/utils.ts` to accept an `allowServiceWorker` flag. Enable this flag in PWA spec files to ensure `app/sw.ts` logic is actually verified.
+3.  **Type-Safe Mocking**: Refactor `e2e/utils.ts` to use centralized factories from `lib/test-utils/fixtures.ts` for all RPC and REST response bodies, preventing schema drift.
+4.  **Deep State Verification**: Update `components/e2e-store-exposer.tsx` to expose all Zustand stores (visit, trip, user) to `window`, allowing tests to assert on the "Source of Truth" rather than just UI side-effects.
+
+### 5. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
 *   **Search Path Security:** All `SECURITY DEFINER` functions **must** explicitly set `SET search_path = public` to prevent schema hijacking vulnerabilities.
 

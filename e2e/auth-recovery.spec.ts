@@ -1,5 +1,4 @@
 import { test, expect } from './utils';
-import { dismissErrorOverlay } from './helpers';
 
 test.describe('Auth Recovery (Password Reset)', () => {
   test('should allow user to request a reset link and then reset the password', async ({ page }) => {
@@ -19,7 +18,6 @@ test.describe('Auth Recovery (Password Reset)', () => {
         window.localStorage.setItem('cookie-consent', 'true');
     });
     await page.goto('/login');
-    await dismissErrorOverlay(page);
     
     const forgotLink = page.getByRole('link', { name: 'Forgot password?' });
     await expect(forgotLink).toBeVisible();
@@ -46,7 +44,6 @@ test.describe('Auth Recovery (Password Reset)', () => {
 
     // 4. Simulate clicking the link in the email (navigate to /reset-password?code=mock-code)
     await page.goto('/reset-password?code=mock-code');
-    await dismissErrorOverlay(page);
     await expect(page.getByText('Reset Your Password', { exact: false })).toBeVisible();
 
     await page.getByLabel('New Password', { exact: true }).fill('new-password-123');
@@ -68,7 +65,6 @@ test.describe('Auth Recovery (Password Reset)', () => {
         route.fulfill({ status: 400, body: JSON.stringify({ error: 'Passwords do not match' }) });
     });
     await page.goto('/reset-password?code=mock-code');
-    await dismissErrorOverlay(page);
     await expect(page.getByText('Reset Your Password', { exact: false })).toBeVisible();
     
     await page.getByLabel('New Password', { exact: true }).fill('password123');
@@ -82,7 +78,6 @@ test.describe('Auth Recovery (Password Reset)', () => {
 
   test('should show error when no code is present', async ({ page }) => {
     await page.goto('/reset-password');
-    await dismissErrorOverlay(page);
     await expect(page.getByText('No reset token found.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Reset Password' })).toBeDisabled();
   });
