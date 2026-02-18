@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, getSidebarContainer, waitForMapReady, clearServiceWorkers } from './helpers';
+import { login, navigateToTab, getSidebarContainer, waitForMapReady, clearServiceWorkers, robustClick } from './helpers';
 
 test.describe('PWA Offline Functionality', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -54,7 +54,7 @@ test.describe('PWA Offline Functionality', () => {
     }).toPass({ timeout: 10000 });
 
     const wineryItem = resultsList.getByText('Vineyard of Illusion').first();
-    await wineryItem.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await robustClick(wineryItem);
 
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByRole('dialog').getByRole('heading', { name: 'Vineyard of Illusion' })).toBeVisible();

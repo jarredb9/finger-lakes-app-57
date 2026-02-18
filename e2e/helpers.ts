@@ -131,21 +131,37 @@ export async function login(page: Page, email: string, pass: string, options: { 
 
 }
 
+/**
+ * A robust click implementation that handles PointerEvents, MouseEvents and a final Click
+ * to ensure Radix and other interaction-heavy components trigger correctly across all engines.
+ */
+export async function robustClick(locator: Locator) {
+  await expect(locator).toBeVisible({ timeout: 10000 });
+  
+  await locator.evaluate(el => {
+    const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+    events.forEach(name => {
+      const isPointer = name.startsWith('pointer');
+      const EventClass = isPointer ? PointerEvent : MouseEvent;
+      const eventOptions = { bubbles: true, cancelable: true };
+      
+      // For pointer events, specify 'touch' to help mobile emulators
+      if (isPointer) {
+          (eventOptions as any).pointerType = 'touch';
+      }
+      
+      el.dispatchEvent(new EventClass(name, eventOptions));
+    });
+  });
+}
+
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
   const viewport = page.viewportSize();
   const isMobile = viewport && viewport.width < 768;
   
   if (isMobile) {
     const navBtn = page.getByRole('button', { name: tabName });
-    await expect(navBtn).toBeVisible();
-    
-    // Use robust pointer sequence for Radix/Mobile
-    await navBtn.evaluate(el => {
-      const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
-      events.forEach(name => {
-        el.dispatchEvent(new PointerEvent(name, { bubbles: true, cancelable: true, pointerType: 'touch' }));
-      });
-    });
+    await robustClick(navBtn);
     
     // Wait for the sheet to appear
     await expect(page.getByTestId('mobile-sidebar-container')).toBeVisible({ timeout: 5000 });

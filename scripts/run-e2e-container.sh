@@ -16,11 +16,15 @@ echo "📦 Image: $IMAGE"
 # Determine command based on argument
 if [ "$PROJECT_ARG" == "all" ]; then
     echo "🌐 Project: ALL (Running full suite)"
-    TEST_CMD="npx playwright test ${@:2}"
+    # Shift to get remaining args
+    shift
+    TEST_CMD="npx playwright test $*"
 else
-    PROJECT=${PROJECT_ARG:-"webkit"}
+    PROJECT="${PROJECT_ARG:-webkit}"
     echo "🌐 Project: $PROJECT"
-    TEST_CMD="npx playwright test --project=\"$PROJECT\" ${@:2}"
+    # Shift to get remaining args
+    shift
+    TEST_CMD="npx playwright test --project=\"$PROJECT\" $*"
 fi
 
 # 2. Ensure we have the image
@@ -30,6 +34,7 @@ if ! podman image exists "$IMAGE"; then
 fi
 
 # 3. Run the container
+# We pass the TEST_CMD as an environment variable to avoid shell escaping issues with parentheses/spaces
 podman run --rm -it \
     --network=host \
     -v "$(pwd):/work:Z" \
@@ -38,15 +43,16 @@ podman run --rm -it \
     --security-opt seccomp=unconfined \
     -w /work \
     -e IS_E2E=true \
+    -e TEST_CMD="$TEST_CMD" \
     "$IMAGE" \
-    /bin/bash -c "
-        if [ ! -d \"node_modules\" ]; then
-            echo \"Installing dependencies...\"
+    /bin/bash -c '
+        if [ ! -d "node_modules" ]; then
+            echo "Installing dependencies..."
             npm install
         fi
         
-        echo \"🎬 Running: $TEST_CMD\"
-        $TEST_CMD
-    "
+        echo "🎬 Running inside container: $TEST_CMD"
+        eval "$TEST_CMD"
+    '
 
 echo "✅ Tests completed."

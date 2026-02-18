@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, getSidebarContainer, waitForMapReady, clearServiceWorkers } from './helpers';
+import { login, navigateToTab, getSidebarContainer, waitForMapReady, clearServiceWorkers, robustClick } from './helpers';
 
 test.describe('PWA Assets & Sync', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -42,7 +42,7 @@ test.describe('PWA Assets & Sync', () => {
     }).toPass({ timeout: 15000 });
     
     const wineryItem = resultsList.getByText('Vineyard of Illusion').first();
-    await wineryItem.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await robustClick(wineryItem);
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();

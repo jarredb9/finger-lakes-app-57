@@ -1,6 +1,6 @@
 import { test, expect } from './utils';
 import AxeBuilder from '@axe-core/playwright';
-import { login, navigateToTab } from './helpers';
+import { login, navigateToTab, robustClick } from './helpers';
 
 test.describe('Accessibility (A11y)', () => {
   test('login page should be accessible', async ({ page }) => {
@@ -46,7 +46,7 @@ test.describe('Accessibility (A11y)', () => {
     // Open a winery modal using robust click
     const firstWinery = page.getByTestId('winery-results-list').getByText('Mock Winery One').first();
     await expect(firstWinery).toBeVisible({ timeout: 10000 });
-    await firstWinery.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await robustClick(firstWinery);
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();

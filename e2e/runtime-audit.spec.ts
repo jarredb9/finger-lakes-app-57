@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { test, expect } from './utils';
-import { login, getSidebarContainer } from './helpers';
+import { login, getSidebarContainer, robustClick } from './helpers';
 
 test.describe('Runtime & Performance Audit', () => {
   test('should login and check for hydration/console errors', async ({ page, user }) => {
@@ -27,7 +27,7 @@ test.describe('Runtime & Performance Audit', () => {
     if (isMobile) {
         const exploreBtn = page.getByRole('button', { name: 'Explore' });
         if (await exploreBtn.isVisible()) {
-            await exploreBtn.click();
+            await robustClick(exploreBtn);
         }
     }
 

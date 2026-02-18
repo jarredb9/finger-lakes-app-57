@@ -22,6 +22,7 @@ jobs:
       TEST_USER_2_PASSWORD: ${{ secrets.TEST_USER_2_PASSWORD }}
       NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      IS_E2E: 'true'
     steps:
     - uses: actions/checkout@v4
     - uses: actions/setup-node@v4
@@ -43,6 +44,8 @@ jobs:
           ${{ runner.os }}-playwright-
     - name: Install Playwright Browsers & Deps
       run: npx playwright install --with-deps
+    - name: Build Next.js app
+      run: npm run build
     - name: Run Playwright tests
       run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --grep-invert "pwa-"
     - uses: actions/upload-artifact@v4

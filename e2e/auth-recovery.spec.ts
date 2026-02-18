@@ -1,4 +1,5 @@
 import { test, expect } from './utils';
+import { robustClick } from './helpers';
 
 test.describe('Auth Recovery (Password Reset)', () => {
   test('should allow user to request a reset link and then reset the password', async ({ page }) => {
@@ -27,7 +28,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await expect(page.getByText('Forgot Password', { exact: false })).toBeVisible();
 
     await page.getByLabel('Email').fill('test@example.com');
-    await page.getByRole('button', { name: 'Send Reset Link' }).click();
+    await robustClick(page.getByRole('button', { name: 'Send Reset Link' }));
 
     await expect(page.getByRole('alert').filter({ hasText: 'password reset link has been sent' })).toBeVisible();
 
@@ -50,7 +51,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('new-password-123');
     
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await resetBtn.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await robustClick(resetBtn);
 
     // 5. Verify Success and Redirection
     const successAlert = page.getByRole('alert').filter({ hasText: 'successfully' });
@@ -71,7 +72,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('password456');
     
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await resetBtn.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await robustClick(resetBtn);
 
     await expect(page.getByRole('alert').filter({ hasText: 'do not match' })).toBeVisible();
   });
