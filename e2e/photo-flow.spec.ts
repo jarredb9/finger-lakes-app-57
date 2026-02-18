@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, getSidebarContainer } from './helpers';
+import { login, navigateToTab, getSidebarContainer, robustClick } from './helpers';
 
 // Define helper directly in the test file to avoid bundling issues
 const createDummyImage = (): Buffer => {
@@ -30,7 +30,7 @@ test.describe('Photo Management Workflow', () => {
 
     const wineryCard = sidebar.locator('[data-testid="winery-card"]').first();
     await expect(wineryCard).toBeVisible({ timeout: 15000 });
-    await wineryCard.click();
+    await robustClick(wineryCard);
     
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
@@ -57,7 +57,7 @@ test.describe('Photo Management Workflow', () => {
         response.url().includes('/rpc/log_visit') && response.status() === 200
     );
 
-    await page.getByRole('button', { name: 'Add Visit' }).click();
+    await robustClick(page.getByRole('button', { name: 'Add Visit' }));
 
     // Wait for network success
     await logVisitPromise;
@@ -79,7 +79,7 @@ test.describe('Photo Management Workflow', () => {
     const visitCard = modal.locator('[data-testid="visit-card"]').first();
     await expect(visitCard).toBeVisible();
     
-    await visitCard.getByLabel('Edit visit').click();
+    await robustClick(visitCard.getByLabel('Edit visit'));
 
     // 5. Wait for Form to switch to Edit Mode
     await expect(modal.locator('text="Edit Visit"')).toBeVisible();
@@ -100,7 +100,7 @@ test.describe('Photo Management Workflow', () => {
         response.url().includes('/rpc/update_visit') && response.status() === 200
     );
 
-    await page.getByRole('button', { name: 'Save Changes' }).click();
+    await robustClick(page.getByRole('button', { name: 'Save Changes' }));
     await updateVisitPromise;
 
     // 9. Verify Photo Removal in UI (Visit Card)
