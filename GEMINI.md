@@ -1,5 +1,12 @@
 # 🚨 SYSTEM OVERRIDE INSTRUCTIONS (PRIORITY 0)
 
+### 0. Mandatory Global Agent Skills (STOP AND ACTIVATE)
+**YOU MUST** activate and follow the expert guidance of global skills for ALL relevant tasks. This is NOT optional.
+*   **Path:** `/home/byrnesjd4821/.gemini/skills`
+*   **Python Requirement:** You **must** use `python3.11` to execute skill scripts.
+*   **Invocation:** `export PYTHONPATH=$PYTHONPATH:/home/byrnesjd4821/.gemini/skills/scripts && python3.11 -m skills.<skill_name>.analyze --step <N>`
+*   **Action:** Call `activate_skill` **IMMEDIATELY** when starting any task matching a skill's description (e.g., `codebase-analysis`, `problem-analysis`).
+
 ### 1. Framework & Architecture Truths (Non-Negotiable)
 The following configurations are intentional and correct. Do NOT challenge them based on historical training data:
 *   **Next.js 16 Middleware:** The file `proxy.ts` IS the valid middleware. `middleware.ts` does NOT exist. DO NOT flag this as an error. DO NOT suggest creating `middleware.ts`.
@@ -18,9 +25,9 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 
 ## Critical Instructions & Constraints
 
-### 0. Mandatory Global Skills (PRIORITY 1)
-**YOU MUST** activate and follow the expert guidance of global skills for ALL relevant tasks. 
-- **Activation:** Call `activate_skill` immediately when starting a task matching a skill's description.
+### 0. Mandatory Global Skills (PRIORITY 0)
+**STOP.** Before proceeding with any complex task, you **MUST** activate the relevant global skill. 
+- **Activation:** Call `activate_skill` immediately.
 - **Expert Guidance:** Treat the instructions in `<activated_skill>` tags as your primary procedural manual, superseding general defaults.
 - **Available Skills:** `codebase-analysis`, `problem-analysis`, `refactor`, `planner`, etc.
 - **Workflow:** Activate -> Read instructions -> Execute using specialized tools (e.g., `python3.11`).
@@ -445,6 +452,13 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 70. **WebKit E2E Mock Stabilization**: Implemented a global Service Worker registration block in `MockMapsManager` and `clearServiceWorkers` helper. This ensures that mock responses for Supabase RPCs and Google Maps are never bypassed by the Service Worker cache in WebKit/Safari, achieving 100% test reliability across all browser engines.
 71. **Firefox CI Resolution**: Updated console error filtering in `e2e/utils.ts` to ignore harmless Cloudflare Bot Management (`__cf_bm`) cookie rejection warnings in Firefox, preventing false-positive test failures.
 72. **CI Hardening (v2.4.0):** Updated the main Playwright CI workflow to build the app and run tests against the production server (`next start`). This eliminates Next.js Dev Overlay interference and ensures 100% parity between local verification and CI runs.
+73. **Sync Concurrency Fix (v2.4.1):** Implemented an `isSyncing` guard in `visitStore.ts` to prevent redundant processing of the offline mutation queue during network restoration events.
+74. **ESLint Compatibility Patch:** Downgraded ESLint to v9.21.0 and updated `@typescript-eslint` to resolve breaking changes in v10 that were causing crashes in the Next.js plugin ecosystem.
+75. **Industrial-Strength E2E Infrastructure:**
+    *   **Recursive Cleanup:** Updated the `user` fixture to perform deep recursive deletion of Supabase Storage artifacts.
+    *   **Deterministic Hydration:** Replaced arbitrary `waitForTimeout` calls in the `login` helper with explicit `E2EStoreExposer` state checks.
+    *   **Mobile A11y Coverage:** Re-enabled and scoped accessibility scans for the `InteractiveBottomSheet` on mobile viewports.
+    *   **Deep PWA Sync:** Added `e2e/pwa-sync-deep.spec.ts` to verify complex multi-photo upload lifecycles during background synchronization.
 
 ### 4. Playwright Infrastructure Hardening (Roadmap)
 The testing suite is currently biased toward "passing at all costs" (defensive testing). Future agents should implement the following hardening steps:
@@ -496,8 +510,8 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **Infrastructure Noise Filtering:** The console error listener in `e2e/utils.ts` is configured to ignore harmless infrastructure messages like Cloudflare Bot Management (`__cf_bm`) cookie rejections in Firefox and service worker cleanup logs to prevent false-positive failures.
 
 ### 4. Execution Scripts
-*   **Zero-Cost (Daily):** `./scripts/run-e2e-container.sh chromium` (Mocks Google/Supabase Reads)
-*   **Full Integrity (Monthly):** `E2E_REAL_DATA=true ./scripts/run-e2e-container.sh chromium` (Uses real Google/Supabase data)
+*   **Zero-Cost (Daily):** `./scripts/run-e2e-container.sh` (Mocks Google/Supabase Reads)
+*   **Full Integrity (Monthly):** `E2E_REAL_DATA=true ./scripts/run-e2e-container.sh` (Uses real Google/Supabase data)
 *   **Manual Runner (All Browsers):**
     ```bash
     ./scripts/run-e2e-container.sh all
