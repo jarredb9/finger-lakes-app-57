@@ -24,9 +24,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run Security Audit
-        run: npm run audit
-        continue-on-error: true
+      - name: Production Security Audit
+        run: npm audit --omit=dev
+        # This check is STRICT. It will fail if any production dependency has a vulnerability.
+
+      - name: Development Security Audit (Informational Only)
+        run: |
+          echo "NOTE: Currently ignoring 3 moderate vulnerabilities in ajv@6 (ESLint dependency)."
+          echo "These are false positives for ESLint usage (CVE-2025-69873). Reference: https://github.com/eslint/eslint/issues/20508"
+          npm audit || true
+        # This check is ALLOWED to fail due to the known ESLint/ajv issue mentioned above.
 
       - name: Run Linting
         run: npm run lint
