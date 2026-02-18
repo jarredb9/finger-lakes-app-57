@@ -43,6 +43,7 @@ podman run --rm -it \
     --security-opt seccomp=unconfined \
     -w /work \
     -e IS_E2E=true \
+    -e E2E_REAL_DATA="$E2E_REAL_DATA" \
     -e TEST_CMD="$TEST_CMD" \
     "$IMAGE" \
     /bin/bash -c '

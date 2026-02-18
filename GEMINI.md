@@ -443,14 +443,15 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 68. **Containerized E2E Infrastructure**: Implemented `scripts/run-e2e-container.sh` for rootless Podman testing on RHEL 8, enabling local verification of WebKit and Firefox tests with CI parity.
 69. **E2E Stability Overhaul**: Implemented robust `dispatchEvent` clicks and scoped sidebar locators to resolve mobile clipping and strict-mode violations.
 70. **WebKit E2E Mock Stabilization**: Implemented a global Service Worker registration block in `MockMapsManager` and `clearServiceWorkers` helper. This ensures that mock responses for Supabase RPCs and Google Maps are never bypassed by the Service Worker cache in WebKit/Safari, achieving 100% test reliability across all browser engines.
+71. **Firefox CI Resolution**: Updated console error filtering in `e2e/utils.ts` to ignore harmless Cloudflare Bot Management (`__cf_bm`) cookie rejection warnings in Firefox, preventing false-positive test failures.
+72. **CI Hardening (v2.4.0):** Updated the main Playwright CI workflow to build the app and run tests against the production server (`next start`). This eliminates Next.js Dev Overlay interference and ensures 100% parity between local verification and CI runs.
 
 ### 4. Playwright Infrastructure Hardening (Roadmap)
 The testing suite is currently biased toward "passing at all costs" (defensive testing). Future agents should implement the following hardening steps:
 
-1.  **Fail on Console Errors**: Remove `dismissErrorOverlay` from `e2e/helpers.ts`. Implement a global `page.on('console')` listener to fail tests if "Hydration" or "Error:" appears in the browser console.
-2.  **High-Fidelity PWA Testing**: Update `MockMapsManager` in `e2e/utils.ts` to accept an `allowServiceWorker` flag. Enable this flag in PWA spec files to ensure `app/sw.ts` logic is actually verified.
-3.  **Type-Safe Mocking**: Refactor `e2e/utils.ts` to use centralized factories from `lib/test-utils/fixtures.ts` for all RPC and REST response bodies, preventing schema drift.
-4.  **Deep State Verification**: Update `components/e2e-store-exposer.tsx` to expose all Zustand stores (visit, trip, user) to `window`, allowing tests to assert on the "Source of Truth" rather than just UI side-effects.
+1.  **High-Fidelity PWA Testing**: Update `MockMapsManager` in `e2e/utils.ts` to accept an `allowServiceWorker` flag. Enable this flag in PWA spec files to ensure `app/sw.ts` logic is actually verified.
+2.  **Type-Safe Mocking**: Refactor `e2e/utils.ts` to use centralized factories from `lib/test-utils/fixtures.ts` for all RPC and REST response bodies, preventing schema drift.
+3.  **Deep State Verification**: Update `components/e2e-store-exposer.tsx` to expose all Zustand stores (visit, trip, user) to `window`, allowing tests to assert on the "Source of Truth" rather than just UI side-effects.
 
 ### 5. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
@@ -475,10 +476,11 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **Command:** `./scripts/run-e2e-container.sh webkit`
 *   **Network:** Uses `--network=host` to connect to the host's PM2 server on port 3001.
 *   **Security:** Uses `--security-opt seccomp=unconfined` to allow Ubuntu-based library relocation.
+*   **Robust Command Execution:** The container script now uses environment variables (`TEST_CMD`) to safely pass test commands containing parentheses or spaces (e.g., project names like "Mobile Safari (Tablet)").
 
 ### 3. Best Practices & Stability
 *   **Scoping:** Always use `getSidebarContainer(page)` to target the correct sidebar, as both mobile and desktop versions exist in the DOM.
-*   **Robust Clicks:** Use `locator.evaluate(el => el.dispatchEvent(new MouseEvent('click', { bubbles: true })))` for elements that might be clipped by mobile sheets or animations.
+*   **Robust Clicks:** Use the `robustClick(locator)` helper from `e2e/helpers.ts` for all critical UI interactions. It dispatches a full sequence of `PointerEvent` and `MouseEvent` types to ensure reliability across all browser engines and avoid clipping issues.
 *   **Deterministic Waits:** 
     *   Use `page.waitForLoadState('networkidle')` after significant navigations.
     *   Use `waitForMapReady(page)` helper to ensure the map and bounds are initialized in the store.
@@ -491,13 +493,18 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **Hydration Awareness:** The `login` helper explicitly waits for the `AuthProvider` "Loading..." screen to disappear and for network stability.
 *   **PWA Mocking:** For tests targeting production builds or PWAs, always use `page.context().route()` instead of `page.route()`. This ensures that network requests initiated by the Service Worker are correctly intercepted. Additionally, always include `Cache-Control: no-store` in mock headers to prevent Service Worker caching.
 *   **Zero-Cost Mocking:** The `MockMapsManager` in `e2e/utils.ts` handles both Google Maps and Supabase Data API mocking. It uses a stateful in-memory array for Trips to mimic database behavior without network latency.
+*   **Infrastructure Noise Filtering:** The console error listener in `e2e/utils.ts` is configured to ignore harmless infrastructure messages like Cloudflare Bot Management (`__cf_bm`) cookie rejections in Firefox and service worker cleanup logs to prevent false-positive failures.
 
 ### 4. Execution Scripts
-*   **Zero-Cost (Daily):** `npm run test:e2e -- --project=chromium` (Mocks Google/Supabase Reads)
-*   **Full Integrity (Monthly):** `npm run test:e2e:real -- --project=chromium` (Uses real Google/Supabase data)
-*   **Manual Runner:**
+*   **Zero-Cost (Daily):** `./scripts/run-e2e-container.sh chromium` (Mocks Google/Supabase Reads)
+*   **Full Integrity (Monthly):** `E2E_REAL_DATA=true ./scripts/run-e2e-container.sh chromium` (Uses real Google/Supabase data)
+*   **Manual Runner (All Browsers):**
     ```bash
-    export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh" && npm run test:e2e -- --project=chromium
+    ./scripts/run-e2e-container.sh all
+    ```
+*   **Manual Runner (Specific):**
+    ```bash
+    ./scripts/run-e2e-container.sh webkit e2e/smoke.spec.ts
     ```
 
 
