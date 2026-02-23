@@ -47,6 +47,7 @@ jobs:
         with:
           name: next-build-artifact
           path: .next
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
 
@@ -84,6 +85,7 @@ jobs:
         with:
           name: next-build-artifact
           path: .next
+          include-hidden-files: true
 
       - name: Get Playwright version
         id: playwright-version
@@ -142,6 +144,7 @@ jobs:
         with:
           name: next-build-artifact
           path: .next
+          include-hidden-files: true
       - name: Install Playwright Browsers & Deps
         run: npx playwright install --with-deps chromium
       - name: Run PWA tests (Production)
