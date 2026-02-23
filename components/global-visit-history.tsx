@@ -9,10 +9,10 @@ import { Calendar, MapPin, Loader2 } from "lucide-react";
 import { Pagination, PaginationContent, PaginationItem, PaginationNext } from "@/components/ui/pagination";
 
 interface GlobalVisitHistoryProps {
-  // allVisits prop is removed as this component will fetch its own data
+  isActive?: boolean;
 }
 
-export default function GlobalVisitHistory({}: GlobalVisitHistoryProps) {
+export default function GlobalVisitHistory({ isActive = true }: GlobalVisitHistoryProps) {
   const { openWineryModal } = useUIStore();
   const { ensureWineryDetails } = useWineryStore();
   const { 
@@ -20,43 +20,17 @@ export default function GlobalVisitHistory({}: GlobalVisitHistoryProps) {
       isLoading, 
       page, 
       hasMore, 
+      lastMutation,
       fetchVisits, 
       deleteVisit: deleteVisitAction 
   } = useVisitStore();
   const { toast } = useToast();
 
   useEffect(() => {
-    fetchVisits(1, true); // Initial fetch
-  }, [fetchVisits]);
-
-  const handleEditClick = (visit: Visit) => {
-    const visitWithContext = visit as VisitWithWinery;
-    if (visitWithContext.wineryId) {
-        ensureWineryDetails(visitWithContext.wineryId);
-        openWineryModal(visitWithContext.wineryId);
-        toast({ description: "Opening winery details to edit visit..." });
+    if (isActive) {
+        fetchVisits(1, true); // Re-fetch on activation or mutation
     }
-  };
-
-  const handleDeleteVisit = async (visitId: string) => {
-    if (!deleteVisitAction || !visitId) return;
-    try {
-      await deleteVisitAction(visitId);
-      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-      toast({ 
-        description: isOffline 
-          ? "Deletion cached. It will be synced once you're back online." 
-          : "Visit deleted successfully." 
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to delete visit.";
-      toast({ variant: "destructive", description: message });
-    }
-  };
-
-  const handleTogglePhotoForDeletion = () => {
-     // No-op for now in global view
-  };
+  }, [fetchVisits, lastMutation, isActive]);
 
   if (visits.length === 0 && isLoading) {
     return (
@@ -108,4 +82,33 @@ export default function GlobalVisitHistory({}: GlobalVisitHistoryProps) {
        )}
     </div>
   );
+
+  function handleEditClick(visit: Visit) {
+    const visitWithContext = visit as VisitWithWinery;
+    if (visitWithContext.wineryId) {
+        ensureWineryDetails(visitWithContext.wineryId);
+        openWineryModal(visitWithContext.wineryId);
+        toast({ description: "Opening winery details to edit visit..." });
+    }
+  }
+
+  async function handleDeleteVisit(visitId: string) {
+    if (!deleteVisitAction || !visitId) return;
+    try {
+      await deleteVisitAction(visitId);
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      toast({ 
+        description: isOffline 
+          ? "Deletion cached. It will be synced once you're back online." 
+          : "Visit deleted successfully." 
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete visit.";
+      toast({ variant: "destructive", description: message });
+    }
+  }
+
+  function handleTogglePhotoForDeletion() {
+     // No-op for now in global view
+  }
 }

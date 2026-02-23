@@ -1,36 +1,165 @@
 import { set, get, del } from 'idb-keyval';
 import { Winery, Visit } from '@/lib/types';
 
+// Photos can be Blobs (standard) or Base64 strings (for environment-restricted fallbacks/testing)
+export type OfflinePhoto = Blob | { __isBase64: true; base64: string; name: string; type: string };
+
 export type OfflineMutation = 
-  | { type: 'create'; id: string; winery: Winery; visitData: { visit_date: string; user_review: string; rating: number; photos: Blob[] }; timestamp: number }
-  | { type: 'update'; id: string; visitId: string; visitData: Partial<Visit>; newPhotos: Blob[]; photosToDelete: string[]; timestamp: number }
+  | { type: 'create'; id: string; winery: Winery; visitData: { visit_date: string; user_review: string; rating: number; photos: OfflinePhoto[] }; timestamp: number }
+  | { type: 'update'; id: string; visitId: string; visitData: Partial<Visit>; newPhotos: OfflinePhoto[]; photosToDelete: string[]; timestamp: number }
   | { type: 'delete'; id: string; visitId: string; timestamp: number };
 
-// Legacy type for migration support if needed, though we'll just clear or ignore old ones if schema breaks
-// Using a generic key
 const OFFLINE_QUEUE_KEY = 'offline-mutation-queue';
 
-export async function addOfflineMutation(mutation: OfflineMutation): Promise<void> {
-  const current = (await get<OfflineMutation[]>(OFFLINE_QUEUE_KEY)) || [];
-  await set(OFFLINE_QUEUE_KEY, [...current, mutation]);
+/**
+ * Robustly get mutations, falling back to LocalStorage if IDB fails (common in WebKit/Containers).
+ */
+export async function getOfflineMutations(): Promise<OfflineMutation[]> {
+  try {
+    return (await get<OfflineMutation[]>(OFFLINE_QUEUE_KEY)) || [];
+  } catch (err) {
+    const fallback = localStorage.getItem(OFFLINE_QUEUE_KEY);
+    if (!fallback) return [];
+    try {
+        return deserializeFromLocalStorage(fallback);
+    } catch (parseErr) {
+        console.error('[OfflineQueue] Failed to parse fallback:', parseErr);
+        return [];
+    }
+  }
 }
 
-export async function getOfflineMutations(): Promise<OfflineMutation[]> {
-  return (await get<OfflineMutation[]>(OFFLINE_QUEUE_KEY)) || [];
+export async function addOfflineMutation(mutation: OfflineMutation): Promise<void> {
+  let current: OfflineMutation[] = [];
+  try {
+    current = await getOfflineMutations();
+  } catch (err) {
+    console.error('[OfflineQueue] Failed to get current mutations for addition:', err);
+  }
+  
+  const updated = [...current, mutation];
+  
+  try {
+    await set(OFFLINE_QUEUE_KEY, updated);
+  } catch (err: any) {
+    try {
+        const serialized = await serializeForLocalStorage(updated);
+        localStorage.setItem(OFFLINE_QUEUE_KEY, serialized);
+    } catch (lsErr: any) {
+        console.error('[OfflineQueue] LocalStorage fallback failed:', lsErr?.message || lsErr);
+    }
+  }
 }
 
 export async function removeOfflineMutation(mutationId: string): Promise<void> {
-  const current = (await get<OfflineMutation[]>(OFFLINE_QUEUE_KEY)) || [];
+  const current = await getOfflineMutations();
   const updated = current.filter(m => m.id !== mutationId);
-  await set(OFFLINE_QUEUE_KEY, updated);
+  
+  try {
+    await set(OFFLINE_QUEUE_KEY, updated);
+  } catch (err) {
+    try {
+        const serialized = await serializeForLocalStorage(updated);
+        localStorage.setItem(OFFLINE_QUEUE_KEY, serialized);
+    } catch (lsErr) {
+        console.error('[OfflineQueue] Failed to update LS fallback after removal:', lsErr);
+    }
+  }
 }
 
 export async function clearOfflineQueue(): Promise<void> {
-  await del(OFFLINE_QUEUE_KEY);
+  try {
+    await del(OFFLINE_QUEUE_KEY);
+  } catch (err) {}
+  localStorage.removeItem(OFFLINE_QUEUE_KEY);
 }
 
-// Re-export for backward compatibility during refactor if needed, mapped to new type
-export type OfflineVisit = OfflineMutation & { type: 'create' };
-export const addOfflineVisit = (visit: any) => addOfflineMutation({ ...visit, type: 'create' });
-export const getOfflineVisits = async () => (await getOfflineMutations()).filter(m => m.type === 'create');
-export const removeOfflineVisit = removeOfflineMutation;
+// --- Serialization Helpers for LocalStorage Fallback ---
+
+function blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const result = reader.result as string;
+            const base64 = result.split(',')[1];
+            resolve(base64);
+        };
+        reader.onerror = (err) => reject(err);
+        reader.readAsDataURL(blob);
+    });
+}
+
+function base64ToBlob(base64: string, type: string): Blob {
+    const bin = atob(base64);
+    const len = bin.length;
+    const arr = new Uint8Array(len);
+    for (let i = 0; i < len; i++) arr[i] = bin.charCodeAt(i);
+    return new Blob([arr], { type });
+}
+
+/**
+ * Serializes mutations for LocalStorage, converting Blobs to Base64.
+ */
+async function serializeForLocalStorage(mutations: OfflineMutation[]): Promise<string> {
+    const serialized = await Promise.all(mutations.map(async (m) => {
+        if (m.type === 'create' && m.visitData.photos && m.visitData.photos.length > 0) {
+            const photos = await Promise.all(m.visitData.photos.map(async (p) => {
+                if (p instanceof Blob) {
+                    try {
+                        const base64 = await blobToBase64(p);
+                        return {
+                            __isBase64: true,
+                            name: (p as File).name || 'photo.jpg',
+                            type: p.type,
+                            base64
+                        };
+                    } catch (err) {
+                        return null;
+                    }
+                }
+                return p;
+            }));
+            return { ...m, visitData: { ...m.visitData, photos: photos.filter(p => p !== null) } };
+        }
+        if (m.type === 'update' && m.newPhotos && m.newPhotos.length > 0) {
+            const newPhotos = await Promise.all(m.newPhotos.map(async (p) => {
+                if (p instanceof Blob) {
+                    try {
+                        const base64 = await blobToBase64(p);
+                        return {
+                            __isBase64: true,
+                            name: (p as File).name || 'photo.jpg',
+                            type: p.type,
+                            base64
+                        };
+                    } catch (err) {
+                        return null;
+                    }
+                }
+                return p;
+            }));
+            return { ...m, newPhotos: newPhotos.filter(p => p !== null) };
+        }
+        return m;
+    }));
+    return JSON.stringify(serialized);
+}
+
+/**
+ * Deserializes mutations from LocalStorage.
+ */
+function deserializeFromLocalStorage(json: string): OfflineMutation[] {
+    return JSON.parse(json) as OfflineMutation[];
+}
+
+/**
+ * Utility to ensure a photo is a Blob/File, converting from Base64 if necessary.
+ * Used during the final sync/upload step.
+ */
+export function ensureBlob(photo: OfflinePhoto): Blob {
+    if (photo instanceof Blob) return photo;
+    if (photo && (photo as any).__isBase64) {
+        return base64ToBlob((photo as any).base64, (photo as any).type);
+    }
+    return new Blob([], { type: 'image/jpeg' });
+}

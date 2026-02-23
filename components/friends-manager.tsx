@@ -24,12 +24,27 @@ import FriendActivityFeed from "@/components/FriendActivityFeed";
 
 export default function FriendsManager() {
   const { toast } = useToast();
-  const { friends, friendRequests, sentRequests, fetchFriends, addFriend, acceptFriend, rejectFriend, removeFriend, isLoading, error } = useFriendStore();
+  const { 
+    friends, 
+    friendRequests, 
+    sentRequests, 
+    fetchFriends, 
+    addFriend, 
+    acceptFriend, 
+    rejectFriend, 
+    removeFriend, 
+    isLoading, 
+    error,
+    subscribeToSocialUpdates,
+    unsubscribeFromSocialUpdates
+  } = useFriendStore();
   const [email, setEmail] = useState("");
 
   useEffect(() => {
     fetchFriends();
-  }, [fetchFriends]);
+    subscribeToSocialUpdates();
+    return () => unsubscribeFromSocialUpdates();
+  }, [fetchFriends, subscribeToSocialUpdates, unsubscribeFromSocialUpdates]);
 
   const handleAddFriend = async () => {
     if (!email) return;

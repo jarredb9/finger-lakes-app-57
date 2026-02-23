@@ -17,7 +17,8 @@ test.describe('Trip Management Flow', () => {
     const expandButton = page.getByRole('button', { name: 'Expand to full screen' });
     if (await expandButton.isVisible()) {
         await expandButton.click();
-        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/);
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-5rem\)\]/);
     }
     
     await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });

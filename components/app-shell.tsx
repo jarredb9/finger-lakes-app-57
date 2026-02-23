@@ -28,6 +28,7 @@ import { useVisitStore } from "@/lib/stores/visitStore";
 import { Download, RefreshCw } from "lucide-react";
 import { usePwa } from "@/hooks/use-pwa";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const WineryModal = dynamic(() => import("@/components/winery-modal"), {
     ssr: false,
@@ -39,6 +40,7 @@ interface AppShellProps {
 }
 
 function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
+    const isMobile = useIsMobile();
     const [activeTab, setActiveTab] = useState<"explore" | "trips" | "friends" | "history">(initialTab);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
@@ -103,166 +105,176 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             <VisitHistoryModal />
 
             {/* Desktop Sidebar */}
-            <div
-                className={cn(
-                    "hidden md:flex flex-col border-r bg-background transition-all duration-300 ease-in-out relative",
-                    isSidebarOpen ? "w-[400px]" : "w-0 opacity-0 overflow-hidden"
-                )}
-            >
-                <div className="flex-1 overflow-hidden">
-                    <div data-testid="desktop-sidebar-container" className="w-[400px] h-full">
-                        <AppSidebar
-                            user={user}
-                            activeTab={activeTab}
-                            onTabChange={(val) => setActiveTab(val as any)}
-                        />
+            {isMobile === false && (
+                <div
+                    className={cn(
+                        "hidden md:flex flex-col border-r bg-background transition-all duration-300 ease-in-out relative",
+                        isSidebarOpen ? "w-[400px]" : "w-0 opacity-0 overflow-hidden"
+                    )}
+                >
+                    <div className="flex-1 overflow-hidden">
+                        <div data-testid="desktop-sidebar-container" className="w-[400px] h-full">
+                            <AppSidebar
+                                user={user}
+                                activeTab={activeTab}
+                                onTabChange={(val) => setActiveTab(val as any)}
+                            />
+                        </div>
                     </div>
                 </div>
-            </div>
+            )}
 
             {/* Desktop Sidebar Toggle */}
-            <Button
-                variant="outline"
-                size="icon"
-                className="hidden md:flex absolute top-4 left-4 z-20 bg-background shadow-md"
-                style={{ left: isSidebarOpen ? "416px" : "16px", transition: "left 0.3s ease-in-out" }}
-                onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
-            >
-                {isSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-            </Button>
+            {isMobile === false && (
+                <Button
+                    variant="outline"
+                    size="icon"
+                    className="hidden md:flex absolute top-4 left-4 z-20 bg-background shadow-md"
+                    style={{ left: isSidebarOpen ? "416px" : "16px", transition: "left 0.3s ease-in-out" }}
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                    aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+                >
+                    {isSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+                </Button>
+            )}
 
             {/* Main Map Area */}
             <div className="flex-1 relative w-full h-full">
                 <WineryMap />
 
                 {/* Mobile User Avatar (Floating Top Right) */}
-                <div className="md:hidden absolute top-4 right-4 z-10">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <div
-                                className="bg-background/80 backdrop-blur-xs p-1 rounded-full shadow-xs border cursor-pointer hover:bg-background/90 transition-colors"
-                                role="button"
-                                aria-label="User profile and navigation"
-                            >
-                                <Avatar className="h-8 w-8">
-                                    <AvatarImage src="/placeholder-user.jpg" alt={user.name || "User avatar"} />
-                                    <AvatarFallback>{user.name?.charAt(0) || <UserIcon className="h-4 w-4" />}</AvatarFallback>
-                                </Avatar>
-                            </div>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-56">
-                            <DropdownMenuLabel>
-                                <div className="flex flex-col space-y-1">
-                                    <p className="text-sm font-medium leading-none">{user.name}</p>
-                                    <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                {isMobile === true && (
+                    <div className="md:hidden absolute top-4 right-4 z-10">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <div
+                                    className="bg-background/80 backdrop-blur-xs p-1 rounded-full shadow-xs border cursor-pointer hover:bg-background/90 transition-colors"
+                                    role="button"
+                                    aria-label="User profile and navigation"
+                                >
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage src="/placeholder-user.jpg" alt={user.name || "User avatar"} />
+                                        <AvatarFallback>{user.name?.charAt(0) || <UserIcon className="h-4 w-4" />}</AvatarFallback>
+                                    </Avatar>
                                 </div>
-                            </DropdownMenuLabel>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem asChild>
-                                <Link href="/privacy" className="w-full cursor-pointer flex items-center">
-                                    <Shield className="mr-2 h-4 w-4" />
-                                    <span>Privacy Policy</span>
-                                </Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem asChild>
-                                <Link href="/terms" className="w-full cursor-pointer flex items-center">
-                                    <FileText className="mr-2 h-4 w-4" />
-                                    <span>Terms of Service</span>
-                                </Link>
-                            </DropdownMenuItem>
-                            {(isInstallable || isUpdateAvailable) && <DropdownMenuSeparator />}
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-56">
+                                <DropdownMenuLabel>
+                                    <div className="flex flex-col space-y-1">
+                                        <p className="text-sm font-medium leading-none">{user.name}</p>
+                                        <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
+                                    </div>
+                                </DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem asChild>
+                                    <Link href="/privacy" className="w-full cursor-pointer flex items-center">
+                                        <Shield className="mr-2 h-4 w-4" />
+                                        <span>Privacy Policy</span>
+                                    </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem asChild>
+                                    <Link href="/terms" className="w-full cursor-pointer flex items-center">
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        <span>Terms of Service</span>
+                                    </Link>
+                                </DropdownMenuItem>
+                                {(isInstallable || isUpdateAvailable) && <DropdownMenuSeparator />}
 
-                            {!isStandalone && (
-                                <DropdownMenuItem onClick={handleInstallClick} className="cursor-pointer">
-                                    <Download className="mr-2 h-4 w-4" />
-                                    <span>{isInstallable ? "Install App" : "Add to Home Screen"}</span>
+                                {!isStandalone && (
+                                    <DropdownMenuItem onClick={handleInstallClick} className="cursor-pointer">
+                                        <Download className="mr-2 h-4 w-4" />
+                                        <span>{isInstallable ? "Install App" : "Add to Home Screen"}</span>
+                                    </DropdownMenuItem>
+                                )}
+                                {isUpdateAvailable && (
+                                    <DropdownMenuItem onClick={updateApp} className="cursor-pointer text-blue-600 focus:text-blue-600">
+                                        <RefreshCw className="mr-2 h-4 w-4" />
+                                        <span>Update Available</span>
+                                    </DropdownMenuItem>
+                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem asChild>
+                                    <Link href="/logout" className="w-full cursor-pointer flex items-center text-red-600 focus:text-red-600">
+                                        <LogOut className="mr-2 h-4 w-4" />
+                                        <span>Log out</span>
+                                    </Link>
                                 </DropdownMenuItem>
-                            )}
-                            {isUpdateAvailable && (
-                                <DropdownMenuItem onClick={updateApp} className="cursor-pointer text-blue-600 focus:text-blue-600">
-                                    <RefreshCw className="mr-2 h-4 w-4" />
-                                    <span>Update Available</span>
-                                </DropdownMenuItem>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem asChild>
-                                <Link href="/logout" className="w-full cursor-pointer flex items-center text-red-600 focus:text-red-600">
-                                    <LogOut className="mr-2 h-4 w-4" />
-                                    <span>Log out</span>
-                                </Link>
-                            </DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                </div>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                )}
             </div>
 
             {/* Mobile Navigation Bar */}
-            <div className="md:hidden fixed bottom-0 left-0 right-0 h-auto min-h-16 bg-background border-t flex items-center justify-around z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
-                <Button
-                    variant="ghost"
-                    className={cn("flex flex-col gap-1 h-auto w-16", !isMobileSheetOpen && "text-primary")}
-                    onClick={() => setIsMobileSheetOpen(false)}
-                >
-                    <MapIcon className="h-5 w-5" />
-                    <span className="text-[10px]">Map</span>
-                </Button>
-                <Button
-                    variant="ghost"
-                    className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "explore" && isMobileSheetOpen && "text-primary")}
-                    onClick={() => handleMobileNav("explore")}
-                >
-                    <Search className="h-5 w-5" />
-                    <span className="text-[10px]">Explore</span>
-                </Button>
-                <Button
-                    variant="ghost"
-                    className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "trips" && isMobileSheetOpen && "text-primary")}
-                    onClick={() => handleMobileNav("trips")}
-                >
-                    <CalendarDays className="h-5 w-5" />
-                    <span className="text-[10px]">Trips</span>
-                </Button>
-                <Button
-                    variant="ghost"
-                    className={cn("flex flex-col gap-1 h-auto w-16 relative", activeTab === "friends" && isMobileSheetOpen && "text-primary")}
-                    onClick={() => handleMobileNav("friends")}
-                >
-                    <Users className="h-5 w-5" />
-                    <span className="text-[10px]">Friends</span>
-                    {friendRequestCount > 0 && (
-                        <span className="absolute top-1 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                            {friendRequestCount}
-                        </span>
-                    )}
-                </Button>
-                <Button
-                    variant="ghost"
-                    className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "history" && isMobileSheetOpen && "text-primary")}
-                    onClick={() => handleMobileNav("history")}
-                >
-                    <Clock className="h-5 w-5" />
-                    <span className="text-[10px]">History</span>
-                </Button>
-            </div>
+            {isMobile === true && (
+                <div className="md:hidden fixed bottom-0 left-0 right-0 h-auto min-h-16 bg-background border-t flex items-center justify-around z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+                    <Button
+                        variant="ghost"
+                        className={cn("flex flex-col gap-1 h-auto w-16", !isMobileSheetOpen && "text-primary")}
+                        onClick={() => setIsMobileSheetOpen(false)}
+                    >
+                        <MapIcon className="h-5 w-5" />
+                        <span className="text-[10px]">Map</span>
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "explore" && isMobileSheetOpen && "text-primary")}
+                        onClick={() => handleMobileNav("explore")}
+                    >
+                        <Search className="h-5 w-5" />
+                        <span className="text-[10px]">Explore</span>
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "trips" && isMobileSheetOpen && "text-primary")}
+                        onClick={() => handleMobileNav("trips")}
+                    >
+                        <CalendarDays className="h-5 w-5" />
+                        <span className="text-[10px]">Trips</span>
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className={cn("flex flex-col gap-1 h-auto w-16 relative", activeTab === "friends" && isMobileSheetOpen && "text-primary")}
+                        onClick={() => handleMobileNav("friends")}
+                    >
+                        <Users className="h-5 w-5" />
+                        <span className="text-[10px]">Friends</span>
+                        {friendRequestCount > 0 && (
+                            <span className="absolute top-1 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                                {friendRequestCount}
+                            </span>
+                        )}
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "history" && isMobileSheetOpen && "text-primary")}
+                        onClick={() => handleMobileNav("history")}
+                    >
+                        <Clock className="h-5 w-5" />
+                        <span className="text-[10px]">History</span>
+                    </Button>
+                </div>
+            )}
 
             {/* Custom Mobile Bottom Sheet */}
-            <InteractiveBottomSheet
-                data-testid="mobile-sidebar-container"
-                isOpen={isMobileSheetOpen}
-                onOpenChange={setIsMobileSheetOpen}
-                mode={sheetMode}
-                onModeChange={setSheetMode}
-                title={getSheetTitle()}
-            >
-                <AppSidebar
-                    user={user}
-                    className="border-none h-full"
-                    activeTab={activeTab}
-                    onTabChange={(val) => setActiveTab(val as any)}
-                    hideTabs={true}
-                />
-            </InteractiveBottomSheet>
+            {isMobile === true && (
+                <InteractiveBottomSheet
+                    data-testid="mobile-sidebar-container"
+                    isOpen={isMobileSheetOpen}
+                    onOpenChange={setIsMobileSheetOpen}
+                    mode={sheetMode}
+                    onModeChange={setSheetMode}
+                    title={getSheetTitle()}
+                >
+                    <AppSidebar
+                        user={user}
+                        className="border-none h-full"
+                        activeTab={activeTab}
+                        onTabChange={(val) => setActiveTab(val as any)}
+                        hideTabs={true}
+                    />
+                </InteractiveBottomSheet>
+            )}
         </div>
     );
 }

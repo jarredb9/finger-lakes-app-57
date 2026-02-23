@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChevronUp, ChevronDown, X } from "lucide-react";
 
@@ -25,7 +25,27 @@ export function InteractiveBottomSheet({
   className,
   ...props
 }: InteractiveBottomSheetProps) {
+  const [isStable, setIsStable] = useState(true);
   const touchStart = useRef<number | null>(null);
+  const transitionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Mark as unstable when mode or open state changes
+  useEffect(() => {
+    if (isOpen) {
+      setTimeout(() => setIsStable(false), 0);
+      
+      // Safety fallback: if no transition occurs or property mismatch,
+      // force stability after the expected duration + buffer.
+      if (transitionTimeout.current) clearTimeout(transitionTimeout.current);
+      transitionTimeout.current = setTimeout(() => {
+        setIsStable(true);
+      }, 500); // 300ms transition + 200ms buffer
+    }
+
+    return () => {
+      if (transitionTimeout.current) clearTimeout(transitionTimeout.current);
+    };
+  }, [mode, isOpen]);
 
   const toggleSize = () => {
     onModeChange(mode === "mini" ? "full" : "mini");
@@ -57,17 +77,33 @@ export function InteractiveBottomSheet({
     touchStart.current = null;
   };
 
+  const handleTransitionEnd = (e: React.TransitionEvent) => {
+    // Only care about transform transitions on the container itself
+    if (e.propertyName === "transform" && e.target === e.currentTarget) {
+      setIsStable(true);
+      if (transitionTimeout.current) clearTimeout(transitionTimeout.current);
+    }
+  };
+
   return (
     isOpen && (
         <div
           {...props}
+          onTransitionEnd={handleTransitionEnd}
+          data-state={isStable ? "stable" : "animating"}
           className={cn(
             "fixed bottom-16 left-0 right-0 z-40 bg-background border-t rounded-t-[15px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex flex-col",
             "transition-transform duration-300 ease-out will-change-transform",
-            mode === "full" ? "h-[calc(100vh-4rem)] top-4" : "h-[45vh]",
-            "translate-y-0 pointer-events-auto",
+            "h-[calc(100vh-5rem)]", // Fixed height (100vh - bottom 4rem - top 1rem)
             className
           )}
+          style={{
+            // Translate the sheet so only 45vh is visible in mini mode
+            // Full: translateY(0)
+            // Mini: translateY(calc(TotalHeight - 45vh))
+            transform: mode === "full" ? "translateY(0)" : "translateY(calc(100vh - 5rem - 45vh))",
+            ...props.style
+          }}
         >
           {/* Sheet Header / Handle */}
           <div className="flex items-center justify-between px-4 py-3 border-b bg-muted/10 shrink-0 w-full rounded-t-[15px] relative">

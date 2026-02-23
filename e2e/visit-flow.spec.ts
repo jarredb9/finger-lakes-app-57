@@ -20,8 +20,9 @@ test.describe('Visit Logging Flow', () => {
     const expandButton = page.getByRole('button', { name: 'Expand to full screen' });
     if (await expandButton.isVisible()) {
         await expandButton.click();
-        // Wait for expansion animation by checking the class
-        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/); 
+        // Wait for expansion animation stability
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-5rem\)\]/); 
     }
 
     // 2. Open Winery Modal
@@ -51,7 +52,8 @@ test.describe('Visit Logging Flow', () => {
     // Ensure sheet is expanded on mobile for history view
     if (await page.getByRole('button', { name: 'Expand to full screen' }).isVisible()) {
         await page.getByRole('button', { name: 'Expand to full screen' }).click();
-        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/);
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-5rem\)\]/);
     }
 
     // Verify the visit appears in history

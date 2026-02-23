@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { expect, Locator, Page } from '@playwright/test';
 
 /**
@@ -7,15 +8,8 @@ import { expect, Locator, Page } from '@playwright/test';
 // --- Reusable Locators ---
 
 export function getSidebarContainer(page: Page): Locator {
-  const viewport = page.viewportSize();
-  const isMobile = viewport && viewport.width < 768;
-  
-  // Explicitly target either desktop OR mobile, ensuring we don't pick a hidden element.
-  const container = isMobile 
-    ? page.locator('[data-testid="mobile-sidebar-container"]')
-    : page.locator('[data-testid="desktop-sidebar-container"]');
-    
-  return container.filter({ visible: true }).first();
+  // Use a more robust check: return whichever container is actually present and visible
+  return page.locator('[data-testid="desktop-sidebar-container"], [data-testid="mobile-sidebar-container"]').filter({ visible: true }).first();
 }
 
 /**
@@ -98,47 +92,89 @@ export async function login(page: Page, email: string, pass: string, options: { 
     const passInput = page.getByLabel('Password');
     await passInput.fill(pass);
     
-    // Use click instead of press Enter for better reliability across Safari/Browsers
-    await page.getByRole('button', { name: 'Sign In' }).click();
+    // Press Enter for better reliability across Safari/WebKit
+    await passInput.press('Enter');
 
     // Check if we reached the dashboard
     const dashboard = page.locator(successSelector).first();
-    await expect(dashboard).toBeVisible({ timeout: 10000 });
+    try {
+        await expect(dashboard).toBeVisible({ timeout: 10000 });
+    } catch (e) {
+        // Fallback to robust click if Enter didn't trigger navigation
+        const signInBtn = page.getByRole('button', { name: 'Sign In' });
+        if (await signInBtn.isVisible()) {
+            await robustClick(signInBtn);
+            await expect(dashboard).toBeVisible({ timeout: 10000 });
+        } else {
+            throw e;
+        }
+    }
     await page.waitForLoadState('networkidle');
   }).toPass({
     intervals: [2000, 5000],
     timeout: 30000
   });
   
-  // Wait for critical initial data fetches to stabilize
+  // Wait for critical initial data fetches and store hydration
   await Promise.all([
-    page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 10000 }).catch(() => {}),
-    !options.skipMapReady ? page.waitForResponse(resp => resp.url().includes('get_map_markers'), { timeout: 10000 }).catch(() => {}) : Promise.resolve()
+    page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 15000 }).catch(() => {}),
+    !options.skipMapReady ? page.waitForResponse(resp => resp.url().includes('get_map_markers') && resp.status() === 200, { timeout: 15000 }).catch(() => {}) : Promise.resolve()
   ]);
 
-  // Small buffer for store hydration/stability
-  await page.waitForTimeout(1000);
+  // Deterministic check for store hydration instead of waitForTimeout
+  if (!options.skipMapReady) {
+    await expect(async () => {
+      const isHydrated = await page.evaluate(() => {
+          const u = (window as any).useUserStore?.getState().user;
+          const w = (window as any).useWineryDataStore?.persist?.hasHydrated();
+          const v = (window as any).useVisitStore?.persist?.hasHydrated();
+          return !!(u && w && v);
+      });
+      if (!isHydrated) throw new Error('Stores not yet hydrated');
+    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
+  }
 
   // Ensure map is functional before returning
   if (!options.skipMapReady) {
     await waitForMapReady(page);
   }
 
-  // IMPORTANT: On mobile, the sheet is closed by default. Open Explore so subsequent tests can find wineries.
-  if (isMobile) {
-      await navigateToTab(page, 'Explore');
-  }
-
-}
-
-/**
- * A robust click implementation that handles PointerEvents, MouseEvents and a final Click
- * to ensure Radix and other interaction-heavy components trigger correctly across all engines.
- */
-export async function robustClick(locator: Locator) {
-  await expect(locator).toBeVisible({ timeout: 10000 });
+      // IMPORTANT: On mobile, the sheet is closed by default. Open Explore so subsequent tests can find wineries.
+    if (isMobile) {
+        await navigateToTab(page, 'Explore');
+    }
   
-  await locator.evaluate(el => {
+  }
+  
+  /**
+   * Gets a Supabase client from the browser context if possible.
+   */
+  export async function getBrowserSupabase(page: Page) {
+      return await page.evaluate(() => {
+          // @ts-ignore
+          if (window.supabase) return window.supabase;
+          // Import createClient dynamically if needed or use existing instances
+          // For simplicity, we assume we can just create one if we have the env vars
+          // but often the app has one we can grab.
+          // Let's try to find it in the Window object or create a new one.
+          try {
+              // @ts-ignore
+              const { createClient } = require('@/utils/supabase/client');
+              return createClient();
+          } catch (e) {
+              return null;
+          }
+      });
+  }
+  
+  /**
+   * A robust click implementation that handles PointerEvents, MouseEvents and a final Click * to ensure Radix and other interaction-heavy components trigger correctly across all engines.
+ */
+export async function robustClick(pageOrLocator: Page | Locator, locator?: Locator) {
+  const target = locator || (pageOrLocator as Locator);
+  await expect(target).toBeVisible({ timeout: 15000 });
+  
+  await target.evaluate(el => {
     const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
     events.forEach(name => {
       const isPointer = name.startsWith('pointer');
@@ -161,14 +197,23 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
   
   if (isMobile) {
     const navBtn = page.getByRole('button', { name: tabName });
-    await robustClick(navBtn);
     
-    // Wait for the sheet to appear
-    await expect(page.getByTestId('mobile-sidebar-container')).toBeVisible({ timeout: 5000 });
+    // For mobile Radix triggers, we sometimes need a direct event dispatch
+    await navBtn.evaluate(el => {
+        const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
+        events.forEach(name => {
+            const EventClass = name.startsWith('pointer') ? PointerEvent : MouseEvent;
+            el.dispatchEvent(new EventClass(name, { bubbles: true, cancelable: true, pointerType: 'touch' } as any));
+        });
+    });
+    
+    // Wait for the sheet to appear and stabilize
+    const sheet = page.getByTestId('mobile-sidebar-container');
+    await expect(sheet).toBeVisible({ timeout: 5000 });
+    await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
   } else {
       const sidebar = page.getByTestId('desktop-sidebar-container');
       const tab = sidebar.locator(`[role="tab"][aria-label="${tabName}"]`);
-      await expect(tab).toBeVisible({ timeout: 5000 });
-      await tab.click();
+      await robustClick(tab);
   }
 }

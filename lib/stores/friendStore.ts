@@ -19,7 +19,7 @@ interface FriendActivityData {
 export interface FriendActivityItem {
   activity_type: string;
   created_at: string;
-  user_id: string;
+  activity_user_id: string;
   user_name: string;
   user_email: string;
   winery_id: number;
@@ -38,6 +38,7 @@ interface FriendState {
   error: string | null;
   friendsRatings: FriendRating[];
   friendsActivity: FriendActivityData;
+  subscription: any;
   fetchFriends: () => Promise<void>;
   fetchFriendActivityFeed: () => Promise<void>;
   addFriend: (email: string) => Promise<void>;
@@ -46,6 +47,8 @@ interface FriendState {
   removeFriend: (friendId: string) => Promise<void>;
   respondToRequest: (requesterId: string, accept: boolean) => Promise<void>;
   fetchFriendDataForWinery: (wineryId: WineryDbId) => Promise<void>;
+  subscribeToSocialUpdates: () => void;
+  unsubscribeFromSocialUpdates: () => void;
   reset: () => void;
 }
 
@@ -58,6 +61,44 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   error: null,
   friendsRatings: [],
   friendsActivity: { favoritedBy: [], wishlistedBy: [] },
+  subscription: null as any,
+
+  subscribeToSocialUpdates: () => {
+    if (get().subscription) return;
+
+    const supabase = createClient();
+    const subscription = supabase
+      .channel('social-updates')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'visits' },
+        async (_payload) => {
+          // Refresh feed if a new visit is logged
+          // In a more advanced version, we'd check if payload.new.user_id is a friend
+          await get().fetchFriendActivityFeed();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'friends' },
+        async () => {
+          // Refresh friends list if friendship changes
+          await get().fetchFriends();
+          await get().fetchFriendActivityFeed();
+        }
+      )
+      .subscribe();
+
+    set({ subscription });
+  },
+
+  unsubscribeFromSocialUpdates: () => {
+    const { subscription } = get();
+    if (subscription) {
+      subscription.unsubscribe();
+      set({ subscription: null });
+    }
+  },
 
   fetchFriends: async () => {
     set({ isLoading: true });
@@ -88,7 +129,9 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
     
     const supabase = createClient();
     try {
-      const { data, error } = await supabase.rpc('get_friend_activity_feed');
+      const { data, error } = await supabase.rpc('get_friend_activity_feed', { 
+          limit_val: 20
+      });
       
       if (error) throw error;
 

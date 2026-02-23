@@ -34,6 +34,16 @@ test.describe('Friends Interaction Flow', () => {
 
         // Explicitly wait for the Friends view to load
         const sidebar = getSidebarContainer(pageA);
+        
+        // Expand on mobile
+        if (pageA.viewportSize()!.width < 768) {
+            const expandButton = pageA.getByRole('button', { name: 'Expand to full screen' });
+            if (await expandButton.isVisible()) {
+                await expandButton.click();
+                await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+            }
+        }
+
         await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
         const emailInput = sidebar.getByPlaceholder("Enter friend's email");
@@ -63,6 +73,16 @@ test.describe('Friends Interaction Flow', () => {
         await pageB.reload();
         
         await navigateToTab(pageB, 'Friends');
+        
+        // Expand on mobile
+        if (pageB.viewportSize()!.width < 768) {
+            const expandButton = pageB.getByRole('button', { name: 'Expand to full screen' });
+            if (await expandButton.isVisible()) {
+                await expandButton.click();
+                await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+            }
+        }
+
         await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
         await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
@@ -89,6 +109,16 @@ test.describe('Friends Interaction Flow', () => {
         const sidebar = getSidebarContainer(pageA);
         
         await navigateToTab(pageA, 'Friends');
+        
+        // Expand on mobile
+        if (pageA.viewportSize()!.width < 768) {
+            const expandButton = pageA.getByRole('button', { name: 'Expand to full screen' });
+            if (await expandButton.isVisible()) {
+                await expandButton.click();
+                await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+            }
+        }
+
         await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
 
         await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });

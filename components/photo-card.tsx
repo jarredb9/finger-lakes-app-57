@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { cn } from '@/lib/utils';
 import { createClient } from '@/utils/supabase/client';
 import { Button } from './ui/button';
 import { X, Loader2, Undo2 } from 'lucide-react';
@@ -17,6 +19,13 @@ export default function PhotoCard({ photoPath, onDelete, isEditing, isMarkedForD
 
   useEffect(() => {
     const getSignedUrl = async () => {
+      // If it's a local blob or data URL (from optimistic update), use it directly
+      if (photoPath.startsWith('blob:') || photoPath.startsWith('data:')) {
+        setSignedUrl(photoPath);
+        setIsLoading(false);
+        return;
+      }
+
       setIsLoading(true);
       try {
         const { data, error } = await supabase.storage
@@ -46,7 +55,13 @@ export default function PhotoCard({ photoPath, onDelete, isEditing, isMarkedForD
           <Loader2 className="w-6 h-6 animate-spin text-gray-500" />
         </div>
       ) : signedUrl ? (
-        <img src={signedUrl} alt="Visit photo" className={`w-full h-full object-cover transition-opacity ${isMarkedForDeletion ? 'opacity-40' : 'opacity-100'}`} />
+        <Image 
+          src={signedUrl} 
+          alt="Visit photo" 
+          fill
+          className={cn("object-cover transition-opacity", isMarkedForDeletion ? "opacity-40" : "opacity-100")} 
+          unoptimized
+        />
       ) : (
         <div className="flex items-center justify-center w-full h-full bg-gray-200 text-xs text-center text-red-500 p-1">
           Photo unavailable

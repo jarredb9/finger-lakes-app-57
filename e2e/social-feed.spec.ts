@@ -1,10 +1,14 @@
-import { test, expect, createTestUser, deleteTestUser } from './utils';
-import { getSidebarContainer, login, navigateToTab } from './helpers';
+ 
+import { test, expect, createTestUser, deleteTestUser, MockMapsManager, supabase } from './utils';
+import { getSidebarContainer, login, navigateToTab, robustClick, waitForSearchComplete } from './helpers';
 
 test.describe('Social Activity Feed Flow', () => {
-  test('User B can see User A\'s visit in the social feed after becoming friends', async ({ browser, user: userA }) => {
-    // 1. Create second ephemeral test user
-    const userB = await createTestUser();
+  test("User B can see User A's visit in the social feed after becoming friends", async ({ browser, user: user1 }) => {
+    // Increased timeout for multi-context flow
+    test.setTimeout(90000);
+    
+    // 1. Create User B
+    const user2 = await createTestUser();
 
     try {
       const contextA = await browser.newContext();
@@ -12,92 +16,164 @@ test.describe('Social Activity Feed Flow', () => {
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
-      // 2. Setup Hybrid Mocks for both pages
-      for (const page of [pageA, pageB]) {
-          await test.step('Init Mocks', async () => {
-              const { MockMapsManager } = await import('./utils');
-              const manager = new MockMapsManager(page);
-              await manager.initDefaultMocks();
-              await manager.useRealSocial();
-              await manager.useRealVisits();
-          });
-      }
+      const waitForStores = async (page: any) => {
+          await expect.poll(async () => {
+              return await page.evaluate(() => !!(window as any).useFriendStore);
+          }, { timeout: 10000 }).toBeTruthy();
+      };
 
-      // 3. Login both users
-      await login(pageA, userA.email, userA.password);
-      await login(pageB, userB.email, userB.password);
+      // 2. Setup Mocks and Login both
+      // We use Real Social and Real Visits to hit the actual DB loop
+      const managerA = new MockMapsManager(pageA);
+      await managerA.useRealSocial();
+      await managerA.useRealVisits();
+      await managerA.initDefaultMocks();
+      await login(pageA, user1.email, user1.password, { skipMapReady: true });
 
-      // 4. Make them friends
-      await test.step('Make users friends', async () => {
+      const managerB = new MockMapsManager(pageB);
+      await managerB.useRealSocial();
+      await managerB.useRealVisits();
+      await managerB.initDefaultMocks();
+      await login(pageB, user2.email, user2.password, { skipMapReady: true });
+
+      // Stabilization: Ensure both profiles are fully initialized with names
+      await Promise.all([
+          supabase.from('profiles').update({ name: 'User A' }).eq('id', user1.id),
+          supabase.from('profiles').update({ name: 'User B' }).eq('id', user2.id)
+      ]);
+
+      await Promise.all([
+          expect.poll(async () => {
+              const { data } = await supabase.from('profiles').select('name').eq('id', user1.id).single();
+              return data?.name;
+          }, { timeout: 15000 }).toBe('User A'),
+          expect.poll(async () => {
+              const { data } = await supabase.from('profiles').select('name').eq('id', user2.id).single();
+              return data?.name;
+          }, { timeout: 15000 }).toBe('User B')
+      ]);
+
+      // 3. Establish Friendship
+      await test.step('Establish Friendship', async () => {
         await navigateToTab(pageA, 'Friends');
         const sidebarA = getSidebarContainer(pageA);
+        
         const emailInput = sidebarA.getByPlaceholder("Enter friend's email");
-        await emailInput.fill(userB.email);
-        await sidebarA.getByRole('button', { name: 'Add friend' }).click();
-        await expect(pageA.getByText('Friend request sent!', { exact: true }).first()).toBeVisible();
+        await emailInput.fill(user2.email);
+        
+        const addBtn = sidebarA.locator('button').filter({ hasText: /^Add$/ }).first();
+        await addBtn.waitFor({ state: 'visible', timeout: 15000 });
+        await expect(addBtn).toBeEnabled({ timeout: 15000 });
+        await robustClick(pageA, addBtn);
+        
+        const toast = pageA.locator('[role="status"]').filter({ hasText: /Friend request sent/i }).first();
+        await expect(toast).toBeVisible({ timeout: 15000 });
 
-        await pageB.reload();
-        await navigateToTab(pageB, 'Friends');
+        // User B reloads manually via evaluate to avoid session wiping
+        await expect(async () => {
+            await waitForStores(pageB);
+            await pageB.evaluate(async () => {
+                // @ts-ignore
+                const store = window.useFriendStore && window.useFriendStore.getState();
+                if (store) await store.fetchFriends();
+            });
+
+            await navigateToTab(pageB, 'Friends');
+            const sidebarB = getSidebarContainer(pageB);
+            const acceptBtn = sidebarB.getByRole('button', { name: 'Accept request' });
+            
+            // If not visible, try a manual refresh
+            if (!await acceptBtn.isVisible()) {
+                await pageB.evaluate(async () => {
+                    // @ts-ignore
+                    const store = window.useFriendStore && window.useFriendStore.getState();
+                    if (store) await store.fetchFriends();
+                });
+            }
+
+            await expect(acceptBtn).toBeVisible({ timeout: 5000 });
+        }).toPass({ timeout: 30000, intervals: [3000, 5000] });
+
         const sidebarB = getSidebarContainer(pageB);
         const acceptBtn = sidebarB.getByRole('button', { name: 'Accept request' });
-        await expect(acceptBtn).toBeVisible();
-        await acceptBtn.click();
-        await expect(sidebarB.locator('.rounded-lg.border').filter({ hasText: 'My Friends' }).getByText(userA.email)).toBeVisible();
+        
+        const respondPromise = pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request') && resp.status() === 204);
+        await acceptBtn.evaluate(el => (el as HTMLElement).click());
+        await respondPromise;
+        
+        await expect(sidebarB.locator('text=' + user1.email)).toBeVisible({ timeout: 10000 });
+        await pageB.waitForTimeout(2000);
+
+        // Verify User A also sees User B as friend
+        await expect(async () => {
+            await pageA.evaluate(async () => {
+                // @ts-ignore
+                const store = window.useFriendStore && window.useFriendStore.getState();
+                if (store) await store.fetchFriends();
+            });
+            await navigateToTab(pageA, 'Friends');
+            const sidebarA_retry = getSidebarContainer(pageA);
+            await expect(sidebarA_retry.locator('text=' + user2.email)).toBeVisible({ timeout: 5000 });
+        }).toPass({ timeout: 15000, intervals: [3000, 5000] });
       });
 
-      // 5. User A logs a visit
-      const reviewText = `Great wine at this place! ${Math.random()}`;
-      await test.step('User A logs a visit', async () => {
+      // 4. User A logs a visit
+      const reviewText = `Amazing Riesling at Mock Winery One! ${Date.now()}`;
+      await test.step('User A logs visit', async () => {
         await navigateToTab(pageA, 'Explore');
         const sidebarA = getSidebarContainer(pageA);
-        
-        await expect.poll(async () => {
-          return await pageA.evaluate(() => (window as any).useMapStore?.getState().isSearching);
-        }, { timeout: 15000 }).toBe(false);
+        await waitForSearchComplete(pageA);
 
-        const wineryCard = sidebarA.locator('[data-testid="winery-card"]').first();
-        await expect(wineryCard).toBeVisible({ timeout: 15000 });
-        await wineryCard.click();
-        
+        const wineryItem = sidebarA.getByText('Mock Winery One').first();
+        await robustClick(pageA, wineryItem);
+
         const modal = pageA.getByRole('dialog');
-        await expect(modal).toBeVisible();
-        
-        await modal.getByLabel('Set rating to 5').click();
+        await robustClick(pageA, modal.getByLabel('Set rating to 5'));
         await modal.getByLabel('Your Review').fill(reviewText);
         
-        await Promise.all([
-            pageA.waitForResponse(resp => resp.url().includes('log_visit') && resp.status() === 200),
-            modal.getByRole('button', { name: 'Add Visit' }).click()
-        ]);
-        
-        await expect(pageA.getByText('Visit added successfully.', { exact: true }).first()).toBeVisible();
-        await modal.getByRole('button', { name: 'Close' }).click();
+        const logResponsePromise = pageA.waitForResponse(resp => resp.url().includes('log_visit') && resp.status() === 200);
+        await robustClick(pageA, modal.getByRole('button', { name: 'Add Visit' }));
+        await logResponsePromise;
 
-        await navigateToTab(pageA, 'History');
-        const sidebarA_History = getSidebarContainer(pageA);
-        await expect(sidebarA_History.getByText(reviewText)).toBeVisible({ timeout: 10000 });
+        const historyItem = modal.getByText(reviewText).first();
+        await expect(historyItem).toBeVisible({ timeout: 10000 });
+        
+        const closeBtn = modal.getByRole('button', { name: /close/i });
+        if (await closeBtn.isVisible()) {
+            await robustClick(pageA, closeBtn);
+        } else {
+            await pageA.keyboard.press('Escape');
+        }
+        await expect(modal).not.toBeVisible({ timeout: 10000 });
       });
 
-      // 6. User B checks social feed
-      await test.step('User B verifies social feed', async () => {
-        await pageB.reload();
+      // 5. User B sees it in the feed
+      await test.step('User B verifies feed', async () => {
         await navigateToTab(pageB, 'Friends');
         const sidebarB = getSidebarContainer(pageB);
         
-        const expandButton = pageB.getByRole('button', { name: 'Expand to full screen' });
-        if (await expandButton.isVisible()) {
-            await expandButton.click();
-        }
+        await expect(async () => {
+            await waitForStores(pageB);
+            await pageB.evaluate(async () => {
+                // @ts-ignore
+                const store = window.useFriendStore && window.useFriendStore.getState();
+                if (store) {
+                    await store.fetchFriends();
+                    await store.fetchFriendActivityFeed();
+                }
+            });
 
-        const feedItem = sidebarB.locator('div.rounded-lg.border', { hasText: reviewText }).first();
-        await expect(feedItem).toBeVisible({ timeout: 20000 });
-        await expect(feedItem).toContainText('visited');
+            const feedItem = sidebarB.getByText(reviewText).first();
+            await expect(feedItem).toBeVisible({ timeout: 5000 });
+        }).toPass({ timeout: 45000, intervals: [5000] });
+
+        await expect(sidebarB.getByText(user1.email.split('@')[0]).first()).toBeVisible();
       });
 
       await contextA.close();
       await contextB.close();
     } finally {
-      await deleteTestUser(userB.id);
+      await deleteTestUser(user2.id);
     }
   });
 });

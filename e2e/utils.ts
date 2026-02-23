@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 /* eslint-disable react-hooks/rules-of-hooks */
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
@@ -12,7 +13,7 @@ if (!supabaseUrl || !serviceRoleKey) {
   throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for test utils');
 }
 
-const supabase = createClient(supabaseUrl, serviceRoleKey);
+export const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 export interface TestUser {
   id: string;
@@ -25,6 +26,8 @@ export interface TestUser {
  */
 export class MockMapsManager {
   private allowServiceWorker = false;
+  private realSocialEnabled = false;
+  private realVisitsEnabled = false;
 
   constructor(private page: Page) {}
 
@@ -33,6 +36,30 @@ export class MockMapsManager {
    */
   enableServiceWorker() {
     this.allowServiceWorker = true;
+  }
+
+  /**
+   * Enable real social RPCs.
+   */
+  async useRealSocial() {
+    this.realSocialEnabled = true;
+    const context = this.page.context();
+    await context.unroute(/.*rpc\/get_friends_and_requests/);
+    await context.unroute(/.*rpc\/send_friend_request/);
+    await context.unroute(/.*rpc\/respond_to_friend_request/);
+    await context.unroute(/.*rpc\/get_friend_activity_feed/);
+  }
+
+  /**
+   * Enable real visit RPCs.
+   */
+  async useRealVisits() {
+    this.realVisitsEnabled = true;
+    const context = this.page.context();
+    await context.unroute(/.*rpc\/log_visit/);
+    await context.unroute(/.*rpc\/update_visit/);
+    await context.unroute(/.*rpc\/delete_visit/);
+    await context.unroute(/.*rpc\/get_paginated_visits_with_winery_and_friends/);
   }
 
   /**
@@ -53,18 +80,23 @@ export class MockMapsManager {
       'Expires': '0'
     };
 
-    // 0. Conditionally Block Service Worker Registration
+    // 0. Conditionally Block Service Worker Registration and Clear All Caches
     if (!this.allowServiceWorker) {
         await context.route('**/sw.js', route => route.abort());
-        await this.page.addInitScript(() => {
-            // Redefine register to be a no-op
+        await this.page.addInitScript(async () => {
+            // 1. Block future registrations
             if (navigator.serviceWorker) {
-                (navigator.serviceWorker as any).register = () => Promise.resolve({
-                    unregister: () => Promise.resolve(true),
-                    addEventListener: () => {},
-                    removeEventListener: () => {},
-                    dispatchEvent: () => false,
-                });
+                (navigator.serviceWorker as any).register = () => Promise.reject(new Error('SW registration blocked by test'));
+            }
+            // 2. Clear existing registrations
+            if (window.navigator && window.navigator.serviceWorker) {
+                const regs = await window.navigator.serviceWorker.getRegistrations();
+                for (const reg of regs) await reg.unregister();
+            }
+            // 3. Clear ALL caches
+            if (window.caches) {
+                const names = await window.caches.keys();
+                for (const name of names) await window.caches.delete(name);
             }
         });
     }
@@ -165,7 +197,9 @@ export class MockMapsManager {
     }, mockPlacesSearch);
 
     // 1.2 Mock Social RPCs
-    await this.mockSocial();
+    if (!this.realSocialEnabled) {
+        await this.mockSocial();
+    }
 
     // 2. Mock the Supabase Edge Function for winery details
     await context.route(/\/functions\/v1\/get-winery-details/, (route) => {
@@ -413,72 +447,74 @@ export class MockMapsManager {
     });
 
     // 4. Mock the Supabase RPC for visit history
-    await context.route(/\/rpc\/get_paginated_visits_with_winery_and_friends/, (route) => {
-      console.log('Mocked get_paginated_visits');
-      const mockVisit = createMockVisitWithWinery({ wineryId: 'ch-12345-mock-winery-1' as any });
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: commonHeaders,
-        body: JSON.stringify([{
-          visit_id: mockVisit.id,
-          user_id: mockVisit.user_id,
-          visit_date: mockVisit.visit_date,
-          user_review: mockVisit.user_review,
-          rating: mockVisit.rating,
-          photos: mockVisit.photos,
-          winery_id: mockVisit.winery_id,
-          winery_name: mockVisit.wineryName,
-          google_place_id: mockVisit.wineryId,
-          winery_address: mockVisit.wineries.address,
-          friend_visits: []
-        }]),
-      });
-    });
+    if (!this.realVisitsEnabled) {
+        await context.route(/\/rpc\/get_paginated_visits_with_winery_and_friends/, (route) => {
+          console.log('Mocked get_paginated_visits');
+          const mockVisit = createMockVisitWithWinery({ wineryId: 'ch-12345-mock-winery-1' as any });
+          route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: commonHeaders,
+            body: JSON.stringify([{
+              visit_id: mockVisit.id,
+              user_id: mockVisit.user_id,
+              visit_date: mockVisit.visit_date,
+              user_review: mockVisit.user_review,
+              rating: mockVisit.rating,
+              photos: mockVisit.photos,
+              winery_id: mockVisit.winery_id,
+              winery_name: mockVisit.wineryName,
+              google_place_id: mockVisit.wineryId,
+              winery_address: mockVisit.wineries.address,
+              friend_visits: []
+            }]),
+          });
+        });
 
-    // 5. Mock log_visit RPC
-    await context.route(/\/rpc\/log_visit/, (route) => {
-      console.log('Mocked log_visit');
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: commonHeaders,
-        body: JSON.stringify({ visit_id: 'mock-visit-new' }),
-      });
-    });
+        // 5. Mock log_visit RPC
+        await context.route(/\/rpc\/log_visit/, (route) => {
+          console.log('Mocked log_visit');
+          route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: commonHeaders,
+            body: JSON.stringify({ visit_id: 'mock-visit-new' }),
+          });
+        });
 
-    // 6. Mock Visit Mutation RPCs
-    await context.route(/\/rpc\/update_visit/, (route) => {
-      console.log('Mocked update_visit');
-      const mockVisit = createMockVisitWithWinery({ user_review: 'Updated review!', rating: 4, wineryId: 'ch-12345-mock-winery-1' as any });
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: commonHeaders,
-        body: JSON.stringify({
-          id: mockVisit.id,
-          visit_date: mockVisit.visit_date,
-          user_review: mockVisit.user_review,
-          rating: mockVisit.rating,
-          photos: mockVisit.photos,
-          winery_id: mockVisit.winery_id,
-          winery_name: mockVisit.wineryName,
-          winery_address: mockVisit.wineries.address,
-          google_place_id: mockVisit.wineryId
-        }),
-      });
-    });
+        // 6. Mock Visit Mutation RPCs
+        await context.route(/\/rpc\/update_visit/, (route) => {
+          console.log('Mocked update_visit');
+          const mockVisit = createMockVisitWithWinery({ user_review: 'Updated review!', rating: 4, wineryId: 'ch-12345-mock-winery-1' as any });
+          route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: commonHeaders,
+            body: JSON.stringify({
+              id: mockVisit.id,
+              visit_date: mockVisit.visit_date,
+              user_review: mockVisit.user_review,
+              rating: mockVisit.rating,
+              photos: mockVisit.photos,
+              winery_id: mockVisit.winery_id,
+              winery_name: mockVisit.wineryName,
+              winery_address: mockVisit.wineries.address,
+              google_place_id: mockVisit.wineryId
+            }),
+          });
+        });
 
 
-    await context.route(/\/rpc\/delete_visit/, (route) => {
-      console.log('Mocked delete_visit');
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: commonHeaders,
-        body: JSON.stringify({ success: true }),
-      });
-    });
+        await context.route(/\/rpc\/delete_visit/, (route) => {
+          console.log('Mocked delete_visit');
+          route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: commonHeaders,
+            body: JSON.stringify({ success: true }),
+          });
+        });
+    }
 
     // 7. Mock List Toggles
     await context.route(/\/rpc\/toggle_wishlist/, (route) => {
@@ -529,22 +565,6 @@ export class MockMapsManager {
 
       return route.abort('failed');
     });
-  }
-
-  async useRealVisits() {
-    const context = this.page.context();
-    await context.unroute(/\/rpc\/log_visit/);
-    await context.unroute(/\/rpc\/update_visit/);
-    await context.unroute(/\/rpc\/delete_visit/);
-    await context.unroute(/\/rpc\/get_paginated_visits_with_winery_and_friends/);
-  }
-
-  async useRealSocial() {
-    const context = this.page.context();
-    await context.unroute(/\/rpc\/get_friends_and_requests/);
-    await context.unroute(/\/rpc\/send_friend_request/);
-    await context.unroute(/\/rpc\/respond_to_friend_request/);
-    await context.unroute(/\/rpc\/get_friend_activity_feed/);
   }
 
   async mockSocial() {
@@ -616,6 +636,12 @@ export const test = base.extend<{
   user: TestUser;
 }>({
   mockMaps: [async ({ page }, use) => {
+    // Surface all console messages for debugging
+    page.on('console', msg => {
+        const text = msg.text();
+        console.log(`[Browser ${msg.type()}] ${text}`);
+    });
+
     // Fail on Hydration errors or fatal console errors
     page.on('console', msg => {
         const text = msg.text();
@@ -629,6 +655,7 @@ export const test = base.extend<{
                                      text.includes('__cf_bm'); // Cloudflare cookie rejection in Firefox (Harmless noise)
         const isIntentionalMockError = text.includes('Internal Server Error') || 
                                       text.includes('Database Connection Failed') ||
+                                      text.includes('FunctionsFetchError') ||
                                       text.includes('Hydration failed'); // Next.js logs this when data hydration fails due to 500s
         
         if ((text.includes('Hydration') || text.includes('Error:')) && !isInfrastructureError && !isIntentionalMockError) {

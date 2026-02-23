@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
 import { useFriendStore } from "@/lib/stores/friendStore";
+import { useVisitStore } from "@/lib/stores/visitStore";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Star, User } from "lucide-react";
@@ -10,10 +12,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function FriendActivityFeed() {
   const { friendActivityFeed, fetchFriendActivityFeed, isLoading } = useFriendStore();
+  const lastMutation = useVisitStore(state => state.lastMutation);
 
   useEffect(() => {
     fetchFriendActivityFeed();
-  }, [fetchFriendActivityFeed]);
+  }, [fetchFriendActivityFeed, lastMutation]);
 
   if (isLoading && friendActivityFeed.length === 0) {
     return (
@@ -50,10 +53,18 @@ export default function FriendActivityFeed() {
     <div className="space-y-4">
       <h3 className="font-semibold text-lg px-1">Friend Activity</h3>
       {friendActivityFeed.map((item, index) => (
-        <Card key={`${item.user_id}-${item.created_at}-${index}`} className="overflow-hidden hover:shadow-xs transition-shadow">
+        <Card key={`${item.activity_user_id}-${item.created_at}-${index}`} className="overflow-hidden hover:shadow-xs transition-shadow">
           <CardHeader className="p-4 pb-2 flex flex-row items-start gap-3 space-y-0">
             <Avatar className="h-10 w-10 border">
-              <AvatarImage src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.user_name}`} />
+              <AvatarImage asChild src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.user_name}`}>
+                <Image 
+                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.user_name}`} 
+                  alt={item.user_name}
+                  width={40}
+                  height={40}
+                  unoptimized
+                />
+              </AvatarImage>
               <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
@@ -95,11 +106,12 @@ export default function FriendActivityFeed() {
                <div className="flex gap-2 overflow-x-auto pb-2 pt-1 scrollbar-hide">
                   {item.visit_photos.map((photo, i) => (
                     <div key={i} className="relative h-20 w-20 shrink-0 rounded-md overflow-hidden border bg-muted">
-                      <img 
+                      <Image 
                         src={photo} 
                         alt={`Visit photo ${i + 1}`}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
+                        fill
+                        className="object-cover"
+                        unoptimized
                       />
                     </div>
                   ))}

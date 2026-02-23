@@ -2,6 +2,7 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import { Winery, Visit, GooglePlaceId, WineryDbId } from '@/lib/types';
 import { useWineryDataStore } from './wineryDataStore';
 import { createClient } from '@/utils/supabase/client';
+import { invokeFunction } from '@/lib/utils';
 
 /**
  * WineryUIStore
@@ -88,16 +89,16 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
 
         // 3. Fallback to Google API (if alphanumeric place ID)
         if (!/^\d+$/.test(placeId)) {
-            const { data: googleData, error } = await supabase.functions.invoke('get-winery-details', {
+            const { data: googleData, error: functionError } = await invokeFunction('get-winery-details', {
                 body: { placeId }
             });
 
-            if (!error && googleData) {
+            if (!functionError && googleData) {
                 const updated = dataStore.upsertWinery(googleData);
                 set({ loadingWineryId: null });
                 return updated;
-            } else if (error) {
-                console.error("Edge Function failed:", error);
+            } else if (functionError) {
+                console.error("Edge Function failed:", functionError);
             }
         }
     } catch (error) {

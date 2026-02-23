@@ -85,10 +85,10 @@ export function AppSidebar({
         </Button>
       </div>
       <div className="p-4 space-y-4 flex-1 overflow-y-auto"> {/* Added p-4 here for padding, flex-1 for content */}
-        <GlobalVisitHistory />
+        <GlobalVisitHistory isActive={activeTab === 'history'} />
       </div>
     </div>
-  ), [setVisitHistoryModalOpen]); // Removed isVisitHistoryModalOpen dependency
+  ), [setVisitHistoryModalOpen, activeTab]); // Added activeTab dependency
 
   const friendsContent = useMemo(() => (
     <div className="p-4 space-y-4">

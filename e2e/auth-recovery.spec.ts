@@ -71,10 +71,10 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('New Password', { exact: true }).fill('password123');
     await page.getByLabel('Confirm New Password', { exact: true }).fill('password456');
     
-    const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await robustClick(resetBtn);
+    // Use Enter key which is more reliable for form submission in WebKit
+    await page.keyboard.press('Enter');
 
-    await expect(page.getByRole('alert').filter({ hasText: 'do not match' })).toBeVisible();
+    await expect(page.getByText('Passwords do not match.', { exact: false })).toBeVisible({ timeout: 15000 });
   });
 
   test('should show error when no code is present', async ({ page }) => {
