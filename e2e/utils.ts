@@ -635,7 +635,14 @@ export const test = base.extend<{
   mockMaps: MockMapsManager;
   user: TestUser;
 }>({
-  mockMaps: [async ({ page }, use) => {
+  mockMaps: [async ({ page }, use, testInfo) => {
+    const manager = new MockMapsManager(page);
+    
+    // Automatically enable Service Worker for PWA-specific test files
+    if (testInfo.file.includes('pwa-')) {
+      manager.enableServiceWorker();
+    }
+
     // Surface all console messages for debugging
     page.on('console', msg => {
         const text = msg.text();
@@ -652,6 +659,7 @@ export const test = base.extend<{
                                      text.includes('Load failed') ||
                                      text.includes('Interrupted Hydration') || // Expected during rapid navigations in tests
                                      text.includes('NEXT_NOT_FOUND') || // Expected during certain redirect/404 tests
+                                     text.includes('SW registration blocked by test') || // Intentional safety block
                                      text.includes('__cf_bm'); // Cloudflare cookie rejection in Firefox (Harmless noise)
         const isIntentionalMockError = text.includes('Internal Server Error') || 
                                       text.includes('Database Connection Failed') ||
@@ -680,7 +688,6 @@ export const test = base.extend<{
         } catch (e) {}
     });
 
-    const manager = new MockMapsManager(page);
     await manager.initDefaultMocks();
     await use(manager);
   }, { auto: true }],
