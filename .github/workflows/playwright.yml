@@ -31,12 +31,23 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
       
+      - name: Verify Build Output
+        run: |
+          if [ -d ".next" ]; then
+            echo "Build successful, .next directory exists."
+            ls -la .next | head -n 20
+          else
+            echo "Error: .next directory does not exist!"
+            exit 1
+          fi
+
       # Optimization: Upload the build artifact so shards don't have to rebuild
-      - name: Upload .next folder
+      - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: next-build
-          path: .next/
+          name: next-build-artifact
+          path: .next
+          if-no-files-found: error
           retention-days: 1
 
   test:
@@ -68,11 +79,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
-      - name: Download .next folder
+      - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
-          name: next-build
-          path: .next/
+          name: next-build-artifact
+          path: .next
 
       - name: Get Playwright version
         id: playwright-version
@@ -126,11 +137,11 @@ jobs:
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
-      - name: Download .next folder
+      - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
-          name: next-build
-          path: .next/
+          name: next-build-artifact
+          path: .next
       - name: Install Playwright Browsers & Deps
         run: npx playwright install --with-deps chromium
       - name: Run PWA tests (Production)
