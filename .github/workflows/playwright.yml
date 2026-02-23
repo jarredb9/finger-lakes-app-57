@@ -46,7 +46,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: next-build-artifact
-          path: .next
+          path: |
+            .next
+            public
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
@@ -84,7 +86,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: next-build-artifact
-          path: .next
+          path: .
           include-hidden-files: true
 
       - name: Get Playwright version
@@ -143,7 +145,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: next-build-artifact
-          path: .next
+          path: .
           include-hidden-files: true
       - name: Install Playwright Browsers & Deps
         run: npx playwright install --with-deps chromium
