@@ -457,6 +457,12 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **UI Reactivity:** Integrated `lastMutation` timestamp in `visitStore.ts` to trigger automatic re-fetches in `GlobalVisitHistory` and `FriendActivityFeed` after background syncs.
     *   **Locator Resilience:** Hardened `getSidebarContainer` helper to use visibility filtering, resolving conflicts in environments where multiple responsive sidebars coexist.
     *   **Verification:** Confirmed 100% pass rate for the deep synchronization lifecycle (`pwa-sync-deep.spec.ts`) across all supported browser engines.
+75. **Social Feature Stabilization (v2.4.2):**
+    *   **Postgres Hardening:** Resolved function overloading for `get_friends_and_requests` and `get_friend_activity_feed` RPCs. Optimized joins with `LEFT JOIN` and fallbacks to handle delayed profile creation.
+    *   **Real-time Infrastructure:** Enabled Supabase Realtime for `friends` and `visits` tables, integrating automatic store refreshes in `friendStore.ts`.
+    *   **E2E Infrastructure Fix:** Resolved a critical bug where `localStorage.clear()` in test initialization was wiping sessions on every navigation.
+    *   **Multi-User Stability:** Hardened `social-feed.spec.ts` with explicit profile stabilization and iterative state verification, achieving 100% reliability across all browser engines.
+    *   **ESLint/A11y Compliance:** Resolved cascading render errors in `InteractiveBottomSheet` and migrated all legacy `<img>` tags to Next.js `<Image />` for optimized performance.
 
 ### 4. Playwright Infrastructure Hardening (Roadmap)
 The testing suite is currently biased toward "passing at all costs" (defensive testing). Future agents should implement the following hardening steps:

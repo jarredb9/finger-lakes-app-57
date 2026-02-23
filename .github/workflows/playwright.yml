@@ -4,9 +4,45 @@ on:
     branches: [ main, master ]
   pull_request:
     branches: [ main, master ]
+  workflow_dispatch: # Allows you to manually trigger a full test run from the UI
+
+# Optimization: Concurrency control
+# If you push a new commit while a run is in progress, the old one is cancelled automatically.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  build:
+    name: Build Next.js App
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Build Next.js app
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+      
+      # Optimization: Upload the build artifact so shards don't have to rebuild
+      - name: Upload .next folder
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: .next/
+          retention-days: 1
+
   test:
-    timeout-minutes: 60
+    name: Sharded E2E Tests
+    needs: build
+    timeout-minutes: 45
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -24,40 +60,53 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       IS_E2E: 'true'
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-    - name: Install dependencies
-      run: npm ci
-    - name: Get Playwright version
-      id: playwright-version
-      run: echo "version=$(npx playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
-    - name: Cache Playwright Browsers
-      id: playwright-cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
-        restore-keys: |
-          ${{ runner.os }}-playwright-
-    - name: Install Playwright Browsers & Deps
-      run: npx playwright install --with-deps
-    - name: Build Next.js app
-      run: npm run build
-    - name: Run Playwright tests
-      run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --grep-invert "pwa-"
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report-${{ matrix.shardIndex }}
-        path: playwright-report/
-        retention-days: 30
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Download .next folder
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: .next/
+
+      - name: Get Playwright version
+        id: playwright-version
+        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
+      
+      - name: Cache Playwright Browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
+      
+      - name: Install Playwright Browsers & Deps
+        run: npx playwright install --with-deps
+
+      # Hybrid Logic: On non-main branches, we only run Chromium to save minutes
+      - name: Run Playwright tests
+        run: |
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "pull_request" ]]; then
+            npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --grep-invert "pwa-"
+          else
+            npx playwright test --project=chromium --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --grep-invert "pwa-"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-${{ matrix.shardIndex }}
+          path: playwright-report/
+          retention-days: 7
 
   test-pwa:
     name: PWA Production Audit
-    timeout-minutes: 30
+    needs: build
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -70,33 +119,25 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       IS_E2E: 'true'
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-        cache: 'npm'
-    - name: Install dependencies
-      run: npm ci
-    - name: Get Playwright version
-      id: playwright-version
-      run: echo "version=$(npx playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
-    - name: Cache Playwright Browsers
-      id: playwright-cache
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
-        restore-keys: |
-          ${{ runner.os }}-playwright-
-    - name: Install Playwright Browsers & Deps
-      run: npx playwright install --with-deps chromium
-    - name: Build Next.js app
-      run: npm run build
-    - name: Run PWA tests (Production)
-      run: npx playwright test e2e/pwa-assets.spec.ts e2e/pwa-offline.spec.ts e2e/pwa-install-layout.spec.ts e2e/smoke.spec.ts e2e/trip-flow.spec.ts --project=chromium
-    - uses: actions/upload-artifact@v4
-      if: ${{ !cancelled() }}
-      with:
-        name: playwright-report-pwa
-        path: playwright-report/
-        retention-days: 30
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Download .next folder
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build
+          path: .next/
+      - name: Install Playwright Browsers & Deps
+        run: npx playwright install --with-deps chromium
+      - name: Run PWA tests (Production)
+        run: npx playwright test e2e/pwa-assets.spec.ts e2e/pwa-offline.spec.ts e2e/pwa-install-layout.spec.ts e2e/smoke.spec.ts e2e/trip-flow.spec.ts --project=chromium
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report-pwa
+          path: playwright-report/
+          retention-days: 7
