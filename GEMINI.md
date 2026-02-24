@@ -464,12 +464,27 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Multi-User Stability:** Hardened `social-feed.spec.ts` with explicit profile stabilization and iterative state verification, achieving 100% reliability across all browser engines.
     *   **ESLint/A11y Compliance:** Resolved cascading render errors in `InteractiveBottomSheet` and migrated all legacy `<img>` tags to Next.js `<Image />` for optimized performance.
 
-### 4. Playwright Infrastructure Hardening (Roadmap)
-The testing suite is currently biased toward "passing at all costs" (defensive testing). Future agents should implement the following hardening steps:
+### 4. Playwright Infrastructure & CI Efficiency (v2.4.2)
+The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
 
-1.  **High-Fidelity PWA Testing**: Update `MockMapsManager` in `e2e/utils.ts` to accept an `allowServiceWorker` flag. Enable this flag in PWA spec files to ensure `app/sw.ts` logic is actually verified.
-2.  **Type-Safe Mocking**: Refactor `e2e/utils.ts` to use centralized factories from `lib/test-utils/fixtures.ts` for all RPC and REST response bodies, preventing schema drift.
-3.  **Deep State Verification**: Update `components/e2e-store-exposer.tsx` to expose all Zustand stores (visit, trip, user) to `window`, allowing tests to assert on the "Source of Truth" rather than just UI side-effects.
+*   **Build Once, Test Many:** The Next.js application is built exactly once per workflow. The `.next` build artifact is then shared across parallel test shards.
+*   **Concurrency Control:** Workflows automatically cancel "stale" in-progress runs when a new commit is pushed to the same branch.
+*   **Hybrid CI Strategy:**
+    *   **Feature Branches:** Runs only **Chromium** to provide fast, cost-effective feedback during active development.
+    *   **Main & PRs:** Runs the full cross-browser matrix (**Chromium, WebKit, Firefox**) to ensure zero regressions before merging.
+*   **Manual Trigger:** Use the `workflow_dispatch` button in the GitHub Actions tab to force a full cross-browser run on any branch.
+*   **Zero-Cost Mocking:** The `MockMapsManager` in `e2e/utils.ts` handles both Google Maps and Supabase Data API mocking to ensure $0 API spend during testing.
+
+### 5. Local Testing Tiers (RHEL 8 / Podman)
+To maintain high velocity while staying within CI quotas, use the appropriate testing tier:
+
+| Tier | Tool | Command | Best Use Case |
+| :--- | :--- | :--- | :--- |
+| **1. Logic** | **CI Simulation** | `./scripts/simulate-ci.sh` | **Fastest.** Use for rapid iteration on features and RPC logic. Runs on host. |
+| **2. Browser** | **Playwright Container** | `./scripts/run-e2e-container.sh chromium\|webkit\|all` | **Cross-Browser.** Use to catch WebKit/Safari bugs or test CSS/UI. |
+| **3. Workflow** | **gh act** | `gh act --container-daemon-socket "/run/user/$(id -u)/podman/podman.sock"` | **CI Logic.** Use to test `.github/workflows/*.yml` changes locally. |
+
+**Pro Tip:** Always run `./scripts/simulate-ci.sh` before pushing to ensure that store hydration and production builds are healthy.
 
 ### 5. Security & Quality Control
 *   **Database Linting:** We use `npx supabase db lint` to enforce Postgres security best practices (e.g., `search_path` security). This check is **required** to pass in CI before any migration can be merged.
