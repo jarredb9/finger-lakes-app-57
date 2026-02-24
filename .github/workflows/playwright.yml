@@ -97,7 +97,7 @@ jobs:
       # Hybrid Logic: On non-main branches, we only run Chromium to save minutes
       - name: Run Playwright tests
         run: |
-          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "pull_request" ]]; then
+          if [ "${{ github.ref }}" = "refs/heads/main" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
             npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --grep-invert "pwa-"
           else
             npx playwright test --project=chromium --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --grep-invert "pwa-"
