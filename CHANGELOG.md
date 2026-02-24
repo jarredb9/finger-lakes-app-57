@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.5.0] - 2026-02-24
+
+**Dockerized CI & Infrastructure Stabilization**
+
+Version 2.5.0 is a milestone release focused on infrastructure reliability and high-fidelity testing. We have migrated our entire CI pipeline to a Dockerized environment, stabilized cross-browser social interactions, and implemented a suite of resiliency patterns to ensure the app remains robust in offline and "lie-fi" conditions.
+
+### 🚀 Features
+*   **Real-time Social Infrastructure:** Enabled Supabase Realtime for `friends` and `visits` tables, providing instant UI updates and synchronized state across user devices.
+*   **Edge Function Resiliency:** Implemented a new `invokeFunction` utility to wrap backend calls with offline detection and graceful error handling, preventing fatal crashes during intermittent connectivity.
+*   **Double DOM Resolution:** Refactored `AppShell` to use conditional React rendering for responsive components, eliminating duplicate sidebar instances and resolving persistent ARIA hidden conflicts.
+
+### 🐛 Bug Fixes
+*   **WebKit Binary Persistence:** Resolved a critical `NotReadableError` in Safari by cloning temporary file handles into stable, persistent `Blob` objects.
+*   **Social Feed Optimization:** Refactored the `get_friend_activity_feed` RPC to resolve function overloading issues and improve join performance across profiles and visits.
+*   **Animation Interaction Guard:** Added state tracking to the mobile bottom sheet to ensure UI elements are only interactable after transition animations have fully stabilized.
+*   **Test Session Stability:** Fixed a bug where `localStorage.clear()` in test initialization was unintentionally wiping sessions on every navigation, leading to flaky authentication tests.
+
+### ⚙ Infrastructure & Testing
+*   **Dockerized Playwright CI:** Migrated all E2E tests to the official Playwright Docker container (`mcr.microsoft.com/playwright`), ensuring 100% environment parity between local development and CI runners.
+*   **Cross-Browser Stabilization:** Hardened the `friends-flow` and `social-feed` test suites with `robustClick()` and `expect(...).toPass()` retry logic to resolve flakiness in WebKit and Firefox.
+*   **Visual Regression Sync:** Regenerated all baseline snapshots inside the Docker container to account for sub-pixel rendering differences and ensure deterministic visual verification.
+*   **Offline Robustness:** Implemented a robust LocalStorage fallback for the mutation queue to preserve offline data even in environments with restricted IndexedDB access.
+
 ## [2.4.0] - 2026-02-06
 
 **Core Library Refresh & Supabase SSR Migration**
