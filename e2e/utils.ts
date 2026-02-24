@@ -44,10 +44,10 @@ export class MockMapsManager {
   async useRealSocial() {
     this.realSocialEnabled = true;
     const context = this.page.context();
-    await context.unroute(/.*rpc\/get_friends_and_requests/);
-    await context.unroute(/.*rpc\/send_friend_request/);
-    await context.unroute(/.*rpc\/respond_to_friend_request/);
-    await context.unroute(/.*rpc\/get_friend_activity_feed/);
+    await context.unroute(/\/rpc\/get_friends_and_requests/);
+    await context.unroute(/\/rpc\/send_friend_request/);
+    await context.unroute(/\/rpc\/respond_to_friend_request/);
+    await context.unroute(/\/rpc\/get_friend_activity_feed/);
   }
 
   /**
@@ -56,10 +56,10 @@ export class MockMapsManager {
   async useRealVisits() {
     this.realVisitsEnabled = true;
     const context = this.page.context();
-    await context.unroute(/.*rpc\/log_visit/);
-    await context.unroute(/.*rpc\/update_visit/);
-    await context.unroute(/.*rpc\/delete_visit/);
-    await context.unroute(/.*rpc\/get_paginated_visits_with_winery_and_friends/);
+    await context.unroute(/\/rpc\/log_visit/);
+    await context.unroute(/\/rpc\/update_visit/);
+    await context.unroute(/\/rpc\/delete_visit/);
+    await context.unroute(/\/rpc\/get_paginated_visits_with_winery_and_friends/);
   }
 
   /**

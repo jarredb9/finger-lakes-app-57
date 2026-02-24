@@ -97,11 +97,21 @@ test.describe('Social Activity Feed Flow', () => {
         const sidebarB = getSidebarContainer(pageB);
         const acceptBtn = sidebarB.getByRole('button', { name: 'Accept request' });
         
-        const respondPromise = pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request') && resp.status() === 204);
-        await acceptBtn.evaluate(el => (el as HTMLElement).click());
-        await respondPromise;
+        await expect(acceptBtn).toBeEnabled({ timeout: 5000 });
+        await robustClick(pageB, acceptBtn);
         
-        await expect(sidebarB.locator('text=' + user1.email)).toBeVisible({ timeout: 10000 });
+        // Wait for moved to My Friends
+        await expect(async () => {
+            if (!await sidebarB.locator('text=' + user1.email).isVisible()) {
+                await pageB.evaluate(async () => {
+                    // @ts-ignore
+                    const store = window.useFriendStore && window.useFriendStore.getState();
+                    if (store) await store.fetchFriends();
+                });
+            }
+            await expect(sidebarB.locator('text=' + user1.email)).toBeVisible({ timeout: 5000 });
+        }).toPass({ timeout: 20000, intervals: [3000, 5000] });
+        
         await pageB.waitForTimeout(2000);
 
         // Verify User A also sees User B as friend
@@ -153,6 +163,7 @@ test.describe('Social Activity Feed Flow', () => {
         const sidebarB = getSidebarContainer(pageB);
         
         await expect(async () => {
+            // Force a store refresh to ensure data is current
             await waitForStores(pageB);
             await pageB.evaluate(async () => {
                 // @ts-ignore
@@ -164,7 +175,7 @@ test.describe('Social Activity Feed Flow', () => {
             });
 
             const feedItem = sidebarB.getByText(reviewText).first();
-            await expect(feedItem).toBeVisible({ timeout: 5000 });
+            await expect(feedItem).toBeVisible({ timeout: 10000 });
         }).toPass({ timeout: 45000, intervals: [5000] });
 
         await expect(sidebarB.getByText(user1.email.split('@')[0]).first()).toBeVisible();

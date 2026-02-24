@@ -1,5 +1,5 @@
 import { test, expect, createTestUser, deleteTestUser, MockMapsManager } from './utils';
-import { getSidebarContainer, login, navigateToTab } from './helpers';
+import { getSidebarContainer, login, navigateToTab, robustClick } from './helpers';
 
 test.describe('Friends Interaction Flow', () => {
   test('User A can send friend request and User B can accept it', async ({ browser, user: user1 }) => {
@@ -55,16 +55,18 @@ test.describe('Friends Interaction Flow', () => {
 
         const addBtn = sidebar.getByRole('button', { name: 'Add friend' });
         await expect(addBtn).toBeEnabled({ timeout: 10000 });
-        await addBtn.click();
+        await robustClick(pageA, addBtn);
 
         // Verify Sent
         const successToast = pageA.getByText('Friend request sent!').first();
         await expect(successToast).toBeVisible({ timeout: 5000 });
 
         // Verify Sent Request appears in the list
-        const sentRequestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Sent Requests' });
-        await expect(sentRequestsCard).toBeVisible();
-        await expect(sentRequestsCard.getByText(user2.email).first()).toBeVisible();
+        await expect(async () => {
+          const sentRequestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Sent Requests' });
+          await expect(sentRequestsCard).toBeVisible({ timeout: 5000 });
+          await expect(sentRequestsCard.getByText(user2.email).first()).toBeVisible({ timeout: 5000 });
+        }).toPass({ timeout: 15000 });
       });
 
       // 4. User B accepts request
@@ -95,7 +97,7 @@ test.describe('Friends Interaction Flow', () => {
         const acceptBtn = requestRow.getByRole('button', { name: 'Accept request' });
 
         await expect(acceptBtn).toBeVisible();
-        await acceptBtn.click();
+        await robustClick(pageB, acceptBtn);
 
         // Verify moved to My Friends
         const myFriendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
@@ -127,8 +129,8 @@ test.describe('Friends Interaction Flow', () => {
         const friendRow = friendsCard.locator('.flex.items-center', { hasText: user2.email });
         const removeBtn = friendRow.getByRole('button', { name: 'Remove friend' });
 
-        await removeBtn.click();
-        await pageA.getByRole('button', { name: 'Remove' }).click(); 
+        await robustClick(pageA, removeBtn);
+        await robustClick(pageA, pageA.getByRole('button', { name: 'Remove' })); 
       });
 
       await contextA.close();
