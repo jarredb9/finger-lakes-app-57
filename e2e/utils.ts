@@ -653,6 +653,8 @@ export const test = base.extend<{
     page.on('console', msg => {
         const text = msg.text();
         const isInfrastructureError = text.includes('Error clearing SW/Caches') || 
+                                     text.includes('SecurityError: Failed to execute \'databases\' on \'IDBFactory\'') || // IndexedDB blocked
+                                     text.includes('Access to the IndexedDB API is denied') ||
                                      text.includes('Cross-Origin Request Blocked') ||
                                      text.includes('StorageApiError: Object not found') ||
                                      text.includes('Failed to fetch') ||
@@ -685,7 +687,12 @@ export const test = base.extend<{
                     await caches.delete(cacheName);
                 }
             }
-        } catch (e) {}
+        } catch (e) {
+            // Silently fail on security errors during cleanup
+            if (e instanceof Error && e.name !== 'SecurityError') {
+                console.warn('Non-security error clearing SW/Caches:', e.message);
+            }
+        }
     });
 
     await manager.initDefaultMocks();
