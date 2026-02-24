@@ -60,6 +60,8 @@ jobs:
     needs: build
     timeout-minutes: 45
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.0-noble
     strategy:
       fail-fast: false
       matrix:
@@ -92,19 +94,6 @@ jobs:
           path: .
           include-hidden-files: true
 
-      - name: Get Playwright version
-        id: playwright-version
-        run: echo "version=$(npx playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
-      
-      - name: Cache Playwright Browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}
-      
-      - name: Install Playwright Browsers & Deps
-        run: npx playwright install --with-deps
-
       # Hybrid Logic: On non-main branches, we only run Chromium to save minutes
       - name: Run Playwright tests
         run: |
@@ -126,6 +115,8 @@ jobs:
     needs: build
     timeout-minutes: 20
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.58.0-noble
     env:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -151,8 +142,6 @@ jobs:
           name: next-build-artifact
           path: .
           include-hidden-files: true
-      - name: Install Playwright Browsers & Deps
-        run: npx playwright install --with-deps chromium
       - name: Run PWA tests (Production)
         run: npx playwright test e2e/pwa-assets.spec.ts e2e/pwa-offline.spec.ts e2e/pwa-install-layout.spec.ts e2e/smoke.spec.ts e2e/trip-flow.spec.ts --project=chromium
       - uses: actions/upload-artifact@v4
