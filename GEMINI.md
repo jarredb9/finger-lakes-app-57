@@ -297,6 +297,11 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **The Trap:** Selectors like `button.bg-accent` or `button[aria-current="date"]` (if not explicitly passed) will fail to find the clickable element for "Today".
 *   **The Fix:** Use a nested selector: `td[data-today="true"] button`.
 
+### 16. Login Logic Complexity
+*   **Concept:** The `login` helper in E2E tests should be simple and deterministic.
+*   **The Trap:** Adding complex retry loops or `Promise.race` logic to handle "flakiness" often masks underlying issues (like incorrect selectors or network mocking) and leads to timeouts or detached DOM element errors.
+*   **The Fix:** Rely on standard Playwright auto-waiting (`await page.fill`, `await page.click`). If a test is flaky, investigate the application state or test environment first.
+
 ### 17. Build-Time Safety (Store Destructuring)
 *   **Concept:** Zustand stores may return `undefined` for arrays during the first render or hydration phase.
 *   **The Trap:** Code like `const { friends } = useFriendStore();` followed by `friends.length` will crash the build or runtime with a `TypeError`.
