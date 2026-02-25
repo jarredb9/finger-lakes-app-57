@@ -297,10 +297,30 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **The Trap:** Selectors like `button.bg-accent` or `button[aria-current="date"]` (if not explicitly passed) will fail to find the clickable element for "Today".
 *   **The Fix:** Use a nested selector: `td[data-today="true"] button`.
 
-### 16. Login Logic Complexity
-*   **Concept:** The `login` helper in E2E tests should be simple and deterministic.
-*   **The Trap:** Adding complex retry loops or `Promise.race` logic to handle "flakiness" often masks underlying issues (like incorrect selectors or network mocking) and leads to timeouts or detached DOM element errors.
-*   **The Fix:** Rely on standard Playwright auto-waiting (`await page.fill`, `await page.click`). If a test is flaky, investigate the application state or test environment first.
+### 17. Build-Time Safety (Store Destructuring)
+*   **Concept:** Zustand stores may return `undefined` for arrays during the first render or hydration phase.
+*   **The Trap:** Code like `const { friends } = useFriendStore();` followed by `friends.length` will crash the build or runtime with a `TypeError`.
+*   **The Fix:** ALWAYS provide a default empty array when destructuring: `const { friends = [] } = useFriendStore();`.
+
+### 18. Mandatory Store Exposure for E2E
+*   **Concept:** The `login` helper in E2E tests relies on checking store state via `window`.
+*   **The Trap:** If a new store (like `visitStore`) is created but not exposed at the bottom of the file, the `login` helper will time out waiting for hydration.
+*   **The Fix:** Every major Zustand store MUST have the exposure block at the bottom:
+    ```typescript
+    if (typeof window !== 'undefined') {
+      (window as any).useVisitStore = useVisitStore;
+    }
+    ```
+
+### 19. Mobile Overlay Conflicts
+*   **Concept:** The `WineryModal` and `InteractiveBottomSheet` can overlap on mobile.
+*   **The Trap:** Leaving a modal open while trying to navigate to a new tab (like Friends) will block the navigation triggers or keep the background `aria-hidden`.
+*   **The Fix:** Explicitly close any open modals (`await expect(modal).not.toBeVisible()`) before performing tab navigation in mobile E2E tests.
+
+### 20. Social Sync & Eventual Consistency
+*   **Concept:** Database triggers (like profile creation on signup) or cross-user actions (friend requests) have a slight delay.
+*   **The Trap:** Logging in a new user and immediately fetching their profile might return `null`, stalling the test.
+*   **The Fix:** Use the `setupFriendship` helper in `e2e/helpers.ts` which handles reloads and retry-loops for cross-user visibility. Update `userStore.ts` to include a retry loop for the initial profile fetch.
 
 ## Future Implementations
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
@@ -468,6 +488,12 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Cross-Browser Social Stabilization:** Hardened `friends-flow` and `social-feed` tests with `robustClick()` and `expect(...).toPass()` retry logic, resolving flakiness in WebKit/Safari.
     *   **RPC Production Cleanup:** Applied migration `20260224144042_cleanup_social_feed_rpc.sql` to remove temporary debug JSON wrappers from the `get_friend_activity_feed` RPC, restoring it to a clean flat-array format.
     *   **Visual Regression Sync:** Regenerated all baseline snapshots inside the Docker container to account for rendering engine differences between standard GitHub runners and the official Playwright image.
+77. **Friend Profiles & Privacy (v2.5.0):**
+    *   **Privacy Schema:** Implemented `privacy_level` for profiles and `is_private` for visits with corresponding RLS policies.
+    *   **Security:** Rewrote social RPCs (`get_friend_activity_feed`, etc.) to strictly respect profile and visit privacy settings using optimized subquery patterns.
+    *   **Profile Discovery:** Created dedicated `/friends/[id]` profile pages showing public stats and history.
+    *   **Hydration Resiliency:** Implemented a retry mechanism in `userStore.ts` for profile fetching to resolve E2E race conditions during account creation.
+    *   **E2E Standardization:** Consolidated social setup into a robust `setupFriendship` helper and enforced mandatory store exposure for all major data layers.
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
@@ -507,6 +533,7 @@ We have established a robust E2E testing infrastructure using **Playwright**.
 *   **`visit-flow.spec.ts`:** Tests visit logging, editing, and deletion (name-agnostic).
 *   **`photo-flow.spec.ts`:** Tests the full lifecycle of photo management (add, verify, delete).
 *   **`friends-flow.spec.ts`:** Tests complex **Multi-User / Real-Time** interactions using two distinct browser contexts.
+*   **`privacy-flow.spec.ts`:** Tests profile visibility and private visit logging across multiple user accounts.
 *   **`social-feed.spec.ts`:** Verifies real-time activity updates across friend accounts.
 *   **`runtime-audit.spec.ts`:** Performs deep runtime verification of hydration health and session persistence on the live dev server.
 *   **`pwa-offline.spec.ts`:** Verifies offline capabilities including navigation cache, offline indicator, and mutation queueing logic.
