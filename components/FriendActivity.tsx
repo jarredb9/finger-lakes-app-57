@@ -19,7 +19,7 @@ interface FriendActivityProps {
 }
 
 export default function FriendActivity({ wineryDbId }: FriendActivityProps) {
-  const { friendsActivity, fetchFriendDataForWinery } = useFriendStore();
+  const { friendsActivity = { favoritedBy: [], wishlistedBy: [] }, fetchFriendDataForWinery } = useFriendStore();
 
   useEffect(() => {
     if (wineryDbId) {
@@ -27,7 +27,10 @@ export default function FriendActivity({ wineryDbId }: FriendActivityProps) {
     }
   }, [wineryDbId, fetchFriendDataForWinery]);
 
-  if (friendsActivity.favoritedBy.length === 0 && friendsActivity.wishlistedBy.length === 0) {
+  const favoritedBy = friendsActivity?.favoritedBy || [];
+  const wishlistedBy = friendsActivity?.wishlistedBy || [];
+
+  if (favoritedBy.length === 0 && wishlistedBy.length === 0) {
     return null;
   }
 

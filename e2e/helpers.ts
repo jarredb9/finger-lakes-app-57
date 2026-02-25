@@ -191,6 +191,57 @@ export async function robustClick(pageOrLocator: Page | Locator, locator?: Locat
   });
 }
 
+/**
+ * Establishes a friendship between two users in an E2E test.
+ * Assumes both pages are already logged in as their respective users.
+ */
+export async function setupFriendship(pageA: Page, pageB: Page, user1Email: string, user2Email: string) {
+    const isMobileA = pageA.viewportSize()!.width < 768;
+    const isMobileB = pageB.viewportSize()!.width < 768;
+
+    // 1. User A sends request
+    await navigateToTab(pageA, 'Friends');
+    const sidebarA = getSidebarContainer(pageA);
+    
+    if (isMobileA) {
+        const expandBtn = pageA.getByRole('button', { name: 'Expand to full screen' });
+        if (await expandBtn.isVisible()) await expandBtn.click();
+    }
+
+    await expect(sidebarA.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
+    await sidebarA.getByPlaceholder("Enter friend's email").fill(user2Email);
+    
+    const addBtn = sidebarA.getByRole('button', { name: 'Add friend' });
+    await expect(addBtn).toBeEnabled();
+    await robustClick(pageA, addBtn);
+    await expect(pageA.getByText('Friend request sent!').first()).toBeVisible();
+
+    // 2. User B accepts request with retry logic for eventual consistency
+    await expect(async () => {
+        await pageB.reload();
+        await navigateToTab(pageB, 'Friends');
+        const sidebarB = getSidebarContainer(pageB);
+
+        if (isMobileB) {
+            const expandBtn = pageB.getByRole('button', { name: 'Expand to full screen' });
+            if (await expandBtn.isVisible()) await expandBtn.click();
+        }
+
+        const requestsCard = sidebarB.locator('.rounded-lg.border').filter({ hasText: 'Friend Requests' });
+        if (!(await requestsCard.isVisible())) throw new Error('Friend Requests card not visible');
+        
+        const requestRow = requestsCard.locator('.flex.items-center', { hasText: user1Email });
+        if (!(await requestRow.isVisible())) throw new Error(`Request from ${user1Email} not found`);
+        
+        const acceptBtn = requestRow.getByRole('button', { name: 'Accept request' });
+        await robustClick(pageB, acceptBtn);
+        
+        // Verify moved to My Friends list
+        const myFriendsCard = sidebarB.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
+        await expect(myFriendsCard.locator('text=' + user1Email)).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 25000, intervals: [3000, 5000] });
+}
+
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
   const viewport = page.viewportSize();
   const isMobile = viewport && viewport.width < 768;

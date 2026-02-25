@@ -88,16 +88,19 @@ export interface Database {
           id: string
           name: string | null
           email: string | null
+          privacy_level: 'public' | 'friends_only' | 'private'
         }
         Insert: {
           id: string
           name?: string | null
           email?: string | null
+          privacy_level?: 'public' | 'friends_only' | 'private'
         }
         Update: {
           id?: string
           name?: string | null
           email?: string | null
+          privacy_level?: 'public' | 'friends_only' | 'private'
         }
         Relationships: [
           {
@@ -191,6 +194,7 @@ export interface Database {
           user_review: string | null
           rating: number | null
           photos: string[] | null
+          is_private: boolean
           created_at: string | null
           updated_at: string | null
         }
@@ -202,6 +206,7 @@ export interface Database {
           user_review?: string | null
           rating?: number | null
           photos?: string[] | null
+          is_private?: boolean
           created_at?: string | null
           updated_at?: string | null
         }
@@ -213,6 +218,7 @@ export interface Database {
           user_review?: string | null
           rating?: number | null
           photos?: string[] | null
+          is_private?: boolean
           created_at?: string | null
           updated_at?: string | null
         }
@@ -334,6 +340,18 @@ export interface Database {
           visit_review: string | null
           visit_photos: string[] | null
         }[]
+      }
+      get_friend_profile_with_visits: {
+        Args: {
+          friend_id_param: string
+        }
+        Returns: Json
+      }
+      update_profile_privacy: {
+        Args: {
+          p_privacy_level: 'public' | 'friends_only' | 'private'
+        }
+        Returns: Json
       }
       get_friends_activity_for_winery: {
         Args: {

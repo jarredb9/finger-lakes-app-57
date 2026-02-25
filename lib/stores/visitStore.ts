@@ -16,8 +16,8 @@ interface VisitState {
   totalPages: number;
   hasMore: boolean;
   fetchVisits: (page?: number, refresh?: boolean) => Promise<void>;
-  saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[] }) => Promise<void>;
-  updateVisit: (visitId: string, visitData: Partial<Visit>, newPhotos: File[], photosToDelete: string[]) => Promise<void>;
+  saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[]; is_private?: boolean }) => Promise<void>;
+  updateVisit: (visitId: string, visitData: Partial<Visit> & { is_private?: boolean }, newPhotos: File[], photosToDelete: string[]) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
   syncOfflineVisits: () => Promise<void>;
   reset: () => void;
@@ -111,6 +111,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             visit_date: visitData.visit_date,
             rating: visitData.rating,
             user_review: visitData.user_review,
+            is_private: visitData.is_private || false,
             photos: visitData.photos.map(file => URL.createObjectURL(file)),
             wineryName: winery.name,
             wineryId: winery.id,
@@ -185,6 +186,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             user_review: visitData.user_review,
             rating: visitData.rating > 0 ? visitData.rating : 1,
             photos: uploadedPaths,
+            is_private: visitData.is_private || false,
           };
 
           const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
@@ -442,7 +444,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           const finalPhotoPaths = [...newOptimisticPhotos, ...newPhotoPaths];
           const { data: updatedVisit, error } = await supabase.rpc('update_visit', {
               p_visit_id: parseInt(visitId),
-              p_visit_data: { ...visitData, photos: finalPhotoPaths }
+              p_visit_data: { ...visitData, photos: finalPhotoPaths, is_private: visitData.is_private }
           });
 
           if (error) throw error;
@@ -629,3 +631,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
   ),
   shallow
 );
+
+// Expose store for E2E testing
+if (typeof window !== 'undefined') {
+  (window as any).useVisitStore = useVisitStore;
+}

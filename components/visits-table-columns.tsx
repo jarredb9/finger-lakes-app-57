@@ -3,8 +3,7 @@
 import { ColumnDef } from "@tanstack/react-table"
 import { Visit } from "@/lib/types"
 import { Button } from "@/components/ui/button"
-import { ArrowUpDown } from "lucide-react"
-import { Star } from "lucide-react"
+import { Star, ArrowUpDown, Lock } from "lucide-react"
 
 export const columns: ColumnDef<Visit>[] = [
   {
@@ -39,7 +38,13 @@ export const columns: ColumnDef<Visit>[] = [
       )
     },
     cell: ({ row }) => {
-        return new Date(row.original.visit_date + 'T00:00:00').toLocaleDateString()
+        const isPrivate = (row.original as any).is_private;
+        return (
+            <div className="flex items-center gap-1.5">
+                {new Date(row.original.visit_date + 'T00:00:00').toLocaleDateString()}
+                {isPrivate && <Lock className="h-3 w-3 text-muted-foreground" />}
+            </div>
+        )
     }
   },
   {

@@ -73,6 +73,7 @@ export interface Visit {
   rating?: number;
   photos?: string[];
   winery_id?: WineryDbId; // Use new distinct type
+  is_private?: boolean;
   // Expanded fields often joined in queries
   wineries?: {
     id: WineryDbId; // Use new distinct type

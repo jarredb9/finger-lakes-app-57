@@ -45,11 +45,11 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
     const [sheetMode, setSheetMode] = useState<SheetMode>("mini");
-    const { friendRequests } = useFriendStore();
+    const { friendRequests = [] } = useFriendStore();
     const { isInstallable, isStandalone, installApp, isUpdateAvailable, updateApp } = usePwa();
     const { toast } = useToast();
 
-    const friendRequestCount = friendRequests.length;
+    const friendRequestCount = friendRequests?.length || 0;
 
     // Sync offline visits on mount and when coming back online
     useEffect(() => {

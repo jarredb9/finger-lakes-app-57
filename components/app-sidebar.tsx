@@ -56,9 +56,9 @@ export function AppSidebar({
   } = useWineryMapContext();
 
   const { setVisitHistoryModalOpen } = useUIStore();
-  const { friendRequests } = useFriendStore();
+  const { friendRequests = [] } = useFriendStore();
 
-  const friendRequestCount = friendRequests.length;
+  const friendRequestCount = friendRequests?.length || 0;
 
   const { isInstallable, isStandalone, installApp, isUpdateAvailable, updateApp } = usePwa();
   const { toast } = useToast();

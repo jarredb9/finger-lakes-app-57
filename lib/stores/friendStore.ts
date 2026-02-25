@@ -39,8 +39,10 @@ interface FriendState {
   friendsRatings: FriendRating[];
   friendsActivity: FriendActivityData;
   subscription: any;
+  selectedFriendProfile: any | null;
   fetchFriends: () => Promise<void>;
   fetchFriendActivityFeed: () => Promise<void>;
+  fetchFriendProfile: (friendId: string) => Promise<void>;
   addFriend: (email: string) => Promise<void>;
   acceptFriend: (requesterId: string) => Promise<void>;
   rejectFriend: (requesterId: string) => Promise<void>;
@@ -62,6 +64,7 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   friendsRatings: [],
   friendsActivity: { favoritedBy: [], wishlistedBy: [] },
   subscription: null as any,
+  selectedFriendProfile: null,
 
   subscribeToSocialUpdates: () => {
     if (get().subscription) return;
@@ -160,6 +163,49 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       // Don't set global error state here to avoid blocking other UI
     } finally {
       set({ isLoading: false });
+    }
+  },
+
+  fetchFriendProfile: async (friendId: string) => {
+    set({ isLoading: true, selectedFriendProfile: null });
+    const supabase = createClient();
+    try {
+        const { data, error } = await supabase.rpc('get_friend_profile_with_visits', {
+            friend_id_param: friendId
+        });
+
+        if (error) throw error;
+        
+        // Handle explicit error from RPC (access denied)
+        if (data && (data as any).error) {
+            throw new Error((data as any).error);
+        }
+
+        let profileData = data as any;
+
+        // Sign photos for the friend's visits
+        const visits = profileData?.visits || [];
+        const allPhotos = visits.flatMap((v: any) => v.photos || []);
+        if (allPhotos.length > 0) {
+            const { data: signedUrlsData, error: signedError } = await supabase.storage
+                .from('visit-photos')
+                .createSignedUrls(allPhotos, 3600);
+
+            if (!signedError && signedUrlsData) {
+                const urlMap = new Map(signedUrlsData.map(u => [u.path, u.signedUrl]));
+                profileData.visits = visits.map((v: any) => ({
+                    ...v,
+                    photos: v.photos?.map((p: string) => urlMap.get(p) || p) || []
+                }));
+            }
+        }
+
+        set({ selectedFriendProfile: profileData });
+    } catch (error: any) {
+        console.error('Error fetching friend profile:', error);
+        set({ error: error.message });
+    } finally {
+        set({ isLoading: false });
     }
   },
 
@@ -319,5 +365,10 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
     error: null,
     friendsRatings: [],
     friendsActivity: { favoritedBy: [], wishlistedBy: [] },
+    selectedFriendProfile: null,
   }),
 }), shallow);
+// Expose store for E2E testing
+if (typeof window !== 'undefined') {
+  (window as any).useFriendStore = useFriendStore;
+}

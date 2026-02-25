@@ -39,7 +39,7 @@ export default function WineryModal() {
     activeWineryId ? state.visits.filter(v => v.wineryId === activeWineryId || v.wineries?.google_place_id === activeWineryId) : []
   );
 
-  const { friendsRatings } = useFriendStore();
+  const { friendsRatings = [] } = useFriendStore();
 
   const isLoading = loadingWineryId === activeWineryId; // Check if THIS winery is loading
   
@@ -81,7 +81,7 @@ export default function WineryModal() {
         scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
       });
     }
-  }, [isWineryModalOpen, activeWineryId, isLoading]);
+  }, [isWineryModalOpen, activeWineryId, isLoading, visits.length]);
 
   useEffect(() => {
     if (!isWineryModalOpen) return undefined;
