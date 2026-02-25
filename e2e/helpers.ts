@@ -197,7 +197,6 @@ export async function robustClick(pageOrLocator: Page | Locator, locator?: Locat
  */
 export async function setupFriendship(pageA: Page, pageB: Page, user1Email: string, user2Email: string) {
     const isMobileA = pageA.viewportSize()!.width < 768;
-    const isMobileB = pageB.viewportSize()!.width < 768;
 
     // 1. User A sends request
     await navigateToTab(pageA, 'Friends');
@@ -220,11 +219,16 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
     await expect(async () => {
         await pageB.reload();
         await navigateToTab(pageB, 'Friends');
+        
         const sidebarB = getSidebarContainer(pageB);
+        const isMobileView = pageB.viewportSize()!.width < 768;
 
-        if (isMobileB) {
+        if (isMobileView) {
             const expandBtn = pageB.getByRole('button', { name: 'Expand to full screen' });
-            if (await expandBtn.isVisible()) await expandBtn.click();
+            if (await expandBtn.isVisible()) {
+                await expandBtn.click();
+                await expect(sidebarB).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+            }
         }
 
         const requestsCard = sidebarB.locator('.rounded-lg.border').filter({ hasText: 'Friend Requests' });

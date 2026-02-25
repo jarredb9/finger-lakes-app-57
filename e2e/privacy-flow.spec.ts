@@ -63,6 +63,15 @@ test.describe('Privacy and Profile Flow', () => {
         await pageA.getByLabel('Make this visit private').check();
         await robustClick(pageA, pageA.getByRole('button', { name: 'Add Visit' }));
         await expect(pageA.getByText('Visit added successfully.').first()).toBeVisible();
+
+        // 4.1 Close modal to prevent overlay conflicts on mobile
+        const closeBtn = modal.getByRole('button', { name: 'Close' });
+        if (await closeBtn.isVisible()) {
+            await closeBtn.click();
+        } else {
+            await pageA.keyboard.press('Escape');
+        }
+        await expect(modal).not.toBeVisible();
       });
 
       // 5. User B views User A's profile
@@ -87,16 +96,39 @@ test.describe('Privacy and Profile Flow', () => {
         await navigateToTab(pageA, 'Friends');
         const sidebarA = getSidebarContainer(pageA);
         
+        // Mobile guard: ensure sheet is expanded and stable
+        if (pageA.viewportSize()!.width < 768) {
+            await expect(sidebarA).toHaveAttribute('data-state', 'stable', { timeout: 15000 });
+        }
+
+        // Use robustClick for the Select trigger
         const privacySelect = sidebarA.getByRole('combobox').first();
+        await expect(privacySelect).toBeVisible({ timeout: 10000 });
         await robustClick(pageA, privacySelect);
-        await pageA.getByRole('option', { name: 'Private' }).click();
-        await expect(pageA.getByText('Privacy set to private.').first()).toBeVisible();
+        
+        // Radix portals options to the body - use a global text search for better WebKit compatibility
+        const privateOption = pageA.locator('[role="option"], div').filter({ hasText: /^Private$/ }).last();
+        await expect(privateOption).toBeVisible({ timeout: 10000 });
+        await robustClick(pageA, privateOption);
+        
+        await expect(pageA.getByText('Privacy set to private.').first()).toBeVisible({ timeout: 10000 });
       });
 
       // 7. User B tries to view User A's profile again
       await test.step('User B profile access denied', async () => {
         await pageB.reload();
-        await expect(pageB.getByText('Access denied due to privacy settings')).toBeVisible({ timeout: 10000 });
+        
+        // Mobile guard: Ensure sheet is expanded to see the error message
+        if (pageB.viewportSize()!.width < 768) {
+            const sidebarB = getSidebarContainer(pageB);
+            const expandBtn = pageB.getByRole('button', { name: 'Expand to full screen' });
+            if (await expandBtn.isVisible()) {
+                await expandBtn.click();
+                await expect(sidebarB).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+            }
+        }
+
+        await expect(pageB.getByText('Access denied due to privacy settings')).toBeVisible({ timeout: 15000 });
       });
 
       await contextA.close();
