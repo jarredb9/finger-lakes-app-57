@@ -223,11 +223,16 @@ export async function closeWineryModal(page: Page) {
     await expect(modal).not.toBeVisible();
 }
 
-export async function logVisit(page: Page, data: { review: string, isPrivate?: boolean }) {
+export async function logVisit(page: Page, data: { review: string, rating?: number, isPrivate?: boolean }) {
     const modal = page.getByRole('dialog');
     await modal.getByText('Add New Visit').scrollIntoViewIfNeeded();
     await page.getByLabel('Your Review').fill(data.review);
     
+    if (data.rating) {
+        const star = modal.getByLabel(`Set rating to ${data.rating}`);
+        await robustClick(page, star);
+    }
+
     if (data.isPrivate) {
         await page.getByLabel('Make this visit private').check();
     }
@@ -276,18 +281,23 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
             }
         }
 
+        // Check if already friends (handles retry case where accept already succeeded)
+        const myFriendsCard = sidebarB.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
+        if (await myFriendsCard.locator('text=' + user1Email).isVisible()) {
+            return; // Success!
+        }
+
         const requestsCard = sidebarB.locator('.rounded-lg.border').filter({ hasText: 'Friend Requests' });
         if (!(await requestsCard.isVisible())) throw new Error('Friend Requests card not visible');
         
         const requestRow = requestsCard.locator('.flex.items-center', { hasText: user1Email });
-        if (!(await requestRow.isVisible())) throw new Error(`Request from ${user1Email} not found`);
+        if (!(await requestRow.isVisible())) throw new Error(`Request from ${user1Email} not found in list`);
         
         const acceptBtn = requestRow.getByRole('button', { name: 'Accept request' });
         await robustClick(pageB, acceptBtn);
         
         // Verify moved to My Friends list
-        const myFriendsCard = sidebarB.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
-        await expect(myFriendsCard.locator('text=' + user1Email)).toBeVisible({ timeout: 5000 });
+        await expect(myFriendsCard.locator('text=' + user1Email)).toBeVisible({ timeout: 10000 });
     }).toPass({ timeout: 25000, intervals: [3000, 5000] });
 }
 

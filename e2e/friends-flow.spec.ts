@@ -1,5 +1,5 @@
 import { test, expect, createTestUser, deleteTestUser, MockMapsManager } from './utils';
-import { getSidebarContainer, login, navigateToTab, robustClick } from './helpers';
+import { getSidebarContainer, login, navigateToTab, robustClick, setupFriendship, ensureSidebarExpanded } from './helpers';
 
 test.describe('Friends Interaction Flow', () => {
   test('User A can send friend request and User B can accept it', async ({ browser, user: user1 }) => {
@@ -7,130 +7,42 @@ test.describe('Friends Interaction Flow', () => {
     const user2 = await createTestUser();
 
     try {
-      // 2. Create two isolated browser contexts
+      // 2. Create isolated contexts
       const contextA = await browser.newContext();
       const contextB = await browser.newContext();
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
-      // 3. Login both users
-      await test.step('Login User A', async () => {
+      // 3. Login and establish friendship using high-level helper
+      await test.step('Login & Establish Friendship', async () => {
         const managerA = new MockMapsManager(pageA);
         await managerA.initDefaultMocks();
         await managerA.useRealSocial();
         await login(pageA, user1.email, user1.password);
-      });
-      await test.step('Login User B', async () => {
+
         const managerB = new MockMapsManager(pageB);
         await managerB.initDefaultMocks();
         await managerB.useRealSocial();
-        await login(pageB, user2.email, user2.password)
+        await login(pageB, user2.email, user2.password);
+
+        await setupFriendship(pageA, pageB, user1.email, user2.email);
       });
 
-      // 3. User A sends request to User B
-      await test.step('User A sends request', async () => {
-        // Navigate to Friends
-        await navigateToTab(pageA, 'Friends');
-
-        // Explicitly wait for the Friends view to load
-        const sidebar = getSidebarContainer(pageA);
-        
-        // Expand on mobile
-        if (pageA.viewportSize()!.width < 768) {
-            const expandButton = pageA.getByRole('button', { name: 'Expand to full screen' });
-            if (await expandButton.isVisible()) {
-                await expandButton.click();
-                await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
-            }
-        }
-
-        await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
-
-        const emailInput = sidebar.getByPlaceholder("Enter friend's email");
-        await emailInput.fill(user2.email);
-        await expect(emailInput).toHaveValue(user2.email);
-
-        // Wait for loading to finish
-        await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 20000 });
-
-        const addBtn = sidebar.getByRole('button', { name: 'Add friend' });
-        await expect(addBtn).toBeEnabled({ timeout: 10000 });
-        await robustClick(pageA, addBtn);
-
-        // Verify Sent
-        const successToast = pageA.getByText('Friend request sent!').first();
-        await expect(successToast).toBeVisible({ timeout: 5000 });
-
-        // Verify Sent Request appears in the list
-        await expect(async () => {
-          const sentRequestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Sent Requests' });
-          await expect(sentRequestsCard).toBeVisible({ timeout: 5000 });
-          await expect(sentRequestsCard.getByText(user2.email).first()).toBeVisible({ timeout: 5000 });
-        }).toPass({ timeout: 15000 });
-      });
-
-      // 4. User B accepts request
-      await test.step('User B accepts request', async () => {
-        const sidebar = getSidebarContainer(pageB);
-        await pageB.reload();
-        
-        await navigateToTab(pageB, 'Friends');
-        
-        // Expand on mobile
-        if (pageB.viewportSize()!.width < 768) {
-            const expandButton = pageB.getByRole('button', { name: 'Expand to full screen' });
-            if (await expandButton.isVisible()) {
-                await expandButton.click();
-                await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
-            }
-        }
-
-        await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
-
-        await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
-
-        // Should see request from User A
-        const requestsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'Friend Requests' });
-        await expect(requestsCard).toBeVisible();
-
-        const requestRow = requestsCard.locator('.flex.items-center', { hasText: user1.email });
-        const acceptBtn = requestRow.getByRole('button', { name: 'Accept request' });
-
-        await expect(acceptBtn).toBeVisible();
-        await robustClick(pageB, acceptBtn);
-
-        // Verify moved to My Friends
-        const myFriendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
-        await expect(myFriendsCard).toBeVisible();
-        await expect(myFriendsCard.locator('text=' + user1.email)).toBeVisible();
-      });
-
-      // 5. Cleanup (User A removes User B)
+      // 4. Cleanup (User A removes User B)
       await test.step('Cleanup: User A removes User B', async () => {
         await pageA.reload();
-        const sidebar = getSidebarContainer(pageA);
-        
         await navigateToTab(pageA, 'Friends');
+        await ensureSidebarExpanded(pageA);
         
-        // Expand on mobile
-        if (pageA.viewportSize()!.width < 768) {
-            const expandButton = pageA.getByRole('button', { name: 'Expand to full screen' });
-            if (await expandButton.isVisible()) {
-                await expandButton.click();
-                await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
-            }
-        }
-
-        await expect(sidebar.getByText('Add a Friend').first()).toBeVisible({ timeout: 10000 });
-
-        await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
-
+        const sidebar = getSidebarContainer(pageA);
         const friendsCard = sidebar.locator('.rounded-lg.border').filter({ hasText: 'My Friends' });
         const friendRow = friendsCard.locator('.flex.items-center', { hasText: user2.email });
         const removeBtn = friendRow.getByRole('button', { name: 'Remove friend' });
 
         await robustClick(pageA, removeBtn);
         await robustClick(pageA, pageA.getByRole('button', { name: 'Remove' })); 
+        
+        await expect(friendsCard.locator('text=' + user2.email)).not.toBeVisible({ timeout: 10000 });
       });
 
       await contextA.close();
