@@ -1,0 +1,8 @@
+{
+  "track_id": "profile_privacy_20260302",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-03-02T10:00:00Z",
+  "updated_at": "2026-03-02T10:00:00Z",
+  "description": "Modify friend profile privacy settings to allow users to control visibility of their profile data (Public, Friends Only, Private)."
+}
