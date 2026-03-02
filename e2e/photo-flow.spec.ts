@@ -1,5 +1,12 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, getSidebarContainer, robustClick } from './helpers';
+import { 
+    login, 
+    navigateToTab, 
+    openWineryDetails, 
+    closeWineryModal, 
+    robustClick, 
+    waitForMapReady 
+} from './helpers';
 
 // Define helper directly in the test file to avoid bundling issues
 const createDummyImage = (): Buffer => {
@@ -21,23 +28,14 @@ test.describe('Photo Management Workflow', () => {
   test('should successfully add and then delete a photo when logging a new visit', async ({ page, user }) => {
     // 1. Navigate to Winery & Open Modal
     await navigateToTab(page, 'Explore');
-    const sidebar = getSidebarContainer(page);
-    
-    // Ensure search results are loaded
-    await expect.poll(async () => {
-        return await page.evaluate(() => (window as any).useMapStore?.getState().isSearching);
-    }, { timeout: 10000 }).toBe(false);
-
-    const wineryCard = sidebar.locator('[data-testid="winery-card"]').first();
-    await expect(wineryCard).toBeVisible({ timeout: 15000 });
-    await robustClick(wineryCard);
+    await waitForMapReady(page);
+    await openWineryDetails(page, 'Mock Winery One');
     
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
 
     // 2. Log New Visit with Photo
     await page.getByLabel('Visit Date').fill(new Date().toISOString().split('T')[0]);
-    await page.locator('svg[aria-label="Set rating to 5"]').click();
+    await robustClick(page, page.locator('svg[aria-label="Set rating to 5"]'));
     
     const fileChooserPromise = page.waitForEvent('filechooser');
     await page.locator('label[for="dropzone-file"]').click();
@@ -57,7 +55,7 @@ test.describe('Photo Management Workflow', () => {
         response.url().includes('/rpc/log_visit') && response.status() === 200
     );
 
-    await robustClick(page.getByRole('button', { name: 'Add Visit' }));
+    await robustClick(page, page.getByRole('button', { name: 'Add Visit' }));
 
     // Wait for network success
     await logVisitPromise;
@@ -79,7 +77,7 @@ test.describe('Photo Management Workflow', () => {
     const visitCard = modal.locator('[data-testid="visit-card"]').first();
     await expect(visitCard).toBeVisible();
     
-    await robustClick(visitCard.getByLabel('Edit visit'));
+    await robustClick(page, visitCard.getByLabel('Edit visit'));
 
     // 5. Wait for Form to switch to Edit Mode
     await expect(modal.locator('text="Edit Visit"')).toBeVisible();
@@ -90,7 +88,7 @@ test.describe('Photo Management Workflow', () => {
     
     const photoContainer = photoInForm.locator('..');
     const deleteButton = photoContainer.locator('button').first();
-    await deleteButton.click();
+    await robustClick(page, deleteButton);
 
     // 7. Verify visual feedback (Opacity check for deletion marker)
     await expect(photoInForm).toHaveClass(/opacity-40/);
@@ -100,11 +98,13 @@ test.describe('Photo Management Workflow', () => {
         response.url().includes('/rpc/update_visit') && response.status() === 200
     );
 
-    await robustClick(page.getByRole('button', { name: 'Save Changes' }));
+    await robustClick(page, page.getByRole('button', { name: 'Save Changes' }));
     await updateVisitPromise;
 
     // 9. Verify Photo Removal in UI (Visit Card)
     await expect(modal.locator('text="Add New Visit"')).toBeVisible(); // Form reset
     await expect(visitCard.locator('img[alt="Visit photo"]')).toBeHidden();
+    
+    await closeWineryModal(page);
   });
 });

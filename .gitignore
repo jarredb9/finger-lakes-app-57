@@ -28,6 +28,7 @@ next-env.d.ts
 
 # Gemini files
 .gemini/*
+/conductor/*
 
 # Local environment variables
 .env.local
@@ -55,3 +56,4 @@ coverage/
 .next-docs/
 .npm/
 .playwright-mcp/
+.config/

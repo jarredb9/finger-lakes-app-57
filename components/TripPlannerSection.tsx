@@ -19,7 +19,7 @@ interface TripPlannerSectionProps {
 
 export default function TripPlannerSection({ winery, onClose }: TripPlannerSectionProps) {
   const { toast } = useToast();
-  const { selectedTrip, addWineryToTrips, toggleWineryOnTrip, tripsForDate, fetchTripsForDate } = useTripStore();
+  const { selectedTrip, addWineryToTrips, toggleWineryOnTrip, tripsForDate = [], fetchTripsForDate } = useTripStore();
   const [tripDate, setTripDate] = useState<Date | undefined>();
   const [selectedTrips, setSelectedTrips] = useState<Set<string>>(new Set());
   const [newTripName, setNewTripName] = useState("");
@@ -125,12 +125,12 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
   }
 
   return (
-    <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+    <div className="space-y-4 p-4 border rounded-lg bg-gray-50" data-testid="trip-planner-section">
       <h3 className="font-semibold">Add to a Trip</h3>
       <div className="flex items-center gap-2">
         <DatePicker date={tripDate} onSelect={handleDateSelect} />
         {tripDate && (
-          <Button onClick={handleAddToTrip} disabled={selectedTrips.size === 0 || (selectedTrips.has("new") && !newTripName.trim())}>
+          <Button onClick={handleAddToTrip} disabled={selectedTrips.size === 0 || (selectedTrips.has("new") && !newTripName.trim())} data-testid="add-to-trip-btn">
             Add to Trip
           </Button>
         )}
@@ -141,15 +141,15 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
             <Label>Choose a trip or create a new one:</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {tripsForDate.map((trip) => (
-                <div key={trip.id} className="flex items-center gap-2 p-3 border rounded-lg bg-white">
-                  <Checkbox id={`trip-${trip.id}`} checked={selectedTrips.has(trip.id.toString())} onCheckedChange={() => handleToggleTrip(trip.id.toString())} />
+                <div key={trip.id} className="flex items-center gap-2 p-3 border rounded-lg bg-white" data-testid={`trip-option-${trip.id}`}>
+                  <Checkbox id={`trip-${trip.id}`} checked={selectedTrips.has(trip.id.toString())} onCheckedChange={() => handleToggleTrip(trip.id.toString())} data-testid="trip-checkbox" />
                   <label htmlFor={`trip-${trip.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                     {trip.name || `Trip on ${new Date(trip.trip_date).toLocaleDateString()}`}
                   </label>
                 </div>
               ))}
-              <div className="flex items-center gap-2 p-3 border rounded-lg bg-white">
-                <Checkbox id="new-trip" checked={selectedTrips.has("new")} onCheckedChange={handleToggleNewTrip} />
+              <div className="flex items-center gap-2 p-3 border rounded-lg bg-white" data-testid="new-trip-option">
+                <Checkbox id="new-trip" checked={selectedTrips.has("new")} onCheckedChange={handleToggleNewTrip} data-testid="new-trip-checkbox" />
                 <label htmlFor="new-trip" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   Create a new trip...
                 </label>
@@ -158,8 +158,8 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
           </div>
           {selectedTrips.size > 0 && (
             <div className="space-y-2">
-              {selectedTrips.has("new") && <Input placeholder="New trip name..." value={newTripName} onChange={(e) => setNewTripName(e.target.value)} />}
-              <Textarea placeholder="Add notes for this visit..." value={addTripNotes} onChange={(e) => setAddTripNotes(e.target.value)} />
+              {selectedTrips.has("new") && <Input placeholder="New trip name..." value={newTripName} onChange={(e) => setNewTripName(e.target.value)} data-testid="new-trip-name-input" />}
+              <Textarea placeholder="Add notes for this visit..." value={addTripNotes} onChange={(e) => setAddTripNotes(e.target.value)} data-testid="trip-notes-input" />
             </div>
           )}
         </>

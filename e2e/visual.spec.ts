@@ -63,7 +63,7 @@ test.describe('Visual Regression Testing', () => {
     await navigateToTab(page, 'Explore');
 
     // Open a winery modal
-    const firstWinery = page.locator('text=Mock Winery One').first();
+    const firstWinery = page.getByTestId('winery-card-Mock Winery One').first();
     await firstWinery.click();
 
     const modal = page.getByRole('dialog');

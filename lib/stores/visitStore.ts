@@ -130,19 +130,13 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
 
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
             try {
-                // Convert Files to plain Blobs immediately to prevent handle invalidation in WebKit
-                const stablePhotos = await Promise.all(visitData.photos.map(async (file) => {
-                    const ab = await file.arrayBuffer();
-                    return new Blob([ab], { type: file.type });
-                }));
-
                 await addOfflineMutation({
                     type: 'create',
                     id: tempId,
                     winery: winery,
                     visitData: {
                         ...visitData,
-                        photos: stablePhotos 
+                        photos: visitData.photos as any
                     },
                     timestamp: Date.now()
                 });
@@ -246,31 +240,38 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         const mutations = await getOfflineMutations();
         if (mutations.length === 0) return;
 
+        console.log(`[Sync] Starting sync for ${mutations.length} mutations`);
         set({ isSyncing: true });
 
         try {
           const supabase = createClient();
           const { replaceVisit, confirmOptimisticUpdate } = useWineryStore.getState();
           const { data: { session } } = await supabase.auth.getSession();
-          if (!session?.user) return;
+          if (!session?.user) {
+              console.warn('[Sync] No active session, aborting sync');
+              return;
+          }
 
           for (const mutation of mutations) {
+            console.log(`[Sync] Processing mutation: ${mutation.type} (ID: ${mutation.id})`);
             try {
               if (mutation.type === 'create') {
                 let uploadedPaths: string[] = [];
                 const folderUuid = crypto.randomUUID();
 
                 if (mutation.visitData.photos.length > 0) {
-                  const uploadPromises = mutation.visitData.photos.map(async (offlinePhoto) => {
+                  console.log(`[Sync] Uploading ${mutation.visitData.photos.length} photos...`);
+                  const uploadPromises = mutation.visitData.photos.map(async (offlinePhoto, idx) => {
                     const blob = ensureBlob(offlinePhoto);
-                    const file = blob as File;
-                    const fileName = `${Date.now()}-${file.name || 'photo.jpg'}`;
+                    const fileName = `${Date.now()}-${(offlinePhoto as any).name || 'photo.jpg'}`;
                     const filePath = `${session.user.id}/${folderUuid}/${fileName}`;
-                    const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file);
+                    console.log(`[Sync] Uploading photo ${idx+1}/${mutation.visitData.photos.length}: ${filePath} (${blob.size} bytes)`);
+                    const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, blob);
                     if (uploadError) throw uploadError;
                     return filePath;
                   });
                   uploadedPaths = await Promise.all(uploadPromises);
+                  console.log('[Sync] Photos uploaded successfully:', uploadedPaths);
                 }
 
                 const rpcWineryData = {
@@ -291,12 +292,14 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                   photos: uploadedPaths,
                 };
 
+                console.log('[Sync] Calling log_visit RPC...');
                 const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
                   p_winery_data: rpcWineryData,
                   p_visit_data: rpcVisitData,
                 });
 
                 if (rpcError) throw rpcError;
+                console.log('[Sync] log_visit RPC success, visit ID:', rpcResult.visit_id);
 
                 const finalVisit: VisitWithWinery = {
                   id: rpcResult.visit_id,
@@ -324,14 +327,15 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 }));
 
               } else if (mutation.type === 'update') {
+                console.log(`[Sync] Updating visit: ${mutation.visitId}`);
                 let newPhotoPaths: string[] = [];
                 if (mutation.newPhotos.length > 0) {
+                  console.log(`[Sync] Uploading ${mutation.newPhotos.length} new photos...`);
                   const uploadPromises = mutation.newPhotos.map(async (offlinePhoto) => {
                     const blob = ensureBlob(offlinePhoto);
-                    const file = blob as File;
-                    const fileName = `${Date.now()}-${file.name || 'photo.jpg'}`;
+                    const fileName = `${Date.now()}-${(offlinePhoto as any).name || 'photo.jpg'}`;
                     const filePath = `${session.user.id}/${mutation.visitId}/${fileName}`;
-                    const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file);
+                    const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, blob);
                     if (uploadError) throw uploadError;
                     return filePath;
                   });
@@ -372,6 +376,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 }));
 
               } else if (mutation.type === 'delete') {
+                console.log(`[Sync] Deleting visit: ${mutation.visitId}`);
                 const { error } = await supabase.rpc('delete_visit', { p_visit_id: parseInt(mutation.visitId) });
                 if (error) throw error;
 
@@ -379,12 +384,14 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 set({ lastMutation: Date.now() });
               }
 
+              console.log(`[Sync] Mutation ${mutation.id} synced successfully`);
               await removeOfflineMutation(mutation.id);
             } catch (error) {
               console.error(`[Sync] Failed to sync mutation ${mutation.id}:`, error);
             }
           }
         } finally {
+          console.log('[Sync] All mutations processed');
           set({ isSyncing: false });
         }
       },

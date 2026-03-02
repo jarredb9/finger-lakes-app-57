@@ -16,7 +16,7 @@ interface FriendProfileProps {
 }
 
 export default function FriendProfile({ friendId }: FriendProfileProps) {
-  const { selectedFriendProfile, isLoading, fetchFriendProfile, error } = useFriendStore();
+  const { selectedFriendProfile = null, isLoading, fetchFriendProfile, error } = useFriendStore();
   const router = useRouter();
 
   useEffect(() => {

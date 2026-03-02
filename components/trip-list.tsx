@@ -13,7 +13,7 @@ import TripForm from "./trip-form";
 import { Alert, AlertDescription } from './ui/alert';
 
 export default function TripList({ user, onExploreClick }: { user: AuthenticatedUser, onExploreClick?: () => void }) {
-    const { trips, isLoading, error, page, hasMore, fetchTrips, setPage, deleteTrip } = useTripStore();
+    const { trips = [], isLoading, error, page = 1, hasMore, fetchTrips, setPage, deleteTrip } = useTripStore();
     const [tripType, setTripType] = useState<'upcoming' | 'past'>('upcoming');
     const [isCreateTripModalOpen, setCreateTripModalOpen] = useState(false);
     const { toast } = useToast();

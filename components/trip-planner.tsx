@@ -17,7 +17,7 @@ export default function TripPlanner({ initialDate, user, hideCalendar = false, h
     const [isCreateTripModalOpen, setCreateTripModalOpen] = useState(false);
     const [isMounted, setIsMounted] = useState(false);
 
-    const { tripsForDate, isLoading, fetchTripsForDate } = useTripStore();
+    const { tripsForDate = [], isLoading, fetchTripsForDate } = useTripStore();
 
     useEffect(() => {
         // eslint-disable-next-line react-hooks/set-state-in-effect

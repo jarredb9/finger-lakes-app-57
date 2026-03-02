@@ -25,7 +25,29 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 - **Available Skills:** `codebase-analysis`, `problem-analysis`, `refactor`, `planner`, etc.
 - **Workflow:** Activate -> Read instructions -> Execute using specialized tools (e.g., `python3.11`).
 
-### 1. Environment & Shell
+### 1. Mandatory Diagnostic Protocol (PRIORITY 0)
+**NEVER** apply a fix for a failing E2E test based on assumptions. You **must** follow this diagnostic sequence first:
+*   **Log DOM:** If an element is missing, dump `page.content()` and log all `data-testid`s present in the target container.
+*   **Log Store:** Dump the relevant Zustand store state using `page.evaluate(() => useXStore.getState())`.
+*   **Log DB:** Perform a direct `supabase` SQL query *during* the test run to verify the backend state matches the UI expectation.
+*   **Console Sensitivity:** Prefix debug logs with `[DIAGNOSTIC]` to avoid triggering the strict console listener in `e2e/utils.ts`.
+
+### 2. PWA & WebKit (Safari) Stability
+WebKit in this environment is extremely brittle regarding offline I/O and binary data:
+*   **Blob Handles:** WebKit "detaches" Blob/File handles stored in IndexedDB during network flips (Offline -> Online). 
+*   **The Reconstitution Rule:** Always store photos as **Base64 strings** in the offline queue. When syncing, you **must** reconstitute them using the `new File([uint8array], name, { type })` constructor.
+*   **The CORS Mocking Rule:** **MANDATORY FOR WEBKIT.** Every `context.route()` fulfillment must include `Access-Control-Allow-Origin: '*'` and common headers (`POST, GET, OPTIONS`). Without these, WebKit will trigger `Load failed` or `StorageUnknownError` at the engine level, even if the mock is hit.
+*   **Interception:** For PWA tests, always use `page.context().route()` and ensure all mocked responses include `headers: { 'Cache-Control': 'no-store' }`.
+
+### 3. Next.js 16 Hydration & Synchronization
+*   **Avoid Hard Reloads:** Do not use `page.reload()` inside `toPass` retry loops. It kills hydration and leads to `Application Error` crashes.
+*   **Proactive Sync:** Use the "Proactive Sync" pattern: trigger store refreshes (e.g., `store.fetchFriends()`) via `page.evaluate` inside retry loops instead of reloading the page.
+*   **Clean Container Builds:** When modifying core logic (Zustand stores, React components, etc.), you **must** run the E2E script with the `--build` flag to ensure the production build inside the container is updated:
+    ```bash
+    ./scripts/run-e2e-container.sh --build [project]
+    ```
+
+### 4. Environment & Shell
 *   **Operating System:** Linux (RHEL 8 AWS EC2 Instance).
 *   **Node Version Manager:** When running `npm` commands, you **must** load NVM first:
     ```bash
@@ -35,9 +57,9 @@ This is a Next.js web application for planning and tracking visits to wineries. 
     *   **Start:** `pm2 start npm --name "winery-dev" -- run dev -- -p 3001`
     *   **Logs:** `pm2 logs winery-dev`
     *   **Stop:** `pm2 delete winery-dev`
-*   **Playwright Container (RHEL 8):** Local testing **must** use the rootless Podman container to bypass RHEL library protections and security restrictions (e.g., IndexedDB access).
-    *   **Mandatory Usage:** Do not run `npx playwright test` directly on the host. Always use the provided script.
-    *   **Script:** `./scripts/run-e2e-container.sh [project|all] [test-file]`
+*   **Playwright Container (RHEL 8):** Local testing **must** use the rootless Podman container.
+    *   **Script:** `./scripts/run-e2e-container.sh [--build] [project|all] [test-file]`
+    *   **Mandatory Build:** **YOU MUST** use the `--build` (or `-b`) flag if your changes involve core application logic (Zustand stores, services, utility functions, or React components). This ensures the Next.js production build inside the container is updated before the tests run. Failing to do so will result in tests running against stale code.
     *   **Configuration:** Requires `subuid`/`subgid` configured on the host. Bypasses RHEL library protections using `seccomp=unconfined`.
 *   **Deployment:** The application is deployed to a remote Vercel server. There is **no local installation** running on this specific shell instance unless managed via PM2.
 
@@ -245,33 +267,34 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **The Fix:** Always subscribe directly to the specific reactive state from the Zustand store you need. For example, instead of `const { getWineries } = useWineryStore();`, use `const persistentWineries = useWineryDataStore((state) => state.persistentWineries);` and include `persistentWineries` in your `useMemo` dependency array. This ensures components re-render when the data truly changes.
 
 ### 5. Map Lifecycle & `idle` Events in E2E
-*   **Concept:** The winery list relies on the map's `idle` event to trigger initial search.
-*   **The Trap:** In mocked E2E environments where map tiles are blocked, the `idle` event may not fire, resulting in an empty winery list.
-*   **The Fix:** Use a manual "Search This Area" trigger in E2E tests to bypass the map's lifecycle dependency.
+*   **Concept:** The winery list relies on the map's `idle` event to trigger search results.
+*   **The Trap:** In mocked E2E environments where map tiles are blocked or WebKit is used, the `idle` event may fire inconsistently or not at all, resulting in an empty winery list.
+*   **The Fix:** Use the **"Force Visibility Pattern"** in spec files. Manually inject map bounds into the `useMapStore` via `page.evaluate`. This immediately triggers the `listResultsInView` calculation, making wineries appear instantly without relying on the Map SDK lifecycle.
 
-### 6. Radix UI & Pointer Events in Playwright Mobile
-*   **Concept:** Radix UI primitives (like `TabsTrigger`) often rely on complex pointer event sequences (`pointerdown`, `mousedown`, `pointerup`, `mouseup`, `click`) to handle focus and state changes correctly.
-*   **The Trap:** In Playwright mobile emulation (especially with touch enabled), a simple `page.click()` or `element.evaluate(el => el.click())` may fail to trigger the state change because it lacks the full event sequence Radix expects.
-*   **The Fix:** Manually dispatch the full pointer event sequence using `element.dispatchEvent` in an `evaluate` block. See `e2e/helpers.ts` -> `navigateToTab` for the implementation.
+### 6. Mock Registration Order (The Silent Killer)
+*   **Concept:** Fixtures (like `mockMaps`) and Spec files both register network routes.
+*   **The Trap:** Registering a mock in a `beforeEach` block *before* calling a fixture method that uses `unroute()` (e.g., `useRealVisits()`) will result in your custom mock being deleted.
+*   **The Fix:** ALWAYS call fixture-state transitions (e.g., `mockMaps.useRealVisits()`) at the very top of your `beforeEach` or test body before registering test-specific routes.
 
-### 7. Temporary IDs and Interaction Guards
-*   **Concept:** Newly created trips use negative temporary IDs until saved to Supabase.
-*   **The Trap:** Attempting to add wineries or modify members of a trip with a negative ID will fail at the database level.
-*   **The Fix:** Components (like `TripCard`) must disable modification buttons (Edit, Add Member) when `trip.id < 0`.
+### 7. successSelector Robustness
+*   **Concept:** The `login` helper needs a definitive signal that the dashboard has loaded.
+*   **The Trap:** Using text-based headings like `h1:has-text("Winery Tracker")` is brittle during React 19 hydration. Elements may briefly detach or the text might not be indexed immediately by the accessibility tree in WebKit.
+*   **The Fix:** Use a multi-option selector that includes stable `data-testid` fallbacks: `'h1:has-text("Winery Tracker"), [data-testid="desktop-sidebar-container"]'`.
 
-### 8. Modal Scrolling Race Conditions
-*   **Concept:** Hydrating visits after a modal opens can trigger "scroll to history" effects.
-*   **The Trap:** Modals may jump to the middle or bottom during initial load.
-*   **The Fix:** Use a `hasHydrated` ref to distinguish between initial data load and manual visit additions. Consolidate scroll resets into effects that fire only when `isLoading` is false.
+### 8. WebKit Interception Overhead
+*   **Concept:** Blocking costly APIs (Google Maps, etc.) reduces test spend.
+*   **The Trap:** Applying broad blocking routes to both `browserContext` and `page` simultaneously can cause WebKit to hang or throw "Route already handled" errors.
+*   **The Fix:** Apply broad "Abort Costly APIs" routes to the `context` ONLY. Individual `page.route` calls can still be used for test-specific overrides as they naturally take precedence.
 
-### 9. ARIA Hidden Conflicts (Nesting)
-*   **Concept:** Radix `Dialog` applies `aria-hidden` to siblings to enforce modality.
-*   **The Trap:** Rendering multiple dialogs or nesting them inside components that are duplicated (like a mobile/desktop sidebar) causes "Blocked aria-hidden" warnings and focus loss.
-*   **The Fix:** Render global modals (`WineryModal`, `VisitHistoryModal`) exactly once at the app root (`AppShell`). Decouple modal transitions with small `setTimeout` delays to allow one to start closing before the next opens.
+### 9. Fulfillment Safety
+*   **Concept:** Mocking API responses with `route.fulfill()`.
+*   **The Trap:** In high-latency or containerized environments, failing to `await route.fulfill()` can lead to race conditions where the test context is torn down before the response is fully transmitted.
+*   **The Fix:** ALWAYS `await` all `route.fulfill()` calls.
 
-### 10. A11y Scanning & Skeletons
-*   **Concept:** Scanning a page while it's loading results in "Empty Heading" or "Missing Label" violations.
-*   **The Fix:** E2E tests must wait for logical loading states (e.g., `svg.animate-spin`) to disappear before running `AxeBuilder.analyze()`.
+### 10. Toast Regex Flexibility
+*   **Concept:** Validating success messages.
+*   **The Trap:** Success messages can change based on network state (e.g., "Visit added successfully" vs "Visit cached").
+*   **The Fix:** Use flexible regex patterns in helpers like `logVisit`: `/(Visit added successfully|Visit cached)/i`.
 
 ### 11. Visual Regression & Engines
 *   **Concept:** Different browser engines render fonts and borders with sub-pixel differences.
@@ -326,6 +349,25 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **Concept:** Database triggers (like profile creation on signup) or cross-user actions (friend requests) have a slight delay.
 *   **The Trap:** Logging in a new user and immediately fetching their profile might return `null`, stalling the test.
 *   **The Fix:** Use the `setupFriendship` helper in `e2e/helpers.ts` which handles reloads and retry-loops for cross-user visibility. Update `userStore.ts` to include a retry loop for the initial profile fetch.
+
+## Advanced Testing Patterns (The "Gold Standard")
+
+### The Force Visibility Pattern
+When testing flows that require selecting a winery from the sidebar list, do not wait for the map to "load" results. Use this pattern to make them appear instantly:
+```typescript
+await page.evaluate(() => {
+    const winery = (window as any).useWineryDataStore.getState().persistentWineries.find(w => w.name === 'My Winery');
+    if (winery) {
+        (window as any).useMapStore.setState({ 
+            bounds: { contains: () => true, getNorthEast: () => ({lat: () => 0, lng: () => 0}), getSouthWest: () => ({lat: () => 0, lng: () => 0}) },
+            filter: ['all'] 
+        });
+    }
+});
+```
+
+### The WebKit Settlement Buffer
+WebKit often needs a small "settlement" period after complex state changes (like going online/offline) or navigation. A 500ms `page.waitForTimeout` after `context.setOffline(false)` is acceptable when targeting WebKit specifically.
 
 ## Future Implementations
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 

@@ -7,7 +7,7 @@ import { useTripStore } from "@/lib/stores/tripStore";
 import { Winery } from "@/lib/types";
 
 export function useWineryFilter() {
-  const { searchResults, filter, bounds, setFilter } = useMapStore();
+  const { searchResults = [], filter = ['all'], bounds, setFilter } = useMapStore();
   const persistentWineries = useWineryDataStore((state) => state.persistentWineries);
   const { selectedTrip } = useTripStore();
 

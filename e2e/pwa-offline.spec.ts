@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, getSidebarContainer, waitForMapReady, clearServiceWorkers, robustClick } from './helpers';
+import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, logVisit } from './helpers';
 
 test.describe('PWA Offline Functionality', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -36,27 +36,8 @@ test.describe('PWA Offline Functionality', () => {
     await navigateToTab(page, 'Explore');
     await waitForMapReady(page);
     
-    const sidebar = getSidebarContainer(page);
-    const resultsList = sidebar.getByTestId('winery-results-list');
+    await openWineryDetails(page, 'Vineyard of Illusion');
 
-    // Wait for the specific winery to appear, triggering search if needed
-    await expect(async () => {
-        const wineryItem = resultsList.getByText('Vineyard of Illusion').first();
-        if (await wineryItem.isVisible()) return;
-
-        // If not found, check if we need to trigger a manual search
-        const noResults = await resultsList.getByText('No wineries found').isVisible();
-        if (noResults) {
-            await sidebar.getByRole('button', { name: 'Search This Area' }).click();
-        }
-        
-        await expect(wineryItem).toBeVisible({ timeout: 2000 });
-    }).toPass({ timeout: 10000 });
-
-    const wineryItem = resultsList.getByText('Vineyard of Illusion').first();
-    await robustClick(wineryItem);
-
-    await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByRole('dialog').getByRole('heading', { name: 'Vineyard of Illusion' })).toBeVisible();
 
     await context.setOffline(true);
@@ -64,11 +45,7 @@ test.describe('PWA Offline Functionality', () => {
     await context.route(/\/rpc\/get_paginated_visits/, route => route.abort());
 
     await page.getByLabel('Visit Date').fill('2025-01-01');
-    await page.getByLabel('Your Review').fill('Offline note test');
-    
-    await page.getByRole('button', { name: 'Add Visit' }).click();
-
-    await expect(page.getByText(/Visit (Saved|cached)/).first()).toBeVisible();
+    await logVisit(page, { review: 'Offline note test' });
     
     await expect(page.getByText('Offline note test').locator('visible=true')).toBeVisible({ timeout: 10000 });
 

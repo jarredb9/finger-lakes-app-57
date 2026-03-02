@@ -46,7 +46,7 @@ test.describe('Accessibility (A11y)', () => {
     // Open a winery modal using robust click
     const sidebar = getSidebarContainer(page);
     const resultsList = sidebar.getByTestId('winery-results-list');
-    const firstWinery = resultsList.getByText('Mock Winery One').first();
+    const firstWinery = resultsList.getByTestId('winery-card-Mock Winery One').first();
     await expect(firstWinery).toBeVisible({ timeout: 10000 });
     await robustClick(firstWinery);
 

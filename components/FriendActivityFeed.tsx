@@ -51,10 +51,10 @@ export default function FriendActivityFeed() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="friend-activity-feed">
       <h3 className="font-semibold text-lg px-1">Friend Activity</h3>
       {friendActivityFeed.map((item, index) => (
-        <Card key={`${item.activity_user_id}-${item.created_at}-${index}`} className="overflow-hidden hover:shadow-xs transition-shadow">
+        <Card key={`${item.activity_user_id}-${item.created_at}-${index}`} className="overflow-hidden hover:shadow-xs transition-shadow" data-testid="friend-activity-item">
           <CardHeader className="p-4 pb-2 flex flex-row items-start gap-3 space-y-0">
             <Link href={`/friends/${item.activity_user_id}`}>
               <Avatar className="h-10 w-10 border hover:opacity-80 transition-opacity">

@@ -1,5 +1,11 @@
 import { test, expect } from './utils';
-import { getSidebarContainer, login, navigateToTab } from './helpers';
+import { 
+    getSidebarContainer, 
+    login, 
+    navigateToTab, 
+    ensureSidebarExpanded,
+    robustClick 
+} from './helpers';
 
 test.describe('Trip Management Flow', () => {
   test.beforeEach(async ({ page, user }) => {
@@ -12,47 +18,39 @@ test.describe('Trip Management Flow', () => {
     
     // 1. Navigate to Trips
     await navigateToTab(page, 'Trips');
-    
-    // Expand sheet on mobile to ensure visibility
-    const expandButton = page.getByRole('button', { name: 'Expand to full screen' });
-    if (await expandButton.isVisible()) {
-        await expandButton.click();
-        await expect(page.getByTestId('mobile-sidebar-container')).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
-        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-5rem\)\]/);
-    }
+    await ensureSidebarExpanded(page);
     
     await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
     
     // 2. Create New Trip directly
     const newTripBtn = sidebar.getByRole('button', { name: 'New Trip' });
-    await newTripBtn.click();
+    await robustClick(page, newTripBtn);
     
-    const nameInput = page.getByPlaceholder('Trip Name');
-    await expect(nameInput).toBeVisible();
-    await nameInput.fill('Management Test Trip');
+    const tripForm = page.getByTestId('trip-form-card');
+    await tripForm.getByTestId('trip-name-input').fill('Management Test Trip');
     
     // Save and wait for the refresh request to complete
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('rpc/get_paginated_wineries') || resp.url().includes('trips')),
-        page.getByRole('button', { name: 'Create Trip' }).click()
+        robustClick(page, tripForm.getByTestId('create-trip-submit-btn'))
     ]);
     
     // Ensure the dialog is gone before checking the sidebar
     await expect(page.getByRole('dialog')).not.toBeVisible();
 
     // Give the UI a moment to re-render the list
-    const tripCard = sidebar.locator('div.rounded-lg.border', { hasText: 'Management Test Trip' }).first();
+    const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: 'Management Test Trip' }).first();
     await expect(tripCard).toBeVisible({ timeout: 20000 });
     await tripCard.scrollIntoViewIfNeeded();
 
     // 3. Rename Trip
-    const viewDetailsBtn = tripCard.getByText('View Details');
-    await viewDetailsBtn.click();
+    const viewDetailsBtn = tripCard.getByTestId('view-trip-details-btn');
+    await robustClick(page, viewDetailsBtn);
     
     // 4. On the details page
     const editTripBtn = page.getByRole('button', { name: 'Edit Trip' });
     await expect(editTripBtn).toBeVisible({ timeout: 15000 });
-    await editTripBtn.click();
+    await robustClick(page, editTripBtn);
     
     // Rename
     const editNameInput = page.getByPlaceholder('Trip Name');
@@ -61,26 +59,27 @@ test.describe('Trip Management Flow', () => {
     
     await Promise.all([
         page.waitForResponse(resp => [200, 201, 204].includes(resp.status()) && (resp.url().includes('trips') || resp.url().includes('rpc'))),
-        page.getByRole('button', { name: 'Save Changes' }).click()
+        robustClick(page, page.getByRole('button', { name: 'Save Changes' }))
     ]);
     
     await expect(page.getByText('Trip updated successfully.').first()).toBeVisible();
     
     // Navigate back to trips to verify deletion
-    await page.getByRole('link', { name: 'Back to Map' }).click();
+    await robustClick(page, page.getByRole('link', { name: 'Back to Map' }));
     await navigateToTab(page, 'Trips');
+    await ensureSidebarExpanded(page);
 
     // 5. Delete Trip
-    const updatedTripCard = sidebar.locator('div.rounded-lg.border', { hasText: 'Renamed Test Trip' }).first();
+    const updatedTripCard = sidebar.getByTestId('trip-card').filter({ hasText: 'Renamed Test Trip' }).first();
     await updatedTripCard.scrollIntoViewIfNeeded();
     
-    const deleteBtn = updatedTripCard.getByRole('button').filter({ has: page.locator('svg.lucide-trash2') });
-    await deleteBtn.click();
+    const deleteBtn = updatedTripCard.getByTestId('delete-trip-btn');
+    await robustClick(page, deleteBtn);
     
     // Confirm deletion and wait for response
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('rpc/delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')),
-        page.getByRole('button', { name: 'Delete' }).click()
+        robustClick(page, page.getByTestId('confirm-delete-trip-btn'))
     ]);
     
     // Verify deleted

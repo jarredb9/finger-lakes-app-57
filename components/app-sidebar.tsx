@@ -110,7 +110,7 @@ export function AppSidebar({
   };
 
   return (
-    <div className={`flex flex-col h-full bg-white dark:bg-zinc-950 border-r ${className || ''}`}>
+    <div data-testid="app-sidebar" className={`flex flex-col h-full bg-white dark:bg-zinc-950 border-r ${className || ''}`}>
       {/* Branding Header & User Avatar */}
       <div className="p-4 border-b flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
