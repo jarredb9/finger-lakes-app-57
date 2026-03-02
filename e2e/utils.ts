@@ -28,6 +28,7 @@ export class MockMapsManager {
   private allowServiceWorker = false;
   private realSocialEnabled = false;
   private realVisitsEnabled = false;
+  private realFavoritesEnabled = false;
 
   constructor(private page: Page) {}
 
@@ -60,6 +61,19 @@ export class MockMapsManager {
     await context.unroute(/\/rpc\/update_visit/);
     await context.unroute(/\/rpc\/delete_visit/);
     await context.unroute(/\/rpc\/get_paginated_visits_with_winery_and_friends/);
+  }
+
+  /**
+   * Enable real favorite/wishlist RPCs.
+   */
+  async useRealFavorites() {
+    this.realFavoritesEnabled = true;
+    const context = this.page.context();
+    await context.unroute(/\/rpc\/toggle_favorite/);
+    await context.unroute(/\/rpc\/toggle_wishlist/);
+    await context.unroute(/\/rpc\/toggle_favorite_privacy/);
+    await context.unroute(/\/rpc\/toggle_wishlist_privacy/);
+    await context.unroute(/\/rpc\/get_friend_profile_with_visits/);
   }
 
   /**
@@ -583,25 +597,47 @@ export class MockMapsManager {
     }
 
     // 7. Mock List Toggles
-    await context.route(/\/rpc\/toggle_wishlist/, async (route) => {
-      console.log('Mocked toggle_wishlist');
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: commonHeaders,
-        body: JSON.stringify(true),
-      });
-    });
+    if (!this.realFavoritesEnabled) {
+        await context.route(/\/rpc\/toggle_wishlist/, async (route) => {
+          console.log('Mocked toggle_wishlist');
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: commonHeaders,
+            body: JSON.stringify(true),
+          });
+        });
 
-    await context.route(/\/rpc\/toggle_favorite/, async (route) => {
-      console.log('Mocked toggle_favorite');
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        headers: commonHeaders,
-        body: JSON.stringify(true),
-      });
-    });
+        await context.route(/\/rpc\/toggle_favorite/, async (route) => {
+          console.log('Mocked toggle_favorite');
+          await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: commonHeaders,
+            body: JSON.stringify(true),
+          });
+        });
+
+        await context.route(/\/rpc\/toggle_favorite_privacy/, async (route) => {
+            console.log('Mocked toggle_favorite_privacy');
+            await route.fulfill({
+              status: 200,
+              contentType: 'application/json',
+              headers: commonHeaders,
+              body: JSON.stringify({ success: true, is_private: true }),
+            });
+        });
+
+        await context.route(/\/rpc\/toggle_wishlist_privacy/, async (route) => {
+            console.log('Mocked toggle_wishlist_privacy');
+            await route.fulfill({
+              status: 200,
+              contentType: 'application/json',
+              headers: commonHeaders,
+              body: JSON.stringify({ success: true, is_private: true }),
+            });
+        });
+    }
 
     // 8. Mock delete visit (Supabase REST)
     await context.route(/\/rest\/v1\/visits\?/, async (route) => {
@@ -783,7 +819,7 @@ export const test = base.extend<{
         id: data.user.id, 
         email, 
         name,
-        privacy_level: 'friends_only' 
+        privacy_level: 'public' 
     });
 
     const testUser = { id: data.user.id, email, password };
@@ -846,7 +882,7 @@ export async function createTestUser(): Promise<TestUser> {
       id: data.user.id, 
       email, 
       name,
-      privacy_level: 'friends_only'
+      privacy_level: 'public'
   });
 
   return { id: data.user.id, email, password };

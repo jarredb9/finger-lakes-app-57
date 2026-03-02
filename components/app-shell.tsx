@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { AuthenticatedUser } from "@/lib/types";
 import { WineryMapProvider } from "@/components/winery-map-context";
 import WineryMap from "@/components/WineryMap";
@@ -74,6 +74,22 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
         }
     };
 
+    const navigateToPrivacy = useCallback(() => {
+        setActiveTab("friends");
+        if (isMobile) {
+            setIsMobileSheetOpen(true);
+            setSheetMode("full");
+        }
+        
+        // Use timeout to ensure tab content is rendered before scrolling
+        setTimeout(() => {
+            const element = document.getElementById("privacy-settings-section");
+            if (element) {
+                element.scrollIntoView({ behavior: "smooth", block: "start" });
+            }
+        }, 100);
+    }, [isMobile]);
+
     const getSheetTitle = () => {
         switch (activeTab) {
             case "explore": return "Explore Wineries";
@@ -118,6 +134,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                                 user={user}
                                 activeTab={activeTab}
                                 onTabChange={(val) => setActiveTab(val as any)}
+                                onPrivacyClick={navigateToPrivacy}
                             />
                         </div>
                     </div>
@@ -166,9 +183,15 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                                     </div>
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
+                                
+                                <DropdownMenuItem onClick={navigateToPrivacy} className="cursor-pointer">
+                                    <Shield className="mr-2 h-4 w-4" />
+                                    <span>Privacy Settings</span>
+                                </DropdownMenuItem>
+
                                 <DropdownMenuItem asChild>
                                     <Link href="/privacy" className="w-full cursor-pointer flex items-center">
-                                        <Shield className="mr-2 h-4 w-4" />
+                                        <FileText className="mr-2 h-4 w-4" />
                                         <span>Privacy Policy</span>
                                     </Link>
                                 </DropdownMenuItem>
@@ -271,6 +294,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                         className="border-none h-full"
                         activeTab={activeTab}
                         onTabChange={(val) => setActiveTab(val as any)}
+                        onPrivacyClick={navigateToPrivacy}
                         hideTabs={true}
                     />
                 </InteractiveBottomSheet>

@@ -31,6 +31,8 @@ interface WineryUIState {
   // Proxy Actions (For convenience/compatibility)
   toggleWishlist: (winery: Winery, isOn: boolean) => Promise<void>;
   toggleFavorite: (winery: Winery, isFav: boolean) => Promise<void>;
+  toggleFavoritePrivacy: (wineryId: GooglePlaceId) => Promise<void>;
+  toggleWishlistPrivacy: (wineryId: GooglePlaceId) => Promise<void>;
   addVisitToWinery: (wineryId: GooglePlaceId, visit: Visit) => void;
   optimisticallyUpdateVisit: (visitId: string, visitData: Partial<Visit>) => void;
   optimisticallyDeleteVisit: (visitId: string) => void;
@@ -116,6 +118,14 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
   
   toggleFavorite: async (winery, _isFav) => {
       await useWineryDataStore.getState().toggleFavorite(winery.id);
+  },
+
+  toggleFavoritePrivacy: async (wineryId: GooglePlaceId) => {
+      await useWineryDataStore.getState().toggleFavoritePrivacy(wineryId);
+  },
+
+  toggleWishlistPrivacy: async (wineryId: GooglePlaceId) => {
+      await useWineryDataStore.getState().toggleWishlistPrivacy(wineryId);
   },
   
   addVisitToWinery: (id, visit) => useWineryDataStore.getState().addVisit(id, visit),

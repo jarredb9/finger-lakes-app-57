@@ -9,6 +9,7 @@ interface Friend {
   email: string;
   status?: 'pending' | 'accepted';
   requester_id?: string;
+  privacy_level?: 'public' | 'friends_only' | 'private';
 }
 
 interface FriendActivityData {

@@ -86,10 +86,10 @@ export default function FriendProfile({ friendId }: FriendProfileProps) {
           <p className="text-muted-foreground text-sm">{profile.email}</p>
           <div className="flex items-center justify-center gap-2 mt-2">
             {profile.privacy_level === 'public' && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Public Profile</span>
+              <span data-testid="profile-privacy-badge" className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">Public Profile</span>
             )}
             {profile.privacy_level === 'friends_only' && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Friends Only</span>
+              <span data-testid="profile-privacy-badge" className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">Friends Only</span>
             )}
           </div>
         </div>
@@ -100,21 +100,21 @@ export default function FriendProfile({ friendId }: FriendProfileProps) {
         <Card className="text-center p-3 shadow-none border-muted/60">
           <div className="flex flex-col items-center">
             <MapPin className="h-4 w-4 text-primary mb-1" />
-            <span className="text-lg font-bold">{stats.visit_count}</span>
+            <span data-testid="visit-count" className="text-lg font-bold">{stats.visit_count}</span>
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Visits</span>
           </div>
         </Card>
         <Card className="text-center p-3 shadow-none border-muted/60">
           <div className="flex flex-col items-center">
             <Bookmark className="h-4 w-4 text-blue-500 mb-1" />
-            <span className="text-lg font-bold">{stats.wishlist_count}</span>
+            <span data-testid="wishlist-count" className="text-lg font-bold">{stats.wishlist_count}</span>
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Wishlist</span>
           </div>
         </Card>
         <Card className="text-center p-3 shadow-none border-muted/60">
           <div className="flex flex-col items-center">
             <Heart className="h-4 w-4 text-red-500 mb-1" />
-            <span className="text-lg font-bold">{stats.favorite_count}</span>
+            <span data-testid="favorite-count" className="text-lg font-bold">{stats.favorite_count}</span>
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">Favorites</span>
           </div>
         </Card>

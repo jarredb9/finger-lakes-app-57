@@ -23,6 +23,8 @@ interface WineryDataState {
   // User Actions
   toggleFavorite: (wineryId: GooglePlaceId) => Promise<void>;
   toggleWishlist: (wineryId: GooglePlaceId) => Promise<void>;
+  toggleFavoritePrivacy: (wineryId: GooglePlaceId) => Promise<void>;
+  toggleWishlistPrivacy: (wineryId: GooglePlaceId) => Promise<void>;
   
   // Sync
   ensureInDb: (wineryId: GooglePlaceId) => Promise<WineryDbId | null>;
@@ -180,6 +182,46 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
             console.error("Wishlist toggle failed:", err);
             set({ persistentWineries: original }); // Revert
         }
+      },
+
+      toggleFavoritePrivacy: async (wineryId: GooglePlaceId) => {
+          const original = get().persistentWineries;
+          const winery = original.find(w => w.id === wineryId);
+          if (!winery) return;
+
+          // Optimistic
+          set({
+              persistentWineries: original.map(w => w.id === wineryId ? { ...w, favoriteIsPrivate: !w.favoriteIsPrivate } : w)
+          });
+
+          const supabase = createClient();
+          try {
+              const { error } = await supabase.rpc('toggle_favorite_privacy', { p_winery_id: winery.dbId });
+              if (error) throw error;
+          } catch (err) {
+              console.error("Fav privacy toggle failed:", err);
+              set({ persistentWineries: original }); // Revert
+          }
+      },
+
+      toggleWishlistPrivacy: async (wineryId: GooglePlaceId) => {
+          const original = get().persistentWineries;
+          const winery = original.find(w => w.id === wineryId);
+          if (!winery) return;
+
+          // Optimistic
+          set({
+              persistentWineries: original.map(w => w.id === wineryId ? { ...w, wishlistIsPrivate: !w.wishlistIsPrivate } : w)
+          });
+
+          const supabase = createClient();
+          try {
+              const { error } = await supabase.rpc('toggle_wishlist_privacy', { p_winery_id: winery.dbId });
+              if (error) throw error;
+          } catch (err) {
+              console.error("Wishlist privacy toggle failed:", err);
+              set({ persistentWineries: original }); // Revert
+          }
       },
 
       ensureInDb: async (wineryId: GooglePlaceId) => {

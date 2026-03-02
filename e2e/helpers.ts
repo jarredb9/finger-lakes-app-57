@@ -14,6 +14,17 @@ export function getSidebarContainer(page: Page): Locator {
 }
 
 /**
+ * Gets the tab trigger locator for both desktop and mobile.
+ */
+export function getTabTrigger(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
+    const isMobile = page.viewportSize()?.width! < 768;
+    if (isMobile) {
+        return page.locator('div.fixed.bottom-0').getByRole('button', { name: tabName, exact: true });
+    }
+    return getSidebarContainer(page).locator('[role="tab"]').filter({ hasText: tabName });
+}
+
+/**
  * A robust click implementation ensuring Radix triggers.
  */
 export async function robustClick(pageOrLocator: Page | Locator, locator?: Locator) {
@@ -98,15 +109,12 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
   const isMobile = page.viewportSize()!.width < 768;
   const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
 
+  const tab = getTabTrigger(page, tabName);
+  await robustClick(page, tab);
+
   if (isMobile) {
-    const navBtn = page.getByRole('button', { name: tabName });
-    await robustClick(page, navBtn);
     const sheet = page.getByTestId('mobile-sidebar-container');
     await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
-  } else {
-      const sidebar = page.getByTestId('desktop-sidebar-container');
-      const tab = sidebar.locator(`[role="tab"][aria-label="${tabName}"]`);
-      await robustClick(tab);
   }
 
   // WebKit/Safari needs a tiny bit more time for global mocks to settle 

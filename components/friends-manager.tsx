@@ -104,7 +104,7 @@ export default function FriendsManager() {
 
   return (
     <div className="space-y-6">
-      <Card data-testid="privacy-settings-card">
+      <Card data-testid="privacy-settings-card" id="privacy-settings-section">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Lock className="h-5 w-5 text-primary" />

@@ -1,7 +1,8 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { createClient } from '@/utils/supabase/client';
+import { ProfileService } from '@/lib/services/profileService';
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;
@@ -34,33 +35,14 @@ export const useUserStore = createWithEqualityFn<UserState>((set, get) => ({
         return;
       }
 
-      // Retry logic for profile fetching (handles E2E race conditions)
-      let profile = null;
-      let retries = 5;
-      
-      while (retries > 0) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, name, email, privacy_level')
-          .eq('id', authUser.id)
-          .single();
-
-        if (!error && data) {
-          profile = data;
-          break;
-        }
-        
-        if (retries > 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-        retries--;
-      }
+      // Defer to Service for profile fetching with retry logic
+      const profile = await ProfileService.fetchProfile(authUser.id);
 
       const formattedUser: User = {
           id: authUser.id,
           name: profile?.name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
           email: profile?.email || authUser.email || '',
-          privacy_level: profile?.privacy_level || 'friends_only'
+          privacy_level: profile?.privacy_level || 'public'
       };
 
       set({ user: formattedUser, isAuthenticated: true, isLoading: false });
@@ -71,17 +53,12 @@ export const useUserStore = createWithEqualityFn<UserState>((set, get) => ({
   },
 
   updatePrivacyLevel: async (level) => {
-    const supabase = createClient();
     const currentUser = get().user;
     if (!currentUser) return;
 
     try {
-      // Use RPC for consistent behavior as defined in migration
-      const { error } = await supabase.rpc('update_profile_privacy', {
-        p_privacy_level: level
-      });
-
-      if (error) throw error;
+      // Defer to Service for atomic update
+      await ProfileService.updatePrivacyLevel(level);
 
       set({
         user: { ...currentUser, privacy_level: level }

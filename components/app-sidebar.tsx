@@ -29,6 +29,7 @@ interface AppSidebarProps {
   className?: string;
   activeTab?: string;
   onTabChange?: (value: string) => void;
+  onPrivacyClick?: () => void;
   hideTabs?: boolean;
 }
 
@@ -37,6 +38,7 @@ export function AppSidebar({
   className,
   activeTab,
   onTabChange,
+  onPrivacyClick,
   hideTabs = false,
 }: AppSidebarProps) {
 
@@ -137,9 +139,15 @@ export function AppSidebar({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              
+              <DropdownMenuItem onClick={onPrivacyClick} className="cursor-pointer">
+                <Shield className="mr-2 h-4 w-4" />
+                <span>Privacy Settings</span>
+              </DropdownMenuItem>
+
               <DropdownMenuItem asChild>
                 <Link href="/privacy" className="w-full cursor-pointer flex items-center">
-                  <Shield className="mr-2 h-4 w-4" />
+                  <FileText className="mr-2 h-4 w-4" />
                   <span>Privacy Policy</span>
                 </Link>
               </DropdownMenuItem>
