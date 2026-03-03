@@ -33,12 +33,12 @@ Goal: Gracefully handle restricted profile content across the application.
 - [x] Task: Verify that map markers and social summaries correctly respect privacy across both Desktop and Mobile viewports.
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Social Visibility & E2E Validation' (Protocol in workflow.md)
 
-## Phase 5: Refactor Privacy UI to Dedicated Settings Page
+## Phase 5: Refactor Privacy UI to Dedicated Settings Page [checkpoint: 450fa76]
 Goal: Move the privacy management out of the Friends tab to a dedicated /settings page to improve UI layout.
 
-- [x] Task: Create `app/settings/page.tsx` as the central hub for user configuration.
-- [x] Task: Create a standalone `PrivacySettings` component (refactored from `FriendsManager.tsx`).
-- [x] Task: Update `AppShell.tsx`, `AppSidebar.tsx`, and any user menus to link directly to `/settings`.
-- [x] Task: Clean up `FriendsManager.tsx` to remove the privacy card, ensuring more space for social features.
-- [x] Task: Update E2E tests (`friends-flow.spec.ts`) to reflect the new navigation path for privacy settings.
-- [x] Task: Conductor - User Manual Verification 'Phase 5: Refactor Privacy UI to Dedicated Settings Page' (Protocol in workflow.md)
+- [x] Task: Create `app/settings/page.tsx` as the central hub for user configuration. (450fa76)
+- [x] Task: Create a standalone `PrivacySettings` component (refactored from `FriendsManager.tsx`). (450fa76)
+- [x] Task: Update `AppShell.tsx`, `AppSidebar.tsx`, and any user menus to link directly to `/settings`. (450fa76)
+- [x] Task: Clean up `FriendsManager.tsx` to remove the privacy card, ensuring more space for social features. (450fa76)
+- [x] Task: Update E2E tests (`friends-flow.spec.ts`) to reflect the new navigation path for privacy settings. (450fa76)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Refactor Privacy UI to Dedicated Settings Page' (Protocol in workflow.md) (450fa76)
