@@ -225,7 +225,14 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **Configuration:** 
     *   **Backend:** Uses native Neo4j (FalkorDB Lite is incompatible with RHEL 8 GLIBC).
     *   **Credentials:** Requires `~/.codegraphcontext/.env` with `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`.
-    *   **Optimization:** The `.next` directory is explicitly ignored in `mcp.json` to ensure indexing performance and graph relevance.
+*   **Performance & Stability (.cgcignore):**
+    *   **The Ignore Rule:** ALWAYS maintain a `.cgcignore` file in the root. The server WILL crash or stall (JSONDecodeError) if it attempts to index large ephemeral directories like `.next/` or `node_modules/`.
+*   **Indexing Strategy & Limitations:**
+    *   **Logic vs. View:** CGC is highly effective for mapping "Business Logic" (functions, stores, services, RPCs). It is currently **limited** in mapping the "View Layer" (React components).
+    *   **The Named Export Rule:** To improve component visibility in the graph, **prefer Named Exports** (e.g., `export function MyComponent`) over default exports. CGC's parser often misses `default export` function nodes but successfully maps internal logic within those files.
+    *   **Internal Mapping:** Even if a component node is missing, CGC successfully maps internal helper functions (e.g., `handleSubmit`) and their outbound call chains.
+*   **Troubleshooting (The Bypass):**
+    *   If the MCP server is unstable or hangs, use **`cypher-shell`** via the CLI to query Neo4j directly. This bypasses the Python MCP layer and is often more reliable for deep symbol lookups.
 
 ## Project Structure
 

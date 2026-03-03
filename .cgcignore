@@ -1,0 +1,17 @@
+.next/
+node_modules/
+.git/
+.cache/
+.config/
+.husky/
+.mozilla/
+.npm/
+.pki/
+.playwright-mcp/
+.swc/
+.vscode/
+coverage/
+playwright-report/
+test-results/
+neo4j_data/
+tsconfig.tsbuildinfo
