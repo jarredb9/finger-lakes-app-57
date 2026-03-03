@@ -71,8 +71,8 @@ export default function SignupForm() {
       }
 
       if (data.session) {
-        router.push("/")
         router.refresh()
+        router.push("/")
       } else if (data.user) {
         setNeedsConfirmation(true)
         setUserEmail(email)

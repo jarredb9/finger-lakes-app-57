@@ -126,7 +126,7 @@ This environment has specialized agent skills (e.g., `codebase-analysis`, `probl
 
 We enforce a "Thick Client, Thin Server" architecture to support future mobile development.
 
-*   **Authentication:** **Hybrid State.** Sign-up and Sign-in use the Supabase SDK directly on the client. Password reset and confirmation use specific API routes. Logout uses the SDK directly.
+*   **Authentication:** **Supabase Native.** Sign-up and Sign-in use the Supabase SDK directly on the client. Password reset and confirmation use specific API routes. Logout uses the SDK directly.
 *   **Data Fetching:**
     *   **Preference:** Client-side stores communicate **directly** with Supabase using the SDK or RPCs for all read/write operations.
     *   **Rule:** Do not create new API routes for CRUD. Use RPCs or the SDK directly.
@@ -232,7 +232,6 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 ```
 /
 ├── app/                 # Next.js App Router pages and API routes
-│   ├── actions.ts       # Server Actions (Auth, Favorites)
 │   ├── api/             # Active API Routes (Auth, Wineries)
 │   ├── (routes)/        # Page routes
 │   └── layout.tsx       # Root layout
@@ -586,6 +585,7 @@ WebKit often needs a small "settlement" period after complex state changes (like
     *   **ID Threshold:** Fixed a bug in `wineryDataStore.ts` where database IDs < 100 were being ignored by `ensureInDb`, causing failures in environments with low-incrementing IDs.
     *   **E2E Mobile Login:** Hardened the `login` helper in `e2e/helpers.ts` to correctly respect the `skipMapReady` option on mobile viewports, resolving failures in `error-handling.spec.ts`.
     *   **Component Testing:** Updated `WineryCardThumbnail` tests to match dynamic `data-testid` patterns and established `PrivacySettings.test.tsx` following the UI refactor.
+81. **Supabase Native Auth Refactor:** Migrated `LoginForm` to use the client-side Supabase SDK directly, eliminating the legacy `login` server action in `app/actions.ts`. Implemented the "Critical Sequence" (refresh before push) in both login and signup flows to ensure reliable session synchronization with middleware. Verified via E2E smoke and runtime audit suites.
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.

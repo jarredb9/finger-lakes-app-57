@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.6.1] - 2026-03-03
+
+**Supabase Native Authentication & Codebase Cleanup**
+
+Version 2.6.1 completes the transition to a fully "Supabase Native" authentication architecture. We have refactored the login flow to use the client-side SDK directly, eliminated legacy server actions, and enforced a critical synchronization sequence to ensure seamless session management with our middleware.
+
+### 🚀 Features
+*   **Supabase Native Login:** Refactored the `LoginForm` to utilize the client-side Supabase SDK for authentication, removing dependency on server actions.
+*   **Synchronized Navigation:** Implemented a mandatory `router.refresh()` before `router.push()` sequence in both login and signup flows to ensure the middleware recognizes new session cookies immediately.
+
+### ⚙ Refactoring & Cleanup
+*   **Legacy Code Removal:** Deleted `app/actions.ts` and removed all references to legacy "wrapper" server actions.
+*   **Standardized Auth Flow:** Unified the authentication pattern across login and signup components for better maintainability and mobile-readiness.
+
+### ⚙ Infrastructure & Testing
+*   **E2E Auth Verification:** Validated the new authentication lifecycle with the `smoke` and `runtime-audit` test suites across supported browser engines.
+
 ## [2.6.0] - 2026-03-03
 
 **Granular Privacy Controls & Centralized Settings Hub**
