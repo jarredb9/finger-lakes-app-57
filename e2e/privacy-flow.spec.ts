@@ -14,14 +14,14 @@ import {
 } from './helpers';
 
 test.describe('Privacy and Profile Flow', () => {
-  test('Users can control visit and profile visibility', async ({ browser, user: user1 }) => {
+  test('Users can control visit and profile visibility', async ({ browser, user: user1, viewport, userAgent }) => {
     // 1. Create second ephemeral test user
     const user2 = await createTestUser();
 
     try {
-      // 2. Create isolated contexts
-      const contextA = await browser.newContext();
-      const contextB = await browser.newContext();
+      // 2. Create isolated contexts using project defaults
+      const contextA = await browser.newContext({ viewport, userAgent });
+      const contextB = await browser.newContext({ viewport, userAgent });
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 

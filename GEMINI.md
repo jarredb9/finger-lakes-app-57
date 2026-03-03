@@ -219,6 +219,14 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **`useWineryMap`:** The "Brain" of the map view. Aggregates store data, handles map clicks, and manages the Google Maps instance.
 *   **`useTripActions`:** Encapsulates trip-specific logic like "Export to Google Maps".
 
+### CodeGraphContext (CGC)
+*   **Purpose:** Provides a Neo4j-backed code graph for architectural analysis and relationship tracking.
+*   **Launch Command:** `cgc mcp start` (The server must be running for graph tools to be available in the CLI).
+*   **Configuration:** 
+    *   **Backend:** Uses native Neo4j (FalkorDB Lite is incompatible with RHEL 8 GLIBC).
+    *   **Credentials:** Requires `~/.codegraphcontext/.env` with `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`.
+    *   **Optimization:** The `.next` directory is explicitly ignored in `mcp.json` to ensure indexing performance and graph relevance.
+
 ## Project Structure
 
 ```
@@ -350,7 +358,30 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **The Trap:** Logging in a new user and immediately fetching their profile might return `null`, stalling the test.
 *   **The Fix:** Use the `setupFriendship` helper in `e2e/helpers.ts` which handles reloads and retry-loops for cross-user visibility. Update `userStore.ts` to include a retry loop for the initial profile fetch.
 
+### 21. Empty RPC Parameters / 404 Error
+*   **Concept:** Supabase RPCs fail with 404 if parameter types don't match or are missing.
+*   **The Trap:** Calling `toggle_favorite_privacy` with an undefined `p_winery_id` or a mock string ID (like `'mock-1'`) when the database expects an `integer`.
+*   **The Fix:** Always use `await ensureInDb(wineryId)` before calling relational RPCs. This ensures mock wineries are promoted to real database records with numeric IDs.
+
+### 22. Viewport Mismatch in Multi-Context Tests
+*   **Concept:** Tests using `browser.newContext()` for secondary users.
+*   **The Trap:** Creating a new context without specifying `viewport` and `userAgent`. If the test project is "Mobile Chrome", the first user gets a mobile viewport by default, but the second user (in a manual context) will default to desktop dimensions, causing locators to fail.
+*   **The Fix:** Always pass the test parameters to isolated contexts: `await browser.newContext({ viewport, userAgent })`.
+
 ## Advanced Testing Patterns (The "Gold Standard")
+
+### The App Ready Pattern (Hydration Guard)
+Always wait for full hydration before interacting with the UI, especially after a login or reload on mobile. Use the centralized helper:
+```typescript
+await waitForAppReady(page); // Checks for bottom bar on mobile or sidebar on desktop
+```
+
+### Deterministic Mobile Navigation
+Avoid text-based selectors for mobile tabs. Use the `getTabTrigger` helper which leverages `data-testid` locators like `mobile-nav-explore`.
+```typescript
+const tab = getTabTrigger(page, 'Friends');
+await robustClick(page, tab);
+```
 
 ### The Force Visibility Pattern
 When testing flows that require selecting a winery from the sidebar list, do not wait for the map to "load" results. Use this pattern to make them appear instantly:
@@ -541,6 +572,10 @@ WebKit often needs a small "settlement" period after complex state changes (like
     *   **Profile Discovery:** Created dedicated `/friends/[id]` profile pages showing public stats and history.
     *   **Hydration Resiliency:** Implemented a retry mechanism in `userStore.ts` for profile fetching to resolve E2E race conditions during account creation.
     *   **E2E Standardization:** Consolidated social setup into a robust `setupFriendship` helper and enforced mandatory store exposure for all major data layers.
+78. **Item Privacy & Mobile Stability (v2.5.1):**
+    *   **ID Resolution:** Hardened `wineryDataStore` to force mock-to-real identity resolution via `ensureInDb` before relational RPCs, preventing 404 parameter mismatches.
+    *   **Mobile Navigation:** Implemented `data-testid` attributes for the mobile bottom bar and a centralized `waitForAppReady` hydration guard.
+    *   **Multi-Context Fix:** Standardized isolated browser contexts in E2E tests to inherit project viewports, ensuring cross-browser parity for multi-user flows.
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.

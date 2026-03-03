@@ -14,14 +14,26 @@ export function getSidebarContainer(page: Page): Locator {
 }
 
 /**
+ * Waits for the application to be fully loaded and hydrated.
+ */
+export async function waitForAppReady(page: Page) {
+    const isMobile = page.viewportSize()?.width! < 768;
+    const successSelector = isMobile 
+      ? 'div.fixed.bottom-0' 
+      : '[data-testid="desktop-sidebar-container"]';
+    
+    await expect(page.locator(successSelector)).toBeVisible({ timeout: 20000 });
+}
+
+/**
  * Gets the tab trigger locator for both desktop and mobile.
  */
 export function getTabTrigger(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
-    const isMobile = page.viewportSize()?.width! < 768;
-    if (isMobile) {
-        return page.locator('div.fixed.bottom-0').getByRole('button', { name: tabName, exact: true });
-    }
-    return getSidebarContainer(page).locator('[role="tab"]').filter({ hasText: tabName });
+    // We look for both possible locations to handle hydration flashes or project mismatches
+    const mobileTab = page.getByTestId(`mobile-nav-${tabName.toLowerCase()}`);
+    const desktopTab = page.locator('[data-testid="desktop-sidebar-container"]').locator('[role="tab"]').filter({ hasText: tabName });
+    
+    return mobileTab.or(desktopTab).first();
 }
 
 /**
@@ -142,9 +154,6 @@ export async function login(page: Page, email: string, pass: string, options: { 
 
   const isMobile = page.viewportSize()?.width! < 768;
   const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
-  const successSelector = isMobile 
-    ? 'div.fixed.bottom-0' 
-    : 'h1:has-text("Winery Tracker"), [data-testid="desktop-sidebar-container"]';
 
   // 0. REGISTRATION BUFFER (WebKit Only)
   // Ensure context.route/page.route are fully active before the first goto()
@@ -160,14 +169,13 @@ export async function login(page: Page, email: string, pass: string, options: { 
     await page.getByLabel('Password').fill(pass);
     await page.keyboard.press('Enter');
 
-    const dashboard = page.locator(successSelector).first();
     try {
-        await expect(dashboard).toBeVisible({ timeout: 10000 });
+        await waitForAppReady(page);
     } catch (e) {
         const signInBtn = page.getByRole('button', { name: 'Sign In' });
         if (await signInBtn.isVisible()) {
             await robustClick(page, signInBtn);
-            await expect(dashboard).toBeVisible({ timeout: 10000 });
+            await waitForAppReady(page);
         } else { throw e; }
     }
   }).toPass({ intervals: [3000], timeout: 35000 });
@@ -290,6 +298,9 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
         // Aggressive sync: reload and wait for network
         await pageB.reload();
         await pageB.waitForLoadState('networkidle');
+
+        // Ensure AppShell is hydrated after reload
+        await waitForAppReady(pageB);
 
         await navigateToTab(pageB, 'Friends');
         await ensureSidebarExpanded(pageB);

@@ -28,7 +28,6 @@ next-env.d.ts
 
 # Gemini files
 .gemini/*
-/conductor/*
 
 # Local environment variables
 .env.local
@@ -57,3 +56,4 @@ coverage/
 .npm/
 .playwright-mcp/
 .config/
+mcp.json

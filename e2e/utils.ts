@@ -49,6 +49,7 @@ export class MockMapsManager {
     await context.unroute(/\/rpc\/send_friend_request/);
     await context.unroute(/\/rpc\/respond_to_friend_request/);
     await context.unroute(/\/rpc\/get_friend_activity_feed/);
+    await context.unroute(/\/rpc\/get_friend_profile_with_visits/);
   }
 
   /**
@@ -80,8 +81,12 @@ export class MockMapsManager {
    * Initializes default mocks for Google Maps and Supabase RPCs.
    * This is called automatically by the mockMaps fixture.
    */
-  async initDefaultMocks() {
+  async initDefaultMocks(options: { realFavorites?: boolean } = {}) {
     if (process.env.E2E_REAL_DATA === 'true') return;
+    
+    if (options.realFavorites) {
+        this.realFavoritesEnabled = true;
+    }
 
     // Use context-level routing to ensure Service Worker requests are intercepted
     const context = this.page.context();
@@ -325,8 +330,8 @@ export class MockMapsManager {
         contentType: 'application/json',
         headers: commonHeaders,
         body: JSON.stringify([
-            createMockMapMarkerRpc({ google_place_id: 'ch-12345-mock-winery-1' as any }),
-            createMockMapMarkerRpc({ id: 2 as any, google_place_id: 'ch-67890-mock-winery-2' as any, name: 'Vineyard of Illusion' })
+            createMockMapMarkerRpc({ id: 'mock-1' as any, google_place_id: 'ch-12345-mock-winery-1' as any }),
+            createMockMapMarkerRpc({ id: 'mock-2' as any, google_place_id: 'ch-67890-mock-winery-2' as any, name: 'Vineyard of Illusion' })
         ]),
       });
     });
@@ -496,6 +501,7 @@ export class MockMapsManager {
     await context.route(/\/rpc\/get_paginated_wineries/, async (route) => {
       console.log('Mocked get_paginated_wineries');
       const mockMarker = createMockMapMarkerRpc({
+          id: 'mock-1' as any,
           google_place_id: 'ch-12345-mock-winery-1' as any,
           name: 'Mock Winery One',
           address: '123 Mockingbird Lane'
@@ -520,8 +526,8 @@ export class MockMapsManager {
         contentType: 'application/json',
         headers: commonHeaders,
         body: JSON.stringify([
-            createMockMapMarkerRpc({ google_place_id: 'ch-12345-mock-winery-1' as any }),
-            createMockMapMarkerRpc({ id: 2 as any, google_place_id: 'ch-67890-mock-winery-2' as any, name: 'Vineyard of Illusion' })
+            createMockMapMarkerRpc({ id: 'mock-1' as any, google_place_id: 'ch-12345-mock-winery-1' as any }),
+            createMockMapMarkerRpc({ id: 'mock-2' as any, google_place_id: 'ch-67890-mock-winery-2' as any, name: 'Vineyard of Illusion' })
         ]),
       });
     });
@@ -596,8 +602,14 @@ export class MockMapsManager {
         });
     }
 
-    // 7. Mock List Toggles
-    if (!this.realFavoritesEnabled) {
+    // 7. List Toggles
+    if (this.realFavoritesEnabled) {
+        await context.unroute(/\/rpc\/toggle_favorite/);
+        await context.unroute(/\/rpc\/toggle_wishlist/);
+        await context.unroute(/\/rpc\/toggle_favorite_privacy/);
+        await context.unroute(/\/rpc\/toggle_wishlist_privacy/);
+        await context.unroute(/\/rpc\/get_friend_profile_with_visits/);
+    } else {
         await context.route(/\/rpc\/toggle_wishlist/, async (route) => {
           console.log('Mocked toggle_wishlist');
           await route.fulfill({
@@ -635,6 +647,21 @@ export class MockMapsManager {
               contentType: 'application/json',
               headers: commonHeaders,
               body: JSON.stringify({ success: true, is_private: true }),
+            });
+        });
+
+        // 7.1 Mock Friend Profile RPC if not real
+        await context.route(/\/rpc\/get_friend_profile_with_visits/, async (route) => {
+            console.log('Mocked get_friend_profile_with_visits');
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                headers: commonHeaders,
+                body: JSON.stringify({
+                    profile: { id: 'friend-1', name: 'Mock Friend', email: 'friend@ex.com', privacy_level: 'public' },
+                    visits: [],
+                    stats: { visit_count: 0, favorite_count: 1, wishlist_count: 1 }
+                })
             });
         });
     }
@@ -797,7 +824,10 @@ export const test = base.extend<{
         }
     });
 
-    await manager.initDefaultMocks();
+    // Check if the test file is item-privacy.spec.ts to pass realFavorites: true
+    const isItemPrivacyTest = testInfo.file.includes('item-privacy.spec.ts');
+    await manager.initDefaultMocks({ realFavorites: isItemPrivacyTest });
+    
     await use(manager);
   }, { auto: true }],
 

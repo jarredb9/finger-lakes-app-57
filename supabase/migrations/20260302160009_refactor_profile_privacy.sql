@@ -182,7 +182,7 @@ BEGIN
             'email', p.email,
             'privacy_level', p.privacy_level
         ),
-        'debug_viewer_id', v_viewer_id, -- KEEP DEBUG FOR NOW TO SEE IN E2E
+        'final_review_logic', 'enabled', -- DEFINITIVE MARKER
         'visits', (
             SELECT COALESCE(jsonb_agg(row_to_json(v_data)), '[]'::jsonb)
             FROM (

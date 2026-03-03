@@ -233,6 +233,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                 <div className="md:hidden fixed bottom-0 left-0 right-0 h-auto min-h-16 bg-background border-t flex items-center justify-around z-50 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
                     <Button
                         variant="ghost"
+                        data-testid="mobile-nav-map"
                         className={cn("flex flex-col gap-1 h-auto w-16", !isMobileSheetOpen && "text-primary")}
                         onClick={() => setIsMobileSheetOpen(false)}
                     >
@@ -241,6 +242,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                     </Button>
                     <Button
                         variant="ghost"
+                        data-testid="mobile-nav-explore"
                         className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "explore" && isMobileSheetOpen && "text-primary")}
                         onClick={() => handleMobileNav("explore")}
                     >
@@ -249,6 +251,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                     </Button>
                     <Button
                         variant="ghost"
+                        data-testid="mobile-nav-trips"
                         className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "trips" && isMobileSheetOpen && "text-primary")}
                         onClick={() => handleMobileNav("trips")}
                     >
@@ -257,6 +260,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                     </Button>
                     <Button
                         variant="ghost"
+                        data-testid="mobile-nav-friends"
                         className={cn("flex flex-col gap-1 h-auto w-16 relative", activeTab === "friends" && isMobileSheetOpen && "text-primary")}
                         onClick={() => handleMobileNav("friends")}
                     >
@@ -270,6 +274,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                     </Button>
                     <Button
                         variant="ghost"
+                        data-testid="mobile-nav-history"
                         className={cn("flex flex-col gap-1 h-auto w-16", activeTab === "history" && isMobileSheetOpen && "text-primary")}
                         onClick={() => handleMobileNav("history")}
                     >
