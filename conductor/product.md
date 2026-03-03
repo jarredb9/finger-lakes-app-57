@@ -22,6 +22,7 @@ This is a Next.js web application designed for planning and tracking visits to w
 - **Interactive Map:** Real-time winery location discovery and clustering using Google Maps.
 - **Trip Planning:** Collaborative itinerary building and sharing tools for organized outings.
 - **Visit Records:** Rich logging of winery experiences, including history, photos, and notes.
+- **Granular Privacy Controls:** Dedicated settings to control profile and activity visibility (Public, Friends Only, Private).
 - **Social Features:** Collaboration with friends, sharing winery adventures, and personalized recommendations based on friend activity.
 
 ## Future Vision
