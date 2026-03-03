@@ -582,6 +582,10 @@ WebKit often needs a small "settlement" period after complex state changes (like
     *   **Atomic Privacy:** Developed secure RPCs for toggling item-level privacy (`toggle_favorite_privacy`, `toggle_wishlist_privacy`) and a centralized visibility helper.
     *   **Friend Profiles:** Created rich, privacy-aware friend profile pages (`/friends/[id]`) with social stats and filtered histories.
     *   **E2E Validation:** Expanded the test suite with a dedicated `privacy-flow.spec.ts` and hardened `friends-flow` for the new settings navigation.
+80. **Test Stability & Store Logic Fixes:**
+    *   **ID Threshold:** Fixed a bug in `wineryDataStore.ts` where database IDs < 100 were being ignored by `ensureInDb`, causing failures in environments with low-incrementing IDs.
+    *   **E2E Mobile Login:** Hardened the `login` helper in `e2e/helpers.ts` to correctly respect the `skipMapReady` option on mobile viewports, resolving failures in `error-handling.spec.ts`.
+    *   **Component Testing:** Updated `WineryCardThumbnail` tests to match dynamic `data-testid` patterns and established `PrivacySettings.test.tsx` following the UI refactor.
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
@@ -673,6 +677,12 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **Standalone Settings Navigation:** The `/settings` page is a standalone view outside the main `AppShell` tab system.
     *   **The Success Selector:** When updating `waitForAppReady` in `e2e/helpers.ts`, you MUST include `[data-testid="settings-page-container"]` in the success selector list to prevent timeouts on the settings page.
     *   **Direct Navigation:** Prefer `page.goto('/settings')` for privacy-related tests to ensure a clean state and avoid reliance on sidebar tab transitions which may be disabled or hidden.
+
+### 23. ensureInDb Numeric ID Threshold
+*   **Concept:** Relational database IDs (BigInt/Integer) typically start at 1 and increment.
+*   **The Trap:** Implementing logic that ignores IDs below a certain threshold (e.g., `id > 100`) will cause silent failures in fresh environments or test databases where IDs are low.
+*   **The Fix:** Always validate for `id > 0` when checking for a valid existing database primary key. This was fixed in `wineryDataStore.ts`.
+
 
 
 
