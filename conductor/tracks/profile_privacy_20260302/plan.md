@@ -32,3 +32,13 @@ Goal: Gracefully handle restricted profile content across the application.
 - [x] Task: Refactor `FriendProfile.tsx` and `FriendActivityFeed.tsx` to handle restricted visibility gracefully, removing any redundant client-side filtering.
 - [x] Task: Verify that map markers and social summaries correctly respect privacy across both Desktop and Mobile viewports.
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Social Visibility & E2E Validation' (Protocol in workflow.md)
+
+## Phase 5: Refactor Privacy UI to Dedicated Settings Page
+Goal: Move the privacy management out of the Friends tab to a dedicated /settings page to improve UI layout.
+
+- [x] Task: Create `app/settings/page.tsx` as the central hub for user configuration.
+- [x] Task: Create a standalone `PrivacySettings` component (refactored from `FriendsManager.tsx`).
+- [x] Task: Update `AppShell.tsx`, `AppSidebar.tsx`, and any user menus to link directly to `/settings`.
+- [x] Task: Clean up `FriendsManager.tsx` to remove the privacy card, ensuring more space for social features.
+- [x] Task: Update E2E tests (`friends-flow.spec.ts`) to reflect the new navigation path for privacy settings.
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Refactor Privacy UI to Dedicated Settings Page' (Protocol in workflow.md)

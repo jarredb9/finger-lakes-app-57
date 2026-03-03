@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { AuthenticatedUser } from "@/lib/types";
 import { WineryMapProvider } from "@/components/winery-map-context";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, User as UserIcon, LogOut, FileText, Shield, Clock } from "lucide-react";
+import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, User as UserIcon, LogOut, FileText, Settings, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { GoogleMapsProvider } from "@/components/google-maps-provider";
 import dynamic from "next/dynamic";
@@ -74,22 +74,6 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
         }
     };
 
-    const navigateToPrivacy = useCallback(() => {
-        setActiveTab("friends");
-        if (isMobile) {
-            setIsMobileSheetOpen(true);
-            setSheetMode("full");
-        }
-        
-        // Use timeout to ensure tab content is rendered before scrolling
-        setTimeout(() => {
-            const element = document.getElementById("privacy-settings-section");
-            if (element) {
-                element.scrollIntoView({ behavior: "smooth", block: "start" });
-            }
-        }, 100);
-    }, [isMobile]);
-
     const getSheetTitle = () => {
         switch (activeTab) {
             case "explore": return "Explore Wineries";
@@ -134,7 +118,6 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                                 user={user}
                                 activeTab={activeTab}
                                 onTabChange={(val) => setActiveTab(val as any)}
-                                onPrivacyClick={navigateToPrivacy}
                             />
                         </div>
                     </div>
@@ -184,9 +167,11 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                                 </DropdownMenuLabel>
                                 <DropdownMenuSeparator />
                                 
-                                <DropdownMenuItem onClick={navigateToPrivacy} className="cursor-pointer">
-                                    <Shield className="mr-2 h-4 w-4" />
-                                    <span>Privacy Settings</span>
+                                <DropdownMenuItem asChild>
+                                    <Link href="/settings" className="w-full cursor-pointer flex items-center">
+                                        <Settings className="mr-2 h-4 w-4" />
+                                        <span>Settings</span>
+                                    </Link>
                                 </DropdownMenuItem>
 
                                 <DropdownMenuItem asChild>
@@ -299,7 +284,6 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                         className="border-none h-full"
                         activeTab={activeTab}
                         onTabChange={(val) => setActiveTab(val as any)}
-                        onPrivacyClick={navigateToPrivacy}
                         hideTabs={true}
                     />
                 </InteractiveBottomSheet>

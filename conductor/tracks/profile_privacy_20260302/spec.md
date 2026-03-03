@@ -14,7 +14,10 @@ This track introduces granular privacy controls for user profiles, allowing user
     - Favorites List
     - Wishlist ("Want to Go")
 - **Default State:** All profiles (new and existing) will default to **Public** to maintain current behavior unless changed.
-- **Management UI:** A new "Privacy Settings" section will be added to the user settings/profile management area.
+- **Management UI:** 
+    - A dedicated "Settings" page (`/settings`) will be created to house all user-related configurations.
+    - The privacy controls will be relocated from the "Friends" tab to this new page to improve layout and focus on social interactions.
+    - This page should be future-proofed to include other settings (e.g., account details, notifications) in later tracks.
 - **Backend Enforcement:** Update Supabase Row Level Security (RLS) policies and social RPCs to respect these settings.
 
 ## Non-Functional Requirements

@@ -19,10 +19,10 @@ export function getSidebarContainer(page: Page): Locator {
 export async function waitForAppReady(page: Page) {
     const isMobile = page.viewportSize()?.width! < 768;
     const successSelector = isMobile 
-      ? 'div.fixed.bottom-0' 
-      : '[data-testid="desktop-sidebar-container"]';
+      ? 'div.fixed.bottom-0, [data-testid="settings-page-container"]' 
+      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"]';
     
-    await expect(page.locator(successSelector)).toBeVisible({ timeout: 20000 });
+    await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 20000 });
 }
 
 /**
@@ -134,6 +134,13 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
   if (isWebKit && tabName === 'Explore') {
       await page.waitForTimeout(500);
   }
+}
+
+export async function navigateToSettings(page: Page) {
+    // Use direct navigation for robustness in E2E
+    await page.goto('/settings');
+    await page.waitForLoadState('networkidle');
+    await waitForAppReady(page);
 }
 
 export async function ensureSidebarExpanded(page: Page) {
@@ -335,9 +342,9 @@ export async function waitForToast(page: Page, message: string | RegExp) {
 }
 
 export async function selectPrivacyOption(page: Page, optionName: 'Public' | 'Friends Only' | 'Private') {
-    const sidebar = getSidebarContainer(page);
-    await ensureSidebarExpanded(page);
-    const privacySelect = sidebar.locator('[data-testid="privacy-select"]').first();
+    await navigateToSettings(page);
+    const container = page.getByTestId('settings-page-container');
+    const privacySelect = container.locator('[data-testid="privacy-select"]').first();
     await robustClick(page, privacySelect);
     const option = page.locator('[role="option"], div').filter({ hasText: new RegExp(`^${optionName}$`) }).last();
     await robustClick(page, option);

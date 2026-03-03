@@ -11,7 +11,7 @@ import WinerySearchResults from "@/components/map/WinerySearchResults";
 import TripList from "@/components/trip-list";
 import { List } from "lucide-react";
 import GlobalVisitHistory from "@/components/global-visit-history"; // Import GlobalVisitHistory
-import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon, FileText, Shield } from "lucide-react";
+import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon, FileText, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import FriendsManager from "@/components/friends-manager";
@@ -29,7 +29,6 @@ interface AppSidebarProps {
   className?: string;
   activeTab?: string;
   onTabChange?: (value: string) => void;
-  onPrivacyClick?: () => void;
   hideTabs?: boolean;
 }
 
@@ -38,7 +37,6 @@ export function AppSidebar({
   className,
   activeTab,
   onTabChange,
-  onPrivacyClick,
   hideTabs = false,
 }: AppSidebarProps) {
 
@@ -140,9 +138,11 @@ export function AppSidebar({
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               
-              <DropdownMenuItem onClick={onPrivacyClick} className="cursor-pointer">
-                <Shield className="mr-2 h-4 w-4" />
-                <span>Privacy Settings</span>
+              <DropdownMenuItem asChild>
+                <Link href="/settings" className="w-full cursor-pointer flex items-center">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </Link>
               </DropdownMenuItem>
 
               <DropdownMenuItem asChild>
