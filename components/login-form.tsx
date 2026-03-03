@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
 
-export default function LoginForm({ redirectTo }: { redirectTo?: string }) {
+export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const [error, setError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
   const router = useRouter()

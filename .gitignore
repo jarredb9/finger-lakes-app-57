@@ -26,8 +26,41 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Gemini files
+# Gemini / Agent Files
 .gemini/*
+.adal/
+.agent/
+.agents/
+.augment/
+.claude/
+.codebuddy/
+.commandcode/
+.continue/
+.cortex/
+.crush/
+.factory/
+.goose/
+.iflow/
+.junie/
+.kilocode/
+.kiro/
+.kode/
+.mcpjam/
+.mux/
+.neovate/
+.openhands/
+.pi/
+.pochi/
+.qoder/
+.qwen/
+.roo/
+.trae/
+.vibe/
+.windsurf/
+.zencoder/
+skills/
+skills-lock.json
+.cgcignore
 
 # Local environment variables
 .env.local
