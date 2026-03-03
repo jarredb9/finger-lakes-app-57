@@ -8,7 +8,7 @@ test.describe('DatePicker UX', () => {
 
     await test.step('Open Winery Modal', async () => {
         const sidebar = getSidebarContainer(page);
-        const firstWinery = sidebar.locator('text=Mock Winery One').first();
+        const firstWinery = sidebar.getByTestId('winery-card-Mock Winery One').first();
         await expect(firstWinery).toBeVisible({ timeout: 15000 });
         await firstWinery.scrollIntoViewIfNeeded();
         await firstWinery.click();
@@ -45,7 +45,7 @@ test.describe('DatePicker UX', () => {
 
     await test.step('Open Winery Modal', async () => {
         const sidebar = getSidebarContainer(page);
-        const firstWinery = sidebar.locator('text=Mock Winery One').first();
+        const firstWinery = sidebar.getByTestId('winery-card-Mock Winery One').first();
         await expect(firstWinery).toBeVisible({ timeout: 15000 });
         await firstWinery.scrollIntoViewIfNeeded();
         await firstWinery.click();

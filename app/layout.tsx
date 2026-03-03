@@ -47,6 +47,17 @@ export default function RootLayout({
             __html: `
               if ('serviceWorker' in navigator) {
                 window.addEventListener('load', function() {
+                  if (window.location.hostname === 'localhost' && !window.location.search.includes('pwa=true')) {
+                    // Unregister in dev unless explicitly testing PWA
+                    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                      for(let registration of registrations) {
+                        registration.unregister();
+                        console.log('ServiceWorker unregistered in development');
+                      }
+                    });
+                    return;
+                  }
+                  
                   navigator.serviceWorker.register('/sw.js').then(function(registration) {
                     console.log('ServiceWorker registration successful with scope: ', registration.scope);
                   }, function(err) {

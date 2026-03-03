@@ -4,11 +4,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Star, Users } from "lucide-react";
 import { Separator } from "./ui/separator";
 import { FriendRating } from "@/lib/types";
+import Image from "next/image";
 
 export default function FriendRatings() {
-  const { friendsRatings } = useFriendStore();
+  const { friendsRatings = [] } = useFriendStore();
 
-  if (friendsRatings.length === 0) {
+  if (!friendsRatings || friendsRatings.length === 0) {
     return null;
   }
 
@@ -35,7 +36,17 @@ export default function FriendRatings() {
                 {rating.photos && rating.photos.length > 0 && (
                   <div className="flex gap-2 mt-2">
                     {rating.photos.map((photo: string, index: number) => {
-                      return <img key={index} src={photo} alt={`Friend photo ${index + 1}`} className="w-20 h-20 rounded-md object-cover" />;
+                      return (
+                        <div key={index} className="relative w-20 h-20 rounded-md overflow-hidden">
+                          <Image 
+                            src={photo} 
+                            alt={`Friend photo ${index + 1}`} 
+                            fill
+                            className="object-cover" 
+                            unoptimized
+                          />
+                        </div>
+                      );
                     })}
                   </div>
                 )}

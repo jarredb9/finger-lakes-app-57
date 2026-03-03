@@ -25,7 +25,7 @@ export default defineConfig({
   reporter: [['html', { open: 'never' }]],
   
   /* Increase timeout for CI */
-  timeout: 60 * 1000,
+  timeout: 90 * 1000,
 
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {

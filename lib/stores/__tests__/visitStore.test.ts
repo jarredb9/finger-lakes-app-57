@@ -5,6 +5,7 @@ describe('VisitStore Offline Logic', () => {
   const originalOnLine = navigator.onLine;
   let useVisitStore: any;
   let offlineQueueMock: any;
+  let mockRpc: jest.Mock;
 
   beforeEach(() => {
     jest.resetModules();
@@ -26,6 +27,7 @@ describe('VisitStore Offline Logic', () => {
     jest.doMock('@/lib/utils/offline-queue', () => offlineQueueMock);
 
     // Mock Supabase
+    mockRpc = jest.fn().mockResolvedValue({ data: { visit_id: 999 }, error: null });
     jest.doMock('@/utils/supabase/client', () => ({
       createClient: () => ({
         auth: {
@@ -36,7 +38,7 @@ describe('VisitStore Offline Logic', () => {
             data: { user: { id: 'user-123' } } 
           }),
         },
-        rpc: jest.fn().mockResolvedValue({ data: { visit_id: 999 }, error: null }),
+        rpc: mockRpc,
         storage: {
           from: () => ({
             upload: jest.fn().mockResolvedValue({ error: null }),
@@ -95,6 +97,27 @@ describe('VisitStore Offline Logic', () => {
     expect(visits).toHaveLength(1);
     expect(visits[0].user_review).toBe('Offline review');
     expect(String(visits[0].id)).toContain('temp-');
+  });
+
+  it('should include is_private flag in saveVisit', async () => {
+    const winery = createMockWinery();
+    const visitData = {
+      visit_date: '2023-01-01',
+      user_review: 'Private review',
+      rating: 5,
+      photos: [],
+      is_private: true
+    };
+
+    await act(async () => {
+      await useVisitStore.getState().saveVisit(winery, visitData);
+    });
+
+    expect(mockRpc).toHaveBeenCalledWith('log_visit', expect.objectContaining({
+      p_visit_data: expect.objectContaining({
+        is_private: true
+      })
+    }));
   });
 
   it('should sync offline visits when online', async () => {

@@ -149,7 +149,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
   };
 
   return (
-    <Card>
+    <Card data-testid="trip-form-card">
       <CardHeader>
         <CardTitle>Create a New Trip</CardTitle>
         <CardDescription>Give your trip a name and date, then search for wineries to add.</CardDescription>
@@ -164,7 +164,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
                 render={({ field }) => (
                   <FormItem>
                     <FormControl>
-                      <Input placeholder="Trip Name" {...field} />
+                      <Input placeholder="Trip Name" {...field} data-testid="trip-name-input" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -194,15 +194,17 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
                 value={winerySearch}
                 onChange={(e) => setWinerySearch(e.target.value)}
                 className="mt-2"
+                data-testid="winery-search-input"
               />
-              <div className="space-y-2 mt-2 max-h-60 overflow-y-auto p-1">
+              <div className="space-y-2 mt-2 max-h-60 overflow-y-auto p-1" data-testid="winery-search-results">
                 {isSearching ? <p>Searching...</p> : searchResults.map(winery => (
-                  <div key={winery.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors">
+                  <div key={winery.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors" data-testid={`winery-option-${winery.id}`}>
                     <Checkbox 
                       id={`winery-${winery.id}`}
                       checked={selectedWineries.some(w => w.id === winery.id)}
                       onCheckedChange={() => handleWineryToggle(winery)}
                       className="mt-1"
+                      data-testid="winery-checkbox"
                     />
                     <div className="grid gap-1.5 leading-none">
                       <FormLabel htmlFor={`winery-${winery.id}`} className="text-sm font-medium cursor-pointer">
@@ -218,7 +220,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
               <FormMessage>{form.formState.errors.wineries?.message}</FormMessage>
             </div>
 
-            <Button type="submit" disabled={!form.formState.isValid || form.formState.isSubmitting}>
+            <Button type="submit" disabled={!form.formState.isValid || form.formState.isSubmitting} data-testid="create-trip-submit-btn">
               {form.formState.isSubmitting ? "Creating..." : "Create Trip"}
             </Button>
           </form>

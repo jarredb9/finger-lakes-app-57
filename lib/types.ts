@@ -24,6 +24,8 @@ export interface MapMarkerRpc {
   is_favorite: boolean;
   on_wishlist: boolean;
   user_visited: boolean;
+  is_favorite_private?: boolean;
+  on_wishlist_private?: boolean;
   google_rating?: number | null;
   opening_hours?: Json | null;
   phone?: string | null;
@@ -45,6 +47,8 @@ export interface WineryDetailsRpc {
   is_favorite: boolean;
   on_wishlist: boolean;
   user_visited: boolean;
+  is_favorite_private?: boolean;
+  on_wishlist_private?: boolean;
   visits: Visit[]; // Assuming this RPC also returns visits
   trip_info?: any; // Optional as it's not always returned
 }
@@ -55,6 +59,8 @@ export interface DbWineryWithUserData extends DbWinery {
   is_favorite: boolean;
   on_wishlist: boolean;
   user_visited: boolean;
+  is_favorite_private?: boolean;
+  on_wishlist_private?: boolean;
   visits?: Visit[]; // Visits can be included
   trip_id?: number;
   trip_name?: string;
@@ -73,6 +79,7 @@ export interface Visit {
   rating?: number;
   photos?: string[];
   winery_id?: WineryDbId; // Use new distinct type
+  is_private?: boolean;
   // Expanded fields often joined in queries
   wineries?: {
     id: WineryDbId; // Use new distinct type
@@ -130,6 +137,8 @@ export interface Winery {
   userVisited?: boolean;
   onWishlist?: boolean;
   isFavorite?: boolean;
+  favoriteIsPrivate?: boolean;
+  wishlistIsPrivate?: boolean;
   
   visits?: Visit[];
   
@@ -182,6 +191,7 @@ export interface Friend {
   email: string;
   status?: 'pending' | 'accepted';
   requester_id?: string;
+  privacy_level?: 'public' | 'friends_only' | 'private';
 }
 
 export interface FriendRating {

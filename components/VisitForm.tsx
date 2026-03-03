@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Star, Plus, Edit, Loader2 } from "lucide-react";
+import { Star, Plus, Edit, Loader2, Lock } from "lucide-react";
 import PhotoUploader from "./PhotoUploader";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface VisitFormProps {
   winery: Winery;
@@ -24,12 +25,14 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(0);
+  const [isPrivate, setIsPrivate] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
 
   const resetForm = useCallback(() => {
     setVisitDate(new Date().toISOString().split("T")[0]);
     setUserReview("");
     setRating(0);
+    setIsPrivate(false);
     setPhotos([]);
     setPhotosToDelete([]);
   }, [setPhotosToDelete]);
@@ -40,6 +43,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
       setVisitDate(new Date(editingVisit.visit_date + "T00:00:00").toISOString().split("T")[0]);
       setUserReview(editingVisit.user_review || "");
       setRating(editingVisit.rating || 0);
+      setIsPrivate((editingVisit as any).is_private || false);
       setPhotos([]);
       setPhotosToDelete([]);
     } else {
@@ -55,7 +59,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
 
     try {
       if (editingVisit) {
-        await updateVisit(String(editingVisit.id!), { visit_date: visitDate, user_review: userReview, rating }, photos, photosToDelete);
+        await updateVisit(String(editingVisit.id!), { visit_date: visitDate, user_review: userReview, rating, is_private: isPrivate }, photos, photosToDelete);
         const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
         toast({ 
           description: isOffline 
@@ -64,7 +68,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
         });
         onCancelEdit();
       } else {
-        await saveVisit(winery, { visit_date: visitDate, user_review: userReview, rating, photos });
+        await saveVisit(winery, { visit_date: visitDate, user_review: userReview, rating, photos, is_private: isPrivate });
         const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
         toast({ 
           description: isOffline 
@@ -108,6 +112,20 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
         <div className="space-y-2">
           <Label htmlFor="userReview">Your Review (Optional)</Label>
           <Textarea id="userReview" placeholder="e.g., 'Loved the dry Riesling! Beautiful view from the patio.'" value={userReview} onChange={(e) => setUserReview(e.target.value)} rows={4} aria-label="Your Review" />
+        </div>
+        <div className="flex items-center space-x-2 py-1">
+          <Checkbox 
+            id="isPrivate" 
+            checked={isPrivate} 
+            onCheckedChange={(checked) => setIsPrivate(checked === true)} 
+          />
+          <Label htmlFor="isPrivate" className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
+            <Lock className="w-3.5 h-3.5 text-muted-foreground" />
+            Make this visit private
+          </Label>
+          <p className="text-xs text-muted-foreground ml-auto italic">
+            Private visits aren&apos;t shown to friends
+          </p>
         </div>
         <PhotoUploader 
             editingVisit={editingVisit}

@@ -36,7 +36,7 @@ export function MapControls({
   filter,
   handleFilterChange,
 }: MapControlsProps) {
-  const { upcomingTrips, fetchTripById, selectedTrip, setSelectedTrip } = useTripStore();
+  const { upcomingTrips = [], fetchTripById, selectedTrip, setSelectedTrip } = useTripStore();
 
   const handleTripSelect = async (tripId: string) => {
     if (tripId === "none") {

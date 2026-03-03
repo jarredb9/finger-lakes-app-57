@@ -25,7 +25,29 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 - **Available Skills:** `codebase-analysis`, `problem-analysis`, `refactor`, `planner`, etc.
 - **Workflow:** Activate -> Read instructions -> Execute using specialized tools (e.g., `python3.11`).
 
-### 1. Environment & Shell
+### 1. Mandatory Diagnostic Protocol (PRIORITY 0)
+**NEVER** apply a fix for a failing E2E test based on assumptions. You **must** follow this diagnostic sequence first:
+*   **Log DOM:** If an element is missing, dump `page.content()` and log all `data-testid`s present in the target container.
+*   **Log Store:** Dump the relevant Zustand store state using `page.evaluate(() => useXStore.getState())`.
+*   **Log DB:** Perform a direct `supabase` SQL query *during* the test run to verify the backend state matches the UI expectation.
+*   **Console Sensitivity:** Prefix debug logs with `[DIAGNOSTIC]` to avoid triggering the strict console listener in `e2e/utils.ts`.
+
+### 2. PWA & WebKit (Safari) Stability
+WebKit in this environment is extremely brittle regarding offline I/O and binary data:
+*   **Blob Handles:** WebKit "detaches" Blob/File handles stored in IndexedDB during network flips (Offline -> Online). 
+*   **The Reconstitution Rule:** Always store photos as **Base64 strings** in the offline queue. When syncing, you **must** reconstitute them using the `new File([uint8array], name, { type })` constructor.
+*   **The CORS Mocking Rule:** **MANDATORY FOR WEBKIT.** Every `context.route()` fulfillment must include `Access-Control-Allow-Origin: '*'` and common headers (`POST, GET, OPTIONS`). Without these, WebKit will trigger `Load failed` or `StorageUnknownError` at the engine level, even if the mock is hit.
+*   **Interception:** For PWA tests, always use `page.context().route()` and ensure all mocked responses include `headers: { 'Cache-Control': 'no-store' }`.
+
+### 3. Next.js 16 Hydration & Synchronization
+*   **Avoid Hard Reloads:** Do not use `page.reload()` inside `toPass` retry loops. It kills hydration and leads to `Application Error` crashes.
+*   **Proactive Sync:** Use the "Proactive Sync" pattern: trigger store refreshes (e.g., `store.fetchFriends()`) via `page.evaluate` inside retry loops instead of reloading the page.
+*   **Clean Container Builds:** When modifying core logic (Zustand stores, React components, etc.), you **must** run the E2E script with the `--build` flag to ensure the production build inside the container is updated:
+    ```bash
+    ./scripts/run-e2e-container.sh --build [project]
+    ```
+
+### 4. Environment & Shell
 *   **Operating System:** Linux (RHEL 8 AWS EC2 Instance).
 *   **Node Version Manager:** When running `npm` commands, you **must** load NVM first:
     ```bash
@@ -35,9 +57,9 @@ This is a Next.js web application for planning and tracking visits to wineries. 
     *   **Start:** `pm2 start npm --name "winery-dev" -- run dev -- -p 3001`
     *   **Logs:** `pm2 logs winery-dev`
     *   **Stop:** `pm2 delete winery-dev`
-*   **Playwright Container (RHEL 8):** Local testing **must** use the rootless Podman container to bypass RHEL library protections and security restrictions (e.g., IndexedDB access).
-    *   **Mandatory Usage:** Do not run `npx playwright test` directly on the host. Always use the provided script.
-    *   **Script:** `./scripts/run-e2e-container.sh [project|all] [test-file]`
+*   **Playwright Container (RHEL 8):** Local testing **must** use the rootless Podman container.
+    *   **Script:** `./scripts/run-e2e-container.sh [--build] [project|all] [test-file]`
+    *   **Mandatory Build:** **YOU MUST** use the `--build` (or `-b`) flag if your changes involve core application logic (Zustand stores, services, utility functions, or React components). This ensures the Next.js production build inside the container is updated before the tests run. Failing to do so will result in tests running against stale code.
     *   **Configuration:** Requires `subuid`/`subgid` configured on the host. Bypasses RHEL library protections using `seccomp=unconfined`.
 *   **Deployment:** The application is deployed to a remote Vercel server. There is **no local installation** running on this specific shell instance unless managed via PM2.
 
@@ -197,6 +219,14 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **`useWineryMap`:** The "Brain" of the map view. Aggregates store data, handles map clicks, and manages the Google Maps instance.
 *   **`useTripActions`:** Encapsulates trip-specific logic like "Export to Google Maps".
 
+### CodeGraphContext (CGC)
+*   **Purpose:** Provides a Neo4j-backed code graph for architectural analysis and relationship tracking.
+*   **Launch Command:** `cgc mcp start` (The server must be running for graph tools to be available in the CLI).
+*   **Configuration:** 
+    *   **Backend:** Uses native Neo4j (FalkorDB Lite is incompatible with RHEL 8 GLIBC).
+    *   **Credentials:** Requires `~/.codegraphcontext/.env` with `NEO4J_URI`, `NEO4J_USERNAME`, and `NEO4J_PASSWORD`.
+    *   **Optimization:** The `.next` directory is explicitly ignored in `mcp.json` to ensure indexing performance and graph relevance.
+
 ## Project Structure
 
 ```
@@ -245,33 +275,34 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **The Fix:** Always subscribe directly to the specific reactive state from the Zustand store you need. For example, instead of `const { getWineries } = useWineryStore();`, use `const persistentWineries = useWineryDataStore((state) => state.persistentWineries);` and include `persistentWineries` in your `useMemo` dependency array. This ensures components re-render when the data truly changes.
 
 ### 5. Map Lifecycle & `idle` Events in E2E
-*   **Concept:** The winery list relies on the map's `idle` event to trigger initial search.
-*   **The Trap:** In mocked E2E environments where map tiles are blocked, the `idle` event may not fire, resulting in an empty winery list.
-*   **The Fix:** Use a manual "Search This Area" trigger in E2E tests to bypass the map's lifecycle dependency.
+*   **Concept:** The winery list relies on the map's `idle` event to trigger search results.
+*   **The Trap:** In mocked E2E environments where map tiles are blocked or WebKit is used, the `idle` event may fire inconsistently or not at all, resulting in an empty winery list.
+*   **The Fix:** Use the **"Force Visibility Pattern"** in spec files. Manually inject map bounds into the `useMapStore` via `page.evaluate`. This immediately triggers the `listResultsInView` calculation, making wineries appear instantly without relying on the Map SDK lifecycle.
 
-### 6. Radix UI & Pointer Events in Playwright Mobile
-*   **Concept:** Radix UI primitives (like `TabsTrigger`) often rely on complex pointer event sequences (`pointerdown`, `mousedown`, `pointerup`, `mouseup`, `click`) to handle focus and state changes correctly.
-*   **The Trap:** In Playwright mobile emulation (especially with touch enabled), a simple `page.click()` or `element.evaluate(el => el.click())` may fail to trigger the state change because it lacks the full event sequence Radix expects.
-*   **The Fix:** Manually dispatch the full pointer event sequence using `element.dispatchEvent` in an `evaluate` block. See `e2e/helpers.ts` -> `navigateToTab` for the implementation.
+### 6. Mock Registration Order (The Silent Killer)
+*   **Concept:** Fixtures (like `mockMaps`) and Spec files both register network routes.
+*   **The Trap:** Registering a mock in a `beforeEach` block *before* calling a fixture method that uses `unroute()` (e.g., `useRealVisits()`) will result in your custom mock being deleted.
+*   **The Fix:** ALWAYS call fixture-state transitions (e.g., `mockMaps.useRealVisits()`) at the very top of your `beforeEach` or test body before registering test-specific routes.
 
-### 7. Temporary IDs and Interaction Guards
-*   **Concept:** Newly created trips use negative temporary IDs until saved to Supabase.
-*   **The Trap:** Attempting to add wineries or modify members of a trip with a negative ID will fail at the database level.
-*   **The Fix:** Components (like `TripCard`) must disable modification buttons (Edit, Add Member) when `trip.id < 0`.
+### 7. successSelector Robustness
+*   **Concept:** The `login` helper needs a definitive signal that the dashboard has loaded.
+*   **The Trap:** Using text-based headings like `h1:has-text("Winery Tracker")` is brittle during React 19 hydration. Elements may briefly detach or the text might not be indexed immediately by the accessibility tree in WebKit.
+*   **The Fix:** Use a multi-option selector that includes stable `data-testid` fallbacks: `'h1:has-text("Winery Tracker"), [data-testid="desktop-sidebar-container"]'`.
 
-### 8. Modal Scrolling Race Conditions
-*   **Concept:** Hydrating visits after a modal opens can trigger "scroll to history" effects.
-*   **The Trap:** Modals may jump to the middle or bottom during initial load.
-*   **The Fix:** Use a `hasHydrated` ref to distinguish between initial data load and manual visit additions. Consolidate scroll resets into effects that fire only when `isLoading` is false.
+### 8. WebKit Interception Overhead
+*   **Concept:** Blocking costly APIs (Google Maps, etc.) reduces test spend.
+*   **The Trap:** Applying broad blocking routes to both `browserContext` and `page` simultaneously can cause WebKit to hang or throw "Route already handled" errors.
+*   **The Fix:** Apply broad "Abort Costly APIs" routes to the `context` ONLY. Individual `page.route` calls can still be used for test-specific overrides as they naturally take precedence.
 
-### 9. ARIA Hidden Conflicts (Nesting)
-*   **Concept:** Radix `Dialog` applies `aria-hidden` to siblings to enforce modality.
-*   **The Trap:** Rendering multiple dialogs or nesting them inside components that are duplicated (like a mobile/desktop sidebar) causes "Blocked aria-hidden" warnings and focus loss.
-*   **The Fix:** Render global modals (`WineryModal`, `VisitHistoryModal`) exactly once at the app root (`AppShell`). Decouple modal transitions with small `setTimeout` delays to allow one to start closing before the next opens.
+### 9. Fulfillment Safety
+*   **Concept:** Mocking API responses with `route.fulfill()`.
+*   **The Trap:** In high-latency or containerized environments, failing to `await route.fulfill()` can lead to race conditions where the test context is torn down before the response is fully transmitted.
+*   **The Fix:** ALWAYS `await` all `route.fulfill()` calls.
 
-### 10. A11y Scanning & Skeletons
-*   **Concept:** Scanning a page while it's loading results in "Empty Heading" or "Missing Label" violations.
-*   **The Fix:** E2E tests must wait for logical loading states (e.g., `svg.animate-spin`) to disappear before running `AxeBuilder.analyze()`.
+### 10. Toast Regex Flexibility
+*   **Concept:** Validating success messages.
+*   **The Trap:** Success messages can change based on network state (e.g., "Visit added successfully" vs "Visit cached").
+*   **The Fix:** Use flexible regex patterns in helpers like `logVisit`: `/(Visit added successfully|Visit cached)/i`.
 
 ### 11. Visual Regression & Engines
 *   **Concept:** Different browser engines render fonts and borders with sub-pixel differences.
@@ -301,6 +332,73 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **Concept:** The `login` helper in E2E tests should be simple and deterministic.
 *   **The Trap:** Adding complex retry loops or `Promise.race` logic to handle "flakiness" often masks underlying issues (like incorrect selectors or network mocking) and leads to timeouts or detached DOM element errors.
 *   **The Fix:** Rely on standard Playwright auto-waiting (`await page.fill`, `await page.click`). If a test is flaky, investigate the application state or test environment first.
+
+### 17. Build-Time Safety (Store Destructuring)
+*   **Concept:** Zustand stores may return `undefined` for arrays during the first render or hydration phase.
+*   **The Trap:** Code like `const { friends } = useFriendStore();` followed by `friends.length` will crash the build or runtime with a `TypeError`.
+*   **The Fix:** ALWAYS provide a default empty array when destructuring: `const { friends = [] } = useFriendStore();`.
+
+### 18. Mandatory Store Exposure for E2E
+*   **Concept:** The `login` helper in E2E tests relies on checking store state via `window`.
+*   **The Trap:** If a new store (like `visitStore`) is created but not exposed at the bottom of the file, the `login` helper will time out waiting for hydration.
+*   **The Fix:** Every major Zustand store MUST have the exposure block at the bottom:
+    ```typescript
+    if (typeof window !== 'undefined') {
+      (window as any).useVisitStore = useVisitStore;
+    }
+    ```
+
+### 19. Mobile Overlay Conflicts
+*   **Concept:** The `WineryModal` and `InteractiveBottomSheet` can overlap on mobile.
+*   **The Trap:** Leaving a modal open while trying to navigate to a new tab (like Friends) will block the navigation triggers or keep the background `aria-hidden`.
+*   **The Fix:** Explicitly close any open modals (`await expect(modal).not.toBeVisible()`) before performing tab navigation in mobile E2E tests.
+
+### 20. Social Sync & Eventual Consistency
+*   **Concept:** Database triggers (like profile creation on signup) or cross-user actions (friend requests) have a slight delay.
+*   **The Trap:** Logging in a new user and immediately fetching their profile might return `null`, stalling the test.
+*   **The Fix:** Use the `setupFriendship` helper in `e2e/helpers.ts` which handles reloads and retry-loops for cross-user visibility. Update `userStore.ts` to include a retry loop for the initial profile fetch.
+
+### 21. Empty RPC Parameters / 404 Error
+*   **Concept:** Supabase RPCs fail with 404 if parameter types don't match or are missing.
+*   **The Trap:** Calling `toggle_favorite_privacy` with an undefined `p_winery_id` or a mock string ID (like `'mock-1'`) when the database expects an `integer`.
+*   **The Fix:** Always use `await ensureInDb(wineryId)` before calling relational RPCs. This ensures mock wineries are promoted to real database records with numeric IDs.
+
+### 22. Viewport Mismatch in Multi-Context Tests
+*   **Concept:** Tests using `browser.newContext()` for secondary users.
+*   **The Trap:** Creating a new context without specifying `viewport` and `userAgent`. If the test project is "Mobile Chrome", the first user gets a mobile viewport by default, but the second user (in a manual context) will default to desktop dimensions, causing locators to fail.
+*   **The Fix:** Always pass the test parameters to isolated contexts: `await browser.newContext({ viewport, userAgent })`.
+
+## Advanced Testing Patterns (The "Gold Standard")
+
+### The App Ready Pattern (Hydration Guard)
+Always wait for full hydration before interacting with the UI, especially after a login or reload on mobile. Use the centralized helper:
+```typescript
+await waitForAppReady(page); // Checks for bottom bar on mobile or sidebar on desktop
+```
+
+### Deterministic Mobile Navigation
+Avoid text-based selectors for mobile tabs. Use the `getTabTrigger` helper which leverages `data-testid` locators like `mobile-nav-explore`.
+```typescript
+const tab = getTabTrigger(page, 'Friends');
+await robustClick(page, tab);
+```
+
+### The Force Visibility Pattern
+When testing flows that require selecting a winery from the sidebar list, do not wait for the map to "load" results. Use this pattern to make them appear instantly:
+```typescript
+await page.evaluate(() => {
+    const winery = (window as any).useWineryDataStore.getState().persistentWineries.find(w => w.name === 'My Winery');
+    if (winery) {
+        (window as any).useMapStore.setState({ 
+            bounds: { contains: () => true, getNorthEast: () => ({lat: () => 0, lng: () => 0}), getSouthWest: () => ({lat: () => 0, lng: () => 0}) },
+            filter: ['all'] 
+        });
+    }
+});
+```
+
+### The WebKit Settlement Buffer
+WebKit often needs a small "settlement" period after complex state changes (like going online/offline) or navigation. A 500ms `page.waitForTimeout` after `context.setOffline(false)` is acceptable when targeting WebKit specifically.
 
 ## Future Implementations
 *   **Mobile App:** The future desired state for the web application is to have both the web browser capability and an app deployed to mobile app stores. This necessitates ensuring that RPC functions are prioritized over API routes to ensure mobile application functionality. 
@@ -468,6 +566,26 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   **Cross-Browser Social Stabilization:** Hardened `friends-flow` and `social-feed` tests with `robustClick()` and `expect(...).toPass()` retry logic, resolving flakiness in WebKit/Safari.
     *   **RPC Production Cleanup:** Applied migration `20260224144042_cleanup_social_feed_rpc.sql` to remove temporary debug JSON wrappers from the `get_friend_activity_feed` RPC, restoring it to a clean flat-array format.
     *   **Visual Regression Sync:** Regenerated all baseline snapshots inside the Docker container to account for rendering engine differences between standard GitHub runners and the official Playwright image.
+77. **Friend Profiles & Privacy (v2.5.0):**
+    *   **Privacy Schema:** Implemented `privacy_level` for profiles and `is_private` for visits with corresponding RLS policies.
+    *   **Security:** Rewrote social RPCs (`get_friend_activity_feed`, etc.) to strictly respect profile and visit privacy settings using optimized subquery patterns.
+    *   **Profile Discovery:** Created dedicated `/friends/[id]` profile pages showing public stats and history.
+    *   **Hydration Resiliency:** Implemented a retry mechanism in `userStore.ts` for profile fetching to resolve E2E race conditions during account creation.
+    *   **E2E Standardization:** Consolidated social setup into a robust `setupFriendship` helper and enforced mandatory store exposure for all major data layers.
+78. **Item Privacy & Mobile Stability (v2.5.1):**
+    *   **ID Resolution:** Hardened `wineryDataStore` to force mock-to-real identity resolution via `ensureInDb` before relational RPCs, preventing 404 parameter mismatches.
+    *   **Mobile Navigation:** Implemented `data-testid` attributes for the mobile bottom bar and a centralized `waitForAppReady` hydration guard.
+    *   **Multi-Context Fix:** Standardized isolated browser contexts in E2E tests to inherit project viewports, ensuring cross-browser parity for multi-user flows.
+79. **Granular Privacy & Settings Hub (v2.6.0):**
+    *   **Privacy Schema:** Implemented three-tier privacy (Public, Friends Only, Private) across Profiles, Visits, Favorites, and Wishlists.
+    *   **Settings Hub:** Introduced a dedicated `/settings` page for user configuration, refactoring privacy controls out of the social tab.
+    *   **Atomic Privacy:** Developed secure RPCs for toggling item-level privacy (`toggle_favorite_privacy`, `toggle_wishlist_privacy`) and a centralized visibility helper.
+    *   **Friend Profiles:** Created rich, privacy-aware friend profile pages (`/friends/[id]`) with social stats and filtered histories.
+    *   **E2E Validation:** Expanded the test suite with a dedicated `privacy-flow.spec.ts` and hardened `friends-flow` for the new settings navigation.
+80. **Test Stability & Store Logic Fixes:**
+    *   **ID Threshold:** Fixed a bug in `wineryDataStore.ts` where database IDs < 100 were being ignored by `ensureInDb`, causing failures in environments with low-incrementing IDs.
+    *   **E2E Mobile Login:** Hardened the `login` helper in `e2e/helpers.ts` to correctly respect the `skipMapReady` option on mobile viewports, resolving failures in `error-handling.spec.ts`.
+    *   **Component Testing:** Updated `WineryCardThumbnail` tests to match dynamic `data-testid` patterns and established `PrivacySettings.test.tsx` following the UI refactor.
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
@@ -507,6 +625,7 @@ We have established a robust E2E testing infrastructure using **Playwright**.
 *   **`visit-flow.spec.ts`:** Tests visit logging, editing, and deletion (name-agnostic).
 *   **`photo-flow.spec.ts`:** Tests the full lifecycle of photo management (add, verify, delete).
 *   **`friends-flow.spec.ts`:** Tests complex **Multi-User / Real-Time** interactions using two distinct browser contexts.
+*   **`privacy-flow.spec.ts`:** Tests profile visibility and private visit logging across multiple user accounts.
 *   **`social-feed.spec.ts`:** Verifies real-time activity updates across friend accounts.
 *   **`runtime-audit.spec.ts`:** Performs deep runtime verification of hydration health and session persistence on the live dev server.
 *   **`pwa-offline.spec.ts`:** Verifies offline capabilities including navigation cache, offline indicator, and mutation queueing logic.
@@ -555,6 +674,15 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **Firefox Docker permissions:** Firefox requires the `HOME` environment variable to be set to a directory owned by the running user (e.g., `HOME: /root` in CI) to successfully create its profile.
 *   **Visual Snapshot Mismatches:** Rendering engines differ slightly between OS environments. Baseline snapshots MUST be generated in the Docker container to pass in CI.
 *   **RPC JSON Overloading:** Be careful with RPC return types. If a frontend store expects an array and the RPC returns a JSON object (e.g., for debug wrapping), the store must be updated to unwrap the data.
+*   **Standalone Settings Navigation:** The `/settings` page is a standalone view outside the main `AppShell` tab system.
+    *   **The Success Selector:** When updating `waitForAppReady` in `e2e/helpers.ts`, you MUST include `[data-testid="settings-page-container"]` in the success selector list to prevent timeouts on the settings page.
+    *   **Direct Navigation:** Prefer `page.goto('/settings')` for privacy-related tests to ensure a clean state and avoid reliance on sidebar tab transitions which may be disabled or hidden.
+
+### 23. ensureInDb Numeric ID Threshold
+*   **Concept:** Relational database IDs (BigInt/Integer) typically start at 1 and increment.
+*   **The Trap:** Implementing logic that ignores IDs below a certain threshold (e.g., `id > 100`) will cause silent failures in fresh environments or test databases where IDs are low.
+*   **The Fix:** Always validate for `id > 0` when checking for a valid existing database primary key. This was fixed in `wineryDataStore.ts`.
+
 
 
 

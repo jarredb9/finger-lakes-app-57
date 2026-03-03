@@ -43,10 +43,10 @@ const SortIcon = ({ sortKey, currentKey, direction }: { sortKey: SortConfig['key
 
 export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (wineryId: string) => void; }) {
     const { 
-        visits, 
+        visits = [], 
         isLoading, 
-        page, 
-        totalPages, 
+        page = 1, 
+        totalPages = 1, 
         fetchVisits 
     } = useVisitStore();
     

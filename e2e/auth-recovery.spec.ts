@@ -3,13 +3,17 @@ import { robustClick } from './helpers';
 
 test.describe('Auth Recovery (Password Reset)', () => {
   test('should allow user to request a reset link and then reset the password', async ({ page }) => {
+    const context = page.context();
     // 1. Mock the forgot-password API
-    await page.route('**/api/auth/forgot-password', async (route) => {
+    await context.route('**/api/auth/forgot-password', async (route) => {
       console.log('Intercepted forgot-password');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        headers: { 'Cache-Control': 'no-store' },
+        headers: { 
+            'Cache-Control': 'no-store',
+            'Access-Control-Allow-Origin': '*'
+        },
         body: JSON.stringify({ message: 'Password reset email sent' }),
       });
     });
@@ -33,12 +37,15 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await expect(page.getByRole('alert').filter({ hasText: 'password reset link has been sent' })).toBeVisible();
 
     // 3. Mock the reset-password API
-    await page.route('**/api/auth/reset-password', async (route) => {
+    await context.route('**/api/auth/reset-password', async (route) => {
       console.log('Intercepted reset-password');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
-        headers: { 'Cache-Control': 'no-store' },
+        headers: { 
+            'Cache-Control': 'no-store',
+            'Access-Control-Allow-Origin': '*'
+        },
         body: JSON.stringify({ message: 'Password updated successfully' }),
       });
     });
@@ -51,7 +58,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('new-password-123');
     
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await robustClick(resetBtn);
+    await robustClick(page, resetBtn);
 
     // 5. Verify Success and Redirection
     const successAlert = page.getByRole('alert').filter({ hasText: 'successfully' });
@@ -62,8 +69,13 @@ test.describe('Auth Recovery (Password Reset)', () => {
   });
 
   test('should show error when passwords do not match', async ({ page }) => {
-    await page.route('**/api/auth/reset-password', async (route) => {
-        route.fulfill({ status: 400, body: JSON.stringify({ error: 'Passwords do not match' }) });
+    const context = page.context();
+    await context.route('**/api/auth/reset-password', async (route) => {
+        route.fulfill({ 
+            status: 400, 
+            headers: { 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({ error: 'Passwords do not match' }) 
+        });
     });
     await page.goto('/reset-password?code=mock-code');
     await expect(page.getByText('Reset Your Password', { exact: false })).toBeVisible();
@@ -71,8 +83,8 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('New Password', { exact: true }).fill('password123');
     await page.getByLabel('Confirm New Password', { exact: true }).fill('password456');
     
-    // Use Enter key which is more reliable for form submission in WebKit
-    await page.keyboard.press('Enter');
+    const resetBtn = page.getByRole('button', { name: 'Reset Password' });
+    await robustClick(page, resetBtn);
 
     await expect(page.getByText('Passwords do not match.', { exact: false })).toBeVisible({ timeout: 15000 });
   });

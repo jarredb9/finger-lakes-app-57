@@ -36,7 +36,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
     };
 
     return (
-        <Card className="w-full">
+        <Card className="w-full" data-testid="trip-card">
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg md:text-xl">{trip.name || "Unnamed Trip"}</CardTitle>
@@ -85,7 +85,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
                         </Popover>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="icon"><Trash2 size={16} /></Button>
+                                <Button variant="destructive" size="icon" data-testid="delete-trip-btn"><Trash2 size={16} /></Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
@@ -94,7 +94,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onDelete(trip.id)}>Delete</AlertDialogAction>
+                                    <AlertDialogAction onClick={() => onDelete(trip.id)} data-testid="confirm-delete-trip-btn">Delete</AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
@@ -132,7 +132,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
             </CardHeader>
             <CardContent>
                 <div className="flex justify-between items-center">
-                    <Button onClick={() => handleViewTrip(trip.id)}>View Details <ArrowRight className="ml-2 h-4 w-4" /></Button>
+                    <Button onClick={() => handleViewTrip(trip.id)} data-testid="view-trip-details-btn">View Details <ArrowRight className="ml-2 h-4 w-4" /></Button>
                     <Badge variant="secondary"><Wine className="w-3 h-3 mr-1" /> {trip.wineries_count ?? trip.wineries?.length ?? 0} Wineries</Badge>
                 </div>
             </CardContent>

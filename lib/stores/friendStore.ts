@@ -9,6 +9,7 @@ interface Friend {
   email: string;
   status?: 'pending' | 'accepted';
   requester_id?: string;
+  privacy_level?: 'public' | 'friends_only' | 'private';
 }
 
 interface FriendActivityData {
@@ -39,8 +40,10 @@ interface FriendState {
   friendsRatings: FriendRating[];
   friendsActivity: FriendActivityData;
   subscription: any;
+  selectedFriendProfile: any | null;
   fetchFriends: () => Promise<void>;
   fetchFriendActivityFeed: () => Promise<void>;
+  fetchFriendProfile: (friendId: string) => Promise<void>;
   addFriend: (email: string) => Promise<void>;
   acceptFriend: (requesterId: string) => Promise<void>;
   rejectFriend: (requesterId: string) => Promise<void>;
@@ -62,32 +65,36 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   friendsRatings: [],
   friendsActivity: { favoritedBy: [], wishlistedBy: [] },
   subscription: null as any,
+  selectedFriendProfile: null,
 
   subscribeToSocialUpdates: () => {
     if (get().subscription) return;
 
     const supabase = createClient();
+    console.log('[friendStore] Subscribing to social updates...');
+
     const subscription = supabase
       .channel('social-updates')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'visits' },
-        async (_payload) => {
-          // Refresh feed if a new visit is logged
-          // In a more advanced version, we'd check if payload.new.user_id is a friend
+        async (payload) => {
+          console.log('[friendStore] Received visit change payload:', JSON.stringify(payload));
           await get().fetchFriendActivityFeed();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'friends' },
-        async () => {
-          // Refresh friends list if friendship changes
+        async (payload) => {
+          console.log('[friendStore] Received friend change payload:', JSON.stringify(payload));
           await get().fetchFriends();
           await get().fetchFriendActivityFeed();
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[friendStore] Subscription status:', status);
+      });
 
     set({ subscription });
   },
@@ -109,7 +116,7 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       if (error) throw error;
 
       // RPC returns a combined object, destructure it
-      // Based on typical structure of get_friends_and_requests
+      // Based on actual structure of get_friends_and_requests: { friends, requests, sent_requests }
       const { friends, requests, sent_requests } = data as any; 
 
       set({ 
@@ -160,6 +167,49 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       // Don't set global error state here to avoid blocking other UI
     } finally {
       set({ isLoading: false });
+    }
+  },
+
+  fetchFriendProfile: async (friendId: string) => {
+    set({ isLoading: true, selectedFriendProfile: null });
+    const supabase = createClient();
+    try {
+        const { data, error } = await supabase.rpc('get_friend_profile_with_visits', {
+            friend_id_param: friendId
+        });
+
+        if (error) throw error;
+        
+        // Handle explicit error from RPC (access denied)
+        if (data && (data as any).error) {
+            throw new Error((data as any).error);
+        }
+
+        let profileData = data as any;
+
+        // Sign photos for the friend's visits
+        const visits = profileData?.visits || [];
+        const allPhotos = visits.flatMap((v: any) => v.photos || []);
+        if (allPhotos.length > 0) {
+            const { data: signedUrlsData, error: signedError } = await supabase.storage
+                .from('visit-photos')
+                .createSignedUrls(allPhotos, 3600);
+
+            if (!signedError && signedUrlsData) {
+                const urlMap = new Map(signedUrlsData.map(u => [u.path, u.signedUrl]));
+                profileData.visits = visits.map((v: any) => ({
+                    ...v,
+                    photos: v.photos?.map((p: string) => urlMap.get(p) || p) || []
+                }));
+            }
+        }
+
+        set({ selectedFriendProfile: profileData });
+    } catch (error: any) {
+        console.error('Error fetching friend profile:', error);
+        set({ error: error.message });
+    } finally {
+        set({ isLoading: false });
     }
   },
 
@@ -319,5 +369,10 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
     error: null,
     friendsRatings: [],
     friendsActivity: { favoritedBy: [], wishlistedBy: [] },
+    selectedFriendProfile: null,
   }),
 }), shallow);
+// Expose store for E2E testing
+if (typeof window !== 'undefined') {
+  (window as any).useFriendStore = useFriendStore;
+}

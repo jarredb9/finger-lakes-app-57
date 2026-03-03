@@ -8,10 +8,24 @@ set -e
 # 1. Configuration
 PLAYWRIGHT_VERSION="v1.58.0-noble"
 IMAGE="mcr.microsoft.com/playwright:$PLAYWRIGHT_VERSION"
+
+# Parse optional flags
+SHOULD_BUILD=false
+while [[ "$#" -gt 0 ]]; do
+    case $1 in
+        -b|--build) SHOULD_BUILD=true; shift ;;
+        *) break ;; # Stop parsing if we hit the project arg or a filename
+    esac
+done
+
 PROJECT_ARG=$1
 
 echo "🚀 Starting Playwright Containerized Tests (Rootless)..."
 echo "📦 Image: $IMAGE"
+
+if [ "$SHOULD_BUILD" = true ]; then
+    echo "🏗️  Forcing a fresh production build..."
+fi
 
 # Determine command based on argument
 if [ "$PROJECT_ARG" == "all" ]; then
@@ -34,7 +48,7 @@ if ! podman image exists "$IMAGE"; then
 fi
 
 # 3. Run the container
-# We pass the TEST_CMD as an environment variable to avoid shell escaping issues with parentheses/spaces
+# We pass the TEST_CMD as an environment variable to avoid shell escaping issues
 podman run --rm -it \
     --network=host \
     -v "$(pwd):/work:Z" \
@@ -45,11 +59,18 @@ podman run --rm -it \
     -e IS_E2E=true \
     -e E2E_REAL_DATA="$E2E_REAL_DATA" \
     -e TEST_CMD="$TEST_CMD" \
+    -e SHOULD_BUILD="$SHOULD_BUILD" \
     "$IMAGE" \
     /bin/bash -c '
         if [ ! -d "node_modules" ]; then
             echo "Installing dependencies..."
             npm install
+        fi
+
+        if [ "$SHOULD_BUILD" = "true" ]; then
+            echo "🧹 Cleaning and building inside container..."
+            rm -rf .next
+            npm run build
         fi
         
         echo "🎬 Running inside container: $TEST_CMD"

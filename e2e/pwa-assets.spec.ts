@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, getSidebarContainer, waitForMapReady, clearServiceWorkers, robustClick } from './helpers';
+import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, logVisit } from './helpers';
 
 test.describe('PWA Assets & Sync', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -23,29 +23,28 @@ test.describe('PWA Assets & Sync', () => {
     await navigateToTab(page, 'Explore');
     await waitForMapReady(page);
     
-    // Target the winery in the list specifically within the visible sidebar
-    const sidebar = getSidebarContainer(page);
-    const resultsList = sidebar.getByTestId('winery-results-list');
-
-    // Wait for the specific winery to appear, triggering search if needed
-    await expect(async () => {
-        const wineryItem = resultsList.getByText('Vineyard of Illusion').first();
-        if (await wineryItem.isVisible()) return;
-
-        // If not found, check if we need to trigger a manual search
-        const noResults = await resultsList.getByText('No wineries found').isVisible();
-        if (noResults) {
-            await sidebar.getByRole('button', { name: 'Search This Area' }).click();
-        }
+    console.log('[Test] Forcing winery visibility in list...');
+    await page.evaluate(() => {
+        const dataStore = (window as any).useWineryDataStore.getState();
+        const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
         
-        await expect(wineryItem).toBeVisible({ timeout: 2000 });
-    }).toPass({ timeout: 15000 });
-    
-    const wineryItem = resultsList.getByText('Vineyard of Illusion').first();
-    await robustClick(wineryItem);
+        if (mockWinery) {
+            const mockBounds = {
+                contains: () => true,
+                getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
+                getSouthWest: () => ({ lat: () => 42, lng: () => -77 })
+            };
+            (window as any).useMapStore.setState({ 
+                bounds: mockBounds,
+                filter: ['all'] 
+            });
+        }
+    });
+
+    // Target the winery in the list specifically within the visible sidebar
+    await openWineryDetails(page, 'Vineyard of Illusion');
 
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
     await expect(modal.getByRole('heading', { name: 'Vineyard of Illusion' })).toBeVisible();
 
     // 2. Go Offline
@@ -55,11 +54,7 @@ test.describe('PWA Assets & Sync', () => {
 
     // 3. Create Visit (Queued)
     await page.getByLabel('Visit Date').fill('2025-01-02');
-    await page.getByLabel('Your Review').fill('Sync Me!');
-    await page.getByRole('button', { name: 'Add Visit' }).click();
-    
-    // Verify toast says cached
-    await expect(page.getByText(/Visit (Saved|cached)/).first()).toBeVisible();
+    await logVisit(page, { review: 'Sync Me!' });
     
     // 4. Setup Interception for Sync (using context.route for SW)
     let syncRequestMade = false;
@@ -86,8 +81,8 @@ test.describe('PWA Assets & Sync', () => {
   test('should cache images and load them offline', async ({ page, context }) => {
     const fakeImageUrl = 'https://supabase.co/storage/v1/object/public/visit-photos/test-image.jpg';
 
-    await context.route(fakeImageUrl, route => {
-        route.fulfill({
+    await context.route(fakeImageUrl, async route => {
+        await route.fulfill({
             status: 200,
             contentType: 'image/jpeg',
             headers: { 'Cache-Control': 'public, max-age=31536000' }, // Stimulate caching

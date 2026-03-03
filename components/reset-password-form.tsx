@@ -54,7 +54,7 @@ export default function ResetPasswordForm() {
 
       if (response.ok) {
         setMessage('Your password has been reset successfully. You can now sign in with your new password.')
-        setTimeout(() => router.push('/login'), 3000)
+        setTimeout(() => router.push('/login'), 5000)
       } else {
         setError(data.error || 'Failed to reset password.')
       }
@@ -72,15 +72,15 @@ export default function ResetPasswordForm() {
         <CardTitle><h1 className="text-2xl font-bold">Reset Your Password</h1></CardTitle>
         <CardDescription>Enter a new password for your account.</CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} data-testid="reset-password-form">
         <CardContent className="space-y-4">
           {message && (
-            <Alert variant="default">
+            <Alert variant="default" data-testid="reset-password-success">
               <AlertDescription>{message}</AlertDescription>
             </Alert>
           )}
           {error && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" data-testid="reset-password-error">
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
@@ -93,6 +93,7 @@ export default function ResetPasswordForm() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              data-testid="reset-password-input"
             />
           </div>
           <div className="space-y-2">
@@ -104,6 +105,7 @@ export default function ResetPasswordForm() {
               required
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
+              data-testid="reset-password-confirm-input"
             />
           </div>
         </CardContent>

@@ -1,4 +1,4 @@
-import { Winery, DbWinery, GooglePlaceId, WineryDbId, OpeningHours, PlaceReview, MapMarkerRpc, WineryDetailsRpc, DbWineryWithUserData } from '@/lib/types'; // Import RPC types and Json
+import { Winery, DbWinery, GooglePlaceId, WineryDbId, OpeningHours, PlaceReview, MapMarkerRpc, WineryDetailsRpc } from '@/lib/types'; // Import RPC types and Json
 import { Json } from '@/lib/database.types'; // Import Json directly
 
 // Represents raw data from Google Places API or similar external sources
@@ -33,24 +33,23 @@ function isGoogleWinery(source: any): source is GoogleWinery {
 }
 
 // Helper to check if a source is MapMarkerRpc
-function isMapMarkerRpc(source: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData): source is MapMarkerRpc {
+function isMapMarkerRpc(source: any): source is MapMarkerRpc {
   // Must have MapMarker fields
-  const hasFields = 'is_favorite' in source && 'on_wishlist' in source && 'user_visited' in source && 'id' in source;
-  // Must NOT have detailed fields (visits distinguishes it from WineryDetailsRpc)
-  const isNotDetailed = !('visits' in source);
-  
-  return hasFields && isNotDetailed;
+  return (
+    'google_place_id' in source &&
+    ('is_favorite' in source || 'is_favorite_private' in source) &&
+    !('visits' in source)
+  );
 }
 
 // Helper to check if a source is WineryDetailsRpc
-function isWineryDetailsRpc(source: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData): source is WineryDetailsRpc {
+function isWineryDetailsRpc(source: any): source is WineryDetailsRpc {
     // We check for visits and opening_hours to distinguish from MapMarkerRpc
-    // trip_info is optional or might be missing in some RPC versions
-    return 'visits' in source && 'opening_hours' in source; 
+    return 'visits' in source && ('opening_hours' in source || 'reviews' in source); 
 }
 
 // Helper to check if a source has raw DbWinery properties (without extended user data from RPC)
-function isRawDbWinery(source: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData): source is DbWinery {
+function isRawDbWinery(source: any): source is DbWinery {
   return !isGoogleWinery(source) && !isMapMarkerRpc(source) && !isWineryDetailsRpc(source) && 'created_at' in source;
 }
 
@@ -79,15 +78,10 @@ function parseOpeningHoursJson(json: Json | null): OpeningHours | null {
  * This is the single source of truth for data shape transformations.
  */
 export const standardizeWineryData = (
-  source: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData, 
+  source: any, 
   existing?: Winery
 ): Winery | null => {
   if (!source) return null;
-
-  if ('user_visited' in source && !isMapMarkerRpc(source) && !isWineryDetailsRpc(source)) {
-    console.warn('[standardizeWineryData] Source has user_visited but isMapMarkerRpc returned false. Keys:', Object.keys(source));
-    if ('id' in source) console.warn('ID type:', typeof (source as any).id);
-  }
 
   // 1. Resolve ID (Google Place ID)
   const googleId = (
@@ -105,7 +99,9 @@ export const standardizeWineryData = (
   // 2. Resolve DB ID
   let resolvedDbId: number | undefined;
   
-  if (!isGoogleWinery(source) && !isMapMarkerRpc(source) && !isWineryDetailsRpc(source) && typeof (source as DbWinery).id === 'number') {
+  if (typeof source.dbId === 'number') {
+      resolvedDbId = source.dbId;
+  } else if (!isGoogleWinery(source) && !isMapMarkerRpc(source) && !isWineryDetailsRpc(source) && typeof (source as DbWinery).id === 'number') {
       resolvedDbId = (source as DbWinery).id;
   } else if (isMapMarkerRpc(source)) {
       resolvedDbId = typeof source.id === 'number' ? source.id : (source.id ? Number(source.id) : undefined);
@@ -143,30 +139,33 @@ export const standardizeWineryData = (
   // Conditionally access properties using type guards
   const name = source.name || existing?.name || 'Unknown Winery';
   const address = isGoogleWinery(source) ? (source.formatted_address || source.address) : source.address;
-  const phone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? source.phone : isWineryDetailsRpc(source) ? source.phone : null);
-  const website = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? source.website : null);
-  const rating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? source.google_rating : isWineryDetailsRpc(source) ? source.google_rating : null);
+  const phone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? (source as any).phone : isWineryDetailsRpc(source) ? (source as any).phone : null);
+  const website = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? (source as any).website : null);
+  const rating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? (source as any).google_rating : isWineryDetailsRpc(source) ? (source as any).google_rating : null);
 
-  const openingHours = (isGoogleWinery(source) ? source.opening_hours : (isWineryDetailsRpc(source) ? source.opening_hours : parseOpeningHoursJson(isRawDbWinery(source) ? source.opening_hours : (isMapMarkerRpc(source) ? (source.opening_hours as Json) : null)))) as OpeningHours | null;
-  const reviews = (isGoogleWinery(source) ? source.reviews : (isWineryDetailsRpc(source) ? source.reviews : parseReviewsJson(isRawDbWinery(source) ? source.reviews : null))) as PlaceReview[] | null;
-  const reservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? source.reservable : (isRawDbWinery(source) ? source.reservable : null));
+  const openingHours = (isGoogleWinery(source) ? source.opening_hours : (isWineryDetailsRpc(source) ? (source as any).opening_hours : parseOpeningHoursJson(isRawDbWinery(source) ? source.opening_hours : (isMapMarkerRpc(source) ? (source.opening_hours as Json) : null)))) as OpeningHours | null;
+  const reviews = (isGoogleWinery(source) ? source.reviews : (isWineryDetailsRpc(source) ? (source as any).reviews : parseReviewsJson(isRawDbWinery(source) ? source.reviews : null))) as PlaceReview[] | null;
+  const reservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? (source as any).reservable : (isRawDbWinery(source) ? source.reservable : null));
 
-  const userVisited = isMapMarkerRpc(source) ? source.user_visited : (isWineryDetailsRpc(source) ? source.user_visited : ((source as DbWineryWithUserData).user_visited ?? existing?.userVisited ?? false));
-  const onWishlist = isMapMarkerRpc(source) ? source.on_wishlist : (isWineryDetailsRpc(source) ? source.on_wishlist : ((source as DbWineryWithUserData).on_wishlist ?? existing?.onWishlist ?? false));
-  const isFavorite = isMapMarkerRpc(source) ? source.is_favorite : (isWineryDetailsRpc(source) ? source.is_favorite : ((source as DbWineryWithUserData).is_favorite ?? existing?.isFavorite ?? false));
+  const userVisited = 'user_visited' in source ? source.user_visited : (existing?.userVisited ?? false);
+  const onWishlist = 'on_wishlist' in source ? source.on_wishlist : (existing?.onWishlist ?? false);
+  const isFavorite = 'is_favorite' in source ? source.is_favorite : (existing?.isFavorite ?? false);
   
+  const favoriteIsPrivate = 'is_favorite_private' in source ? source.is_favorite_private : (existing?.favoriteIsPrivate ?? false);
+  const wishlistIsPrivate = 'on_wishlist_private' in source ? source.on_wishlist_private : (existing?.wishlistIsPrivate ?? false);
+
   // Logic to preserve existing visits unless new data overrides it
   // CRITICAL FIX: If source explicitly says userVisited is false, we MUST clear the visits array to prevent "ghost visits"
   // from persisting in the local cache after a deletion sync.
-  let visits = (isWineryDetailsRpc(source) && source.visits) ? source.visits : ((source as DbWineryWithUserData).visits || existing?.visits || []);
+  let visits = (isWineryDetailsRpc(source) && source.visits) ? source.visits : (source.visits || existing?.visits || []);
   
   if ('user_visited' in source && source.user_visited === false) {
       visits = [];
   }
 
-  const trip_id = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_id) ? source.trip_info[0].trip_id : ((source as DbWineryWithUserData).trip_id || existing?.trip_id);
-  const trip_name = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_name) ? source.trip_info[0].trip_name : ((source as DbWineryWithUserData).trip_name || existing?.trip_name);
-  const trip_date = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_date) ? source.trip_info[0].trip_date : ((source as DbWineryWithUserData).trip_date || existing?.trip_date);
+  const trip_id = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_id) ? source.trip_info[0].trip_id : (source.trip_id || existing?.trip_id);
+  const trip_name = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_name) ? source.trip_info[0].trip_name : (source.trip_name || existing?.trip_name);
+  const trip_date = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_date) ? source.trip_info[0].trip_date : (source.trip_date || existing?.trip_date);
   
   // Construct the Standard Object
   const standardized: Winery = {
@@ -189,6 +188,8 @@ export const standardizeWineryData = (
     userVisited: userVisited,
     onWishlist: onWishlist,
     isFavorite: isFavorite,
+    favoriteIsPrivate: favoriteIsPrivate,
+    wishlistIsPrivate: wishlistIsPrivate,
     
     // Arrays (Preserve)
     visits: visits,

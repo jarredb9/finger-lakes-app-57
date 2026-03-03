@@ -9,16 +9,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Star, User } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import Link from "next/link";
 
 export default function FriendActivityFeed() {
-  const { friendActivityFeed, fetchFriendActivityFeed, isLoading } = useFriendStore();
+  const { friendActivityFeed = [], fetchFriendActivityFeed, isLoading } = useFriendStore();
   const lastMutation = useVisitStore(state => state.lastMutation);
 
   useEffect(() => {
     fetchFriendActivityFeed();
   }, [fetchFriendActivityFeed, lastMutation]);
 
-  if (isLoading && friendActivityFeed.length === 0) {
+  if (isLoading && (!friendActivityFeed || friendActivityFeed.length === 0)) {
     return (
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
@@ -40,7 +41,7 @@ export default function FriendActivityFeed() {
     );
   }
 
-  if (friendActivityFeed.length === 0) {
+  if (!friendActivityFeed || friendActivityFeed.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg border border-dashed">
         <p>No recent activity from friends.</p>
@@ -50,28 +51,32 @@ export default function FriendActivityFeed() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="friend-activity-feed">
       <h3 className="font-semibold text-lg px-1">Friend Activity</h3>
       {friendActivityFeed.map((item, index) => (
-        <Card key={`${item.activity_user_id}-${item.created_at}-${index}`} className="overflow-hidden hover:shadow-xs transition-shadow">
+        <Card key={`${item.activity_user_id}-${item.created_at}-${index}`} className="overflow-hidden hover:shadow-xs transition-shadow" data-testid="friend-activity-item">
           <CardHeader className="p-4 pb-2 flex flex-row items-start gap-3 space-y-0">
-            <Avatar className="h-10 w-10 border">
-              <AvatarImage asChild src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.user_name}`}>
-                <Image 
-                  src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.user_name}`} 
-                  alt={item.user_name}
-                  width={40}
-                  height={40}
-                  unoptimized
-                />
-              </AvatarImage>
-              <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
-            </Avatar>
+            <Link href={`/friends/${item.activity_user_id}`}>
+              <Avatar className="h-10 w-10 border hover:opacity-80 transition-opacity">
+                <AvatarImage asChild src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.user_name}`}>
+                  <Image 
+                    src={`https://api.dicebear.com/7.x/initials/svg?seed=${item.user_name}`} 
+                    alt={item.user_name}
+                    width={40}
+                    height={40}
+                    unoptimized
+                  />
+                </AvatarImage>
+                <AvatarFallback><User className="h-4 w-4" /></AvatarFallback>
+              </Avatar>
+            </Link>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-medium leading-none truncate">
-                  {item.user_name}
-                </p>
+                <Link href={`/friends/${item.activity_user_id}`} className="hover:text-primary transition-colors">
+                  <p className="text-sm font-medium leading-none truncate">
+                    {item.user_name}
+                  </p>
+                </Link>
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
                   {formatDistanceToNow(new Date(item.created_at), { addSuffix: true })}
                 </span>

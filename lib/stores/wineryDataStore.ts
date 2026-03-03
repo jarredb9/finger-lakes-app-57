@@ -23,6 +23,8 @@ interface WineryDataState {
   // User Actions
   toggleFavorite: (wineryId: GooglePlaceId) => Promise<void>;
   toggleWishlist: (wineryId: GooglePlaceId) => Promise<void>;
+  toggleFavoritePrivacy: (wineryId: GooglePlaceId) => Promise<void>;
+  toggleWishlistPrivacy: (wineryId: GooglePlaceId) => Promise<void>;
   
   // Sync
   ensureInDb: (wineryId: GooglePlaceId) => Promise<WineryDbId | null>;
@@ -142,6 +144,9 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
               const { error } = await supabase.rpc('toggle_favorite', { p_winery_data: rpcWineryData });
               
               if (error) throw error;
+
+              // Ensure we have the REAL DB ID after toggling (since toggle_favorite returns boolean)
+              await get().ensureInDb(wineryId);
           } catch (err) {
               console.error("Fav toggle failed:", err);
               set({ persistentWineries: original }); // Revert
@@ -176,16 +181,79 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
             const { error } = await supabase.rpc('toggle_wishlist', { p_winery_data: rpcWineryData });
             
             if (error) throw error;
+
+            // Ensure we have the REAL DB ID after toggling
+            await get().ensureInDb(wineryId);
         } catch (err) {
             console.error("Wishlist toggle failed:", err);
             set({ persistentWineries: original }); // Revert
         }
       },
 
+      toggleFavoritePrivacy: async (wineryId: GooglePlaceId) => {
+          const original = get().persistentWineries;
+          const winery = original.find(w => w.id === wineryId);
+          if (!winery) return;
+
+          // CRITICAL: Ensure we have a real DB ID before calling privacy toggle
+          const dbId = await get().ensureInDb(wineryId);
+          if (!dbId) {
+              console.error("[wineryDataStore] Cannot toggle privacy: No DB ID available for winery", wineryId);
+              return;
+          }
+
+          // Optimistic
+          set({
+              persistentWineries: original.map(w => w.id === wineryId ? { ...w, favoriteIsPrivate: !w.favoriteIsPrivate, dbId } : w)
+          });
+
+          const supabase = createClient();
+          try {
+              const { error } = await supabase.rpc('toggle_favorite_privacy', { p_winery_id: dbId });
+              if (error) throw error;
+          } catch (err) {
+              console.error("[wineryDataStore] Fav privacy toggle failed:", err);
+              set({ persistentWineries: original }); // Revert
+          }
+      },
+
+      toggleWishlistPrivacy: async (wineryId: GooglePlaceId) => {
+          const original = get().persistentWineries;
+          const winery = original.find(w => w.id === wineryId);
+          if (!winery) return;
+
+          // CRITICAL: Ensure we have a real DB ID before calling privacy toggle
+          const dbId = await get().ensureInDb(wineryId);
+          if (!dbId) {
+              console.error("[wineryDataStore] Cannot toggle privacy: No DB ID available for winery", wineryId);
+              return;
+          }
+
+          // Optimistic
+          set({
+              persistentWineries: original.map(w => w.id === wineryId ? { ...w, wishlistIsPrivate: !w.wishlistIsPrivate, dbId } : w)
+          });
+
+          const supabase = createClient();
+          try {
+              const { error } = await supabase.rpc('toggle_wishlist_privacy', { p_winery_id: dbId });
+              if (error) throw error;
+          } catch (err) {
+              console.error("[wineryDataStore] Wishlist privacy toggle failed:", err);
+              set({ persistentWineries: original }); // Revert
+          }
+      },
+
       ensureInDb: async (wineryId: GooglePlaceId) => {
           const winery = get().persistentWineries.find(w => w.id === wineryId);
           if (!winery) return null;
-          if (winery.dbId) return winery.dbId;
+          
+          const currentDbId = winery.dbId;
+          
+          // If we already have a REAL numeric DB ID, return it
+          if (typeof currentDbId === 'number' && !isNaN(currentDbId) && currentDbId > 0) {
+              return currentDbId;
+          }
 
           const supabase = createClient();
           const rpcData = {
@@ -200,14 +268,19 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           };
           
           const { data: dbId, error } = await supabase.rpc('ensure_winery', { p_winery_data: rpcData });
-          if (error || !dbId) return null;
+          if (error || !dbId) {
+              console.error("[wineryDataStore] ensureInDb failed:", error);
+              return null;
+          }
+
+          const numericId = Number(dbId);
 
           // Update store with new DB ID
           set(state => ({
-              persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId: dbId as WineryDbId } : w)
+              persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId: numericId as WineryDbId } : w)
           }));
           
-          return dbId as WineryDbId;
+          return numericId as WineryDbId;
       },
 
       bulkUpsertWineries: async (wineries) => {

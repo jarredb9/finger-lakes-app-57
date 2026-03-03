@@ -11,7 +11,7 @@ import WinerySearchResults from "@/components/map/WinerySearchResults";
 import TripList from "@/components/trip-list";
 import { List } from "lucide-react";
 import GlobalVisitHistory from "@/components/global-visit-history"; // Import GlobalVisitHistory
-import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon, FileText, Shield } from "lucide-react";
+import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon, FileText, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import FriendsManager from "@/components/friends-manager";
@@ -56,9 +56,9 @@ export function AppSidebar({
   } = useWineryMapContext();
 
   const { setVisitHistoryModalOpen } = useUIStore();
-  const { friendRequests } = useFriendStore();
+  const { friendRequests = [] } = useFriendStore();
 
-  const friendRequestCount = friendRequests.length;
+  const friendRequestCount = friendRequests?.length || 0;
 
   const { isInstallable, isStandalone, installApp, isUpdateAvailable, updateApp } = usePwa();
   const { toast } = useToast();
@@ -110,7 +110,7 @@ export function AppSidebar({
   };
 
   return (
-    <div className={`flex flex-col h-full bg-white dark:bg-zinc-950 border-r ${className || ''}`}>
+    <div data-testid="app-sidebar" className={`flex flex-col h-full bg-white dark:bg-zinc-950 border-r ${className || ''}`}>
       {/* Branding Header & User Avatar */}
       <div className="p-4 border-b flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
@@ -137,9 +137,17 @@ export function AppSidebar({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              
+              <DropdownMenuItem asChild>
+                <Link href="/settings" className="w-full cursor-pointer flex items-center">
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Settings</span>
+                </Link>
+              </DropdownMenuItem>
+
               <DropdownMenuItem asChild>
                 <Link href="/privacy" className="w-full cursor-pointer flex items-center">
-                  <Shield className="mr-2 h-4 w-4" />
+                  <FileText className="mr-2 h-4 w-4" />
                   <span>Privacy Policy</span>
                 </Link>
               </DropdownMenuItem>

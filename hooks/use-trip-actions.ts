@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 export function useTripActions(trip: Trip) {
   const { toast } = useToast();
   const { addMembersToTrip } = useTripStore();
-  const { friends, fetchFriends } = useFriendStore();
+  const { friends = [], fetchFriends } = useFriendStore();
   const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
 
   useEffect(() => {

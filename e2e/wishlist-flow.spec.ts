@@ -1,5 +1,11 @@
 import { test, expect } from './utils';
-import { getSidebarContainer, login, navigateToTab } from './helpers';
+import { 
+    login, 
+    navigateToTab, 
+    openWineryDetails, 
+    closeWineryModal,
+    robustClick 
+} from './helpers';
 
 test.describe('Wishlist Flow', () => {
   test.beforeEach(async ({ page, user }) => {
@@ -9,21 +15,9 @@ test.describe('Wishlist Flow', () => {
 
   test('can toggle winery on wishlist', async ({ page }) => {
     await navigateToTab(page, 'Explore');
+    await openWineryDetails(page, 'Mock Winery One');
 
-    const sidebar = getSidebarContainer(page);
-    const firstWinery = sidebar.locator('text=Mock Winery One').first();
-    await expect(firstWinery).toBeVisible({ timeout: 15000 });
-
-    // Expand sheet on mobile
-    const expandButton = page.getByRole('button', { name: 'Expand to full screen' });
-    if (await expandButton.isVisible()) {
-        await expandButton.click();
-        await expect(page.getByTestId('mobile-sidebar-container')).toHaveClass(/h-\[calc\(100vh-4rem\)\]/);
-    }
-
-    await firstWinery.click();
     const modal = page.getByRole('dialog');
-    await expect(modal).toBeVisible();
 
     // 1. Wishlist Toggle ON
     const wishlistBtn = modal.getByRole('button', { name: 'Want to Go' });
@@ -32,7 +26,7 @@ test.describe('Wishlist Flow', () => {
     // Wait for the RPC response AND the click
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('toggle_wishlist') && resp.status() === 200),
-        wishlistBtn.click()
+        robustClick(page, wishlistBtn)
     ]);
     
     // Check UI update (label change)
@@ -42,7 +36,7 @@ test.describe('Wishlist Flow', () => {
     const onListBtn = modal.getByRole('button', { name: 'On List' });
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('toggle_wishlist') && resp.status() === 200),
-        onListBtn.click()
+        robustClick(page, onListBtn)
     ]);
 
     // Check UI update back to "Want to Go"
@@ -53,7 +47,7 @@ test.describe('Wishlist Flow', () => {
     await expect(favoriteBtn).toBeVisible();
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('toggle_favorite') && resp.status() === 200),
-        favoriteBtn.click()
+        robustClick(page, favoriteBtn)
     ]);
 
     // Verify UI reflects favorite status
@@ -63,10 +57,12 @@ test.describe('Wishlist Flow', () => {
     // 4. Favorite Toggle OFF
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('toggle_favorite') && resp.status() === 200),
-        favoriteBtn.click()
+        robustClick(page, favoriteBtn)
     ]);
 
     // Verify UI reflects non-favorite status
     await expect(favoriteBtn.locator('svg')).not.toHaveClass(/text-yellow-400/);
+    
+    await closeWineryModal(page);
   });
 });

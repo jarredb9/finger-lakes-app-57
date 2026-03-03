@@ -21,13 +21,14 @@ import {
 } from "@/components/ui/alert-dialog";
 
 import FriendActivityFeed from "@/components/FriendActivityFeed";
+import Link from "next/link";
 
 export default function FriendsManager() {
   const { toast } = useToast();
   const { 
-    friends, 
-    friendRequests, 
-    sentRequests, 
+    friends = [], 
+    friendRequests = [], 
+    sentRequests = [], 
     fetchFriends, 
     addFriend, 
     acceptFriend, 
@@ -45,6 +46,11 @@ export default function FriendsManager() {
     subscribeToSocialUpdates();
     return () => unsubscribeFromSocialUpdates();
   }, [fetchFriends, subscribeToSocialUpdates, unsubscribeFromSocialUpdates]);
+
+  // DIAGNOSTIC
+  useEffect(() => {
+      console.log(`[FriendsManager DIAGNOSTIC] Requests count: ${friendRequests.length}`, JSON.stringify(friendRequests));
+  }, [friendRequests]);
 
   const handleAddFriend = async () => {
     if (!email) return;
@@ -86,7 +92,7 @@ export default function FriendsManager() {
 
   return (
     <div className="space-y-6">
-      <Card>
+      <Card data-testid="add-friend-card">
         <CardHeader>
           <CardTitle>Add a Friend</CardTitle>
         </CardHeader>
@@ -96,8 +102,9 @@ export default function FriendsManager() {
             placeholder="Enter friend's email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            data-testid="add-friend-email-input"
           />
-          <Button onClick={handleAddFriend} disabled={isLoading || !email.trim()} aria-label="Add friend">
+          <Button onClick={handleAddFriend} disabled={isLoading || !email.trim()} aria-label="Add friend" data-testid="add-friend-btn">
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
             <span className="ml-2 hidden sm:inline">Add</span>
           </Button>
@@ -107,22 +114,22 @@ export default function FriendsManager() {
       {error && <p className="text-red-500" role="alert">{error}</p>}
 
       {friendRequests.length > 0 && (
-        <Card>
+        <Card data-testid="friend-requests-card">
           <CardHeader>
             <CardTitle>Friend Requests</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {friendRequests.map((req: Friend) => (
-              <div key={req.id} className="flex items-center justify-between p-2 bg-gray-100 rounded-md">
+              <div key={req.id} className="flex items-center justify-between p-2 bg-gray-100 rounded-md" data-testid={`request-row-${req.id}`}>
                 <div>
                   <p className="font-medium">{req.name}</p>
                   <p className="text-sm text-gray-500">{req.email}</p>
                 </div>
                 <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleAccept(req.id)} disabled={isLoading} aria-label="Accept request">
+                  <Button size="sm" onClick={() => handleAccept(req.id)} disabled={isLoading} aria-label="Accept request" data-testid="accept-request-btn">
                     <UserCheck className="h-4 w-4" />
                   </Button>
-                  <Button size="sm" variant="destructive" onClick={() => handleReject(req.id)} disabled={isLoading} aria-label="Reject request">
+                  <Button size="sm" variant="destructive" onClick={() => handleReject(req.id)} disabled={isLoading} aria-label="Reject request" data-testid="reject-request-btn">
                     <UserX className="h-4 w-4" />
                   </Button>
                 </div>
@@ -133,13 +140,13 @@ export default function FriendsManager() {
       )}
 
       {sentRequests.length > 0 && (
-        <Card>
+        <Card data-testid="sent-requests-card">
           <CardHeader>
             <CardTitle>Sent Requests</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {sentRequests.map((req: Friend) => (
-              <div key={req.id} className="flex items-center justify-between p-2 bg-gray-100 rounded-md border border-dashed">
+              <div key={req.id} className="flex items-center justify-between p-2 bg-gray-100 rounded-md border border-dashed" data-testid={`sent-request-row-${req.id}`}>
                 <div>
                   <p className="font-medium">{req.name}</p>
                   <p className="text-sm text-gray-500">{req.email}</p>
@@ -151,6 +158,7 @@ export default function FriendsManager() {
                     disabled={isLoading}
                     className="text-muted-foreground hover:text-destructive"
                     aria-label="Cancel request"
+                    data-testid="cancel-request-btn"
                 >
                     <span className="mr-2 text-xs">Cancel</span>
                     <XIcon className="h-4 w-4" />
@@ -163,21 +171,21 @@ export default function FriendsManager() {
 
       <FriendActivityFeed />
 
-      <Card>
+      <Card data-testid="my-friends-card">
         <CardHeader>
           <CardTitle>My Friends</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
           {friends.length > 0 ? (
             friends.map((friend: Friend) => (
-              <div key={friend.id} className="flex items-center justify-between p-2 bg-gray-100 rounded-md">
-                <div>
-                    <p className="font-medium">{friend.name}</p>
+              <div key={friend.id} className="flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 transition-colors rounded-lg border" data-testid={`friend-row-${friend.email}`}>
+                <Link href={`/friends/${friend.id}`} className="flex-1 group">
+                    <p className="font-medium group-hover:text-primary transition-colors">{friend.name}</p>
                     <p className="text-sm text-gray-500">{friend.email}</p>
-                </div>
+                </Link>
                 <AlertDialog>
                     <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive/90 hover:bg-destructive/10" aria-label="Remove friend">
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive/90 hover:bg-destructive/10" aria-label="Remove friend" data-testid="remove-friend-btn">
                             <UserMinus className="h-4 w-4" />
                         </Button>
                     </AlertDialogTrigger>
@@ -190,7 +198,7 @@ export default function FriendsManager() {
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleRemove(friend.id)} className="bg-destructive hover:bg-destructive/90">
+                            <AlertDialogAction onClick={() => handleRemove(friend.id)} className="bg-destructive hover:bg-destructive/90" data-testid="confirm-remove-btn">
                                 Remove
                             </AlertDialogAction>
                         </AlertDialogFooter>
