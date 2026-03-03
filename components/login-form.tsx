@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -8,30 +9,48 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
-import { useActionState } from "react" // Import useActionState
-import { login } from "@/app/actions" // Import the login server action
+import { createClient } from "@/utils/supabase/client"
 
 export default function LoginForm({ redirectTo }: { redirectTo?: string }) {
+  const [error, setError] = useState<string | null>(null)
+  const [isPending, setIsPending] = useState(false)
   const router = useRouter()
 
-  const [state, formAction, isPending] = useActionState(
-    async (_prevState: { success: boolean; message: string; }, formData: FormData) => {
-      const email = formData.get("email") as string
-      const password = formData.get("password") as string
+  async function handleSubmit(formData: FormData) {
+    setIsPending(true)
+    setError(null)
 
-      if (!email || !password) {
-        return { success: false, message: "Please enter both email and password" }
+    const email = formData.get("email") as string
+    const password = formData.get("password") as string
+
+    if (!email || !password) {
+      setError("Please enter both email and password")
+      setIsPending(false)
+      return
+    }
+
+    try {
+      const supabase = createClient()
+      const { error: loginError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (loginError) {
+        setError(loginError.message)
+        setIsPending(false)
+        return
       }
 
-      const result = await login(email, password)
-      if (result.success) {
-        router.push(redirectTo || "/")
-        router.refresh()
-      }
-      return result // { success: boolean, message: string }
-    },
-    { success: true, message: "" } // Initial state
-  );
+      // Critical Sequence: refresh before push to ensure middleware sees the cookie
+      router.refresh()
+      router.push(redirectTo || "/")
+    } catch (err) {
+      console.error("Login error:", err)
+      setError("An unexpected error occurred. Please try again.")
+      setIsPending(false)
+    }
+  }
 
   return (
     <Card className="w-full">
@@ -39,11 +58,11 @@ export default function LoginForm({ redirectTo }: { redirectTo?: string }) {
         <CardTitle><h1 className="text-2xl font-bold">Sign In</h1></CardTitle>
         <CardDescription>Enter your credentials to access your account</CardDescription>
       </CardHeader>
-      <form action={formAction}>
+      <form action={handleSubmit}>
         <CardContent className="space-y-4">
-          {!state.success && state.message && (
+          {error && (
             <Alert variant="destructive">
-              <AlertDescription>{state.message}</AlertDescription>
+              <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
           <div className="space-y-2">
