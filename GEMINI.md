@@ -576,6 +576,11 @@ WebKit often needs a small "settlement" period after complex state changes (like
     *   **ID Resolution:** Hardened `wineryDataStore` to force mock-to-real identity resolution via `ensureInDb` before relational RPCs, preventing 404 parameter mismatches.
     *   **Mobile Navigation:** Implemented `data-testid` attributes for the mobile bottom bar and a centralized `waitForAppReady` hydration guard.
     *   **Multi-Context Fix:** Standardized isolated browser contexts in E2E tests to inherit project viewports, ensuring cross-browser parity for multi-user flows.
+79. **Modify Friend Profile Privacy (v2.5.2):**
+    *   **Standalone Settings:** Refactored privacy management from the Friends tab to a dedicated `/settings` page, providing a cleaner layout and future-proofing user configuration.
+    *   **Centralized UI:** Created a standalone `PrivacySettings` component for reusable control over profile visibility.
+    *   **E2E Infrastructure:** Updated `waitForAppReady` and `navigateToSettings` helpers to support the standalone page structure, ensuring 100% cross-browser stability for privacy flows.
+    *   **Data Integrity:** Verified that RLS and social RPCs correctly respect the three privacy levels (Public, Friends Only, Private) across all viewports.
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
@@ -664,6 +669,9 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **Firefox Docker permissions:** Firefox requires the `HOME` environment variable to be set to a directory owned by the running user (e.g., `HOME: /root` in CI) to successfully create its profile.
 *   **Visual Snapshot Mismatches:** Rendering engines differ slightly between OS environments. Baseline snapshots MUST be generated in the Docker container to pass in CI.
 *   **RPC JSON Overloading:** Be careful with RPC return types. If a frontend store expects an array and the RPC returns a JSON object (e.g., for debug wrapping), the store must be updated to unwrap the data.
+*   **Standalone Settings Navigation:** The `/settings` page is a standalone view outside the main `AppShell` tab system.
+    *   **The Success Selector:** When updating `waitForAppReady` in `e2e/helpers.ts`, you MUST include `[data-testid="settings-page-container"]` in the success selector list to prevent timeouts on the settings page.
+    *   **Direct Navigation:** Prefer `page.goto('/settings')` for privacy-related tests to ensure a clean state and avoid reliance on sidebar tab transitions which may be disabled or hidden.
 
 
 
