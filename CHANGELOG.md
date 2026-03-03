@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.6.0] - 2026-03-03
+
+**Granular Privacy Controls & Centralized Settings Hub**
+
+Version 2.6.0 introduces a comprehensive privacy framework, allowing users to control the visibility of their profiles, visits, favorites, and wishlists across three distinct levels (Public, Friends Only, Private). This release also debuts a dedicated settings hub and individual friend profile pages, significantly maturing the application's social and personalization features.
+
+### 🚀 Features
+*   **Granular Privacy Tiers:** Implemented Public, Friends Only, and Private visibility levels for user profiles and activity.
+*   **Item-Level Privacy:** Users can now toggle privacy on individual favorite wineries and wishlist items.
+*   **Centralized Settings Hub:** Introduced a new `/settings` page, moving configuration out of the social tab into a dedicated management area.
+*   **Friend Profile Discovery:** Created rich profile pages for friends, displaying social statistics and permitted visit history based on privacy settings.
+*   **Privacy-Aware Social Feed:** Refactored the activity feed to strictly enforce visibility rules at the database level.
+
+### 🐛 Bug Fixes
+*   **ID Resolution Hardening:** Updated the winery store to force identity resolution before relational operations, preventing 404 errors during metadata updates.
+*   **Mobile Navigation Guard:** Implemented a centralized hydration guard for the mobile bottom bar to ensure interactions are stable during initial load.
+
+### 🛡 Security
+*   **Centralized Visibility Logic:** Introduced the `is_visible_to_viewer` PostgreSQL helper to unify privacy enforcement across all Row Level Security (RLS) policies.
+*   **Search Path Hardening:** Applied strict `search_path` security to all new and refactored RPC functions.
+
+### ⚙ Infrastructure & Testing
+*   **E2E Privacy Suite:** Developed a comprehensive `privacy-flow` test suite to verify visibility across multiple authenticated contexts.
+*   **RPC Unit Testing:** Added a dedicated integration suite for verifying complex privacy logic directly against the Supabase backend.
+
+
 ## [2.5.0] - 2026-02-24
 
 **Dockerized CI & Infrastructure Stabilization**

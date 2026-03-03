@@ -576,11 +576,12 @@ WebKit often needs a small "settlement" period after complex state changes (like
     *   **ID Resolution:** Hardened `wineryDataStore` to force mock-to-real identity resolution via `ensureInDb` before relational RPCs, preventing 404 parameter mismatches.
     *   **Mobile Navigation:** Implemented `data-testid` attributes for the mobile bottom bar and a centralized `waitForAppReady` hydration guard.
     *   **Multi-Context Fix:** Standardized isolated browser contexts in E2E tests to inherit project viewports, ensuring cross-browser parity for multi-user flows.
-79. **Modify Friend Profile Privacy (v2.5.2):**
-    *   **Standalone Settings:** Refactored privacy management from the Friends tab to a dedicated `/settings` page, providing a cleaner layout and future-proofing user configuration.
-    *   **Centralized UI:** Created a standalone `PrivacySettings` component for reusable control over profile visibility.
-    *   **E2E Infrastructure:** Updated `waitForAppReady` and `navigateToSettings` helpers to support the standalone page structure, ensuring 100% cross-browser stability for privacy flows.
-    *   **Data Integrity:** Verified that RLS and social RPCs correctly respect the three privacy levels (Public, Friends Only, Private) across all viewports.
+79. **Granular Privacy & Settings Hub (v2.6.0):**
+    *   **Privacy Schema:** Implemented three-tier privacy (Public, Friends Only, Private) across Profiles, Visits, Favorites, and Wishlists.
+    *   **Settings Hub:** Introduced a dedicated `/settings` page for user configuration, refactoring privacy controls out of the social tab.
+    *   **Atomic Privacy:** Developed secure RPCs for toggling item-level privacy (`toggle_favorite_privacy`, `toggle_wishlist_privacy`) and a centralized visibility helper.
+    *   **Friend Profiles:** Created rich, privacy-aware friend profile pages (`/friends/[id]`) with social stats and filtered histories.
+    *   **E2E Validation:** Expanded the test suite with a dedicated `privacy-flow.spec.ts` and hardened `friends-flow` for the new settings navigation.
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
