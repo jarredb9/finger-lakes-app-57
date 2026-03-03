@@ -59,7 +59,7 @@ describe('WineryCardThumbnail', () => {
     const handleClick = jest.fn();
     render(<WineryCardThumbnail winery={mockWinery} onClick={handleClick} />);
     
-    fireEvent.click(screen.getByTestId('winery-card'));
+    fireEvent.click(screen.getByTestId(`winery-card-${mockWinery.name}`));
     expect(handleClick).toHaveBeenCalledTimes(1);
   });
 });

@@ -251,7 +251,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const currentDbId = winery.dbId;
           
           // If we already have a REAL numeric DB ID, return it
-          if (typeof currentDbId === 'number' && !isNaN(currentDbId) && currentDbId > 100) {
+          if (typeof currentDbId === 'number' && !isNaN(currentDbId) && currentDbId > 0) {
               return currentDbId;
           }
 
