@@ -208,7 +208,9 @@ export async function login(page: Page, email: string, pass: string, options: { 
   }
 
   if (isMobile) {
-    await waitForMapReady(page); 
+    if (!options.skipMapReady) {
+      await waitForMapReady(page); 
+    }
     if (isWebKit) await page.waitForTimeout(500); 
     await navigateToTab(page, 'Explore');
   }
