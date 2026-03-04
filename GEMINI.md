@@ -219,6 +219,14 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **`useWineryMap`:** The "Brain" of the map view. Aggregates store data, handles map clicks, and manages the Google Maps instance.
 *   **`useTripActions`:** Encapsulates trip-specific logic like "Export to Google Maps".
 
+### Web Research & Scraping (Firecrawl)
+*   **Role:** The primary tool for external research, documentation fetching, and competitive analysis.
+*   **Workflows:**
+    1.  **Search First:** Use `firecrawl_search` to find relevant pages before scraping.
+    2.  **Clean Markdown:** Prefer `firecrawl_scrape` with `formats: ["markdown"]` for LLM-optimized content.
+    3.  **Site Mapping:** Use `firecrawl_map` to discover the structure of documentation sites (e.g., Google Maps API docs) before bulk scraping.
+*   **Storage:** Large research outputs should be saved to `.firecrawl/` (which is git-ignored) to keep the repository clean.
+
 ### CodeGraphContext (CGC)
 *   **Purpose:** Provides a Neo4j-backed code graph for architectural analysis and relationship tracking.
 *   **Launch Command:** `cgc mcp start` (The server must be running for graph tools to be available in the CLI).
@@ -230,6 +238,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 *   **Indexing Strategy & Limitations:**
     *   **Logic vs. View:** CGC is highly effective for mapping "Business Logic" (functions, stores, services, RPCs). It is currently **limited** in mapping the "View Layer" (React components).
     *   **The Named Export Rule:** To improve component visibility in the graph, **prefer Named Exports** (e.g., `export function MyComponent`) over default exports. CGC's parser often misses `default export` function nodes but successfully maps internal logic within those files.
+    *   **The Verification Rule:** When using `find_dead_code` or searching for unused items, ALWAYS verify UI components with a case-insensitive `grep_search` before removal. `default export` and `next/dynamic` patterns frequently result in false positives in the code graph.
     *   **Internal Mapping:** Even if a component node is missing, CGC successfully maps internal helper functions (e.g., `handleSubmit`) and their outbound call chains.
 *   **Troubleshooting (The Bypass):**
     *   If the MCP server is unstable or hangs, use **`cypher-shell`** via the CLI to query Neo4j directly. This bypasses the Python MCP layer and is often more reliable for deep symbol lookups.
@@ -593,6 +602,7 @@ WebKit often needs a small "settlement" period after complex state changes (like
     *   **E2E Mobile Login:** Hardened the `login` helper in `e2e/helpers.ts` to correctly respect the `skipMapReady` option on mobile viewports, resolving failures in `error-handling.spec.ts`.
     *   **Component Testing:** Updated `WineryCardThumbnail` tests to match dynamic `data-testid` patterns and established `PrivacySettings.test.tsx` following the UI refactor.
 81. **Supabase Native Auth Refactor:** Migrated `LoginForm` to use the client-side Supabase SDK directly, eliminating the legacy `login` server action in `app/actions.ts`. Implemented the "Critical Sequence" (refresh before push) in both login and signup flows to ensure reliable session synchronization with middleware. Verified via E2E smoke and runtime audit suites.
+82. **Codebase Cleanup:** Removed unused legacy pages (`trips-client-page.tsx`), experimental test pages (`test-auth/page.tsx`), and duplicate UI hooks (`use-mobile.tsx`). Purged empty test directories to improve repository hygiene. Verified all deletions with manual `grep` to avoid CGC false positives.
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
@@ -690,6 +700,42 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **The Trap:** Implementing logic that ignores IDs below a certain threshold (e.g., `id > 100`) will cause silent failures in fresh environments or test databases where IDs are low.
 *   **The Fix:** Always validate for `id > 0` when checking for a valid existing database primary key. This was fixed in `wineryDataStore.ts`.
 
+## Code Intelligence Tools (CGC & SDL-MCP)
+This project utilizes two specialized code mapping systems. **MANDATORY:** Agents MUST use these tools to map symbols and dependencies BEFORE performing large file reads.
+
+*   **The Radar (CGC):** Use for system-wide relational mapping (e.g., finding every file that eventually calls a specific database RPC).
+*   **The Microscope (SDL-MCP):** Use for high-fidelity symbol analysis (e.g., understanding a React component's prop types or local hook dependencies).
+
+### CodeGraphContext (CGC)
+*   **Best For:** Mapping "Business Logic" (Zustand stores, static services, Supabase RPCs, database relationships).
+*   **Usage:** Call `execute_cypher_query` or `analyze_code_relationships` via the active MCP server.
+*   **Limitation:** Highly limited in mapping the "View Layer" (React components). Parser often misses `default export` nodes.
+
+### Symbol Delta Ledger (SDL-MCP)
+*   **Best For:** Mapping the "View Layer" (React components, UI hooks, prop signatures) and generating token-efficient symbol summaries.
+*   **Runtime:** MUST be run via **Podman** on RHEL 8 to bypass native module (`tree-sitter`) compatibility issues.
+*   **Command Patterns:**
+    *   **Summary:** `podman run --rm -v "$(pwd):/app:Z" -w /app -e SDL_CONFIG_HOME=/app node:20-bookworm npx sdl-mcp summary "SymbolName" --short`
+    *   **Refresh Index:** `podman run --rm -v "$(pwd):/app:Z" -w /app -e SDL_CONFIG_HOME=/app node:20-bookworm npx sdl-mcp index`
+*   **Configuration:** Uses `.sdl-config.json` and `sdlmcp.sqlite` in the project root.
+
+### Index Maintenance (Avoiding Stale Data)
+Agents MUST refresh the SDL-MCP index in the following scenarios:
+1.  **New Components:** After creating more than 3 new React components or UI hooks.
+2.  **Structural Refactors:** After moving files between directories (e.g., `components/` to `components/ui/`).
+3.  **Store Mutations:** After adding new actions or state slices to major Zustand stores.
+4.  **Session Start:** If the existing index is older than 24 hours (check file metadata of `sdlmcp.sqlite`).
+
+### Decision Matrix
+| Task | Recommended Tool | Why? |
+| :--- | :--- | :--- |
+| **Fix a database RPC** | **CGC** | Excellent at mapping SQL dependencies and call chains. |
+| **Understand a React Component** | **SDL-MCP** | Tree-sitter accurately maps TSX components and prop signatures. |
+| **Analyze Zustand Store logic** | **CGC** | Maps class/function relationships and store cross-calls reliably. |
+| **Find a symbol's summary** | **SDL-MCP** | `summary` command provides 1000x compression for token savings. |
+| **Trace dependency "Blast Radius"** | **SDL-MCP** | Specialized in calculating the impact of symbol-level changes. |
+
+## Project Structure
 
 
 
