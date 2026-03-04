@@ -14,7 +14,7 @@ Objective: Support Followers/Following.
 
 - [x] Task 1: Refactor `friends` table or create `follows` table to support asymmetric relationships. (q1r2s3t)
 - [x] Task 2: Implement `send_follow_request` and `respond_to_follow_request` RPCs. (u1v2w3x)
-- [ ] Task 3: Update RLS policies to allow public profile followers to view public content.
+- [x] Task 3: Update RLS policies to allow public profile followers to view public content. (y1z2a3b)
 
 ## Phase 3: RPC Refactoring (API Compatibility)
 Objective: Update existing business logic to use the new schema.

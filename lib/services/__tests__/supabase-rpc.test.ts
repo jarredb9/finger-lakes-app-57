@@ -206,5 +206,34 @@ describe('Supabase RPC Integration Tests', () => {
           .maybeSingle();
         expect(deletedReq).toBeNull();
       });
+
+      it('should allow followers to view content based on updated is_visible_to_viewer', async () => {
+        // 0. Ensure no existing follow/friendship
+        await adminClient.from('follows').delete().eq('follower_id', user1.id).eq('following_id', user2.id);
+        await adminClient.from('friends').delete().or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`);
+
+        // 1. Set user2 to 'friends_only'
+        await adminClient.from('profiles').update({ privacy_level: 'friends_only' }).eq('id', user2.id);
+
+        // 2. user1 is NOT a friend and NOT a follower yet
+        const { data: visibleBefore } = await user1.client.rpc('is_visible_to_viewer', {
+          p_target_user_id: user2.id,
+          p_is_item_private: false
+        });
+        expect(visibleBefore).toBe(false);
+
+        // 3. user1 follows user2
+        await adminClient.from('follows').insert({ follower_id: user1.id, following_id: user2.id });
+
+        // 4. Verify user1 can now see user2's content
+        const { data: visibleAfter } = await user1.client.rpc('is_visible_to_viewer', {
+          p_target_user_id: user2.id,
+          p_is_item_private: false
+        });
+        expect(visibleAfter).toBe(true);
+
+        // 5. Cleanup follow
+        await adminClient.from('follows').delete().eq('follower_id', user1.id).eq('following_id', user2.id);
+      });
     });
         });
