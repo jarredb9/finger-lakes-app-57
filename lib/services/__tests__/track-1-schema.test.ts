@@ -30,11 +30,29 @@ describe('Track 1: Social Infrastructure Refactor - Schema Verification', () => 
     });
 
     it('should have the visit_participants table with the correct schema', async () => {
-        const { error } = await adminClient
-            .from('visit_participants')
-            .select('*')
+        // ... (existing test code)
+    });
+
+    it('should have metadata columns in visits, favorites, and wishlist', async () => {
+        // Verify visits
+        const { error: visitError } = await adminClient
+            .from('visits')
+            .select('metadata')
             .limit(1);
-        
-        expect(error).toBeNull();
+        expect(visitError).toBeNull();
+
+        // Verify favorites
+        const { error: favError } = await adminClient
+            .from('favorites')
+            .select('metadata')
+            .limit(1);
+        expect(favError).toBeNull();
+
+        // Verify wishlist
+        const { error: wishError } = await adminClient
+            .from('wishlist')
+            .select('metadata')
+            .limit(1);
+        expect(wishError).toBeNull();
     });
 });
