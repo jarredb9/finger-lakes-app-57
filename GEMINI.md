@@ -603,6 +603,14 @@ WebKit often needs a small "settlement" period after complex state changes (like
     *   **Component Testing:** Updated `WineryCardThumbnail` tests to match dynamic `data-testid` patterns and established `PrivacySettings.test.tsx` following the UI refactor.
 81. **Supabase Native Auth Refactor:** Migrated `LoginForm` to use the client-side Supabase SDK directly, eliminating the legacy `login` server action in `app/actions.ts`. Implemented the "Critical Sequence" (refresh before push) in both login and signup flows to ensure reliable session synchronization with middleware. Verified via E2E smoke and runtime audit suites.
 82. **Codebase Cleanup:** Removed unused legacy pages (`trips-client-page.tsx`), experimental test pages (`test-auth/page.tsx`), and duplicate UI hooks (`use-mobile.tsx`). Purged empty test directories to improve repository hygiene. Verified all deletions with manual `grep` to avoid CGC false positives.
+83. **Social Infrastructure Refactor (Phase 1 & 2):**
+    *   **Normalization:** Created `trip_members` join table and successfully backfilled from the legacy `members` array in the `trips` table.
+    *   **Social Tagging:** Implemented `visit_participants` table to support tagging friends in visits.
+    *   **Activity Ledger:** Created a centralized `activity_ledger` table with GIN indexes for efficient social feed generation and unified privacy boundaries.
+    *   **Asymmetric Social Model:** Implemented `follows` and `follow_requests` tables, enabling asymmetric relationships (Following/Followers) alongside traditional mutual friendships.
+    *   **Follow RPCs:** Created `send_follow_request` and `respond_to_follow_request` to manage the lifecycle of asymmetric relationships across different privacy tiers.
+    *   **Visibility Logic:** Updated the `is_visible_to_viewer` helper function to grant visibility to followers of `friends_only` profiles, while strictly maintaining data integrity for private items.
+    *   **RPC Refactoring:** Migrated `get_trip_details` to the `trip_members` architecture, improving performance and enabling user-name lookups in the returned members list.
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
