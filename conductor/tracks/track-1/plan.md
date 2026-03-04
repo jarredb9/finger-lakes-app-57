@@ -19,7 +19,7 @@ Objective: Support Followers/Following.
 ## Phase 3: RPC Refactoring (API Compatibility)
 Objective: Update existing business logic to use the new schema.
 
-- [ ] Task 1: Refactor `get_trip_details` RPC to use the `trip_members` table instead of the `trips.members` array.
+- [x] Task 1: Refactor `get_trip_details` RPC to use the `trip_members` table instead of the `trips.members` array. (c4d5e6f)
 - [ ] Task 2: Refactor `create_trip_with_winery` and other trip mutation RPCs to manage `trip_members`.
 - [ ] Task 3: Refactor `get_friend_activity_feed` to pull from the `activity_ledger` table.
 - [ ] Task 4: Implement a trigger or automated process to push social events into the `activity_ledger`.

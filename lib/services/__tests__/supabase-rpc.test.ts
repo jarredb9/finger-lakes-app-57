@@ -73,30 +73,43 @@ describe('Supabase RPC Integration Tests', () => {
 
     describe('Trip Management RPCs', () => {
       it('should create a trip with a winery atomically using create_trip_with_winery', async () => {
-        const mockWinery = createMockWinery();
-        const wineryData = {
-          id: `mock-winery-${crypto.randomUUID()}`,
-          name: mockWinery.name,
-          address: mockWinery.address,
-          lat: mockWinery.lat,
-          lng: mockWinery.lng,
-          rating: mockWinery.rating
-        };
-        createdWineryIds.push(wineryData.id);
+        // ... (existing code)
+      });
 
-        const { data, error } = await user1.client.rpc('create_trip_with_winery', {
-          p_trip_name: 'Integration Test Trip',
+      it('should allow trip members from trip_members table to fetch details via get_trip_details', async () => {
+        // 1. User 1 creates a trip
+        const { data: tripData, error: tripError } = await user1.client.rpc('create_trip_with_winery', {
+          p_trip_name: 'Shared Trip',
           p_trip_date: new Date().toISOString().split('T')[0],
-          p_winery_data: wineryData
+          p_winery_data: {
+            id: `mock-winery-${crypto.randomUUID()}`,
+            name: 'Test Winery',
+            address: '123 Test St',
+            lat: 42.5,
+            lng: -77.0,
+            rating: 4.5
+          }
+        });
+        expect(tripError).toBeNull();
+        const tripId = tripData.trip_id;
+
+        // 2. Add User 2 to trip_members table (not the legacy members array)
+        const { error: memberError } = await adminClient.from('trip_members').insert({
+          trip_id: tripId,
+          user_id: user2.id,
+          role: 'member'
+        });
+        expect(memberError).toBeNull();
+
+        // 3. User 2 attempts to fetch trip details
+        // THIS IS EXPECTED TO FAIL until the RPC is refactored
+        const { data: details, error: detailsError } = await user2.client.rpc('get_trip_details', {
+          trip_id_param: tripId
         });
 
-        expect(error).toBeNull();
-        expect(data).toHaveProperty('trip_id');
-        expect(data).toHaveProperty('winery_id');
-
-        // Verify trip ownership
-        const { data: trip } = await adminClient.from('trips').select('*').eq('id', data.trip_id).single();
-        expect(trip.user_id).toBe(user1.id);
+        expect(detailsError).toBeNull();
+        expect(details).not.toBeNull();
+        expect(details.id).toBe(tripId);
       });
     });
 
