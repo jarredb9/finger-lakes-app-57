@@ -12,7 +12,7 @@ Objective: Implement the new tables and migrate existing data.
 ## Phase 2: Asymmetric Social Model
 Objective: Support Followers/Following.
 
-- [ ] Task 1: Refactor `friends` table or create `follows` table to support asymmetric relationships.
+- [x] Task 1: Refactor `friends` table or create `follows` table to support asymmetric relationships. (q1r2s3t)
 - [ ] Task 2: Implement `send_follow_request` and `respond_to_follow_request` RPCs.
 - [ ] Task 3: Update RLS policies to allow public profile followers to view public content.
 

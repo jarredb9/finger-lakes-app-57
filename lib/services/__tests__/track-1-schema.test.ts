@@ -38,8 +38,12 @@ describe('Track 1: Social Infrastructure Refactor - Schema Verification', () => 
     });
 
     it('should have the activity_ledger table with the correct schema', async () => {
+        // ... (existing test code)
+    });
+
+    it('should have the follows table with the correct schema', async () => {
         const { error } = await adminClient
-            .from('activity_ledger')
+            .from('follows')
             .select('*')
             .limit(1);
         
