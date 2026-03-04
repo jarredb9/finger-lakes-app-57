@@ -195,15 +195,15 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   `get_map_markers(user_id_param)`: Lightweight fetch for initial map load. Accepts explicit user ID to ensure flags (`is_favorite`) are correct.
     *   `get_winery_details_by_id(id)`: Lazy-loads full details (reviews, hours).
     *   `get_paginated_visits_with_winery_and_friends`: Fetches visit history efficiently.
-    *   `get_trip_details(trip_id)`: Fetches full trip data including wineries and nested member visits in one call.
+    *   `get_trip_details(trip_id)`: Fetches full trip data including wineries and nested member visits (via `trip_members`) in one call.
     *   `get_paginated_wineries(page, limit)`: Fetches wineries with user-specific flags and total count for browsing.
 *   **Logic & Transactions:**
-    *   `create_trip_with_winery`: Atomically creates a trip and adds the first winery.
+    *   `create_trip_with_winery`: Atomically creates a trip and adds the first winery (and owner to `trip_members`).
     *   `add_winery_to_trip`: Handles upsert logic for wineries and additions to trips.
     *   `add_winery_to_trips`: Bulk adds a winery to multiple trips atomically.
     *   `reorder_trip_wineries`: Updates visit order for multiple wineries in a trip.
-    *   `delete_trip`: Atomically deletes a trip and its winery relationships.
-    *   `add_trip_member_by_email`: Securely adds a trip member using their email address.
+    *   `delete_trip`: Atomically deletes a trip and its relationships.
+    *   `add_trip_member_by_email`: Securely adds a trip member to the `trip_members` join table using their email address.
     *   `update_trip_winery_notes`: Atomically updates notes for a specific winery within a trip.
     *   `log_visit`: Atomically creates/gets a winery and logs a new visit with photo array support.
     *   `update_visit`: Updates an existing visit and returns rich winery data.
@@ -211,8 +211,10 @@ The Trips tab is consolidated into a single view managed by `TripList`.
     *   `ensure_winery(p_winery_data)`: Security-definer RPC used to safely insert/get a winery ID, bypassing RLS `UPDATE` restrictions.
     *   `toggle_wishlist` / `toggle_favorite`: Atomic toggles for user winery lists.
 *   **Social:**
-    *   `send_friend_request(target_email)`: Securely look up user by email and create/revive friend requests.
-    *   `respond_to_friend_request(requester_id, accept)`: Updates pending request status.
+    *   `send_friend_request(target_email)`: Securely look up user by email and create/revive symmetric friend requests.
+    *   `respond_to_friend_request(requester_id, accept)`: Updates pending symmetric request status.
+    *   `send_follow_request(target_id)`: Handles asymmetric follows (instant for public, pending for private).
+    *   `respond_to_follow_request(follower_id, accept)`: Manages asymmetric follow requests.
     *   `get_friends_activity_for_winery`: Returns JSON of friends who favorited/wishlisted a winery.
 
 ### Core Custom Hooks
