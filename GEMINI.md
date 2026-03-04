@@ -727,6 +727,8 @@ Agents MUST refresh the SDL-MCP index in the following scenarios:
 4.  **Session Start:** If the existing index is older than 24 hours (check file metadata of `sdlmcp.sqlite`).
 
 ### Decision Matrix
+Agents MUST use these tools as the primary data source when activating skills like `codebase-analysis` or `problem-analysis`.
+
 | Task | Recommended Tool | Why? |
 | :--- | :--- | :--- |
 | **Fix a database RPC** | **CGC** | Excellent at mapping SQL dependencies and call chains. |
