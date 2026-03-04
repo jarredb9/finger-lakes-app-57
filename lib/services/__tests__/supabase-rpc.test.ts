@@ -26,6 +26,7 @@ const adminClient = createClient(supabaseUrl, serviceRoleKey);
 describe('Supabase RPC Integration Tests', () => {
     let user1: { id: string; email: string; client: SupabaseClient };
     let user2: { id: string; email: string; client: SupabaseClient };
+    let user3: { id: string; email: string; client: SupabaseClient };
     const createdWineryIds: string[] = [];
 
     const createAuthenticatedUser = async () => {
@@ -57,11 +58,13 @@ describe('Supabase RPC Integration Tests', () => {
     beforeAll(async () => {
       user1 = await createAuthenticatedUser();
       user2 = await createAuthenticatedUser();
+      user3 = await createAuthenticatedUser();
     });
 
     afterAll(async () => {
       if (user1) await adminClient.auth.admin.deleteUser(user1.id);
       if (user2) await adminClient.auth.admin.deleteUser(user2.id);
+      if (user3) await adminClient.auth.admin.deleteUser(user3.id);
       
       if (createdWineryIds.length > 0) {
         await adminClient.from('wineries').delete().in('google_place_id', createdWineryIds);
@@ -134,37 +137,74 @@ describe('Supabase RPC Integration Tests', () => {
 
     describe('Social RPCs', () => {
       it('should handle friend request lifecycle', async () => {
-        // 1. User 1 sends request to User 2
-        const { error: sendError } = await user1.client.rpc('send_friend_request', {
-          target_email: user2.email
+        // ... (existing test code)
+      });
+
+      it('should handle follow lifecycle (instant for public profiles)', async () => {
+        // 1. Ensure user2 is public (default)
+        await adminClient.from('profiles').update({ privacy_level: 'public' }).eq('id', user2.id);
+
+        // 2. User 1 follows User 2
+        const { data, error } = await user1.client.rpc('send_follow_request', {
+          p_target_id: user2.id
         });
-        expect(sendError).toBeNull();
+        expect(error).toBeNull();
+        expect(data.status).toBe('followed');
 
-        // 2. Verify Pending Request (as admin)
-        const { data: req } = await adminClient
-          .from('friends')
+        // 3. Verify in follows table
+        const { data: follow } = await adminClient
+          .from('follows')
           .select('*')
-          .eq('user1_id', user1.id)
-          .eq('user2_id', user2.id)
+          .eq('follower_id', user1.id)
+          .eq('following_id', user2.id)
           .single();
-        expect(req.status).toBe('pending');
+        expect(follow).not.toBeNull();
+      });
 
-        // 3. User 2 responds (Accept)
-        const { error: respondError } = await user2.client.rpc('respond_to_friend_request', {
-          requester_id: user1.id,
-          accept: true
+      it('should handle follow request lifecycle (request for private profiles)', async () => {
+        // 1. Set user3 to private
+        await adminClient.from('profiles').update({ privacy_level: 'private' }).eq('id', user3.id);
+
+        // 2. User 1 follows User 3
+        const { data, error } = await user1.client.rpc('send_follow_request', {
+          p_target_id: user3.id
+        });
+        expect(error).toBeNull();
+        expect(data.status).toBe('request_sent');
+
+        // 3. Verify in follow_requests table
+        const { data: req } = await adminClient
+          .from('follow_requests')
+          .select('*')
+          .eq('follower_id', user1.id)
+          .eq('following_id', user3.id)
+          .single();
+        expect(req).not.toBeNull();
+
+        // 4. User 3 accepts
+        const { data: respondData, error: respondError } = await user3.client.rpc('respond_to_follow_request', {
+          p_follower_id: user1.id,
+          p_accept: true
         });
         expect(respondError).toBeNull();
+        expect(respondData.status).toBe('accepted');
 
-        // 4. Verify Accepted
-        const { data: friendship } = await adminClient
-          .from('friends')
-          .select('status')
-          .eq('user1_id', user1.id)
-          .eq('user2_id', user2.id)
+        // 5. Verify in follows table and request deleted
+        const { data: follow } = await adminClient
+          .from('follows')
+          .select('*')
+          .eq('follower_id', user1.id)
+          .eq('following_id', user3.id)
           .single();
-              expect(friendship).not.toBeNull();
-              expect(friendship?.status).toBe('accepted');
-            });
-          });
+        expect(follow).not.toBeNull();
+
+        const { data: deletedReq } = await adminClient
+          .from('follow_requests')
+          .select('*')
+          .eq('follower_id', user1.id)
+          .eq('following_id', user3.id)
+          .maybeSingle();
+        expect(deletedReq).toBeNull();
+      });
+    });
         });

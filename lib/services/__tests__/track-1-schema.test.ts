@@ -42,8 +42,12 @@ describe('Track 1: Social Infrastructure Refactor - Schema Verification', () => 
     });
 
     it('should have the follows table with the correct schema', async () => {
+        // ... (existing test code)
+    });
+
+    it('should have the follow_requests table with the correct schema', async () => {
         const { error } = await adminClient
-            .from('follows')
+            .from('follow_requests')
             .select('*')
             .limit(1);
         
