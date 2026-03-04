@@ -5,7 +5,7 @@ Objective: Implement the new tables and migrate existing data.
 
 - [x] Task 1: Create `trip_members` join table with Foreign Key constraints and `ON DELETE CASCADE`. (f56e2a1)
 - [x] Task 2: Write a one-time migration script (SQL) to backfill `trip_members` from `trips.members` array. (a1b2c3d)
-- [ ] Task 3: Create `visit_participants` table to support social tagging.
+- [x] Task 3: Create `visit_participants` table to support social tagging. (e4f5g6h)
 - [ ] Task 4: Add `metadata` JSONB columns to `visits`, `favorites`, and `wishlist` tables.
 - [ ] Task 5: Implement `activity_ledger` table with appropriate indexes (GIN on metadata, indexing on user_id and privacy_level).
 

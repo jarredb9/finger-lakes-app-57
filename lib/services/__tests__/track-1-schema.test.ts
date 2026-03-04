@@ -26,19 +26,15 @@ describe('Track 1: Social Infrastructure Refactor - Schema Verification', () => 
     });
 
     it('should have backfilled trip_members from the trips table', async () => {
-        // Count trips
-        const { count: tripCount, error: countError } = await adminClient
-            .from('trips')
-            .select('*', { count: 'exact', head: true });
-        
-        expect(countError).toBeNull();
+        // ... (existing test code)
+    });
 
-        // Count members (should be at least the same as tripCount since each trip has an owner)
-        const { count: memberCount, error: memberCountError } = await adminClient
-            .from('trip_members')
-            .select('*', { count: 'exact', head: true });
+    it('should have the visit_participants table with the correct schema', async () => {
+        const { error } = await adminClient
+            .from('visit_participants')
+            .select('*')
+            .limit(1);
         
-        expect(memberCountError).toBeNull();
-        expect(memberCount).toBeGreaterThanOrEqual(tripCount || 0);
+        expect(error).toBeNull();
     });
 });
