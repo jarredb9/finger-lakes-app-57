@@ -1,0 +1,8 @@
+{
+  "track_id": "social-visit-tagging",
+  "type": "feature",
+  "status": "waiting",
+  "created_at": "2026-03-05T12:00:00Z",
+  "updated_at": "2026-03-05T12:00:00Z",
+  "description": "Implement a 'Tag Friends' feature when logging a visit, creating a shared history and notifying friends of the visit."
+}

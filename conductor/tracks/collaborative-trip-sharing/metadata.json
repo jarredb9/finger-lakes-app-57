@@ -1,0 +1,8 @@
+{
+  "track_id": "collaborative-trip-sharing",
+  "type": "feature",
+  "status": "waiting",
+  "created_at": "2026-03-05T12:00:00Z",
+  "updated_at": "2026-03-05T12:00:00Z",
+  "description": "Build the user interface and frontend logic to support collaborative trip planning, allowing users to invite friends and manage shared itineraries."
+}
