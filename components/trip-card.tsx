@@ -17,6 +17,7 @@ import WineryNoteEditor from "./WineryNoteEditor";
 import { cn } from "@/lib/utils";
 import { useTripActions } from "@/hooks/use-trip-actions";
 import { calculateDistance, formatDistance } from "@/lib/utils/geo";
+import { TripShareDialog } from "./TripShareDialog";
 
 interface TripCardProps {
   trip: Trip;
@@ -83,6 +84,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
   const [isSearching, setIsSearching] = useState(false);
 
   const [addWineryPopoverOpen, setAddWineryPopoverOpen] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!winerySearch.trim()) {
@@ -367,6 +369,24 @@ const TripCard = memo(({ trip }: TripCardProps) => {
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
+                <Button 
+                  size="icon" 
+                  variant="outline" 
+                  onClick={() => setIsShareDialogOpen(true)}
+                  disabled={trip.id < 0}
+                  aria-label="Share Trip"
+                >
+                    <Users size={16} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                  <p>Share Trip</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Button size="icon" variant="outline" onClick={() => handleExportToMaps()} disabled={!trip.wineries || trip.wineries.length === 0}>
                     <Share2 size={16} />
                 </Button>
@@ -376,9 +396,15 @@ const TripCard = memo(({ trip }: TripCardProps) => {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Button variant="destructive" size="icon" onClick={() => deleteTrip(trip.id.toString())}><Trash2 className="w-4 h-4"/></Button>
+          <Button variant="destructive" size="icon" onClick={() => deleteTrip(trip.id.toString())} aria-label="Delete Trip"><Trash2 className="w-4 h-4"/></Button>
         </div>
       </CardFooter>
+      <TripShareDialog
+        isOpen={isShareDialogOpen}
+        onClose={() => setIsShareDialogOpen(false)}
+        tripName={trip.name || `Trip for ${new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}`}
+        tripId={trip.id.toString()}
+      />
     </Card>
   );
 });
