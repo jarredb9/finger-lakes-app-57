@@ -3,7 +3,7 @@
 ## Phase 1: Share UI & Invitation Logic
 Objective: Allow users to invite friends to a trip.
 
-- [ ] Task 1: Create a `TripShareDialog` component using Radix/shadcn `Dialog`.
+- [x] Task 1: Create a `TripShareDialog` component using Radix/shadcn `Dialog`. (b873faa)
 - [ ] Task 2: Implement a friend selection list inside the dialog (pulling from `friendStore`).
 - [ ] Task 3: Add an email invitation input for adding members not yet in the friend list.
 - [ ] Task 4: Connect the "Invite" button to `TripService.addMemberByEmail` (calls `add_trip_member_by_email` RPC).
