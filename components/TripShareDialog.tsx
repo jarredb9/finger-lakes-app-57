@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,8 @@ import {
   AvatarImage,
 } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Loader2 } from "lucide-react"
 
 interface TripShareDialogProps {
   isOpen: boolean
@@ -27,14 +29,21 @@ export function TripShareDialog({
   isOpen,
   onClose,
   tripName,
+  tripId,
 }: TripShareDialogProps) {
   const { friends = [], fetchFriends, isLoading } = useFriendStore()
+  const [inviteEmail, setInviteEmail] = useState("")
 
   useEffect(() => {
     if (isOpen) {
       fetchFriends()
     }
   }, [isOpen, fetchFriends])
+
+  const handleInviteByEmail = () => {
+    // Task 4 will connect this to TripService
+    console.log(`Inviting ${inviteEmail} to trip ${tripId}`)
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -51,7 +60,9 @@ export function TripShareDialog({
             <h4 className="text-sm font-medium shrink-0">Your Friends</h4>
             <div className="flex-1 overflow-y-auto pr-2 space-y-2 min-h-0">
               {isLoading && friends.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">Loading friends...</p>
+                <div className="flex justify-center items-center py-8" data-testid="loading-friends">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
               ) : friends.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">No friends found.</p>
               ) : (
@@ -85,9 +96,20 @@ export function TripShareDialog({
 
           <div className="space-y-2 pt-2 border-t shrink-0">
             <h4 className="text-sm font-medium">Invite by Email</h4>
-            <p className="text-sm text-muted-foreground">
-              Email invitation input will be added in Task 3.
-            </p>
+            <div className="flex gap-2">
+              <Input
+                type="email"
+                placeholder="Enter email address"
+                value={inviteEmail}
+                onChange={(e) => setInviteEmail(e.target.value)}
+              />
+              <Button 
+                onClick={handleInviteByEmail} 
+                disabled={!inviteEmail.trim()}
+              >
+                Invite by Email
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

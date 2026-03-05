@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { TripShareDialog } from '../TripShareDialog';
 import { useFriendStore } from '@/lib/stores/friendStore';
 
@@ -64,7 +64,7 @@ describe('TripShareDialog', () => {
       />
     );
     
-    expect(screen.getByText(/Loading friends.../i)).toBeInTheDocument();
+    expect(screen.getByTestId('loading-friends')).toBeInTheDocument();
   });
 
   it('displays empty state', () => {
@@ -84,5 +84,41 @@ describe('TripShareDialog', () => {
     );
     
     expect(screen.getByText(/No friends found./i)).toBeInTheDocument();
+  });
+
+  it('renders the email invitation input', () => {
+    render(
+      <TripShareDialog 
+        isOpen={true} 
+        onClose={() => {}} 
+        tripName="Test Trip" 
+        tripId="test-trip-id"
+      />
+    );
+    
+    expect(screen.getByPlaceholderText(/Enter email address/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Invite by Email/i })).toBeInTheDocument();
+  });
+
+  it('calls console.log when clicking invite button', () => {
+    const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    
+    render(
+      <TripShareDialog 
+        isOpen={true} 
+        onClose={() => {}} 
+        tripName="Test Trip" 
+        tripId="test-trip-id"
+      />
+    );
+    
+    const input = screen.getByPlaceholderText(/Enter email address/i);
+    const button = screen.getByRole('button', { name: /Invite by Email/i });
+    
+    fireEvent.change(input, { target: { value: 'test@example.com' } });
+    fireEvent.click(button);
+    
+    expect(consoleSpy).toHaveBeenCalledWith('Inviting test@example.com to trip test-trip-id');
+    consoleSpy.mockRestore();
   });
 });
