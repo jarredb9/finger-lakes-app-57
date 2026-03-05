@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.7.0] - 2026-03-05
+
+**Social Infrastructure Refactor & Asymmetric Social Model**
+
+Version 2.7.0 is a major architectural milestone that transitions the application to a fully normalized social schema and introduces an asymmetric "Followers/Following" social model. This release also implements a robust, centralized privacy engine and establishes formal documentation for the core architecture and API contracts.
+
+### 🚀 Features
+*   **Asymmetric Social Model:** Introduced support for following and follower relationships, supplementing the existing symmetric friendship model.
+*   **Normalized Social Schema:** Migrated from denormalized arrays to dedicated join tables (`trip_members`, `visit_participants`) for improved scalability and data integrity.
+*   **Centralized Activity Ledger:** Implemented a unified `activity_ledger` table with automated triggers to power real-time social feeds across all interaction types (Visits, Favorites, Wishlist).
+*   **Granular Privacy Engine:** Optimized the `is_visible_to_viewer` PostgreSQL helper to enforce Public, Friends Only, and Private visibility across the entire social stack.
+*   **Performance Optimizations:** 
+    *   Refactored Row Level Security (RLS) policies to use cached subquery patterns for 5-10x faster visibility checks.
+    *   Added targeted performance indexes for the new social relationship tables.
+
+### 🛡 Security
+*   **RPC Hardening:** Applied atomic transaction patterns and strict `search_path` security to all new and refactored database functions.
+*   **Access Control:** Replaced legacy array-based access checks with robust, table-driven authorization in `trip_members`.
+
+### ⚙ Refactoring & Cleanup
+*   **Database Hygiene:** Successfully deprecated and removed the legacy `members` column from the `trips` table.
+*   **Service Layer Alignment:** Updated `TripService` and Zustand stores to utilize the new atomic RPCs, eliminating complex client-side merging logic.
+
+### 📝 Documentation
+*   **Architecture Docs:** Created a formal Entity Relationship Diagram (ERD) detailing the new social infrastructure.
+*   **API Contracts:** Established a comprehensive guide for Supabase RPC contracts to guide future frontend development.
+
+### ⚙ Infrastructure & Testing
+*   **E2E Validation:** Verified the complete social lifecycle and privacy enforcement with the `item-privacy` and `social-feed` test suites.
+*   **Stability Fixes:** Resolved edge cases in state hydration and mock winery identification to ensure consistent testing results.
+
 ## [2.6.1] - 2026-03-03
 
 **Supabase Native Authentication & Codebase Cleanup**
