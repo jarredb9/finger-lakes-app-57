@@ -17,6 +17,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2 } from "lucide-react"
+import { TripService } from "@/lib/services/tripService"
+import { useToast } from "@/hooks/use-toast"
 
 interface TripShareDialogProps {
   isOpen: boolean
@@ -31,8 +33,10 @@ export function TripShareDialog({
   tripName,
   tripId,
 }: TripShareDialogProps) {
-  const { friends = [], fetchFriends, isLoading } = useFriendStore()
+  const { friends = [], fetchFriends, isLoading: isStoreLoading } = useFriendStore()
+  const { toast } = useToast()
   const [inviteEmail, setInviteEmail] = useState("")
+  const [isInviting, setIsInviting] = useState<string | null>(null) // null or the email/id being invited
 
   useEffect(() => {
     if (isOpen) {
@@ -40,9 +44,25 @@ export function TripShareDialog({
     }
   }, [isOpen, fetchFriends])
 
-  const handleInviteByEmail = () => {
-    // Task 4 will connect this to TripService
-    console.log(`Inviting ${inviteEmail} to trip ${tripId}`)
+  const handleInvite = async (email: string) => {
+    setIsInviting(email)
+    try {
+      await TripService.addMemberByEmail(parseInt(tripId), email)
+      toast({
+        description: `Invitation sent to ${email}`,
+      })
+      if (email === inviteEmail) {
+        setInviteEmail("")
+      }
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Invitation Failed",
+        description: error.message || "Failed to send invitation.",
+      })
+    } finally {
+      setIsInviting(null)
+    }
   }
 
   return (
@@ -59,7 +79,7 @@ export function TripShareDialog({
           <div className="space-y-2 flex flex-col min-h-0">
             <h4 className="text-sm font-medium shrink-0">Your Friends</h4>
             <div className="flex-1 overflow-y-auto pr-2 space-y-2 min-h-0">
-              {isLoading && friends.length === 0 ? (
+              {isStoreLoading && friends.length === 0 ? (
                 <div className="flex justify-center items-center py-8" data-testid="loading-friends">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
@@ -84,8 +104,17 @@ export function TripShareDialog({
                           {friend.name && <span className="text-xs text-muted-foreground">{friend.email}</span>}
                         </div>
                       </div>
-                      <Button size="sm" variant="secondary">
-                        Invite
+                      <Button 
+                        size="sm" 
+                        variant="secondary" 
+                        onClick={() => handleInvite(friend.email)}
+                        disabled={!!isInviting}
+                      >
+                        {isInviting === friend.email ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          "Invite"
+                        )}
                       </Button>
                     </div>
                   ))}
@@ -102,12 +131,17 @@ export function TripShareDialog({
                 placeholder="Enter email address"
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
+                disabled={!!isInviting}
               />
               <Button 
-                onClick={handleInviteByEmail} 
-                disabled={!inviteEmail.trim()}
+                onClick={() => handleInvite(inviteEmail)} 
+                disabled={!inviteEmail.trim() || !!isInviting}
               >
-                Invite by Email
+                {isInviting === inviteEmail && inviteEmail !== "" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Invite by Email"
+                )}
               </Button>
             </div>
           </div>
