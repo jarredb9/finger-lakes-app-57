@@ -630,6 +630,10 @@ WebKit often needs a small "settlement" period after complex state changes (like
     *   **Security Audit:** Unified RLS policies across social features to use the `is_visible_to_viewer` helper, ensuring consistent enforcement of Public/Friends/Private visibility.
     *   **Legacy Column Removal:** Successfully dropped the deprecated `members` column from the `trips` table and removed all frontend/service dependencies.
     *   **Harden Visibility:** Refactored `is_visible_to_viewer` to be robust against unauthenticated requests and correctly handle nested `SECURITY DEFINER` contexts.
+85. **Privacy Fixes & Test Stabilization:**
+    *   **Activity Ledger Trigger Fix:** Refactored `handle_activity_ledger_entry` trigger to correctly use separate logic blocks for each table (`visits`, `favorites`, `wishlist`), resolving a database error where it attempted to access the non-existent `rating` column on the `favorites` table.
+    *   **State Hydration Fix:** Updated `standardizeWineryData` to use explicit `!== undefined` checks when merging store state to prevent mocks from overwriting local optimistic `isFavorite` and `onWishlist` values. Made the `isMapMarkerRpc` type guard more lenient to accommodate mocked map markers without user-specific flags.
+    *   **Verification:** Verified item-privacy E2E flow against a rootless Playwright container, achieving 100% pass rate.
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
@@ -726,6 +730,16 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **Concept:** Relational database IDs (BigInt/Integer) typically start at 1 and increment.
 *   **The Trap:** Implementing logic that ignores IDs below a certain threshold (e.g., `id > 100`) will cause silent failures in fresh environments or test databases where IDs are low.
 *   **The Fix:** Always validate for `id > 0` when checking for a valid existing database primary key. This was fixed in `wineryDataStore.ts`.
+
+### 24. Postgres Trigger Field Access on Multiple Tables
+*   **Concept:** Triggers attached to multiple tables (e.g., `visits`, `favorites`, `wishlist`) using a single function.
+*   **The Trap:** Attempting to access `NEW.rating` or `NEW.user_review` when the trigger is fired by a table that doesn't have these columns (like `favorites`) will result in a fatal `record "new" has no field` error.
+*   **The Fix:** Always wrap table-specific column access in a `TG_TABLE_NAME = '...'` conditional block.
+
+### 25. State Merging and "in" Operator with Mocks
+*   **Concept:** Zustand stores often merge incoming server data with local optimistic state.
+*   **The Trap:** Using `'field' in source` to check if a field exists will evaluate to true even if the field's value is explicitly `undefined`. If mock data omits a boolean field, this can lead to overwriting local `true` values with default `false` values.
+*   **The Fix:** Always use explicit `source.field !== undefined` checks when deciding whether to overwrite local state with incoming partial data.
 
 ## Project Handover: Track 1 Status
 

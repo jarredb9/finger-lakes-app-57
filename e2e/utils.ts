@@ -75,6 +75,7 @@ export class MockMapsManager {
     await context.unroute(/\/rpc\/toggle_favorite_privacy/);
     await context.unroute(/\/rpc\/toggle_wishlist_privacy/);
     await context.unroute(/\/rpc\/get_friend_profile_with_visits/);
+    await context.unroute(/\/rpc\/get_map_markers/);
   }
 
   /**

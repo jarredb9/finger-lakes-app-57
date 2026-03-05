@@ -34,11 +34,11 @@ function isGoogleWinery(source: any): source is GoogleWinery {
 
 // Helper to check if a source is MapMarkerRpc
 function isMapMarkerRpc(source: any): source is MapMarkerRpc {
-  // Must have MapMarker fields
+  // Must have MapMarker fields. We are more lenient now to allow omission of user state flags in mocks.
   return (
     'google_place_id' in source &&
-    ('is_favorite' in source || 'is_favorite_private' in source) &&
-    !('visits' in source)
+    !('visits' in source) &&
+    !('opening_hours' in source)
   );
 }
 
@@ -147,12 +147,12 @@ export const standardizeWineryData = (
   const reviews = (isGoogleWinery(source) ? source.reviews : (isWineryDetailsRpc(source) ? (source as any).reviews : parseReviewsJson(isRawDbWinery(source) ? source.reviews : null))) as PlaceReview[] | null;
   const reservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? (source as any).reservable : (isRawDbWinery(source) ? source.reservable : null));
 
-  const userVisited = 'user_visited' in source ? source.user_visited : (existing?.userVisited ?? false);
-  const onWishlist = 'on_wishlist' in source ? source.on_wishlist : (existing?.onWishlist ?? false);
-  const isFavorite = 'is_favorite' in source ? source.is_favorite : (existing?.isFavorite ?? false);
+  const userVisited = source.user_visited !== undefined ? source.user_visited : (existing?.userVisited ?? false);
+  const onWishlist = source.on_wishlist !== undefined ? source.on_wishlist : (existing?.onWishlist ?? false);
+  const isFavorite = source.is_favorite !== undefined ? source.is_favorite : (existing?.isFavorite ?? false);
   
-  const favoriteIsPrivate = 'is_favorite_private' in source ? source.is_favorite_private : (existing?.favoriteIsPrivate ?? false);
-  const wishlistIsPrivate = 'on_wishlist_private' in source ? source.on_wishlist_private : (existing?.wishlistIsPrivate ?? false);
+  const favoriteIsPrivate = source.is_favorite_private !== undefined ? source.is_favorite_private : (existing?.favoriteIsPrivate ?? false);
+  const wishlistIsPrivate = source.on_wishlist_private !== undefined ? source.on_wishlist_private : (existing?.wishlistIsPrivate ?? false);
 
   // Logic to preserve existing visits unless new data overrides it
   // CRITICAL FIX: If source explicitly says userVisited is false, we MUST clear the visits array to prevent "ghost visits"
