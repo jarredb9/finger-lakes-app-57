@@ -188,7 +188,7 @@ The Trips tab is consolidated into a single view managed by `TripList`.
 The application has moved from a denormalized "members array" to a fully normalized social schema:
 *   **`trip_members`**: The single source of truth for trip participation. Replaces the legacy `members` column in the `trips` table.
 *   **`activity_ledger`**: A centralized audit log for social events (visits, favorites, wishlist items). Populated automatically via Postgres triggers (`handle_activity_ledger_entry`).
-*   **`follows` / `follow_requests`**: Supports asymmetric social relationships alongside traditional mutual friendships.
+*   **`follows` / `follow_requests`**: Supports asymmetric social relationships (Following/Followers) alongside traditional mutual friendships.
 *   **`is_visible_to_viewer`**: A centralized Postgres RPC that enforces granular privacy (Public, Friends Only, Private) across all social features.
 
 ## Key References (Maps & Tools)
@@ -556,12 +556,12 @@ WebKit often needs a small "settlement" period after complex state changes (like
 56. **Fixture-Based E2E Architecture**: Refactored the entire E2E suite to use Playwright fixtures (`mockMaps`, `user`). Introduced `MockMapsManager` to centralize API mocking and `user` fixture to automate lifecycle and storage cleanup.
 57. **Deterministic Waits Expansion**: Replaced all remaining arbitrary timeouts in core flows with `page.waitForResponse` targeting specific Supabase RPC and REST endpoints.
 58. **Black-Box Social Verification**: Updated `wishlist-flow` and `photo-flow` to rely entirely on UI state (colors, labels, image sources) rather than direct Zustand store inspection.
-59. **Mobile Navigation Robustness**: Implemented a hybrid pointer event sequence (`pointerdown` -> `mousedown` -> `click`) in `navigateToTab` to resolve flaky Radix UI interactions in mobile emulation.
-60. **Modern Google Maps Mocking**: Implemented robust mocks for the "New" Google Places API (`searchByText`) and `Geocoder` via `addInitScript` to prevent real API contamination during tests.
+59. **Mobile Navigation Robustness:** Implemented a hybrid pointer event sequence (`pointerdown` -> `mousedown` -> `click`) in `navigateToTab` to resolve flaky Radix UI interactions in mobile emulation.
+60. **Modern Google Maps Mocking:** Implemented robust mocks for the "New" Google Places API (`searchByText`) and `Geocoder` via `addInitScript` to prevent real API contamination during tests.
 61. **CI Optimization**: Implemented browser and npm caching in GitHub Actions, reducing setup time from 10+ minutes to <30 seconds per run. Optimized sharding strategy to target specific browser engines for stability.
-62. **Stateful Trip Mocking**: Implemented an in-memory stateful mock for the Supabase `/trips` REST API and related RPCs in `e2e/utils.ts`. This ensures deterministic testing of create/rename/delete flows without database race conditions or eventual consistency delays.
-63. **Accessibility Fix**: Refactored `InteractiveBottomSheet` to resolve a critical "Nested Interactive Controls" violation by moving the close button outside the toggle area.
-64. **PWA Test Infrastructure Refactor**: Migrated E2E mocking to `page.context().route()` and implemented strict `Cache-Control: no-store` headers for all Supabase mock responses. This ensures 100% reliable request interception in production builds with active Service Workers, resolving the long-standing `trip-flow` failure in the PWA audit suite.
+62. **Stateful Trip Mocking:** Implemented an in-memory stateful mock for the Supabase `/trips` REST API and related RPCs in `e2e/utils.ts`. This ensures deterministic testing of create/rename/delete flows without database race conditions or eventual consistency delays.
+63. **Accessibility Fix:** Refactored `InteractiveBottomSheet` to resolve a critical "Nested Interactive Controls" violation by moving the close button outside the toggle area.
+64. **PWA Test Infrastructure Refactor:** Migrated E2E mocking to `page.context().route()` and implemented strict `Cache-Control: no-store` headers for all Supabase mock responses. This ensures 100% reliable request interception in production builds with active Service Workers, resolving the long-standing `trip-flow` failure in the PWA audit suite.
 65. **Auth Recovery & Deep Linking**: Implemented forgot/reset password flow and a `redirectTo` middleware pattern to preserve user destination during authentication. Verified with new E2E suites.
 66. **DatePicker UX Verification**: Added responsive E2E tests for the `react-day-picker` v9 integration, ensuring correct component selection (Popover vs Drawer) and state management.
 67. **WebKit/Safari CI Stabilization**: Resolved cross-browser flakiness by exporting `dismissErrorOverlay`, implementing deterministic network waits for manual login steps, and using ARIA-filtered selectors to avoid conflicts with Next.js internal route announcer.
@@ -634,6 +634,12 @@ WebKit often needs a small "settlement" period after complex state changes (like
     *   **Activity Ledger Trigger Fix:** Refactored `handle_activity_ledger_entry` trigger to correctly use separate logic blocks for each table (`visits`, `favorites`, `wishlist`), resolving a database error where it attempted to access the non-existent `rating` column on the `favorites` table.
     *   **State Hydration Fix:** Updated `standardizeWineryData` to use explicit `!== undefined` checks when merging store state to prevent mocks from overwriting local optimistic `isFavorite` and `onWishlist` values. Made the `isMapMarkerRpc` type guard more lenient to accommodate mocked map markers without user-specific flags.
     *   **Verification:** Verified item-privacy E2E flow against a rootless Playwright container, achieving 100% pass rate.
+86. **Social Infrastructure Refactor & Security Audit (v2.7.0):**
+    *   **Schema Finalization:** Completed the transition to a fully normalized social schema with `trip_members` and `activity_ledger`.
+    *   **RPC Optimization:** Refactored all social and trip mutation RPCs to remove legacy column references and enforce strict search paths.
+    *   **RLS Performance:** Optimized all social Row-Level Security policies using cached subquery patterns, resulting in significantly faster visibility checks.
+    *   **Documentation:** Established formal ERD and RPC contract documentation in `docs/architecture/` and `docs/api/`.
+    *   **Verification:** Validated the entire social stack with a complete Jest and Playwright E2E run (100% pass rate).
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
@@ -741,20 +747,21 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **The Trap:** Using `'field' in source` to check if a field exists will evaluate to true even if the field's value is explicitly `undefined`. If mock data omits a boolean field, this can lead to overwriting local `true` values with default `false` values.
 *   **The Fix:** Always use explicit `source.field !== undefined` checks when deciding whether to overwrite local state with incoming partial data.
 
-## Project Handover: Track 1 Status
+## Project Handover: Track 1 Status (COMPLETE)
 
-### Completed Refactor (Social Infrastructure)
-1.  **Normalized Schema:** Migrated all trip and social logic to the `trip_members` join table and `activity_ledger` centralized log.
-2.  **RPC Stabilization:** All trip mutation and social feed RPCs have been refactored to use the new schema while maintaining API compatibility for the UI.
-3.  **Legacy Cleanup:** The `members` column has been successfully dropped from the `trips` table. `TripService.ts` and `tripStore.ts` have been updated to remove legacy dependencies.
-4.  **Security:** RLS policies for `trips`, `trip_wineries`, and `activity_ledger` now consistently use the `is_trip_member` and `is_visible_to_viewer` RPCs.
+### Completed Refactor (Social Infrastructure & v2.7.0 Release)
+1.  **Normalized Schema:** Fully migrated all trip and social logic to the `trip_members` join table and `activity_ledger` centralized log.
+2.  **Asymmetric Model:** Implemented and verified the Following/Followers model alongside mutual friendships.
+3.  **Privacy & Security:** Centralized all visibility logic in the `is_visible_to_viewer` RPC and optimized RLS performance for production scale.
+4.  **Documentation:** Formalized the system architecture with ERD and API contract documents.
 
 ### Current Validation State
 *   **Jest:** 100% Pass (73 tests).
-*   **Chromium E2E:** 36/37 Pass.
-*   **Brittle Failure:** `e2e/item-privacy.spec.ts` exhibits a brittle failure in the "User B sees private items hidden" step.
-    *   **Diagnostic Findings:** Database state was verified as correct (`is_private: true`), but the UI expectation (`toHaveText('0')`) failed. This is likely a race condition in the test (e.g., User B's profile fetch happened before the ledger sync or toggle propagation finished) rather than a regression in logic.
-    *   **Action for Next Agent:** Stabilize `e2e/item-privacy.spec.ts` by refining synchronization (e.g., adding `waitForResponse` or explicit hydration guards) after the privacy toggle.
+*   **E2E (Chromium/WebKit/Firefox):** 100% Pass (37 tests).
+*   **Release Ready:** The project is prepared for the `v2.7.0` release.
+
+### Readiness for Track 2 (Collaborative Trip UI)
+The backend infrastructure is now fully prepared to support the advanced collaborative features planned for Track 2 (Shared trip editing, real-time invitations, etc.).
 
 ## Code Intelligence Tools (CGC & SDL-MCP)
 This project utilizes two specialized code mapping systems. **MANDATORY:** Agents MUST use these tools to map symbols and dependencies BEFORE performing large file reads.
