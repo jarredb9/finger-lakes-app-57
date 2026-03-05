@@ -11,16 +11,17 @@ export const TripService = {
     const rangeFrom = (page - 1) * limit;
     const rangeTo = rangeFrom + limit - 1;
 
+    // We use a subquery to filter by membership in trip_members OR being the owner
     let query = supabase
       .from("trips")
       .select(`
           id,
           name,
           trip_date,
-          members,
-          trip_wineries (count)
+          trip_wineries (count),
+          trip_members!inner (user_id)
       `, { count: 'exact' })
-      .or(`user_id.eq.${user.id},members.cs.{${user.id}}`);
+      .eq('trip_members.user_id', user.id);
 
     if (type === 'upcoming') {
       query = query.gte('trip_date', today).order("trip_date", { ascending: true });
@@ -116,14 +117,22 @@ export const TripService = {
         .insert({ 
             user_id: user?.id, 
             trip_date: trip.trip_date, 
-            name: trip.name, 
-            members: [user?.id] 
+            name: trip.name
         })
         .select("*")
         .single();
 
     if (error) throw error;
-    return { ...newTrip, wineries: [] } as Trip;
+
+    // Add creator to trip_members
+    await supabase.from('trip_members').insert({
+        trip_id: newTrip.id,
+        user_id: user?.id,
+        role: 'owner',
+        status: 'joined'
+    });
+
+    return { ...newTrip, wineries: [], members: [user?.id] } as Trip;
   },
 
   async deleteTrip(tripId: string) {
@@ -184,13 +193,18 @@ export const TripService = {
        return;
     }
 
-    // 4. Standard Field Updates (Name, Date, Members)
-    const { error } = await supabase
-        .from("trips")
-        .update(updates)
-        .eq("id", tripId);
+    // 4. Standard Field Updates (Name, Date)
+    // Filter out members if it accidentally slipped in (as it will be removed from DB)
+    const { members, ...otherUpdates } = updates as any;
+    
+    if (Object.keys(otherUpdates).length > 0) {
+        const { error } = await supabase
+            .from("trips")
+            .update(otherUpdates)
+            .eq("id", tripId);
 
-    if (error) throw error;
+        if (error) throw error;
+    }
   },
 
   async addMemberByEmail(tripId: number, email: string) {

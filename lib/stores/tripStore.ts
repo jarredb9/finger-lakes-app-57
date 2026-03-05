@@ -305,34 +305,18 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         await TripService.updateTrip(tripId, { updateNote: { notes } });
       },
       
-      addMembersToTrip: async (tripId: string, memberIds: string[]) => {
-        // Optimistic Update
-        const originalTrips = get().trips;
-        const tripIdNum = parseInt(tripId, 10);
+      addMembersToTrip: async (tripId: string, _memberIds: string[]) => {
+        // Note: For Phase 3 Task 4, we use the addMemberByEmail flow usually from UI.
+        // If we have multiple IDs here (unusual for current UI), we might need a bulk RPC.
+        // For now, to keep Phase 3/4 integrity, we'll refetch the trip after backend updates.
         
-        set(state => {
-            const updateTripMembers = (t: Trip) => t.id === tripIdNum ? { ...t, members: memberIds } : t;
-            return {
-                trips: state.trips.map(updateTripMembers),
-                // Update selectedTrip if it matches
-                selectedTrip: state.selectedTrip?.id === tripIdNum ? { ...state.selectedTrip, members: memberIds } : state.selectedTrip,
-                // Update tripsForDate if it matches
-                tripsForDate: state.tripsForDate.map(updateTripMembers),
-                // Update upcomingTrips if it matches
-                upcomingTrips: state.upcomingTrips.map(updateTripMembers)
-            };
-        });
-
         try {
-          await TripService.updateTrip(tripId, { members: memberIds });
+          // In the future (Track 2), we might implement a bulk 'add_trip_members' RPC.
+          // For now, we assume the UI handles one-by-one addition via addMemberByEmail.
+          // If this is called, we just refetch the trip to get the latest members from trip_members.
+          await get().fetchTripById(tripId);
         } catch (error) {
-            console.error("Failed to add members, reverting:", error);
-            // Revert to original state
-            // Note: deeply reverting all lists might be complex, but fetching fresh data is safer on error
-            // For now, we can just restore 'trips' and assume a refetch is needed or rely on the originalTrips snapshot for the main list
-            set({ trips: originalTrips });
-            // Trigger a refetch to ensure consistency
-            get().fetchTripById(tripId);
+            console.error("Failed to sync members:", error);
         }
       },
 

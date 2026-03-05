@@ -112,12 +112,12 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
   },
 
   // Proxies to DataStore actions
-  toggleWishlist: async (winery, _isOn) => {
-      await useWineryDataStore.getState().toggleWishlist(winery.id);
+  toggleWishlist: async (winery, isOn) => {
+      await useWineryDataStore.getState().toggleWishlist(winery.id, isOn);
   },
   
-  toggleFavorite: async (winery, _isFav) => {
-      await useWineryDataStore.getState().toggleFavorite(winery.id);
+  toggleFavorite: async (winery, isFav) => {
+      await useWineryDataStore.getState().toggleFavorite(winery.id, isFav);
   },
 
   toggleFavoritePrivacy: async (wineryId: GooglePlaceId) => {

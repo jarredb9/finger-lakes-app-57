@@ -49,6 +49,15 @@ We use a strict **Migration-First** workflow. The `supabase/migrations` folder i
 *   `supabase/`: Database configuration and migrations.
 *   `public/`: Static assets.
 
+## Social Infrastructure
+
+The application uses a normalized social schema to support collaborative trips and activity feeds:
+
+*   **`trip_members`**: Manages trip participants, roles (owner/member), and status.
+*   **`activity_ledger`**: A centralized table for social events (visits, favorites, wishlist items) with granular privacy controls.
+*   **Triggers**: Automatic synchronization between operational tables (visits, favorites) and the activity ledger.
+*   **Visibility Helper**: `is_visible_to_viewer` RPC centralizes all privacy logic (Public, Friends Only, Private).
+
 ## Development Conventions
 
 *   **Imports:** Use absolute imports (e.g., `@/components/...`).

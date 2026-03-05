@@ -75,7 +75,7 @@ describe('Privacy Refactor Store Logic', () => {
 
   describe('WineryDataStore Privacy', () => {
     it('should toggle favorite privacy via RPC', async () => {
-      const winery = createMockWinery({ dbId: 1 as any, isFavorite: true, favoriteIsPrivate: false });
+      const winery = createMockWinery({ dbId: 101 as any, isFavorite: true, favoriteIsPrivate: false });
       
       act(() => {
         useWineryDataStore.getState().upsertWinery(winery);
@@ -87,11 +87,11 @@ describe('Privacy Refactor Store Logic', () => {
 
       const updated = useWineryDataStore.getState().getWinery(winery.id);
       expect(updated.favoriteIsPrivate).toBe(true);
-      expect(mockRpc).toHaveBeenCalledWith('toggle_favorite_privacy', { p_winery_id: 1 });
+      expect(mockRpc).toHaveBeenCalledWith('toggle_favorite_privacy', { p_winery_id: 101 });
     });
 
     it('should toggle wishlist privacy via RPC', async () => {
-      const winery = createMockWinery({ dbId: 2 as any, onWishlist: true, wishlistIsPrivate: false });
+      const winery = createMockWinery({ dbId: 102 as any, onWishlist: true, wishlistIsPrivate: false });
       
       act(() => {
         useWineryDataStore.getState().upsertWinery(winery);
@@ -103,7 +103,7 @@ describe('Privacy Refactor Store Logic', () => {
 
       const updated = useWineryDataStore.getState().getWinery(winery.id);
       expect(updated.wishlistIsPrivate).toBe(true);
-      expect(mockRpc).toHaveBeenCalledWith('toggle_wishlist_privacy', { p_winery_id: 2 });
+      expect(mockRpc).toHaveBeenCalledWith('toggle_wishlist_privacy', { p_winery_id: 102 });
     });
   });
 

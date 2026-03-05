@@ -42,9 +42,6 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         await ensureProfileReady(pageB);
 
         await setupFriendship(pageA, pageB, user1.email, user2.email);
-        
-        console.log(`[DIAGNOSTIC] User A ID: ${user1.id}`);
-        console.log(`[DIAGNOSTIC] User B ID: ${user2.id}`);
       });
 
       // 4. User A favorites and wishlists a winery
@@ -86,10 +83,12 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         await openWineryDetails(pageA, 'Mock Winery One');
         
         const favPrivacyToggle = pageA.getByLabel(/Make favorite private/i);
+        
         await robustClick(pageA, favPrivacyToggle);
         await expect(pageA.getByText(/Favorite is now private/i).first()).toBeVisible();
 
         const wishPrivacyToggle = pageA.getByLabel(/Make wishlist item private/i);
+        
         await robustClick(pageA, wishPrivacyToggle);
         await expect(pageA.getByText(/Wishlist item is now private/i).first()).toBeVisible();
 
