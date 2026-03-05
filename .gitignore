@@ -61,3 +61,4 @@ coverage/
 .playwright-mcp/
 .config/
 mcp.json
+sdlmcp.sqlite
