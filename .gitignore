@@ -62,3 +62,4 @@ coverage/
 .config/
 mcp.json
 sdlmcp.sqlite
+data/
