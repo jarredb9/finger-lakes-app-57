@@ -7,7 +7,7 @@ Objective: Allow users to invite friends to a trip.
 - [x] Task 2: Implement a friend selection list inside the dialog (pulling from `friendStore`). (69f57a3)
 - [x] Task 3: Add an email invitation input for adding members not yet in the friend list. (eb929f8)
 - [x] Task 4: Connect the "Invite" button to `TripService.addMemberByEmail` (calls `add_trip_member_by_email` RPC). (7275a69)
-- [ ] Task 5: Add a "Share" button trigger to the `TripCard` and `TripPlanner` header.
+- [x] Task 5: Add a "Share" button trigger to the `TripCard` and `TripPlanner` header. (4719822)
 
 ## Phase 2: Collaborative Trip Views
 Objective: Visualize members and their contributions.
