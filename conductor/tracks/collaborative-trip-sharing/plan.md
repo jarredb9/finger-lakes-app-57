@@ -5,7 +5,7 @@ Objective: Allow users to invite friends to a trip.
 
 - [x] Task 1: Create a `TripShareDialog` component using Radix/shadcn `Dialog`. (b873faa)
 - [x] Task 2: Implement a friend selection list inside the dialog (pulling from `friendStore`). (69f57a3)
-- [ ] Task 3: Add an email invitation input for adding members not yet in the friend list.
+- [x] Task 3: Add an email invitation input for adding members not yet in the friend list. (eb929f8)
 - [ ] Task 4: Connect the "Invite" button to `TripService.addMemberByEmail` (calls `add_trip_member_by_email` RPC).
 - [ ] Task 5: Add a "Share" button trigger to the `TripCard` and `TripPlanner` header.
 
