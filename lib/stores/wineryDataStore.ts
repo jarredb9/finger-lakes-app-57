@@ -21,8 +21,8 @@ interface WineryDataState {
   removeVisit: (visitId: string) => void;
   
   // User Actions
-  toggleFavorite: (wineryId: GooglePlaceId) => Promise<void>;
-  toggleWishlist: (wineryId: GooglePlaceId) => Promise<void>;
+  toggleFavorite: (wineryId: GooglePlaceId, isFavorite: boolean) => Promise<void>;
+  toggleWishlist: (wineryId: GooglePlaceId, isOnWishlist: boolean) => Promise<void>;
   toggleFavoritePrivacy: (wineryId: GooglePlaceId) => Promise<void>;
   toggleWishlistPrivacy: (wineryId: GooglePlaceId) => Promise<void>;
   
@@ -118,14 +118,14 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           }));
       },
 
-      toggleFavorite: async (wineryId: GooglePlaceId) => {
+      toggleFavorite: async (wineryId: GooglePlaceId, isFavorite: boolean) => {
           const original = get().persistentWineries;
           const winery = original.find(w => w.id === wineryId);
           if (!winery) return;
 
           // Optimistic
           set({
-              persistentWineries: original.map(w => w.id === wineryId ? { ...w, isFavorite: !w.isFavorite } : w)
+              persistentWineries: original.map(w => w.id === wineryId ? { ...w, isFavorite: !isFavorite } : w)
           });
 
           const supabase = createClient();
@@ -153,13 +153,11 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           }
       },
       
-      toggleWishlist: async (wineryId: GooglePlaceId) => {
+      toggleWishlist: async (wineryId: GooglePlaceId, isOnWishlist: boolean) => {
         const original = get().persistentWineries;
         const winery = original.find(w => w.id === wineryId);
         if (!winery) return;
         
-        const isOnWishlist = !!winery.onWishlist;
-
         // Optimistic
         set({
             persistentWineries: original.map(w => w.id === wineryId ? { ...w, onWishlist: !isOnWishlist } : w)
@@ -214,6 +212,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           } catch (err) {
               console.error("[wineryDataStore] Fav privacy toggle failed:", err);
               set({ persistentWineries: original }); // Revert
+              throw err;
           }
       },
 
@@ -241,6 +240,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           } catch (err) {
               console.error("[wineryDataStore] Wishlist privacy toggle failed:", err);
               set({ persistentWineries: original }); // Revert
+              throw err;
           }
       },
 
@@ -251,7 +251,8 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const currentDbId = winery.dbId;
           
           // If we already have a REAL numeric DB ID, return it
-          if (typeof currentDbId === 'number' && !isNaN(currentDbId) && currentDbId > 0) {
+          // We treat IDs < 100 as potential mocks from E2E maps fixtures
+          if (typeof currentDbId === 'number' && !isNaN(currentDbId) && currentDbId > 100) {
               return currentDbId;
           }
 

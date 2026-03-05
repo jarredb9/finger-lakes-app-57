@@ -28,8 +28,9 @@ Objective: Update existing business logic to use the new schema.
 ## Phase 4: Validation & Cleanup
 Objective: Ensure system stability and remove legacy code.
 
-- [ ] Task 1: Run full E2E test suite (`./scripts/run-e2e-container.sh chromium`) to verify zero regressions.
-- [ ] Task 2: Run all Jest unit tests (`npm test`).
-- [ ] Task 3: Perform a security audit of the new RLS policies using `is_visible_to_viewer` helper.
-- [ ] Task 4: (Cleanup) Deprecate and remove the `members` column from the `trips` table.
-- [ ] Task 5: Final documentation update (ERD and API contracts).
+- [x] Task 1: Run full E2E test suite (`./scripts/run-e2e-container.sh chromium`) to verify zero regressions. (825d731)
+- [x] Task 2: Run all Jest unit tests (`npm test`). (21525)
+- [x] Task 3: Perform a security audit of the new RLS policies using `is_visible_to_viewer` helper. (21724)
+- [x] Task 4: (Cleanup) Deprecate and remove the `members` column from the `trips` table. (bc23456)
+- [x] Task 5: Final documentation update (ERD and API contracts). (23218)
+
