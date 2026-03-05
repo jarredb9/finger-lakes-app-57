@@ -335,6 +335,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                               <CommandItem
                                   key={friend.id}
                                   onSelect={() => onFriendSelect(friend.id)}
+                                  data-testid={`friend-item-${friend.id}`}
                               >
                                   <div className="flex items-center justify-between w-full">
                                       <span>{friend.name}</span>
@@ -396,7 +397,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Button variant="destructive" size="icon" onClick={() => deleteTrip(trip.id.toString())} aria-label="Delete Trip"><Trash2 className="w-4 h-4"/></Button>
+          <Button variant="destructive" size="icon" onClick={() => deleteTrip(trip.id.toString()).catch(() => {})} aria-label="Delete Trip"><Trash2 className="w-4 h-4"/></Button>
         </div>
       </CardFooter>
       <TripShareDialog
