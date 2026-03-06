@@ -763,7 +763,11 @@ export const test = base.extend<{
     // Surface all console messages for debugging
     page.on('console', msg => {
         const text = msg.text();
-        console.log(`[Browser ${msg.type()}] ${text}`);
+        if (text.includes('[DIAGNOSTIC]')) {
+            console.log(`[BROWSER-DIAGNOSTIC] ${text}`);
+        } else {
+            console.log(`[Browser ${msg.type()}] ${text}`);
+        }
     });
 
     // Fail on Hydration errors or fatal console errors

@@ -10,6 +10,7 @@ import { PwaHandler } from '@/components/pwa-handler'
 import { E2EStoreExposer } from '@/components/e2e-store-exposer'
 
 import { CookieConsent } from '@/components/cookie-consent'
+import { TripShareDialogWrapper } from '@/components/trip-share-dialog-wrapper'
 
 export const metadata: Metadata = {
   title: 'Winery Visit Planner',
@@ -72,11 +73,16 @@ export default function RootLayout({
       <body>
         <TooltipProvider>
           <div className="relative flex min-h-screen flex-col">
-            <main className="flex-1"><AuthProvider>{children}</AuthProvider></main>
-            <Toaster />
-            <PwaHandler />
+            <main className="flex-1">
+              <AuthProvider>
+                {children}
+              </AuthProvider>
+              <Toaster />
+              <PwaHandler />
+              <TripShareDialogWrapper />
+              <GlobalModalRenderer />
+            </main>
             {(process.env.NODE_ENV !== 'production' || process.env.IS_E2E === 'true') && <E2EStoreExposer />}
-            <GlobalModalRenderer />
             <CookieConsent />
           </div>
         </TooltipProvider>

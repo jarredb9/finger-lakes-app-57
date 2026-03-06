@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import {
   Dialog,
   DialogContent,
@@ -37,21 +37,28 @@ export function TripShareDialog({
   const { toast } = useToast()
   const [inviteEmail, setInviteEmail] = useState("")
   const [isInviting, setIsInviting] = useState<string | null>(null) // null or the email/id being invited
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !hasFetchedRef.current) {
       fetchFriends()
+      hasFetchedRef.current = true;
+    }
+    if (!isOpen) {
+      hasFetchedRef.current = false;
     }
   }, [isOpen, fetchFriends])
 
   const handleInvite = async (email: string) => {
-    setIsInviting(email)
+    const trimmedEmail = email.trim()
+    setIsInviting(trimmedEmail)
     try {
-      await TripService.addMemberByEmail(parseInt(tripId), email)
+      await TripService.addMemberByEmail(parseInt(tripId), trimmedEmail)
       toast({
-        description: `Invitation sent to ${email}`,
+        description: `Invitation sent to ${trimmedEmail}`,
       })
-      if (email === inviteEmail) {
+      // If we invited the email from the manual input, clear it
+      if (trimmedEmail.toLowerCase() === inviteEmail.trim().toLowerCase()) {
         setInviteEmail("")
       }
     } catch (error: any) {
@@ -67,7 +74,7 @@ export function TripShareDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md flex flex-col max-h-[85dvh]">
+      <DialogContent className="sm:max-w-md flex flex-col max-h-[85dvh]" data-testid="trip-share-dialog">
         <DialogHeader>
           <DialogTitle>Share &quot;{tripName}&quot;</DialogTitle>
           <DialogDescription>
@@ -132,10 +139,12 @@ export function TripShareDialog({
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 disabled={!!isInviting}
+                data-testid="invite-email-input"
               />
               <Button 
                 onClick={() => handleInvite(inviteEmail)} 
                 disabled={!inviteEmail.trim() || !!isInviting}
+                data-testid="invite-by-email-btn"
               >
                 {isInviting === inviteEmail && inviteEmail !== "" ? (
                   <Loader2 className="h-4 w-4 animate-spin" />

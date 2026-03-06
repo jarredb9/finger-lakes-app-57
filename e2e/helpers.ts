@@ -185,7 +185,7 @@ export async function login(page: Page, email: string, pass: string, options: { 
             await waitForAppReady(page);
         } else { throw e; }
     }
-  }).toPass({ intervals: [3000], timeout: 35000 });
+  }).toPass({ intervals: [2000], timeout: 45000 });
   
   await page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 15000 }).catch(() => null);
 

@@ -11,12 +11,12 @@ import { AuthenticatedUser } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import TripForm from "./trip-form";
-import { TripShareDialog } from "./TripShareDialog";
+import { useUIStore } from "@/lib/stores/uiStore";
 
 export default function TripPlanner({ initialDate, user, hideCalendar = false, hideTrips = false }: { initialDate: Date, user: AuthenticatedUser, hideCalendar?: boolean, hideTrips?: boolean }) {
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
     const [isCreateTripModalOpen, setCreateTripModalOpen] = useState(false);
-    const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+    const { openShareDialog } = useUIStore();
     const [isMounted, setIsMounted] = useState(false);
 
     const { tripsForDate = [], isLoading, fetchTripsForDate } = useTripStore();
@@ -64,7 +64,8 @@ export default function TripPlanner({ initialDate, user, hideCalendar = false, h
                                 variant="outline" 
                                 size="sm" 
                                 className="flex-1 sm:flex-none"
-                                onClick={() => setIsShareDialogOpen(true)}
+                                onClick={() => openShareDialog(tripsForDate[0].id.toString(), `Itinerary for ${selectedDate?.toLocaleDateString()}`)}
+                                data-testid="share-day-btn"
                             >
                                 <Share2 className="mr-2 h-4 w-4" /> Share Day
                             </Button>
@@ -108,15 +109,6 @@ export default function TripPlanner({ initialDate, user, hideCalendar = false, h
                     </Card>
                 )}
             </div>
-            )}
-
-            {tripsForDate.length > 0 && (
-                <TripShareDialog
-                    isOpen={isShareDialogOpen}
-                    onClose={() => setIsShareDialogOpen(false)}
-                    tripName={`Itinerary for ${selectedDate?.toLocaleDateString()}`}
-                    tripId={tripsForDate[0].id.toString()}
-                />
             )}
         </div>
     );

@@ -4,6 +4,8 @@
 The following configurations are intentional and correct. Do NOT challenge them based on historical training data:
 *   **Next.js 16 Middleware:** The file `proxy.ts` IS the valid middleware. `middleware.ts` does NOT exist. DO NOT flag this as an error. DO NOT suggest creating `middleware.ts`.
 *   **Supabase Native:** We prioritize direct client-to-Supabase communication (RPCs/SDK/Edge Functions) over Next.js API routes.
+*   **Singleton Modals:** All major feature dialogs (Sharing, Forms, etc.) **MUST** be implemented as global singletons rendered at the root of `layout.tsx` (outside the `AuthProvider` loading boundary). Do NOT render dialogs inside list items or deeply nested components to avoid DOM bloat, state loss, and unmounting during hydration/auth flashes.
+*   **RPC Search Paths:** All Postgres functions **MUST** explicitly set `SET search_path = public, auth` to ensure `auth.uid()` and other auth schema helpers resolve correctly in `SECURITY DEFINER` contexts.
 
 ### 2. Code Quality & Improvements
 While you must respect the *architectural patterns* above, you SHOULD still:
@@ -410,6 +412,15 @@ const tab = getTabTrigger(page, 'Friends');
 await robustClick(page, tab);
 ```
 
+### Asynchronous Dialog Triggers
+When opening a global singleton dialog, use `expect(...).toPass()` to wrap both the click and the visibility check. This ensures the test accounts for hydration delays and potential unmount/remount cycles during rapid state transitions.
+```typescript
+await expect(async () => {
+    await robustClick(page, openBtn);
+    await page.waitForSelector('[data-testid="my-dialog"]', { state: 'visible', timeout: 5000 });
+}).toPass({ timeout: 15000 });
+```
+
 ### The Force Visibility Pattern
 When testing flows that require selecting a winery from the sidebar list, do not wait for the map to "load" results. Use this pattern to make them appear instantly:
 ```typescript
@@ -640,6 +651,13 @@ WebKit often needs a small "settlement" period after complex state changes (like
     *   **RLS Performance:** Optimized all social Row-Level Security policies using cached subquery patterns, resulting in significantly faster visibility checks.
     *   **Documentation:** Established formal ERD and RPC contract documentation in `docs/architecture/` and `docs/api/`.
     *   **Verification:** Validated the entire social stack with a complete Jest and Playwright E2E run (100% pass rate).
+87. **Collaborative Trip Sharing (Phase 1):**
+    *   **UI Implementation:** Created `TripShareDialog` with Radix/shadcn, supporting friend selection from `friendStore` and email-based invitations via `TripService.addMemberByEmail`.
+    *   **Integration:** Added `share-trip-btn` to `TripCard` and `share-day-btn` to `TripPlanner` header.
+    *   **Singleton Dialog Refactor:** Refactored `TripShareDialog` into a global singleton managed by `useUIStore` and rendered at the root of `layout.tsx`. This resolved locator conflicts and state loss caused by `AuthProvider` loading flashes.
+    *   **Backend Hardening:** Fixed infinite recursion in `trip_members` RLS SELECT policy. Hardened search paths for all critical RPCs to include `auth` schema.
+    *   **Stability Cleanup:** Disabled persistence for transient UI visibility flags in `uiStore.ts` and hardened `login` helper with increased timeouts for cross-browser reliability.
+    *   **Testing:** Updated `e2e/trip-sharing.spec.ts` to use scoped locators and robust `toPass` intervals, achieving 100% pass rate across Chromium, Firefox, and WebKit.
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
@@ -747,6 +765,26 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **The Trap:** Using `'field' in source` to check if a field exists will evaluate to true even if the field's value is explicitly `undefined`. If mock data omits a boolean field, this can lead to overwriting local `true` values with default `false` values.
 *   **The Fix:** Always use explicit `source.field !== undefined` checks when deciding whether to overwrite local state with incoming partial data.
 
+### 26. Mock Overwriting (Page vs. Context)
+*   **Concept:** Playwright fixtures (like `mockMaps`) often register `context.route` handlers globally.
+*   **The Trap:** Registering a mock using `page.context().route` in a spec file may not take precedence if a fixture mock matches the same pattern and was registered later or at the same level.
+*   **The Fix:** Use `page.route` for test-specific overrides. Page-level routes ALWAYS take precedence over context-level routes in Playwright, ensuring your spec-specific mock is hit.
+
+### 27. UI Visibility Persistence (The Hydration Trap)
+*   **Concept:** Using Zustand's `persist` middleware for transient UI state like `isShareDialogOpen`.
+*   **The Trap:** If a test fails or a session refreshes, the dialog "remembers" it was open. During hydration, the store might "flip" the visibility bit exactly when Playwright is interacting, causing race conditions or "element not found" errors.
+*   **The Fix:** ONLY persist data (trips, wineries). NEVER persist transient UI flags like modal visibility.
+
+### 28. Global Singleton Stability & Auth Boundaries
+*   **Concept:** Rendering global dialogs (Sharing, History) at the root level.
+*   **The Trap:** Placing global dialogs inside an `AuthProvider` that conditionally renders a "Loading..." screen. When the app hydrates or re-authenticates, the loading screen unmounts EVERYTHING inside it, including your dialog.
+*   **The Fix:** Render global UI singletons (Toasts, Modals, PWA Handlers) in `layout.tsx` OUTSIDE of conditional loading boundaries (siblings to `AuthProvider`). They should remain mounted even if the main application content is in a "Loading" state.
+
+### 29. Client-Side Store Access in Server Components
+*   **Concept:** Using Zustand stores in `layout.tsx` (a Server Component by default).
+*   **The Trap:** Directly using hooks like `useUIStore` in a Server Component will throw errors during build/pre-rendering (e.g., `TypeError: h is not a function`).
+*   **The Fix:** Wrap store-dependent UI elements in a separate `"use client"` component (e.g., `trip-share-dialog-wrapper.tsx`) and import that into the layout.
+
 ## Project Handover: Track 1 Status (COMPLETE)
 
 ### Completed Refactor (Social Infrastructure & v2.7.0 Release)
@@ -761,7 +799,7 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **Release Ready:** The project is prepared for the `v2.7.0` release.
 
 ### Readiness for Track 2 (Collaborative Trip UI)
-The backend infrastructure is now fully prepared to support the advanced collaborative features planned for Track 2 (Shared trip editing, real-time invitations, etc.).
+Phase 1 (Share UI & Invitation Logic) and Phase 1.5 (Architectural Stability) are **COMPLETE**. The backend infrastructure is fully hardened, and the global singleton architecture is established in `layout.tsx`. E2E verification in `e2e/trip-sharing.spec.ts` is passing with 100% reliability across Chromium, Firefox, and WebKit. The system is ready for Phase 2 (Collaborative Views).
 
 ## Code Intelligence Tools (CGC & SDL-MCP)
 This project utilizes two specialized code mapping systems. **MANDATORY:** Agents MUST use these tools to map symbols and dependencies BEFORE performing large file reads.

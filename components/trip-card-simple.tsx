@@ -1,18 +1,14 @@
-"use client";
-
 import { Trip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from './ui/button';
-import { ArrowRight, Trash2, Wine, Share2, UserPlus, Check, Users, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowRight, Trash2, Wine, Share2, Users, Calendar as CalendarIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { cn } from "@/lib/utils";
 import { useTripActions } from "@/hooks/use-trip-actions";
+import { useUIStore } from "@/lib/stores/uiStore";
 
 interface TripCardSimpleProps {
     trip: Trip;
@@ -21,14 +17,11 @@ interface TripCardSimpleProps {
 
 export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) {
     const router = useRouter();
+    const { openShareDialog } = useUIStore();
     
     const { 
-        friends, 
-        selectedFriends, 
         currentMembers, 
-        handleExportToMaps, 
-        toggleFriendSelection, 
-        saveTripMembers 
+        handleExportToMaps 
     } = useTripActions(trip);
 
     const handleViewTrip = (tripId: number) => {
@@ -36,7 +29,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
     };
 
     return (
-        <Card className="w-full" data-testid="trip-card">
+        <Card className="w-full relative group" data-testid="trip-card">
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg md:text-xl">{trip.name || "Unnamed Trip"}</CardTitle>
@@ -53,36 +46,25 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
                                 </TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="outline" size="icon"><UserPlus size={16} /></Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[200px] p-0">
-                            <Command>
-                              <CommandInput placeholder="Search friends..." className="h-9" />
-                              <CommandEmpty>No friends found.</CommandEmpty>
-                              <CommandGroup>
-                                {friends.map((friend) => (
-                                  <CommandItem
-                                    key={friend.id}
-                                    onSelect={() => toggleFriendSelection(friend.id)}
-                                  >
-                                    <div className="flex items-center justify-between w-full">
-                                      <span>{friend.name}</span>
-                                      <Check
-                                        className={cn(
-                                          "h-4 w-4",
-                                          selectedFriends.includes(friend.id) ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </Command>
-                            <Button className="w-full" onClick={() => saveTripMembers()}>Update Members</Button>
-                          </PopoverContent>
-                        </Popover>
+                        
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button 
+                                        variant="outline" 
+                                        size="icon" 
+                                        onClick={() => openShareDialog(trip.id.toString(), trip.name || "Unnamed Trip")}
+                                        data-testid="share-trip-btn"
+                                    >
+                                        <Users size={16} />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                    <p>Share Trip</p>
+                                </TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button variant="destructive" size="icon" data-testid="delete-trip-btn"><Trash2 size={16} /></Button>
