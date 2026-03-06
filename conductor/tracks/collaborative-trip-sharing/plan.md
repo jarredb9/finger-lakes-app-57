@@ -22,8 +22,8 @@ Objective: Harden the sharing flow for E2E reliability and eliminate hydration b
 Objective: Align the codebase with the project's architectural mandates before implementing real-time features.
 
 - [x] Task 1: Remove `selectedTrip` from `tripStore.ts` persistence to prevent "Dead ID" bugs. **Verification:** Confirm active trip is cleared on reload. (fff3b60)
-- [ ] Task 2: Refactor `TripPlannerSection.tsx` to use direct state subscriptions for `tripsForDate` instead of getter functions. **Verification:** Confirm UI re-renders when store updates.
-- [ ] Task 3: Move `VisitForm` and `WineryNoteEditor` triggers in `TripCard.tsx` to the `useUIStore` singleton pattern. **Verification:** Confirm only one modal instance exists in DOM.
+- [x] Task 2: Refactor `TripPlannerSection.tsx` to use direct state subscriptions for `tripsForDate` instead of getter functions. **Verification:** Confirm UI re-renders when store updates. (00c8cc7)
+- [x] Task 3: Move `VisitForm` and `WineryNoteEditor` triggers in `TripCard.tsx` to the `useUIStore` singleton pattern. **Verification:** Confirm only one modal instance exists in DOM. (00c8cc7)
 - [ ] Task 4: Audit `is_trip_member` usage in all migrations and ensure explicit `public.` schema prefixing for security.
 - [ ] Task 5: Update `e2e/smoke.spec.ts` to use robust multi-option selectors from `helpers.ts`. **Verification:** Pass smoke test in WebKit.
 - [ ] Task 6: Update `login` helper in `e2e/helpers.ts` to include `useTripStore` in the mandatory hydration guard. **Verification:** Login fails if tripStore fails to hydrate.

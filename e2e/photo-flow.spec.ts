@@ -31,7 +31,10 @@ test.describe('Photo Management Workflow', () => {
     await waitForMapReady(page);
     await openWineryDetails(page, 'Mock Winery One');
     
-    const modal = page.getByRole('dialog');
+    // 2. Open Log Visit modal
+    await robustClick(page, page.getByTestId('log-visit-button'));
+
+    const modal = page.getByRole('dialog').filter({ hasText: /Log a Visit/i });
 
     // 2. Log New Visit with Photo
     await page.getByLabel('Visit Date').fill(new Date().toISOString().split('T')[0]);
@@ -60,8 +63,12 @@ test.describe('Photo Management Workflow', () => {
     // Wait for network success
     await logVisitPromise;
 
-    // 3. Verify Photo is visible in the UI and has a valid server URL (Not a blob)
-    const visitPhoto = modal.locator('img[alt="Visit photo"]').first();
+    // 2.1 Wait for Visit Modal to close
+    await expect(modal).not.toBeVisible({ timeout: 10000 });
+
+    // 3. Verify Photo is visible in the UI (Winery Modal) and has a valid server URL
+    const wineryModal = page.getByRole('dialog').filter({ hasText: /Mock Winery One/i });
+    const visitPhoto = wineryModal.locator('img[alt="Visit photo"]').first();
     await expect.poll(async () => {
         const src = await visitPhoto.getAttribute('src');
         // The URL should be from Supabase storage, not a local blob
@@ -74,16 +81,17 @@ test.describe('Photo Management Workflow', () => {
     await expect(visitPhoto).toBeVisible();
 
     // 4. Find the visit card and click Edit
-    const visitCard = modal.locator('[data-testid="visit-card"]').first();
+    const visitCard = wineryModal.locator('[data-testid="visit-card"]').first();
     await expect(visitCard).toBeVisible();
     
     await robustClick(page, visitCard.getByLabel('Edit visit'));
 
-    // 5. Wait for Form to switch to Edit Mode
-    await expect(modal.locator('text="Edit Visit"')).toBeVisible();
+    // 5. Wait for Form to switch to Edit Mode (Second modal)
+    const editModal = page.getByRole('dialog').filter({ hasText: /Edit Visit/i });
+    await expect(editModal).toBeVisible();
 
     // 6. Locate the photo in the form (PhotoUploader) and click Delete
-    const photoInForm = modal.locator('img[alt="Visit photo"]');
+    const photoInForm = editModal.locator('img[alt="Visit photo"]');
     await expect(photoInForm).toBeVisible();
     
     const photoContainer = photoInForm.locator('..');
@@ -98,11 +106,11 @@ test.describe('Photo Management Workflow', () => {
         response.url().includes('/rpc/update_visit') && response.status() === 200
     );
 
-    await robustClick(page, page.getByRole('button', { name: 'Save Changes' }));
+    await robustClick(page, editModal.getByRole('button', { name: 'Save Changes' }));
     await updateVisitPromise;
 
     // 9. Verify Photo Removal in UI (Visit Card)
-    await expect(modal.locator('text="Add New Visit"')).toBeVisible(); // Form reset
+    await expect(editModal).not.toBeVisible(); 
     await expect(visitCard.locator('img[alt="Visit photo"]')).toBeHidden();
     
     await closeWineryModal(page);

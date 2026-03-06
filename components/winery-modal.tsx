@@ -1,5 +1,5 @@
 // components/winery-modal.tsx
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Separator } from "./ui/separator";
 import { Clock, Calendar as CalendarIcon } from "lucide-react";
@@ -16,13 +16,12 @@ import FriendActivity from "./FriendActivity";
 import FriendRatings from "./FriendRatings";
 import TripPlannerSection from "./TripPlannerSection";
 import VisitCardHistory from "./VisitCardHistory";
-import VisitForm from "./VisitForm";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore"; // Import DataStore
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function WineryModal() {
-  const { isWineryModalOpen, activeWineryId, closeWineryModal } = useUIStore();
+  const { isWineryModalOpen, activeWineryId, closeWineryModal, openVisitForm } = useUIStore();
   const { toast } = useToast();
   const { fetchTripById, setSelectedTrip } = useTripStore();
   
@@ -50,23 +49,15 @@ export default function WineryModal() {
     ...wineryVisits.filter(wv => !storeVisits.some(sv => String(sv.id) === String(wv.id)))
   ].sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
 
-  const [editingVisitId, setEditingVisitId] = useState<string | null>(null);
-  const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const visitHistoryRef = useRef<HTMLDivElement>(null);
-  const visitFormRef = useRef<HTMLDivElement>(null);
 
   const prevVisitsLength = useRef(visits.length);
   const hasHydrated = useRef(false);
 
   useEffect(() => {
-    // Reset edit state and hydration tracker only when modal opens or winery changes
-    const timer = setTimeout(() => {
-      setEditingVisitId(null);
-      setPhotosToDelete([]);
-    }, 0);
+    // Reset hydration tracker only when modal opens or winery changes
     hasHydrated.current = false;
-    return () => clearTimeout(timer);
   }, [isWineryModalOpen, activeWineryId]);
 
   useEffect(() => {
@@ -116,20 +107,9 @@ export default function WineryModal() {
     return null;
   }
 
-  const handleTogglePhotoForDeletion = (photoPath: string) => {
-    setPhotosToDelete(prev => 
-      prev.includes(photoPath) 
-        ? prev.filter(p => p !== photoPath)
-        : [...prev, photoPath]
-    );
-  };
-
   const handleEditClick = (visit: Visit) => {
-    if (!visit.id) return;
-    setEditingVisitId(String(visit.id));
-    setTimeout(() => {
-      visitFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-    }, 100);
+    if (!visit.id || !activeWinery) return;
+    openVisitForm(activeWinery, visit);
   };
 
   const handleDeleteVisit = async (visitId: string) => {
@@ -147,13 +127,6 @@ export default function WineryModal() {
       toast({ variant: "destructive", description: message });
     }
   };
-
-  const handleCancelEdit = () => {
-    setEditingVisitId(null);
-    visitHistoryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const editingVisit = editingVisitId ? visits.find((v) => String(v.id) === editingVisitId) : null;
 
   const handleTripBadgeClick = async (tripId: number) => {
     closeWineryModal(); // Close the winery modal first
@@ -216,7 +189,7 @@ export default function WineryModal() {
                                 </div>
                             )}
                         </div>
-                        <WineryActions winery={activeWinery} data-testid="log-visit-button" />
+                        <WineryActions winery={activeWinery} />
                     </div>
                     <DialogDescription className="sr-only">
                         Detailed information about {activeWinery.name}, including address, rating, hours, and visit history.
@@ -238,21 +211,12 @@ export default function WineryModal() {
                     <span>Your Visits</span>
                   </h3>
                   {visits.length > 0 ? (
-                    <VisitCardHistory visits={visits} editingVisitId={editingVisitId} onEditClick={handleEditClick} onDeleteVisit={handleDeleteVisit} onTogglePhotoForDeletion={handleTogglePhotoForDeletion} />
+                    <VisitCardHistory visits={visits} editingVisitId={null} onEditClick={handleEditClick} onDeleteVisit={handleDeleteVisit} onTogglePhotoForDeletion={() => {}} />
                   ) : (
                     <p className="text-sm text-muted-foreground">{activeWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
                   )}
                 </div>
               </div>
-              <VisitForm 
-                ref={visitFormRef} 
-                winery={activeWinery} 
-                editingVisit={editingVisit || null} 
-                onCancelEdit={handleCancelEdit} 
-                photosToDelete={photosToDelete} 
-                togglePhotoForDeletion={handleTogglePhotoForDeletion}
-                setPhotosToDelete={setPhotosToDelete}
-              />
             </>
           )}
         </div>

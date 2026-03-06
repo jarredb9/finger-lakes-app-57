@@ -272,14 +272,19 @@ export async function closeWineryModal(page: Page) {
 }
 
 export async function logVisit(page: Page, data: { review: string, rating?: number, isPrivate?: boolean }) {
-    const modal = page.getByRole('dialog');
-    await modal.getByText(/Add New Visit/i).scrollIntoViewIfNeeded();
-    await modal.getByLabel('Your Review').fill(data.review);
-    if (data.rating) await robustClick(page, modal.getByLabel(`Set rating to ${data.rating}`));
-    if (data.isPrivate) await modal.getByLabel(/Make this visit private/i).check();
+    // If the form isn't visible, we might need to trigger it.
+    // In the new pattern, VisitForm is a separate dialog.
+    const visitModal = page.getByRole('dialog').filter({ hasText: /(Log a Visit|Edit Visit)/i }).last();
     
-    await robustClick(page, modal.getByRole('button', { name: 'Add Visit' }));
-    await expect(page.getByText(/(Visit added successfully|Visit cached)/i).first()).toBeVisible({ timeout: 15000 });
+    // Check if we need to scroll or if it's already there
+    await expect(visitModal).toBeVisible({ timeout: 15000 });
+    
+    await visitModal.getByLabel('Your Review').fill(data.review);
+    if (data.rating) await robustClick(page, visitModal.getByLabel(`Set rating to ${data.rating}`));
+    if (data.isPrivate) await visitModal.getByLabel(/Make this visit private/i).check();
+    
+    await robustClick(page, visitModal.getByRole('button', { name: /(Add Visit|Save Changes)/i }));
+    await expect(page.getByText(/(Visit added successfully|Visit cached|Visit updated successfully|Edit cached)/i).first()).toBeVisible({ timeout: 15000 });
 }
 
 // ==========================================

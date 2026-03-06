@@ -1,6 +1,7 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { persist } from 'zustand/middleware';
 import { ReactNode } from 'react';
+import { Winery, Visit } from '@/lib/types';
 
 interface Notification {
   id: number;
@@ -23,6 +24,14 @@ interface UIState {
   isShareDialogOpen: boolean;
   shareTripId: string | null;
   shareTripName: string | null;
+
+  // Singleton Modal State
+  activeVisitWinery: Winery | null;
+  editingVisit: Visit | null;
+  activeNoteWineryDbId: number | null;
+  activeNoteInitialValue: string;
+  onNoteSave: ((wineryDbId: number, notes: string) => void) | null;
+
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
   setVisitHistoryModalOpen: (isOpen: boolean) => void;
@@ -33,6 +42,12 @@ interface UIState {
   removeNotification: (id: number) => void;
   openModal: (content: ReactNode, title?: string, description?: string) => void;
   closeModal: () => void;
+  
+  openVisitForm: (winery: Winery, editingVisit?: Visit | null) => void;
+  closeVisitForm: () => void;
+  openWineryNoteEditor: (wineryDbId: number, initialNotes: string, onSave: (wineryDbId: number, notes: string) => void) => void;
+  closeWineryNoteEditor: () => void;
+
   openShareDialog: (tripId: string, tripName: string) => void;
   closeShareDialog: () => void;
   reset: () => void;
@@ -55,6 +70,13 @@ export const useUIStore = createWithEqualityFn<UIState>()(
       isShareDialogOpen: false,
       shareTripId: null,
       shareTripName: null,
+      
+      activeVisitWinery: null,
+      editingVisit: null,
+      activeNoteWineryDbId: null,
+      activeNoteInitialValue: '',
+      onNoteSave: null,
+
       toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
       setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
       setVisitHistoryModalOpen: (isOpen) => set({ isVisitHistoryModalOpen: isOpen }),
@@ -81,6 +103,39 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         })),
       openModal: (content, title = '', description = '') => set({ isModalOpen: true, modalContent: content, modalTitle: title, modalDescription: description }),
       closeModal: () => set({ isModalOpen: false, modalContent: null, modalTitle: '', modalDescription: '' }),
+
+      openVisitForm: (winery, editingVisit = null) => set({
+        activeVisitWinery: winery,
+        editingVisit: editingVisit,
+        isModalOpen: true,
+        modalTitle: editingVisit ? 'Edit Visit' : 'Log a Visit',
+        modalDescription: `Reviewing your visit to ${winery.name}`
+      }),
+      closeVisitForm: () => set({
+        activeVisitWinery: null,
+        editingVisit: null,
+        isModalOpen: false,
+        modalTitle: '',
+        modalDescription: ''
+      }),
+
+      openWineryNoteEditor: (wineryDbId, initialNotes, onSave) => set({
+        activeNoteWineryDbId: wineryDbId,
+        activeNoteInitialValue: initialNotes,
+        onNoteSave: onSave,
+        isModalOpen: true,
+        modalTitle: 'Winery Notes',
+        modalDescription: 'Add private notes for this winery'
+      }),
+      closeWineryNoteEditor: () => set({
+        activeNoteWineryDbId: null,
+        activeNoteInitialValue: '',
+        onNoteSave: null,
+        isModalOpen: false,
+        modalTitle: '',
+        modalDescription: ''
+      }),
+
       openShareDialog: (tripId, tripName) => set({ 
         isShareDialogOpen: true, 
         shareTripId: tripId, 

@@ -21,7 +21,10 @@ test.describe('Visit Logging Flow', () => {
     await navigateToTab(page, 'Explore');
     await openWineryDetails(page, 'Mock Winery One');
     
-    // 2. Log Visit
+    // 2. Open Log Visit modal
+    await robustClick(page, page.getByTestId('log-visit-button'));
+
+    // 3. Log Visit
     await logVisit(page, { review: 'Excellent wine and view!', rating: 5 });
     await closeWineryModal(page);
 

@@ -13,7 +13,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import DailyHours from "@/components/DailyHours";
-import WineryNoteEditor from "./WineryNoteEditor";
 import { cn } from "@/lib/utils";
 import { useTripActions } from "@/hooks/use-trip-actions";
 import { calculateDistance, formatDistance } from "@/lib/utils/geo";
@@ -84,7 +83,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
   const [isSearching, setIsSearching] = useState(false);
 
   const [addWineryPopoverOpen, setAddWineryPopoverOpen] = useState(false);
-  const { openShareDialog } = useUIStore();
+  const { openShareDialog, openWineryNoteEditor } = useUIStore();
 
   useEffect(() => {
     if (!winerySearch.trim()) {
@@ -107,7 +106,6 @@ const TripCard = memo(({ trip }: TripCardProps) => {
           const finalResults = results.filter(r => !tripWineryIds.has(r.id));
           setSearchResults(finalResults);
         } catch (error) {
-          console.error("[TripCard] Winery search failed:", error);
           toast({ variant: "destructive", description: "Winery search failed." });
         } finally {
           setIsSearching(false);
@@ -236,16 +234,28 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                               <p className="font-semibold">{winery.name}</p>
                               <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
                               <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
-                              <WineryNoteEditor
-                                wineryDbId={winery.dbId as number}
-                                initialNotes={winery.notes || ''}
-                                onSave={handleSaveNote}
-                              />
+                              
+                              <div className="mt-2">
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                  onClick={() => openWineryNoteEditor(winery.dbId as number, winery.notes || '', handleSaveNote)}
+                                >
+                                  {winery.notes ? "Edit Notes" : "Add Notes"}
+                                </Button>
+                                {winery.notes && (
+                                  <p className="text-xs text-slate-600 mt-1 pl-2 italic border-l-2 border-slate-200">
+                                    {winery.notes}
+                                  </p>
+                                )}
+                              </div>
+
                               <WineryReviews visits={winery.visits || []} currentUserId={trip.user_id} members={currentMembers} />
                             </div>
                             {isEditing && (
                               <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">
-                                <X className="w-4 h-4" />
+                                <X className="h-4 w-4" />
                               </Button>
                             )}
                           </div>

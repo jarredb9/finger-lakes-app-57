@@ -1,6 +1,7 @@
 import { useState, useEffect, forwardRef, useCallback } from "react";
 import { Visit, Winery } from "@/lib/types";
 import { useVisitStore } from "@/lib/stores/visitStore";
+import { useUIStore } from "@/lib/stores/uiStore";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +23,7 @@ interface VisitFormProps {
 const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingVisit, onCancelEdit, photosToDelete, togglePhotoForDeletion, setPhotosToDelete }, ref) => {
   const { toast } = useToast();
   const { saveVisit, updateVisit, isSavingVisit } = useVisitStore();
+  const { closeVisitForm } = useUIStore();
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(0);
@@ -76,6 +78,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
             : "Visit added successfully." 
         });
         resetForm();
+        closeVisitForm();
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : "An error occurred.";
