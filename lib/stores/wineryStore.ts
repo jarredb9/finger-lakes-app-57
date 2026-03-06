@@ -156,6 +156,11 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
   }),
 }));
 
+// Expose store for E2E testing
+if (typeof window !== 'undefined') {
+  (window as any).useWineryStore = useWineryStore;
+}
+
 // Backward compatibility helper
 export const findWineryByDbId = (dbId: number) => {
     return useWineryDataStore.getState().persistentWineries.find(w => w.dbId === (dbId as WineryDbId));

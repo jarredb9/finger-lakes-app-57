@@ -18,6 +18,18 @@ Objective: Harden the sharing flow for E2E reliability and eliminate hydration b
 - [x] Task 4: Refactor `TripCard.test.tsx` to verify global store triggers for the sharing dialog instead of local DOM elements. (fc89a21)
 - [x] Task 5: Sync `friendStore.ts` with updated `get_friends_and_requests` RPC return keys (`pending_incoming`/`pending_outgoing`) to restore social E2E reliability. (d3e12a4)
 
+## Phase 1.6: System Hardening & Reactivity
+Objective: Align the codebase with the project's architectural mandates before implementing real-time features.
+
+- [ ] Task 1: Remove `selectedTrip` from `tripStore.ts` persistence to prevent "Dead ID" bugs. **Verification:** Confirm active trip is cleared on reload.
+- [ ] Task 2: Refactor `TripPlannerSection.tsx` to use direct state subscriptions for `tripsForDate` instead of getter functions. **Verification:** Confirm UI re-renders when store updates.
+- [ ] Task 3: Move `VisitForm` and `WineryNoteEditor` triggers in `TripCard.tsx` to the `useUIStore` singleton pattern. **Verification:** Confirm only one modal instance exists in DOM.
+- [ ] Task 4: Audit `is_trip_member` usage in all migrations and ensure explicit `public.` schema prefixing for security.
+- [ ] Task 5: Update `e2e/smoke.spec.ts` to use robust multi-option selectors from `helpers.ts`. **Verification:** Pass smoke test in WebKit.
+- [ ] Task 6: Update `login` helper in `e2e/helpers.ts` to include `useTripStore` in the mandatory hydration guard. **Verification:** Login fails if tripStore fails to hydrate.
+- [ ] Task 7: Implement `new File()` reconstitution logic in `visitStore.ts` (`syncOfflineVisits`) to handle Base64 photo uploads. **Verification:** Successfully sync an offline visit with photos.
+- [ ] Task 8: Remove legacy `members?: string[]` field from the `Trip` interface in `lib/types.ts`. **Verification:** Zero "members" references found in codebase via grep.
+
 ## Phase 2: Collaborative Trip Views
 Objective: Visualize members and their contributions.
 

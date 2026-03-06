@@ -12,6 +12,7 @@ Build the user interface and frontend logic to support collaborative trip planni
 - **State Persistence:** UI visibility state for active modals/dialogs (e.g., `isOpen`) **MUST NOT** be persisted in `localStorage`. Only functional data (e.g., `shareTripId`) may be persisted if needed for deep linking, but visibility must be transient to prevent hydration race conditions in E2E tests.
 - **Type Safety:** RPC return types must be explicitly cast in `RETURN QUERY` statements (e.g., `col::text`) to prevent "result type mismatch" errors in PostgREST.
 - **Jest Unit Testing:** Component tests triggering singleton modals (Sharing, History, etc.) **MUST** mock the Zustand store and verify the action call (e.g., `expect(mockOpenShareDialog).toHaveBeenCalled()`) instead of checking for element visibility in the local DOM.
+- **System Hardening (v2.7.1):** All existing components must be audited for "Getter Persistence" and "Local Modal" violations. `TripCard` and `TripPlannerSection` are high-priority targets for refactoring to direct store subscriptions.
 
 ## Scope
 
