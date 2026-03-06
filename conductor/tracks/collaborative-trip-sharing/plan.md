@@ -21,7 +21,7 @@ Objective: Harden the sharing flow for E2E reliability and eliminate hydration b
 ## Phase 1.6: System Hardening & Reactivity
 Objective: Align the codebase with the project's architectural mandates before implementing real-time features.
 
-- [ ] Task 1: Remove `selectedTrip` from `tripStore.ts` persistence to prevent "Dead ID" bugs. **Verification:** Confirm active trip is cleared on reload.
+- [x] Task 1: Remove `selectedTrip` from `tripStore.ts` persistence to prevent "Dead ID" bugs. **Verification:** Confirm active trip is cleared on reload. (fff3b60)
 - [ ] Task 2: Refactor `TripPlannerSection.tsx` to use direct state subscriptions for `tripsForDate` instead of getter functions. **Verification:** Confirm UI re-renders when store updates.
 - [ ] Task 3: Move `VisitForm` and `WineryNoteEditor` triggers in `TripCard.tsx` to the `useUIStore` singleton pattern. **Verification:** Confirm only one modal instance exists in DOM.
 - [ ] Task 4: Audit `is_trip_member` usage in all migrations and ensure explicit `public.` schema prefixing for security.
@@ -33,7 +33,7 @@ Objective: Align the codebase with the project's architectural mandates before i
 ## Phase 2: Collaborative Trip Views
 Objective: Visualize members and their contributions.
 
-- [~] Task 1: Update `TripCardSimple` and `TripCard` to display a row of member avatars. **Verification:** Confirm avatars appear in both sidebar and detail view in browser.
+- [ ] Task 1: Update `TripCardSimple` and `TripCard` to display a row of member avatars. **Verification:** Confirm avatars appear in both sidebar and detail view in browser.
 - [ ] Task 2: Update `TripCard` (detail view) header to show member avatars and a "Manage Members" button. **Verification:** Button is clickable and correctly targets the singleton dialog.
 - [ ] Task 3: Implement a `TripMembersList` component to display all participants with their roles. **Verification:** Correctly distinguish between Owner/Member roles in UI.
 - [ ] Task 4: Ensure `get_trip_details` data is correctly hydrated into `tripStore` for all members. **Verification:** Inspect store state via `page.evaluate` in Playwright.
