@@ -1,5 +1,5 @@
 // components/TripPlannerSection.tsx
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Winery } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useToast } from "@/hooks/use-toast";
@@ -19,7 +19,14 @@ interface TripPlannerSectionProps {
 
 export default function TripPlannerSection({ winery, onClose }: TripPlannerSectionProps) {
   const { toast } = useToast();
-  const { selectedTrip, addWineryToTrips, toggleWineryOnTrip, tripsForDate = [], fetchTripsForDate } = useTripStore();
+  
+  // SUBSCRIBE DIRECTLY to state via selectors
+  const selectedTrip = useTripStore((s) => s.selectedTrip);
+  const tripsForDate = useTripStore((s) => s.tripsForDate);
+  const addWineryToTrips = useTripStore((s) => s.addWineryToTrips);
+  const toggleWineryOnTrip = useTripStore((s) => s.toggleWineryOnTrip);
+  const fetchTripsForDate = useTripStore((s) => s.fetchTripsForDate);
+
   const [tripDate, setTripDate] = useState<Date | undefined>();
   const [selectedTrips, setSelectedTrips] = useState<Set<string>>(new Set());
   const [newTripName, setNewTripName] = useState("");
@@ -103,7 +110,11 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
     }
   };
   
-  const isOnActiveTrip = selectedTrip?.wineries?.some(w => w.dbId === winery.dbId) || false;
+  // Use useMemo for derived state from subscribed store state
+  const isOnActiveTrip = useMemo(() => 
+    selectedTrip?.wineries?.some(w => w.dbId === winery.dbId) || false,
+    [selectedTrip, winery.dbId]
+  );
 
   if (selectedTrip) {
     return (
