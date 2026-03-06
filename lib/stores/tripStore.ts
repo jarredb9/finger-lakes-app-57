@@ -546,7 +546,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         trips: state.trips, 
         upcomingTrips: state.upcomingTrips,
         tripsForDate: state.tripsForDate,
-        selectedTrip: state.selectedTrip,
         page: state.page,
         count: state.count,
         hasMore: state.hasMore
