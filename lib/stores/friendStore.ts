@@ -116,13 +116,13 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       if (error) throw error;
 
       // RPC returns a combined object, destructure it
-      // Based on actual structure of get_friends_and_requests: { friends, requests, sent_requests }
-      const { friends, requests, sent_requests } = data as any; 
+      // Based on actual structure of get_friends_and_requests: { friends, pending_incoming, pending_outgoing }
+      const { friends, pending_incoming, pending_outgoing } = data as any; 
 
       set({ 
           friends: friends || [], 
-          friendRequests: requests || [], 
-          sentRequests: sent_requests || [],
+          friendRequests: pending_incoming || [], 
+          sentRequests: pending_outgoing || [],
           isLoading: false 
       });
     } catch (error: any) {

@@ -29,6 +29,13 @@ jest.mock('@/hooks/use-toast', () => ({
   }),
 }));
 
+const mockOpenShareDialog = jest.fn();
+jest.mock('@/lib/stores/uiStore', () => ({
+  useUIStore: () => ({
+    openShareDialog: mockOpenShareDialog,
+  }),
+}));
+
 const mockHandleExportToMaps = jest.fn();
 const mockToggleFriendSelection = jest.fn();
 jest.mock('@/hooks/use-trip-actions', () => ({
@@ -120,12 +127,6 @@ jest.mock('@hello-pangea/dnd', () => ({
     dragHandleProps: {},
   }, {} as any)}</div>,
 }));
-
-jest.mock('../TripShareDialog', () => {
-  const TripShareDialog = ({ isOpen }: any) => isOpen ? <div data-testid="trip-share-dialog" /> : null;
-  TripShareDialog.displayName = 'TripShareDialog';
-  return { TripShareDialog };
-});
 
 jest.mock('../DatePicker', () => {
   const DatePicker = ({ onSelect }: any) => (
@@ -219,7 +220,7 @@ describe('TripCard', () => {
     render(<TripCard trip={mockTrip} />);
     const shareButton = screen.getByLabelText(/Share Trip/i);
     fireEvent.click(shareButton);
-    expect(screen.getByTestId('trip-share-dialog')).toBeInTheDocument();
+    expect(mockOpenShareDialog).toHaveBeenCalledWith('1', expect.stringContaining('Test Trip'));
   });
 
   it('switches to editing mode and saves changes', async () => {

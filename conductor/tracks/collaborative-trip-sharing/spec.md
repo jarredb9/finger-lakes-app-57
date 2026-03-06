@@ -11,6 +11,7 @@ Build the user interface and frontend logic to support collaborative trip planni
 - **Database Hardening:** All new Postgres functions (RPCs) **MUST** explicitly set `SET search_path = public, auth`. Logic must use `auth.uid()` securely and handle cases where it might be NULL.
 - **State Persistence:** UI visibility state for active modals/dialogs (e.g., `isOpen`) **MUST NOT** be persisted in `localStorage`. Only functional data (e.g., `shareTripId`) may be persisted if needed for deep linking, but visibility must be transient to prevent hydration race conditions in E2E tests.
 - **Type Safety:** RPC return types must be explicitly cast in `RETURN QUERY` statements (e.g., `col::text`) to prevent "result type mismatch" errors in PostgREST.
+- **Jest Unit Testing:** Component tests triggering singleton modals (Sharing, History, etc.) **MUST** mock the Zustand store and verify the action call (e.g., `expect(mockOpenShareDialog).toHaveBeenCalled()`) instead of checking for element visibility in the local DOM.
 
 ## Scope
 
@@ -40,5 +41,6 @@ Build the user interface and frontend logic to support collaborative trip planni
 
 ## Validation Strategy
 - **Direct-to-DB Verification:** Before completing a backend task, the agent **MUST** verify the RPC using `execute_sql` with a manual `auth.uid()` simulation.
+- **RPC Key Audit:** Agents **MUST** use the Supabase MCP or `execute_sql` to verify the actual return keys of `jsonb`-returning RPCs before assumed destructuring in stores.
 - **Cross-Browser Smoke Test:** Every UI change must be verified in the rootless Playwright container on at least `chromium` and `webkit`.
 - **Scoped Locators:** E2E tests must use scoped locators (e.g., `page.locator('main')`) to disambiguate between sidebar and detail view components.

@@ -657,7 +657,12 @@ WebKit often needs a small "settlement" period after complex state changes (like
     *   **Singleton Dialog Refactor:** Refactored `TripShareDialog` into a global singleton managed by `useUIStore` and rendered at the root of `layout.tsx`. This resolved locator conflicts and state loss caused by `AuthProvider` loading flashes.
     *   **Backend Hardening:** Fixed infinite recursion in `trip_members` RLS SELECT policy. Hardened search paths for all critical RPCs to include `auth` schema.
     *   **Stability Cleanup:** Disabled persistence for transient UI visibility flags in `uiStore.ts` and hardened `login` helper with increased timeouts for cross-browser reliability.
-    *   **Testing:** Updated `e2e/trip-sharing.spec.ts` to use scoped locators and robust `toPass` intervals, achieving 100% pass rate across Chromium, Firefox, and WebKit.
+    *   **Testing:** Updated `e2e/trip-sharing.spec.ts` to use scoped locators and robust `toPass` intervals, achieving 100% rate across Chromium, Firefox, and WebKit.
+    88. **Collaborative Sharing Regression Fix:**
+    *   **Jest Alignment:** Updated `TripCard.test.tsx` to verify global singleton state triggers instead of local DOM elements.
+    *   **Social Sync Fix:** Updated `friendStore.ts` to match updated `get_friends_and_requests` RPC return keys (`pending_incoming`/`pending_outgoing`), restoring functionality to social E2E tests.
+    *   **Validation:** Verified 100% pass rate across entire Jest suite (97 tests) and core social E2E flows.
+
 
 ### 4. Playwright Infrastructure & CI Efficiency (v2.4.0)
 The project uses a highly optimized CI pipeline to balance exhaustive verification with runner minute conservation.
@@ -785,6 +790,16 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **The Trap:** Directly using hooks like `useUIStore` in a Server Component will throw errors during build/pre-rendering (e.g., `TypeError: h is not a function`).
 *   **The Fix:** Wrap store-dependent UI elements in a separate `"use client"` component (e.g., `trip-share-dialog-wrapper.tsx`) and import that into the layout.
 
+### 30. Jest Verification for Singleton Modals
+*   **Concept:** Components like `TripCard` no longer render dialogs locally; they trigger a global singleton via a Zustand store.
+*   **The Trap:** Tests that previously searched for `[data-testid="trip-share-dialog"]` inside a component will fail because the dialog is now rendered at the app root.
+*   **The Fix:** Update Jest tests to mock the UI store and verify that the correct action (e.g., `openShareDialog`) was called with expected arguments instead of checking the local DOM.
+
+### 31. RPC Key Consistency (JSONB Returns)
+*   **Concept:** Destructuring keys from Supabase RPCs that return `jsonb`.
+*   **The Trap:** Migration files might update an RPC to return different keys (e.g., changing `requests` to `pending_incoming`) to resolve ambiguity or align with standard naming. If the corresponding store fetching logic isn't updated simultaneously, the UI will silently fail to populate data.
+*   **The Fix:** Always verify what the database is actually returning using the Supabase MCP or `execute_sql` with `pg_get_functiondef` before assuming key names in stores.
+
 ## Project Handover: Track 1 Status (COMPLETE)
 
 ### Completed Refactor (Social Infrastructure & v2.7.0 Release)
@@ -799,7 +814,7 @@ Since RHEL 8 lacks system dependencies for WebKit and Firefox, we use a rootless
 *   **Release Ready:** The project is prepared for the `v2.7.0` release.
 
 ### Readiness for Track 2 (Collaborative Trip UI)
-Phase 1 (Share UI & Invitation Logic) and Phase 1.5 (Architectural Stability) are **COMPLETE**. The backend infrastructure is fully hardened, and the global singleton architecture is established in `layout.tsx`. E2E verification in `e2e/trip-sharing.spec.ts` is passing with 100% reliability across Chromium, Firefox, and WebKit. The system is ready for Phase 2 (Collaborative Views).
+Phase 1 (Share UI & Invitation Logic) and Phase 1.5 (Architectural Stability) are **COMPLETE**. Regressions in social sync and unit tests have been resolved. The backend infrastructure is fully hardened, and the global singleton architecture is established in `layout.tsx`. E2E verification in `e2e/trip-sharing.spec.ts`, `e2e/friends-flow.spec.ts`, and `e2e/privacy-flow.spec.ts` is passing with 100% reliability across Chromium, Firefox, and WebKit. The system is ready for Phase 2 (Collaborative Views).
 
 ## Code Intelligence Tools (CGC & SDL-MCP)
 This project utilizes two specialized code mapping systems. **MANDATORY:** Agents MUST use these tools to map symbols and dependencies BEFORE performing large file reads.

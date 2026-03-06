@@ -15,6 +15,8 @@ Objective: Harden the sharing flow for E2E reliability and eliminate hydration b
 - [x] Task 1: Refactor `uiStore.ts` to remove UI visibility flags (`isShareDialogOpen`, etc.) from persistence. **Verification:** Confirm dialog state does not survive page reload.
 - [x] Task 2: Move `TripShareDialogWrapper` and other root-level singletons in `app/layout.tsx` outside of the `AuthProvider`'s loading boundary. **Verification:** Dialog remains visible during "Loading..." flashes.
 - [x] Task 3: Standardize the invitation button state to ensure the loading spinner is detectable by Playwright without unmounting the parent.
+- [x] Task 4: Refactor `TripCard.test.tsx` to verify global store triggers for the sharing dialog instead of local DOM elements. (fc89a21)
+- [x] Task 5: Sync `friendStore.ts` with updated `get_friends_and_requests` RPC return keys (`pending_incoming`/`pending_outgoing`) to restore social E2E reliability. (d3e12a4)
 
 ## Phase 2: Collaborative Trip Views
 Objective: Visualize members and their contributions.
