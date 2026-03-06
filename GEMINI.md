@@ -15,6 +15,7 @@
 *   **Middleware:** `proxy.ts` IS the valid middleware. `middleware.ts` DOES NOT exist.
 *   **Supabase Native:** Prioritize direct client-to-Supabase logic (RPCs/SDK). **NEVER** create new Next.js API routes for CRUD logic.
 *   **Singleton Modals:** Feature dialogs **MUST** be global singletons in `layout.tsx` (outside `AuthProvider`) to avoid DOM bloat and unmounting during hydration flashes.
+    *   **Standard:** Use `GlobalModalRenderer` as the sink for all forms (e.g., `VisitForm`, `WineryNoteEditor`). Trigger via `useUIStore.openVisitForm()` rather than local state.
 *   **RPC Search Paths:** All Postgres functions **MUST** set `SET search_path = public, auth` to resolve auth schema helpers in `SECURITY DEFINER` contexts.
 
 # Winery Visit Planner and Tracker
@@ -22,8 +23,9 @@
 ## 1. Environment & Shell (RHEL 8)
 *   **Dev Server:** Use PM2 for stability: `pm2 start npm --name "winery-dev" -- run dev -- -p 3001`.
 *   **Shell:** Load NVM before npm: `export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"`.
-*   **Playwright Container:** Local testing MUST use rootless Podman: `./scripts/run-e2e-container.sh`.
-    *   **Mandatory Build:** Use `--build` if core logic (stores, services, components) changed.
+*   **Playwright Container:** Local testing MUST use rootless Podman: `./scripts/run-e2e-container.sh [project] [test_file]`.
+    *   **Usage:** `./scripts/run-e2e-container.sh chromium e2e/smoke.spec.ts` (Project defaults to `webkit`).
+    *   **Mandatory Build:** Use `--build` if core logic (stores, services, components) changed: `./scripts/run-e2e-container.sh --build all`.
     *   **Production Parity:** CI runs against `next start`. Ensure `IS_E2E=true` is set for store exposure.
 
 ## 2. PWA & WebKit (Safari) Stability

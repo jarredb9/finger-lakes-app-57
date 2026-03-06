@@ -30,9 +30,11 @@ jest.mock('@/hooks/use-toast', () => ({
 }));
 
 const mockOpenShareDialog = jest.fn();
+const mockOpenWineryNoteEditor = jest.fn();
 jest.mock('@/lib/stores/uiStore', () => ({
   useUIStore: () => ({
     openShareDialog: mockOpenShareDialog,
+    openWineryNoteEditor: mockOpenWineryNoteEditor,
   }),
 }));
 
@@ -140,14 +142,6 @@ jest.mock('../DailyHours', () => {
   const DailyHours = () => null;
   DailyHours.displayName = 'DailyHours';
   return DailyHours;
-});
-
-jest.mock('../WineryNoteEditor', () => {
-  const WineryNoteEditor = ({ onSave, wineryDbId }: any) => (
-    <button data-testid="save-note-btn" onClick={() => onSave(wineryDbId, 'New Note')}>Save Note</button>
-  );
-  WineryNoteEditor.displayName = 'WineryNoteEditor';
-  return WineryNoteEditor;
 });
 
 describe('TripCard', () => {
@@ -288,21 +282,34 @@ describe('TripCard', () => {
     expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ description: "Failed to remove winery." }));
   });
 
-  it('saves a note via WineryNoteEditor', async () => {
+  it('opens the global note editor when clicking add/edit notes', async () => {
     render(<TripCard trip={mockTrip} />);
-    const saveNoteBtn = screen.getByTestId('save-note-btn');
+    const notesBtn = screen.getByRole('button', { name: /Add Notes/i });
+    fireEvent.click(notesBtn);
+    
+    expect(mockOpenWineryNoteEditor).toHaveBeenCalledWith(
+      101, 
+      '', 
+      expect.any(Function)
+    );
+
+    // Verify it passes handleSaveNote which triggers saveWineryNote
+    const onSaveCallback = mockOpenWineryNoteEditor.mock.calls[0][2];
     await act(async () => {
-      fireEvent.click(saveNoteBtn);
+      await onSaveCallback(101, 'Updated Note');
     });
-    expect(mockSaveWineryNote).toHaveBeenCalledWith('1', 101, 'New Note');
+    expect(mockSaveWineryNote).toHaveBeenCalledWith('1', 101, 'Updated Note');
   });
 
-  it('handles saveWineryNote error', async () => {
+  it('handles saveWineryNote error via the callback', async () => {
     mockSaveWineryNote.mockRejectedValue(new Error('Save failed'));
     render(<TripCard trip={mockTrip} />);
-    const saveNoteBtn = screen.getByTestId('save-note-btn');
+    const notesBtn = screen.getByRole('button', { name: /Add Notes/i });
+    fireEvent.click(notesBtn);
+    
+    const onSaveCallback = mockOpenWineryNoteEditor.mock.calls[0][2];
     await act(async () => {
-      fireEvent.click(saveNoteBtn);
+      await onSaveCallback(101, 'Fail');
     });
     expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ description: "Failed to save notes." }));
   });
