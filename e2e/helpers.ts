@@ -198,7 +198,8 @@ export async function login(page: Page, email: string, pass: string, options: { 
               const u = (window as any).useUserStore?.getState().user;
               const w = (window as any).useWineryDataStore?.persist?.hasHydrated();
               const v = (window as any).useVisitStore?.persist?.hasHydrated();
-              return !!(u && w && v);
+              const t = (window as any).useTripStore?.persist?.hasHydrated();
+              return !!(u && w && v && t);
           } catch (e) { return false; }
       }).catch(() => false);
       if (!isHydrated) throw new Error('Stores not hydrated');

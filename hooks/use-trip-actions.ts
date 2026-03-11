@@ -8,7 +8,9 @@ export function useTripActions(trip: Trip) {
   const { toast } = useToast();
   const { addMembersToTrip } = useTripStore();
   const { friends = [], fetchFriends } = useFriendStore();
-  const [selectedFriends, setSelectedFriends] = useState<string[]>(trip.members || []);
+  const [selectedFriends, setSelectedFriends] = useState<string[]>(
+    (trip.members || []).map(m => (typeof m === 'string' ? m : (m as Friend).id))
+  );
 
   useEffect(() => {
     fetchFriends();
@@ -16,7 +18,7 @@ export function useTripActions(trip: Trip) {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedFriends(trip.members || []);
+    setSelectedFriends((trip.members || []).map(m => (typeof m === 'string' ? m : (m as Friend).id)));
   }, [trip.members]);
 
   const handleExportToMaps = () => {
@@ -72,7 +74,7 @@ export function useTripActions(trip: Trip) {
     }
   };
 
-  const currentMembers = friends.filter((f: Friend) => trip.members?.includes(f.id));
+  const currentMembers = (trip.members || []).filter((m): m is Friend => typeof m !== 'string');
 
   return {
     friends,

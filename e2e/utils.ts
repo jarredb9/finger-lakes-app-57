@@ -373,7 +373,7 @@ export class MockMapsManager {
               name: body.name || 'New Trip',
               trip_date: body.trip_date || todayCA,
               user_id: 'test-user-id',
-              members: ['test-user-id'],
+              members: [],
           });
           // Add extra fields needed for UI
           (newTrip as any).trip_wineries = [{ count: 0 }];
@@ -436,7 +436,7 @@ export class MockMapsManager {
         body: JSON.stringify({
             ...trip,
             wineries: trip.wineries || [],
-            members: trip.members || []
+            members: []
         }),
       });
     });
@@ -464,7 +464,7 @@ export class MockMapsManager {
           name: body.p_trip_name || 'New Trip',
           trip_date: body.p_trip_date || todayCA,
           user_id: 'test-user-id',
-          members: ['test-user-id'],
+          members: [],
       });
       (newTrip as any).trip_wineries = [{ count: 1 }];
       mockTrips.unshift(newTrip);

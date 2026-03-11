@@ -37,7 +37,7 @@ export const createMockTrip = (overrides: Partial<Trip> = {}): Trip => ({
   trip_date: new Date().toISOString().split('T')[0],
   name: 'Test Trip',
   wineries: [],
-  members: ['user-123'],
+  members: [],
   ...overrides,
 });
 

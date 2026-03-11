@@ -24,11 +24,11 @@ Objective: Align the codebase with the project's architectural mandates before i
 - [x] Task 1: Remove `selectedTrip` from `tripStore.ts` persistence to prevent "Dead ID" bugs. **Verification:** Confirm active trip is cleared on reload. (fff3b60)
 - [x] Task 2: Refactor `TripPlannerSection.tsx` to use direct state subscriptions for `tripsForDate` instead of getter functions. **Verification:** Confirm UI re-renders when store updates. (00c8cc7)
 - [x] Task 3: Move `VisitForm` and `WineryNoteEditor` triggers in `TripCard.tsx` to the `useUIStore` singleton pattern. **Verification:** Confirm only one modal instance exists in DOM. (07d65dc)
-- [~] Task 4: Audit `is_trip_member` usage in all migrations and ensure explicit `public.` schema prefixing for security.
-- [ ] Task 5: Update `e2e/smoke.spec.ts` to use robust multi-option selectors from `helpers.ts`. **Verification:** Pass smoke test in WebKit.
-- [ ] Task 6: Update `login` helper in `e2e/helpers.ts` to include `useTripStore` in the mandatory hydration guard. **Verification:** Login fails if tripStore fails to hydrate.
-- [ ] Task 7: Implement `new File()` reconstitution logic in `visitStore.ts` (`syncOfflineVisits`) to handle Base64 photo uploads. **Verification:** Successfully sync an offline visit with photos.
-- [ ] Task 8: Remove legacy `members?: string[]` field from the `Trip` interface in `lib/types.ts`. **Verification:** Zero "members" references found in codebase via grep.
+- [x] Task 4: Audit `is_trip_member` usage in all migrations and ensure explicit `public.` schema prefixing for security. (6294a60)
+- [x] Task 5: Update `e2e/smoke.spec.ts` to use robust multi-option selectors from `helpers.ts`. **Verification:** Pass smoke test in WebKit. (51d5c21)
+- [x] Task 6: Update `login` helper in `e2e/helpers.ts` to include `useTripStore` in the mandatory hydration guard. **Verification:** Login fails if tripStore fails to hydrate. (51d5c21)
+- [x] Task 7: Implement `new File()` reconstitution logic in `visitStore.ts` (`syncOfflineVisits`) to handle Base64 photo uploads. **Verification:** Successfully sync an offline visit with photos. (51d5c21)
+- [x] Task 8: Remove legacy `members?: string[]` field from the `Trip` interface in `lib/types.ts`. **Verification:** Zero "members" references found in codebase via grep. (51d5c21)
 
 ## Phase 2: Collaborative Trip Views
 Objective: Visualize members and their contributions.

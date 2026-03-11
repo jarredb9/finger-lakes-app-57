@@ -152,7 +152,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           trip_date: trip.trip_date || new Date().toISOString(),
           name: trip.name,
           wineries: trip.wineries || [],
-          members: trip.members || [],
+          members: [],
         };
 
         const isFuture = new Date(tempTrip.trip_date) >= new Date(new Date().setHours(0, 0, 0, 0));

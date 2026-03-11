@@ -37,7 +37,8 @@ export const TripService = {
     const formattedTrips = trips?.map((t: any) => ({
       ...t,
       wineries_count: t.trip_wineries?.[0]?.count || 0,
-      wineries: [] // List view doesn't need full winery details
+      wineries: [], // List view doesn't need full winery details
+      members: [] // List view usually doesn't need full member details either
     }));
 
     return { trips: formattedTrips || [], count: count || 0 };
@@ -94,7 +95,7 @@ export const TripService = {
                 website: w.website,
                 rating: w.rating
             },
-            p_members: trip.members || null
+            p_members: []
         });
 
         if (error) throw error;
@@ -132,7 +133,7 @@ export const TripService = {
         status: 'joined'
     });
 
-    return { ...newTrip, wineries: [], members: [user?.id] } as Trip;
+    return { ...newTrip, wineries: [], members: [] } as Trip;
   },
 
   async deleteTrip(tripId: string) {
