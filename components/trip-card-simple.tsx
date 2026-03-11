@@ -94,16 +94,16 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
                         <span className="text-sm text-muted-foreground">Collaborators:</span>
                         <div className="flex items-center -space-x-2">
                             <TooltipProvider>
-                                 {currentMembers.map((friend) => (
-                                      <Tooltip key={friend.id}>
+                                 {currentMembers.map((member) => (
+                                      <Tooltip key={member.id}>
                                           <TooltipTrigger asChild>
                                               <Avatar className="h-6 w-6 border-2 border-white">
-                                                <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
-                                                <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
+                                                <AvatarImage src={`https://i.pravatar.cc/150?u=${member.email}`} alt={member.name} />
+                                                <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
                                               </Avatar>
                                           </TooltipTrigger>
                                           <TooltipContent>
-                                                <p>{friend.name}</p>
+                                                <p>{member.name} ({member.role})</p>
                                           </TooltipContent>
                                       </Tooltip>
                                   ))}

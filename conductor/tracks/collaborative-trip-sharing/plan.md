@@ -33,9 +33,9 @@ Objective: Align the codebase with the project's architectural mandates before i
 ## Phase 2: Collaborative Trip Views
 Objective: Visualize members and their contributions.
 
-- [ ] Task 1: Update `TripCardSimple` and `TripCard` to display a row of member avatars. **Verification:** Confirm avatars appear in both sidebar and detail view in browser.
-- [ ] Task 2: Update `TripCard` (detail view) header to show member avatars and a "Manage Members" button. **Verification:** Button is clickable and correctly targets the singleton dialog.
-- [ ] Task 3: Implement a `TripMembersList` component to display all participants with their roles. **Verification:** Correctly distinguish between Owner/Member roles in UI.
+- [x] Task 1: Update `TripCardSimple` and `TripCard` to display a row of member avatars. **Verification:** Confirm avatars appear in both sidebar and detail view in browser. (afae40e)
+- [x] Task 2: Update `TripCard` (detail view) header to show member avatars and a "Manage Members" button. **Verification:** Button is clickable and correctly targets the singleton dialog. (9245a4a)
+- [x] Task 3: Implement a `TripMembersList` component to display all participants with their roles. **Verification:** Correctly distinguish between Owner/Member roles in UI. (0000001)
 - [ ] Task 4: Ensure `get_trip_details` data is correctly hydrated into `tripStore` for all members. **Verification:** Inspect store state via `page.evaluate` in Playwright.
 
 ## Phase 3: Real-time & Synchronization

@@ -154,6 +154,14 @@ export interface Winery {
   reservable?: boolean | null;
 }
 
+export interface TripMember {
+    id: string;
+    role: 'owner' | 'member';
+    status: 'invited' | 'joined';
+    name: string;
+    email: string;
+}
+
 export interface Trip {
     id: number;
     user_id: string;
@@ -161,7 +169,7 @@ export interface Trip {
     name?: string;
     wineries: Winery[];
     wineries_count?: number;
-    members?: Friend[];
+    members?: TripMember[];
     
     // UI-specific fields for form handling
     wineryOrder?: WineryDbId[]; // Use new distinct type

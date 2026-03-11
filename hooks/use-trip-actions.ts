@@ -1,5 +1,5 @@
 import { useToast } from "@/hooks/use-toast";
-import { Friend, Trip } from "@/lib/types";
+import { Trip } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { useState, useEffect } from "react";
@@ -7,9 +7,9 @@ import { useState, useEffect } from "react";
 export function useTripActions(trip: Trip) {
   const { toast } = useToast();
   const { addMembersToTrip } = useTripStore();
-  const { friends = [], fetchFriends } = useFriendStore();
+  const { fetchFriends } = useFriendStore();
   const [selectedFriends, setSelectedFriends] = useState<string[]>(
-    (trip.members || []).map(m => (typeof m === 'string' ? m : (m as Friend).id))
+    (trip.members || []).map(m => m.id)
   );
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export function useTripActions(trip: Trip) {
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedFriends((trip.members || []).map(m => (typeof m === 'string' ? m : (m as Friend).id)));
+    setSelectedFriends((trip.members || []).map(m => m.id));
   }, [trip.members]);
 
   const handleExportToMaps = () => {
@@ -74,10 +74,9 @@ export function useTripActions(trip: Trip) {
     }
   };
 
-  const currentMembers = (trip.members || []).filter((m): m is Friend => typeof m !== 'string');
+  const currentMembers = trip.members || [];
 
   return {
-    friends,
     selectedFriends,
     currentMembers,
     handleExportToMaps,

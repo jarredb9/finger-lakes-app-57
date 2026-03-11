@@ -84,6 +84,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           const trip = await TripService.getTripById(tripId);
           set(state => ({
             trips: [...state.trips.filter(t => t.id !== trip.id), trip],
+            selectedTrip: state.selectedTrip?.id === trip.id ? trip : state.selectedTrip,
             isLoading: false
           }));
 
