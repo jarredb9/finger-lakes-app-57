@@ -125,6 +125,8 @@ export const TripService = {
 
     if (error) throw error;
 
+    console.log(`[DIAGNOSTIC] TripService.createTrip: Successfully created trip ${newTrip.id}`);
+
     // Add creator to trip_members
     await supabase.from('trip_members').insert({
         trip_id: newTrip.id,
@@ -221,6 +223,23 @@ export const TripService = {
     }
 
     return data;
+  },
+
+  async removeMember(tripId: number, userId: string) {
+    const supabase = createClient();
+    const { error } = await supabase
+        .from('trip_members')
+        .delete()
+        .eq('trip_id', tripId)
+        .eq('user_id', userId)
+        .neq('role', 'owner'); // Safety: cannot remove owner
+
+    if (error) {
+        console.error("Error removing member:", error);
+        throw new Error(error.message || "Failed to remove member.");
+    }
+
+    return { success: true };
   },
 
   async addWineryToNewTrip(date: string, wineryId: number, notes: string, name: string) {

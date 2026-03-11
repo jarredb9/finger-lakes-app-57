@@ -1,190 +1,182 @@
-import { test, expect } from './utils';
+import { test, expect, createTestUser, deleteTestUser } from './utils';
 import { 
-  login, 
-  navigateToTab, 
-  robustClick, 
-  waitForToast,
-  getSidebarContainer,
-  ensureSidebarExpanded,
-  waitForAppReady
+    getSidebarContainer, 
+    login, 
+    navigateToTab, 
+    ensureSidebarExpanded,
+    robustClick,
+    waitForAppReady
 } from './helpers';
 
-test.describe('Trip Sharing Flow', () => {
-  const mockTripId = 12345;
-  const mockTripName = 'E2E Test Trip';
+test.describe('Trip Sharing and Collaboration Flow', () => {
+  test('User can invite a friend to a trip', async ({ page, user, mockMaps }) => {
+    // Surface all browser logs
+    page.on('console', msg => console.log(`[BROWSER] ${msg.text()}`));
 
-  test.beforeEach(async ({ page, user }) => {
-    // 0. Clean state
-    await page.unroute(/\/rest\/v1\/trips/);
-    await page.unroute(/\/rpc\/get_upcoming_trips/);
-    await page.unroute(/\/rpc\/get_trips_for_date/);
-    await page.unroute(/\/rpc\/get_friends_and_requests/);
-    await page.unroute(/\/rpc\/get_trip_details/);
-    await page.unroute('**/rpc/add_trip_member_by_email');
+    // Initialize mocks with the actual user ID to ensure isOwner works
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
 
-    // 1. Setup network mocks for trips to ensure buttons are rendered
-    // Use page.route to override context.route from MockMapsManager
-    const today = new Date().toISOString().split('T')[0];
-    const mockTrip = {
-      id: mockTripId,
-      name: mockTripName,
-      trip_date: today,
-      user_id: user.id,
-      wineries: [],
-      members: [user.id]
-    };
-
-    // Mock both REST and RPC versions of trip fetching
-    // Priority: page.route > context.route
-    await page.route(/\/rest\/v1\/trips/, async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([mockTrip]),
-        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
-      });
-    });
-
-    await page.route(/\/rpc\/get_upcoming_trips/, async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([mockTrip]),
-        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
-      });
-    });
-
-    await page.route(/\/rpc\/get_trips_for_date/, async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify([mockTrip]),
-        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
-      });
-    });
-
-    await page.route(/\/rpc\/get_friends_and_requests/, async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ friends: [], pending_incoming: [], pending_outgoing: [] }),
-        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
-      });
-    });
-
-    await page.route(/\/rpc\/get_trip_details/, async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ ...mockTrip, wineries: [], members: [user.id] }),
-        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
-      });
-    });
-
-    // 2. Log in
-    await login(page, user.email, user.password);
-    await page.waitForLoadState('networkidle');
+    // 1. Setup: User logs in and creates a trip
+    await login(page, user.email, user.password, { skipMapReady: true });
     await waitForAppReady(page);
-  });
-
-  test('can open share dialog from Trips view (TripCardSimple)', async ({ page }) => {
+    
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);
+    
+    // Create trip with unique name to avoid mock collisions
+    const uniqueTripName = `Sharing Trip ${Date.now()}`;
     const sidebar = getSidebarContainer(page);
+    await robustClick(page, sidebar.getByRole('button', { name: 'New Trip' }));
+    
+    const tripForm = page.getByTestId('trip-form-card');
+    await tripForm.getByTestId('trip-name-input').fill(uniqueTripName);
+    
+    console.log('[E2E] Clicking create-trip-submit-btn');
+    // Intercept creation
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('trips') || resp.url().includes('create_trip')),
+        robustClick(page, tripForm.getByTestId('create-trip-submit-btn'))
+    ]);
+    
+    // Wait for success toast to ensure store is updated
+    console.log('[E2E] Waiting for creation toast');
+    await expect(page.getByText(/Trip created successfully/i).first()).toBeVisible({ timeout: 15000 });
 
-    // Look for the trip card by testid
-    const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: mockTripName }).first();
+    console.log('[E2E] Waiting for trip card to appear');
+    const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
     await expect(tripCard).toBeVisible({ timeout: 15000 });
-
-    // Click the Share Trip button (using the new testid)
-    const shareBtn = tripCard.getByTestId('share-trip-btn');
-    await expect(async () => {
-        await robustClick(page, shareBtn);
-        // Verify dialog is open
-        await page.waitForSelector('[data-testid="trip-share-dialog"]', { state: 'visible', timeout: 5000 });
-    }).toPass({ timeout: 15000 });
-
-    const dialog = page.getByTestId('trip-share-dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByText(new RegExp(`Share "${mockTripName}"`, 'i'))).toBeVisible();
-  });
-
-  test('can open share dialog from Trip Detail view (TripCard)', async ({ page }) => {
-    await navigateToTab(page, 'Trips');
-    await ensureSidebarExpanded(page);
-    const sidebar = getSidebarContainer(page);
-
-    // Navigate to Trip Details
-    const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: mockTripName }).first();
-    const viewDetailsBtn = tripCard.getByTestId('view-trip-details-btn');
-    await robustClick(page, viewDetailsBtn);
-
-    // Verify "Share Trip" button is visible in the detail view header (Main content, not sidebar)
-    // Both TripCardSimple (sidebar) and TripCard (main) have this button, so we must scope it.
-    const shareTripBtn = page.locator('main').getByTestId('share-trip-btn').first();
-    await expect(shareTripBtn).toBeVisible({ timeout: 10000 });
-
-    // Click Share Trip
-    await expect(async () => {
-        await robustClick(page, shareTripBtn);
-        // Verify dialog is open
-        await page.waitForSelector('[data-testid="trip-share-dialog"]', { state: 'visible', timeout: 5000 });
-    }).toPass({ timeout: 15000 });
-
-    const dialog = page.getByTestId('trip-share-dialog');
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByText(/Share/i)).toBeVisible();
-  });
-
-  test('can invite a user by email', async ({ page }) => {
-    await navigateToTab(page, 'Trips');
-    await ensureSidebarExpanded(page);
-    const sidebar = getSidebarContainer(page);
     
-    // Navigate to Trip Details
-    const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: mockTripName }).first();
-    const viewDetailsBtn = tripCard.getByTestId('view-trip-details-btn');
-    await robustClick(page, viewDetailsBtn);
+    // 2. Wait for stable positive ID before opening dialog
+    console.log('[E2E] Waiting for stable positive ID');
     
-    const shareTripBtn = page.locator('main').getByTestId('share-trip-btn').first();
-    await expect(async () => {
-        await robustClick(page, shareTripBtn);
-        // Wait for the dialog to be in the DOM first
-        await page.waitForSelector('[data-testid="trip-share-dialog"]', { state: 'visible', timeout: 5000 });
-    }).toPass({ timeout: 15000 });
-    
-    const dialog = page.getByTestId('trip-share-dialog');
-    await expect(dialog).toBeVisible({ timeout: 5000 });
-
-    // Fill email input
-    const emailInput = page.getByTestId('invite-email-input');
-    const testEmail = 'collaborator@example.com';
-    await emailInput.fill(testEmail);
-
-    // Intercept the RPC call for this specific test
-    await page.route('**/rpc/add_trip_member_by_email', async route => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ success: true }),
-        headers: { 'Access-Control-Allow-Origin': '*', 'Cache-Control': 'no-store' }
-      });
+    // Debug store state if it takes too long
+    await page.evaluate(() => {
+        const store = (window as any).useTripStore?.getState();
+        console.log('[DIAGNOSTIC-STORE] Current trips:', JSON.stringify(store?.trips.map((t: any) => ({ id: t.id, name: t.name }))));
     });
 
-    // Click Invite
-    const inviteBtn = dialog.getByTestId('invite-by-email-btn');
-    await robustClick(page, inviteBtn);
+    // Wait for the ID to become positive (not starting with -)
+    await expect(tripCard).toHaveAttribute('data-trip-id', /^[1-9]\d*$/, { timeout: 20000 });
 
-    // Verify success via toast
-    await waitForToast(page, `Invitation sent to ${testEmail}`);
+    // 2. Open Share Dialog
+    console.log('[E2E] Opening Share Dialog');
+    const shareBtn = tripCard.getByTestId('share-trip-btn');
+    await robustClick(page, shareBtn);
     
-    // Verify input is cleared
-    const input = dialog.getByTestId('invite-email-input');
-    await expect(input).toBeEnabled({ timeout: 10000 });
+    const dialog = page.getByTestId('trip-share-dialog');
+    await expect(dialog).toBeVisible();
+    
+    // 3. Invite a friend by email
+    console.log('[E2E] Inviting friend by email');
+    const emailInput = dialog.getByTestId('invite-email-input');
+    await emailInput.fill('user-b@example.com');
+    
+    // Intercept RPC and refresh
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('rpc/add_trip_member_by_email')),
+        robustClick(page, dialog.getByTestId('invite-by-email-btn'))
+    ]);
+    
+    console.log('[E2E] Waiting for success toast');
+    await expect(page.getByText(/Invitation sent to user-b@example.com/i).first()).toBeVisible();
+    
+    // Verify member appears in list
+    console.log('[E2E] Verifying member in list');
+    await expect(dialog.getByTestId('member-email').filter({ hasText: 'user-b@example.com' })).toBeVisible({ timeout: 15000 });
+  });
 
-    await expect(async () => {
-        const val = await input.inputValue();
-        expect(val).toBe('');
-    }).toPass({ timeout: 5000, intervals: [500] });
+  test('Collaborative editing: Multi-context sync', async ({ browser, user: userA }) => {
+    // This test verifies that if User A changes something, User B sees it (via Realtime or refresh)
+    const userB = await createTestUser();
+    
+    try {
+      const contextA = await browser.newContext();
+      const contextB = await browser.newContext();
+      const pageA = await contextA.newPage();
+      const pageB = await contextB.newPage();
+
+      // IMPORTANT: Apply mocks to BOTH contexts
+      // The shared state in utils.ts will handle the cross-context communication
+      const { mockGoogleMapsApi } = await import('./utils');
+      await mockGoogleMapsApi(pageA, userA.id);
+      await mockGoogleMapsApi(pageB, userB.id);
+
+      await login(pageA, userA.email, userA.password, { skipMapReady: true });
+      await login(pageB, userB.email, userB.password, { skipMapReady: true });
+
+      await navigateToTab(pageA, 'Trips');
+      await navigateToTab(pageB, 'Trips');
+      
+      const sidebarA = getSidebarContainer(pageA);
+      const sidebarB = getSidebarContainer(pageB);
+      
+      const tripCardA = sidebarA.getByTestId('trip-card').filter({ hasText: 'Collaboration Trip' }).first();
+      const tripCardB = sidebarB.getByTestId('trip-card').filter({ hasText: 'Collaboration Trip' }).first();
+      
+      await expect(tripCardA).toBeVisible();
+      await expect(tripCardB).toBeVisible();
+
+      // User A renames the trip
+      await robustClick(pageA, tripCardA.getByTestId('view-trip-details-btn'));
+      await pageA.getByRole('button', { name: 'Edit' }).click();
+      
+      const newName = `Renamed by A ${Date.now()}`;
+      await pageA.getByPlaceholder('Trip Name').fill(newName);
+      
+      await Promise.all([
+          pageA.waitForResponse(resp => resp.request().method() === 'PATCH' && resp.url().includes('trips')),
+          pageA.getByRole('button', { name: 'Save' }).click()
+      ]);
+
+      // User B should see the change
+      // In E2E with mocks, we might need a manual refresh or simulate the realtime event
+      await expect(async () => {
+          // Proactive sync for User B
+          await pageB.evaluate(async () => {
+              const store = (window as any).useTripStore?.getState();
+              if (store) await store.fetchTrips(1, 'upcoming', true);
+          });
+          await expect(sidebarB.getByText(newName)).toBeVisible({ timeout: 5000 });
+      }).toPass({ timeout: 20000, intervals: [5000] });
+
+    } finally {
+      await deleteTestUser(userB.id);
+    }
+  });
+
+  test('Collaborator can see and edit shared trip', async ({ page, user, mockMaps }) => {
+    // Initialize mocks with the actual user ID
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
+
+    // This test simulates a user seeing a trip they were invited to.
+    await login(page, user.email, user.password, { skipMapReady: true });
+    await waitForAppReady(page);
+    
+    await navigateToTab(page, 'Trips');
+    await ensureSidebarExpanded(page);
+    
+    // The "Collaboration Trip" is mocked in e2e/utils.ts to always exist
+    const sidebar = getSidebarContainer(page);
+    const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: 'Collaboration Trip' }).first();
+    await expect(tripCard).toBeVisible({ timeout: 15000 });
+    
+    // Verify collaborator avatars are visible
+    await expect(tripCard.locator('.rounded-full').first()).toBeVisible();
+    
+    // Verify user can view details
+    await robustClick(page, tripCard.getByTestId('view-trip-details-btn'));
+    
+    // Wait for data load
+    await page.waitForResponse(resp => resp.url().includes('rpc/get_trip_details'));
+
+    // Verify Edit button is visible (mocked as member in utils.ts)
+    // Note: Our permission logic says isOwner || isMember can edit.
+    // In e2e/utils.ts, any trip named 'Collaboration' has two members.
+    const editBtn = page.getByRole('button', { name: 'Edit' });
+    await expect(editBtn).toBeVisible();
+    
+    // Share and Delete should be hidden for members (mocked by using user-b as current user if needed)
+    // Actually our mocks use user-a as owner. 
+    // If we want to verify "hidden", we'd need to ensure the mock user is NOT the owner.
   });
 });

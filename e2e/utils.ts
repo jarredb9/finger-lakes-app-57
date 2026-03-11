@@ -25,10 +25,18 @@ export interface TestUser {
  * Manager class for handling API mocks in E2E tests.
  */
 export class MockMapsManager {
+  public static sharedMockTrips: any[] | null = null;
+  public static sharedTripMembersMap = new Map<number, any[]>();
+
   private allowServiceWorker = false;
   private realSocialEnabled = false;
   private realVisitsEnabled = false;
   private realFavoritesEnabled = false;
+
+  static resetSharedState() {
+    MockMapsManager.sharedMockTrips = null;
+    MockMapsManager.sharedTripMembersMap.clear();
+  }
 
   constructor(private page: Page) {}
 
@@ -82,15 +90,35 @@ export class MockMapsManager {
    * Initializes default mocks for Google Maps and Supabase RPCs.
    * This is called automatically by the mockMaps fixture.
    */
-  async initDefaultMocks(options: { realFavorites?: boolean } = {}) {
+  async initDefaultMocks(options: { realFavorites?: boolean, currentUserId?: string } = {}) {
     if (process.env.E2E_REAL_DATA === 'true') return;
     
     if (options.realFavorites) {
         this.realFavoritesEnabled = true;
     }
 
+    const currentUserId = options.currentUserId || 'test-user-id';
+
     // Use context-level routing to ensure Service Worker requests are intercepted
     const context = this.page.context();
+
+    // Clear previous routes to allow updating mocks (e.g. with a real user ID)
+    await context.unroute(/(google|googleapis|places)/);
+    await context.unroute('**/sw.js');
+    await context.unroute(/\/rest\/v1\/trips/);
+    await context.unroute(/\/rpc\/get_upcoming_trips/);
+    await context.unroute(/\/rpc\/get_trip_details/);
+    await context.unroute(/\/rpc\/add_trip_member_by_email/);
+    await context.unroute(/\/rest\/v1\/trip_members/);
+    await context.unroute(/\/rpc\/delete_trip/);
+    await context.unroute(/\/rpc\/create_trip_with_winery/);
+    await context.unroute(/\/rpc\/add_winery_to_trip/);
+    await context.unroute(/\/rpc\/get_trips_for_date/);
+    await context.unroute(/\/rpc\/get_paginated_wineries/);
+    await context.unroute(/\/rpc\/get_friends_and_requests/);
+    await context.unroute(/\/rpc\/get_map_markers/);
+    await context.unroute(/\/rpc\/get_winery_details/);
+
     const mockWinery = createMockWinery({ id: 'ch-12345-mock-winery-1' as any });
     const todayCA = new Date().toLocaleDateString('en-CA');
 
@@ -337,8 +365,30 @@ export class MockMapsManager {
       });
     });
 
-    // 2.2 Mock the Supabase REST endpoint for trips (Stateful)
-    let mockTrips: any[] = [];
+    // 2.2 Mock the Supabase REST endpoint for trips (Stateful & Shared)
+    if (!MockMapsManager.sharedMockTrips) {
+        MockMapsManager.sharedMockTrips = [
+            createMockTrip({ 
+                id: 999, 
+                name: 'Collaboration Trip', 
+                trip_date: todayCA,
+                user_id: currentUserId // Ensure owner matches current test user
+            })
+        ];
+        
+        // Initialize default members for the mock trip
+        MockMapsManager.sharedTripMembersMap.set(999, [
+            { id: currentUserId, name: 'User A', email: 'user-a@example.com', role: 'owner', status: 'joined' },
+            { id: 'user-b-id', name: 'User B', email: 'user-b@example.com', role: 'member', status: 'joined' }
+        ]);
+    }
+
+    // Ensure current user is recognized as a member of the collaboration trip for tests
+    const colabMembers = MockMapsManager.sharedTripMembersMap.get(999) || [];
+    if (!colabMembers.some(m => m.id === currentUserId)) {
+        colabMembers.push({ id: currentUserId, name: 'Current User', email: 'current@user.com', role: 'member', status: 'joined' });
+        MockMapsManager.sharedTripMembersMap.set(999, colabMembers);
+    }
 
     await context.route(/\/rest\/v1\/trips/, async (route) => {
       console.log('Mocked /rest/v1/trips');
@@ -346,13 +396,18 @@ export class MockMapsManager {
       const url = route.request().url();
       
       if (method === 'GET') {
-        const count = mockTrips.length;
+        const count = MockMapsManager.sharedMockTrips!.length;
+        const tripsWithMembers = MockMapsManager.sharedMockTrips!.map(t => ({
+            ...t,
+            members: MockMapsManager.sharedTripMembersMap.get(t.id) || []
+        }));
+
         if (url.includes('trip_wineries')) {
             // Main list fetch
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json',
-                body: JSON.stringify(mockTrips),
+                body: JSON.stringify(tripsWithMembers),
                 headers: { ...commonHeaders, 'content-range': count > 0 ? `0-${count - 1}/${count}` : '*/0' }
             });
             return;
@@ -360,7 +415,7 @@ export class MockMapsManager {
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
-            body: JSON.stringify(mockTrips),
+            body: JSON.stringify(tripsWithMembers),
             headers: commonHeaders
         });
         return;
@@ -368,16 +423,23 @@ export class MockMapsManager {
       
       if (method === 'POST') {
           const body = JSON.parse(route.request().postData() || '{}');
+          const newId = Math.floor(Math.random() * 1000000) + 1000; // Avoid small mock IDs
           const newTrip = createMockTrip({
-              id: Math.floor(Math.random() * 10000),
+              id: newId,
               name: body.name || 'New Trip',
               trip_date: body.trip_date || todayCA,
-              user_id: 'test-user-id',
+              user_id: currentUserId,
               members: [],
           });
           // Add extra fields needed for UI
           (newTrip as any).trip_wineries = [{ count: 0 }];
-          mockTrips.unshift(newTrip);
+          MockMapsManager.sharedMockTrips!.unshift(newTrip);
+          
+          // Add creator as owner in our tracking map
+          MockMapsManager.sharedTripMembersMap.set(newId, [
+              { id: currentUserId, name: 'Test User', email: 'test-user@example.com', role: 'owner', status: 'joined' }
+          ]);
+
           await route.fulfill({
               status: 201,
               contentType: 'application/json',
@@ -392,7 +454,7 @@ export class MockMapsManager {
           const idMatch = url.match(/id=eq\.(\d+)/);
           const id = idMatch ? parseInt(idMatch[1], 10) : null;
           if (id !== null) {
-              mockTrips = mockTrips.map(t => t.id === id ? { ...t, ...body } : t);
+              MockMapsManager.sharedMockTrips = MockMapsManager.sharedMockTrips!.map(t => t.id === id ? { ...t, ...body } : t);
           }
           await route.fulfill({ status: 204, headers: commonHeaders });
           return;
@@ -402,7 +464,8 @@ export class MockMapsManager {
           const idMatch = url.match(/id=eq\.(\d+)/);
           const id = idMatch ? parseInt(idMatch[1], 10) : null;
           if (id !== null) {
-              mockTrips = mockTrips.filter(t => t.id !== id);
+              MockMapsManager.sharedMockTrips = MockMapsManager.sharedMockTrips!.filter(t => t.id !== id);
+              MockMapsManager.sharedTripMembersMap.delete(id);
           }
           await route.fulfill({ status: 204, headers: commonHeaders });
           return;
@@ -411,13 +474,26 @@ export class MockMapsManager {
       await route.continue();
     });
 
+    // Proactive request logging for debugging
+    context.on('request', request => {
+        const url = request.url();
+        if (url.includes('/rpc/') || url.includes('/rest/v1/')) {
+            const method = request.method();
+            console.log(`[NETWORK-DEBUG] ${method} ${url}`);
+        }
+    });
+
     // 2.3 Mock the upcoming trips RPC
     await context.route(/\/rpc\/get_upcoming_trips/, async (route) => {
       console.log('Mocked get_upcoming_trips');
+      const tripsWithMembers = MockMapsManager.sharedMockTrips!.map(t => ({
+          ...t,
+          members: MockMapsManager.sharedTripMembersMap.get(t.id) || []
+      }));
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify(mockTrips),
+        body: JSON.stringify(tripsWithMembers),
         headers: commonHeaders
       });
     });
@@ -427,8 +503,10 @@ export class MockMapsManager {
       console.log('Mocked get_trip_details');
       const body = JSON.parse(route.request().postData() || '{}');
       const tripId = body.trip_id_param;
-      const trip = mockTrips.find(t => t.id === tripId) || createMockTrip({ id: tripId, name: 'Default Mock Trip' });
+      const trip = MockMapsManager.sharedMockTrips!.find(t => t.id === tripId) || createMockTrip({ id: tripId, name: 'Default Mock Trip' });
       
+      const members = MockMapsManager.sharedTripMembersMap.get(tripId) || [];
+
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -436,9 +514,48 @@ export class MockMapsManager {
         body: JSON.stringify({
             ...trip,
             wineries: trip.wineries || [],
-            members: []
+            members
         }),
       });
+    });
+
+    // 2.4.0 Mock add member by email
+    await context.route(/\/rpc\/add_trip_member_by_email/, async (route) => {
+      console.log('Mocked add_trip_member_by_email');
+      const body = JSON.parse(route.request().postData() || '{}');
+      const email = body.p_email;
+      const tripId = body.p_trip_id;
+      
+      // Update our simulation state
+      const currentMembers = MockMapsManager.sharedTripMembersMap.get(tripId) || [];
+      if (!currentMembers.some(m => m.email === email)) {
+          currentMembers.push({
+              id: `user-${Math.random().toString(36).substring(7)}`,
+              name: email.split('@')[0],
+              email: email,
+              role: 'member',
+              status: 'invited'
+          });
+          MockMapsManager.sharedTripMembersMap.set(tripId, currentMembers);
+      }
+
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: commonHeaders,
+        body: JSON.stringify({ success: true, email }),
+      });
+    });
+
+    // Mock trip_members insert
+    await context.route(/\/rest\/v1\/trip_members/, async (route) => {
+        console.log('Mocked /rest/v1/trip_members');
+        await route.fulfill({
+            status: 201,
+            contentType: 'application/json',
+            headers: commonHeaders,
+            body: JSON.stringify({ success: true })
+        });
     });
 
     // 2.4.1 Mock the delete trip RPC
@@ -446,7 +563,7 @@ export class MockMapsManager {
       console.log('Mocked delete_trip');
       const body = JSON.parse(route.request().postData() || '{}');
       const tripId = body.p_trip_id;
-      mockTrips = mockTrips.filter(t => t.id !== tripId);
+      MockMapsManager.sharedMockTrips = MockMapsManager.sharedMockTrips!.filter(t => t.id !== tripId);
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -463,11 +580,11 @@ export class MockMapsManager {
           id: Math.floor(Math.random() * 10000),
           name: body.p_trip_name || 'New Trip',
           trip_date: body.p_trip_date || todayCA,
-          user_id: 'test-user-id',
+          user_id: currentUserId,
           members: [],
       });
       (newTrip as any).trip_wineries = [{ count: 1 }];
-      mockTrips.unshift(newTrip);
+      MockMapsManager.sharedMockTrips!.unshift(newTrip);
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -494,7 +611,7 @@ export class MockMapsManager {
         status: 200,
         contentType: 'application/json',
         headers: commonHeaders,
-        body: JSON.stringify(mockTrips),
+        body: JSON.stringify(MockMapsManager.sharedMockTrips!),
       });
     });
 
@@ -753,6 +870,9 @@ export const test = base.extend<{
   user: TestUser;
 }>({
   mockMaps: [async ({ page }, use, testInfo) => {
+    // Reset shared mock state for every new test to ensure isolation
+    MockMapsManager.resetSharedState();
+
     const manager = new MockMapsManager(page);
     
     // Automatically enable Service Worker for PWA-specific test files
@@ -891,9 +1011,9 @@ export { expect } from '@playwright/test';
  * Legacy support for mockGoogleMapsApi.
  * @deprecated Use the mockMaps fixture instead.
  */
-export async function mockGoogleMapsApi(page: Page) {
+export async function mockGoogleMapsApi(page: Page, userId?: string) {
   const manager = new MockMapsManager(page);
-  await manager.initDefaultMocks();
+  await manager.initDefaultMocks({ currentUserId: userId });
 }
 
 /**

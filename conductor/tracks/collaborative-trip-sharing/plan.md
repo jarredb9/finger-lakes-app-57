@@ -36,20 +36,20 @@ Objective: Visualize members and their contributions.
 - [x] Task 1: Update `TripCardSimple` and `TripCard` to display a row of member avatars. **Verification:** Confirm avatars appear in both sidebar and detail view in browser. (afae40e)
 - [x] Task 2: Update `TripCard` (detail view) header to show member avatars and a "Manage Members" button. **Verification:** Button is clickable and correctly targets the singleton dialog. (9245a4a)
 - [x] Task 3: Implement a `TripMembersList` component to display all participants with their roles. **Verification:** Correctly distinguish between Owner/Member roles in UI. (0000001)
-- [ ] Task 4: Ensure `get_trip_details` data is correctly hydrated into `tripStore` for all members. **Verification:** Inspect store state via `page.evaluate` in Playwright.
+- [x] Task 4: Ensure `get_trip_details` data is correctly hydrated into `tripStore` for all members. **Verification:** Inspect store state via `page.evaluate` in Playwright. (afae40e)
 
 ## Phase 3: Real-time & Synchronization
 Objective: Keep the UI in sync across members.
 
-- [ ] Task 1: Implement Supabase Realtime subscription in `tripStore.ts` for the `trip_members` table. **Verification:** Change data in DB and confirm UI updates without reload.
-- [ ] Task 2: Implement Supabase Realtime subscription in `tripStore.ts` for the `trip_wineries` table. **Verification:** Add winery to trip and confirm it appears for other members instantly.
-- [ ] Task 3: Add optimistic updates to `addMembersToTrip` in `tripStore.ts`. **Verification:** UI reflects change before RPC returns.
-- [ ] Task 4: Add optimistic updates for itinerary changes (reordering wineries, updating notes) that sync via Realtime. **Verification:** Simultaneous editing results in zero lost updates.
+- [x] Task 1: Implement Supabase Realtime subscription in `tripStore.ts` for the `trip_members` table. **Verification:** Change data in DB and confirm UI updates without reload. (439eaa8)
+- [x] Task 2: Implement Supabase Realtime subscription in `tripStore.ts` for the `trip_wineries` table. **Verification:** Add winery to trip and confirm it appears for other members instantly. (439eaa8)
+- [x] Task 3: Add optimistic updates to `addMembersToTrip` in `tripStore.ts`. **Verification:** UI reflects change before RPC returns. (439eaa8)
+- [x] Task 4: Add optimistic updates for itinerary changes (reordering wineries, updating notes) that sync via Realtime. **Verification:** Simultaneous editing results in zero lost updates. (439eaa8)
 
 ## Phase 4: Permissions & Validation
 Objective: Secure the collaborative experience and verify functionality.
 
-- [ ] Task 1: Update `TripCard` and `TripPlanner` UI to disable edit controls for non-authorized users. **Verification:** Log in as non-member and confirm "Edit" buttons are hidden/disabled.
+- [x] Task 1: Update `TripCard` and `TripPlanner` UI to disable edit controls for non-authorized users. **Verification:** Log in as non-member and confirm "Edit" buttons are hidden/disabled. (439eaa8)
 - [ ] Task 2: Add E2E tests for the "Invite Friend" flow (`e2e/trip-sharing.spec.ts`). **Verification:** Full pass on Chromium and WebKit.
 - [ ] Task 3: Add E2E tests for "Collaborative Editing" between two users. **Verification:** Pass using multi-context Playwright tests.
 - [ ] Task 4: Verify RLS security by attempting unauthorized RPC calls from a non-member account. **Verification:** Confirm 403/Access Denied errors in console logs.

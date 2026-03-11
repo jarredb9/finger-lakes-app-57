@@ -11,10 +11,10 @@ test('unauthenticated user is redirected to login', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Sign in to your account' })).toBeVisible();
 });
 
-test('authenticated user can reach the app', async ({ page }) => {
-  // We use a test user from the environment or a mock if necessary.
+test('authenticated user can reach the app', async ({ page, user }) => {
+  // We use a test user from the fixture.
   // The login helper handles hydration guards and wait logic.
-  await login(page, 'test@example.com', 'password123');
+  await login(page, user.email, user.password);
   
   await waitForAppReady(page);
   

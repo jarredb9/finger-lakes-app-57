@@ -24,9 +24,10 @@
 ## 1. Environment & Shell (RHEL 8)
 *   **Dev Server:** Use PM2 for stability: `pm2 start npm --name "winery-dev" -- run dev -- -p 3001`.
 *   **Shell:** Load NVM before npm: `export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"`.
-*   **Playwright Container:** Local testing MUST use rootless Podman: `./scripts/run-e2e-container.sh [project] [test_file]`.
+*   **Playwright Container:** **MANDATORY:** Local testing MUST use rootless Podman via the provided script: `./scripts/run-e2e-container.sh [project] [test_file]`. DO NOT run `npx playwright test` directly on the host.
     *   **Usage:** `./scripts/run-e2e-container.sh chromium e2e/smoke.spec.ts` (Project defaults to `webkit`).
     *   **Mandatory Build:** Use `--build` if core logic (stores, services, components) changed: `./scripts/run-e2e-container.sh --build all`.
+    *   **Standard:** ALWAYS use `--build` if you have modified any files in `app/`, `components/`, or `lib/` since the last test run. The container needs to recompile the application to see your changes.
     *   **Production Parity:** CI runs against `next start`. Ensure `IS_E2E=true` is set for store exposure.
 
 ## 2. PWA & WebKit (Safari) Stability
@@ -44,7 +45,9 @@ WebKit in this environment is brittle regarding offline I/O and binary data:
 
 ### **A. ID System & Database**
 *   **Dual-ID System:** Distinguish between `GooglePlaceId` (string) and `WineryDbId` (number).
-*   **Standard:** Use `ensureInDb(wineryId)` before relational RPCs. Treat `dbId > 100` as a record (IDs 1-100 are often reserved for mocks in E2E fixtures).
+*   **Collaborative Trips:** The `Trip` interface and related RPCs (`get_trip_details`) MUST use the structured `TripMember` type (ID, Name, Email, Role, Status). LEGACY string arrays for members are deprecated.
+*   **Standard:** Use `ensureInDb(wineryId)` before relational RPCs.
+ Treat `dbId > 100` as a record (IDs 1-100 are often reserved for mocks in E2E fixtures).
 *   **Migrations:** Sequential files in `supabase/migrations/` are the **SINGLE SOURCE OF TRUTH**.
 
 ### **B. State Management (Zustand)**
@@ -74,7 +77,9 @@ If a test fails, follow this sequence:
 *   `waitForAppReady(page)`: Handles mobile bottom bars and settings hydration.
 *   `navigateToTab(page, tabName)`: Handles mobile sheet expansion and WebKit settlement.
 *   `robustClick(locator)`: Dispatches full event sequence. **Standard:** For mobile sheets, wait for `data-state="stable"` before interacting.
-*   `login(page, email, pass)`: Includes hydration guards and store validation.
+*   `login(page, email, pass, options?)`: Includes hydration guards. **Standard:** Use `{ skipMapReady: true }` for sidebar or form-heavy tests to bypass costly/flaky Google Maps stability checks.
+*   **Multi-Context Sync:** For tests involving multiple users/browsers, use shared global state in `e2e/utils.ts` (e.g., `sharedMockTrips`) to ensure actions in one context are visible in others after a store refresh.
+*   **Mock Ownership:** To ensure `isOwner` logic correctly toggles UI elements like `share-trip-btn`, tests requiring dynamic ownership **MUST** manually re-initialize mocks with the real user ID: `await mockMaps.initDefaultMocks({ currentUserId: user.id })`. The fixtures are decoupled to prevent deadlocks.
 
 ### **C. Infrastructure Hygiene**
 *   **Jest Mocking:** Stores with side-effects (IDB, Supabase) **MUST** use `jest.doMock` and `require` inside `beforeEach`.

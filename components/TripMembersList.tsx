@@ -3,13 +3,17 @@
 import { TripMember } from "@/lib/types"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
-import { Shield, User } from "lucide-react"
+import { Shield, User, X } from "lucide-react"
+import { Button } from "./ui/button"
 
 interface TripMembersListProps {
   members: TripMember[]
+  isOwner: boolean
+  currentUserId?: string
+  onRemove?: (userId: string) => void
 }
 
-export function TripMembersList({ members }: TripMembersListProps) {
+export function TripMembersList({ members, isOwner, currentUserId, onRemove }: TripMembersListProps) {
   return (
     <div className="space-y-3">
       <h4 className="text-sm font-medium px-1">Trip Participants</h4>
@@ -17,6 +21,7 @@ export function TripMembersList({ members }: TripMembersListProps) {
         {members.map((member) => (
           <div
             key={member.id}
+            data-testid="member-item"
             className="flex items-center justify-between p-2 rounded-lg bg-muted/30 border border-muted-foreground/10"
           >
             <div className="flex items-center space-x-3">
@@ -41,13 +46,23 @@ export function TripMembersList({ members }: TripMembersListProps) {
                     </Badge>
                   )}
                 </div>
-                <span className="text-xs text-muted-foreground">{member.email}</span>
+                <span className="text-xs text-muted-foreground" data-testid="member-email">{member.email}</span>
               </div>
             </div>
             
             <div className="flex items-center gap-2">
                {member.status === 'invited' && (
                  <Badge variant="outline" className="text-[10px] animate-pulse">Pending</Badge>
+               )}
+               {isOwner && member.role !== 'owner' && member.id !== currentUserId && (
+                 <Button 
+                   variant="ghost" 
+                   size="icon" 
+                   className="h-7 w-7 text-muted-foreground hover:text-red-600 hover:bg-red-50"
+                   onClick={() => onRemove?.(member.id)}
+                 >
+                   <X className="h-4 w-4" />
+                 </Button>
                )}
             </div>
           </div>

@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { useFriendStore } from "@/lib/stores/friendStore"
+import { useUserStore } from "@/lib/stores/userStore"
 import {
   Avatar,
   AvatarFallback,
@@ -36,6 +37,7 @@ export function TripShareDialog({
   tripId,
 }: TripShareDialogProps) {
   const { friends = [], fetchFriends, isLoading: isStoreLoading } = useFriendStore()
+  const { user } = useUserStore()
   const { toast } = useToast()
   const [inviteEmail, setInviteEmail] = useState("")
   const [isInviting, setIsInviting] = useState<string | null>(null) // null or the email/id being invited
@@ -50,7 +52,7 @@ export function TripShareDialog({
       const trip = await TripService.getTripById(tripId)
       setMembers(trip.members || [])
     } catch (err) {
-      console.error("Failed to fetch trip members:", err)
+      console.error("fetchTripMembers Error:", err)
     } finally {
       setIsLoadingMembers(false)
     }
@@ -66,7 +68,7 @@ export function TripShareDialog({
     } else {
       hasFetchedRef.current = false;
     }
-  }, [isOpen, fetchFriends, fetchTripMembers])
+  }, [isOpen, fetchFriends, fetchTripMembers, tripId])
 
   const handleInvite = async (email: string) => {
     const trimmedEmail = email.trim()
@@ -93,6 +95,22 @@ export function TripShareDialog({
     }
   }
 
+  const handleRemoveMember = async (userId: string) => {
+    try {
+      await TripService.removeMember(parseInt(tripId), userId)
+      toast({ description: "Member removed from trip." })
+      await fetchTripMembers()
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Removal Failed",
+        description: error.message || "Failed to remove member.",
+      })
+    }
+  }
+
+  const isOwner = members.find(m => m.id === user?.id)?.role === 'owner'
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md flex flex-col max-h-[90dvh]" data-testid="trip-share-dialog">
@@ -111,7 +129,12 @@ export function TripShareDialog({
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <TripMembersList members={members} />
+              <TripMembersList 
+                members={members} 
+                isOwner={isOwner}
+                currentUserId={user?.id}
+                onRemove={handleRemoveMember}
+              />
             )}
           </div>
 

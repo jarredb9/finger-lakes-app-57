@@ -1,3 +1,5 @@
+"use client";
+
 import { Trip } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from './ui/button';
@@ -9,6 +11,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTripActions } from "@/hooks/use-trip-actions";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useUserStore } from "@/lib/stores/userStore";
 
 interface TripCardSimpleProps {
     trip: Trip;
@@ -18,18 +21,21 @@ interface TripCardSimpleProps {
 export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) {
     const router = useRouter();
     const { openShareDialog } = useUIStore();
+    const { user } = useUserStore();
     
     const { 
         currentMembers, 
         handleExportToMaps 
     } = useTripActions(trip);
 
+    const isOwner = user?.id === trip.user_id;
+
     const handleViewTrip = (tripId: number) => {
         router.push(`/trips/${tripId}`);
     };
 
     return (
-        <Card className="w-full relative group" data-testid="trip-card">
+        <Card className="w-full relative group" data-testid="trip-card" data-trip-id={String(trip.id)}>
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <CardTitle className="text-lg md:text-xl">{trip.name || "Unnamed Trip"}</CardTitle>
@@ -47,45 +53,53 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
                             </Tooltip>
                         </TooltipProvider>
                         
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button 
-                                        variant="outline" 
-                                        size="icon" 
-                                        onClick={() => openShareDialog(trip.id.toString(), trip.name || "Unnamed Trip")}
-                                        data-testid="share-trip-btn"
-                                    >
-                                        <Users size={16} />
-                                    </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                    <p>Share Trip</p>
-                                </TooltipContent>
-                            </Tooltip>
-                        </TooltipProvider>
+                        {isOwner && (
+                            <>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button 
+                                                variant="outline" 
+                                                size="icon" 
+                                                onClick={() => openShareDialog(trip.id.toString(), trip.name || "Unnamed Trip")}
+                                                data-testid="share-trip-btn"
+                                                disabled={trip.id < 0}
+                                            >
+                                                <Users size={16} />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Share Trip</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
 
-                        <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="icon" data-testid="delete-trip-btn"><Trash2 size={16} /></Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                                <AlertDialogHeader>
-                                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                    <AlertDialogDescription>This action will permanently delete this trip.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => onDelete(trip.id)} data-testid="confirm-delete-trip-btn">Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                            </AlertDialogContent>
-                        </AlertDialog>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive" size="icon" data-testid="delete-trip-btn" disabled={trip.id < 0}><Trash2 size={16} /></Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>This action will permanently delete this trip.</AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => onDelete(trip.id)} data-testid="confirm-delete-trip-btn">Delete</AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </>
+                        )}
                      </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-2">
                         <CalendarIcon size={16} className="text-muted-foreground" />
                         <p className="text-sm text-muted-foreground">{new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}</p>
+                    </div>
+                    <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider" data-testid="trip-id-display">
+                        ID: {trip.id > 0 ? trip.id : 'Pending'}
                     </div>
                 </div>
                 {currentMembers.length > 0 && (

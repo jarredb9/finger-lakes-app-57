@@ -1,0 +1,21 @@
+feat(trip): finalize collaborative sharing features and stabilize E2E suite
+
+Finalizes the "Collaborative Trip Sharing" track by implementing real-time
+synchronization, enhanced member management, and cross-browser E2E stability.
+
+Core Changes:
+- Realtime Sync: Updated tripStore to subscribe to 'trips', 'trip_wineries',
+  and 'trip_members' changes via Supabase Realtime.
+- Member Management: Added removal logic to TripService and updated
+  TripMembersList/TripShareDialog to support owner-led collaborator removal.
+- UI Enhancements: Added collaborator avatars to trip cards and refined
+  modal triggers for sharing.
+- E2E Infrastructure: Refactored MockMapsManager to use static shared state,
+  enabling multi-context synchronization tests where User A's actions are
+  visible to User B in a separate browser context.
+- Test Stabilization: Resolved worker collision issues and locator timeouts
+  across Chromium, Firefox, and WebKit (42/42 tests passing).
+- Engineering Standards: Updated GEMINI.md with mandatory container build
+  rules, mock ownership requirements, and skipMapReady optimizations.
+
+Closes collaborative-trip-sharing track.

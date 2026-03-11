@@ -1,3 +1,5 @@
+"use client";
+
 import { memo, useState, useEffect } from "react";
 import { Trip, Winery, Visit, TripMember } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
@@ -16,6 +18,7 @@ import DailyHours from "@/components/DailyHours";
 import { useTripActions } from "@/hooks/use-trip-actions";
 import { calculateDistance, formatDistance } from "@/lib/utils/geo";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useUserStore } from "@/lib/stores/userStore";
 
 interface TripCardProps {
   trip: Trip;
@@ -65,11 +68,16 @@ const WineryReviews = ({ visits, currentUserId, members }: { visits: Visit[], cu
 const TripCard = memo(({ trip }: TripCardProps) => {
   const { toast } = useToast();
   const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote } = useTripStore();
+  const { user } = useUserStore();
   
   const { 
     currentMembers, 
     handleExportToMaps 
   } = useTripActions(trip);
+
+  const isOwner = user?.id === trip.user_id;
+  const isMember = trip.members?.some(m => m.id === user?.id);
+  const canEdit = isOwner || isMember;
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(trip.name || "");
@@ -251,14 +259,16 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                   size="sm" 
                   onClick={() => setIsEditing(true)} 
                   className="h-9"
-                  disabled={trip.id < 0}
+                  disabled={trip.id < 0 || !canEdit}
                 >
                   {trip.id < 0 ? "Creating..." : <><Edit className="w-4 h-4 mr-2"/>Edit</>}
                 </Button>
               )}
-              <Button variant="destructive" size="icon" className="h-9 w-9" onClick={() => deleteTrip(trip.id.toString()).catch(() => {})} aria-label="Delete Trip">
-                <Trash2 className="w-4 h-4"/>
-              </Button>
+              {isOwner && (
+                <Button variant="destructive" size="icon" className="h-9 w-9" onClick={() => deleteTrip(trip.id.toString()).catch(() => {})} aria-label="Delete Trip">
+                  <Trash2 className="w-4 h-4"/>
+                </Button>
+              )}
             </div>
           </div>
         </div>
@@ -371,26 +381,28 @@ const TripCard = memo(({ trip }: TripCardProps) => {
       </CardContent>
       <CardFooter className="bg-gray-50 p-3 border-t flex justify-between items-center">
         <div className="flex items-center gap-2">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 px-2 text-xs"
-                  onClick={() => openShareDialog(trip.id.toString(), trip.name || "Trip")}
-                  disabled={trip.id < 0}
-                  data-testid="share-trip-btn"
-                >
-                  <Users size={14} className="mr-1.5" />
-                  Collaborate
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                  <p>Invite friends to this trip</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+          {isOwner && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-2 text-xs"
+                    onClick={() => openShareDialog(trip.id.toString(), trip.name || "Trip")}
+                    disabled={trip.id < 0}
+                    data-testid="share-trip-btn"
+                  >
+                    <Users size={14} className="mr-1.5" />
+                    Collaborate
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Invite friends to this trip</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
 
           <TooltipProvider>
             <Tooltip>
@@ -413,14 +425,14 @@ const TripCard = memo(({ trip }: TripCardProps) => {
           </TooltipProvider>
         </div>
 
-        <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">
+        <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider" data-testid="trip-id-display">
            ID: {trip.id > 0 ? trip.id : 'Pending'}
         </div>
       </CardFooter>
     </Card>
   );
 });
-
 TripCard.displayName = "TripCard";
 
 export default TripCard;
+
