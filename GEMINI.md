@@ -8,7 +8,10 @@
 # 🚨 SYSTEM OVERRIDE INSTRUCTIONS (PRIORITY 0)
 
 ### 1. Mandatory Global Skills (PRIORITY 1)
-**YOU MUST** activate and follow the guidance of global skills for relevant tasks (e.g., `codebase-analysis`, `problem-analysis`).
+**YOU MUST** activate and follow the guidance of specialized skills for relevant tasks:
+*   **Analysis:** `codebase-analysis`, `problem-analysis` for investigation.
+*   **Verification:** `project-testing-best-practices` MUST be active BEFORE writing any tests.
+*   **Handoff:** `handoff-protocol` MUST be active AFTER completing feature logic but BEFORE concluding a session.
 *   **Environment:** Use `python3.11` and set `PYTHONPATH=$PYTHONPATH:/home/byrnesjd4821/.gemini/skills/scripts`.
 
 ### 2. Framework & Architecture Truths
@@ -17,7 +20,7 @@
 *   **Supabase Native:** Prioritize direct client-to-Supabase logic (RPCs/SDK). **NEVER** create new Next.js API routes for CRUD logic.
 *   **Singleton Modals:** Feature dialogs **MUST** be global singletons in `layout.tsx` (outside `AuthProvider`) to avoid DOM bloat and unmounting during hydration flashes.
     *   **Standard:** Use `GlobalModalRenderer` as the sink for all forms (e.g., `VisitForm`, `WineryNoteEditor`). Trigger via `useUIStore.openVisitForm()` rather than local state.
-*   **RPC Search Paths:** All Postgres functions **MUST** set `SET search_path = public, auth` to resolve auth schema helpers in `SECURITY DEFINER` contexts.
+*   **RPC Search Paths:** All Postgres functions **MUST** set `SET search_path = public, auth` and use explicit `public.` prefixes to resolve auth schema helpers in `SECURITY DEFINER` contexts.
 
 # Winery Visit Planner and Tracker
 
@@ -31,23 +34,23 @@
     *   **Production Parity:** CI runs against `next start`. Ensure `IS_E2E=true` is set for store exposure.
 
 ## 2. PWA & WebKit (Safari) Stability
-WebKit in this environment is brittle regarding offline I/O and binary data:
-*   **The Reconstitution Rule:** WebKit detaches Blob handles stored in IndexedDB during network flips (Offline -> Online). **Standard:** Store photos as **Base64 strings** in the offline queue. Reconstitute using `new File()` during sync.
+WebKit in this environment is brittle regarding offline I/O and binary data. You MUST follow these implementation rules for feature code:
+*   **The Reconstitution Rule:** WebKit detaches Blob handles stored in IndexedDB during network flips. **Standard:** Store photos as **Base64 strings** in the offline queue. Reconstitute using `new File()` during sync.
 *   **The CORS Mocking Rule:** **MANDATORY FOR WEBKIT.** Every `context.route()` fulfillment must include `Access-Control-Allow-Origin: '*'` and common headers (`POST, GET, OPTIONS`).
-*   **Interception:** Use `page.context().route()` for global PWA mocks. Use `page.route()` for test-specific overrides (page-level takes precedence). Ensure `headers: { 'Cache-Control': 'no-store' }`.
+*   **Interception:** Use `page.context().route()` for global PWA mocks. Use `page.route()` for test-specific overrides.
+*   **Verification:** Procedural rules for verifying stability are offloaded to `project-testing-best-practices`.
 
 ## 3. Next.js 16 Hydration & Synchronization
 *   **Avoid Hard Reloads:** NEVER use `page.reload()` inside retry loops. It kills hydration and leads to `Application Error`.
 *   **Proactive Sync:** Trigger store refreshes (e.g., `store.fetchFriends()`) via `page.evaluate` inside retry loops instead.
-*   **Success Selectors:** Use multi-option selectors (e.g., `'div.fixed.bottom-0, [data-testid="settings-page-container"]'`) to handle hydration flashes and responsive layouts.
+*   **Stability:** Detailed patterns for hydration guards and success selectors are offloaded to `project-testing-best-practices`.
 
 ## 4. Core Architectural Standards
 
 ### **A. ID System & Database**
 *   **Dual-ID System:** Distinguish between `GooglePlaceId` (string) and `WineryDbId` (number).
+*   **Standard:** Use `ensureInDb(wineryId)` before relational RPCs. Treat `dbId > 100` as a record.
 *   **Collaborative Trips:** The `Trip` interface and related RPCs (`get_trip_details`) MUST use the structured `TripMember` type (ID, Name, Email, Role, Status). LEGACY string arrays for members are deprecated.
-*   **Standard:** Use `ensureInDb(wineryId)` before relational RPCs.
- Treat `dbId > 100` as a record (IDs 1-100 are often reserved for mocks in E2E fixtures).
 *   **Migrations:** Sequential files in `supabase/migrations/` are the **SINGLE SOURCE OF TRUTH**.
 
 ### **B. State Management (Zustand)**
@@ -55,7 +58,7 @@ WebKit in this environment is brittle regarding offline I/O and binary data:
 *   **Merge on Hydrate:** `hydrateWineries` MUST merge lightweight markers with existing detailed data (reviews, hours) to prevent background refreshes from wiping the local cache.
 *   **The Ghost Status Rule:** `standardizeWineryData` MUST clear the local `visits` array if the server reports `user_visited: false`. This prevents deleted visits from persisting as "ghosts" in the cache.
 *   **Persistence:** Only persist data arrays. **NEVER** persist transient UI flags (modals, open states).
-*   **Reactivity:** SUBSCRIBE DIRECTLY to state (e.g., `useStore((s) => s.data)`) in `useMemo` dependencies. Getter functions (e.g., `getData`) will NOT trigger re-evaluations.
+*   **Reactivity:** SUBSCRIBE DIRECTLY to state (e.g., `useStore((s) => s.data)`) in `useMemo` dependencies. Getter functions will NOT trigger re-evaluations.
 *   **Exposure:** Every major store MUST be exposed to `window` for E2E verification.
 
 ### **C. Social & Privacy Logic**
@@ -63,31 +66,20 @@ WebKit in this environment is brittle regarding offline I/O and binary data:
 *   **Visibility:** Use the `is_visible_to_viewer` RPC to enforce Public/Friends/Private tiers.
 
 ## 5. Engineering & Testing Standards
+**MANDATORY:** Activate specialized skills for detailed workflow and coverage requirements.
 
-### **A. Mandatory Diagnostic Protocol (PRIORITY 0)**
-If a test fails, follow this sequence:
-1.  **Log DOM:** Dump `page.content()` and log `data-testid`s.
-2.  **Log Store:** Dump Zustand state via `page.evaluate`.
-3.  **Log DB:** Perform a direct `supabase` SQL query to verify state.
-4.  **Prefix Logs:** Prefix debug logs with `[DIAGNOSTIC]` to bypass strict console listeners.
-5.  **Exceptions:** `e2e/utils.ts` ignores harmless infrastructure errors (e.g., `__cf_bm`, `SecurityError` in WebKit). Do NOT attempt to "fix" these.
+### **A. Diagnostic & E2E Standards**
+*   **Diagnostic Protocol (Priority 0):** NEVER fix a test based on assumptions. Follow the 3-tier diagnostic sequence (DOM -> Store -> DB) defined in `project-testing-best-practices`.
+*   **Prefix Logs:** Prefix all debug logs with `[DIAGNOSTIC]` to bypass strict console listeners.
+*   **Mandatory E2E Patterns:** NEVER implement local workarounds. Use establishing utilities from `e2e/helpers.ts` as defined in `project-testing-best-practices`.
+*   **Infrastructure Hygiene:** Standardized rules for Jest mocking, Ghost Tiles, and self-cleaning tests are offloaded to `project-testing-best-practices`.
 
-### **B. Mandatory E2E Patterns (`e2e/helpers.ts`)**
-**NEVER** implement local workarounds. You MUST use establishing utilities:
-*   `waitForAppReady(page)`: Handles mobile bottom bars and settings hydration.
-*   `navigateToTab(page, tabName)`: Handles mobile sheet expansion and WebKit settlement.
-*   `robustClick(locator)`: Dispatches full event sequence. **Standard:** For mobile sheets, wait for `data-state="stable"` before interacting.
-*   `login(page, email, pass, options?)`: Includes hydration guards. **Standard:** Use `{ skipMapReady: true }` for sidebar or form-heavy tests to bypass costly/flaky Google Maps stability checks.
-*   **Multi-Context Sync:** For tests involving multiple users/browsers, use shared global state in `e2e/utils.ts` (e.g., `sharedMockTrips`) to ensure actions in one context are visible in others after a store refresh.
-*   **Mock Ownership:** To ensure `isOwner` logic correctly toggles UI elements like `share-trip-btn`, tests requiring dynamic ownership **MUST** manually re-initialize mocks with the real user ID: `await mockMaps.initDefaultMocks({ currentUserId: user.id })`. The fixtures are decoupled to prevent deadlocks.
+### **B. Handoff Protocol**
+*   **Mandatory:** Implementation agents MUST activate `handoff-protocol` before concluding a session.
+*   **Validation:** Use `scripts/validate-brief.py` to verify the "Fresh Start Prompt" includes branch mapping, verified selectors, and reproduction steps.
 
-### **C. Infrastructure Hygiene**
-*   **Jest Mocking:** Stores with side-effects (IDB, Supabase) **MUST** use `jest.doMock` and `require` inside `beforeEach`.
-*   **Ghost Tiles:** Map backgrounds are mocked with static PNGs in `e2e/utils.ts` for **$0 API spend**.
-*   **Self-Cleaning:** Tests must use `deleteTestUser` to purge users and their storage folders.
-
-### **D. Security & Quality**
-*   **DB Linting:** `npm run db:lint` MUST pass before merging migrations to ensure `search_path` security.
+### **C. Security & Quality**
+*   **DB Linting:** `npm run db:lint` MUST pass before merging migrations to ensure `search_path` security and explicit public prefixing.
 
 ## 6. Code Intelligence Tools
 *   **Radar (CGC):** Mapping logic/RPCs. Launch: `cgc mcp start`. Bypass: `cypher-shell`.
@@ -101,10 +93,9 @@ If a test fails, follow this sequence:
 /
 ├── app/                 # Routes: api/ (Search), login/, trips/, friends/, settings/, ~offline/
 ├── components/          # UI Components: ui/ (shadcn), map/, [feature].tsx
-├── e2e/                 # Playwright Tests: flows, helpers.ts (MANDATORY for navigation)
+├── e2e/                 # Playwright Tests: flows, helpers.ts (MANDATORY)
 ├── lib/                 # Core Logic: stores/, services/, utils/, database.types.ts
-├── supabase/            # Backend: migrations/, functions/ (Edge Functions)
-└── public/              # Static Assets & PWA Manifest
+└── supabase/            # Backend: migrations/, functions/ (Edge Functions)
 ```
 
 ## 8. Reference Implementations
