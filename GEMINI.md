@@ -12,6 +12,7 @@
 *   **Environment:** Use `python3.11` and set `PYTHONPATH=$PYTHONPATH:/home/byrnesjd4821/.gemini/skills/scripts`.
 
 ### 2. Framework & Architecture Truths
+*   **Database Operations:** **MANDATORY:** Use the Supabase MCP server tools (e.g., `execute_sql`, `apply_migration`) for ALL database-related tasks. There is NO local copy of the database.
 *   **Middleware:** `proxy.ts` IS the valid middleware. `middleware.ts` DOES NOT exist.
 *   **Supabase Native:** Prioritize direct client-to-Supabase logic (RPCs/SDK). **NEVER** create new Next.js API routes for CRUD logic.
 *   **Singleton Modals:** Feature dialogs **MUST** be global singletons in `layout.tsx` (outside `AuthProvider`) to avoid DOM bloat and unmounting during hydration flashes.
