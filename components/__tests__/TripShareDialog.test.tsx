@@ -4,16 +4,21 @@ import { useFriendStore } from '@/lib/stores/friendStore';
 import { TripService } from '@/lib/services/tripService';
 import { useToast } from '@/hooks/use-toast';
 
-// Mock the friend store
+// Mock the TripService
 jest.mock('@/lib/stores/friendStore', () => ({
   useFriendStore: jest.fn(),
 }));
 
-// Mock the TripService
 jest.mock('@/lib/services/tripService', () => ({
   TripService: {
     addMemberByEmail: jest.fn(),
+    getTripById: jest.fn(),
+    removeMember: jest.fn(),
   },
+}));
+
+jest.mock('@/lib/stores/userStore', () => ({
+  useUserStore: jest.fn(() => ({ user: { id: 'user-1' } })),
 }));
 
 // Mock useToast
@@ -39,9 +44,15 @@ describe('TripShareDialog', () => {
     (useToast as unknown as jest.Mock).mockReturnValue({
       toast: mockToast,
     });
+    (TripService.getTripById as jest.Mock).mockResolvedValue({
+      id: 123,
+      members: [
+        { id: 'user-1', name: 'Owner User', email: 'owner@example.com', role: 'owner', status: 'joined' }
+      ]
+    });
   });
 
-  it('renders the dialog title', () => {
+  it('renders the dialog title', async () => {
     render(
       <TripShareDialog 
         isOpen={true} 
@@ -51,10 +62,12 @@ describe('TripShareDialog', () => {
       />
     );
     
-    expect(screen.getByText(/Share "Test Trip"/i)).toBeInTheDocument();
+    await waitFor(() => {
+        expect(screen.getByText(/Collaborate on "Test Trip"/i)).toBeInTheDocument();
+    });
   });
 
-  it('displays the list of friends', () => {
+  it('displays the list of friends', async () => {
     render(
       <TripShareDialog 
         isOpen={true} 
@@ -64,8 +77,10 @@ describe('TripShareDialog', () => {
       />
     );
     
-    expect(screen.getByText('Friend One')).toBeInTheDocument();
-    expect(screen.getByText('Friend Two')).toBeInTheDocument();
+    await waitFor(() => {
+        expect(screen.getByText('Friend One')).toBeInTheDocument();
+        expect(screen.getByText('Friend Two')).toBeInTheDocument();
+    });
   });
 
   it('displays loading state', () => {
@@ -87,7 +102,7 @@ describe('TripShareDialog', () => {
     expect(screen.getByTestId('loading-friends')).toBeInTheDocument();
   });
 
-  it('displays empty state', () => {
+  it('displays empty state', async () => {
     (useFriendStore as unknown as jest.Mock).mockReturnValue({
       friends: [],
       isLoading: false,
@@ -103,10 +118,12 @@ describe('TripShareDialog', () => {
       />
     );
     
-    expect(screen.getByText(/No friends found./i)).toBeInTheDocument();
+    await waitFor(() => {
+        expect(screen.getByText(/No friends found./i)).toBeInTheDocument();
+    });
   });
 
-  it('renders the email invitation input', () => {
+  it('renders the email invitation input', async () => {
     render(
       <TripShareDialog 
         isOpen={true} 
@@ -116,8 +133,10 @@ describe('TripShareDialog', () => {
       />
     );
     
-    expect(screen.getByPlaceholderText(/Enter email address/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Invite by Email/i })).toBeInTheDocument();
+    await waitFor(() => {
+        expect(screen.getByPlaceholderText(/friend@example.com/i)).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('invite-by-email-btn')).toBeInTheDocument();
   });
 
   it('calls TripService.addMemberByEmail when clicking invite button', async () => {
@@ -132,8 +151,12 @@ describe('TripShareDialog', () => {
       />
     );
     
-    const input = screen.getByPlaceholderText(/Enter email address/i);
-    const button = screen.getByRole('button', { name: /Invite by Email/i });
+    await waitFor(() => {
+        expect(screen.getByPlaceholderText(/friend@example.com/i)).toBeInTheDocument();
+    });
+    
+    const input = screen.getByPlaceholderText(/friend@example.com/i);
+    const button = screen.getByTestId('invite-by-email-btn');
     
     fireEvent.change(input, { target: { value: 'test@example.com' } });
     fireEvent.click(button);
@@ -158,6 +181,10 @@ describe('TripShareDialog', () => {
         tripId="123"
       />
     );
+    
+    await waitFor(() => {
+        expect(screen.getAllByRole('button', { name: /Invite/i })).toHaveLength(3); // 2 friends + 1 email
+    });
     
     const inviteButtons = screen.getAllByRole('button', { name: /Invite/i });
     fireEvent.click(inviteButtons[0]); // First friend "Invite" button
@@ -184,8 +211,12 @@ describe('TripShareDialog', () => {
       />
     );
     
-    const input = screen.getByPlaceholderText(/Enter email address/i);
-    const button = screen.getByRole('button', { name: /Invite by Email/i });
+    await waitFor(() => {
+        expect(screen.getByPlaceholderText(/friend@example.com/i)).toBeInTheDocument();
+    });
+    
+    const input = screen.getByPlaceholderText(/friend@example.com/i);
+    const button = screen.getByTestId('invite-by-email-btn');
     
     fireEvent.change(input, { target: { value: 'test@example.com' } });
     fireEvent.click(button);
