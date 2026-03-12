@@ -50,6 +50,6 @@ Objective: Keep the UI in sync across members.
 Objective: Secure the collaborative experience and verify functionality.
 
 - [x] Task 1: Update `TripCard` and `TripPlanner` UI to disable edit controls for non-authorized users. **Verification:** Log in as non-member and confirm "Edit" buttons are hidden/disabled. (439eaa8)
-- [x] Task 2: Add E2E tests for the "Invite Friend" flow (`e2e/trip-sharing.spec.ts`). **Verification:** Full pass on Chromium and WebKit. (51d5c21)
-- [x] Task 3: Add E2E tests for "Collaborative Editing" between two users. **Verification:** Pass using multi-context Playwright tests. (51d5c21)
-- [x] Task 4: Verify RLS security by attempting unauthorized RPC calls from a non-member account. **Verification:** Confirm 403/Access Denied errors in console logs. (51d5c21)
+- [x] Task 2: Add E2E tests for the "Invite Friend" flow (`e2e/trip-sharing.spec.ts`). **Verification:** Full pass on Chromium and WebKit. (f86db40)
+- [x] Task 3: Add E2E tests for "Collaborative Editing" between two users. **Verification:** Pass using multi-context Playwright tests. (f86db40)
+- [x] Task 4: Verify RLS security by attempting unauthorized RPC calls from a non-member account. **Verification:** Confirm 403/Access Denied errors in console logs. (f86db40)
