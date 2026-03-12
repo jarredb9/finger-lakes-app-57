@@ -63,3 +63,6 @@ coverage/
 mcp.json
 sdlmcp.sqlite
 data/
+
+.gemini/
+gha-creds-*.json
