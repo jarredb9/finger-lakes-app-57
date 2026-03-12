@@ -50,6 +50,7 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 ### **A. ID System & Database**
 *   **Dual-ID System:** Distinguish between `GooglePlaceId` (string) and `WineryDbId` (number).
 *   **Standard:** Use `ensureInDb(wineryId)` before relational RPCs. Treat `dbId > 100` as a record.
+*   **RLS Visibility Rule:** All `SELECT` policies for tables allowing insertion MUST include a direct ownership check (e.g., `auth.uid() = user_id`) BEFORE any complex function calls (like `is_trip_member()`). This prevents `42501` errors during `INSERT ... RETURNING` caused by recursion or row invisibility.
 *   **Collaborative Trips:** The `Trip` interface and related RPCs (`get_trip_details`) MUST use the structured `TripMember` type (ID, Name, Email, Role, Status). LEGACY string arrays for members are deprecated.
 *   **Migrations:** Sequential files in `supabase/migrations/` are the **SINGLE SOURCE OF TRUTH**.
 
