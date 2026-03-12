@@ -237,10 +237,10 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                       className="h-8 w-8 rounded-full border-dashed bg-gray-50 hover:bg-white"
                       onClick={() => openShareDialog(trip.id.toString(), trip.name || "Trip")}
                       disabled={trip.id < 0}
+                      aria-label="Share Trip"
                     >
                       <UserPlus className="h-4 w-4 text-gray-500" />
-                    </Button>
-                  </TooltipTrigger>
+                    </Button>                  </TooltipTrigger>
                   <TooltipContent>
                     <p>Manage Members</p>
                   </TooltipContent>
@@ -260,6 +260,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                   onClick={() => setIsEditing(true)} 
                   className="h-9"
                   disabled={trip.id < 0 || !canEdit}
+                  aria-label="Edit Trip"
                 >
                   {trip.id < 0 ? "Creating..." : <><Edit className="w-4 h-4 mr-2"/>Edit</>}
                 </Button>

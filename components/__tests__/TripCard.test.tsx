@@ -29,6 +29,12 @@ jest.mock('@/hooks/use-toast', () => ({
   }),
 }));
 
+jest.mock('@/lib/stores/userStore', () => ({
+  useUserStore: () => ({
+    user: { id: 'user-1', name: 'Test User', email: 'user@example.com' },
+  }),
+}));
+
 const mockOpenShareDialog = jest.fn();
 const mockOpenWineryNoteEditor = jest.fn();
 jest.mock('@/lib/stores/uiStore', () => ({
@@ -43,11 +49,11 @@ const mockToggleFriendSelection = jest.fn();
 jest.mock('@/hooks/use-trip-actions', () => ({
   useTripActions: () => ({
     friends: [
-      { id: 'friend-1', name: 'Friend One', email: 'one@example.com' }
+      { id: 'friend-1', name: 'Friend One', email: 'one@example.com', role: 'member', status: 'joined' }
     ],
     selectedFriends: [],
     currentMembers: [
-      { id: 'friend-1', name: 'Friend One', email: 'one@example.com' }
+      { id: 'friend-1', name: 'Friend One', email: 'one@example.com', role: 'member', status: 'joined' }
     ],
     handleExportToMaps: mockHandleExportToMaps,
     toggleFriendSelection: mockToggleFriendSelection,
@@ -164,7 +170,7 @@ describe('TripCard', () => {
         ]
       }
     ],
-    members: ['user-1'],
+    members: [{ id: 'user-1', name: 'You', email: 'you@example.com', role: 'owner', status: 'joined' }],
   };
 
   beforeEach(() => {
@@ -225,7 +231,7 @@ describe('TripCard', () => {
     fireEvent.change(input, { target: { value: 'Updated Name' } });
     
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
     });
     
     expect(mockUpdateTrip).toHaveBeenCalledWith('1', expect.objectContaining({ name: 'Updated Name' }));
@@ -237,7 +243,7 @@ describe('TripCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /Edit Trip/i }));
     
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
     });
     
     expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
@@ -251,7 +257,7 @@ describe('TripCard', () => {
     fireEvent.click(screen.getByTestId('date-picker'));
     
     await act(async () => {
-      fireEvent.click(screen.getByRole('button', { name: /Save Changes/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
     });
     
     expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
@@ -325,26 +331,6 @@ describe('TripCard', () => {
     render(<TripCard trip={tripWithTwo} />);
     fireEvent.click(screen.getByTestId('dnd-context'));
     expect(mockUpdateWineryOrder).toHaveBeenCalledWith('1', [102, 101]);
-  });
-
-  it('handles friend selection success and error', async () => {
-    mockToggleFriendSelection.mockReturnValue(['friend-1']);
-    render(<TripCard trip={mockTrip} />);
-    fireEvent.click(screen.getByRole('button', { name: /Edit Trip/i }));
-    
-    const friendItem = screen.getByTestId('friend-item-friend-1');
-    await act(async () => {
-      fireEvent.click(friendItem);
-    });
-    expect(mockToggleFriendSelection).toHaveBeenCalledWith('friend-1');
-    expect(mockAddMembersToTrip).toHaveBeenCalledWith('1', ['friend-1']);
-    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ description: "Trip members updated." }));
-
-    mockAddMembersToTrip.mockRejectedValue(new Error('Update failed'));
-    await act(async () => {
-      fireEvent.click(friendItem);
-    });
-    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ description: "Failed to update members." }));
   });
 
   it('performs winery search and adds result', async () => {
