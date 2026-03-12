@@ -75,6 +75,8 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **Prefix Logs:** Prefix all debug logs with `[DIAGNOSTIC]` to bypass strict console listeners.
 *   **Mandatory E2E Patterns:** NEVER implement local workarounds. Use establishing utilities from `e2e/helpers.ts` as defined in `project-testing-best-practices`.
 *   **Infrastructure Hygiene:** Standardized rules for Jest mocking, Ghost Tiles, and self-cleaning tests are offloaded to `project-testing-best-practices`.
+    *   **Jest Standard:** `window.matchMedia` MUST be polyfilled in `jest.setup.ts` to support hooks using `use-mobile.ts`.
+    *   **Jest Standard:** UI components using Radix `asChild` MUST be mocked in unit tests if they cause `React.Children.only` errors in JSDOM.
 
 ### **B. Handoff Protocol**
 *   **Mandatory:** Implementation agents MUST activate `handoff-protocol` before concluding a session.
