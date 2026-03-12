@@ -59,7 +59,9 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **The Ghost Status Rule:** `standardizeWineryData` MUST clear the local `visits` array if the server reports `user_visited: false`. This prevents deleted visits from persisting as "ghosts" in the cache.
 *   **Persistence:** Only persist data arrays. **NEVER** persist transient UI flags (modals, open states).
 *   **Reactivity:** SUBSCRIBE DIRECTLY to state (e.g., `useStore((s) => s.data)`) in `useMemo` dependencies. Getter functions will NOT trigger re-evaluations.
-*   **Exposure:** Every major store MUST be exposed to `window` for E2E verification.
+*   **Exposure:** Every major store AND the `supabase` browser client MUST be exposed to `window` for E2E verification.
+*   **SSR Safety:** Diagnostic components like `E2EStoreExposer` MUST return `null` if `typeof window === 'undefined'` to prevent 500 errors during container builds.
+*   **Realtime:** Stores handling collaborative entities (Trips, Members) MUST implement `subscribeToUpdates` using Supabase Realtime to maintain multi-user sync.
 
 ### **C. Social & Privacy Logic**
 *   **Normalization:** All social relations use `trip_members`, `follows`, and `activity_ledger`.
