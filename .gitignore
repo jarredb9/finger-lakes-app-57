@@ -27,7 +27,6 @@ yarn-error.log*
 next-env.d.ts
 
 # Gemini / Agent Files
-.gemini/*
 .agents/
 .cgcignore
 .firecrawl/
@@ -64,5 +63,4 @@ mcp.json
 sdlmcp.sqlite
 data/
 
-.gemini/
 gha-creds-*.json
