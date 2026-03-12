@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.8.0] - 2026-03-12
+
+**Real-time Collaborative Planning & Architectural Hardening**
+
+Version 2.8.0 introduces full-scale collaborative trip planning, powered by real-time synchronization and a hardened security model. This release also features a significant UI refactor to a Singleton Modal architecture, improving hydration stability and cross-platform performance.
+
+### 🚀 Features
+*   **Collaborative Trip Sharing:** Introduced the `TripShareDialog` and `TripMembersList`, enabling users to invite friends by email and manage participants with granular roles (Owner/Member).
+*   **Real-time Synchronization:** Implemented multi-user state synchronization using Supabase Realtime. Itinerary changes, winery notes, and member additions now reflect instantly across all participant devices.
+*   **Singleton Modal Architecture:** Refactored the UI to use a centralized `GlobalModalRenderer` for core forms (`VisitForm`, `WineryNoteEditor`, `TripShareDialog`). This eliminates DOM bloat, prevents unmounting during hydration flashes, and ensures consistent state management.
+*   **Optimistic Itinerary Updates:** Added optimistic UI updates for trip modifications, ensuring a zero-latency feel during collaborative planning.
+
+### 🛡 Security
+*   **RPC & RLS Hardening:** Audited and patched all trip-related PostgreSQL functions and Row Level Security (RLS) policies to enforce explicit `public.` schema prefixing and strict `search_path` security.
+*   **Access Control:** Verified permission boundaries ensuring only authorized members can edit shared trips, with owner-only privileges for deletions and member management.
+
+### ⚙ Refactoring & Cleanup
+*   **Data Model Finalization:** Completed the migration to the structured `TripMember` type, fully deprecating and removing legacy string-based member arrays.
+*   **Persistence Optimization:** Refined Zustand store persistence to exclude transient UI visibility flags, preventing "stuck" modals after page reloads.
+*   **Layout Decoupling:** Moved global UI singletons in `app/layout.tsx` outside the `AuthProvider`'s loading boundary to ensure UI stability during initial authentication flashes.
+
+### ⚙ Infrastructure & Testing
+*   **Collaborative E2E Suite:** Developed `e2e/trip-sharing.spec.ts` to verify complex multi-user interaction flows, including real-time sync and cross-context permission checks.
+*   **Hydration Hardening:** Updated E2E hydration guards to include `useTripStore`, ensuring tests wait for full data readiness before executing assertions.
+*   **Unit Verification:** Added comprehensive Jest tests for the new sharing components and store persistence logic.
+
 ## [2.7.0] - 2026-03-05
 
 **Social Infrastructure Refactor & Asymmetric Social Model**
