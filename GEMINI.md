@@ -79,6 +79,8 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 
 ### **A. Diagnostic & E2E Standards**
 *   **Diagnostic Protocol (Priority 0):** NEVER fix a test based on assumptions. Follow the 3-tier diagnostic sequence (DOM -> Store -> DB) defined in `project-testing-best-practices`.
+*   **The Sub-Pixel Robustness Rule:** WebKit/High-DPI emulators often return non-integer coordinates. **Standard:** Use `expect(box.y).toBeLessThan(5)` instead of `toBe(0)` for edge-aligned elements.
+*   **The Project Filtering Rule:** Emulated environments (User Agent, touch) persist across viewport overrides. **Standard:** Explicitly `test.skip()` layout tests that don't match the project type (Mobile vs Desktop) to prevent hydration mismatches.
 *   **Prefix Logs:** Prefix all debug logs with `[DIAGNOSTIC]` to bypass strict console listeners.
 *   **Mandatory E2E Patterns:** NEVER implement local workarounds. Use establishing utilities from `e2e/helpers.ts` as defined in `project-testing-best-practices`.
 *   **Infrastructure Hygiene:** Standardized rules for Jest mocking, Ghost Tiles, and self-cleaning tests are offloaded to `project-testing-best-practices`.

@@ -1,81 +1,89 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './utils';
+import { clearServiceWorkers, waitForAppReady, robustClick } from './helpers';
 
 test.describe('PWA Install & Layout', () => {
+
+  test.beforeEach(async ({ page }) => {
+    await clearServiceWorkers(page);
+  });
   
-  test('Mobile: Install Prompt at Top, Cookie Consent at Bottom-Left', async ({ page }) => {
+  test('Mobile: Install Prompt at Top, Cookie Consent at Bottom-Left', async ({ page, user }) => {
+    test.skip(!!test.info().project.name.toLowerCase().match(/^(chromium|firefox|webkit)$/), 'Mobile project only');
     // 1. Set Mobile Viewport
     await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/');
     
-    // 2. Wait for Cookie Consent (Bottom-Left)
+    // 2. Go to login page with pwa flag to ensure SW registration
+    await page.goto('/login?pwa=true');
+    
+    // 3. Wait for Cookie Consent (Bottom-Left)
     const cookieConsent = page.locator('aside[aria-label="Cookie consent"]');
-    await expect(cookieConsent).toBeVisible();
-    const cookieBox = await cookieConsent.boundingBox();
+    await expect(cookieConsent).toBeVisible({ timeout: 10000 });
     
-    // Verify Cookie Consent Position (Left & Bottom)
-    // Left should be 0 (full width)
-    expect(cookieBox?.x).toBe(0); 
-    // Bottom should be > 600 (screen is 667)
+    const cookieBox = await cookieConsent.boundingBox();
+    expect(cookieBox?.x).toBeLessThan(5); 
     expect(cookieBox?.y).toBeGreaterThan(500);
 
-    // 3. Trigger PWA Install Prompt manually
-    // 3. Trigger PWA Install Prompt manually
+    // 4. Manual Login (to avoid login helper's cookie-consent bypass)
+    await page.getByLabel('Email').fill(user.email);
+    await page.getByLabel('Password').fill(user.password);
+    await robustClick(page, page.getByRole('button', { name: 'Sign In' }));
+    
+    await waitForAppReady(page);
+
+    // 5. Trigger PWA Install Prompt manually
     await page.evaluate(() => {
       window.dispatchEvent(new Event('beforeinstallprompt', { cancelable: true }));
     });
 
-    // 4. Verify Install Toast Appearance
-    const installToast = page.locator('text=Install App').first(); // Adjust selector if needed
-    await expect(installToast).toBeVisible({ timeout: 5000 });
+    // 6. Verify Install Bar Appearance (Top)
+    const installBar = page.getByTestId('mobile-pwa-install-bar');
+    await expect(installBar).toBeVisible({ timeout: 5000 });
 
-    // 5. Verify Install Toast Position (Top)
-    // The Toast IS inside the viewport, so we find the Viewport or the Toast itself.
-    // The Toast Viewport is fixed at top-2 (8px).
-    // The Toast itself should be near the top.
-    const toastBox = await installToast.boundingBox();
+    const barBox = await installBar.boundingBox();
+    expect(barBox?.y).toBeLessThan(5); // Top-0 (allow small offset)
+    expect(barBox?.x).toBeLessThan(5);
     
-    // Y should be small (near top)
-    // top-2 is 8px. Padding is 16px. So roughly 24px.
-    console.log('Mobile Toast Y:', toastBox?.y);
-    expect(toastBox?.y).toBeLessThan(100); 
-    
-    // Check it is NOT blocking the bottom (nav bar area)
-    expect(toastBox?.y).toBeLessThan(500);
+    // Ensure it's near the top
+    expect(barBox?.y).toBeLessThan(100); 
   });
 
-  test('Desktop: Install Prompt at Bottom-Left, Cookie Consent at Bottom-Right', async ({ page }) => {
+  test('Desktop: Install Prompt at Bottom-Left, Cookie Consent at Bottom-Right', async ({ page, user }) => {
+    test.skip(test.info().project.name.toLowerCase().includes('mobile'), 'Desktop project only');
     // 1. Set Desktop Viewport
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.goto('/');
+    
+    // 2. Go to login page
+    await page.goto('/login?pwa=true');
 
-    // 2. Wait for Cookie Consent (Bottom-Right)
+    // 3. Wait for Cookie Consent (Bottom-Right)
     const cookieConsent = page.locator('aside[aria-label="Cookie consent"]');
-    await expect(cookieConsent).toBeVisible();
+    await expect(cookieConsent).toBeVisible({ timeout: 10000 });
+    
     const cookieBox = await cookieConsent.boundingBox();
-
-    // Verify Cookie Consent Position (Right & Bottom)
-    // X should be large (screen 1280 - width ~340 - margin 16 ~ 924)
+    // Desktop layout for CookieConsent: md:bottom-4 md:right-4 md:w-[340px]
     expect(cookieBox?.x).toBeGreaterThan(800);
     expect(cookieBox?.y).toBeGreaterThan(600);
 
-    // 3. Trigger PWA Install Prompt
-    // 3. Trigger PWA Install Prompt manually
+    // 4. Manual Login
+    await page.getByLabel('Email').fill(user.email);
+    await page.getByLabel('Password').fill(user.password);
+    await robustClick(page, page.getByRole('button', { name: 'Sign In' }));
+    
+    await waitForAppReady(page);
+
+    // 5. Trigger PWA Install Prompt
     await page.evaluate(() => {
       window.dispatchEvent(new Event('beforeinstallprompt', { cancelable: true }));
     });
 
-    // 4. Verify Install Toast Appearance
-    const installToast = page.locator('text=Install Now').first();
-    await expect(installToast).toBeVisible({ timeout: 5000 });
+    // 6. Verify Install Card Appearance (Bottom-Left)
+    const installCard = page.getByTestId('desktop-pwa-install-card');
+    await expect(installCard).toBeVisible({ timeout: 5000 });
 
-    // 5. Verify Install Toast Position (Bottom-Left)
-    const toastBox = await installToast.boundingBox();
-    
-    // X should be small (Left)
-    expect(toastBox?.x).toBeLessThan(100); 
-    
-    // Y should be large (Bottom)
-    expect(toastBox?.y).toBeGreaterThan(600);
+    const cardBox = await installCard.boundingBox();
+    // Desktop layout for PwaHandler: hidden md:block fixed bottom-4 left-4
+    expect(cardBox?.x).toBeLessThan(100); 
+    expect(cardBox?.y).toBeGreaterThan(600);
   });
 
 });
