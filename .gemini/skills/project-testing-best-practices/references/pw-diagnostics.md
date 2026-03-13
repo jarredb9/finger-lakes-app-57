@@ -20,10 +20,11 @@ If a test fails with `42501` (Forbidden) during a simple `.insert()`, verify the
 - **Rule:** If an insert fails but direct SQL (bypassing RLS) works, check if the `SELECT` policy relies on a function that might query the same table (recursion) or if it's missing a direct ownership check (`auth.uid() = user_id`).
 
 ### 3. Prefix Rule
-All debug logs MUST be prefixed with **`[DIAGNOSTIC]`**. 
-- **Incorrect:** `console.log('User id is:', id)`.
-- **Correct:** `console.log('[DIAGNOSTIC] User id is:', id)`. 
-*Note: This bypasses strict console listeners in `e2e/utils.ts`.*
+All debug logs MUST be prefixed with one of the following to bypass strict console listeners:
+- **`[DIAGNOSTIC]`**: General debugging information.
+- **`[Sync]`**: Background synchronization status.
+- **`[OfflineQueue]`**: IndexedDB/Mutation queue operations.
+- **`[SW]`**: Service Worker matcher and lifecycle events.
 
 ### 4. Hydration Guard
 **NEVER** use `page.reload()` inside a `toPass` retry loop. It kills hydration and leads to `Application Error` crashes. Instead, trigger a store refresh (Proactive Sync) via `page.evaluate`.
@@ -35,7 +36,8 @@ To enable deep verification (e.g., RLS security checks, direct RPC probing), all
 
 ### 6. The Expected Error Rule
 In "Lie-Fi" or Offline tests, network errors are intentional.
-- **Rule:** Refine the `page.on('console')` listener in `e2e/utils.ts` to ignore `FunctionsHttpError` or `Edge Function failed` messages during PWA offline tests.
-- **Rationale:** Prevents legitimate offline simulations from being killed by the global "fail on console error" policy.
+- **Rule:** Refine the `page.on('console')` listener in `e2e/utils.ts` to ignore `FunctionsHttpError`, `Edge Function failed`, `Load failed`, or `TypeError` during PWA offline tests.
+- **WebKit Note:** `TypeError: Load failed` is a common engine-level blockade in WebKit during offline/online transitions, even if the bypass is correctly configured.
+- **Rationale:** Prevents legitimate offline simulations from being killed by the global "fail on console error" policy while still catching unexpected hydration or logic crashes.
 
 Reference: [Playwright Debugging](https://playwright.dev/docs/debug)

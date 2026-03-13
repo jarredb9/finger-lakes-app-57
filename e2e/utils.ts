@@ -49,7 +49,7 @@ export class MockMapsManager {
       'Cache-Control': 'no-store, no-cache, must-revalidate',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE, PATCH',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-total-count',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-total-count, x-skip-sw-interception',
       'Access-Control-Max-Age': '86400'
     };
 
@@ -65,12 +65,31 @@ export class MockMapsManager {
         const method = req.method();
         const type = req.resourceType();
 
+        console.log(`[DIAGNOSTIC] catchAll seen: ${url}`);
+
         if (url.includes('supabase.co')) {
+            if (url.includes('/rpc/')) {
+                console.log(`[DIAGNOSTIC] catchAll: Supabase RPC detected: ${url}`);
+            } else {
+                console.log(`[DIAGNOSTIC] catchAll: Supabase Request: ${url}`);
+            }
+
             if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
             if (url.includes('/rest/v1/profiles')) {
                 return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([{ id: currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' }]) });
             }
             if (url.includes('/rpc/')) {
+                // EXPLICIT EXCLUSION: Allow test-level interceptors to catch log_visit
+                if (url.includes('log_visit')) {
+                    console.log('[DIAGNOSTIC] catchAll: log_visit detected, falling back...');
+                    return route.fallback();
+                }
+
+                if (this.realSocialEnabled && (url.includes('send_friend_request') || url.includes('respond_to_friend_request') || url.includes('get_friends_and_requests') || url.includes('remove_friend'))) {
+                    console.log(`[DIAGNOSTIC] catchAll: Bypassing mock for social RPC: ${url}`);
+                    return route.continue();
+                }
+
                 if (url.includes('get_map_markers') || url.includes('get_wineries_in_bounds') || url.includes('get_paginated_wineries')) {
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(markers) });
                 }
@@ -79,6 +98,7 @@ export class MockMapsManager {
                 }
                 if (url.includes('get_friends_and_requests')) return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ friends: [], pending_incoming: [], pending_outgoing: [] }) });
                 if (url.includes('get_paginated_visits')) {
+                    if (this.realVisitsEnabled) return route.continue();
                     const mockVisit = createMockVisitWithWinery({ wineryId: 'ch-67890-mock-winery-2' as any, wineryName: 'Vineyard of Illusion' });
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([{
                         visit_id: mockVisit.id, user_id: mockVisit.user_id, visit_date: mockVisit.visit_date, user_review: mockVisit.user_review,
@@ -90,8 +110,13 @@ export class MockMapsManager {
             }
             if (url.includes('/auth/v1/')) return route.continue();
             if (url.includes('/rest/v1/trips')) {
+                if (this.realVisitsEnabled) return route.continue();
                 const trips = MockMapsManager.sharedMockTrips || [];
                 return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(trips), headers: commonHeaders });
+            }
+            if (url.includes('/rest/v1/favorites')) {
+                if (this.realFavoritesEnabled) return route.continue();
+                return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([]) });
             }
             if (url.includes('/functions/v1/')) {
                 return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, data: {} }) });
@@ -115,6 +140,8 @@ export class MockMapsManager {
         return route.continue();
     };
 
+    // PROXY REGISTRATION
+    // We register on both context and page to be airtight in WebKit
     await context.route('**/*', catchAllHandler);
     await this.page.route('**/*', catchAllHandler);
 
@@ -234,10 +261,17 @@ export const test = base.extend<{
     const manager = new MockMapsManager(page);
     if (testInfo.file.includes('pwa-')) { manager.enableServiceWorker(); }
     
-    page.on('console', msg => {
+    const logHandler = (msg: any) => {
         const text = msg.text();
+        const type = msg.type();
         
-        if (text.includes('Hydration') || text.includes('Error') || msg.type() === 'error') {
+        if (text.includes('[DIAGNOSTIC]') || text.includes('[Sync]') || text.includes('[OfflineQueue]') || text.includes('[SW]') || type === 'error') {
+            console.log(`[BROWSER-${type.toUpperCase()}] ${text}`);
+        }
+
+        if (text.includes('Hydration') || text.includes('Error') || type === 'error') {
+            if (text.includes('[DIAGNOSTIC]')) return; // Ignore diagnostics in fatal error check
+            
             const isInfrastructure = text.includes('SecurityError') || 
                                    text.includes('IDBFactory') || 
                                    text.includes('Cross-Origin Request Blocked') ||
@@ -254,7 +288,10 @@ export const test = base.extend<{
                 throw new Error(`Fatal Error: ${text}`);
             }
         }
-    });
+    };
+
+    page.on('console', logHandler);
+    page.context().on('console', logHandler);
 
     await manager.initDefaultMocks();
     await use(manager);

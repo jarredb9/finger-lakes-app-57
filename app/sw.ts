@@ -48,15 +48,24 @@ const serwist = new Serwist({
     // Supabase API - Network Only (Let App Handle Persistence)
     // CRITICAL: In E2E mode, we bypass the SW for API calls to ensure Playwright interception works.
     {
-      matcher: ({ url }) => {
-        const isE2E = self.location.search.includes('pwa=true');
-        const shouldBypass = url.hostname.includes("supabase.co") && 
-               !url.pathname.includes("/storage/v1/object/public") &&
-               isE2E;
+      matcher: ({ url, request }) => {
+        const isE2EParam = self.location.search.includes('pwa=true');
+        const isE2EEnv = process.env.NEXT_PUBLIC_IS_E2E === 'true';
+        const skipHeader = request?.headers.get('x-skip-sw-interception') === 'true';
+        const isE2E = isE2EParam || isE2EEnv || skipHeader;
         
-        if (shouldBypass) return false; // Return false so it is NOT handled by the SW
+        const isSupabaseApi = url.hostname.includes("supabase.co") && !url.pathname.includes("/storage/v1/object/public");
         
-        return url.hostname.includes("supabase.co") && !url.pathname.includes("/storage/v1/object/public");
+        if (isSupabaseApi && isE2E) {
+            console.log(`[SW] E2E Bypass active for: ${url.pathname} (Env: ${isE2EEnv}, Param: ${isE2EParam}, Header: ${skipHeader})`);
+            return false; // Bypass SW
+        }
+        
+        if (isSupabaseApi) {
+            console.log(`[SW] Handling Supabase API: ${url.pathname}`);
+        }
+        
+        return isSupabaseApi;
       },
       handler: new NetworkOnly(),
     },

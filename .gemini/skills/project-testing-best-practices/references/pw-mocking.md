@@ -35,18 +35,20 @@ Playwright evaluates routes in the **reverse order** of registration (the last o
 - **Rule:** Register broad "failsafe" patterns as the very **last** route if using multiple `context.route` calls.
 
 ### 3. The Catch-All Proxy Pattern
-For 100% reliable interception in WebKit, avoid multiple individual routes.
-- **Standard:** Use a single `context.route('**/*', handler)` and dispatch internally using `url.includes()`.
+For 100% reliable interception in WebKit, avoid multiple individual routes. Use a single `context.route('**/*', handler)` and dispatch internally. Use `route.fallback()` to allow specific tests to override global mocks.
+
 ```typescript
 await context.route('**/*', async (route) => {
     const url = route.request().url();
     if (url.includes('supabase.co')) {
-        // Handle Supabase...
-    } else if (url.includes('google')) {
-        // Handle Google...
-    } else {
-        return route.continue();
+        // EXPLICIT OVERRIDE: Let test-level interceptors handle this
+        if (url.includes('log_visit')) {
+            return route.fallback(); 
+        }
+        // Handle other Supabase calls...
+        return route.fulfill({ ... });
     }
+    return route.continue();
 });
 ```
 

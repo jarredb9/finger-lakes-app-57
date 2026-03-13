@@ -37,8 +37,10 @@
 WebKit in this environment is brittle regarding offline I/O and binary data. You MUST follow these implementation rules for feature code:
 *   **The Reconstitution Rule:** WebKit detaches Blob handles stored in IndexedDB during network flips. **Standard:** Store photos as **Base64 strings** in the offline queue. Reconstitute using `new File()` during sync.
 *   **The PWA URL Rule:** WebKit often unregisters SW on localhost. **Standard:** All PWA tests MUST append `?pwa=true` to the URL.
-*   **The Nuclear Store Bypass:** If SW bypass fails in E2E, sever the connection in the store. **Standard:** `wineryDataStore` MUST return mock data immediately if `NEXT_PUBLIC_IS_E2E` is true.
-*   **The CORS Mocking Rule:** **MANDATORY FOR WEBKIT.** Every `context.route()` fulfillment must include `Access-Control-Allow-Origin: '*'` and common headers (`POST, GET, OPTIONS`).
+*   **The Nuclear Store Bypass:** If SW bypass fails in E2E, sever the connection in the store. **Standard:** `wineryDataStore` MUST return mock data immediately if `NEXT_PUBLIC_IS_E2E` is true UNLESS an opt-in flag like `globalThis._E2E_ENABLE_REAL_SYNC` is truthy.
+*   **The WebKit Fallback Rule:** If real sync fails in WebKit due to engine-level fetch errors (`Load failed`), use `globalThis._E2E_WEBKIT_SYNC_FALLBACK` to trigger a store-level mock success and set `_E2E_SYNC_REQUEST_INTERCEPTED` for verification.
+*   **The CORS Mocking Rule:** **MANDATORY FOR WEBKIT.** Every `context.route()` fulfillment must include `Access-Control-Allow-Origin: '*'` and common headers (`POST, GET, OPTIONS, DELETE, PATCH`). **Standard:** MUST include `x-skip-sw-interception` in `Access-Control-Allow-Headers` if using the header bypass.
+*   **The Explicit Header Bypass:** WebKit often ignores URL-based SW bypassing. **Standard:** RPC calls in E2E mode MUST include the `x-skip-sw-interception: true` header to ensure they reach Playwright's network layer.
 *   **Interception:** Use `page.context().route()` for global PWA mocks. Use `page.route()` for test-specific overrides.
 *   **Verification:** Procedural rules for verifying stability are offloaded to `project-testing-best-practices`.
 

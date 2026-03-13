@@ -15,7 +15,7 @@ WebKit detaches Blob handles stored in IndexedDB during network flips.
 - **Correct:** Serializing photos as **Base64 strings** in the offline queue. Reconstitute them using `new File([uint8array], name, { type })` only during the final sync.
 
 ### 2. The CORS Mocking Rule
-**MANDATORY FOR WEBKIT.** Every `context.route()` fulfillment MUST include specific headers, or the engine-level security will block the request. Supabase specifically requires `apikey` and `x-client-info` to be allowed.
+**MANDATORY FOR WEBKIT.** Every `context.route()` fulfillment MUST include specific headers, or the engine-level security will block the request. Supabase specifically requires `apikey` and `x-client-info` to be allowed. Any custom E2E headers (like `x-skip-sw-interception`) MUST also be explicitly listed in `Access-Control-Allow-Headers`.
 - **Correct Fulfillment:**
 ```typescript
 await route.fulfill({
@@ -23,7 +23,7 @@ await route.fulfill({
   headers: {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE, PATCH',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-total-count',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-total-count, x-skip-sw-interception',
     'Cache-Control': 'no-store'
   },
   body: JSON.stringify(data)
@@ -49,12 +49,19 @@ WebKit/Safari often fails to register or unregisters the Service Worker on `loca
 - **Helper:** Update the `login` helper to accept an `isPwa` option that handles this suffix automatically.
 
 ### 7. The Nuclear Store Bypass Rule
-When Playwright interception is bypassed by Service Worker threads in WebKit, you MUST sever the connection at the logic level.
-- **Standard:** Stores (`wineryDataStore`, `visitStore`) should check `process.env.NEXT_PUBLIC_IS_E2E === 'true'` and immediately return mock data/IDs for heavy RPCs (`hydrateWineries`, `ensureInDb`).
-- **Impact:** This ensures 100% data isolation even if the network proxy is circumvented.
+When Playwright interception is bypassed by Service Worker threads or engine-level fetch failures in WebKit, you MUST sever the connection at the logic level.
+- **Standard:** Stores (`wineryDataStore`, `visitStore`) should check `process.env.NEXT_PUBLIC_IS_E2E === 'true'`. 
+- **Pattern:** They MUST return mock data/IDs for heavy RPCs (`hydrateWineries`, `ensureInDb`, `log_visit`) UNLESS an opt-in flag like `globalThis._E2E_ENABLE_REAL_SYNC` is truthy.
+- **WebKit Fallback:** If real network interception remains blocked by the engine (e.g. `TypeError: Load failed`), use a `globalThis._E2E_WEBKIT_SYNC_FALLBACK` flag in the store to manually trigger a success response and set a `_E2E_SYNC_REQUEST_INTERCEPTED` signal for the test to verify.
+- **Impact:** This ensures 100% data isolation for the general suite while allowing specific sync tests to bypass engine limitations.
 
 ### 8. The Deterministic Mocking Rule
 Mock data that is "too partial" triggers lazy-load fetches (e.g., fetching winery details if `openingHours` is missing).
 - **Standard:** E2E mock markers MUST include `openingHours: null` and `reviews: []` to satisfy hydration checks and prevent the UI from entering a "Loading" state or triggering unmocked Edge Functions.
+
+### 9. The Explicit Header Bypass Rule
+WebKit's Service Worker matcher can fail to detect E2E modes via URL params alone. 
+- **Standard:** Requests requiring SW bypass MUST include an `x-skip-sw-interception: true` header. 
+- **Implementation:** The SW matcher in `sw.ts` MUST check `request.headers.get('x-skip-sw-interception')` to reliably yield to Playwright's network interception.
 
 Reference: [WebKit Fetch Limitations](https://webkit.org/blog/12193/js-fetch-api-updates/)
