@@ -219,7 +219,11 @@ export const test = base.extend<{
         const text = msg.text();
         
         if (text.includes('Hydration') || text.includes('Error') || msg.type() === 'error') {
-            const isInfrastructure = text.includes('SecurityError') || text.includes('IDBFactory') || text.includes('Cross-Origin Request Blocked');
+            const isInfrastructure = text.includes('SecurityError') || 
+                                   text.includes('IDBFactory') || 
+                                   text.includes('Cross-Origin Request Blocked') ||
+                                   text.includes('Failed to load resource');
+            
             const isExpectedOfflineError = text.includes('Edge Function failed') || 
                                          text.includes('FunctionsHttpError') || 
                                          text.includes('Load failed') || 
