@@ -133,9 +133,12 @@ export class MockMapsManager {
         
         const inject = () => {
             // @ts-ignore
-            const store = window.useWineryDataStore;
-            if (store && store.getState) {
-                const state = store.getState();
+            const wineryStore = window.useWineryDataStore;
+            // @ts-ignore
+            const mapStore = window.useMapStore;
+
+            if (wineryStore && wineryStore.getState) {
+                const state = wineryStore.getState();
                 if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0) {
                     console.log(`[E2E-INIT] Injecting ${mockMarkers.length} mock wineries into store`);
                     // We manually standardize for the store since the utility isn't easily accessible here
@@ -154,7 +157,23 @@ export class MockMapsManager {
                         openingHours: null, // PREVENT LAZY LOAD
                         reviews: []
                     }));
-                    store.setState({ persistentWineries: standardized });
+                    wineryStore.setState({ persistentWineries: standardized });
+                }
+            }
+
+            if (mapStore && mapStore.getState) {
+                const state = mapStore.getState();
+                if (!state.bounds) {
+                    console.log('[E2E-INIT] Injecting default map bounds');
+                    mapStore.setState({ 
+                        bounds: { 
+                            getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
+                            getSouthWest: () => ({ lat: () => 42, lng: () => -77 }),
+                            getCenter: () => ({ lat: () => 42.5, lng: () => -76.5 }),
+                            contains: () => true,
+                            extend: () => {}
+                        } 
+                    });
                 }
             }
             
