@@ -1,8 +1,8 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { persist } from 'zustand/middleware';
-import { Winery, Visit, GooglePlaceId, WineryDbId, DbWinery, MapMarkerRpc, WineryDetailsRpc, DbWineryWithUserData } from '@/lib/types'; // Import new types
+import { Winery, Visit, GooglePlaceId, WineryDbId, DbWinery, MapMarkerRpc, WineryDetailsRpc, DbWineryWithUserData } from '@/lib/types'; 
 import { createClient } from '@/utils/supabase/client';
-import { standardizeWineryData, GoogleWinery } from '@/lib/utils/winery'; // Import GoogleWinery
+import { standardizeWineryData, GoogleWinery } from '@/lib/utils/winery';
 
 interface WineryDataState {
   persistentWineries: Winery[]; // The Master Cache
@@ -12,8 +12,8 @@ interface WineryDataState {
 
   // Actions
   hydrateWineries: (userId: string) => Promise<void>;
-  upsertWinery: (data: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData) => Winery | null; // Typed 'data'
-  getWinery: (id: GooglePlaceId) => Winery | undefined; // Typed 'id'
+  upsertWinery: (data: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData) => Winery | null;
+  getWinery: (id: GooglePlaceId) => Winery | undefined;
   
   // Data Mutations
   addVisit: (wineryId: GooglePlaceId, visit: Visit) => void;
@@ -32,6 +32,15 @@ interface WineryDataState {
   reset: () => void;
 }
 
+// --- E2E Helpers ---
+const isE2E = () => typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true';
+const getE2EHeaders = () => isE2E() ? { 'x-skip-sw-interception': 'true' } : {};
+const shouldSkipRealSync = () => {
+    if (!isE2E()) return false;
+    // @ts-ignore
+    return !(globalThis as any)._E2E_ENABLE_REAL_SYNC;
+};
+
 export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
   persist(
     (set, get) => ({
@@ -43,18 +52,19 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
       getWinery: (id) => get().persistentWineries.find(w => w.id === id),
 
       hydrateWineries: async (userId: string) => {
-        if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+        if (isE2E() && shouldSkipRealSync()) {
           set({ isLoading: false });
           return;
         }
         set({ isLoading: true, error: null });
         const supabase = createClient();
         try {
-          // Use the lightweight RPC 
-          const { data: markers, error: markersError } = await supabase.rpc('get_map_markers', { user_id_param: userId }); 
+          const { data: markers, error: markersError } = await supabase.rpc('get_map_markers', { 
+              user_id_param: userId 
+          }, { headers: getE2EHeaders() } as any); 
+          
           if (markersError) throw markersError;
 
-          // Create a map of existing wineries for preservation of details (visits, reviews, etc.)
           const currentWineries = get().persistentWineries;
           const existingMap = new Map(currentWineries.map(w => [w.id, w]));
 
@@ -66,7 +76,6 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           set({ persistentWineries: processedWineries, isLoading: false });
         } catch (err) {
           console.error("Hydration failed:", err);
-          // If we have persistent data, don't block the UI with an error
           if (get().persistentWineries.length > 0) {
             set({ isLoading: false });
           } else {
@@ -99,7 +108,6 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
 
       updateVisit: (visitId: string, updates: Partial<Visit>) => {
           set(state => {
-              // Backup for rollback if needed (implied context)
               return {
                   persistentWineries: state.persistentWineries.map(w => {
                       if (!w.visits?.some(v => String(v.id) === String(visitId))) return w;
@@ -127,7 +135,6 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const winery = original.find(w => w.id === wineryId);
           if (!winery) return;
 
-          // Optimistic
           set({
               persistentWineries: original.map(w => w.id === wineryId ? { ...w, isFavorite: !isFavorite } : w)
           });
@@ -145,15 +152,12 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
                   rating: winery.rating || null,
               };
               
-              const { error } = await supabase.rpc('toggle_favorite', { p_winery_data: rpcWineryData });
-              
+              const { error } = await supabase.rpc('toggle_favorite', { p_winery_data: rpcWineryData }, { headers: getE2EHeaders() } as any);
               if (error) throw error;
-
-              // Ensure we have the REAL DB ID after toggling (since toggle_favorite returns boolean)
               await get().ensureInDb(wineryId);
           } catch (err) {
               console.error("Fav toggle failed:", err);
-              set({ persistentWineries: original }); // Revert
+              set({ persistentWineries: original });
           }
       },
       
@@ -162,7 +166,6 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
         const winery = original.find(w => w.id === wineryId);
         if (!winery) return;
         
-        // Optimistic
         set({
             persistentWineries: original.map(w => w.id === wineryId ? { ...w, onWishlist: !isOnWishlist } : w)
         });
@@ -180,15 +183,12 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
                 rating: winery.rating || null,
             };
             
-            const { error } = await supabase.rpc('toggle_wishlist', { p_winery_data: rpcWineryData });
-            
+            const { error } = await supabase.rpc('toggle_wishlist', { p_winery_data: rpcWineryData }, { headers: getE2EHeaders() } as any);
             if (error) throw error;
-
-            // Ensure we have the REAL DB ID after toggling
             await get().ensureInDb(wineryId);
         } catch (err) {
             console.error("Wishlist toggle failed:", err);
-            set({ persistentWineries: original }); // Revert
+            set({ persistentWineries: original });
         }
       },
 
@@ -197,25 +197,23 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const winery = original.find(w => w.id === wineryId);
           if (!winery) return;
 
-          // CRITICAL: Ensure we have a real DB ID before calling privacy toggle
           const dbId = await get().ensureInDb(wineryId);
           if (!dbId) {
               console.error("[wineryDataStore] Cannot toggle privacy: No DB ID available for winery", wineryId);
               return;
           }
 
-          // Optimistic
           set({
               persistentWineries: original.map(w => w.id === wineryId ? { ...w, favoriteIsPrivate: !w.favoriteIsPrivate, dbId } : w)
           });
 
           const supabase = createClient();
           try {
-              const { error } = await supabase.rpc('toggle_favorite_privacy', { p_winery_id: dbId });
+              const { error } = await supabase.rpc('toggle_favorite_privacy', { p_winery_id: dbId }, { headers: getE2EHeaders() } as any);
               if (error) throw error;
           } catch (err) {
               console.error("[wineryDataStore] Fav privacy toggle failed:", err);
-              set({ persistentWineries: original }); // Revert
+              set({ persistentWineries: original });
               throw err;
           }
       },
@@ -225,25 +223,23 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const winery = original.find(w => w.id === wineryId);
           if (!winery) return;
 
-          // CRITICAL: Ensure we have a real DB ID before calling privacy toggle
           const dbId = await get().ensureInDb(wineryId);
           if (!dbId) {
               console.error("[wineryDataStore] Cannot toggle privacy: No DB ID available for winery", wineryId);
               return;
           }
 
-          // Optimistic
           set({
               persistentWineries: original.map(w => w.id === wineryId ? { ...w, wishlistIsPrivate: !w.wishlistIsPrivate, dbId } : w)
           });
 
           const supabase = createClient();
           try {
-              const { error } = await supabase.rpc('toggle_wishlist_privacy', { p_winery_id: dbId });
+              const { error } = await supabase.rpc('toggle_wishlist_privacy', { p_winery_id: dbId }, { headers: getE2EHeaders() } as any);
               if (error) throw error;
           } catch (err) {
               console.error("[wineryDataStore] Wishlist privacy toggle failed:", err);
-              set({ persistentWineries: original }); // Revert
+              set({ persistentWineries: original });
               throw err;
           }
       },
@@ -253,14 +249,11 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           if (!winery) return null;
           
           const currentDbId = winery.dbId;
-          
-          // If we already have a REAL numeric DB ID, return it
-          // We treat IDs < 100 as potential mocks from E2E maps fixtures
           if (typeof currentDbId === 'number' && !isNaN(currentDbId) && currentDbId > 100) {
               return currentDbId;
           }
 
-          if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+          if (isE2E() && shouldSkipRealSync()) {
               const mockId = 999000 + Math.floor(Math.random() * 1000);
               set(state => ({
                   persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId: mockId as WineryDbId } : w)
@@ -280,15 +273,13 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
               rating: winery.rating || null,
           };
           
-          const { data: dbId, error } = await supabase.rpc('ensure_winery', { p_winery_data: rpcData });
+          const { data: dbId, error } = await supabase.rpc('ensure_winery', { p_winery_data: rpcData }, { headers: getE2EHeaders() } as any);
           if (error || !dbId) {
               console.error("[wineryDataStore] ensureInDb failed:", error);
               return null;
           }
 
           const numericId = Number(dbId);
-
-          // Update store with new DB ID
           set(state => ({
               persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId: numericId as WineryDbId } : w)
           }));
@@ -300,7 +291,6 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
         const standardizedWineries = wineries.map(w => standardizeWineryData(w)).filter(Boolean) as Winery[];
         if (standardizedWineries.length === 0) return;
 
-        // Optimistically update the local store
         set(state => {
           const existingWineries = new Map(state.persistentWineries.map(w => [w.id, w]));
           standardizedWineries.forEach(newWinery => {
@@ -309,7 +299,8 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           return { persistentWineries: Array.from(existingWineries.values()) };
         });
 
-        // Prepare data for RPC
+        if (isE2E() && shouldSkipRealSync()) return;
+
         const rpcData = standardizedWineries.map(w => ({
           google_place_id: w.id,
           name: w.name,
@@ -320,16 +311,8 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
         }));
 
         const supabase = createClient();
-        if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
-            return;
-        }
-        const { error } = await supabase.rpc('upsert_wineries_from_search', { wineries_data: rpcData });
-
-        if (error) {
-          console.error("Failed to bulk upsert wineries:", error);
-          // Note: We are not reverting the optimistic update here as the data is still valid for the user's session.
-          // A more robust implementation could have a rollback mechanism.
-        }
+        const { error } = await supabase.rpc('upsert_wineries_from_search', { wineries_data: rpcData }, { headers: getE2EHeaders() } as any);
+        if (error) console.error("Failed to bulk upsert wineries:", error);
       },
 
       reset: () => set({
@@ -345,7 +328,11 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
     }
   )
 );
-// Expose store and config for E2E forensic analysis
+
 if (typeof window !== 'undefined') {
   (window as any).useWineryDataStore = useWineryDataStore;
 }
+
+export const findWineryByDbId = (dbId: number) => {
+    return useWineryDataStore.getState().persistentWineries.find(w => w.dbId === (dbId as WineryDbId));
+};

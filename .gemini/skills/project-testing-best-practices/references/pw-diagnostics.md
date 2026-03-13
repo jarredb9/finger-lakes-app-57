@@ -40,4 +40,9 @@ In "Lie-Fi" or Offline tests, network errors are intentional.
 - **WebKit Note:** `TypeError: Load failed` is a common engine-level blockade in WebKit during offline/online transitions, even if the bypass is correctly configured.
 - **Rationale:** Prevents legitimate offline simulations from being killed by the global "fail on console error" policy while still catching unexpected hydration or logic crashes.
 
+### 7. The Signal Persistence Rule
+If a signal (like `_E2E_SYNC_REQUEST_INTERCEPTED`) is logged as `true` in the browser console but appears `undefined` or `false` in `page.evaluate`, a page reload or redirect likely occurred.
+- **Action:** Check the logs for `[SW] Initializing` or `catchAll seen: /login`.
+- **Solution:** Use `localStorage` to store the signal in the app and read it in the test. Verified data in `localStorage` persists across the transitions that clear `window`.
+
 Reference: [Playwright Debugging](https://playwright.dev/docs/debug)

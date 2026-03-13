@@ -40,8 +40,10 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **The Nuclear Store Bypass:** If SW bypass fails in E2E, sever the connection in the store. **Standard:** `wineryDataStore` MUST return mock data immediately if `NEXT_PUBLIC_IS_E2E` is true UNLESS an opt-in flag like `globalThis._E2E_ENABLE_REAL_SYNC` is truthy.
 *   **The WebKit Fallback Rule:** If real sync fails in WebKit due to engine-level fetch errors (`Load failed`), use `globalThis._E2E_WEBKIT_SYNC_FALLBACK` to trigger a store-level mock success and set `_E2E_SYNC_REQUEST_INTERCEPTED` for verification.
 *   **The CORS Mocking Rule:** **MANDATORY FOR WEBKIT.** Every `context.route()` fulfillment must include `Access-Control-Allow-Origin: '*'` and common headers (`POST, GET, OPTIONS, DELETE, PATCH`). **Standard:** MUST include `x-skip-sw-interception` in `Access-Control-Allow-Headers` if using the header bypass.
-*   **The Explicit Header Bypass:** WebKit often ignores URL-based SW bypassing. **Standard:** RPC calls in E2E mode MUST include the `x-skip-sw-interception: true` header to ensure they reach Playwright's network layer.
-*   **Interception:** Use `page.context().route()` for global PWA mocks. Use `page.route()` for test-specific overrides.
+*   **The Explicit Header Bypass:** WebKit often ignores URL-based SW bypassing. **Standard:** RPC and Storage calls in E2E mode MUST include the `x-skip-sw-interception: true` header to ensure they reach Playwright's network layer.
+*   **The Signal Persistence Rule:** Next.js 16 + WebKit often trigger hydration reloads or auth redirects when coming back "online." **Standard:** E2E bypass flags (`_E2E_ENABLE_REAL_SYNC`) and verification signals (`_E2E_SYNC_REQUEST_INTERCEPTED`) MUST be mirrored to `localStorage` to survive window clearing.
+*   **The Storage Signing Rule:** Mocking storage uploads is insufficient if the app immediately requests signed URLs. **Standard:** Tests MUST intercept the `storage/v1/object/sign/*` endpoint and return a mocked `{ signedURL: '...' }` to prevent `Failed to fetch` crashes under strict console policies.
+*   **Interception:** Use `page.context().route()` for global PWA mocks. Use `page.route()` for test-specific overrides. Use the **Airtight Proxy Rule** (catch-all handler with internal dispatching) for maximum reliability in WebKit.
 *   **Verification:** Procedural rules for verifying stability are offloaded to `project-testing-best-practices`.
 
 ## 3. Next.js 16 Hydration & Synchronization

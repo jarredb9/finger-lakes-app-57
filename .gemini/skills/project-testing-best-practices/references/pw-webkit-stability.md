@@ -52,6 +52,7 @@ WebKit/Safari often fails to register or unregisters the Service Worker on `loca
 When Playwright interception is bypassed by Service Worker threads or engine-level fetch failures in WebKit, you MUST sever the connection at the logic level.
 - **Standard:** Stores (`wineryDataStore`, `visitStore`) should check `process.env.NEXT_PUBLIC_IS_E2E === 'true'`. 
 - **Pattern:** They MUST return mock data/IDs for heavy RPCs (`hydrateWineries`, `ensureInDb`, `log_visit`) UNLESS an opt-in flag like `globalThis._E2E_ENABLE_REAL_SYNC` is truthy.
+- **Persistence:** In environments prone to hydration reloads or auth redirects, these flags SHOULD also be checked in `localStorage` (e.g., `localStorage.getItem('_E2E_ENABLE_REAL_SYNC') === 'true'`).
 - **WebKit Fallback:** If real network interception remains blocked by the engine (e.g. `TypeError: Load failed`), use a `globalThis._E2E_WEBKIT_SYNC_FALLBACK` flag in the store to manually trigger a success response and set a `_E2E_SYNC_REQUEST_INTERCEPTED` signal for the test to verify.
 - **Impact:** This ensures 100% data isolation for the general suite while allowing specific sync tests to bypass engine limitations.
 
@@ -63,5 +64,15 @@ Mock data that is "too partial" triggers lazy-load fetches (e.g., fetching winer
 WebKit's Service Worker matcher can fail to detect E2E modes via URL params alone. 
 - **Standard:** Requests requiring SW bypass MUST include an `x-skip-sw-interception: true` header. 
 - **Implementation:** The SW matcher in `sw.ts` MUST check `request.headers.get('x-skip-sw-interception')` to reliably yield to Playwright's network interception.
+
+### 10. The Storage Signing Rule
+Mocking `supabase.storage.upload` is insufficient if the app logic immediately generates signed URLs for newly synced photos. 
+- **Rule:** Tests MUST also intercept the `storage/v1/object/sign/*` endpoint and return a mocked `{ signedURL: '...' }` structure. 
+- **Rationale:** Prevents `Failed to fetch` console errors that crash tests under strict error policies during network transitions.
+
+### 11. The Persistent Signal Rule
+In Next.js 16 + WebKit, coming back "online" often triggers hydration reloads or auth redirects that clear `window` state.
+- **Standard:** E2E verification signals (like `_E2E_SYNC_REQUEST_INTERCEPTED`) MUST be mirrored to `localStorage`.
+- **Verification:** Tests should check `localStorage` if the signal appears `undefined` despite being set in store logs.
 
 Reference: [WebKit Fetch Limitations](https://webkit.org/blog/12193/js-fetch-api-updates/)
