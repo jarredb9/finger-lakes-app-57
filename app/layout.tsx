@@ -59,7 +59,8 @@ export default function RootLayout({
                     return;
                   }
                   
-                  navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                  const swUrl = window.location.search.includes('pwa=true') ? '/sw.js?pwa=true' : '/sw.js';
+                  navigator.serviceWorker.register(swUrl).then(function(registration) {
                     console.log('ServiceWorker registration successful with scope: ', registration.scope);
                   }, function(err) {
                     console.log('ServiceWorker registration failed: ', err);

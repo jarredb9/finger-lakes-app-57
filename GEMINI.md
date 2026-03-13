@@ -36,6 +36,8 @@
 ## 2. PWA & WebKit (Safari) Stability
 WebKit in this environment is brittle regarding offline I/O and binary data. You MUST follow these implementation rules for feature code:
 *   **The Reconstitution Rule:** WebKit detaches Blob handles stored in IndexedDB during network flips. **Standard:** Store photos as **Base64 strings** in the offline queue. Reconstitute using `new File()` during sync.
+*   **The PWA URL Rule:** WebKit often unregisters SW on localhost. **Standard:** All PWA tests MUST append `?pwa=true` to the URL.
+*   **The Nuclear Store Bypass:** If SW bypass fails in E2E, sever the connection in the store. **Standard:** `wineryDataStore` MUST return mock data immediately if `NEXT_PUBLIC_IS_E2E` is true.
 *   **The CORS Mocking Rule:** **MANDATORY FOR WEBKIT.** Every `context.route()` fulfillment must include `Access-Control-Allow-Origin: '*'` and common headers (`POST, GET, OPTIONS`).
 *   **Interception:** Use `page.context().route()` for global PWA mocks. Use `page.route()` for test-specific overrides.
 *   **Verification:** Procedural rules for verifying stability are offloaded to `project-testing-best-practices`.

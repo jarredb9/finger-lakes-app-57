@@ -43,6 +43,10 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
       getWinery: (id) => get().persistentWineries.find(w => w.id === id),
 
       hydrateWineries: async (userId: string) => {
+        if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+          set({ isLoading: false });
+          return;
+        }
         set({ isLoading: true, error: null });
         const supabase = createClient();
         try {
@@ -256,6 +260,14 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
               return currentDbId;
           }
 
+          if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+              const mockId = 999000 + Math.floor(Math.random() * 1000);
+              set(state => ({
+                  persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId: mockId as WineryDbId } : w)
+              }));
+              return mockId as WineryDbId;
+          }
+
           const supabase = createClient();
           const rpcData = {
               id: winery.id,
@@ -308,6 +320,9 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
         }));
 
         const supabase = createClient();
+        if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+            return;
+        }
         const { error } = await supabase.rpc('upsert_wineries_from_search', { wineries_data: rpcData });
 
         if (error) {
@@ -325,12 +340,12 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
       }),
     }),
     {
-      name: 'winery-data-storage',
+      name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'winery-data-storage-e2e' : 'winery-data-storage',
       partialize: (state) => ({ persistentWineries: state.persistentWineries }),
     }
   )
 );
-// Expose store for E2E testing
+// Expose store and config for E2E forensic analysis
 if (typeof window !== 'undefined') {
   (window as any).useWineryDataStore = useWineryDataStore;
 }

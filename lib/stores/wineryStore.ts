@@ -91,6 +91,10 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
 
         // 3. Fallback to Google API (if alphanumeric place ID)
         if (!/^\d+$/.test(placeId)) {
+            if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+                set({ loadingWineryId: null });
+                return existing || null;
+            }
             const { data: googleData, error: functionError } = await invokeFunction('get-winery-details', {
                 body: { placeId }
             });

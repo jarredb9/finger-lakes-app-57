@@ -29,4 +29,29 @@ sharedMockTrips.push({ id: 2, name: 'Global Trip' });
 await initDefaultMocks({ currentUserId: user.id });
 ```
 
+### 2. The Last Registered Wins Rule
+Playwright evaluates routes in the **reverse order** of registration (the last one registered has the highest priority).
+- **Pitfall:** If a broad "Wallet Guard" is registered first, and a later specific mock fails to match perfectly, the request will leak through rather than falling back to the guard.
+- **Rule:** Register broad "failsafe" patterns as the very **last** route if using multiple `context.route` calls.
+
+### 3. The Catch-All Proxy Pattern
+For 100% reliable interception in WebKit, avoid multiple individual routes.
+- **Standard:** Use a single `context.route('**/*', handler)` and dispatch internally using `url.includes()`.
+```typescript
+await context.route('**/*', async (route) => {
+    const url = route.request().url();
+    if (url.includes('supabase.co')) {
+        // Handle Supabase...
+    } else if (url.includes('google')) {
+        // Handle Google...
+    } else {
+        return route.continue();
+    }
+});
+```
+
+### 4. Zero-Tolerance Monitoring
+Always monitor for leaks actively during development.
+- **Standard:** Use `context.on('request', ...)` to log all external requests. If a request appears in these logs without a corresponding `[MOCK-HIT]` log from your handler, it has bypassed your mocks.
+
 Reference: [Playwright API Mocking](https://playwright.dev/docs/network)

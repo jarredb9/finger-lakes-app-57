@@ -164,7 +164,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
       }),
     }),
     {
-      name: 'ui-storage',
+      name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'ui-storage-e2e' : 'ui-storage',
       partialize: (state) => ({
         isSidebarOpen: state.isSidebarOpen,
         theme: state.theme,

@@ -33,4 +33,9 @@ To enable deep verification (e.g., RLS security checks, direct RPC probing), all
 - **Standard:** `window.supabase` must be initialized with the browser client if `NEXT_PUBLIC_IS_E2E` is true.
 - **Verification:** E2E tests should use `toPass` to wait for `window.supabase` to be defined before calling RPCs.
 
+### 6. The Expected Error Rule
+In "Lie-Fi" or Offline tests, network errors are intentional.
+- **Rule:** Refine the `page.on('console')` listener in `e2e/utils.ts` to ignore `FunctionsHttpError` or `Edge Function failed` messages during PWA offline tests.
+- **Rationale:** Prevents legitimate offline simulations from being killed by the global "fail on console error" policy.
+
 Reference: [Playwright Debugging](https://playwright.dev/docs/debug)

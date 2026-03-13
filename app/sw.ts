@@ -10,9 +10,12 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
+const SW_VERSION = "2.8.1-forensic-" + Date.now();
+console.log(`[SW] Initializing Version: ${SW_VERSION}`);
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
-  skipWaiting: false, // Changed to false for manual updates
+  skipWaiting: true, // Force activation
   clientsClaim: true,
   navigationPreload: true,
   fallbacks: {
@@ -43,10 +46,18 @@ const serwist = new Serwist({
       }),
     },
     // Supabase API - Network Only (Let App Handle Persistence)
+    // CRITICAL: In E2E mode, we bypass the SW for API calls to ensure Playwright interception works.
     {
-      matcher: ({ url }) => 
-        url.hostname.includes("supabase.co") && 
-        !url.pathname.includes("/storage/v1/object/public"), // Explicitly exclude storage
+      matcher: ({ url }) => {
+        const isE2E = self.location.search.includes('pwa=true');
+        const shouldBypass = url.hostname.includes("supabase.co") && 
+               !url.pathname.includes("/storage/v1/object/public") &&
+               isE2E;
+        
+        if (shouldBypass) return false; // Return false so it is NOT handled by the SW
+        
+        return url.hostname.includes("supabase.co") && !url.pathname.includes("/storage/v1/object/public");
+      },
       handler: new NetworkOnly(),
     },
     // Cache Google Maps Tiles with Fallback

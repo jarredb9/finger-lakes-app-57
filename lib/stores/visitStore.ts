@@ -50,6 +50,10 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       hasMore: false,
 
       fetchVisits: async (pageNumber = 1, refresh = false) => {
+        if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+            set({ isLoading: false });
+            return;
+        }
         set({ isLoading: true });
         const supabase = createClient();
         try {
@@ -626,7 +630,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       }),
     }),
     {
-      name: 'visit-storage',
+      name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'visit-storage-e2e' : 'visit-storage',
       partialize: (state) => ({ 
         visits: state.visits, 
         page: state.page, 

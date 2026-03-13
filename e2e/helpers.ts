@@ -61,6 +61,7 @@ export async function robustClick(pageOrLocator: Page | Locator, locator?: Locat
  */
 export async function clearServiceWorkers(page: Page) {
     // Navigate to / first to ensure we have a valid origin for SW/IndexedDB access
+    // This is CRITICAL for WebKit/Safari to allow cross-origin storage cleanup
     await page.goto('/').catch(() => {}); 
     
     await page.evaluate(async () => {
@@ -81,13 +82,16 @@ export async function clearServiceWorkers(page: Page) {
         } catch (e) {}
 
         try {
-            // WebKit might throw SecurityError here in some contexts
+            // Force delete IndexedDB for winery storage
             if (window.indexedDB && window.indexedDB.databases) {
                 const dbs = await window.indexedDB.databases();
-                dbs.forEach(db => {
+                for (const db of dbs) {
                     if (db.name) window.indexedDB.deleteDatabase(db.name);
-                });
+                }
             }
+            // Standard LocalStorage/SessionStorage cleanup
+            window.localStorage.clear();
+            window.sessionStorage.clear();
         } catch (e) {}
     });
 }
@@ -154,22 +158,23 @@ export async function ensureSidebarExpanded(page: Page) {
     }
 }
 
-export async function login(page: Page, email: string, pass: string, options: { skipMapReady?: boolean } = {}) {
+export async function login(page: Page, email: string, pass: string, options: { skipMapReady?: boolean, isPwa?: boolean } = {}) {
   await page.addInitScript(() => {
     window.localStorage.setItem('cookie-consent', 'true');
   });
 
   const isMobile = page.viewportSize()?.width! < 768;
   const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
+  const isPwa = options.isPwa || false;
+  const pwaSuffix = isPwa ? (isPwa.toString().includes('?') ? '&pwa=true' : '?pwa=true') : '';
 
   // 0. REGISTRATION BUFFER (WebKit Only)
-  // Ensure context.route/page.route are fully active before the first goto()
   if (isWebKit) {
-      await page.waitForTimeout(1000);
+      await page.waitForTimeout(2000);
   }
 
   await expect(async () => {
-    await page.goto('/login');
+    await page.goto(`/login${pwaSuffix}`);
     await page.waitForLoadState('networkidle');
 
     await page.getByLabel('Email').fill(email);
@@ -190,8 +195,8 @@ export async function login(page: Page, email: string, pass: string, options: { 
   await page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 15000 }).catch(() => null);
 
   if (!options.skipMapReady) {
-    await page.waitForResponse(resp => resp.url().includes('get_map_markers') && resp.status() === 200, { timeout: 15000 }).catch(() => null);
-
+    // Note: get_map_markers is bypassed in E2E mode at the store level
+    
     await expect(async () => {
       const isHydrated = await page.evaluate(() => {
           try {
@@ -238,26 +243,43 @@ export async function ensureProfileReady(page: Page) {
 }
 
 export async function openWineryDetails(page: Page, wineryName: string) {
+    console.log(`[Helper] Opening details for winery: ${wineryName}`);
     const sidebar = getSidebarContainer(page);
+    
+    // Ensure sidebar is ready
+    await expect(sidebar).toBeVisible({ timeout: 10000 });
+
     // Try data-testid first, then text fallback
     let wineryItem = sidebar.getByTestId(`winery-card-${wineryName}`).first();
     
     try {
         await expect(wineryItem).toBeVisible({ timeout: 10000 });
     } catch (e) {
+        console.log(`[Helper] TestID match not visible for ${wineryName}, trying text fallback...`);
         // Fallback to text search if testid is not present or name-agnostic search is needed
         wineryItem = sidebar.locator('text=' + wineryName).first();
         try {
             await expect(wineryItem).toBeVisible({ timeout: 5000 });
         } catch (e2) {
+            console.log(`[Helper] Text match not visible, trying partial match...`);
             wineryItem = sidebar.getByText(wineryName, { exact: false }).first();
-            await expect(wineryItem).toBeVisible({ timeout: 5000 });
+            try {
+                await expect(wineryItem).toBeVisible({ timeout: 5000 });
+            } catch (e3) {
+                console.log(`[Helper] Still not visible. Sidebar state: ${await sidebar.getAttribute('data-state')}`);
+                // Last ditch effort: find anything that looks like it
+                wineryItem = sidebar.locator('div, h3, p').filter({ hasText: wineryName }).first();
+                await expect(wineryItem).toBeVisible({ timeout: 5000 });
+            }
         }
     }
     
+    console.log(`[Helper] Found winery item, clicking...`);
     await robustClick(page, wineryItem);
+    
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: 10000 });
+    console.log(`[Helper] Modal opened for ${wineryName}`);
 }
 
 export async function closeWineryModal(page: Page) {

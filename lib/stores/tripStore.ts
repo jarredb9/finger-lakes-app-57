@@ -663,7 +663,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       }),
     }),
     {
-      name: 'trip-storage',
+      name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'trip-storage-e2e' : 'trip-storage',
       partialize: (state) => ({ 
         trips: state.trips, 
         upcomingTrips: state.upcomingTrips,

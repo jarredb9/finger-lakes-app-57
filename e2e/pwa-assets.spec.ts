@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, logVisit } from './helpers';
+import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, logVisit, robustClick, ensureSidebarExpanded } from './helpers';
 
 test.describe('PWA Assets & Sync', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -42,6 +42,7 @@ test.describe('PWA Assets & Sync', () => {
     });
 
     // Target the winery in the list specifically within the visible sidebar
+    await ensureSidebarExpanded(page);
     await openWineryDetails(page, 'Vineyard of Illusion');
 
     const modal = page.getByRole('dialog');
@@ -53,6 +54,7 @@ test.describe('PWA Assets & Sync', () => {
     await context.route(/\/rpc\/log_visit/, route => route.abort());
 
     // 3. Create Visit (Queued)
+    await robustClick(page, page.getByTestId('log-visit-button'));
     await page.getByLabel('Visit Date').fill('2025-01-02');
     await logVisit(page, { review: 'Sync Me!' });
     
