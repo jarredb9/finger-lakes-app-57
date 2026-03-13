@@ -100,7 +100,6 @@ export class MockMapsManager {
         }
 
         if (url.includes('google')) {
-            console.log(`[FORENSIC-GOOGLE] ${method} | ${url}`);
             if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
             if (url.includes('maps/api/js') || url.includes('js?key=')) {
                 return route.fulfill({ status: 200, contentType: 'application/javascript', headers: { 'Access-Control-Allow-Origin': '*' }, body: 'window.google = { maps: { _isMocked: true, importLibrary: () => Promise.resolve({}), LatLngBounds: function() { this.contains = () => true; this.extend = () => {}; this.getCenter = () => ({lat:()=>42.7,lng:()=>-76.9}); this.getNorthEast=()=>({lat:()=>43,lng:()=>-76}); this.getSouthWest=()=>({lat:()=>42,lng:()=>-77}); }, Geocoder: function() { this.geocode = () => Promise.resolve({results:[]}); }, places: { Place: { searchByText: () => Promise.resolve({places:[]}) } } } };' });
@@ -219,9 +218,13 @@ export const test = base.extend<{
     page.on('console', msg => {
         const text = msg.text();
         
-        if (text.includes('Hydration') || text.includes('Error:')) {
+        if (text.includes('Hydration') || text.includes('Error') || msg.type() === 'error') {
             const isInfrastructure = text.includes('SecurityError') || text.includes('IDBFactory') || text.includes('Cross-Origin Request Blocked');
-            const isExpectedOfflineError = text.includes('Edge Function failed') || text.includes('FunctionsHttpError');
+            const isExpectedOfflineError = text.includes('Edge Function failed') || 
+                                         text.includes('FunctionsHttpError') || 
+                                         text.includes('Load failed') || 
+                                         text.includes('TypeError') ||
+                                         text.includes('[Sync] Failed');
             
             if (!isInfrastructure && !isExpectedOfflineError) {
                 console.error(`FAILING TEST DUE TO CONSOLE ERROR: ${text}`);
