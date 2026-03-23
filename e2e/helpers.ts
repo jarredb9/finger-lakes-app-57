@@ -243,7 +243,6 @@ export async function ensureProfileReady(page: Page) {
 }
 
 export async function openWineryDetails(page: Page, wineryName: string) {
-    console.log(`[Helper] Opening details for winery: ${wineryName}`);
     const sidebar = getSidebarContainer(page);
     
     // Ensure sidebar is ready
@@ -255,18 +254,15 @@ export async function openWineryDetails(page: Page, wineryName: string) {
     try {
         await expect(wineryItem).toBeVisible({ timeout: 10000 });
     } catch (e) {
-        console.log(`[Helper] TestID match not visible for ${wineryName}, trying text fallback...`);
         // Fallback to text search if testid is not present or name-agnostic search is needed
         wineryItem = sidebar.locator('text=' + wineryName).first();
         try {
             await expect(wineryItem).toBeVisible({ timeout: 5000 });
         } catch (e2) {
-            console.log(`[Helper] Text match not visible, trying partial match...`);
             wineryItem = sidebar.getByText(wineryName, { exact: false }).first();
             try {
                 await expect(wineryItem).toBeVisible({ timeout: 5000 });
             } catch (e3) {
-                console.log(`[Helper] Still not visible. Sidebar state: ${await sidebar.getAttribute('data-state')}`);
                 // Last ditch effort: find anything that looks like it
                 wineryItem = sidebar.locator('div, h3, p').filter({ hasText: wineryName }).first();
                 await expect(wineryItem).toBeVisible({ timeout: 5000 });
@@ -274,12 +270,10 @@ export async function openWineryDetails(page: Page, wineryName: string) {
         }
     }
     
-    console.log(`[Helper] Found winery item, clicking...`);
     await robustClick(page, wineryItem);
     
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible({ timeout: 10000 });
-    console.log(`[Helper] Modal opened for ${wineryName}`);
 }
 
 export async function closeWineryModal(page: Page) {

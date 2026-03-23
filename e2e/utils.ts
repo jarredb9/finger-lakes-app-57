@@ -65,15 +65,7 @@ export class MockMapsManager {
         const method = req.method();
         const type = req.resourceType();
 
-        console.log(`[DIAGNOSTIC] catchAll seen: ${url}`);
-
         if (url.includes('supabase.co')) {
-            if (url.includes('/rpc/')) {
-                console.log(`[DIAGNOSTIC] catchAll: Supabase RPC detected: ${url}`);
-            } else {
-                console.log(`[DIAGNOSTIC] catchAll: Supabase Request: ${url}`);
-            }
-
             if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
             if (url.includes('/rest/v1/profiles')) {
                 return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([{ id: currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' }]) });
@@ -81,12 +73,10 @@ export class MockMapsManager {
             if (url.includes('/rpc/')) {
                 // EXPLICIT EXCLUSION: Allow test-level interceptors to catch log_visit
                 if (url.includes('log_visit')) {
-                    console.log('[DIAGNOSTIC] catchAll: log_visit detected, falling back...');
                     return route.fallback();
                 }
 
                 if (this.realSocialEnabled && (url.includes('send_friend_request') || url.includes('respond_to_friend_request') || url.includes('get_friends_and_requests') || url.includes('remove_friend'))) {
-                    console.log(`[DIAGNOSTIC] catchAll: Bypassing mock for social RPC: ${url}`);
                     return route.continue();
                 }
 
@@ -167,7 +157,6 @@ export class MockMapsManager {
             if (wineryStore && wineryStore.getState) {
                 const state = wineryStore.getState();
                 if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0) {
-                    console.log(`[E2E-INIT] Injecting ${mockMarkers.length} mock wineries into store`);
                     // We manually standardize for the store since the utility isn't easily accessible here
                     const standardized = mockMarkers.map((m: any) => ({
                         id: m.google_place_id,
@@ -191,7 +180,6 @@ export class MockMapsManager {
             if (mapStore && mapStore.getState) {
                 const state = mapStore.getState();
                 if (!state.bounds) {
-                    console.log('[E2E-INIT] Injecting default map bounds');
                     mapStore.setState({ 
                         bounds: { 
                             getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
@@ -265,7 +253,8 @@ export const test = base.extend<{
         const text = msg.text();
         const type = msg.type();
         
-        if (text.includes('[DIAGNOSTIC]') || text.includes('[Sync]') || text.includes('[OfflineQueue]') || text.includes('[SW]') || type === 'error') {
+        // Only log real errors that aren't diagnostic/sync noise
+        if (type === 'error' && !text.includes('[DIAGNOSTIC]') && !text.includes('[Sync]')) {
             console.log(`[BROWSER-${type.toUpperCase()}] ${text}`);
         }
 

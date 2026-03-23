@@ -23,7 +23,6 @@ test.describe('PWA Assets & Sync', () => {
     await navigateToTab(page, 'Explore');
     await waitForMapReady(page);
     
-    console.log('[Test] Forcing winery visibility in list...');
     await page.evaluate(() => {
         const dataStore = (window as any).useWineryDataStore.getState();
         const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
@@ -62,7 +61,6 @@ test.describe('PWA Assets & Sync', () => {
     // CRITICAL: Set the flag BEFORE creating the visit, so that when the 
     // automatic sync fires later, it already has the flag.
     await page.evaluate(() => {
-        console.log('[DIAGNOSTIC] test: Preparing real sync flag.');
         // @ts-ignore
         window._E2E_ENABLE_REAL_SYNC = true;
     });
@@ -88,7 +86,6 @@ test.describe('PWA Assets & Sync', () => {
     await page.unroute(logVisitPattern);
 
     const logVisitHandler = async (route: any) => {
-        console.log('[DIAGNOSTIC] test: Intercepted log_visit via Playwright');
         syncRequestMade = true;
         await route.fulfill({
             status: 200,
@@ -111,7 +108,6 @@ test.describe('PWA Assets & Sync', () => {
     // during offline/online transitions (TypeError: Load failed).
     const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
     if (isWebKit) {
-        console.log('[Test] WebKit detected, enabling store-level fallback just in case.');
         await page.evaluate(() => {
             // @ts-ignore
             globalThis._E2E_WEBKIT_SYNC_FALLBACK = true;
@@ -119,29 +115,23 @@ test.describe('PWA Assets & Sync', () => {
     }
 
     // 5. Go Online
-    console.log('[Test] Going online...');
     await context.setOffline(false);
     
     // Give WebKit PLENTY of time to settle the network stack and avoid the "Load failed" engine bug
-    console.log('[Test] Waiting for network to settle (5s)...');
     await page.waitForTimeout(5000);
     
-    console.log('[Test] Manually triggering final sync.');
     await page.evaluate(() => {
-        console.log('[DIAGNOSTIC] test: Triggering manual sync now.');
         // @ts-ignore
         window.useVisitStore.getState().syncOfflineVisits();
     });
 
     // 6. Wait for Sync
-    console.log('[Test] Waiting for sync request to be intercepted or successful log...');
     await expect(async () => {
         // If Playwright intercepted it, great. 
         // If not, check if our store-level fallback caught it (only for WebKit) or if it logged success.
         const storeIntercepted = await page.evaluate(() => (globalThis as any)._E2E_SYNC_REQUEST_INTERCEPTED === true);
         
         if (!syncRequestMade && !storeIntercepted && !syncSuccessLogged) {
-            console.log('[DIAGNOSTIC] test: sync still not confirmed, retrying...');
         }
         expect(syncRequestMade || storeIntercepted || syncSuccessLogged).toBe(true);
     }).toPass({ timeout: 20000 });

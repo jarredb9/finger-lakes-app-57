@@ -3,7 +3,6 @@ import { login, navigateToTab, openWineryDetails, clearServiceWorkers } from './
 
 test.describe('Deep PWA Offline Sync (Photos)', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
-    console.log('[beforeEach] Starting cleanup and setup...');
     
     // 0. Ensure fresh start and enable Service Worker for PWA test
     await clearServiceWorkers(page);
@@ -16,13 +15,10 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
   });
 
   test('should queue and sync visit creation with multiple photos when back online', async ({ page, context }) => {
-    console.log('--- TEST START: should queue and sync visit creation ---');
-    
     let uploadCount = 0;
     let rpcCount = 0;
     
     // 1. Setup: Already at Explore due to login helper
-    console.log('[Test] Forcing winery visibility in list...');
     await page.evaluate(() => {
         const dataStore = (window as any).useWineryDataStore.getState();
         const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Mock Winery One');
@@ -45,7 +41,6 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
         localStorage.removeItem('_E2E_WEBKIT_SYNC_FALLBACK');
         
         (globalThis as any)._E2E_SYNC_REQUEST_INTERCEPTED = false;
-        console.log('[DIAGNOSTIC] test: Signals initialized to false');
     });
 
     await openWineryDetails(page, 'Mock Winery One');
@@ -54,7 +49,6 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
     await expect(modal).toBeVisible({ timeout: 15000 });
 
     // 2. Go Offline
-    console.log('[Test] Going offline...');
     await context.setOffline(true);
     
     // Enable Real Sync mode so the store actually tries to hit our mocks
@@ -64,7 +58,6 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
     });
 
     // 3. Prepare and Inject Visit (Offline)
-    console.log('[Test] Injecting visit into store while offline...');
     const visitDate = new Date().toISOString().split('T')[0];
     const review = 'Deep sync test injection';
     
@@ -101,7 +94,6 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
     const storageHandler = async (route: any) => {
         const url = route.request().url();
         const method = route.request().method();
-        console.log(`[DIAGNOSTIC] Storage request seen: ${method} ${url}`);
         
         if (method === 'OPTIONS') {
             await route.fulfill({ status: 204, headers: commonHeaders });
@@ -110,7 +102,6 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
 
         // Handle Signing Requests (App needs these to display synced photos)
         if (url.includes('/sign/')) {
-            console.log('[DIAGNOSTIC] Intercepted storage SIGN request');
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json',
@@ -122,7 +113,6 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
 
         if (method === 'POST' || method === 'PUT') {
             uploadCount++;
-            console.log(`[DIAGNOSTIC] Intercepted storage upload (Count: ${uploadCount})`);
             await route.fulfill({ 
                 status: 200, 
                 contentType: 'application/json',
@@ -143,7 +133,6 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
 
     const rpcHandler = async (route: any) => {
         rpcCount++;
-        console.log(`[DIAGNOSTIC] Intercepted log_visit RPC (Count: ${rpcCount})`);
         await route.fulfill({
             status: 200,
             contentType: 'application/json',
@@ -165,34 +154,28 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
 
     // WebKit Fallback just in case interception fails due to engine-level "Load failed"
     // We enable it for ALL browsers now to ensure stability in the container
-    console.log('[Test] Enabling store-level fallback for reliability.');
     await page.evaluate(() => {
         localStorage.setItem('_E2E_WEBKIT_SYNC_FALLBACK', 'true');
         (globalThis as any)._E2E_WEBKIT_SYNC_FALLBACK = true;
     });
 
     // 5. Go Online & Trigger Sync
-    console.log('[Test] Going online...');
     await context.setOffline(false);
     
     // Settlement wait
-    console.log('[Test] Waiting for network to settle (5s)...');
     await page.waitForTimeout(5000);
 
-    console.log('Triggering manual syncOfflineVisits...');
     await page.evaluate(async () => {
         const store = (window as any).useVisitStore.getState();
         if (!store.isSyncing) await store.syncOfflineVisits();
     });
 
     // 6. Verify sync results
-    console.log('[Test] Waiting for sync results...');
     
     await expect(async () => {
         const storeIntercepted = await page.evaluate(() => {
             const ls = localStorage.getItem('_E2E_SYNC_REQUEST_INTERCEPTED') === 'true';
             const gt = (globalThis as any)._E2E_SYNC_REQUEST_INTERCEPTED === true;
-            if (ls || gt) console.log(`[DIAGNOSTIC] test poll check: SUCCESS (localStorage=${ls}, globalThis=${gt})`);
             return ls || gt;
         });
         
@@ -201,12 +184,10 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
         const rpcCalled = rpcCount >= 1 || storeIntercepted;
         
         if (!uploaded || !rpcCalled) {
-            console.log(`[DIAGNOSTIC] Sync not confirmed: uploads=${uploadCount}, rpc=${rpcCount}, fallback=${storeIntercepted}`);
         }
         
         expect(uploaded && rpcCalled).toBe(true);
     }).toPass({ timeout: 25000 });
 
-    console.log('--- TEST SUCCESS ---');
   });
 });

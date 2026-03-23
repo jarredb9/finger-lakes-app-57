@@ -71,29 +71,25 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
     if (get().subscription) return;
 
     const supabase = createClient();
-    console.log('[friendStore] Subscribing to social updates...');
 
     const subscription = supabase
       .channel('social-updates')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'visits' },
-        async (payload) => {
-          console.log('[friendStore] Received visit change payload:', JSON.stringify(payload));
+        async (_payload) => {
           await get().fetchFriendActivityFeed();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'friends' },
-        async (payload) => {
-          console.log('[friendStore] Received friend change payload:', JSON.stringify(payload));
+        async (_payload) => {
           await get().fetchFriends();
           await get().fetchFriendActivityFeed();
         }
       )
-      .subscribe((status) => {
-        console.log('[friendStore] Subscription status:', status);
+      .subscribe((_status) => {
       });
 
     set({ subscription });

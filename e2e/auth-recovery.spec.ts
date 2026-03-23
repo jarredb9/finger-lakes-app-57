@@ -6,7 +6,6 @@ test.describe('Auth Recovery (Password Reset)', () => {
     const context = page.context();
     // 1. Mock the forgot-password API
     await context.route('**/api/auth/forgot-password', async (route) => {
-      console.log('Intercepted forgot-password');
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -38,7 +37,6 @@ test.describe('Auth Recovery (Password Reset)', () => {
 
     // 3. Mock the reset-password API
     await context.route('**/api/auth/reset-password', async (route) => {
-      console.log('Intercepted reset-password');
       route.fulfill({
         status: 200,
         contentType: 'application/json',

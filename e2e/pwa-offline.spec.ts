@@ -47,7 +47,6 @@ test.describe('PWA Offline Functionality', () => {
     await page.evaluate(() => {
         const dataStore = (window as any).useWineryDataStore.getState();
         const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
-        console.log(`[DIAGNOSTIC] Persistent wineries count: ${dataStore.persistentWineries.length}`);
         
         if (mockWinery) {
             const mockBounds = {
@@ -60,7 +59,6 @@ test.describe('PWA Offline Functionality', () => {
                 filter: ['all'] 
             });
         } else {
-            console.log(`[DIAGNOSTIC] Vineyard of Illusion NOT FOUND. Wineries: ${dataStore.persistentWineries.map((w: any) => w.name).slice(0, 10).join(', ')}...`);
         }
     });
 

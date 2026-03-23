@@ -69,7 +69,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trips' },
             async (payload) => {
-              console.log('[tripStore] Received trip change payload:', payload);
               const changedTripId = (payload.new as any)?.id || (payload.old as any)?.id;
               
               // Always refresh lists
@@ -86,7 +85,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trip_wineries' },
             async (payload) => {
-              console.log('[tripStore] Received trip_wineries change payload:', payload);
               const changedTripId = (payload.new as any)?.trip_id || (payload.old as any)?.trip_id;
               const { selectedTrip } = get();
               
@@ -99,7 +97,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trip_members' },
             async (payload) => {
-              console.log('[tripStore] Received trip_members change payload:', payload);
               const changedTripId = (payload.new as any)?.trip_id || (payload.old as any)?.trip_id;
               const { selectedTrip } = get();
               
@@ -181,7 +178,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             return { trips: newTrips };
           });
         } catch (error) {
-          console.error(`[tripStore] fetchTripById: Error during fetch for trip ${tripId}.`, error);
           set({ isLoading: false });
         }
       },
@@ -207,7 +203,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             isLoading: false
           });
         } catch (error) {
-          console.error(`[tripStore] fetchTripsForDate: Error during fetch for date ${dateString}.`, error);
           // Do NOT clear data on error. Just stop loading.
           set({ isLoading: false });
         }
@@ -300,7 +295,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         try {
           await TripService.updateTrip(tripId, updates);
         } catch (error) {
-          console.error("[tripStore] Error updating trip, reverting state:", error);
           set({ trips: originalTrips }); // Revert on network error
           throw error;
         }

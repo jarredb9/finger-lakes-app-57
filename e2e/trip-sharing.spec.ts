@@ -10,9 +10,6 @@ import {
 
 test.describe('Trip Sharing and Collaboration Flow', () => {
   test('User can invite a friend to a trip', async ({ page, user, mockMaps }) => {
-    // Surface all browser logs
-    page.on('console', msg => console.log(`[BROWSER] ${msg.text()}`));
-
     // Initialize mocks with the actual user ID to ensure isOwner works
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
 
@@ -31,7 +28,6 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     const tripForm = page.getByTestId('trip-form-card');
     await tripForm.getByTestId('trip-name-input').fill(uniqueTripName);
     
-    console.log('[E2E] Clicking create-trip-submit-btn');
     // Intercept creation
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('trips') || resp.url().includes('create_trip')),
@@ -39,27 +35,17 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     ]);
     
     // Wait for success toast to ensure store is updated
-    console.log('[E2E] Waiting for creation toast');
     await expect(page.getByText(/Trip created successfully/i).first()).toBeVisible({ timeout: 15000 });
 
-    console.log('[E2E] Waiting for trip card to appear');
     const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
     await expect(tripCard).toBeVisible({ timeout: 15000 });
     
     // 2. Wait for stable positive ID before opening dialog
-    console.log('[E2E] Waiting for stable positive ID');
     
-    // Debug store state if it takes too long
-    await page.evaluate(() => {
-        const store = (window as any).useTripStore?.getState();
-        console.log('[DIAGNOSTIC-STORE] Current trips:', JSON.stringify(store?.trips.map((t: any) => ({ id: t.id, name: t.name }))));
-    });
-
     // Wait for the ID to become positive (not starting with -)
     await expect(tripCard).toHaveAttribute('data-trip-id', /^[1-9]\d*$/, { timeout: 20000 });
 
     // 2. Open Share Dialog
-    console.log('[E2E] Opening Share Dialog');
     const shareBtn = tripCard.getByTestId('share-trip-btn');
     await robustClick(page, shareBtn);
     
@@ -67,7 +53,6 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     await expect(dialog).toBeVisible();
     
     // 3. Invite a friend by email
-    console.log('[E2E] Inviting friend by email');
     const emailInput = dialog.getByTestId('invite-email-input');
     await emailInput.fill('user-b@example.com');
     
@@ -77,11 +62,9 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
         robustClick(page, dialog.getByTestId('invite-by-email-btn'))
     ]);
     
-    console.log('[E2E] Waiting for success toast');
     await expect(page.getByText(/Invitation sent to user-b@example.com/i).first()).toBeVisible();
     
     // Verify member appears in list
-    console.log('[E2E] Verifying member in list');
     await expect(dialog.getByTestId('member-email').filter({ hasText: 'user-b@example.com' })).toBeVisible({ timeout: 15000 });
   });
 
@@ -185,7 +168,6 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     page.on('console', msg => {
         const text = msg.text();
         logs.push(text);
-        if (text.includes('[DIAGNOSTIC]')) console.log(`[BROWSER-DIAGNOSTIC] ${text}`);
     });
 
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
@@ -206,20 +188,17 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
         // We'll use 'get_friends_and_requests' with a spoofed context or similar if possible, 
         // but easier is just hitting a table directly if enabled, or a sensitive RPC.
         // Actually, let's use a non-existent RPC to verify we get a proper 404/403 instead of a mock response.
-        console.log('[DIAGNOSTIC] Attempting call to non-existent RPC to verify security interface');
         
         const { data, error } = await supabase
             .rpc('definitely_does_not_exist_rpc_12345');
             
         if (error) {
-            console.error(`[DIAGNOSTIC] Expected Error: ${error.message} (${error.code})`);
             return { error: error.message, code: error.code };
         }
         
         return { data };
     });
 
-    console.log(`[DIAGNOSTIC] RPC result: ${JSON.stringify(result)}`);
 
     // We expect an error (404/403) for non-existent RPC, which verifies we are hitting the real API/middleware
     expect(result.error).toBeTruthy();

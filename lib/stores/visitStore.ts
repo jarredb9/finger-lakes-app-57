@@ -55,7 +55,6 @@ const isWebKitFallback = () => {
 };
 const signalSyncIntercepted = () => {
     if (typeof window !== 'undefined') {
-        console.log('[DIAGNOSTIC] Setting _E2E_SYNC_REQUEST_INTERCEPTED = true');
         // @ts-ignore
         (globalThis as any)._E2E_SYNC_REQUEST_INTERCEPTED = true;
         // @ts-ignore
@@ -160,7 +159,6 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         set(state => ({ visits: [tempVisit, ...state.visits] }));
 
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
-            console.log("[DIAGNOSTIC] saveVisit: Browser is offline, adding mutation to queue.");
             try {
                 await addOfflineMutation({
                     type: 'create',
@@ -217,14 +215,12 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             is_private: visitData.is_private || false,
           };
 
-          console.log("[DIAGNOSTIC] saveVisit: Attempting direct RPC call.");
           const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
             p_winery_data: rpcWineryData,
             p_visit_data: rpcVisitData,
           }, { headers: getE2EHeaders() } as any);
 
           if (rpcError) {
-              console.log("[DIAGNOSTIC] saveVisit: RPC Error encountered:", rpcError);
               throw rpcError;
           }
           
@@ -242,9 +238,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           }));
 
         } catch (error) {
-          console.log("[DIAGNOSTIC] saveVisit: Catch block error:", error);
           if (isNetworkError(error)) {
-             console.log("[DIAGNOSTIC] saveVisit: Network error caught, adding mutation to queue.");
              await addOfflineMutation({
                 type: 'create',
                 id: tempId,
@@ -277,52 +271,42 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       syncOfflineVisits: async () => {
         if (get().isSyncing) return;
 
-        console.log('[DIAGNOSTIC] sync: starting...');
         const supabase = createClient();
         
         const mutations = await getOfflineMutations();
-        console.log('[DIAGNOSTIC] sync: mutations found:', mutations);
 
         if (mutations.length === 0) {
-            console.log("[DIAGNOSTIC] syncOfflineVisits: No mutations found.");
             return;
         }
 
-        console.log(`[DIAGNOSTIC] syncOfflineVisits: Starting sync for ${mutations.length} mutations.`);
         set({ isSyncing: true });
 
         try {
           const { replaceVisit, confirmOptimisticUpdate } = useWineryStore.getState();
-          console.log("[DIAGNOSTIC] syncOfflineVisits: Checking session.");
           const { data: { session } } = await supabase.auth.getSession();
 
           if (!session?.user) {
-              console.warn('[DIAGNOSTIC] syncOfflineVisits: No active session, aborting sync');
               return;
           }
 
           for (const mutation of mutations) {
-            console.log('[DIAGNOSTIC] sync: processing mutation:', mutation);
             try {
               if (mutation.type === 'create') {
                 let uploadedPaths: string[] = [];
                 const folderUuid = crypto.randomUUID();
 
                 if (mutation.visitData.photos.length > 0) {
-                  console.log(`[Sync] Uploading ${mutation.visitData.photos.length} photos...`);
                   
                   // NUCLEAR BYPASS / FALLBACK (E2E)
                   const webkitFallback = isWebKitFallback();
                   if (webkitFallback || shouldSkipRealSync()) {
-                      console.log(`[DIAGNOSTIC] sync: Mocking photo uploads for ${webkitFallback ? 'WebKit Fallback' : 'Nuclear Bypass'}`);
                       uploadedPaths = mutation.visitData.photos.map((_, idx) => `mocked-path-${idx}`);
                       signalSyncIntercepted();
                   } else {
-                      const uploadPromises = mutation.visitData.photos.map(async (offlinePhoto, idx) => {
+                      const uploadPromises = mutation.visitData.photos.map(async (offlinePhoto) => {
                         const blob = ensureBlob(offlinePhoto);
                         const fileName = `${Date.now()}-${(offlinePhoto as any).name || 'photo.jpg'}`;
                         const filePath = `${session.user.id}/${folderUuid}/${fileName}`;
-                        console.log(`[Sync] Uploading photo ${idx+1}/${mutation.visitData.photos.length}: ${filePath} (${blob.size} bytes)`);
                         
                         const uploadOptions: any = { headers: getE2EHeaders() };
                         const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, blob, uploadOptions);
@@ -331,7 +315,6 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                       });
                       uploadedPaths = await Promise.all(uploadPromises);
                   }
-                  console.log('[Sync] Photos uploaded successfully:', uploadedPaths);
                 }
 
                 const rpcWineryData = {
@@ -352,16 +335,12 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                   photos: uploadedPaths,
                 };
 
-                console.log('[DIAGNOSTIC] sync: mutation.visitData:', mutation.visitData);
-                console.log('[DIAGNOSTIC] sync: rpcWineryData:', rpcWineryData);
-                console.log('[DIAGNOSTIC] sync: calling log_visit RPC');
                 
                 // NUCLEAR BYPASS / FALLBACK (E2E)
                 let rpcResult, rpcError;
                 const webkitFallbackRpc = isWebKitFallback();
 
                 if (webkitFallbackRpc || shouldSkipRealSync()) {
-                    console.log(`[DIAGNOSTIC] sync: Using ${webkitFallbackRpc ? 'WebKit Fallback' : 'Nuclear Bypass'} (mocking log_visit)`);
                     rpcResult = { visit_id: 999000 + Math.floor(Math.random() * 1000) };
                     rpcError = null;
                     signalSyncIntercepted();
@@ -374,10 +353,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                     rpcError = response.error;
                 }
                 
-                console.log('[DIAGNOSTIC] sync: log_visit RPC result:', rpcResult ? `Success (ID: ${rpcResult.visit_id})` : 'No data');
 
                 if (rpcError) {
-                    console.log('[DIAGNOSTIC] sync: RPC Error encountered:', rpcError);
                     throw rpcError;
                 }
                 
@@ -407,10 +384,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 }));
 
               } else if (mutation.type === 'update') {
-                console.log(`[Sync] Updating visit: ${mutation.visitId}`);
                 let newPhotoPaths: string[] = [];
                 if (mutation.newPhotos.length > 0) {
-                  console.log(`[Sync] Uploading ${mutation.newPhotos.length} new photos...`);
                   
                   const webkitFallbackUpd = isWebKitFallback();
                   if (webkitFallbackUpd || shouldSkipRealSync()) {
@@ -465,7 +440,6 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 }));
 
               } else if (mutation.type === 'delete') {
-                console.log(`[Sync] Deleting visit: ${mutation.visitId}`);
                 const { error } = await supabase.rpc('delete_visit', { p_visit_id: parseInt(mutation.visitId) }, { headers: getE2EHeaders() } as any);
                 if (error) throw error;
 
@@ -473,16 +447,11 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 set({ lastMutation: Date.now() });
               }
 
-              console.log(`[Sync] Mutation ${mutation.id} synced successfully`);
               await removeOfflineMutation(mutation.id);
             } catch (error) {
-              console.error(`[DIAGNOSTIC] sync: error processing mutation ${mutation.id}:`, error);
-              console.error(`[Sync] Failed to sync mutation ${mutation.id}:`, error);
             }
           }
         } finally {
-          console.log('[DIAGNOSTIC] sync: finished processing all mutations');
-          console.log('[Sync] All mutations processed');
           set({ isSyncing: false });
         }
       },
