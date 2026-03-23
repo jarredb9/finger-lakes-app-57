@@ -67,4 +67,32 @@ jest.mock('@/components/ui/button', () => {
 });
 ```
 
+## Advanced Store Mocking
+
+### 1. Context-Aware RPC Mocking (Chained Dependencies)
+Stores often call internal methods (like `ensureInDb`) which perform their own RPC calls (like `ensure_winery`) before the primary action proceeds.
+- **Rule:** The `mockRpc` must be name-aware. If it returns a generic success for everything, internal checks like `if (!dbId) return;` will silently terminate the test.
+- **Standard:** Always return a valid numeric ID (> 100) for `ensure_winery` and appropriate objects for `log_visit`.
+
+```typescript
+const mockRpc = jest.fn((name, params) => {
+  if (name === 'ensure_winery') return Promise.resolve({ data: 101, error: null });
+  if (name === 'log_visit') return Promise.resolve({ data: { visit_id: 123 }, error: null });
+  return Promise.resolve({ data: { success: true }, error: null });
+});
+```
+
+### 2. RPC Signature Resilience
+Store methods now frequently append a 3rd argument for E2E headers (`{ headers: getE2EHeaders() }`).
+- **Rule:** Tests using `toHaveBeenCalledWith` will fail if they only specify two arguments.
+- **Standard:** Use `expect.any(Object)` for the 3rd argument to ensure tests remain stable even if header logic changes.
+
+```typescript
+expect(mockRpc).toHaveBeenCalledWith(
+  'toggle_favorite_privacy', 
+  { p_winery_id: 101 }, 
+  expect.any(Object)
+);
+```
+
 Reference: [Jest Mocking](https://jestjs.io/docs/manual-mocks)

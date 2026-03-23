@@ -8,7 +8,18 @@ describe('WineryDataStore', () => {
 
   beforeEach(() => {
     jest.resetModules();
-    mockRpc = jest.fn();
+    
+    // Ensure hydrateWineries is not skipped in Jest tests
+    (globalThis as any)._E2E_ENABLE_REAL_SYNC = true;
+
+    // Name-aware mockRpc
+    mockRpc = jest.fn((name) => {
+      if (name === 'get_map_markers') {
+         // Default empty return for markers, specific tests override this
+         return Promise.resolve({ data: [], error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
 
     // Mock Supabase
     jest.doMock('@/utils/supabase/client', () => ({
@@ -27,6 +38,10 @@ describe('WineryDataStore', () => {
     // Re-require store
     useWineryDataStore = require('../wineryDataStore').useWineryDataStore;
     useWineryDataStore.getState().reset();
+  });
+
+  afterEach(() => {
+      delete (globalThis as any)._E2E_ENABLE_REAL_SYNC;
   });
 
   it('should preserve existing winery details (visits) when hydrating from map markers', async () => {
@@ -53,7 +68,13 @@ describe('WineryDataStore', () => {
       user_visited: true, // Marker says visited, but doesn't have the array
     });
 
-    mockRpc.mockResolvedValue({ data: [freshMarker], error: null });
+    // Override mockRpc for this specific test
+    mockRpc.mockImplementation((name: string) => {
+      if (name === 'get_map_markers') {
+        return Promise.resolve({ data: [freshMarker], error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
 
     // 3. Trigger Hydration
     await act(async () => {

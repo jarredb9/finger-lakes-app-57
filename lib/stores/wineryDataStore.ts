@@ -73,7 +73,15 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
              return standardizeWineryData(m, existing); 
           }).filter(Boolean) as Winery[];
 
-          set({ persistentWineries: processedWineries, isLoading: false });
+          // Merge: Replace updated ones, but KEEP those that weren't in the markers list
+          // This prevents detail loss if we navigated deep into a winery then back.
+          const processedIds = new Set(processedWineries.map(w => w.id));
+          const mergedWineries = [
+              ...processedWineries,
+              ...currentWineries.filter(w => !processedIds.has(w.id))
+          ];
+
+          set({ persistentWineries: mergedWineries, isLoading: false });
         } catch (err) {
           console.error("Hydration failed:", err);
           if (get().persistentWineries.length > 0) {
