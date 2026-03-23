@@ -49,6 +49,7 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 ## 3. Next.js 16 Hydration & Synchronization
 *   **Avoid Hard Reloads:** NEVER use `page.reload()` inside retry loops. It kills hydration and leads to `Application Error`.
 *   **Proactive Sync:** Trigger store refreshes (e.g., `store.fetchFriends()`) via `page.evaluate` inside retry loops instead.
+*   **The DnD Hydration Rule:** Libraries like `@hello-pangea/dnd` are NOT SSR-safe in Next.js 16. **Standard:** Wrap `DragDropContext` in a `mounted` state check. Failure to do so causes a silent "Next.js Error Page" (This page couldn't load) during hydration.
 *   **Stability:** Detailed patterns for hydration guards and success selectors are offloaded to `project-testing-best-practices`.
 
 ## 4. Core Architectural Standards

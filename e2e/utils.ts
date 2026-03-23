@@ -252,15 +252,20 @@ export const test = base.extend<{
     const logHandler = (msg: any) => {
         const text = msg.text();
         const type = msg.type();
-        
+
         // Only log real errors that aren't diagnostic/sync noise
         if (type === 'error' && !text.includes('[DIAGNOSTIC]') && !text.includes('[Sync]')) {
             console.log(`[BROWSER-${type.toUpperCase()}] ${text}`);
         }
 
-        if (text.includes('Hydration') || text.includes('Error') || type === 'error') {
+        if (text.includes('Hydration') || text.includes('Error') || type === 'error' || text.includes('403')) {
             if (text.includes('[DIAGNOSTIC]')) return; // Ignore diagnostics in fatal error check
-            
+
+            // Log the message for debugging
+            if (text.includes('403')) {
+                console.log(`[DIAGNOSTIC] Seen 403 error: ${text}`);
+            }
+
             const isInfrastructure = text.includes('SecurityError') || 
                                    text.includes('IDBFactory') || 
                                    text.includes('Cross-Origin Request Blocked') ||

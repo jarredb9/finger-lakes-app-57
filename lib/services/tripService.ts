@@ -16,6 +16,7 @@ export const TripService = {
       .from("trips")
       .select(`
           id,
+          user_id,
           name,
           trip_date,
           trip_wineries (count),
@@ -111,31 +112,15 @@ export const TripService = {
         return this.getTripById(data.trip_id.toString());
     }
 
-    // Fallback for trip without wineries (Basic Insert)
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: newTrip, error } = await supabase
-        .from("trips")
-        .insert({ 
-            user_id: user?.id, 
-            trip_date: trip.trip_date, 
-            name: trip.name
-        })
-        .select("*")
-        .single();
+    // Fallback for trip without wineries (Use RPC for robustness)
+    const { data, error } = await supabase.rpc('create_trip', {
+        p_name: trip.name || 'New Trip',
+        p_trip_date: trip.trip_date
+    });
 
     if (error) throw error;
 
-    console.log(`[DIAGNOSTIC] TripService.createTrip: Successfully created trip ${newTrip.id}`);
-
-    // Add creator to trip_members
-    await supabase.from('trip_members').insert({
-        trip_id: newTrip.id,
-        user_id: user?.id,
-        role: 'owner',
-        status: 'joined'
-    });
-
-    return { ...newTrip, wineries: [], members: [] } as Trip;
+    return this.getTripById(data.id.toString());
   },
 
   async deleteTrip(tripId: string) {

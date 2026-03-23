@@ -22,6 +22,11 @@ expect(members[0]).toMatchObject({
 });
 ```
 
+### 4. Ownership Verification
+Verify that the `user_id` (owner) is returned in the trip list and details. UI components that use `isOwner` logic (e.g., `TripCard`) depend on this field to enable or disable features like deletion or editing. 
+- **Rule:** If `isOwner` is incorrectly returning `false`, verify that `TripService.getTrips` or the relevant RPC is explicitly selecting the `user_id` column.
+- **Verification:** Log the trip object in a `[DIAGNOSTIC]` block within the test to check for the presence and correctness of `user_id` versus the current user's ID.
+
 ### 2. Multi-Member Visibility
 A winery in a trip should surface visits from ALL members.
 - **Rule:** Use `setupFriendship` helper to create a secondary user and log a visit.

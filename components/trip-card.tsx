@@ -70,18 +70,26 @@ const TripCard = memo(({ trip }: TripCardProps) => {
   const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote } = useTripStore();
   const { user } = useUserStore();
   
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const { 
     currentMembers, 
     handleExportToMaps 
   } = useTripActions(trip);
 
-  const isOwner = user?.id === trip.user_id;
-  const isMember = trip.members?.some(m => m.id === user?.id);
-  const canEdit = isOwner || isMember;
-
   const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState(trip.name || "");
-  const [editedDate, setEditedDate] = useState<Date | undefined>(new Date(trip.trip_date));
+  const [editedName, setEditedName] = useState(trip?.name || "");
+  const [editedDate, setEditedDate] = useState<Date | undefined>(() => {
+    try {
+      if (!trip?.trip_date) return undefined;
+      return new Date(trip.trip_date + 'T00:00:00');
+    } catch (e) {
+      return undefined;
+    }
+  });
   const [winerySearch, setWinerySearch] = useState("");
   const [searchResults, setSearchResults] = useState<Winery[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -90,7 +98,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
   const { openShareDialog, openWineryNoteEditor } = useUIStore();
 
   useEffect(() => {
-    if (!winerySearch.trim()) {
+    if (!winerySearch.trim() || !trip?.wineries) {
       setSearchResults([]);
       return;
     }
@@ -119,7 +127,16 @@ const TripCard = memo(({ trip }: TripCardProps) => {
     }, 500); // 500ms debounce
 
     return () => clearTimeout(debounceSearch);
-  }, [winerySearch, trip.wineries, toast]);
+  }, [winerySearch, trip?.wineries, toast]);
+
+  // Guard against missing trip or trip_date early (after hooks)
+  if (!trip || !trip.trip_date) {
+    return null;
+  }
+
+  const isOwner = user?.id === trip.user_id;
+  const isMember = trip.members?.some(m => m.id === user?.id);
+  const canEdit = isOwner || isMember;
 
   // Get the most up-to-date winery data from the persistent store
   const tripWineries = trip.wineries || [];
@@ -177,8 +194,19 @@ const TripCard = memo(({ trip }: TripCardProps) => {
     }
   };
 
+  // Safe date rendering helper
+  const getSafeDateString = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return "Invalid Date";
+      return d.toLocaleDateString();
+    } catch (e) {
+      return "Invalid Date";
+    }
+  };
+
   return (
-    <Card className="w-full overflow-hidden">
+    <Card className="w-full overflow-hidden" data-testid="trip-details-card">
       <CardHeader className="bg-gray-50 border-b">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
@@ -191,7 +219,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
               />
             ) : (
               <CardTitle className="text-xl md:text-2xl font-bold">
-                {trip.name || `Trip for ${new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}`}
+                {trip.name || `Trip for ${getSafeDateString(trip.trip_date)}`}
               </CardTitle>
             )}
             <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -200,7 +228,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                 {isEditing ? (
                   <DatePicker date={editedDate} onSelect={setEditedDate} />
                 ) : (
-                  new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()
+                  getSafeDateString(trip.trip_date)
                 )}
               </span>
               <span className="flex items-center gap-1.5">
@@ -213,16 +241,16 @@ const TripCard = memo(({ trip }: TripCardProps) => {
           <div className="flex items-center gap-3">
             <div className="flex items-center -space-x-2 mr-1">
               <TooltipProvider>
-                {currentMembers.map((member: TripMember) => (
-                  <Tooltip key={member.id}>
+                {(currentMembers || []).map((member: TripMember) => (
+                  <Tooltip key={member.id || `member-${Math.random()}`}>
                     <TooltipTrigger asChild>
                       <Avatar className="h-8 w-8 border-2 border-white shadow-sm hover:z-10 transition-all">
-                        <AvatarImage src={`https://i.pravatar.cc/150?u=${member.email}`} alt={member.name} />
-                        <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
+                        <AvatarImage src={`https://i.pravatar.cc/150?u=${member.email || 'unknown'}`} alt={member.name || 'User'} />
+                        <AvatarFallback>{(member.name || 'U').charAt(0)}</AvatarFallback>
                       </Avatar>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>{member.name} ({member.role})</p>
+                      <p>{member.name || 'Unknown User'} ({member.role || 'Member'})</p>
                     </TooltipContent>
                   </Tooltip>
                 ))}
@@ -240,7 +268,8 @@ const TripCard = memo(({ trip }: TripCardProps) => {
                       aria-label="Share Trip"
                     >
                       <UserPlus className="h-4 w-4 text-gray-500" />
-                    </Button>                  </TooltipTrigger>
+                    </Button>
+                  </TooltipTrigger>
                   <TooltipContent>
                     <p>Manage Members</p>
                   </TooltipContent>
@@ -275,82 +304,104 @@ const TripCard = memo(({ trip }: TripCardProps) => {
         </div>
       </CardHeader>
       <CardContent className="p-0">
-        <DragDropContext onDragEnd={handleDrop}>
-          <Droppable droppableId={`trip-${trip.id}`}>
-            {(provided) => (
-              <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y" data-testid="winery-list">
-                {tripWineries.map((winery, index) => {
-                  const nextWinery = tripWineries[index + 1];
-                  const hasCoordinates = winery.lat !== undefined && winery.lng !== undefined;
-                  const nextHasCoordinates = nextWinery?.lat !== undefined && nextWinery?.lng !== undefined;
-                  
-                  let distanceText = "";
-                  if (hasCoordinates && nextHasCoordinates) {
-                    const dist = calculateDistance(
-                      { lat: Number(winery.lat), lng: Number(winery.lng) },
-                      { lat: Number(nextWinery.lat), lng: Number(nextWinery.lng) }
-                    );
-                    distanceText = formatDistance(dist);
-                  }
+        {!mounted ? (
+          <div className="divide-y" data-testid="winery-list-loading">
+            {tripWineries.map((winery) => (
+              <div key={winery.id || `loading-${Math.random()}`} className="bg-white">
+                <div className="flex items-start gap-3 p-4">
+                  <div className="pt-1">
+                    <GripVertical className="w-5 h-5 text-gray-200" />
+                  </div>
+                  <div className="grow">
+                    <p className="font-semibold">{winery.name}</p>
+                    <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <DragDropContext onDragEnd={handleDrop}>
+            <Droppable droppableId={`trip-${trip.id}`}>
+              {(provided) => (
+                <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y" data-testid="winery-list">
+                  {(tripWineries || []).map((winery, index) => {
+                    const nextWinery = tripWineries[index + 1];
+                    const hasCoordinates = winery.lat !== undefined && winery.lng !== undefined && winery.lat !== null && winery.lng !== null;
+                    const nextHasCoordinates = nextWinery?.lat !== undefined && nextWinery?.lng !== undefined && nextWinery?.lat !== null && nextWinery?.lng !== null;
+                    
+                    let distanceText = "";
+                    if (hasCoordinates && nextHasCoordinates) {
+                      try {
+                        const dist = calculateDistance(
+                          { lat: Number(winery.lat), lng: Number(winery.lng) },
+                          { lat: Number(nextWinery.lat), lng: Number(nextWinery.lng) }
+                        );
+                        distanceText = formatDistance(dist);
+                      } catch (e) {
+                        // Silent fail for distance calculation in UI
+                      }
+                    }
 
-                  return (
-                    <Draggable key={winery.id} draggableId={winery.id.toString()} index={index}>
-                      {(provided) => (
-                        <div ref={provided.innerRef} {...provided.draggableProps} className="bg-white">
-                          <div className="flex items-start gap-3 p-4 hover:bg-gray-50">
-                            <div {...provided.dragHandleProps} className="pt-1">
-                              <GripVertical className="w-5 h-5 text-gray-400" />
-                            </div>
-                            <div className="grow">
-                              <p className="font-semibold">{winery.name}</p>
-                              <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
-                              <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
-                              
-                              <div className="mt-2">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                  onClick={() => openWineryNoteEditor(winery.dbId as number, winery.notes || '', handleSaveNote)}
-                                >
-                                  {winery.notes ? "Edit Notes" : "Add Notes"}
-                                </Button>
-                                {winery.notes && (
-                                  <p className="text-xs text-slate-600 mt-1 pl-2 italic border-l-2 border-slate-200">
-                                    {winery.notes}
-                                  </p>
-                                )}
+                    return (
+                      <Draggable key={winery.id} draggableId={winery.id.toString()} index={index}>
+                        {(provided) => (
+                          <div ref={provided.innerRef} {...provided.draggableProps} className="bg-white">
+                            <div className="flex items-start gap-3 p-4 hover:bg-gray-50">
+                              <div {...provided.dragHandleProps} className="pt-1">
+                                <GripVertical className="w-5 h-5 text-gray-400" />
                               </div>
+                              <div className="grow">
+                                <p className="font-semibold">{winery.name}</p>
+                                <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
+                                <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
+                                
+                                <div className="mt-2">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    onClick={() => openWineryNoteEditor(winery.dbId as number, winery.notes || '', handleSaveNote)}
+                                  >
+                                    {winery.notes ? "Edit Notes" : "Add Notes"}
+                                  </Button>
+                                  {winery.notes && (
+                                    <p className="text-xs text-slate-600 mt-1 pl-2 italic border-l-2 border-slate-200">
+                                      {winery.notes}
+                                    </p>
+                                  )}
+                                </div>
 
-                              <WineryReviews visits={winery.visits || []} currentUserId={trip.user_id} members={currentMembers} />
+                                <WineryReviews visits={winery.visits || []} currentUserId={trip.user_id} members={currentMembers} />
+                              </div>
+                              {isEditing && (
+                                <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
-                            {isEditing && (
-                              <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">
-                                <X className="h-4 w-4" />
-                              </Button>
+                            
+                            {/* Distance to next stop */}
+                            {distanceText && (
+                              <div className="relative h-8 flex items-center px-12 overflow-hidden">
+                                <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-dashed border-l-2 border-dashed border-gray-300 ml-px"></div>
+                                <div className="z-10 bg-white border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-medium text-gray-500 flex items-center gap-1 shadow-xs">
+                                  <MapPin className="w-2.5 h-2.5" />
+                                  <span>{distanceText} to next stop</span>
+                                </div>
+                              </div>
                             )}
                           </div>
-                          
-                          {/* Distance to next stop */}
-                          {distanceText && (
-                            <div className="relative h-8 flex items-center px-12 overflow-hidden">
-                              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-dashed border-l-2 border-dashed border-gray-300 ml-px"></div>
-                              <div className="z-10 bg-white border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-medium text-gray-500 flex items-center gap-1 shadow-xs">
-                                <MapPin className="w-2.5 h-2.5" />
-                                <span>{distanceText} to next stop</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </Draggable>
-                  );
-                })}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        )}
         {isEditing && (
           <div className="p-4 border-t">
             <Popover open={addWineryPopoverOpen} onOpenChange={setAddWineryPopoverOpen}>
