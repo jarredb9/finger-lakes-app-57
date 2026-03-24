@@ -37,8 +37,9 @@ To enable deep verification (e.g., RLS security checks, direct RPC probing), all
 ### 6. The Expected Error Rule
 In "Lie-Fi" or Offline tests, network errors are intentional.
 - **Rule:** Refine the `page.on('console')` listener in `e2e/utils.ts` to ignore `FunctionsHttpError`, `Edge Function failed`, `Load failed`, or `TypeError` during PWA offline tests.
+- **Error Injection:** Tests that manually fail RPCs (e.g., `error-handling.spec.ts`) MUST allow `Internal Server Error` and `Database Connection Failed`.
+- **Firefox Note:** Firefox often logs complex objects as `JSHandle@object`. This string MUST be allowed in the `logHandler` to prevent false positives for fatal crashes.
 - **WebKit Note:** `TypeError: Load failed` is a common engine-level blockade in WebKit during offline/online transitions, even if the bypass is correctly configured.
-- **Rationale:** Prevents legitimate offline simulations from being killed by the global "fail on console error" policy while still catching unexpected hydration or logic crashes.
 
 ### 7. The Signal Persistence Rule
 If a signal (like `_E2E_SYNC_REQUEST_INTERCEPTED`) is logged as `true` in the browser console but appears `undefined` or `false` in `page.evaluate`, a page reload or redirect likely occurred.

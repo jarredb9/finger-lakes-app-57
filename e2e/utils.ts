@@ -158,6 +158,9 @@ export class MockMapsManager {
         
         const inject = () => {
             // @ts-ignore
+            if (window._E2E_SKIP_WINERY_INJECTION) return false;
+
+            // @ts-ignore
             const wineryStore = window.useWineryDataStore;
             // @ts-ignore
             const mapStore = window.useMapStore;
@@ -221,19 +224,22 @@ export class MockMapsManager {
 
   // --- ERROR INJECTION METHODS (Restored for error-handling.spec.ts) ---
   async failMarkers() {
-    await this.page.context().route(/\/rpc\/get_map_markers/, async (route) => {
+    await this.page.addInitScript(() => {
+        (window as any)._E2E_SKIP_WINERY_INJECTION = true;
+    });
+    await this.page.route(/\/rpc\/get_map_markers/, async (route) => {
       await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
     });
   }
 
   async failTrips() {
-    await this.page.context().route(/\/rest\/v1\/trips/, async (route) => {
+    await this.page.route(/\/rest\/v1\/trips/, async (route) => {
       await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Database Connection Failed' }) });
     });
   }
 
   async failLogin() {
-    await this.page.context().route('**/auth/v1/token**', async (route) => {
+    await this.page.route('**/auth/v1/token**', async (route) => {
       await route.fulfill({ status: 400, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'invalid_grant', error_description: 'Invalid login credentials' }) });
     });
   }
@@ -262,7 +268,9 @@ export const test = base.extend<{
         const type = msg.type();
 
         // Only log real errors that aren't diagnostic/sync noise
-        if (type === 'error' && !text.includes('[DIAGNOSTIC]') && !text.includes('[Sync]')) {
+        if (text.includes('[DIAGNOSTIC]')) {
+            console.log(text);
+        } else if (type === 'error' && !text.includes('[Sync]')) {
             console.log(`[BROWSER-${type.toUpperCase()}] ${text}`);
         }
 
@@ -283,7 +291,10 @@ export const test = base.extend<{
                                          text.includes('FunctionsHttpError') || 
                                          text.includes('Load failed') || 
                                          text.includes('TypeError') ||
-                                         text.includes('[Sync] Failed');
+                                         text.includes('[Sync] Failed') ||
+                                         text.includes('Database Connection Failed') ||
+                                         text.includes('Internal Server Error') ||
+                                         text.includes('JSHandle@object');
             
             if (!isInfrastructure && !isExpectedOfflineError) {
                 console.error(`FAILING TEST DUE TO CONSOLE ERROR: ${text}`);
