@@ -21,6 +21,7 @@
 *   **Singleton Modals:** Feature dialogs **MUST** be global singletons in `layout.tsx` (outside `AuthProvider`) to avoid DOM bloat and unmounting during hydration flashes.
     *   **Standard:** Use `GlobalModalRenderer` as the sink for all forms (e.g., `VisitForm`, `WineryNoteEditor`). Trigger via `useUIStore.openVisitForm()` rather than local state.
 *   **RPC Search Paths:** All Postgres functions **MUST** set `SET search_path = public, auth` and use explicit `public.` prefixes to resolve auth schema helpers in `SECURITY DEFINER` contexts.
+*   **API Nuclear Bypass:** Any API route exchanging tokens or codes (Reset Password, Signup Confirm) **MUST** implement a bypass for `'mock-code'` **BEFORE** initializing the Supabase client. This prevents `AuthPKCECodeVerifierMissingError` in emulated E2E environments.
 
 # Winery Visit Planner and Tracker
 

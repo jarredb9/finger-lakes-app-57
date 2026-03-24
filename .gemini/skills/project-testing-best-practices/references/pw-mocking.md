@@ -29,10 +29,12 @@ sharedMockTrips.push({ id: 2, name: 'Global Trip' });
 await initDefaultMocks({ currentUserId: user.id });
 ```
 
-### 2. The Last Registered Wins Rule
-Playwright evaluates routes in the **reverse order** of registration (the last one registered has the highest priority).
-- **Pitfall:** If a broad "Wallet Guard" is registered first, and a later specific mock fails to match perfectly, the request will leak through rather than falling back to the guard.
-- **Rule:** Register broad "failsafe" patterns as the very **last** route if using multiple `context.route` calls.
+### 2. The Last Registered Wins Rule (Precedence)
+Playwright evaluates routes in the **reverse order** of registration (LIFO) at the same level.
+- **CRITICAL:** **Page-level routes (`page.route`) ALWAYS take precedence over context-level routes (`context.route`)**, regardless of registration order. 
+- **Pitfall:** If a global fixture (like `e2e/utils.ts`) registers a `page.route('**/*')`, any `context.route` in your test will be **ignored**.
+- **Rule:** For test-specific mocks that must override global fixtures, ALWAYS use `page.route`.
+
 
 ### 3. The Catch-All Proxy Pattern
 For 100% reliable interception in WebKit, avoid multiple individual routes. Use a single `context.route('**/*', handler)` and dispatch internally. Use `route.fallback()` to allow specific tests to override global mocks.

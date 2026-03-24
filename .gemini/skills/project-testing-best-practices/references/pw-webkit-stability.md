@@ -48,13 +48,27 @@ WebKit/Safari often fails to register or unregisters the Service Worker on `loca
 - **Standard:** All PWA-specific tests MUST append `?pwa=true` to the navigation URL.
 - **Helper:** Update the `login` helper to accept an `isPwa` option that handles this suffix automatically.
 
-### 7. The Nuclear Store Bypass Rule
+### 7. The Nuclear Bypass Rule (Stores & API)
 When Playwright interception is bypassed by Service Worker threads or engine-level fetch failures in WebKit, you MUST sever the connection at the logic level.
+
+#### A. Zustand Stores
 - **Standard:** Stores (`wineryDataStore`, `visitStore`) should check `process.env.NEXT_PUBLIC_IS_E2E === 'true'`. 
 - **Pattern:** They MUST return mock data/IDs for heavy RPCs (`hydrateWineries`, `ensureInDb`, `log_visit`) UNLESS an opt-in flag like `globalThis._E2E_ENABLE_REAL_SYNC` is truthy.
-- **Persistence:** In environments prone to hydration reloads or auth redirects, these flags SHOULD also be checked in `localStorage` (e.g., `localStorage.getItem('_E2E_ENABLE_REAL_SYNC') === 'true'`).
-- **WebKit Fallback:** If real network interception remains blocked by the engine (e.g. `TypeError: Load failed`), use a `globalThis._E2E_WEBKIT_SYNC_FALLBACK` flag in the store to manually trigger a success response and set a `_E2E_SYNC_REQUEST_INTERCEPTED` signal for the test to verify.
-- **Impact:** This ensures 100% data isolation for the general suite while allowing specific sync tests to bypass engine limitations.
+
+#### B. API Routes (Auth & Code Exchange)
+- **Standard:** Any API route that exchanges tokens or codes (e.g., `api/auth/reset-password`) MUST implement a **server-side bypass** for the token value `'mock-code'`.
+- **CRITICAL:** The bypass check MUST happen **before any Supabase client initialization** (`createClient()`).
+- **Rationale:** Initializing the Supabase client triggers PKCE cookie resolution. In emulated E2E environments, this often fails with `AuthPKCECodeVerifierMissingError` if the session state is brittle. 
+- **Implementation:**
+```typescript
+export async function POST(req: Request) {
+  const { code } = await req.json();
+  if (code === 'mock-code') return NextResponse.json({ message: "Success" });
+  const supabase = await createClient(); // Only called if NOT mocking
+  // ...
+}
+```
+
 
 ### 8. The Deterministic Mocking Rule
 Mock data that is "too partial" triggers lazy-load fetches (e.g., fetching winery details if `openingHours` is missing).
