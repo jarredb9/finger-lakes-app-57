@@ -29,7 +29,18 @@ sharedMockTrips.push({ id: 2, name: 'Global Trip' });
 await initDefaultMocks({ currentUserId: user.id });
 ```
 
-### 2. The Last Registered Wins Rule (Precedence)
+### 2. User-Aware Profile Mocking
+In multi-context tests (e.g., social or collaborative flows), the default `/rest/v1/profiles` mock MUST be bypassed to allow each context to receive its correct profile data.
+- **Problem:** If both `pageA` and `pageB` receive the same "Test User" mock, `ensureProfileReady` will fail or stores will hydrate with incorrect data.
+- **Standard:** Use `manager.useRealSocial()` to trigger the fallback for profile requests in `MockMapsManager`.
+- **Implementation (Fixture):**
+```typescript
+const manager = new MockMapsManager(page);
+await manager.useRealSocial(); // MUST be called before initDefaultMocks
+await manager.initDefaultMocks({ currentUserId: user.id });
+```
+
+### 3. The Last Registered Wins Rule (Precedence)
 Playwright evaluates routes in the **reverse order** of registration (LIFO) at the same level.
 - **CRITICAL:** **Page-level routes (`page.route`) ALWAYS take precedence over context-level routes (`context.route`)**, regardless of registration order. 
 - **Pitfall:** If a global fixture (like `e2e/utils.ts`) registers a `page.route('**/*')`, any `context.route` in your test will be **ignored**.

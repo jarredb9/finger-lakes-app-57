@@ -69,6 +69,7 @@ export class MockMapsManager {
         if (url.includes('supabase.co')) {
             if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
             if (url.includes('/rest/v1/profiles')) {
+                if (this.realSocialEnabled) return route.fallback();
                 return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([{ id: currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' }]) });
             }
             if (url.includes('/rpc/')) {

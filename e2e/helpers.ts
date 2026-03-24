@@ -379,3 +379,51 @@ export async function selectPrivacyOption(page: Page, optionName: 'Public' | 'Fr
     await robustClick(page, option);
     await expect(page.getByText(/Privacy set to/i).first()).toBeVisible();
 }
+
+export async function removeFriend(page: Page, email: string) {
+    await navigateToTab(page, 'Friends');
+    await ensureSidebarExpanded(page);
+    const sidebar = getSidebarContainer(page);
+
+    await expect(async () => {
+        const friendsCard = sidebar.locator('[data-testid="my-friends-card"]');
+        const sentCard = sidebar.locator('[data-testid="sent-requests-card"]');
+        
+        let friendRow = friendsCard.locator(`[data-testid="friend-row-${email}"], .flex.items-center:has-text("${email}")`).first();
+        let isFriend = await friendRow.isVisible();
+        
+        if (!isFriend) {
+            friendRow = sentCard.locator(`.flex.items-center:has-text("${email}")`).first();
+            if (!(await friendRow.isVisible())) {
+                await page.reload();
+                await page.waitForLoadState('networkidle');
+                await waitForAppReady(page);
+                await navigateToTab(page, 'Friends');
+                await ensureSidebarExpanded(page);
+                
+                // Re-check
+                const friendsCardUpdate = sidebar.locator('[data-testid="my-friends-card"]');
+                const sentCardUpdate = sidebar.locator('[data-testid="sent-requests-card"]');
+                isFriend = await friendsCardUpdate.locator(`[data-testid="friend-row-${email}"], .flex.items-center:has-text("${email}")`).first().isVisible();
+                friendRow = isFriend 
+                    ? friendsCardUpdate.locator(`[data-testid="friend-row-${email}"], .flex.items-center:has-text("${email}")`).first()
+                    : sentCardUpdate.locator(`.flex.items-center:has-text("${email}")`).first();
+            }
+        }
+
+        if (!(await friendRow.isVisible())) {
+             return; // Already removed
+        }
+
+        const removeBtn = friendRow.locator('button[aria-label="Remove friend"], [data-testid="remove-friend-btn"], [data-testid="cancel-request-btn"]').first();
+        await robustClick(page, removeBtn);
+
+        // Handle AlertDialog only if it was an accepted friend
+        if (isFriend) {
+            const confirmBtn = page.locator('button:has-text("Remove"), [data-testid="confirm-remove-btn"]').filter({ visible: true }).first();
+            await robustClick(page, confirmBtn);
+        }
+
+        await expect(sidebar.locator(`text="${email}"`)).not.toBeVisible({ timeout: 10000 });
+    }).toPass({ timeout: 45000, intervals: [5000] });
+}
