@@ -19,8 +19,8 @@ export function getSidebarContainer(page: Page): Locator {
 export async function waitForAppReady(page: Page) {
     const isMobile = page.viewportSize()?.width! < 768;
     const successSelector = isMobile 
-      ? 'div.fixed.bottom-0, [data-testid="settings-page-container"]' 
-      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"]';
+      ? 'div.fixed.bottom-0, [data-testid="settings-page-container"], [data-testid="trip-details-card"]' 
+      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"]';
     
     await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 20000 });
 }
@@ -158,6 +158,22 @@ export async function ensureSidebarExpanded(page: Page) {
     }
 }
 
+/**
+ * Fills and submits the login form.
+ */
+export async function submitLoginForm(page: Page, email: string, pass: string) {
+    await page.getByLabel('Email').fill(email);
+    await page.getByLabel('Password').fill(pass);
+    
+    const signInBtn = page.getByRole('button', { name: 'Sign In' });
+    // Use robustClick if visible, otherwise fall back to Enter key
+    try {
+        await robustClick(page, signInBtn);
+    } catch (e) {
+        await page.keyboard.press('Enter');
+    }
+}
+
 export async function login(page: Page, email: string, pass: string, options: { skipMapReady?: boolean, isPwa?: boolean } = {}) {
   await page.addInitScript(() => {
     window.localStorage.setItem('cookie-consent', 'true');
@@ -177,19 +193,8 @@ export async function login(page: Page, email: string, pass: string, options: { 
     await page.goto(`/login${pwaSuffix}`);
     await page.waitForLoadState('networkidle');
 
-    await page.getByLabel('Email').fill(email);
-    await page.getByLabel('Password').fill(pass);
-    await page.keyboard.press('Enter');
-
-    try {
-        await waitForAppReady(page);
-    } catch (e) {
-        const signInBtn = page.getByRole('button', { name: 'Sign In' });
-        if (await signInBtn.isVisible()) {
-            await robustClick(page, signInBtn);
-            await waitForAppReady(page);
-        } else { throw e; }
-    }
+    await submitLoginForm(page, email, pass);
+    await waitForAppReady(page);
   }).toPass({ intervals: [2000], timeout: 45000 });
   
   await page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 15000 }).catch(() => null);

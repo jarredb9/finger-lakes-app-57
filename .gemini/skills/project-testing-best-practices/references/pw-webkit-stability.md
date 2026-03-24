@@ -89,4 +89,17 @@ In Next.js 16 + WebKit, coming back "online" often triggers hydration reloads or
 - **Standard:** E2E verification signals (like `_E2E_SYNC_REQUEST_INTERCEPTED`) MUST be mirrored to `localStorage`.
 - **Verification:** Tests should check `localStorage` if the signal appears `undefined` despite being set in store logs.
 
+### 12. The SW Sabotage Rule
+For non-PWA tests in WebKit, Service Workers can intermittently capture network requests even if bypassing headers (`x-skip-sw-interception`) are present, especially during rapid navigation or redirects.
+- **Standard:** `MockMapsManager` or the test's `addInitScript` MUST sabotage `navigator.serviceWorker.register` to prevent the SW thread from starting unless explicitly enabled (e.g., for `pwa-*` tests).
+- **Implementation:**
+```typescript
+if ('serviceWorker' in navigator) {
+  (navigator.serviceWorker as any).register = () => {
+    console.log('[DIAGNOSTIC] SW Registration blocked for test stability');
+    return Promise.reject(new Error('SW blocked for non-PWA test'));
+  };
+}
+```
+
 Reference: [WebKit Fetch Limitations](https://webkit.org/blog/12193/js-fetch-api-updates/)

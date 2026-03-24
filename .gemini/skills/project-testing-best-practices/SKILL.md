@@ -4,7 +4,7 @@ description: Use this skill when the user asks to write new tests, fix failing t
 license: MIT
 metadata:
   author: Gemini CLI
-  version: "1.3.0"
+  version: "1.3.1"
   date: March 2026
   scope: testing-verification
   complexity: high
@@ -39,4 +39,5 @@ These standards ensure the reliability and stability of the application across o
 3. **No Brittle Clicks:** Standard Playwright `click()` is avoided in favor of `robustClick()`.
 4. **Stable Navigation:** All navigation uses `navigateToTab()` or `waitForAppReady()`.
 5. **No Data Loss:** Photo uploads follow the "Reconstitution Rule" for Safari/WebKit.
-6. **Zero-Guess Debugging:** All test failures are analyzed using the "Mandatory Diagnostic Protocol."
+6. **The Interception Shield:** Non-PWA tests follow the "SW Sabotage Rule" to prevent WebKit from bypassing mocks via background worker threads.
+7. **Zero-Guess Debugging:** All test failures are analyzed using the "Mandatory Diagnostic Protocol."

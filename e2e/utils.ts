@@ -26,6 +26,7 @@ export interface TestUser {
 export class MockMapsManager {
   public static sharedMockTrips: any[] | null = null;
   public static sharedTripMembersMap = new Map<number, any[]>();
+  private swEnabled = false;
 
   static resetSharedState() {
     MockMapsManager.sharedMockTrips = null;
@@ -35,7 +36,7 @@ export class MockMapsManager {
   constructor(private page: Page) {}
 
   enableServiceWorker() {
-    // This is currently a no-op but kept for interface compatibility
+    this.swEnabled = true;
   }
 
   async initDefaultMocks(options: { currentUserId?: string } = {}) {
@@ -77,7 +78,7 @@ export class MockMapsManager {
                 }
 
                 if (this.realSocialEnabled && (url.includes('send_friend_request') || url.includes('respond_to_friend_request') || url.includes('get_friends_and_requests') || url.includes('remove_friend'))) {
-                    return route.continue();
+                    return route.fallback();
                 }
 
                 if (url.includes('get_map_markers') || url.includes('get_wineries_in_bounds') || url.includes('get_paginated_wineries')) {
@@ -88,7 +89,7 @@ export class MockMapsManager {
                 }
                 if (url.includes('get_friends_and_requests')) return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ friends: [], pending_incoming: [], pending_outgoing: [] }) });
                 if (url.includes('get_paginated_visits')) {
-                    if (this.realVisitsEnabled) return route.continue();
+                    if (this.realVisitsEnabled) return route.fallback();
                     const mockVisit = createMockVisitWithWinery({ wineryId: 'ch-67890-mock-winery-2' as any, wineryName: 'Vineyard of Illusion' });
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([{
                         visit_id: mockVisit.id, user_id: mockVisit.user_id, visit_date: mockVisit.visit_date, user_review: mockVisit.user_review,
@@ -96,22 +97,22 @@ export class MockMapsManager {
                         google_place_id: mockVisit.wineryId, winery_address: mockVisit.wineries.address, friend_visits: []
                     }]) });
                 }
-                return route.continue();
+                return route.fallback();
             }
-            if (url.includes('/auth/v1/')) return route.continue();
+            if (url.includes('/auth/v1/')) return route.fallback();
             if (url.includes('/rest/v1/trips')) {
-                if (this.realVisitsEnabled) return route.continue();
+                if (this.realVisitsEnabled) return route.fallback();
                 const trips = MockMapsManager.sharedMockTrips || [];
                 return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(trips), headers: commonHeaders });
             }
             if (url.includes('/rest/v1/favorites')) {
-                if (this.realFavoritesEnabled) return route.continue();
+                if (this.realFavoritesEnabled) return route.fallback();
                 return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([]) });
             }
             if (url.includes('/functions/v1/')) {
                 return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, data: {} }) });
             }
-            return route.continue();
+            return route.fallback();
         }
 
         if (url.includes('google')) {
@@ -127,7 +128,7 @@ export class MockMapsManager {
             console.error(`[BLOCK-FATAL-FORENSIC] ${url}`);
             return route.fulfill({ status: 403, body: 'Blocked' });
         }
-        return route.continue();
+        return route.fallback();
     };
 
     // PROXY REGISTRATION
@@ -140,13 +141,20 @@ export class MockMapsManager {
     }
 
     // Proactive injection into Store
-    await this.page.addInitScript((mockMarkers: any[]) => {
+    await this.page.addInitScript(({ mockMarkers, swEnabled }: any) => {
         // Clear isolated E2E storage for a fresh start
         window.localStorage.removeItem('winery-data-storage-e2e');
         window.localStorage.removeItem('visit-storage-e2e');
         window.localStorage.removeItem('trip-storage-e2e');
         
         (window as any)._E2E_MOCKS_ACTIVE = true;
+
+        if (!swEnabled && 'serviceWorker' in navigator) {
+            (navigator.serviceWorker as any).register = () => {
+                console.log('[DIAGNOSTIC] SW Registration blocked by MockMapsManager');
+                return Promise.reject(new Error('SW blocked for test stability'));
+            };
+        }
         
         const inject = () => {
             // @ts-ignore
@@ -208,7 +216,7 @@ export class MockMapsManager {
             }
         }, 100);
         setTimeout(() => clearInterval(intervalId), 10000);
-    }, markers as any[]);
+    }, { mockMarkers: markers, swEnabled: this.swEnabled } as any);
   }
 
   // --- ERROR INJECTION METHODS (Restored for error-handling.spec.ts) ---

@@ -57,5 +57,6 @@ await context.route('**/*', async (route) => {
 ### 4. Zero-Tolerance Monitoring
 Always monitor for leaks actively during development.
 - **Standard:** Use `context.on('request', ...)` to log all external requests. If a request appears in these logs without a corresponding `[MOCK-HIT]` log from your handler, it has bypassed your mocks.
+- **WebKit Note:** If leaks persist despite correct headers, apply **The SW Sabotage Rule** (see `pw-webkit-stability.md`) to block Service Worker interference entirely.
 
 Reference: [Playwright API Mocking](https://playwright.dev/docs/network)
