@@ -326,43 +326,43 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
     const addBtn = sidebarA.locator('[data-testid="add-friend-btn"]');
     await robustClick(pageA, addBtn);
     
-    // Wait for the RPC response explicitly (Non-fatal)
-    await pageA.waitForResponse(resp => resp.url().includes('send_friend_request') && (resp.status() === 200 || resp.status() === 204), { timeout: 15000 }).catch(() => null);
+    // Non-fatal response wait for sync
+    await pageA.waitForResponse(resp => resp.url().includes('send_friend_request'), { timeout: 10000 }).catch(() => null);
 
-    // 2. User B Accepts Request (Aggressive Reload strategy from stable commit)
+    // 2. User B Accepts Request
     await expect(async () => {
-        // Aggressive sync: reload and wait for network
-        await pageB.reload();
-        await pageB.waitForLoadState('networkidle');
-
-        // Ensure AppShell is hydrated after reload
-        await waitForAppReady(pageB);
-
-        await navigateToTab(pageB, 'Friends');
-        await ensureSidebarExpanded(pageB);
         const sidebarB = getSidebarContainer(pageB);
-        
         const friendsCard = sidebarB.locator('[data-testid="my-friends-card"]');
         const requestsCard = sidebarB.locator('[data-testid="friend-requests-card"]');
+        const rowId = `[data-testid="request-row-${user1Email}"]`;
 
-        // Check if already friends
+        // Check visibility before reload to catch Realtime sync
+        if (!(await requestsCard.locator(rowId).isVisible()) && 
+            !(await friendsCard.locator(`text="${user1Email}"`).isVisible())) {
+            
+            await pageB.reload();
+            await pageB.waitForLoadState('networkidle');
+            await waitForAppReady(pageB);
+            await navigateToTab(pageB, 'Friends');
+            await ensureSidebarExpanded(pageB);
+        }
+
+        // Already friends check
         if (await friendsCard.locator(`text="${user1Email}"`).isVisible()) {
             return;
         }
 
-        const requestRow = requestsCard.locator('.flex.items-center').filter({ hasText: user1Email });
+        const requestRow = pageB.locator(rowId).first();
         if (!(await requestRow.isVisible())) {
-            throw new Error(`Request from ${user1Email} not visible in requests card after reload`);
+            throw new Error(`Request from ${user1Email} not found in requests card`);
         }
         
         const acceptBtn = requestRow.locator('[data-testid="accept-request-btn"]');
         await robustClick(pageB, acceptBtn);
         
-        // Wait for acceptance RPC (Non-fatal)
-        await pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request') && (resp.status() === 200 || resp.status() === 204), { timeout: 15000 }).catch(() => null);
-        
+        await pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request'), { timeout: 10000 }).catch(() => null);
         await expect(friendsCard.locator(`text="${user1Email}"`)).toBeVisible({ timeout: 15000 });
-    }).toPass({ timeout: 60000, intervals: [10000] });
+    }).toPass({ timeout: 60000, intervals: [5000, 10000] });
 }
 
 export async function waitForToast(page: Page, message: string | RegExp) {

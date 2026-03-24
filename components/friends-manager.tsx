@@ -120,7 +120,7 @@ export default function FriendsManager() {
           </CardHeader>
           <CardContent className="space-y-2">
             {friendRequests.map((req: Friend) => (
-              <div key={req.id} className="flex items-center justify-between p-2 bg-gray-100 rounded-md" data-testid={`request-row-${req.id}`}>
+              <div key={req.id} className="flex items-center justify-between p-2 bg-gray-100 rounded-md" data-testid={`request-row-${req.email}`}>
                 <div>
                   <p className="font-medium">{req.name}</p>
                   <p className="text-sm text-gray-500">{req.email}</p>
