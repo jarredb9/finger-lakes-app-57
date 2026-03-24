@@ -38,4 +38,13 @@ Collaborative tests require a single source of truth for mock data across multip
 - **Rule:** Use `static` properties in `MockMapsManager` (e.g., `sharedMockTrips`) to persist changes (invites, edits) across contexts.
 - **Cleanup:** Always call `MockMapsManager.resetSharedState()` in the `mockMaps` fixture to prevent cross-test leakage.
 
+### 5. Case-Insensitive ID Matching
+UUID strings and relational IDs can exhibit inconsistent casing when transitioning between Supabase (Postgres) and Zustand (JSON).
+- **Rule:** Never use strict `===` for ID comparison in UI filters or search logic.
+- **Standard:** Always cast to string and lowercase before comparing.
+- **Implementation:**
+```typescript
+const isMember = members.some(m => String(m.id).toLowerCase() === String(friend.id).toLowerCase());
+```
+
 Reference: [Playwright Multi-Context](https://playwright.dev/docs/auth#multi-step-auth)

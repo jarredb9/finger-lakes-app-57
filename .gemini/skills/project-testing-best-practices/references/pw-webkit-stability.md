@@ -102,4 +102,23 @@ if ('serviceWorker' in navigator) {
 }
 ```
 
+### 13. The SW Quota Purge Rule
+Aggressive document and tile caching in WebKit can trigger `QuotaExceededError` even if the device has space.
+- **Standard:** Every `ExpirationPlugin` in `sw.ts` MUST set `purgeOnQuotaError: true`.
+- **Implementation:**
+```typescript
+new ExpirationPlugin({
+  maxEntries: 64,
+  purgeOnQuotaError: true, // MANDATORY
+})
+```
+
+### 14. The Middleware Matcher Rule
+Middleware matchers that exclude files with dots (`.*\\..*`) will accidentally bypass `/sw.js` and `/site.webmanifest`, leading to stale sessions or 404s.
+- **Standard:** Use an explicit extension-based exclusion list that preserves root-level PWA files.
+- **Correct Matcher:**
+```typescript
+'/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|css|js)$).*)'
+```
+
 Reference: [WebKit Fetch Limitations](https://webkit.org/blog/12193/js-fetch-api-updates/)

@@ -30,12 +30,12 @@ test.describe('Privacy and Profile Flow', () => {
 
       // 3. Setup: Login and establish friendship
       await test.step('Initial Setup: Login & Friendship', async () => {
-        await managerA.initDefaultMocks();
         await managerA.useRealSocial();
+        await managerA.initDefaultMocks({ currentUserId: user1.id });
         await login(pageA, user1.email, user1.password);
 
-        await managerB.initDefaultMocks();
         await managerB.useRealSocial();
+        await managerB.initDefaultMocks({ currentUserId: user2.id });
         await login(pageB, user2.email, user2.password);
 
         await setupFriendship(pageA, pageB, user1.email, user2.email);

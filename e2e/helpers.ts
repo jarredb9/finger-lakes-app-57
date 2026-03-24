@@ -294,12 +294,15 @@ export async function closeWineryModal(page: Page) {
 }
 
 export async function logVisit(page: Page, data: { review: string, rating?: number, isPrivate?: boolean }) {
-    // If the form isn't visible, we might need to trigger it.
-    // In the new pattern, VisitForm is a separate dialog.
-    const visitModal = page.getByRole('dialog').filter({ hasText: /(Log a Visit|Edit Visit)/i }).last();
+    // 1. Ensure the VisitForm dialog is open. 
+    // If not, try to trigger it from the Winery Modal which should already be open from openWineryDetails
+    let visitModal = page.getByRole('dialog').filter({ hasText: /(Log a Visit|Edit Visit)/i }).last();
     
-    // Check if we need to scroll or if it's already there
-    await expect(visitModal).toBeVisible({ timeout: 15000 });
+    if (!(await visitModal.isVisible())) {
+        const trigger = page.getByTestId('log-visit-button');
+        await robustClick(page, trigger);
+        await expect(visitModal).toBeVisible({ timeout: 15000 });
+    }
     
     await visitModal.getByLabel('Your Review').fill(data.review);
     if (data.rating) await robustClick(page, visitModal.getByLabel(`Set rating to ${data.rating}`));
@@ -363,6 +366,9 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
         await pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request'), { timeout: 10000 }).catch(() => null);
         await expect(friendsCard.locator(`text="${user1Email}"`)).toBeVisible({ timeout: 15000 });
     }).toPass({ timeout: 60000, intervals: [5000, 10000] });
+
+    // Settlement buffer for WebKit container sync
+    await pageA.waitForTimeout(1000);
 }
 
 export async function waitForToast(page: Page, message: string | RegExp) {

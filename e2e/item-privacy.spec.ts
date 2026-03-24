@@ -29,15 +29,15 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
 
       // 3. Setup: Login and establish friendship
       await test.step('Initial Setup: Login & Friendship', async () => {
-        await managerA.initDefaultMocks();
         await managerA.useRealSocial();
         await managerA.useRealFavorites();
+        await managerA.initDefaultMocks({ currentUserId: user1.id });
         await login(pageA, user1.email, user1.password);
         await ensureProfileReady(pageA);
 
-        await managerB.initDefaultMocks();
         await managerB.useRealSocial();
         await managerB.useRealFavorites();
+        await managerB.initDefaultMocks({ currentUserId: user2.id });
         await login(pageB, user2.email, user2.password);
         await ensureProfileReady(pageB);
 

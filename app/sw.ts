@@ -127,6 +127,7 @@ const serwist = new Serwist({
           new ExpirationPlugin({
             maxEntries: 64,
             maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+            purgeOnQuotaError: true,
           }),
         ],
       }),
@@ -141,3 +142,24 @@ self.addEventListener("message", (event) => {
 });
 
 serwist.addEventListeners();
+
+self.addEventListener("error", (event) => {
+  console.error("[SW ERROR]", event.error);
+});
+
+self.addEventListener("unhandledrejection", (event) => {
+  if (event.reason?.name === "QuotaExceededError" || event.reason?.message?.includes("Quota")) {
+    console.error("[SW QUOTA ERROR] Storage quota exceeded. Clearing old caches...");
+    event.preventDefault(); // Prevent crash
+    // Optional: Clear some caches
+    caches.keys().then(keys => {
+      keys.forEach(key => {
+        if (key.includes("pages") || key.includes("google-maps")) {
+          caches.delete(key);
+        }
+      });
+    });
+  } else {
+    console.error("[SW UNHANDLED REJECTION]", event.reason);
+  }
+});

@@ -82,13 +82,39 @@ export class MockMapsManager {
                     return route.fallback();
                 }
 
+                if (this.realTripsEnabled && (
+                    url.includes('get_trip_details') || 
+                    url.includes('get_trips_for_date') || 
+                    url.includes('create_trip') || 
+                    url.includes('delete_trip') || 
+                    url.includes('reorder_trip_wineries') || 
+                    url.includes('update_trip_winery_notes') || 
+                    url.includes('add_trip_member_by_email') || 
+                    url.includes('add_winery_to_trip')
+                )) {
+                    console.log(`[DIAGNOSTIC] Falling back for Trip RPC: ${url}`);
+                    return route.fallback();
+                }
+
                 if (url.includes('get_map_markers') || url.includes('get_wineries_in_bounds') || url.includes('get_paginated_wineries')) {
+                    console.log(`[DIAGNOSTIC] Fulfilling Map RPC: ${url}`);
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(markers) });
                 }
                 if (url.includes('ensure_winery')) {
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(999123) });
                 }
-                if (url.includes('get_friends_and_requests')) return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ friends: [], pending_incoming: [], pending_outgoing: [] }) });
+                if (url.includes('get_friends_and_requests')) {
+                    if (this.realSocialEnabled) {
+                        console.log(`[DIAGNOSTIC] Falling back for Friends RPC: ${url}`);
+                        return route.fallback();
+                    }
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ friends: [], pending_incoming: [], pending_outgoing: [] }) });
+                }
+                if (url.includes('get_trip_details')) {
+                    console.log(`[DIAGNOSTIC] Fulfilling Mock get_trip_details: ${url}`);
+                    const trips = MockMapsManager.sharedMockTrips || [];
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(trips[0] || {}) });
+                }
                 if (url.includes('get_paginated_visits')) {
                     if (this.realVisitsEnabled) return route.fallback();
                     const mockVisit = createMockVisitWithWinery({ wineryId: 'ch-67890-mock-winery-2' as any, wineryName: 'Vineyard of Illusion' });
@@ -102,7 +128,7 @@ export class MockMapsManager {
             }
             if (url.includes('/auth/v1/')) return route.fallback();
             if (url.includes('/rest/v1/trips')) {
-                if (this.realVisitsEnabled) return route.fallback();
+                if (this.realTripsEnabled) return route.fallback();
                 const trips = MockMapsManager.sharedMockTrips || [];
                 return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(trips), headers: commonHeaders });
             }
@@ -138,7 +164,18 @@ export class MockMapsManager {
     await this.page.route('**/*', catchAllHandler);
 
     if (!MockMapsManager.sharedMockTrips) {
-        MockMapsManager.sharedMockTrips = [ createMockTrip({ id: 999, name: 'Collaboration Trip', trip_date: todayCA, user_id: currentUserId }) ];
+        MockMapsManager.sharedMockTrips = [ 
+            createMockTrip({ 
+                id: 999, 
+                name: 'Collaboration Trip', 
+                trip_date: todayCA, 
+                user_id: currentUserId,
+                members: [
+                    { id: currentUserId, role: 'owner', status: 'joined', name: 'Test User', email: 'test@example.com' },
+                    { id: 'user-b-id', role: 'member', status: 'joined', name: 'User B', email: 'user-b@example.com' }
+                ]
+            }) 
+        ];
     }
 
     // Proactive injection into Store
@@ -249,10 +286,12 @@ export class MockMapsManager {
   realSocialEnabled = false;
   realFavoritesEnabled = false;
   realVisitsEnabled = false;
+  realTripsEnabled = false;
 
   async useRealSocial() { this.realSocialEnabled = true; }
   async useRealFavorites() { this.realFavoritesEnabled = true; }
   async useRealVisits() { this.realVisitsEnabled = true; }
+  async useRealTrips() { this.realTripsEnabled = true; }
 }
 
 export const test = base.extend<{

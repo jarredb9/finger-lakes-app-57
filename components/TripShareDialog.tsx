@@ -147,11 +147,11 @@ export function TripShareDialog({
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
               ) : friends.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2 text-center bg-muted/20 rounded-md italic">No friends found.</p>
+                <p className="text-xs text-muted-foreground py-2 text-center bg-muted/20 rounded-md italic" data-testid="no-friends-msg">No friends found.</p>
               ) : (
                 <div className="space-y-2">
                   {friends
-                    .filter(f => !members.some(m => m.id === f.id))
+                    .filter(f => !members.some(m => String(m.id).toLowerCase() === String(f.id).toLowerCase()))
                     .map((friend) => (
                     <div
                       key={friend.id}
@@ -175,6 +175,7 @@ export function TripShareDialog({
                         className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                         onClick={() => handleInvite(friend.email)}
                         disabled={!!isInviting}
+                        data-testid={`invite-friend-${friend.email}`}
                       >
                         {isInviting === friend.email ? (
                           <Loader2 className="h-3 w-3 animate-spin" />
@@ -185,7 +186,7 @@ export function TripShareDialog({
                     </div>
                   ))}
                   {friends.length > 0 && friends.every(f => members.some(m => m.id === f.id)) && (
-                    <p className="text-xs text-muted-foreground py-2 text-center italic">All your friends are already in this trip.</p>
+                    <p className="text-xs text-muted-foreground py-2 text-center italic" data-testid="all-friends-invited-msg">All your friends are already in this trip.</p>
                   )}
                 </div>
               )}

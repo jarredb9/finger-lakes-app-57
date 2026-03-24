@@ -48,18 +48,21 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **The Signal Persistence Rule:** Next.js 16 + WebKit often trigger hydration reloads or auth redirects when coming back "online." **Standard:** E2E bypass flags (`_E2E_ENABLE_REAL_SYNC`) and verification signals (`_E2E_SYNC_REQUEST_INTERCEPTED`) MUST be mirrored to `localStorage` to survive window clearing.
 *   **The Storage Signing Rule:** Mocking storage uploads is insufficient if the app immediately requests signed URLs. **Standard:** Tests MUST intercept the `storage/v1/object/sign/*` endpoint and return a mocked `{ signedURL: '...' }` to prevent `Failed to fetch` crashes under strict console policies.
 *   **Interception:** Use `page.context().route()` for global PWA mocks. Use `page.route()` for test-specific overrides. Use the **Airtight Proxy Rule** (catch-all handler with internal dispatching) for maximum reliability in WebKit.
-*   **Verification:** Procedural rules for verifying stability are offloaded to `project-testing-best-practices`.
+*   **The SW Quota Rule:** Aggressive caching in WebKit/Safari can trigger `QuotaExceededError`. **Standard:** ALL runtime caches in `sw.ts` MUST include `purgeOnQuotaError: true` in their `ExpirationPlugin` configuration.
+*   **The PWA URL Rule:** WebKit often unregisters SW on localhost. **Standard:** All PWA tests MUST append `?pwa=true` to the URL.
+*   **The Middleware Matcher Rule:** Middleware matchers that exclude all files with dots (`.*\\..*`) will break `/sw.js` and `/site.webmanifest` session updates. **Standard:** Use a specific regex like `(?!...|.*\\.(?:png|jpg|css|js)$).*)` to ensure root-level PWA files are processed by the auth proxy.
 
-## 3. Next.js 16 Hydration & Synchronization
+# 3. Next.js 16 Hydration & Synchronization
 *   **Avoid Hard Reloads:** NEVER use `page.reload()` inside retry loops. It kills hydration and leads to `Application Error`.
 *   **Proactive Sync:** Trigger store refreshes (e.g., `store.fetchFriends()`) via `page.evaluate` inside retry loops instead.
+*   **Teardown Resilience:** E2E cleanup steps (like `removeFriend`) are prone to navigation flakiness if the browser context is already closing. **Standard:** Wrap non-critical teardown logic in `try-catch` to prevent verified tests from failing during exit.
 *   **The DnD Hydration Rule:** Libraries like `@hello-pangea/dnd` are NOT SSR-safe in Next.js 16. **Standard:** Wrap `DragDropContext` in a `mounted` state check. Failure to do so causes a silent "Next.js Error Page" (This page couldn't load) during hydration.
-*   **Stability:** Detailed patterns for hydration guards and success selectors are offloaded to `project-testing-best-practices`.
 
-## 4. Core Architectural Standards
+# 4. Core Architectural Standards
 
 ### **A. ID System & Database**
 *   **Dual-ID System:** Distinguish between `GooglePlaceId` (string) and `WineryDbId` (number).
+*   **The Case-Insensitive ID Rule:** UUIDs and foreign key strings can have inconsistent casing across different stores (Zustand vs Supabase). **Standard:** Always use `String(id1).toLowerCase() === String(id2).toLowerCase()` when filtering or matching members/friends in the UI.
 *   **Standard:** Use `ensureInDb(wineryId)` before relational RPCs. Treat `dbId > 100` as a record.
 *   **RLS Visibility Rule:** All `SELECT` policies for tables allowing insertion MUST include a direct ownership check (e.g., `auth.uid() = user_id`) BEFORE any complex function calls (like `is_trip_member()`). This prevents `42501` errors during `INSERT ... RETURNING` caused by recursion or row invisibility.
 *   **Collaborative Trips:** The `Trip` interface and related RPCs (`get_trip_details`) MUST use the structured `TripMember` type (ID, Name, Email, Role, Status). LEGACY string arrays for members are deprecated.
