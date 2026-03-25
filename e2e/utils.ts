@@ -78,33 +78,13 @@ export class MockMapsManager {
                     return route.fallback();
                 }
 
-                if (url.includes('create_trip_with_winery')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const newTrip = createMockTrip({
-                        id: Math.floor(Math.random() * 10000),
-                        name: postData.p_trip_name,
-                        trip_date: postData.p_trip_date,
-                        user_id: currentUserId
-                    });
-                    if (!MockMapsManager.sharedMockTrips) MockMapsManager.sharedMockTrips = [];
-                    MockMapsManager.sharedMockTrips.push(newTrip);
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ trip_id: newTrip.id }) });
-                }
-
-                if (url.includes('create_trip')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const newTrip = createMockTrip({
-                        id: Math.floor(Math.random() * 10000),
-                        name: postData.p_name,
-                        trip_date: postData.p_trip_date,
-                        user_id: currentUserId
-                    });
-                    if (!MockMapsManager.sharedMockTrips) MockMapsManager.sharedMockTrips = [];
-                    MockMapsManager.sharedMockTrips.push(newTrip);
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(newTrip) });
-                }
-
-                if (this.realSocialEnabled && (url.includes('send_friend_request') || url.includes('respond_to_friend_request') || url.includes('get_friends_and_requests') || url.includes('remove_friend'))) {
+                // 1. Fallback if real data is requested for this category
+                if (this.realSocialEnabled && (
+                    url.includes('send_friend_request') || 
+                    url.includes('respond_to_friend_request') || 
+                    url.includes('get_friends_and_requests') || 
+                    url.includes('remove_friend')
+                )) {
                     return route.fallback();
                 }
 
@@ -120,6 +100,35 @@ export class MockMapsManager {
                 )) {
                     console.log(`[DIAGNOSTIC] Falling back for Trip RPC: ${url}`);
                     return route.fallback();
+                }
+
+                // 2. Mocks for specific RPCs (only if real fallback didn't trigger)
+                if (url.includes('create_trip_with_winery')) {
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const newId = Math.floor(Math.random() * 10000);
+                    const newTrip = createMockTrip({
+                        id: newId,
+                        name: postData.p_trip_name,
+                        trip_date: postData.p_trip_date,
+                        user_id: currentUserId
+                    });
+                    if (!MockMapsManager.sharedMockTrips) MockMapsManager.sharedMockTrips = [];
+                    MockMapsManager.sharedMockTrips.push(newTrip);
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ trip_id: newId }) });
+                }
+
+                if (url.includes('create_trip')) {
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const newId = Math.floor(Math.random() * 10000);
+                    const newTrip = createMockTrip({
+                        id: newId,
+                        name: postData.p_name,
+                        trip_date: postData.p_trip_date,
+                        user_id: currentUserId
+                    });
+                    if (!MockMapsManager.sharedMockTrips) MockMapsManager.sharedMockTrips = [];
+                    MockMapsManager.sharedMockTrips.push(newTrip);
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ id: newId }) });
                 }
 
                 if (url.includes('delete_trip')) {
@@ -147,8 +156,11 @@ export class MockMapsManager {
                 }
                 if (url.includes('get_trip_details')) {
                     console.log(`[DIAGNOSTIC] Fulfilling Mock get_trip_details: ${url}`);
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const requestedId = postData.trip_id_param;
                     const trips = MockMapsManager.sharedMockTrips || [];
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(trips[0] || {}) });
+                    const found = trips.find(t => t.id === Number(requestedId));
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(found || trips[0] || {}) });
                 }
                 if (url.includes('get_paginated_visits')) {
                     if (this.realVisitsEnabled) return route.fallback();

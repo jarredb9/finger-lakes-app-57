@@ -47,7 +47,7 @@ Playwright evaluates routes in the **reverse order** of registration (LIFO) at t
 - **Rule:** For test-specific mocks that must override global fixtures, ALWAYS use `page.route`.
 
 
-### 3. The Catch-All Proxy Pattern
+### 4. The Catch-All Proxy Pattern
 For 100% reliable interception in WebKit, avoid multiple individual routes. Use a single `context.route('**/*', handler)` and dispatch internally. Use `route.fallback()` to allow specific tests to override global mocks.
 
 ```typescript
@@ -65,7 +65,36 @@ await context.route('**/*', async (route) => {
 });
 ```
 
-### 4. Zero-Tolerance Monitoring
+### 5. Shared Mock State & Mutations
+Collaborative tests require a single source of truth for mock data across multiple contexts.
+- **Rule:** Use `static` properties in `MockMapsManager` (e.g., `sharedMockTrips`) to persist changes.
+- **Stateful RPCs:** RPC interceptors for mutating actions (e.g., `create_trip`, `delete_trip`) MUST update the corresponding static state property. If the mock state is not updated, the UI will not reflect changes after a store refresh, causing locator failures.
+- **Cleanup:** Always call `MockMapsManager.resetSharedState()` in the `mockMaps` fixture to prevent cross-test leakage.
+
+### 6. RPC Payload & Schema Parity
+Mocks that return incorrect data structures trigger silent failures or 400/404 errors in the UI.
+- **Rule:** Mock return values MUST match the exact JSON structure of the real Supabase RPC.
+- **Incorrect:** Returning `newTrip` object for `create_trip`.
+- **Correct:** Returning `{ id: newId }` (matching the real `RETURNS jsonb` signature).
+- **Rationale:** The frontend service (e.g., `TripService.createTrip`) often accesses specific properties like `data.id` or `data.trip_id` to perform follow-up actions like navigation or detail fetching.
+
+### 7. Detail-View ID Filtering
+Mocks for "Get By ID" RPCs (like `get_trip_details`) must not lazily return the first item in the list.
+- **Rule:** Interceptors MUST parse the request body and filter the shared state by the requested ID parameter.
+- **Implementation:** 
+```typescript
+const postData = JSON.parse(req.postData() || '{}');
+const requestedId = postData.trip_id_param;
+const found = sharedMockTrips.find(t => t.id === Number(requestedId));
+return route.fulfill({ body: JSON.stringify(found || {}) });
+```
+
+### 8. The Real-Data Priority Rule
+Flags for real data (e.g., `realTripsEnabled`) must be evaluated before explicit RPC mocks in the catch-all handler.
+- **Rule:** The logic MUST check for real data fallback at the very top of the RPC block.
+- **Rationale:** Prevents "ghost" state where a test expects to write to the real DB but a mock interceptor captures the call and returns a temporary ID that doesn't exist in the real database.
+
+### 9. Zero-Tolerance Monitoring
 Always monitor for leaks actively during development.
 - **Standard:** Use `context.on('request', ...)` to log all external requests. If a request appears in these logs without a corresponding `[MOCK-HIT]` log from your handler, it has bypassed your mocks.
 - **WebKit Note:** If leaks persist despite correct headers, apply **The SW Sabotage Rule** (see `pw-webkit-stability.md`) to block Service Worker interference entirely.
