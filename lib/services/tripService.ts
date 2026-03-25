@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/client';
 import { Trip } from '@/lib/types';
+import { getTodayLocal, formatDateLocal } from '@/lib/utils';
 
 export const TripService = {
   async getTrips(page: number, type: 'upcoming' | 'past', limit = 6) {
@@ -7,7 +8,7 @@ export const TripService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayLocal();
     const rangeFrom = (page - 1) * limit;
     const rangeTo = rangeFrom + limit - 1;
 
@@ -67,7 +68,8 @@ export const TripService = {
 
   async getTripsForDate(dateString: string) {
     const supabase = createClient();
-    const formattedDate = new Date(dateString).toISOString().split('T')[0];
+    // Standardize to local YYYY-MM-DD
+    const formattedDate = formatDateLocal(new Date(dateString + 'T00:00:00'));
     const { data, error } = await supabase.rpc('get_trips_for_date', { target_date: formattedDate });
 
     if (error) throw new Error(error.message);

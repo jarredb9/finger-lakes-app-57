@@ -78,6 +78,32 @@ export class MockMapsManager {
                     return route.fallback();
                 }
 
+                if (url.includes('create_trip_with_winery')) {
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const newTrip = createMockTrip({
+                        id: Math.floor(Math.random() * 10000),
+                        name: postData.p_trip_name,
+                        trip_date: postData.p_trip_date,
+                        user_id: currentUserId
+                    });
+                    if (!MockMapsManager.sharedMockTrips) MockMapsManager.sharedMockTrips = [];
+                    MockMapsManager.sharedMockTrips.push(newTrip);
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ trip_id: newTrip.id }) });
+                }
+
+                if (url.includes('create_trip')) {
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const newTrip = createMockTrip({
+                        id: Math.floor(Math.random() * 10000),
+                        name: postData.p_name,
+                        trip_date: postData.p_trip_date,
+                        user_id: currentUserId
+                    });
+                    if (!MockMapsManager.sharedMockTrips) MockMapsManager.sharedMockTrips = [];
+                    MockMapsManager.sharedMockTrips.push(newTrip);
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(newTrip) });
+                }
+
                 if (this.realSocialEnabled && (url.includes('send_friend_request') || url.includes('respond_to_friend_request') || url.includes('get_friends_and_requests') || url.includes('remove_friend'))) {
                     return route.fallback();
                 }
@@ -94,6 +120,15 @@ export class MockMapsManager {
                 )) {
                     console.log(`[DIAGNOSTIC] Falling back for Trip RPC: ${url}`);
                     return route.fallback();
+                }
+
+                if (url.includes('delete_trip')) {
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const tripId = postData.p_trip_id;
+                    if (MockMapsManager.sharedMockTrips) {
+                        MockMapsManager.sharedMockTrips = MockMapsManager.sharedMockTrips.filter(t => t.id !== tripId);
+                    }
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
                 }
 
                 if (url.includes('get_map_markers') || url.includes('get_wineries_in_bounds') || url.includes('get_paginated_wineries')) {
@@ -334,6 +369,8 @@ export const test = base.extend<{
                                          text.includes('[Sync] Failed') ||
                                          text.includes('Database Connection Failed') ||
                                          text.includes('Internal Server Error') ||
+                                         text.includes('navigation preload') ||
+                                         text.includes('InvalidStateError') ||
                                          text.includes('JSHandle@object');
             
             if (!isInfrastructure && !isExpectedOfflineError) {

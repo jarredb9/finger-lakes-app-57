@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "./DatePicker"; // Assuming DatePicker is extracted
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { formatDateLocal } from "@/lib/utils";
 
 interface TripPlannerSectionProps {
   winery: Winery;
@@ -35,7 +36,7 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
   const handleDateSelect = (date: Date | undefined) => {
     setTripDate(date);
     if (date) {
-      const dateString = date.toISOString().split("T")[0];
+      const dateString = formatDateLocal(date);
       fetchTripsForDate(dateString);
       setSelectedTrips(new Set());
       setNewTripName("");
@@ -155,7 +156,7 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
                 <div key={trip.id} className="flex items-center gap-2 p-3 border rounded-lg bg-white" data-testid={`trip-option-${trip.id}`}>
                   <Checkbox id={`trip-${trip.id}`} checked={selectedTrips.has(trip.id.toString())} onCheckedChange={() => handleToggleTrip(trip.id.toString())} data-testid="trip-checkbox" />
                   <label htmlFor={`trip-${trip.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    {trip.name || `Trip on ${new Date(trip.trip_date).toLocaleDateString()}`}
+                    {trip.name || `Trip on ${new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}`}
                   </label>
                 </div>
               ))}

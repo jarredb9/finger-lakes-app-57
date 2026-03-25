@@ -62,7 +62,11 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 
 ### **A. ID System & Database**
 *   **Dual-ID System:** Distinguish between `GooglePlaceId` (string) and `WineryDbId` (number).
+*   **The Local Date Stability Rule:** **MANDATORY:** Always use `formatDateLocal(date)` and `getTodayLocal()` from `lib/utils.ts` for UI display and RPC parameters. **NEVER** use `toISOString().split('T')[0]` for user-facing dates, as it causes a UTC-shift bug where trips disappear or move dates if created late at night local time.
+*   **The Stateful Mocking Rule:** When mocking RPCs in `MockMapsManager` (e.g., `create_trip`, `delete_trip`), the interceptor MUST update the corresponding `static sharedMockState` (like `sharedMockTrips`). Failure to do so causes the UI to stay stale after a "successful" action, leading to E2E locator failures.
 *   **The Case-Insensitive ID Rule:** UUIDs and foreign key strings can have inconsistent casing across different stores (Zustand vs Supabase). **Standard:** Always use `String(id1).toLowerCase() === String(id2).toLowerCase()` when filtering or matching members/friends in the UI.
+*   **The Join-Table Rule:** **MANDATORY:** Always use the `trip_members` table and the `public.is_trip_member(trip_id)` helper function for all membership checks and authorization. **NEVER** reference a `members` column on the `trips` table, as it has been deprecated and removed.
+*   **RPC Schema Parity:** **Standard:** Any change to a database function's return type or parameters MUST be immediately reflected in `lib/database.types.ts`. The Supabase client will throw a `400 Bad Request` if the expected schema does not match the actual function definition.
 *   **Standard:** Use `ensureInDb(wineryId)` before relational RPCs. Treat `dbId > 100` as a record.
 *   **RLS Visibility Rule:** All `SELECT` policies for tables allowing insertion MUST include a direct ownership check (e.g., `auth.uid() = user_id`) BEFORE any complex function calls (like `is_trip_member()`). This prevents `42501` errors during `INSERT ... RETURNING` caused by recursion or row invisibility.
 *   **Collaborative Trips:** The `Trip` interface and related RPCs (`get_trip_details`) MUST use the structured `TripMember` type (ID, Name, Email, Role, Status). LEGACY string arrays for members are deprecated.

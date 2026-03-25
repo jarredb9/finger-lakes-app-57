@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
+import { formatDateLocal } from "@/lib/utils";
 import {
   Form,
   FormControl,
@@ -64,9 +65,6 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
   })
 
   const selectedWineries = form.watch("wineries") as Winery[];
-
-  // Removed conflicting useEffect that updated global tripsForDate state
-
 
   useEffect(() => {
     if (!winerySearch.trim() || !places) {
@@ -128,7 +126,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
     try {
       await createTrip({
         name: data.name,
-        trip_date: data.date.toISOString().split('T')[0],
+        trip_date: formatDateLocal(data.date),
         wineries: data.wineries,
         user_id: user.id,
       });

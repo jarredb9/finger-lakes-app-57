@@ -47,7 +47,14 @@ BEGIN
                     ), '[]'::jsonb)
                     FROM trip_wineries tw
                     JOIN trips t ON tw.trip_id = t.id
-                    WHERE tw.winery_id = w.id AND (t.user_id = user_uuid OR user_uuid = ANY(t.members))
+                    WHERE tw.winery_id = w.id 
+                    AND (
+                        t.user_id = user_uuid 
+                        OR EXISTS (
+                            SELECT 1 FROM trip_members tm 
+                            WHERE tm.trip_id = t.id AND tm.user_id = user_uuid
+                        )
+                    )
                     AND t.trip_date >= CURRENT_DATE -- Only upcoming trips
                 )
             )
@@ -60,7 +67,15 @@ BEGIN
         OR EXISTS(SELECT 1 FROM wishlist wl WHERE wl.winery_id = w.id AND wl.user_id = user_uuid)
         OR EXISTS(SELECT 1 FROM visits v WHERE v.winery_id = w.id AND v.user_id = user_uuid)
         OR EXISTS(SELECT 1 FROM trip_wineries tw JOIN trips t ON tw.trip_id = t.id
-                  WHERE tw.winery_id = w.id AND (t.user_id = user_uuid OR user_uuid = ANY(t.members)) AND t.trip_date >= CURRENT_DATE);
+                  WHERE tw.winery_id = w.id 
+                  AND (
+                      t.user_id = user_uuid 
+                      OR EXISTS (
+                          SELECT 1 FROM trip_members tm 
+                          WHERE tm.trip_id = t.id AND tm.user_id = user_uuid
+                      )
+                  )
+                  AND t.trip_date >= CURRENT_DATE);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

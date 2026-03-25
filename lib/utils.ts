@@ -7,6 +7,23 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Standardizes date formatting to YYYY-MM-DD in the local timezone.
+ * Using 'en-CA' is the most reliable way to get this format cross-platform.
+ */
+export function formatDateLocal(date: Date): string {
+  return date.toLocaleDateString('en-CA');
+}
+
+/**
+ * Gets today's date in YYYY-MM-DD format based on the local system clock.
+ * Prevents the UTC-shift bug where early morning or late night local time
+ * results in a different date when using toISOString().
+ */
+export function getTodayLocal(): string {
+  return formatDateLocal(new Date());
+}
+
+/**
  * Resilient wrapper for Supabase Edge Function calls.
  * Handles offline detection and specific error types to prevent crashes in WebKit.
  */

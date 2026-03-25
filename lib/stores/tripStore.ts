@@ -5,6 +5,7 @@ import { useWineryStore } from './wineryStore';
 import { TripService } from '@/lib/services/tripService';
 import { createClient } from '@/utils/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { formatDateLocal, getTodayLocal } from '@/lib/utils';
 
 interface TripState {
   trips: Trip[];
@@ -213,13 +214,13 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         const tempTrip: Trip = {
           id: tempId,
           user_id: trip.user_id || '',
-          trip_date: trip.trip_date || new Date().toISOString(),
+          trip_date: trip.trip_date || getTodayLocal(),
           name: trip.name,
           wineries: trip.wineries || [],
           members: [],
         };
 
-        const isFuture = new Date(tempTrip.trip_date) >= new Date(new Date().setHours(0, 0, 0, 0));
+        const isFuture = new Date(tempTrip.trip_date + 'T00:00:00') >= new Date(new Date().setHours(0, 0, 0, 0));
 
         // Optimistically update ALL lists
         set(state => {
@@ -441,7 +442,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       addWineryToTrips: async (winery, tripDate, selectedTrips, newTripName, addTripNotes) => {
         set({ isSaving: true });
         const supabase = createClient(); // Direct Supabase client for RPCs
-        const dateString = tripDate.toISOString().split("T")[0];
+        const dateString = formatDateLocal(tripDate);
 
         // Optimistic Update for EXISTING trips
         const originalTrips = get().trips;

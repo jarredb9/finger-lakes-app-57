@@ -39,11 +39,17 @@ In "Lie-Fi" or Offline tests, network errors are intentional.
 - **Rule:** Refine the `page.on('console')` listener in `e2e/utils.ts` to ignore `FunctionsHttpError`, `Edge Function failed`, `Load failed`, or `TypeError` during PWA offline tests.
 - **Error Injection:** Tests that manually fail RPCs (e.g., `error-handling.spec.ts`) MUST allow `Internal Server Error` and `Database Connection Failed`.
 - **Firefox Note:** Firefox often logs complex objects as `JSHandle@object`. This string MUST be allowed in the `logHandler` to prevent false positives for fatal crashes.
-- **WebKit Note:** `TypeError: Load failed` is a common engine-level blockade in WebKit during offline/online transitions, even if the bypass is correctly configured.
+- **WebKit/PWA Note:** `TypeError: Load failed` is common in WebKit transitions. Additionally, `InvalidStateError` and `navigation preload` failures are common when Service Workers are enabled/disabled rapidly and should be treated as non-fatal warnings.
+
 
 ### 7. The Signal Persistence Rule
 If a signal (like `_E2E_SYNC_REQUEST_INTERCEPTED`) is logged as `true` in the browser console but appears `undefined` or `false` in `page.evaluate`, a page reload or redirect likely occurred.
 - **Action:** Check the logs for `[SW] Initializing` or `catchAll seen: /login`.
 - **Solution:** Use `localStorage` to store the signal in the app and read it in the test. Verified data in `localStorage` persists across the transitions that clear `window`.
+
+### 8. The 400 RPC Rule
+If an RPC call returns `400 Bad Request` during a test, it is almost certainly a schema mismatch between `lib/database.types.ts` and the actual database definition.
+- **Action:** Use the Supabase MCP `execute_sql` tool to fetch the function definition: `SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = 'your_function_name';`.
+- **Validation:** Compare the arguments and return columns with the TypeScript interface.
 
 Reference: [Playwright Debugging](https://playwright.dev/docs/debug)

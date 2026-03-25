@@ -36,6 +36,7 @@ A winery in a trip should surface visits from ALL members.
 ### 3. Shared Mock State
 Collaborative tests require a single source of truth for mock data across multiple `BrowserContext` instances.
 - **Rule:** Use `static` properties in `MockMapsManager` (e.g., `sharedMockTrips`) to persist changes (invites, edits) across contexts.
+- **Stateful RPCs:** RPC interceptors for mutating actions (e.g., `create_trip`, `delete_trip`) MUST update the corresponding static state property. If the mock state is not updated, the UI will not reflect changes after a store refresh, causing locator failures.
 - **Cleanup:** Always call `MockMapsManager.resetSharedState()` in the `mockMaps` fixture to prevent cross-test leakage.
 
 ### 5. Case-Insensitive ID Matching

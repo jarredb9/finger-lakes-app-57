@@ -185,7 +185,7 @@ export function TripShareDialog({
                       </Button>
                     </div>
                   ))}
-                  {friends.length > 0 && friends.every(f => members.some(m => m.id === f.id)) && (
+                  {friends.length > 0 && friends.every(f => members.some(m => String(m.id).toLowerCase() === String(f.id).toLowerCase())) && (
                     <p className="text-xs text-muted-foreground py-2 text-center italic" data-testid="all-friends-invited-msg">All your friends are already in this trip.</p>
                   )}
                 </div>

@@ -10,7 +10,7 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
-const SW_VERSION = "2.8.1-forensic-" + Date.now();
+const SW_VERSION = "2.8.2-stable-" + Date.now();
 console.log(`[SW] Initializing Version: ${SW_VERSION}`);
 
 const serwist = new Serwist({
@@ -92,7 +92,6 @@ const serwist = new Serwist({
           throw new Error("No response from strategy");
         } catch (error) {
           // Return transparent 1x1 pixel to prevent "No Imagery" errors
-          // allowing the map to show the underlying fuzzy lower-zoom tile if available
           return new Response(
             new Blob([
               new Uint8Array([
@@ -142,24 +141,3 @@ self.addEventListener("message", (event) => {
 });
 
 serwist.addEventListeners();
-
-self.addEventListener("error", (event) => {
-  console.error("[SW ERROR]", event.error);
-});
-
-self.addEventListener("unhandledrejection", (event) => {
-  if (event.reason?.name === "QuotaExceededError" || event.reason?.message?.includes("Quota")) {
-    console.error("[SW QUOTA ERROR] Storage quota exceeded. Clearing old caches...");
-    event.preventDefault(); // Prevent crash
-    // Optional: Clear some caches
-    caches.keys().then(keys => {
-      keys.forEach(key => {
-        if (key.includes("pages") || key.includes("google-maps")) {
-          caches.delete(key);
-        }
-      });
-    });
-  } else {
-    console.error("[SW UNHANDLED REJECTION]", event.reason);
-  }
-});

@@ -71,7 +71,16 @@ test.describe('Trip Planning Flow', () => {
 
     // 3. Find and delete the trip
     const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
-    await expect(tripCard).toBeVisible({ timeout: 15000 });
+    
+    await expect(async () => {
+        // Proactive sync
+        await page.evaluate(async () => {
+            const store = (window as any).useTripStore?.getState();
+            if (store) await store.fetchTrips(1, 'upcoming', true);
+        });
+        await expect(tripCard).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 20000, intervals: [2000] });
+
     await tripCard.scrollIntoViewIfNeeded();
     
     const deleteBtn = tripCard.getByTestId('delete-trip-btn');

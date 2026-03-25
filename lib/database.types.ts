@@ -158,7 +158,6 @@ export interface Database {
           trip_date: string
           name: string | null
           created_at: string | null
-          members: string[] | null
         }
         Insert: {
           id?: number
@@ -166,7 +165,6 @@ export interface Database {
           trip_date: string
           name?: string | null
           created_at?: string | null
-          members?: string[] | null
         }
         Update: {
           id?: number
@@ -174,7 +172,6 @@ export interface Database {
           trip_date?: string
           name?: string | null
           created_at?: string | null
-          members?: string[] | null
         }
         Relationships: [
           {
@@ -398,10 +395,57 @@ export interface Database {
         }
         Returns: {
           id: number
-          name: string
+          user_id: string
           trip_date: string
+          name: string
           wineries: Json
         }[]
+      }
+      get_winery_details_by_id: {
+        Args: {
+          winery_id_param: number
+        }
+        Returns: {
+          id: number
+          google_place_id: string
+          name: string
+          address: string
+          lat: number
+          lng: number
+          phone: string | null
+          website: string | null
+          google_rating: number | null
+          opening_hours: Json | null
+          reviews: Json | null
+          reservable: boolean | null
+          is_favorite: boolean
+          on_wishlist: boolean
+          user_visited: boolean
+          visits: Json
+          trip_info: Json
+        }[]
+      }
+      get_user_winery_data_aggregated: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          wineries_data: Json
+        }[]
+      }
+      get_user_dashboard: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      get_trip_details: {
+        Args: {
+          trip_id_param: number
+        }
+        Returns: Json
+      }
+      is_trip_member: {
+        Args: {
+          p_trip_id: number
+        }
+        Returns: boolean
       }
     }
     Enums: {

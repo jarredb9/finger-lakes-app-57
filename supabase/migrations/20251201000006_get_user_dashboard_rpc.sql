@@ -48,7 +48,14 @@ BEGIN
                 )
             ORDER BY t.trip_date ASC), '[]'::jsonb)
             FROM trips t
-            WHERE (t.user_id = user_id OR user_id = ANY(t.members)) AND t.trip_date >= CURRENT_DATE
+            WHERE (
+                t.user_id = user_id 
+                OR EXISTS (
+                    SELECT 1 FROM trip_members tm 
+                    WHERE tm.trip_id = t.id AND tm.user_id = user_id
+                )
+            ) 
+            AND t.trip_date >= CURRENT_DATE
         ),
         'recent_visits', (
             SELECT COALESCE(jsonb_agg(

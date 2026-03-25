@@ -10,7 +10,7 @@ import { expect, Locator, Page } from '@playwright/test';
 // ==========================================
 
 export function getSidebarContainer(page: Page): Locator {
-  return page.locator('[data-testid="desktop-sidebar-container"], [data-testid="mobile-sidebar-container"]').filter({ visible: true }).first();
+  return page.locator('[data-testid="desktop-sidebar-container"], [data-testid="mobile-sidebar-container"], [data-testid="app-sidebar"], [data-testid="trip-list-container"]').filter({ visible: true }).first();
 }
 
 /**
@@ -124,6 +124,17 @@ export async function waitForMapReady(page: Page) {
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
   const isMobile = page.viewportSize()!.width < 768;
   const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
+
+  // Ensure sidebar is open on desktop if we are navigating
+  if (!isMobile) {
+      const sidebar = page.locator('[data-testid="desktop-sidebar-container"]');
+      if (!(await sidebar.isVisible())) {
+          const openBtn = page.getByRole('button', { name: /Open sidebar/i });
+          if (await openBtn.isVisible()) {
+              await openBtn.click();
+          }
+      }
+  }
 
   const tab = getTabTrigger(page, tabName);
   await robustClick(page, tab);
@@ -294,15 +305,12 @@ export async function closeWineryModal(page: Page) {
 }
 
 export async function logVisit(page: Page, data: { review: string, rating?: number, isPrivate?: boolean }) {
-    // 1. Ensure the VisitForm dialog is open. 
-    // If not, try to trigger it from the Winery Modal which should already be open from openWineryDetails
-    let visitModal = page.getByRole('dialog').filter({ hasText: /(Log a Visit|Edit Visit)/i }).last();
+    // If the form isn't visible, we might need to trigger it.
+    // In the new pattern, VisitForm is a separate dialog.
+    const visitModal = page.getByRole('dialog').filter({ hasText: /(Log a Visit|Edit Visit)/i }).last();
     
-    if (!(await visitModal.isVisible())) {
-        const trigger = page.getByTestId('log-visit-button');
-        await robustClick(page, trigger);
-        await expect(visitModal).toBeVisible({ timeout: 15000 });
-    }
+    // Check if we need to scroll or if it's already there
+    await expect(visitModal).toBeVisible({ timeout: 15000 });
     
     await visitModal.getByLabel('Your Review').fill(data.review);
     if (data.rating) await robustClick(page, visitModal.getByLabel(`Set rating to ${data.rating}`));

@@ -11,6 +11,7 @@ import TripCardSimple from './trip-card-simple';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import TripForm from "./trip-form";
 import { Alert, AlertDescription } from './ui/alert';
+import { getTodayLocal } from '@/lib/utils';
 
 export default function TripList({ user, onExploreClick }: { user: AuthenticatedUser, onExploreClick?: () => void }) {
     const { trips = [], isLoading, error, page = 1, hasMore, fetchTrips, setPage, deleteTrip } = useTripStore();
@@ -39,10 +40,12 @@ export default function TripList({ user, onExploreClick }: { user: Authenticated
         }
     };
 
-    const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+    const today = getTodayLocal();
     
     const todaysTrips = tripType === 'upcoming' ? trips.filter(t => t.trip_date === today) : [];
-    const otherTrips = tripType === 'upcoming' ? trips.filter(t => t.trip_date !== today) : trips;
+    const otherTrips = tripType === 'upcoming' 
+        ? trips.filter(t => t.trip_date > today) 
+        : trips.filter(t => t.trip_date < today);
 
     if (isLoading && trips.length === 0) {
         return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
@@ -58,7 +61,7 @@ export default function TripList({ user, onExploreClick }: { user: Authenticated
     }
 
     return (
-        <div className="space-y-8 pb-4">
+        <div className="space-y-8 pb-4" data-testid="trip-list-container">
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h2 className="text-2xl font-bold">{tripType === 'upcoming' ? 'My Trips' : 'Past Trips'}</h2>

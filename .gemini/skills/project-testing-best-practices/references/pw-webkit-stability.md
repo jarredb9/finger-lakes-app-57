@@ -115,10 +115,10 @@ new ExpirationPlugin({
 
 ### 14. The Middleware Matcher Rule
 Middleware matchers that exclude files with dots (`.*\\..*`) will accidentally bypass `/sw.js` and `/site.webmanifest`, leading to stale sessions or 404s.
-- **Standard:** Use an explicit extension-based exclusion list that preserves root-level PWA files.
+- **Standard:** Use an explicit extension-based exclusion list that preserves root-level PWA files (like `.js` and `.webmanifest`).
 - **Correct Matcher:**
 ```typescript
-'/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|css|js)$).*)'
+'/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css)$).*)'
 ```
 
 Reference: [WebKit Fetch Limitations](https://webkit.org/blog/12193/js-fetch-api-updates/)
