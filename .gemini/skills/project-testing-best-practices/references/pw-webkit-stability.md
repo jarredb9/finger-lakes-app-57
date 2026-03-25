@@ -105,6 +105,7 @@ if ('serviceWorker' in navigator) {
 ### 13. The SW Quota Purge Rule
 Aggressive document and tile caching in WebKit can trigger `QuotaExceededError` even if the device has space.
 - **Standard:** Every `ExpirationPlugin` in `sw.ts` MUST set `purgeOnQuotaError: true`.
+- **CRITICAL:** Build-time analysis of this property requires **Node.js 20.x**. Using other versions may trigger a `TypeError (length of undefined)` during the Serwist build phase.
 - **Implementation:**
 ```typescript
 new ExpirationPlugin({
@@ -118,7 +119,7 @@ Middleware matchers that exclude files with dots (`.*\\..*`) will accidentally b
 - **Standard:** Use an explicit extension-based exclusion list that preserves root-level PWA files (like `.js` and `.webmanifest`).
 - **Correct Matcher:**
 ```typescript
-'/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css)$).*)'
+'/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|svg|css)$).*)'
 ```
 
 Reference: [WebKit Fetch Limitations](https://webkit.org/blog/12193/js-fetch-api-updates/)

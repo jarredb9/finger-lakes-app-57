@@ -49,8 +49,9 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **The Storage Signing Rule:** Mocking storage uploads is insufficient if the app immediately requests signed URLs. **Standard:** Tests MUST intercept the `storage/v1/object/sign/*` endpoint and return a mocked `{ signedURL: '...' }` to prevent `Failed to fetch` crashes under strict console policies.
 *   **Interception:** Use `page.context().route()` for global PWA mocks. Use `page.route()` for test-specific overrides. Use the **Airtight Proxy Rule** (catch-all handler with internal dispatching) for maximum reliability in WebKit.
 *   **The SW Quota Rule:** Aggressive caching in WebKit/Safari can trigger `QuotaExceededError`. **Standard:** ALL runtime caches in `sw.ts` MUST include `purgeOnQuotaError: true` in their `ExpirationPlugin` configuration.
+*   **The Node Build Rule (MANDATORY):** Serwist/Webpack build-time analysis of `purgeOnQuotaError` often triggers a `TypeError` (length of undefined) in Node.js versions other than **20.x**. **Standard:** ALWAYS build the application with Node.js 20.x to prevent production build crashes.
 *   **The PWA URL Rule:** WebKit often unregisters SW on localhost. **Standard:** All PWA tests MUST append `?pwa=true` to the URL.
-*   **The Middleware Matcher Rule:** Middleware matchers that exclude all files with dots (`.*\\..*`) will break `/sw.js` and `/site.webmanifest` session updates. **Standard:** Use a specific regex like `(?!...|.*\\.(?:png|jpg|css|js)$).*)` to ensure root-level PWA files are processed by the auth proxy.
+*   **The Middleware Matcher Rule:** Middleware matchers that exclude all files with dots (`.*\\..*`) will break `/sw.js` and `/site.webmanifest` session updates. **Standard:** Use a specific regex like `'/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg|css)$).*)'` to ensure root-level PWA files are processed by the auth proxy.
 
 # 3. Next.js 16 Hydration & Synchronization
 *   **Avoid Hard Reloads:** NEVER use `page.reload()` inside retry loops. It kills hydration and leads to `Application Error`.
