@@ -14,7 +14,7 @@ const SW_VERSION = "2.8.2-stable-" + Date.now();
 console.log(`[SW] Initializing Version: ${SW_VERSION}`);
 
 const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
+  precacheEntries: self.__SW_MANIFEST || [],
   skipWaiting: true, // Force activation
   clientsClaim: true,
   navigationPreload: true,

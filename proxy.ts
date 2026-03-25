@@ -40,8 +40,9 @@ export const config = {
      * - favicon.ico
      * - common static image/style extensions
      * 
-     * Note: We now INCLUDE /sw.js, /site.webmanifest and /api/ routes.
+     * We want to match /sw.js and /site.webmanifest so the proxy logic can handle them.
+     * So we EXCLUDE images and css, but NOT js or webmanifest.
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|css)$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg|css)$).*)',
   ],
 };
