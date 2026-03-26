@@ -88,6 +88,23 @@ export class MockMapsManager {
                     return route.fallback();
                 }
 
+                if (this.realFavoritesEnabled && (
+                    url.includes('toggle_favorite') || 
+                    url.includes('toggle_wishlist') || 
+                    url.includes('toggle_favorite_privacy') || 
+                    url.includes('toggle_wishlist_privacy') ||
+                    url.includes('ensure_winery')
+                )) {
+                    return route.fallback();
+                }
+
+                if (this.realVisitsEnabled && (
+                    url.includes('ensure_winery') ||
+                    url.includes('get_paginated_visits')
+                )) {
+                    return route.fallback();
+                }
+
                 if (this.realTripsEnabled && (
                     url.includes('get_trip_details') || 
                     url.includes('get_trips_for_date') || 
@@ -103,6 +120,10 @@ export class MockMapsManager {
                 }
 
                 // 2. Mocks for specific RPCs (only if real fallback didn't trigger)
+                if (url.includes('toggle_favorite_privacy') || url.includes('toggle_wishlist_privacy')) {
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+                }
+
                 if (url.includes('create_trip_with_winery')) {
                     const postData = JSON.parse(req.postData() || '{}');
                     const newId = Math.floor(Math.random() * 10000);
@@ -226,13 +247,18 @@ export class MockMapsManager {
     }
 
     // Proactive injection into Store
-    await this.page.addInitScript(({ mockMarkers, swEnabled }: any) => {
+    await this.page.addInitScript(({ mockMarkers, swEnabled, realFavoritesEnabled, realVisitsEnabled, realTripsEnabled }: any) => {
         // Clear isolated E2E storage for a fresh start
         window.localStorage.removeItem('winery-data-storage-e2e');
         window.localStorage.removeItem('visit-storage-e2e');
         window.localStorage.removeItem('trip-storage-e2e');
         
         (window as any)._E2E_MOCKS_ACTIVE = true;
+        
+        // Enable real sync in store if we're using real favorites/visits/trips
+        if (realFavoritesEnabled || realVisitsEnabled || realTripsEnabled) {
+            (window as any)._E2E_ENABLE_REAL_SYNC = true;
+        }
 
         if (!swEnabled && 'serviceWorker' in navigator) {
             (navigator.serviceWorker as any).register = () => {
@@ -304,7 +330,13 @@ export class MockMapsManager {
             }
         }, 100);
         setTimeout(() => clearInterval(intervalId), 10000);
-    }, { mockMarkers: markers, swEnabled: this.swEnabled } as any);
+    }, { 
+        mockMarkers: markers, 
+        swEnabled: this.swEnabled,
+        realFavoritesEnabled: this.realFavoritesEnabled,
+        realVisitsEnabled: this.realVisitsEnabled,
+        realTripsEnabled: this.realTripsEnabled
+    } as any);
   }
 
   // --- ERROR INJECTION METHODS (Restored for error-handling.spec.ts) ---
