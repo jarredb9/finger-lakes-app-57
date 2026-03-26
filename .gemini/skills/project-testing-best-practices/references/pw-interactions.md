@@ -39,4 +39,9 @@ await robustClick(page, logVisitBtn);
 WebKit/Safari on mobile often reports elements as "visible" but fails to dispatch events if they are partially off-screen or behind a translucent bar.
 - **Rule:** Always call `scrollIntoViewIfNeeded()` before critical interaction points in long modals or sidebars.
 
+### 4. Success Toast Verification
+For asynchronous database actions (Log Visit, Favorite Privacy, etc.), simply clicking the button is insufficient for a stable test.
+- **Rule:** Always verify the appearance of the success toast using `waitForToast` before proceeding to the next step.
+- **Rationale:** This ensures the RPC has actually completed and the application state has settled, preventing race conditions where the next action is attempted before the database mutation is reflected in the UI.
+
 Reference: [Playwright Clicks](https://playwright.dev/docs/input)

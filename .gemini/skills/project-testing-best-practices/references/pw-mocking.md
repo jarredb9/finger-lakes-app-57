@@ -99,4 +99,9 @@ Always monitor for leaks actively during development.
 - **Standard:** Use `context.on('request', ...)` to log all external requests. If a request appears in these logs without a corresponding `[MOCK-HIT]` log from your handler, it has bypassed your mocks.
 - **WebKit Note:** If leaks persist despite correct headers, apply **The SW Sabotage Rule** (see `pw-webkit-stability.md`) to block Service Worker interference entirely.
 
+### 10. The Cross-Cutting Mock Rule
+RPCs that serve multiple features (e.g., `ensure_winery` is used by Trips, Visits, and Favorites) MUST check all dependent real-data flags before fulfilling with a mock.
+- **Problem:** If `realFavoritesEnabled` is true but `ensure_winery` fulfills with a mock ID `999123`, a subsequent real RPC like `toggle_favorite_privacy` will fail in the database because the winery record doesn't exist.
+- **Rule:** The catch-all handler MUST evaluate fallback conditions for all related features before fulfilling generic helper RPCs.
+
 Reference: [Playwright API Mocking](https://playwright.dev/docs/network)
