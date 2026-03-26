@@ -45,6 +45,7 @@ test.describe('Privacy and Profile Flow', () => {
       await test.step('User A logs public and private visits', async () => {
         await managerA.useRealVisits(); 
         
+        // Ensure Explore tab is active after setupFriendship (which navigates to Friends)
         await navigateToTab(pageA, 'Explore');
         await waitForMapReady(pageA);
         
@@ -54,9 +55,22 @@ test.describe('Privacy and Profile Flow', () => {
         await openWineryDetails(pageA, 'Mock Winery One');
         
         // Log Public Visit
+        const logBtn = pageA.getByTestId('log-visit-button');
+        await logBtn.scrollIntoViewIfNeeded();
+        await robustClick(pageA, logBtn);
         await logVisit(pageA, { review: 'This is a public review' });
 
         // Log Private Visit
+        await pageA.waitForTimeout(1000); // Buffer for scroll and animations to settle
+        await logBtn.scrollIntoViewIfNeeded();
+        
+        // Hybrid click strategy for cross-engine stability
+        await logBtn.click({ force: true });
+        const isModalOpen = await pageA.evaluate(() => (window as any).useUIStore?.getState().isModalOpen);
+        if (!isModalOpen) {
+            await robustClick(pageA, logBtn);
+        }
+        
         await logVisit(pageA, { review: 'This is a private review', isPrivate: true });
 
         await closeWineryModal(pageA);

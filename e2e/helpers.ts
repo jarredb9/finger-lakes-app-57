@@ -1,4 +1,3 @@
- 
 import { expect, Locator, Page } from '@playwright/test';
 
 /**
@@ -288,12 +287,13 @@ export async function openWineryDetails(page: Page, wineryName: string) {
     
     await robustClick(page, wineryItem);
     
-    const modal = page.getByRole('dialog');
+    const modal = page.getByRole('dialog').filter({ hasText: /Detailed information/i });
     await expect(modal).toBeVisible({ timeout: 10000 });
 }
 
 export async function closeWineryModal(page: Page) {
-    const modal = page.getByRole('dialog');
+    // Target specifically the WineryModal which has the 'Detailed information' sr-only description
+    const modal = page.getByRole('dialog').filter({ hasText: /Detailed information/i });
     if (!(await modal.isVisible())) return;
     const closeBtn = modal.getByRole('button', { name: /Close/i });
     if (await closeBtn.isVisible()) {
@@ -305,11 +305,16 @@ export async function closeWineryModal(page: Page) {
 }
 
 export async function logVisit(page: Page, data: { review: string, rating?: number, isPrivate?: boolean }) {
-    // If the form isn't visible, we might need to trigger it.
-    // In the new pattern, VisitForm is a separate dialog.
-    const visitModal = page.getByRole('dialog').filter({ hasText: /(Log a Visit|Edit Visit)/i }).last();
-    
-    // Check if we need to scroll or if it's already there
+    // Wait for the UI store to reflect that the modal should be open
+    await expect(async () => {
+        const isModalOpen = await page.evaluate(() => {
+            // @ts-ignore
+            return !!(window.useUIStore?.getState().isModalOpen);
+        });
+        if (!isModalOpen) throw new Error('Visit modal not open in store');
+    }).toPass({ timeout: 10000 });
+
+    const visitModal = page.getByRole('dialog').filter({ hasText: /(Log a Visit|Edit Visit|Add New Visit)/i }).last();
     await expect(visitModal).toBeVisible({ timeout: 15000 });
     
     await visitModal.getByLabel('Your Review').fill(data.review);
@@ -318,6 +323,16 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
     
     await robustClick(page, visitModal.getByRole('button', { name: /(Add Visit|Save Changes)/i }));
     await expect(page.getByText(/(Visit added successfully|Visit cached|Visit updated successfully|Edit cached)/i).first()).toBeVisible({ timeout: 15000 });
+    
+    // Wait for modal to be gone from store and DOM to ensure next action is safe
+    await expect(async () => {
+        const isOpen = await page.evaluate(() => {
+            // @ts-ignore
+            return !!(window.useUIStore?.getState().isModalOpen);
+        });
+        if (isOpen) throw new Error('Modal still open in store');
+    }).toPass({ timeout: 5000 });
+    await expect(visitModal).not.toBeVisible({ timeout: 10000 });
 }
 
 // ==========================================

@@ -27,7 +27,7 @@
 
 ## 1. Environment & Shell (RHEL 8)
 *   **Dev Server:** Use PM2 for stability: `pm2 start npm --name "winery-dev" -- run dev -- -p 3001`.
-*   **Shell:** Load NVM before npm: `export NVM_DIR="$HOME/.nvm" && [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"`.
+*   **Shell:** Use `npm` directly.
 *   **Playwright Container:** **MANDATORY:** Local testing MUST use rootless Podman via the provided script: `./scripts/run-e2e-container.sh [project] [test_file]`. DO NOT run `npx playwright test` directly on the host.
     *   **Usage:** `./scripts/run-e2e-container.sh chromium e2e/smoke.spec.ts` (Project defaults to `webkit`).
     *   **Mandatory Build:** Use `--build` if core logic (stores, services, components) changed: `./scripts/run-e2e-container.sh --build all`.
@@ -52,6 +52,8 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **The Node Build Rule (MANDATORY):** Serwist/Webpack build-time analysis of `purgeOnQuotaError` often triggers a `TypeError` (length of undefined) in Node.js versions other than **20.x**. **Standard:** ALWAYS build the application with Node.js 20.x to prevent production build crashes.
 *   **The PWA URL Rule:** WebKit often unregisters SW on localhost. **Standard:** All PWA tests MUST append `?pwa=true` to the URL.
 *   **The Middleware Matcher Rule:** Middleware matchers that exclude all files with dots (`.*\\..*`) will break `/sw.js` and `/site.webmanifest` session updates. **Standard:** Use a specific regex like `'/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg|css)$).*)'` to ensure root-level PWA files are processed by the auth proxy.
+*   **The Modal Cleanup Rule:** Sequential actions involving global singleton modals MUST wait for the `isModalOpen` store state to be `false` AND the dialog element to be hidden before triggering the next action. Failure to do so causes race conditions where the next "open" trigger is ignored or blocked by unmounting logic.
+*   **The Toast Overlay Rule:** Toast notifications (role="status/alert") can block pointer events on elements in the top-right or top-center, especially in mobile viewports. **Standard:** Explicitly dismiss or wait for toasts to hide if they overlap with the next target element.
 
 # 3. Next.js 16 Hydration & Synchronization
 *   **Avoid Hard Reloads:** NEVER use `page.reload()` inside retry loops. It kills hydration and leads to `Application Error`.
