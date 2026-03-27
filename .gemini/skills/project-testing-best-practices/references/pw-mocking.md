@@ -109,16 +109,30 @@ return route.fulfill({ body: JSON.stringify(found || {}) });
 ```
 
 ### 8. The Real-Data Priority Rule
-Flags for real data (e.g., `realTripsEnabled`) must be evaluated before explicit RPC mocks in the catch-all handler.
+Flags for real data (e.g., `realTripsEnabled`, `realVisitsEnabled`) must be evaluated before explicit RPC mocks in the catch-all handler.
 - **Rule:** The logic MUST check for real data fallback at the very top of the RPC block.
 - **Rationale:** Prevents "ghost" state where a test expects to write to the real DB but a mock interceptor captures the call and returns a temporary ID that doesn't exist in the real database.
+- **Critical RPCs:** `log_visit`, `ensure_winery`, and `get_friend_activity_feed` are cross-cutting. They MUST be included in fallback lists if any related feature (Visits, Favorites, Social) is using real data.
 
-### 9. Zero-Tolerance Monitoring
+### 9. Real-User Initialization Rule
+In tests using real-data modes, the default mock user ID will cause ownership mismatches (`isOwner: false`) in UI components.
+- **Rule:** Always call `initDefaultMocks({ currentUserId: user.id })` in the `beforeEach` block AFTER the test user has been created and BEFORE the first navigation.
+- **Correct Pattern:**
+```typescript
+test.beforeEach(async ({ page, mockMaps, user }) => {
+    await mockMaps.useRealVisits();
+    // Manual re-initialization with the real user ID is mandatory
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
+    await login(page, user.email, user.password);
+});
+```
+
+### 10. Zero-Tolerance Monitoring
 Always monitor for leaks actively during development.
 - **Standard:** Use `context.on('request', ...)` to log all external requests. If a request appears in these logs without a corresponding `[MOCK-HIT]` log from your handler, it has bypassed your mocks.
 - **WebKit Note:** If leaks persist despite correct headers, apply **The SW Sabotage Rule** (see `pw-webkit-stability.md`) to block Service Worker interference entirely.
 
-### 10. The Cross-Cutting Mock Rule
+### 11. The Cross-Cutting Mock Rule
 RPCs that serve multiple features (e.g., `ensure_winery` is used by Trips, Visits, and Favorites) MUST check all dependent real-data flags before fulfilling with a mock.
 - **Problem:** If `realFavoritesEnabled` is true but `ensure_winery` fulfills with a mock ID `999123`, a subsequent real RPC like `toggle_favorite_privacy` will fail in the database because the winery record doesn't exist.
 - **Rule:** The catch-all handler MUST evaluate fallback conditions for all related features before fulfilling generic helper RPCs.

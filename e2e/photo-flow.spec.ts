@@ -5,7 +5,8 @@ import {
     openWineryDetails, 
     closeWineryModal, 
     robustClick, 
-    waitForMapReady 
+    waitForMapReady,
+    waitForToast
 } from './helpers';
 
 // Define helper directly in the test file to avoid bundling issues
@@ -23,6 +24,7 @@ test.describe('Photo Management Workflow', () => {
   test.beforeEach(async ({ page, mockMaps, user }) => {
     // CRITICAL: Override mocks to use real Supabase interactions
     await mockMaps.useRealVisits();
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
   });
 
@@ -75,6 +77,7 @@ test.describe('Photo Management Workflow', () => {
 
     // Wait for network success
     await logVisitPromise;
+    await waitForToast(page, 'Visit added successfully.');
 
     // 2.1 Wait for Visit Modal to close from store and DOM
     await expect(async () => {
@@ -142,6 +145,7 @@ test.describe('Photo Management Workflow', () => {
 
     await robustClick(page, editModal.getByRole('button', { name: 'Save Changes' }));
     await updateVisitPromise;
+    await waitForToast(page, 'Visit updated successfully.');
 
     // 9. Verify Photo Removal in UI (Visit Card)
     await expect(async () => {

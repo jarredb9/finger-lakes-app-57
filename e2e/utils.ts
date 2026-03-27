@@ -75,6 +75,63 @@ export class MockMapsManager {
                 return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([{ id: currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' }]) });
             }
             if (url.includes('/rpc/')) {
+                // 1. Fallback if real data is requested for this category
+                if (this.realSocialEnabled && (
+                    url.includes('send_friend_request') || 
+                    url.includes('respond_to_friend_request') || 
+                    url.includes('get_friends_and_requests') || 
+                    url.includes('remove_friend') ||
+                    url.includes('get_friend_activity_feed') ||
+                    url.includes('get_friend_profile_with_visits') ||
+                    url.includes('is_visible_to_viewer') ||
+                    url.includes('update_profile_privacy') ||
+                    url.includes('get_friends_ratings_for_winery') ||
+                    url.includes('get_friends_activity_for_winery') ||
+                    url.includes('send_follow_request') ||
+                    url.includes('respond_to_follow_request')
+                )) {
+                    console.log(`[DIAGNOSTIC] Falling back for Social RPC: ${url}`);
+                    return route.fallback();
+                }
+
+                if (this.realFavoritesEnabled && (
+                    url.includes('toggle_favorite') || 
+                    url.includes('toggle_wishlist') || 
+                    url.includes('toggle_favorite_privacy') || 
+                    url.includes('toggle_wishlist_privacy') ||
+                    url.includes('ensure_winery')
+                )) {
+                    return route.fallback();
+                }
+
+                if (this.realVisitsEnabled && (
+                    url.includes('ensure_winery') ||
+                    url.includes('log_visit') ||
+                    url.includes('update_visit') ||
+                    url.includes('delete_visit') ||
+                    url.includes('get_paginated_visits')
+                )) {
+                    console.log(`[DIAGNOSTIC] Falling back for Visit RPC: ${url}`);
+                    return route.fallback();
+                }
+
+                if (this.realTripsEnabled && (
+                    url.includes('get_trip_details') || 
+                    url.includes('get_trips_for_date') || 
+                    url.includes('create_trip') || 
+                    url.includes('delete_trip') || 
+                    url.includes('reorder_trip_wineries') || 
+                    url.includes('update_trip_winery_notes') || 
+                    url.includes('add_trip_member_by_email') || 
+                    url.includes('add_winery_to_trip') ||
+                    url.includes('remove_winery_from_trip') ||
+                    url.includes('add_winery_to_trips')
+                )) {
+                    console.log(`[DIAGNOSTIC] Falling back for Trip RPC: ${url}`);
+                    return route.fallback();
+                }
+
+                // 2. Mocks for specific RPCs
                 if (url.includes('log_visit')) {
                     const postData = JSON.parse(req.postData() || '{}');
                     const newId = 1000 + Math.floor(Math.random() * 9000);
@@ -102,48 +159,6 @@ export class MockMapsManager {
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ visit_id: newId, winery_id: wineryId }) });
                 }
 
-                // 1. Fallback if real data is requested for this category
-                if (this.realSocialEnabled && (
-                    url.includes('send_friend_request') || 
-                    url.includes('respond_to_friend_request') || 
-                    url.includes('get_friends_and_requests') || 
-                    url.includes('remove_friend')
-                )) {
-                    return route.fallback();
-                }
-
-                if (this.realFavoritesEnabled && (
-                    url.includes('toggle_favorite') || 
-                    url.includes('toggle_wishlist') || 
-                    url.includes('toggle_favorite_privacy') || 
-                    url.includes('toggle_wishlist_privacy') ||
-                    url.includes('ensure_winery')
-                )) {
-                    return route.fallback();
-                }
-
-                if (this.realVisitsEnabled && (
-                    url.includes('ensure_winery') ||
-                    url.includes('get_paginated_visits')
-                )) {
-                    return route.fallback();
-                }
-
-                if (this.realTripsEnabled && (
-                    url.includes('get_trip_details') || 
-                    url.includes('get_trips_for_date') || 
-                    url.includes('create_trip') || 
-                    url.includes('delete_trip') || 
-                    url.includes('reorder_trip_wineries') || 
-                    url.includes('update_trip_winery_notes') || 
-                    url.includes('add_trip_member_by_email') || 
-                    url.includes('add_winery_to_trip')
-                )) {
-                    console.log(`[DIAGNOSTIC] Falling back for Trip RPC: ${url}`);
-                    return route.fallback();
-                }
-
-                // 2. Mocks for specific RPCs (only if real fallback didn't trigger)
                 if (url.includes('toggle_favorite_privacy') || url.includes('toggle_wishlist_privacy')) {
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
                 }
