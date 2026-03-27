@@ -25,11 +25,13 @@ export interface TestUser {
  */
 export class MockMapsManager {
   public static sharedMockTrips: any[] | null = null;
+  public static sharedMockVisits: any[] | null = null;
   public static sharedTripMembersMap = new Map<number, any[]>();
   private swEnabled = false;
 
   static resetSharedState() {
     MockMapsManager.sharedMockTrips = null;
+    MockMapsManager.sharedMockVisits = null;
     MockMapsManager.sharedTripMembersMap.clear();
   }
 
@@ -73,9 +75,31 @@ export class MockMapsManager {
                 return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([{ id: currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' }]) });
             }
             if (url.includes('/rpc/')) {
-                // EXPLICIT EXCLUSION: Allow test-level interceptors to catch log_visit
                 if (url.includes('log_visit')) {
-                    return route.fallback();
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const newId = 1000 + Math.floor(Math.random() * 9000);
+                    const wineryData = postData.p_winery_data || {};
+                    const visitData = postData.p_visit_data || {};
+                    const wineryId = wineryData.id;
+                    const winery = markers.find(m => m.id === wineryId || m.google_place_id === wineryId);
+                    
+                    if (!MockMapsManager.sharedMockVisits) MockMapsManager.sharedMockVisits = [];
+                    
+                    MockMapsManager.sharedMockVisits.push({
+                        visit_id: newId,
+                        user_id: currentUserId,
+                        visit_date: visitData.visit_date || todayCA,
+                        user_review: visitData.user_review,
+                        rating: visitData.rating,
+                        photos: visitData.photos || [],
+                        winery_id: winery?.id || 123,
+                        winery_name: winery?.name || wineryData.name || 'Unknown Winery',
+                        google_place_id: winery?.google_place_id || wineryId,
+                        winery_address: winery?.address || wineryData.address || 'Unknown Address',
+                        friend_visits: []
+                    });
+
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ visit_id: newId, winery_id: wineryId }) });
                 }
 
                 // 1. Fallback if real data is requested for this category
@@ -161,6 +185,15 @@ export class MockMapsManager {
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
                 }
 
+                if (url.includes('delete_visit')) {
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const visitId = Number(postData.p_visit_id);
+                    if (MockMapsManager.sharedMockVisits) {
+                        MockMapsManager.sharedMockVisits = MockMapsManager.sharedMockVisits.filter(v => Number(v.visit_id) !== visitId);
+                    }
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+                }
+
                 if (url.includes('get_map_markers') || url.includes('get_wineries_in_bounds') || url.includes('get_paginated_wineries')) {
                     console.log(`[DIAGNOSTIC] Fulfilling Map RPC: ${url}`);
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(markers) });
@@ -185,12 +218,10 @@ export class MockMapsManager {
                 }
                 if (url.includes('get_paginated_visits')) {
                     if (this.realVisitsEnabled) return route.fallback();
-                    const mockVisit = createMockVisitWithWinery({ wineryId: 'ch-67890-mock-winery-2' as any, wineryName: 'Vineyard of Illusion' });
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([{
-                        visit_id: mockVisit.id, user_id: mockVisit.user_id, visit_date: mockVisit.visit_date, user_review: mockVisit.user_review,
-                        rating: mockVisit.rating, photos: mockVisit.photos, winery_id: mockVisit.winery_id, winery_name: mockVisit.wineryName,
-                        google_place_id: mockVisit.wineryId, winery_address: mockVisit.wineries.address, friend_visits: []
-                    }]) });
+                    const visits = [...(MockMapsManager.sharedMockVisits || [])].sort((a, b) => 
+                        new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
+                    );
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(visits) });
                 }
                 return route.fallback();
             }
@@ -230,6 +261,28 @@ export class MockMapsManager {
     // We register on both context and page to be airtight in WebKit
     await context.route('**/*', catchAllHandler);
     await this.page.route('**/*', catchAllHandler);
+
+    if (!MockMapsManager.sharedMockVisits) {
+        const mockVisit = createMockVisitWithWinery({ 
+            wineryId: 'ch-67890-mock-winery-2' as any, 
+            wineryName: 'Vineyard of Illusion',
+            visit_date: '2020-01-01',
+            user_review: 'A classic mock visit from the past.'
+        });
+        MockMapsManager.sharedMockVisits = [{
+            visit_id: 12345, 
+            user_id: mockVisit.user_id, 
+            visit_date: mockVisit.visit_date, 
+            user_review: mockVisit.user_review,
+            rating: mockVisit.rating, 
+            photos: mockVisit.photos, 
+            winery_id: mockVisit.winery_id, 
+            winery_name: mockVisit.wineryName,
+            google_place_id: mockVisit.wineryId, 
+            winery_address: mockVisit.wineries.address, 
+            friend_visits: []
+        }];
+    }
 
     if (!MockMapsManager.sharedMockTrips) {
         MockMapsManager.sharedMockTrips = [ 

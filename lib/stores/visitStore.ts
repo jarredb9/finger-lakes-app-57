@@ -76,9 +76,9 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       hasMore: false,
 
       fetchVisits: async (pageNumber = 1, refresh = false) => {
-        if (isE2E()) {
-            set({ isLoading: false });
-            return;
+        if (isE2E() && !localStorage.getItem('_E2E_ENABLE_REAL_SYNC')) {
+            // We still allow the call to proceed to trigger the mock in MockMapsManager
+            // unless we explicitly want to skip it.
         }
         set({ isLoading: true });
         const supabase = createClient();

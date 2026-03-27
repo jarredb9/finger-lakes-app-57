@@ -24,12 +24,31 @@ import { sharedMockTrips, initDefaultMocks } from './utils';
 
 // Centralized state management in e2e/utils.ts
 sharedMockTrips.push({ id: 2, name: 'Global Trip' });
+sharedMockVisits.push({ visit_id: 12345, user_review: 'Great!' });
 
 // Dynamic ownership ensures user IDs match throughout the flow
 await initDefaultMocks({ currentUserId: user.id });
 ```
 
-### 2. User-Aware Profile Mocking
+### 2. Numeric ID Consistency
+RPC parameters for deletions (like `p_visit_id` or `p_trip_id`) are parsed as integers in the store (`parseInt`). If the mock returns a non-numeric string ID, the mutation will fail with `NaN` or a `400 Bad Request`.
+- **Rule:** Mocked IDs MUST be numeric (integers).
+- **Incorrect:** `visit_id: 'visit-1'`
+- **Correct:** `visit_id: 12345`
+
+### 3. Mock Sorting Parity
+Features like the `History` tab (GlobalVisitHistory) re-fetch data after mutations and rely on descending date order. If the mock returns visits out of order, the test may interact with the wrong list item.
+- **Rule:** RPC interceptors for list views (e.g., `get_paginated_visits`) MUST sort the `sharedMockState` by date descending before fulfilling the route.
+- **Implementation:**
+```typescript
+const visits = [...sharedMockVisits].sort((a, b) => 
+    new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
+);
+return route.fulfill({ body: JSON.stringify(visits) });
+}
+```
+
+### 4. User-Aware Profile Mocking
 In multi-context tests (e.g., social or collaborative flows), the default `/rest/v1/profiles` mock MUST be bypassed to allow each context to receive its correct profile data.
 - **Problem:** If both `pageA` and `pageB` receive the same "Test User" mock, `ensureProfileReady` will fail or stores will hydrate with incorrect data.
 - **Standard:** Use `manager.useRealSocial()` to trigger the fallback for profile requests in `MockMapsManager`.
@@ -65,10 +84,10 @@ await context.route('**/*', async (route) => {
 });
 ```
 
-### 5. Shared Mock State & Mutations
+### 7. Shared Mock State & Mutations
 Collaborative tests require a single source of truth for mock data across multiple contexts.
-- **Rule:** Use `static` properties in `MockMapsManager` (e.g., `sharedMockTrips`) to persist changes.
-- **Stateful RPCs:** RPC interceptors for mutating actions (e.g., `create_trip`, `delete_trip`) MUST update the corresponding static state property. If the mock state is not updated, the UI will not reflect changes after a store refresh, causing locator failures.
+- **Rule:** Use `static` properties in `MockMapsManager` (e.g., `sharedMockTrips`, `sharedMockVisits`) to persist changes.
+- **Stateful RPCs:** RPC interceptors for mutating actions (e.g., `create_trip`, `delete_trip`, `log_visit`) MUST update the corresponding static state property. If the mock state is not updated, the UI will not reflect changes after a store refresh, causing locator failures.
 - **Cleanup:** Always call `MockMapsManager.resetSharedState()` in the `mockMaps` fixture to prevent cross-test leakage.
 
 ### 6. RPC Payload & Schema Parity

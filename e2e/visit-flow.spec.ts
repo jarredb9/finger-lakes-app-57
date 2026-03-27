@@ -7,11 +7,14 @@ import {
     logVisit, 
     closeWineryModal, 
     ensureSidebarExpanded,
-    robustClick
+    robustClick,
+    clearServiceWorkers,
+    waitForToast
 } from './helpers';
 
 test.describe('Visit Logging Flow', () => {
   test.beforeEach(async ({ page, user }) => {
+    await clearServiceWorkers(page);
     // mockMaps is auto-initialized by the fixture
     await login(page, user.email, user.password);
   });
@@ -40,11 +43,9 @@ test.describe('Visit Logging Flow', () => {
     // 4. Delete Visit
     const deleteBtn = historySidebar.getByRole('button', { name: 'Delete visit' }).first();
     
-    await Promise.all([
-        page.waitForResponse(resp => resp.url().includes('delete_visit') && resp.status() === 200),
-        robustClick(page, deleteBtn)
-    ]);
+    await robustClick(page, deleteBtn);
     
-    await expect(page.getByText('Visit deleted successfully.').first()).toBeVisible();
+    await waitForToast(page, /Visit deleted successfully/i);
+    await expect(historyItem).not.toBeVisible();
   });
 });

@@ -292,15 +292,25 @@ export async function openWineryDetails(page: Page, wineryName: string) {
 }
 
 export async function closeWineryModal(page: Page) {
-    // Target specifically the WineryModal which has the 'Detailed information' sr-only description
-    const modal = page.getByRole('dialog').filter({ hasText: /Detailed information/i });
+    const modal = page.getByTestId('winery-modal');
     if (!(await modal.isVisible())) return;
+    
     const closeBtn = modal.getByRole('button', { name: /Close/i });
     if (await closeBtn.isVisible()) {
-        await closeBtn.click();
+        await robustClick(page, closeBtn);
     } else {
         await page.keyboard.press('Escape');
     }
+
+    // Wait for the UI store to reflect that the winery modal is closed
+    await expect(async () => {
+        const isOpen = await page.evaluate(() => {
+            // @ts-ignore
+            return !!(window.useUIStore?.getState().isWineryModalOpen);
+        });
+        if (isOpen) throw new Error('Winery modal still open in store');
+    }).toPass({ timeout: 10000 });
+
     await expect(modal).not.toBeVisible({ timeout: 10000 });
 }
 
@@ -314,7 +324,7 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
         if (!isModalOpen) throw new Error('Visit modal not open in store');
     }).toPass({ timeout: 10000 });
 
-    const visitModal = page.getByRole('dialog').filter({ hasText: /(Log a Visit|Edit Visit|Add New Visit)/i }).last();
+    const visitModal = page.getByTestId('visit-modal');
     await expect(visitModal).toBeVisible({ timeout: 15000 });
     
     await visitModal.getByLabel('Your Review').fill(data.review);
