@@ -1,42 +1,39 @@
 ---
 name: project-testing-best-practices
-description: Use this skill when the user asks to write new tests, fix failing tests, or audit code coverage. This skill enforces 100% dual-layer coverage (Jest/Playwright) and WebKit/Safari stability patterns.
+description: Use this skill to design, implement, and verify tests. It enforces Senior-level architectural purity, favoring store-state injection and feature isolation over navigation-heavy E2E chains.
 license: MIT
 metadata:
   author: Gemini CLI
-  version: "1.3.1"
+  version: "2.0.0"
   date: March 2026
   scope: testing-verification
   complexity: high
   dependencies: [handoff-protocol, chrome-devtools-mcp, playwright-mcp]
-  abstract: Defines dual-layer 100% coverage standards for the Winery Visit Planner. This skill is optimized for agents and provides specific rules for Jest unit tests and Playwright E2E tests, particularly in fragile environments like WebKit/Safari and offline/PWA states.
+  abstract: Defines the "Atomic Verification" standard. This skill prioritizes State-Injection (injecting data via stores) to bypass fragile navigation, enforces Portal-based modal encapsulation, and mandates Type-Safe mocking to eliminate regression loops.
 ---
 
-# Project Testing Best Practices
+# Project Testing Best Practices (v2.0 - Senior Standard)
 
-These standards ensure the reliability and stability of the application across offline, PWA, and Safari/WebKit environments.
+These standards move the project from "Defensive Survivability" to "Architectural Purity."
 
 ## Rule Categories by Priority
 
 | Priority | Category | Impact | Prefix |
 |----------|----------|--------|--------|
-| 1 | Stable Navigation | CRITICAL | `pw-navigation` |
-| 2 | Stable Diagnostics | CRITICAL | `pw-diagnostics` |
-| 3 | WebKit Stability | CRITICAL | `pw-webkit-stability` |
-| 4 | Collaborative Testing | HIGH | `pw-collaborative-sync` |
-| 5 | Accessibility (Axe) | HIGH | `pw-accessibility` |
-| 6 | Visual Stability | MEDIUM | `pw-visual-stability` |
-| 7 | Singleton Modals | HIGH | `pw-singleton-modals` |
-| 8 | Robust Interactions | HIGH | `pw-interactions` |
-| 9 | Multi-Context Mocking | HIGH | `pw-mocking` |
-| 10 | Jest Patterns | HIGH | `jest-patterns` |
+| 1 | State Injection | CRITICAL | `pw-state-injection` |
+| 2 | Portal Encapsulation | CRITICAL | `pw-portal-encapsulation` |
+| 3 | Schema Integrity | CRITICAL | `pw-mocking` |
+| 4 | Stable Diagnostics | HIGH | `pw-diagnostics` |
+| 5 | Pure Jest Patterns | HIGH | `jest-patterns` |
+| 6 | WebKit Stability | HIGH | `pw-webkit-stability` |
+| 7 | Accessibility (Axe) | MEDIUM | `pw-accessibility` |
+| 8 | Collaborative Sync | MEDIUM | `pw-collaborative-sync` |
 
 ## Success Criteria
 
-1. **100% Branch Coverage** in Jest for business logic.
-2. **100% Flow Coverage** in Playwright for critical UI paths.
-3. **No Brittle Clicks:** Standard Playwright `click()` is avoided in favor of `robustClick()`.
-4. **Stable Navigation:** All navigation uses `navigateToTab()` or `waitForAppReady()`.
-5. **No Data Loss:** Photo uploads follow the "Reconstitution Rule" for Safari/WebKit.
-6. **The Interception Shield:** Non-PWA tests follow the "SW Sabotage Rule" to prevent WebKit from bypassing mocks via background worker threads.
-7. **Zero-Guess Debugging:** All test failures are analyzed using the "Mandatory Diagnostic Protocol."
+1. **Atomic Speed:** Full feature tests (e.g., Trip Sharing) MUST run in under 15 seconds by bypassing navigation via `page.evaluate` state injection.
+2. **Pure Components:** Unit tests for UI components (Cards, Modals) MUST require zero store mocks; data is passed via raw JSON props.
+3. **Zero RobustPatching:** `robustClick()` is FORBIDDEN. Standard Playwright `.click()` must work; if it fails, the underlying hydration/visibility logic must be fixed.
+4. **Schema Enforcement:** 100% of mocks in `MockMapsManager` MUST be typed using `lib/database.types.ts`.
+5. **Portal Isolation:** Modals are tested in their local feature context, not via a global singleton renderer.
+6. **Zero-Guess Debugging:** All failures follow the "Mandatory Diagnostic Protocol" before any fix is attempted.

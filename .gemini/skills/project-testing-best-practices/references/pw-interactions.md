@@ -1,47 +1,49 @@
 ---
-title: Robust Playwright Interactions
+title: Stable Playwright Interactions
 impact: HIGH
-impactDescription: 10x more reliable mobile clicks and form inputs
-tags: playwright, interactions, robust-click, mobile
+impactDescription: Eliminates brittle workarounds, forces hydration fixes
+tags: playwright, interactions, click, hydration
 ---
 
-## Robust Playwright Interactions
+## Stable Playwright Interactions
 
-Mobile sheets and WebKit often fail simple `click()` events. Use `robustClick()` or a hybrid strategy to ensure full event dispatch and state stability.
+In a healthy architecture, standard Playwright `.click()` should always work. Workarounds that manually dispatch DOM events are **DEPRECATED**.
 
-### 1. Hybrid Click Strategy
-For cross-engine stability (especially Chromium vs WebKit), standard Playwright clicks are sometimes more reliable for triggering React's event system if fired at the exact right moment, while `robustClick` is better for overcoming animation/z-index issues.
-- **Pattern:** Attempt a `force: true` click, then verify the state change (e.g., Store update). If the state didn't change, fall back to `robustClick`.
+### 1. The Death of `robustClick`
+The use of `robustClick()` or manual `dispatchEvent` calls is now **FORBIDDEN** in new tests.
+- **Why:** If a button requires 5 different events to be triggered manually, the UI is **Event Brittle**. This is usually caused by Radix/Shadcn components being interrupted by hydration flashes.
+- **Action:** If a standard click fails, the agent MUST investigate the hydration state. Fix the DOM, don't patch the test.
 
+**Incorrect (Defensive Workaround):**
 ```typescript
-await btn.click({ force: true });
-const isOpened = await page.evaluate(() => window.useUIStore.getState().isModalOpen);
-if (!isOpened) {
-    await robustClick(page, btn);
-}
+// PATCHING: Dispatches manual events to force a click
+await robustClick(page, button); 
 ```
 
-### 2. Toast & Overlay Blocking
-Toast notifications (Radix/Shadcn Toaster) are rendered in a fixed-position viewport (`z-[100]`). In mobile viewports, these can physically block clicks on buttons in the top-right (like the Log Visit button) or top-center.
+**Correct (Architectural Fix):**
+```typescript
+// FIXING: Wait for the UI to be ready, then use standard Playwright
+await expect(button).toHaveAttribute('data-hydrated', 'true');
+await button.click();
+```
+
+### 2. Interaction Readiness Guards
+Every critical UI action must implement a "Readiness Gate."
+- **Standard:** Use `data-testid` and `data-state` attributes to verify an element is interactive before clicking.
+- **Loading States:** Verify that loading spinners are GONE before attempting to click a "Save" or "Submit" button.
+
+### 3. Toast & Overlay Blocking
+Toast notifications (Radix/Shadcn Toaster) can physically block pointer events. 
 - **Rule:** If an interaction fails only on mobile or after a previous success, check for a visible Toast. 
 - **Standard:** Explicitly dismiss the toast or wait for it to hide before the next action.
 
+### 4. DOM Assertions vs. Store Assertions
+- **DOM Assertions (UX):** Use these to verify that the user *sees* what they expect.
+- **Store Assertions (Logic):** Use `page.evaluate` to verify that the internal state changed. Store assertions are 100x more stable and should be used as the primary gate for complex logic verification.
+
 ```typescript
-// Incorrect: Clicking while a success toast is still visible
-await robustClick(page, logVisitBtn); // Click is eaten by the toast overlay
-
-// Correct: Dismiss toast first
-await page.getByRole('button', { name: /Close/i }).click();
-await robustClick(page, logVisitBtn);
+// Correct pattern: Verify logic in store, then UX in DOM
+await page.click('[data-testid="save-btn"]');
+expect(await page.evaluate(() => useTripStore.getState().isSaving)).toBe(false);
+await expect(page.getByText('Saved!')).toBeVisible();
 ```
-
-### 3. Scroll-to-Interaction
-WebKit/Safari on mobile often reports elements as "visible" but fails to dispatch events if they are partially off-screen or behind a translucent bar.
-- **Rule:** Always call `scrollIntoViewIfNeeded()` before critical interaction points in long modals or sidebars.
-
-### 4. Success Toast Verification
-For asynchronous database actions (Log Visit, Favorite Privacy, etc.), simply clicking the button is insufficient for a stable test.
-- **Rule:** Always verify the appearance of the success toast using `waitForToast` before proceeding to the next step.
-- **Rationale:** This ensures the RPC has actually completed and the application state has settled, preventing race conditions where the next action is attempted before the database mutation is reflected in the UI.
-
-Reference: [Playwright Clicks](https://playwright.dev/docs/input)

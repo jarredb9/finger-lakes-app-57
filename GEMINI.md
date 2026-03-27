@@ -83,8 +83,13 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **The E2E Hydration Guard:** Data fetchers (e.g., `fetchVisits`) MUST NOT be hard-disabled in E2E mode if they are required to populate tabs like History or Friends. Instead, allow the call to proceed so it can be intercepted by `MockMapsManager`, ensuring the UI reflects the mocked state after mutations.
 *   **SSR Safety:** Diagnostic components like `E2EStoreExposer` MUST return `null` if `typeof window === 'undefined'` to prevent 500 errors during container builds.
 *   **Realtime:** Stores handling collaborative entities (Trips, Members) MUST implement `subscribeToUpdates` using Supabase Realtime to maintain multi-user sync.
+*   **The Revision Lock Rule:** Stores implementing Realtime sync MUST track a `lastActionTimestamp`. Incoming `postgres_changes` payloads MUST be ignored if their DB timestamp is older than the last local mutation to prevent "Flicker" race conditions.
 
-### **C. Social & Privacy Logic**
+### **C. UI Pattern: Container/Presentational**
+*   **The Pure Component Rule:** UI components (Cards, Buttons, List Items) MUST be "Presentational." They MUST NOT call `useStore` hooks. Data and callbacks (e.g., `onEdit`, `onDelete`) MUST be passed as props.
+*   **The Container Mandate:** Data fetching and store connections MUST be localized in "Container" or "Page" components. This ensures UI components are testable with raw JSON objects and require zero store mocks.
+
+### **D. Social & Privacy Logic**
 *   **Normalization:** All social relations use `trip_members`, `follows`, and `activity_ledger`.
 *   **Visibility:** Use the `is_visible_to_viewer` RPC to enforce Public/Friends/Private tiers.
 
@@ -93,6 +98,7 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 
 ### **A. Diagnostic & E2E Standards**
 *   **Diagnostic Protocol (Priority 0):** NEVER fix a test based on assumptions. Follow the 3-tier diagnostic sequence (DOM -> Store -> DB) defined in `project-testing-best-practices`.
+*   **The Atomic State Injection Rule:** Use `page.evaluate` to inject store state directly into the browser for feature verification. This bypasses fragile navigation steps and reduces test execution time by 80%.
 *   **The Sub-Pixel Robustness Rule:** WebKit/High-DPI emulators often return non-integer coordinates. **Standard:** Use `expect(box.y).toBeLessThan(5)` instead of `toBe(0)` for edge-aligned elements.
 *   **The Project Filtering Rule:** Emulated environments (User Agent, touch) persist across viewport overrides. **Standard:** Explicitly `test.skip()` layout tests that don't match the project type (Mobile vs Desktop) to prevent hydration mismatches.
 *   **Prefix Logs:** Prefix all debug logs with `[DIAGNOSTIC]` to bypass strict console listeners.
@@ -132,3 +138,14 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **Complex UI/DnD:** `components/trip-card.tsx`
 *   **Offline Store:** `lib/stores/visitStore.ts`
 *   **E2E Spec:** `e2e/trip-flow.spec.ts`
+
+## 9. AI Development & Verification Protocol (MANDATORY)
+
+To prevent "Regression Loops" and "50-commit fix cycles," all agents MUST follow these workflow rules:
+
+*   **Atomic Task Verification:** A Conductor task is NOT complete until its specific E2E test passes. Agents MUST NOT proceed to the next task in a plan if any previous task's verification is pending or failing.
+*   **The "State-First" Rule:** When implementing a UI feature, agents MUST first write a `page.evaluate` block in the test to inject the required store state. If the component cannot be tested via state injection, it is too "Coupled" and must be refactored using Portals.
+*   **Regression Awareness:** After completing any task that modifies a Store or a Global Component, the agent MUST run the `e2e/smoke.spec.ts` against WebKit BEFORE concluding the turn.
+*   **Schema-First Logic:** Before writing any Store or Service logic that calls an RPC, the agent MUST use `execute_sql` or the Supabase MCP to verify the actual return keys and types of that RPC. Never assume `database.types.ts` is up-to-date.
+*   **The "Pure Component" Mandate:** Agents are PROHIBITED from adding `useStore` hooks to presentational components (Cards, Buttons, List Items). All data must flow via props from a "Container" or "Page" component.
+*   **No "Robust" Patching:** If a standard Playwright `.click()` fails, agents MUST investigate the hydration timing or store state rather than employing `robustClick` or manual event dispatching.

@@ -1,36 +1,45 @@
 ---
-title: Stable Playwright Navigation
+title: Atomic Playwright Navigation
 impact: CRITICAL
-impactDescription: Eliminates hydration flashes and WebKit/Safari flakiness
-tags: playwright, navigation, hydration, webkit
+impactDescription: Eliminates 80% of test overhead, stops hydration race conditions
+tags: playwright, navigation, hydration, state-injection
 ---
 
-## Stable Playwright Navigation
+## Atomic Playwright Navigation
 
-Standard `page.goto` is insufficient for Next.js applications during hydration. Use project-specific helpers to ensure app readiness and stable navigation.
+Standard navigation (`page.goto`) followed by manual UI interaction is **DEPRECATED** for feature verification. Use **State Injection** to jump directly to the target UI state.
 
-**Incorrect (Raw navigation, no readiness check):**
+### 1. The "State-First" Standard
+Tests MUST prioritize state injection over manual navigation chains.
+- **Goal:** Verify the *logic* of the feature, not the ability of the browser to click a sidebar.
+- **Implementation:** Use `page.evaluate` to populate Zustand stores before the first interaction.
 
+**Incorrect (Fragile Chain):**
 ```typescript
-// Brittle: fails if page hydrates AFTER goto
-await page.goto('/trips');
-await page.click('[data-testid="add-trip"]'); // Element not yet reactive
+await login(page); 
+await navigateToTab(page, 'Trips');
+await page.click('text=My Trip'); // Fails if hydration is slow
 ```
 
-**Correct (Project-standard helpers):**
-
+**Correct (Atomic Injection):**
 ```typescript
-import { navigateToTab, waitForAppReady } from './helpers';
-
-// Ensures hydration is complete and DOM is interactive
-await page.goto('/trips');
-await waitForAppReady(page);
-
-// Handles mobile sheet expansion and WebKit settlement
-await navigateToTab(page, 'trips');
-await page.getByRole('button', { name: 'Add Trip' }).click();
+await page.goto('/trips'); 
+await page.evaluate((trip) => {
+  window.useTripStore.getState().setTrips([trip]);
+  window.useTripStore.getState().setSelectedTrip(trip);
+}, mockTrip);
+// The UI is now immediately in the correct state
 ```
 
-**Impact Note:** WebKit (Safari) requires explicit settlement time for bottom bars and mobile sheets. `navigateToTab` handles this internally.
+### 2. When to use `navigateToTab`
+Manual navigation helpers (like `navigateToTab`) are restricted to **Smoke Tests** and **Integration Flows** only.
+- **Rule:** If you are testing a specific button inside a modal, do NOT use `navigateToTab`. Use state injection to open the modal directly.
 
-Reference: [Playwright Navigation](https://playwright.dev/docs/navigations)
+### 3. Hydration Readiness
+If navigation is strictly required, you MUST verify the "Interaction Readiness" of the page before proceeding.
+- **Gate:** Use `expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true')` or equivalent before the first click.
+
+### 4. Why this is Senior-Level:
+1.  **Resilience:** Your tests no longer break when the Sidebar, Header, or Bottom Nav are refactored.
+2.  **Debugging:** When a test fails, you know the failure is in the *feature logic*, not in the "Login" infrastructure.
+3.  **Developer Experience:** Running a 5-second test suite makes for a 10x faster development loop.

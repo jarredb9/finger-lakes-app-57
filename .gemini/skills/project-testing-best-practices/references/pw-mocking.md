@@ -1,140 +1,48 @@
 ---
-title: Multi-Context Playwright Mocking
-impact: HIGH
-impactDescription: Prevents inconsistent state between tabs and contexts
-tags: playwright, mocking, multi-context, sync
+title: Type-Safe Playwright Mocking
+impact: CRITICAL
+impactDescription: Prevents schema drift, eliminates "Numeric ID" regressions
+tags: playwright, mocking, typescript, schema
 ---
 
-## Multi-Context Playwright Mocking
+## Type-Safe Playwright Mocking
 
-Shared state in Playwright requires centralized mock management to ensure actions in one tab reflect in another after a store refresh.
+Manual mocking of RPC responses using raw JSON is **DEPRECATED**. All mocks in `MockMapsManager` MUST be constrained by the types in `lib/database.types.ts`.
 
-**Incorrect (Local state mocking):**
+### 1. The Schema Contract
+You MUST use TypeScript to ensure your mocks match the actual database structure.
+- **Rule:** If a database column changes from `text` to `bigint`, your mock MUST fail to compile.
+- **Implementation:** Import types from `database.types.ts` and use them in your `route.fulfill` bodies.
 
+**Incorrect (Loose Mocking):**
 ```typescript
-// Brittle: other tabs/contexts won't see this trip
-const myTrip = { id: 1, name: 'Local Trip' };
-await page.route('**/rpc/get_trips', (route) => route.fulfill({ body: [myTrip] }));
+// Brittle: 'id' might be a number in DB but string here
+await route.fulfill({ body: JSON.stringify([{ id: '123' }]) }); 
 ```
 
-**Correct (Shared global state):**
-
+**Correct (Type-Constrained Mocking):**
 ```typescript
-import { sharedMockTrips, initDefaultMocks } from './utils';
+import { Database } from '@/lib/database.types';
+type Trip = Database['public']['Tables']['trips']['Row'];
 
-// Centralized state management in e2e/utils.ts
-sharedMockTrips.push({ id: 2, name: 'Global Trip' });
-sharedMockVisits.push({ visit_id: 12345, user_review: 'Great!' });
-
-// Dynamic ownership ensures user IDs match throughout the flow
-await initDefaultMocks({ currentUserId: user.id });
+const mockTrip: Trip = {
+  id: 123, // Compiler ensures this is a number
+  name: 'Test Trip',
+  user_id: 'user-1',
+  created_at: new Date().toISOString()
+};
+await route.fulfill({ body: JSON.stringify([mockTrip]) });
 ```
 
 ### 2. Numeric ID Consistency
-RPC parameters for deletions (like `p_visit_id` or `p_trip_id`) are parsed as integers in the store (`parseInt`). If the mock returns a non-numeric string ID, the mutation will fail with `NaN` or a `400 Bad Request`.
-- **Rule:** Mocked IDs MUST be numeric (integers).
-- **Incorrect:** `visit_id: 'visit-1'`
-- **Correct:** `visit_id: 12345`
+- **Standard:** Use numeric integers for all IDs unless the DB schema explicitly mandates UUIDs.
+- **Why:** The frontend often uses `parseInt` on relational IDs. Mocking them as strings causes `NaN` errors in the Store.
 
-### 3. Mock Sorting Parity
-Features like the `History` tab (GlobalVisitHistory) re-fetch data after mutations and rely on descending date order. If the mock returns visits out of order, the test may interact with the wrong list item.
-- **Rule:** RPC interceptors for list views (e.g., `get_paginated_visits`) MUST sort the `sharedMockState` by date descending before fulfilling the route.
-- **Implementation:**
-```typescript
-const visits = [...sharedMockVisits].sort((a, b) => 
-    new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
-);
-return route.fulfill({ body: JSON.stringify(visits) });
-}
-```
+### 3. Detail-View ID Filtering
+Mocks for "Get By ID" RPCs MUST NOT return the first item in a list. They MUST parse the request and return the matching record.
+- **Requirement:** Parse `route.request().postData()` to identify the requested ID.
 
-### 4. User-Aware Profile Mocking
-In multi-context tests (e.g., social or collaborative flows), the default `/rest/v1/profiles` mock MUST be bypassed to allow each context to receive its correct profile data.
-- **Problem:** If both `pageA` and `pageB` receive the same "Test User" mock, `ensureProfileReady` will fail or stores will hydrate with incorrect data.
-- **Standard:** Use `manager.useRealSocial()` to trigger the fallback for profile requests in `MockMapsManager`.
-- **Implementation (Fixture):**
-```typescript
-const manager = new MockMapsManager(page);
-await manager.useRealSocial(); // MUST be called before initDefaultMocks
-await manager.initDefaultMocks({ currentUserId: user.id });
-```
-
-### 3. The Last Registered Wins Rule (Precedence)
-Playwright evaluates routes in the **reverse order** of registration (LIFO) at the same level.
-- **CRITICAL:** **Page-level routes (`page.route`) ALWAYS take precedence over context-level routes (`context.route`)**, regardless of registration order. 
-- **Pitfall:** If a global fixture (like `e2e/utils.ts`) registers a `page.route('**/*')`, any `context.route` in your test will be **ignored**.
-- **Rule:** For test-specific mocks that must override global fixtures, ALWAYS use `page.route`.
-
-
-### 4. The Catch-All Proxy Pattern
-For 100% reliable interception in WebKit, avoid multiple individual routes. Use a single `context.route('**/*', handler)` and dispatch internally. Use `route.fallback()` to allow specific tests to override global mocks.
-
-```typescript
-await context.route('**/*', async (route) => {
-    const url = route.request().url();
-    if (url.includes('supabase.co')) {
-        // EXPLICIT OVERRIDE: Let test-level interceptors handle this
-        if (url.includes('log_visit')) {
-            return route.fallback(); 
-        }
-        // Handle other Supabase calls...
-        return route.fulfill({ ... });
-    }
-    return route.continue();
-});
-```
-
-### 7. Shared Mock State & Mutations
-Collaborative tests require a single source of truth for mock data across multiple contexts.
-- **Rule:** Use `static` properties in `MockMapsManager` (e.g., `sharedMockTrips`, `sharedMockVisits`) to persist changes.
-- **Stateful RPCs:** RPC interceptors for mutating actions (e.g., `create_trip`, `delete_trip`, `log_visit`) MUST update the corresponding static state property. If the mock state is not updated, the UI will not reflect changes after a store refresh, causing locator failures.
-- **Cleanup:** Always call `MockMapsManager.resetSharedState()` in the `mockMaps` fixture to prevent cross-test leakage.
-
-### 6. RPC Payload & Schema Parity
-Mocks that return incorrect data structures trigger silent failures or 400/404 errors in the UI.
-- **Rule:** Mock return values MUST match the exact JSON structure of the real Supabase RPC.
-- **Incorrect:** Returning `newTrip` object for `create_trip`.
-- **Correct:** Returning `{ id: newId }` (matching the real `RETURNS jsonb` signature).
-- **Rationale:** The frontend service (e.g., `TripService.createTrip`) often accesses specific properties like `data.id` or `data.trip_id` to perform follow-up actions like navigation or detail fetching.
-
-### 7. Detail-View ID Filtering
-Mocks for "Get By ID" RPCs (like `get_trip_details`) must not lazily return the first item in the list.
-- **Rule:** Interceptors MUST parse the request body and filter the shared state by the requested ID parameter.
-- **Implementation:** 
-```typescript
-const postData = JSON.parse(req.postData() || '{}');
-const requestedId = postData.trip_id_param;
-const found = sharedMockTrips.find(t => t.id === Number(requestedId));
-return route.fulfill({ body: JSON.stringify(found || {}) });
-```
-
-### 8. The Real-Data Priority Rule
-Flags for real data (e.g., `realTripsEnabled`, `realVisitsEnabled`) must be evaluated before explicit RPC mocks in the catch-all handler.
-- **Rule:** The logic MUST check for real data fallback at the very top of the RPC block.
-- **Rationale:** Prevents "ghost" state where a test expects to write to the real DB but a mock interceptor captures the call and returns a temporary ID that doesn't exist in the real database.
-- **Critical RPCs:** `log_visit`, `ensure_winery`, and `get_friend_activity_feed` are cross-cutting. They MUST be included in fallback lists if any related feature (Visits, Favorites, Social) is using real data.
-
-### 9. Real-User Initialization Rule
-In tests using real-data modes, the default mock user ID will cause ownership mismatches (`isOwner: false`) in UI components.
-- **Rule:** Always call `initDefaultMocks({ currentUserId: user.id })` in the `beforeEach` block AFTER the test user has been created and BEFORE the first navigation.
-- **Correct Pattern:**
-```typescript
-test.beforeEach(async ({ page, mockMaps, user }) => {
-    await mockMaps.useRealVisits();
-    // Manual re-initialization with the real user ID is mandatory
-    await mockMaps.initDefaultMocks({ currentUserId: user.id });
-    await login(page, user.email, user.password);
-});
-```
-
-### 10. Zero-Tolerance Monitoring
-Always monitor for leaks actively during development.
-- **Standard:** Use `context.on('request', ...)` to log all external requests. If a request appears in these logs without a corresponding `[MOCK-HIT]` log from your handler, it has bypassed your mocks.
-- **WebKit Note:** If leaks persist despite correct headers, apply **The SW Sabotage Rule** (see `pw-webkit-stability.md`) to block Service Worker interference entirely.
-
-### 11. The Cross-Cutting Mock Rule
-RPCs that serve multiple features (e.g., `ensure_winery` is used by Trips, Visits, and Favorites) MUST check all dependent real-data flags before fulfilling with a mock.
-- **Problem:** If `realFavoritesEnabled` is true but `ensure_winery` fulfills with a mock ID `999123`, a subsequent real RPC like `toggle_favorite_privacy` will fail in the database because the winery record doesn't exist.
-- **Rule:** The catch-all handler MUST evaluate fallback conditions for all related features before fulfilling generic helper RPCs.
-
-Reference: [Playwright API Mocking](https://playwright.dev/docs/network)
+### 4. Why this is Senior-Level:
+1.  **Zero Drift:** You catch backend changes in your frontend tests immediately.
+2.  **Predictability:** You eliminate 90% of "400 Bad Request" errors in E2E tests.
+3.  **Efficiency:** You spend less time debugging "Why is this field undefined" because TypeScript told you 10 minutes ago.
