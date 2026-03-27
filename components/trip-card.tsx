@@ -134,7 +134,7 @@ const TripCard = memo(({ trip }: TripCardProps) => {
     return null;
   }
 
-  const isOwner = user?.id === trip.user_id;
+  const isOwner = user?.id && trip.user_id && String(user.id).toLowerCase() === String(trip.user_id).toLowerCase();
   const isMember = trip.members?.some(m => m.id === user?.id);
   const canEdit = isOwner || isMember;
 

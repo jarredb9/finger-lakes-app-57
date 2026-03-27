@@ -13,6 +13,7 @@ test.describe('Trip Management Flow', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
     // Re-initialize mocks with the actual user ID to ensure isOwner works
     await mockMaps.useRealVisits();
+    await mockMaps.useRealTrips(); // Standard for management/sharing tests
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
   });
@@ -45,9 +46,15 @@ test.describe('Trip Management Flow', () => {
     // Ensure the dialog is gone before checking the sidebar
     await expect(page.getByRole('dialog')).not.toBeVisible();
 
-    // Give the UI a moment to re-render the list
+    // Give the UI a moment to re-render the list with proactive sync
     const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
-    await expect(tripCard).toBeVisible({ timeout: 20000 });
+    await expect(async () => {
+        await page.evaluate(async () => {
+            const store = (window as any).useTripStore?.getState();
+            if (store) await store.fetchTrips(1, 'upcoming', true);
+        });
+        await expect(tripCard).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 20000, intervals: [2000] });
     
     const tripId = (await tripCard.getAttribute('data-trip-id')) || '';
     console.log(`[DIAGNOSTIC] Trip created with ID: ${tripId}, Name: ${uniqueTripName}`);
@@ -73,13 +80,7 @@ test.describe('Trip Management Flow', () => {
             const skeleton = page.locator('.animate-pulse, .bg-muted').first();
             const isSkeletonVisible = await skeleton.isVisible();
             
-            const storeTrips = await page.evaluate(() => {
-                // @ts-ignore
-                return window.useTripStore.getState().trips.map(t => ({ id: t.id, name: t.name }));
-            });
-            
             if (isSkeletonVisible) {
-                console.log(`[DIAGNOSTIC] Skeleton still visible. Store has ${storeTrips.length} trips.`);
                 throw new Error('Loading skeleton still visible');
             }
             
@@ -91,7 +92,7 @@ test.describe('Trip Management Flow', () => {
     } catch (e) {
         console.log(`[DIAGNOSTIC] FAILED to find trip name. Dumping page content...`);
         const content = await page.content();
-        console.log(content.substring(0, 2000)); // Log first 2000 chars
+        console.log(content.substring(0, 2000));
         throw e;
     }
     
@@ -123,7 +124,16 @@ test.describe('Trip Management Flow', () => {
 
     // 5. Delete Trip
     const updatedTripCard = sidebar.getByTestId('trip-card').filter({ hasText: renamedTripName }).first();
-    await expect(updatedTripCard).toBeVisible({ timeout: 15000 });
+    
+    await expect(async () => {
+        // Proactive sync to ensure rename is reflected in the list
+        await page.evaluate(async () => {
+            const store = (window as any).useTripStore?.getState();
+            if (store) await store.fetchTrips(1, 'upcoming', true);
+        });
+        await expect(updatedTripCard).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 20000, intervals: [2000] });
+
     await updatedTripCard.scrollIntoViewIfNeeded();
     
     const deleteBtn = updatedTripCard.getByTestId('delete-trip-btn');

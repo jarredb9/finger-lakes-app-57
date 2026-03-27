@@ -28,7 +28,7 @@ export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) 
         handleExportToMaps 
     } = useTripActions(trip);
 
-    const isOwner = user?.id === trip.user_id;
+    const isOwner = user?.id && trip.user_id && String(user.id).toLowerCase() === String(trip.user_id).toLowerCase();
 
     const handleViewTrip = (tripId: number) => {
         router.push(`/trips/${tripId}`);

@@ -26,11 +26,10 @@ These standards ensure the reliability and stability of the application across o
 | 4 | Collaborative Testing | HIGH | `pw-collaborative-sync` |
 | 5 | Accessibility (Axe) | HIGH | `pw-accessibility` |
 | 6 | Visual Stability | MEDIUM | `pw-visual-stability` |
-| 7 | Robust Layout | HIGH | `pw-layout-stability` |
-| 8 | Singleton Modals | HIGH | `pw-singleton-modals` |
-| 9 | Robust Interactions | HIGH | `pw-interactions` |
-| 10 | Multi-Context Mocking | HIGH | `pw-mocking` |
-| 11 | Jest Patterns | HIGH | `jest-patterns` |
+| 7 | Singleton Modals | HIGH | `pw-singleton-modals` |
+| 8 | Robust Interactions | HIGH | `pw-interactions` |
+| 9 | Multi-Context Mocking | HIGH | `pw-mocking` |
+| 10 | Jest Patterns | HIGH | `jest-patterns` |
 
 ## Success Criteria
 

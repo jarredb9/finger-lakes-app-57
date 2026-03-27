@@ -41,11 +41,17 @@ Collaborative tests require a single source of truth for mock data across multip
 
 ### 5. Case-Insensitive ID Matching
 UUID strings and relational IDs can exhibit inconsistent casing when transitioning between Supabase (Postgres) and Zustand (JSON).
-- **Rule:** Never use strict `===` for ID comparison in UI filters or search logic.
-- **Standard:** Always cast to string and lowercase before comparing.
+- **Rule:** Never use strict `===` for ID comparison in UI filters, search logic, or **`isOwner` checks in React components**.
+- **Standard:** Always cast to string and lowercase before comparing to ensure administrative buttons (Delete, Share) are consistently rendered across all browsers.
 - **Implementation:**
 ```typescript
-const isMember = members.some(m => String(m.id).toLowerCase() === String(friend.id).toLowerCase());
+const isOwner = user?.id && trip.user_id && String(user.id).toLowerCase() === String(trip.user_id).toLowerCase();
 ```
+
+### 6. List vs. Detail Data Discrepancy
+The trip data structure varies significantly between the summary list and the detail view.
+- **Rule:** `TripService.getTrips` (used for the sidebar and main Trips tab) currently returns empty arrays for `members` and `wineries` to optimize payload size.
+- **Testing Impact:** Tests verifying sidebar avatars or winery counts MUST account for this discrepancy. Sidebar avatars will only be visible if using the `MockMapsManager` (which includes members in its list mock) or if the specific trip has been hydrated via `get_trip_details`.
+- **Proactive Sync:** After a mutation (create/rename), always call `store.fetchTrips(1, 'upcoming', true)` to ensure the list reflects the new state, but be aware that `members` may be empty in the resulting store items.
 
 Reference: [Playwright Multi-Context](https://playwright.dev/docs/auth#multi-step-auth)
