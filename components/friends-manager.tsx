@@ -47,11 +47,6 @@ export default function FriendsManager() {
     return () => unsubscribeFromSocialUpdates();
   }, [fetchFriends, subscribeToSocialUpdates, unsubscribeFromSocialUpdates]);
 
-  // DIAGNOSTIC
-  useEffect(() => {
-      console.log(`[FriendsManager DIAGNOSTIC] Requests count: ${friendRequests.length}`, JSON.stringify(friendRequests));
-  }, [friendRequests]);
-
   const handleAddFriend = async () => {
     if (!email) return;
     try {

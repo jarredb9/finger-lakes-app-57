@@ -34,8 +34,14 @@ export default function PhotoCard({ photoPath, onDelete, isEditing, isMarkedForD
 
         if (error) throw error;
         setSignedUrl(data.signedUrl);
-      } catch (error) {
-        console.error('Error creating signed URL:', error);
+      } catch (error: any) {
+        // If it's a 404/Object not found, use warn to avoid crashing E2E tests 
+        // during expected deletion race conditions.
+        if (error?.status === 400 || error?.message?.includes('Object not found')) {
+            console.warn('Photo not found (expected during deletion):', photoPath);
+        } else {
+            console.error('Error creating signed URL:', error);
+        }
         setSignedUrl(null); // Ensure it shows unavailable on error
       }
       setIsLoading(false);

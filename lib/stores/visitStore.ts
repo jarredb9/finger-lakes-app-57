@@ -187,14 +187,14 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
               const fileName = `${Date.now()}-${photoFile.name}`;
               const filePath = `${user.id}/${folderUuid}/${fileName}`;
               
-              const uploadOptions: any = { headers: getE2EHeaders() };
-              const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile, uploadOptions);
+              const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile, { upsert: true });
               if (uploadError) throw uploadError;
               return filePath;
             });
 
             uploadedPaths = await Promise.all(uploadPromises);
           }
+
 
           const rpcWineryData = {
             id: winery.id,
@@ -308,8 +308,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                         const fileName = `${Date.now()}-${(offlinePhoto as any).name || 'photo.jpg'}`;
                         const filePath = `${session.user.id}/${folderUuid}/${fileName}`;
                         
-                        const uploadOptions: any = { headers: getE2EHeaders() };
-                        const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, blob, uploadOptions);
+                        const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, blob, { upsert: true });
                         if (uploadError) throw uploadError;
                         return filePath;
                       });
@@ -397,8 +396,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                         const fileName = `${Date.now()}-${(offlinePhoto as any).name || 'photo.jpg'}`;
                         const filePath = `${session.user.id}/${mutation.visitId}/${fileName}`;
                         
-                        const uploadOptions: any = { headers: getE2EHeaders() };
-                        const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, blob, uploadOptions);
+                        const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, blob, { upsert: true });
                         if (uploadError) throw uploadError;
                         return filePath;
                       });
@@ -502,8 +500,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
               const fileName = `${Date.now()}-${photoFile.name}`;
               const filePath = `${user.id}/${visitId}/${fileName}`;
               
-              const uploadOptions: any = { headers: getE2EHeaders() };
-              const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile, uploadOptions);
+              const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile, { upsert: true });
               if (uploadError) throw uploadError;
               return filePath;
             });

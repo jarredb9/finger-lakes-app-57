@@ -15,24 +15,18 @@ const OFFLINE_QUEUE_KEY = 'offline-mutation-queue';
  * Robustly get mutations, falling back to LocalStorage if IDB fails (common in WebKit/Containers).
  */
 export async function getOfflineMutations(): Promise<OfflineMutation[]> {
-  console.log('[DIAGNOSTIC] getOfflineMutations: starting');
   try {
     const mutations = (await get<OfflineMutation[]>(OFFLINE_QUEUE_KEY)) || [];
-    console.log('[DIAGNOSTIC] getOfflineMutations: IDB success, count:', mutations.length);
     return mutations;
   } catch (err) {
-    console.warn('[DIAGNOSTIC] getOfflineMutations: IDB failed, checking fallback');
     const fallback = localStorage.getItem(OFFLINE_QUEUE_KEY);
     if (!fallback) {
-        console.log('[DIAGNOSTIC] getOfflineMutations: no fallback found');
         return [];
     }
     try {
         const mutations = deserializeFromLocalStorage(fallback);
-        console.log('[DIAGNOSTIC] getOfflineMutations: fallback success, count:', mutations.length);
         return mutations;
     } catch (parseErr) {
-        console.error('[DIAGNOSTIC] getOfflineMutations: failed to parse fallback:', parseErr);
         console.error('[OfflineQueue] Failed to parse fallback:', parseErr);
         return [];
     }
@@ -40,33 +34,26 @@ export async function getOfflineMutations(): Promise<OfflineMutation[]> {
 }
 
 export async function addOfflineMutation(mutation: OfflineMutation): Promise<void> {
-  console.log('[DIAGNOSTIC] addOfflineMutation: starting for mutation ID:', mutation.id);
   let current: OfflineMutation[] = [];
   try {
     current = await getOfflineMutations();
   } catch (err) {
-    console.error('[DIAGNOSTIC] addOfflineMutation: failed to get current mutations:', err);
     console.error('[OfflineQueue] Failed to get current mutations for addition:', err);
   }
   
   // CRITICAL for WebKit: Always stabilize Blobs to Base64 BEFORE storing in the queue.
   // This ensures they remain readable after network state changes (Offline -> Online).
   const stabilizedMutation = await stabilizeMutation(mutation);
-  console.log('[DIAGNOSTIC] addOfflineMutation: stabilization complete');
   console.log('[OfflineQueue] Adding mutation to queue:', stabilizedMutation.id);
   const updated = [...current, stabilizedMutation];
   
   try {
     await set(OFFLINE_QUEUE_KEY, updated);
-    console.log('[DIAGNOSTIC] addOfflineMutation: IDB set success');
   } catch (err: any) {
-    console.warn('[DIAGNOSTIC] addOfflineMutation: IDB set failed, trying fallback:', err.message);
     console.warn('[OfflineQueue] IndexedDB set failed, falling back to LocalStorage:', err.message);
     try {
         localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(updated));
-        console.log('[DIAGNOSTIC] addOfflineMutation: fallback set success');
     } catch (lsErr: any) {
-        console.error('[DIAGNOSTIC] addOfflineMutation: fallback set failed:', lsErr?.message || lsErr);
         console.error('[OfflineQueue] LocalStorage fallback failed:', lsErr?.message || lsErr);
     }
   }
@@ -126,22 +113,17 @@ async function stabilizeMutation(m: OfflineMutation): Promise<OfflineMutation> {
 }
 
 export async function removeOfflineMutation(mutationId: string): Promise<void> {
-  console.log('[DIAGNOSTIC] removeOfflineMutation: starting for mutation ID:', mutationId);
   console.log('[OfflineQueue] Removing mutation from queue:', mutationId);
   const current = await getOfflineMutations();
   const updated = current.filter(m => m.id !== mutationId);
   
   try {
     await set(OFFLINE_QUEUE_KEY, updated);
-    console.log('[DIAGNOSTIC] removeOfflineMutation: IDB update success');
   } catch (err) {
-    console.warn('[DIAGNOSTIC] removeOfflineMutation: IDB update failed, trying fallback');
     try {
         const serialized = await serializeForLocalStorage(updated);
         localStorage.setItem(OFFLINE_QUEUE_KEY, serialized);
-        console.log('[DIAGNOSTIC] removeOfflineMutation: fallback update success');
     } catch (lsErr) {
-        console.error('[DIAGNOSTIC] removeOfflineMutation: fallback update failed:', lsErr);
         console.error('[OfflineQueue] Failed to update LS fallback after removal:', lsErr);
     }
   }

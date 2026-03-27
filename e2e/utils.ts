@@ -416,8 +416,10 @@ export const test = base.extend<{
                                          text.includes('navigation preload') ||
                                          text.includes('InvalidStateError') ||
                                          text.includes('JSHandle@object');
+
+            const isThirdPartyNoise = text.includes('Cookie “__cf_bm” has been rejected');
             
-            if (!isInfrastructure && !isExpectedOfflineError) {
+            if (!isInfrastructure && !isExpectedOfflineError && !isThirdPartyNoise) {
                 console.error(`FAILING TEST DUE TO CONSOLE ERROR: ${text}`);
                 throw new Error(`Fatal Error: ${text}`);
             }

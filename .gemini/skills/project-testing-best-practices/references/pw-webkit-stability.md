@@ -89,7 +89,19 @@ In Next.js 16 + WebKit, coming back "online" often triggers hydration reloads or
 - **Standard:** E2E verification signals (like `_E2E_SYNC_REQUEST_INTERCEPTED`) MUST be mirrored to `localStorage`.
 - **Verification:** Tests should check `localStorage` if the signal appears `undefined` despite being set in store logs.
 
-### 12. The SW Sabotage Rule
+### 12. The Rendering Verification Rule
+Images rendered via signed URLs (Supabase) in WebKit/Safari can intermittently fail due to CORS or race conditions with the Service Worker.
+- **Rule:** Simply checking for visibility or `src` presence is insufficient.
+- **Standard:** Verify the image is actually rendered using `naturalWidth > 0`.
+- **Implementation:**
+```typescript
+await expect(async () => {
+    const naturalWidth = await imgLocator.evaluate((img: HTMLImageElement) => img.naturalWidth);
+    if (naturalWidth === 0) throw new Error('Image failed to render');
+}).toPass();
+```
+
+### 13. The SW Sabotage Rule
 For non-PWA tests in WebKit, Service Workers can intermittently capture network requests even if bypassing headers (`x-skip-sw-interception`) are present, especially during rapid navigation or redirects.
 - **Standard:** `MockMapsManager` or the test's `addInitScript` MUST sabotage `navigator.serviceWorker.register` to prevent the SW thread from starting unless explicitly enabled (e.g., for `pwa-*` tests).
 - **Implementation:**
