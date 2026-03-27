@@ -9,7 +9,8 @@ import {
     closeWineryModal, 
     ensureProfileReady,
     setupFriendship,
-    removeFriend
+    removeFriend,
+    robustClick
 } from './helpers';
 
 test.describe('Social Activity Feed Flow', () => {
@@ -53,6 +54,11 @@ test.describe('Social Activity Feed Flow', () => {
         await navigateToTab(pageA, 'Explore');
         await waitForSearchComplete(pageA);
         await openWineryDetails(pageA, 'Mock Winery One');
+
+        const logBtn = pageA.getByTestId('log-visit-button');
+        await logBtn.scrollIntoViewIfNeeded();
+        await robustClick(pageA, logBtn);
+
         await logVisit(pageA, { review: reviewText, rating: 5 });
         await closeWineryModal(pageA);
       });
