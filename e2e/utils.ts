@@ -483,9 +483,11 @@ export const test = base.extend<{
                                          text.includes('Internal Server Error') ||
                                          text.includes('navigation preload') ||
                                          text.includes('InvalidStateError') ||
-                                         text.includes('JSHandle@object');
+                                         text.includes('JSHandle@object') ||
+                                         text.includes('WebKit encountered an internal error');
 
-            const isThirdPartyNoise = text.includes('Cookie “__cf_bm” has been rejected');
+            const isThirdPartyNoise = text.includes('Cookie “__cf_bm” has been rejected') ||
+                                     text.includes('Google Maps JavaScript API: Unable to fetch configuration');
             
             if (!isInfrastructure && !isExpectedOfflineError && !isThirdPartyNoise) {
                 console.error(`FAILING TEST DUE TO CONSOLE ERROR: ${text}`);

@@ -9,42 +9,33 @@ tags: playwright, interactions, click, hydration
 
 In a healthy architecture, standard Playwright `.click()` should always work. However, in the current RHEL 8 / WebKit containerized environment, `robustClick` remains necessary for reliable Radix/Shadcn trigger activation.
 
-### 1. The Reality of `robustClick`
-While standard `.click()` is preferred, `robustClick()` is the current project standard for interacting with complex Radix primitives (Dialogs, Selects) to bypass hydration-related event drops.
-- **Side Effect:** `robustClick` dispatches multiple synthetic events (`pointerdown`, `mousedown`, etc.).
-- **The Synchronous Guard Rule:** Because React's `useState` updates (`setIsSubmitting`) are asynchronous, they cannot block rapid event sequences. Components MUST use a `useRef` guard synchronously at the start of submission handlers.
+### 1. The Hybrid Click Strategy
+While standard `.click()` is preferred, the "Hybrid Click" pattern is the project standard for WebKit reliability.
+- **Pattern:** `await btn.click({ force: true })` followed by a `toPass` retry loop using `robustClick(btn)`.
+- **Why:** This ensures the engine-level click is registered (force: true) while `robustClick` triggers the synthetic events necessary for Radix components to wake up during hydration lags.
 
-```typescript
-// Correct pattern: Component-side protection
-const submissionGuard = useRef(false);
+### 2. Submission Gate Rules
+E2E helpers MUST NOT click a submission button (Save, Delete, Log) if the store's "isSaving" state is true.
+- **Problem:** Clicking a disabled button during a database mutation causes locator timeouts.
+- **Standard:** Use `page.evaluate(() => useVisitStore.getState().isSavingVisit)` as a guard before the final click.
 
-const handleSave = async () => {
-  if (submissionGuard.current) return;
-  submissionGuard.current = true;
-  try {
-    await saveAction();
-  } finally {
-    submissionGuard.current = false;
-  }
-};
-```
-
-### 2. Interaction Readiness Guards
+### 3. Interaction Readiness Guards
 Every critical UI action must implement a "Readiness Gate."
 - **Standard:** Use `data-testid` and `data-state` attributes to verify an element is interactive before clicking.
 - **Loading States:** Verify that loading spinners are GONE before attempting to click a "Save" or "Submit" button.
 
-### 3. Modal Closure & State Verification
+### 4. Modal Closure & State Verification
 Closing a modal (especially singletons) is a high-risk transition.
 - **Standard:** E2E helpers MUST verify both DOM visibility and Store state (`isModalOpen: false`).
-- **Retry Logic:** Use `toPass` to retry the close action (click/Escape) if the store does not update within the first 2 seconds.
+- **Retry Logic:** Use `toPass` to retry the close action (click/Escape) if the store does not update.
+- **Fallback:** If the close button is hidden by an overlay or toast, use `page.keyboard.press('Escape')`.
 
-### 4. Toast & Overlay Blocking
+### 5. Toast & Overlay Blocking
 Toast notifications (Radix/Shadcn Toaster) can physically block pointer events. 
 - **Rule:** If an interaction fails only on mobile or after a previous success, check for a visible Toast. 
 - **Standard:** Explicitly dismiss the toast or wait for it to hide before the next action.
 
-### 5. DOM Assertions vs. Store Assertions
+### 6. DOM Assertions vs. Store Assertions
 - **DOM Assertions (UX):** Use these to verify that the user *sees* what they expect.
 - **Store Assertions (Logic):** Use `page.evaluate` to verify that the internal state changed. Store assertions are 100x more stable and should be used as the primary gate for complex logic verification.
 

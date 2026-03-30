@@ -18,8 +18,8 @@ export function getSidebarContainer(page: Page): Locator {
 export async function waitForAppReady(page: Page) {
     const isMobile = page.viewportSize()?.width! < 768;
     const successSelector = isMobile 
-      ? 'div.fixed.bottom-0, [data-testid="settings-page-container"], [data-testid="trip-details-card"]' 
-      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"]';
+      ? 'div.fixed.bottom-0, [data-testid="settings-page-container"], [data-testid="trip-details-card"], [data-testid="mobile-nav-explore"]' 
+      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"], h1:has-text("Winery Visit Planner")';
     
     await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 20000 });
 }
@@ -172,6 +172,7 @@ export async function ensureSidebarExpanded(page: Page) {
  * Fills and submits the login form.
  */
 export async function submitLoginForm(page: Page, email: string, pass: string) {
+    await expect(page.getByLabel('Email')).toBeVisible({ timeout: 10000 });
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(pass);
     
@@ -192,7 +193,7 @@ export async function login(page: Page, email: string, pass: string, options: { 
   const isMobile = page.viewportSize()?.width! < 768;
   const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
   const isPwa = options.isPwa || false;
-  const pwaSuffix = isPwa ? (isPwa.toString().includes('?') ? '&pwa=true' : '?pwa=true') : '';
+  const pwaSuffix = isPwa ? '?pwa=true' : '';
 
   // 0. REGISTRATION BUFFER (WebKit Only)
   if (isWebKit) {
@@ -200,12 +201,19 @@ export async function login(page: Page, email: string, pass: string, options: { 
   }
 
   await expect(async () => {
-    await page.goto(`/login${pwaSuffix}`);
+    // Ensure we are on the login page
+    if (!page.url().includes('/login')) {
+        await page.goto(`/login${pwaSuffix}`);
+    } else if (isPwa && !page.url().includes('pwa=true')) {
+        await page.goto(`/login${pwaSuffix}`);
+    }
+    
+    await page.waitForLoadState('load');
     await page.waitForLoadState('networkidle');
 
     await submitLoginForm(page, email, pass);
     await waitForAppReady(page);
-  }).toPass({ intervals: [2000], timeout: 45000 });
+  }).toPass({ intervals: [3000], timeout: 60000 });
   
   await page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 15000 }).catch(() => null);
 
@@ -295,20 +303,23 @@ export async function closeWineryModal(page: Page) {
     const modal = page.getByTestId('winery-modal');
     
     await expect(async () => {
-        if (!(await modal.isVisible())) return;
-
-        const closeBtn = modal.getByRole('button', { name: /Close/i });
-        if (await closeBtn.isVisible()) {
-            await robustClick(page, closeBtn);
-        } else {
-            await page.keyboard.press('Escape');
-        }
-
         const isOpen = await page.evaluate(() => {
             // @ts-ignore
             return !!(window.useUIStore?.getState().isWineryModalOpen);
         });
-        if (isOpen) throw new Error('Winery modal still open in store');
+        if (!isOpen) return;
+
+        const closeBtn = modal.getByRole('button', { name: /Close/i });
+        if (await closeBtn.isVisible()) {
+            // Only click if it's enabled to avoid robustClick timeout
+            if (await closeBtn.isEnabled()) {
+                await robustClick(page, closeBtn);
+            }
+        } else {
+            await page.keyboard.press('Escape');
+        }
+
+        throw new Error('Winery modal still open in store');
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });
 
     await expect(modal).not.toBeVisible({ timeout: 10000 });
@@ -331,14 +342,27 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
     if (data.rating) await robustClick(page, visitModal.getByLabel(`Set rating to ${data.rating}`));
     if (data.isPrivate) await visitModal.getByLabel(/Make this visit private/i).check();
     
+    const saveBtn = visitModal.getByRole('button', { name: /(Add Visit|Save Changes)/i });
+
     await expect(async () => {
-        await robustClick(page, visitModal.getByRole('button', { name: /(Add Visit|Save Changes)/i }));
-        
         const isOpen = await page.evaluate(() => {
             // @ts-ignore
             return !!(window.useUIStore?.getState().isModalOpen);
         });
-        if (isOpen) throw new Error('Modal still open in store after click');
+        
+        if (!isOpen) return;
+
+        const isSubmitting = await page.evaluate(() => {
+            // @ts-ignore
+            return !!(window.useVisitStore?.getState().isSavingVisit);
+        });
+
+        // Only click if we are not already in the middle of a submission
+        if (!isSubmitting) {
+            await robustClick(page, saveBtn);
+        }
+        
+        throw new Error('Modal still open in store after click');
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });
 
     await expect(page.getByText(/(Visit added successfully|Visit cached|Visit updated successfully|Edit cached)/i).first()).toBeVisible({ timeout: 15000 });

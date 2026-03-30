@@ -37,9 +37,11 @@ To enable deep verification (e.g., RLS security checks, direct RPC probing), all
 ### 6. The Expected Error Rule
 In "Lie-Fi" or Offline tests, network errors are intentional.
 - **Rule:** Refine the `page.on('console')` listener in `e2e/utils.ts` to ignore `FunctionsHttpError`, `Edge Function failed`, `Load failed`, or `TypeError` during PWA offline tests.
-- **Error Injection:** Tests that manually fail RPCs (e.g., `error-handling.spec.ts`) MUST allow `Internal Server Error` and `Database Connection Failed`.
+- **Infrastructure Errors:** `WebKit encountered an internal error`, `net::ERR_FAILED`, and `Cross-Origin Request Blocked` (CORS) are often non-fatal in offline scenarios.
+- **Third-Party Noise Filter:** 
+    - Firefox-specific "Cookie __cf_bm has been rejected" errors MUST be ignored.
+    - Google Maps JavaScript API: "Unable to fetch configuration" errors are expected when offline and must be ignored.
 - **Firefox Note:** Firefox often logs complex objects as `JSHandle@object`. This string MUST be allowed in the `logHandler` to prevent false positives for fatal crashes.
-- **Third-Party Noise Filter:** Firefox-specific "Cookie __cf_bm has been rejected" errors MUST be ignored as non-actionable third-party noise. Use the `isThirdPartyNoise` boolean flag in `e2e/utils.ts` to filter these from the fatal error thrower.
 - **WebKit/PWA Note:** `TypeError: Load failed` is common in WebKit transitions. Additionally, `InvalidStateError` and `navigation preload` failures are common when Service Workers are enabled/disabled rapidly and should be treated as non-fatal warnings.
 
 

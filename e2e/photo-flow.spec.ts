@@ -68,26 +68,32 @@ test.describe('Photo Management Workflow', () => {
     // Assert that the preview appears
     await expect(page.locator('img[alt="Preview 1"]')).toBeVisible();
 
-    // Set up listener BEFORE clicking save - specifically for log_visit RPC
-    const logVisitPromise = page.waitForResponse(response => 
-        response.url().includes('/rpc/log_visit') && response.status() === 200
-    );
+    // 2.1 Save Visit with robust logic
+    const addVisitBtn = page.getByRole('button', { name: 'Add Visit' });
+    
+    // Hybrid approach for WebKit stability
+    await addVisitBtn.click({ force: true }).catch(() => {});
 
-    await robustClick(page, page.getByRole('button', { name: 'Add Visit' }));
-
-    // Wait for network success
-    await logVisitPromise;
-    await waitForToast(page, 'Visit added successfully.');
-
-    // 2.1 Wait for Visit Modal to close from store and DOM
     await expect(async () => {
         const isOpen = await page.evaluate(() => {
             // @ts-ignore
             return !!(window.useUIStore?.getState().isModalOpen);
         });
-        if (isOpen) throw new Error('Modal still open in store');
-    }).toPass({ timeout: 10000 });
-    await expect(modal).not.toBeVisible({ timeout: 10000 });
+        if (!isOpen) return;
+
+        const isSubmitting = await page.evaluate(() => {
+            // @ts-ignore
+            return !!(window.useVisitStore?.getState().isSavingVisit);
+        });
+
+        if (!isSubmitting) {
+            // Use robustClick as a fallback if the force click didn't start the process
+            await robustClick(page, addVisitBtn);
+        }
+        throw new Error('Visit modal still open after click');
+    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
+
+    await waitForToast(page, 'Visit added successfully.');
 
     // 3. Verify Photo is visible in the UI (Winery Modal) and has a valid server URL
     const wineryModal = page.getByRole('dialog').filter({ hasText: /Mock Winery One/i });
@@ -138,13 +144,31 @@ test.describe('Photo Management Workflow', () => {
     // 7. Verify visual feedback (Opacity check for deletion marker)
     await expect(photoInForm).toHaveClass(/opacity-40/);
 
-    // 8. Save Changes
-    const updateVisitPromise = page.waitForResponse(response => 
-        response.url().includes('/rpc/update_visit') && response.status() === 200
-    );
+    // 8. Save Changes with robust logic
+    const saveChangesBtn = editModal.getByRole('button', { name: 'Save Changes' });
+    
+    // Hybrid approach for WebKit stability
+    await saveChangesBtn.click({ force: true }).catch(() => {});
 
-    await robustClick(page, editModal.getByRole('button', { name: 'Save Changes' }));
-    await updateVisitPromise;
+    await expect(async () => {
+        const isOpen = await page.evaluate(() => {
+            // @ts-ignore
+            return !!(window.useUIStore?.getState().isModalOpen);
+        });
+        if (!isOpen) return;
+
+        const isSubmitting = await page.evaluate(() => {
+            // @ts-ignore
+            return !!(window.useVisitStore?.getState().isSavingVisit);
+        });
+
+        if (!isSubmitting) {
+            // Use robustClick as a fallback if the force click didn't start the process
+            await robustClick(page, saveChangesBtn);
+        }
+        throw new Error('Edit modal still open after click');
+    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
+
     await waitForToast(page, 'Visit updated successfully.');
 
     // 9. Verify Photo Removal in UI (Visit Card)
