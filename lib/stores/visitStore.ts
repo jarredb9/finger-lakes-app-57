@@ -221,6 +221,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           }, { headers: getE2EHeaders() } as any);
 
           if (rpcError) {
+              console.error('Failed to save visit:', rpcError);
               throw rpcError;
           }
           
@@ -513,10 +514,16 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
               p_visit_data: { ...visitData, photos: finalPhotoPaths, is_private: visitData.is_private }
           }, { headers: getE2EHeaders() } as any);
 
-          if (error) throw error;
+          if (error) {
+              console.error('Failed to update visit:', error);
+              throw error;
+          }
 
           if (photosToDelete.length > 0) {
-            await supabase.storage.from('visit-photos').remove(photosToDelete);
+            const { error: removeError } = await supabase.storage.from('visit-photos').remove(photosToDelete);
+            if (removeError) {
+                console.warn('Failed to remove deleted photos from storage:', removeError);
+            }
           }
 
           const finalVisit: VisitWithWinery = {

@@ -33,7 +33,9 @@ These standards move the project from "Defensive Survivability" to "Architectura
 
 1. **Atomic Speed:** Full feature tests (e.g., Trip Sharing) MUST run in under 15 seconds by bypassing navigation via `page.evaluate` state injection.
 2. **Pure Components:** Unit tests for UI components (Cards, Modals) MUST require zero store mocks; data is passed via raw JSON props.
-3. **Zero RobustPatching:** `robustClick()` is FORBIDDEN. Standard Playwright `.click()` must work; if it fails, the underlying hydration/visibility logic must be fixed.
-4. **Schema Enforcement:** 100% of mocks in `MockMapsManager` MUST be typed using `lib/database.types.ts`.
-5. **Portal Isolation:** Modals are tested in their local feature context, not via a global singleton renderer.
-6. **Zero-Guess Debugging:** All failures follow the "Mandatory Diagnostic Protocol" before any fix is attempted.
+3. **Synchronous Guards:** Mutating handlers (like `handleSave`) MUST use a `useRef` guard to prevent duplicate submissions from rapid synthetic events.
+4. **Modal Closure Retry:** E2E closure helpers MUST retry the close action (click/Escape) inside a `toPass` block that verifies the Store state (`isOpen === false`).
+5. **Schema Enforcement:** 100% of mocks in `MockMapsManager` MUST be typed using `lib/database.types.ts`.
+6. **Robust Interaction:** `robustClick()` is the current standard for Radix triggers in WebKit; standard `.click()` is preferred only for non-complex primitives.
+7. **Portal Transition:** While `GlobalModalRenderer` is the current implementation, new features should aim for local feature-owned Portals.
+8. **Zero-Guess Debugging:** All failures follow the "Mandatory Diagnostic Protocol" before any fix is attempted.

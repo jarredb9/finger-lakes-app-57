@@ -5,11 +5,11 @@
 - Your primary responsibility is ensuring that any code change is verifiable via **Store State Injection** rather than manual navigation.
 
 ## 2. 🚨 NEGATIVE CONSTRAINTS (CRITICAL)
-- **NEVER** use `robustClick()` or manual `dispatchEvent` calls; fix the hydration or visibility logic instead.
+- **NEVER** use `robustClick()` without a corresponding `useRef` synchronous guard in the component's submission handler.
 - **NEVER** write a "Long-Chain" E2E test (Login -> Navigate -> Click) for a local feature; use `page.evaluate` to inject state.
 - **NEVER** use raw JSON for RPC mocks; you MUST use types from `lib/database.types.ts`.
-- **NEVER** render modals as global singletons; use **Portals** owned by the feature component.
 - **NEVER** proceed to a new task until the **Smoke Test** (`e2e/smoke.spec.ts`) passes against WebKit.
+- **NEVER** close a modal in E2E without a `toPass` retry loop checking the store state.
 
 ## 3. Mandatory Research
 - Before writing a test, you MUST identify the minimum **Store State** required to render the feature.
