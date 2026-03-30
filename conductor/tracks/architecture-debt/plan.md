@@ -27,3 +27,10 @@ Objective: Consolidate the "ID Paradox" (Google vs DB ID).
 
 - [ ] Task 1: Centralize `ensureInDb` logic into `lib/services/wineryService.ts` to ensure consistent ID handling across Trips, Visits, and Favorites.
 - [ ] Task 2: Add a "Schema Integrity" check to the CI pipeline to catch `database.types.ts` drift before tests are run. **Verification:** CI fails if local types don't match the Supabase project schema.
+
+## Phase 5: Standard Finalization
+Objective: Codify the new stable state.
+
+- [ ] Task 1: Remove the "Migration & Transition Rule" from the `project-testing-best-practices` skill.
+- [ ] Task 2: Update `GEMINI.md` to move the Portal/Registry pattern from a "Plan" to a "Mandatory Core Standard."
+- [ ] Task 3: Archive the track and update the project CHANGELOG.

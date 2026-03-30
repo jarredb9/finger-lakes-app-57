@@ -22,9 +22,10 @@ Objective: Achieve "Zero-Mock" unit testing for UI components.
 - [ ] Task 2: Refactor `TripCard.test.tsx` and `VisitCardHistory.test.tsx` to use the factories and direct prop passing. **Verification:** Delete all `jest.mock('zustand')` lines and confirm tests still pass.
 - [ ] Task 3: Transition E2E "Success" assertions from "Toast Visibility" to "Store State Confirmation" using `page.evaluate`. **Verification:** Confirm full E2E suite runs 20% faster.
 
-## Phase 4: System Validation & Final Decoupling
-Objective: Ensure the "Complexity Ceiling" has been lowered.
+## Phase 4: System Validation & Codification
+Objective: Ensure the "Complexity Ceiling" has been lowered and codified.
 
 - [ ] Task 1: Perform a "Deletion Test." Temporarily rename `lib/stores` and verify that `components/ui` remains error-free in the IDE.
 - [ ] Task 2: Run the full E2E suite against WebKit in a high-latency Podman environment. **Verification:** 100% stability with zero `robustClick` calls.
-- [ ] Task 3: Archive the track and update the "Standard Operating Procedures" in `GEMINI.md` to mandate the Container/Presentational pattern for all new features.
+- [ ] Task 3: Update `GEMINI.md` Core Architectural Standards to strictly mandate the Container/Presentational pattern and provide a link to the refactored `TripCard` as the reference implementation.
+- [ ] Task 4: Archive the track and update the project CHANGELOG.
