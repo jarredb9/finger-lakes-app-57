@@ -41,6 +41,9 @@ In "Lie-Fi" or Offline tests, network errors are intentional.
 - **Third-Party Noise Filter:** 
     - Firefox-specific "Cookie __cf_bm has been rejected" errors MUST be ignored.
     - Google Maps JavaScript API: "Unable to fetch configuration" errors are expected when offline and must be ignored.
+- **The Alert Collision Filter:** 
+    - Generic `page.locator('[role="alert"]')` calls can fail by matching global Cookie Consent or PWA alerts.
+    - **Standard:** Always filter alerts by expected error text (e.g., `errorText.includes('Error Loading Trip')`) before declaring a test failure.
 - **Firefox Note:** Firefox often logs complex objects as `JSHandle@object`. This string MUST be allowed in the `logHandler` to prevent false positives for fatal crashes.
 - **WebKit/PWA Note:** `TypeError: Load failed` is common in WebKit transitions. Additionally, `InvalidStateError` and `navigation preload` failures are common when Service Workers are enabled/disabled rapidly and should be treated as non-fatal warnings.
 

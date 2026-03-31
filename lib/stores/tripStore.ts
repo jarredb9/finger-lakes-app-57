@@ -145,14 +145,20 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       fetchTripById: async (tripId: string) => {
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         try {
           const trip = await TripService.getTripById(tripId);
-          set(state => ({
-            trips: [...state.trips.filter(t => t.id !== trip.id), trip],
-            selectedTrip: state.selectedTrip?.id === trip.id ? trip : state.selectedTrip,
-            isLoading: false
-          }));
+          
+          set(state => {
+            const numericId = Number(trip.id);
+            const filteredTrips = state.trips.filter(t => Number(t.id) !== numericId);
+            return {
+              trips: [...filteredTrips, trip],
+              selectedTrip: state.selectedTrip && Number(state.selectedTrip.id) === numericId ? trip : state.selectedTrip,
+              isLoading: false,
+              error: null
+            };
+          });
 
           // After setting the trip, ensure all its wineries have their details.
           const { ensureWineryDetails } = useWineryStore.getState();
@@ -163,23 +169,22 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
           // Update the trip in the store with the newly fetched details
           set(state => {
+            const numericId = Number(trip.id);
             const newTrips = state.trips.map(t => {
-              if (t.id !== trip.id) return t;
+              if (Number(t.id) !== numericId) return t;
 
               const updatedWineries = t.wineries.map(wineryInTrip => {
                 const detailedWinery = detailedWineriesMap.get(wineryInTrip.id);
-                // Start with detailed data, then spread trip-specific data over it
-                // to ensure `notes` and `visits` are preserved.
                 return detailedWinery ? { ...detailedWinery, ...wineryInTrip } : wineryInTrip;
               });
               
-              const finalTrip = { ...t, wineries: updatedWineries };
-              return finalTrip;
+              return { ...t, wineries: updatedWineries };
             });
             return { trips: newTrips };
           });
-        } catch (error) {
-          set({ isLoading: false });
+        } catch (error: any) {
+          console.error("Failed to fetch trip details", error);
+          set({ isLoading: false, error: error.message || "Failed to load trip details." });
         }
       },
 
@@ -245,9 +250,9 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           // Replace temporary trip with the real one from the server in ALL lists
           set(state => {
             return {
-              tripsForDate: state.tripsForDate.map(t => t.id === tempId ? createdTrip! : t),
-              upcomingTrips: state.upcomingTrips.map(t => t.id === tempId ? createdTrip! : t),
-              trips: state.trips.map(t => t.id === tempId ? createdTrip! : t)
+              tripsForDate: state.tripsForDate.map(t => Number(t.id) === tempId ? createdTrip! : t),
+              upcomingTrips: state.upcomingTrips.map(t => Number(t.id) === tempId ? createdTrip! : t),
+              trips: state.trips.map(t => Number(t.id) === tempId ? createdTrip! : t)
             };
           });
 
@@ -256,9 +261,9 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           console.error("Failed to create trip, reverting optimistic update.", error);
           // On failure, remove the temporary trip from ALL lists
           set(state => ({ 
-            tripsForDate: state.tripsForDate.filter(t => t.id !== tempId),
-            upcomingTrips: state.upcomingTrips.filter(t => t.id !== tempId),
-            trips: state.trips.filter(t => t.id !== tempId)
+            tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tempId),
+            upcomingTrips: state.upcomingTrips.filter(t => Number(t.id) !== tempId),
+            trips: state.trips.filter(t => Number(t.id) !== tempId)
           }));
           throw error; // Re-throw to be caught by the UI
         }
@@ -271,8 +276,8 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
         // Optimistically remove from both lists
         set(state => ({ 
-          trips: state.trips.filter(t => t.id !== tripIdAsNumber),
-          tripsForDate: state.tripsForDate.filter(t => t.id !== tripIdAsNumber),
+          trips: state.trips.filter(t => Number(t.id) !== tripIdAsNumber),
+          tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tripIdAsNumber),
         }));
 
         try {
@@ -288,7 +293,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         const tripIdAsNumber = parseInt(tripId, 10);
         set(state => {
           const newTrips = state.trips.map(trip =>
-            trip.id === tripIdAsNumber ? { ...trip, ...updates } : trip
+            Number(trip.id) === tripIdAsNumber ? { ...trip, ...updates } : trip
           );
           return { trips: newTrips };
         });
@@ -304,7 +309,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       updateWineryOrder: async (tripId: string, wineryIds: number[]) => {
         const tripIdAsNumber = parseInt(tripId, 10);
         const originalTrips = get().trips;
-        const tripToUpdate = originalTrips.find(t => t.id === tripIdAsNumber);
+        const tripToUpdate = originalTrips.find(t => Number(t.id) === tripIdAsNumber);
 
         if (!tripToUpdate) return;
 
@@ -314,11 +319,11 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         ).filter((w): w is Winery => w !== undefined);
 
         // Optimistically update the state
-        set(state => ({
-          trips: state.trips.map(t => 
-            t.id === tripIdAsNumber ? { ...t, wineries: reorderedWineries } : t
-          )
-        }));
+          set(state => ({
+            trips: state.trips.map(t => 
+              Number(t.id) === tripIdAsNumber ? { ...t, wineries: reorderedWineries } : t
+            )
+          }));
 
         try {
           // Send the update to the backend. The backend only needs the order of IDs.
@@ -334,7 +339,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       removeWineryFromTrip: async (tripId: string, wineryId: number) => {
         const tripIdAsNumber = parseInt(tripId, 10);
         const originalTrips = get().trips;
-        const tripIndex = originalTrips.findIndex(t => t.id === tripIdAsNumber);
+        const tripIndex = originalTrips.findIndex(t => Number(t.id) === tripIdAsNumber);
         if (tripIndex === -1) return;
 
         const tripToUpdate = originalTrips[tripIndex];
@@ -370,7 +375,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         // Optimistic Update
         set(state => ({
           trips: state.trips.map(t => {
-            if (t.id !== tripIdAsNumber) return t;
+            if (Number(t.id) !== tripIdAsNumber) return t;
             return {
               ...t,
               wineries: t.wineries.map(w => 
@@ -396,7 +401,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         // Optimistic Update
         set(state => ({
           trips: state.trips.map(t => {
-            if (t.id !== tripIdAsNumber) return t;
+            if (Number(t.id) !== tripIdAsNumber) return t;
             return {
               ...t,
               wineries: t.wineries.map(w => 
@@ -418,7 +423,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       addMembersToTrip: async (tripId: string, _memberIds: string[]) => {
         const tripIdAsNumber = parseInt(tripId, 10);
         const originalTrips = get().trips;
-        const tripToUpdate = originalTrips.find(t => t.id === tripIdAsNumber);
+        const tripToUpdate = originalTrips.find(t => Number(t.id) === tripIdAsNumber);
         
         if (!tripToUpdate) return;
 

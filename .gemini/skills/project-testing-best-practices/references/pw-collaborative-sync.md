@@ -25,6 +25,8 @@ expect(members[0]).toMatchObject({
 ### 4. Ownership Verification
 Verify that the `user_id` (owner) is returned in the trip list and details. UI components that use `isOwner` logic (e.g., `TripCard`) depend on this field to enable or disable features like deletion or editing. 
 - **Rule:** If `isOwner` is incorrectly returning `false`, verify that `TripService.getTrips` or the relevant RPC is explicitly selecting the `user_id` column.
+- **Relational ID Robustness:** Supabase often serializes IDs as Strings in nested objects but Numbers in top-level records.
+- **Standard:** Zustand stores MUST cast all relational IDs to `Number()` upon retrieval to ensure `isOwner` and filter logic is stable across all data sources.
 - **Verification:** Log the trip object in a `[DIAGNOSTIC]` block within the test to check for the presence and correctness of `user_id` versus the current user's ID.
 
 ### 2. Multi-Member Visibility
