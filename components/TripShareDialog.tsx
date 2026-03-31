@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react"
+import { createPortal } from "react-dom"
 import {
   Dialog,
   DialogContent,
@@ -44,6 +45,16 @@ export function TripShareDialog({
   const [members, setMembers] = useState<TripMember[]>([])
   const [isLoadingMembers, setIsLoadingMembers] = useState(false)
   const hasFetchedRef = useRef(false);
+  const [modalRoot, setModalRoot] = useState<HTMLElement | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const handle = requestAnimationFrame(() => {
+        setMounted(true);
+        setModalRoot(document.getElementById("modal-root"));
+    });
+    return () => cancelAnimationFrame(handle);
+  }, []);
 
   const fetchTripMembers = useCallback(async () => {
     if (!tripId) return
@@ -109,9 +120,11 @@ export function TripShareDialog({
     }
   }
 
+  if (!mounted || !modalRoot) return null;
+
   const isOwner = members.find(m => m.id === user?.id)?.role === 'owner'
 
-  return (
+  return createPortal(
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md flex flex-col max-h-[90dvh]" data-testid="trip-share-dialog">
         <DialogHeader>
@@ -223,6 +236,7 @@ export function TripShareDialog({
           </div>
         </div>
       </DialogContent>
-    </Dialog>
+    </Dialog>,
+    modalRoot
   )
 }

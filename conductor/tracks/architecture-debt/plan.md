@@ -8,18 +8,18 @@
 ## Phase 1: Store & Hydration Cleanup
 Objective: Eliminate 15+ second E2E hydration delays.
 
-- [x] Task 1: Audit `tripStore.ts`, `visitStore.ts`, and `wineryDataStore.ts` persistence. Move `trips`, `visits`, and `wineries` to `unpersisted` state.
-- [x] Task 2: Implement a conditional persistence bypass for E2E mode in all stores (`persist: NEXT_PUBLIC_IS_E2E !== 'true'`).
-- [x] Task 3: Refactor the `GlobalModalRenderer` to clear all stateful content on `closeModal` to prevent stale UI flashes between tests.
-- [ ] Task 4: **Verification:** Confirm `localStorage` contains < 500 bytes of data after reload. Confirm `isModalOpen` is `false` and `modalContent` is `null` after closing.
+- [x] Task 1: Audit `tripStore.ts`, `visitStore.ts`, and `wineryDataStore.ts` persistence. Move `trips`, `visits`, and `wineries` to `unpersisted` state. (f9cf3db)
+- [x] Task 2: Implement a conditional persistence bypass for E2E mode in all stores (`persist: NEXT_PUBLIC_IS_E2E !== 'true'`). (f9cf3db)
+- [x] Task 3: Refactor the `GlobalModalRenderer` to clear all stateful content on `closeModal` to prevent stale UI flashes between tests. (f9cf3db)
+- [x] Task 4: **Verification:** Confirm `localStorage` contains < 500 bytes of data after reload. Confirm `isModalOpen` is `false` and `modalContent` is `null` after closing.
 
 ## Phase 2: Modal Architecture & Portals
 Objective: Decouple feature logic from the "God Renderer" singleton.
 
-- [x] Task 1: Implement a `ModalHost` component at the root of `layout.tsx` to handle standard React Portals.
-- [ ] Task 2: Refactor `VisitForm` and `WineryNoteEditor` to be defined locally within their parent components and use Portals to render into `ModalHost`.
-- [ ] Task 3: Migrate `TripShareDialog` to the same Portal pattern, removing it from `GlobalModalRenderer`. **Verification:** Confirm sharing dialog still opens via store trigger but is managed locally by the feature.
-- [ ] Task 4: **Verification:** Run `e2e/visit-flow.spec.ts` and `e2e/trip-sharing.spec.ts` to ensure zero regressions in modal behavior.
+- [x] Task 1: Implement a `ModalHost` component at the root of `layout.tsx` to handle standard React Portals. (f9cf3db)
+- [x] Task 2: Refactor `VisitForm` and `WineryNoteEditor` to be defined locally within their parent components and use Portals to render into `ModalHost`.
+- [x] Task 3: Migrate `TripShareDialog` to the same Portal pattern, removing it from `GlobalModalRenderer`. **Verification:** Confirm sharing dialog still opens via store trigger but is managed locally by the feature.
+- [x] Task 4: **Verification:** Run `e2e/visit-flow.spec.ts` and `e2e/trip-sharing.spec.ts` to ensure zero regressions in modal behavior.
 
 ## Phase 3: Type-Safe Testing Infrastructure
 Objective: Eliminate the "Numeric ID" and "Selector Drift" bugs.
@@ -38,6 +38,6 @@ Objective: Consolidate the "ID Paradox" (Google vs DB ID).
 ## Phase 5: Standard Finalization
 Objective: Codify the new stable state.
 
-- [ ] Task 1: Remove the "Migration & Transition Rule" from the `project-testing-best-practices` skill.
+- [ ] Task 1: Remove the "Migration & Transition Rule" from the `project-testing-best-practices` skill and update the skill based on changes made in this track.
 - [ ] Task 2: Update `GEMINI.md` to move the Portal/Registry pattern from a "Plan" to a "Mandatory Core Standard."
 - [ ] Task 3: Archive the track and update the project CHANGELOG.
