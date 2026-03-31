@@ -332,7 +332,12 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'winery-data-storage-e2e' : 'winery-data-storage',
-      partialize: (state) => ({ persistentWineries: state.persistentWineries }),
+      partialize: (_state) => {
+        if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
+        return { 
+          // wineryDataStore can be completely empty if we don't persist persistentWineries
+        };
+      },
     }
   )
 );

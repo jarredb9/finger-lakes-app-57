@@ -693,13 +693,15 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'visit-storage-e2e' : 'visit-storage',
-      partialize: (state) => ({ 
-        visits: state.visits, 
-        page: state.page, 
-        totalPages: state.totalPages, 
-        hasMore: state.hasMore,
-        lastMutation: state.lastMutation
-      }),
+      partialize: (state) => {
+        if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
+        return { 
+          page: state.page, 
+          totalPages: state.totalPages, 
+          hasMore: state.hasMore,
+          lastMutation: state.lastMutation
+        };
+      },
     }
   ),
   shallow

@@ -664,14 +664,14 @@ export const useTripStore = createWithEqualityFn<TripState>()(
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'trip-storage-e2e' : 'trip-storage',
-      partialize: (state) => ({ 
-        trips: state.trips, 
-        upcomingTrips: state.upcomingTrips,
-        tripsForDate: state.tripsForDate,
-        page: state.page,
-        count: state.count,
-        hasMore: state.hasMore
-      }),
+      partialize: (state) => {
+        if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
+        return { 
+          page: state.page,
+          count: state.count,
+          hasMore: state.hasMore
+        };
+      },
     }
   )
 );

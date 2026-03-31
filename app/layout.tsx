@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from '@/components/auth-provider'
 import { GlobalModalRenderer } from '@/components/global-modal-renderer'
+import { ModalHost } from '@/components/modal-host'
 import { PwaHandler } from '@/components/pwa-handler'
 import { E2EStoreExposer } from '@/components/e2e-store-exposer'
 
@@ -82,6 +83,7 @@ export default function RootLayout({
               <PwaHandler />
               <TripShareDialogWrapper />
               <GlobalModalRenderer />
+              <ModalHost />
             </main>
             {(process.env.NODE_ENV !== 'production' || process.env.IS_E2E === 'true') && <E2EStoreExposer />}
             <CookieConsent />
