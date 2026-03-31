@@ -18,15 +18,15 @@ jest.mock('@/hooks/use-toast', () => ({
 
 // Simple mock for Select to avoid Radix complexity in unit tests
 jest.mock('@/components/ui/select', () => ({
-  Select: ({ children, value, onValueChange }: any) => (
-    <select value={value} onChange={(e) => onValueChange(e.target.value)}>
+  Select: ({ children }: any) => (
+    <div data-testid="mock-select">
       {children}
-    </select>
+    </div>
   ),
   SelectTrigger: ({ children }: any) => <div>{children}</div>,
   SelectValue: ({ placeholder }: any) => <span>{placeholder}</span>,
   SelectContent: ({ children }: any) => <div>{children}</div>,
-  SelectItem: ({ children, value }: any) => <option value={value}>{children}</option>,
+  SelectItem: ({ children }: any) => <button onClick={() => {}}>{children}</button>,
 }));
 
 describe('PrivacySettings Component', () => {

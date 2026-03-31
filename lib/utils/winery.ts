@@ -34,18 +34,18 @@ function isGoogleWinery(source: any): source is GoogleWinery {
 
 // Helper to check if a source is MapMarkerRpc
 function isMapMarkerRpc(source: any): source is MapMarkerRpc {
-  // Must have MapMarker fields. We are more lenient now to allow omission of user state flags in mocks.
+  // MapMarkerRpc always has lat/lng and google_place_id
   return (
     'google_place_id' in source &&
-    !('visits' in source) &&
-    !('opening_hours' in source)
+    ('lat' in source || 'latitude' in source) &&
+    !('visits' in source)
   );
 }
 
 // Helper to check if a source is WineryDetailsRpc
 function isWineryDetailsRpc(source: any): source is WineryDetailsRpc {
-    // We check for visits and opening_hours to distinguish from MapMarkerRpc
-    return 'visits' in source && ('opening_hours' in source || 'reviews' in source); 
+    // WineryDetailsRpc is the ONLY one with 'visits'
+    return 'google_place_id' in source && 'visits' in source; 
 }
 
 // Helper to check if a source has raw DbWinery properties (without extended user data from RPC)

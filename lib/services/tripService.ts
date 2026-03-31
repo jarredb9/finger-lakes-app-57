@@ -1,5 +1,6 @@
 import { createClient } from '@/utils/supabase/client';
 import { Trip } from '@/lib/types';
+import { getTodayLocal, formatDateLocal } from '@/lib/utils';
 
 export const TripService = {
   async getTrips(page: number, type: 'upcoming' | 'past', limit = 6) {
@@ -7,7 +8,7 @@ export const TripService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Unauthorized");
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = getTodayLocal();
     const rangeFrom = (page - 1) * limit;
     const rangeTo = rangeFrom + limit - 1;
 
@@ -16,6 +17,7 @@ export const TripService = {
       .from("trips")
       .select(`
           id,
+          user_id,
           name,
           trip_date,
           trip_wineries (count),
@@ -37,7 +39,8 @@ export const TripService = {
     const formattedTrips = trips?.map((t: any) => ({
       ...t,
       wineries_count: t.trip_wineries?.[0]?.count || 0,
-      wineries: [] // List view doesn't need full winery details
+      wineries: [], // List view doesn't need full winery details
+      members: [] // List view usually doesn't need full member details either
     }));
 
     return { trips: formattedTrips || [], count: count || 0 };
@@ -65,7 +68,8 @@ export const TripService = {
 
   async getTripsForDate(dateString: string) {
     const supabase = createClient();
-    const formattedDate = new Date(dateString).toISOString().split('T')[0];
+    // Standardize to local YYYY-MM-DD
+    const formattedDate = formatDateLocal(new Date(dateString + 'T00:00:00'));
     const { data, error } = await supabase.rpc('get_trips_for_date', { target_date: formattedDate });
 
     if (error) throw new Error(error.message);
@@ -94,7 +98,7 @@ export const TripService = {
                 website: w.website,
                 rating: w.rating
             },
-            p_members: trip.members || null
+            p_members: []
         });
 
         if (error) throw error;
@@ -110,29 +114,15 @@ export const TripService = {
         return this.getTripById(data.trip_id.toString());
     }
 
-    // Fallback for trip without wineries (Basic Insert)
-    const { data: { user } } = await supabase.auth.getUser();
-    const { data: newTrip, error } = await supabase
-        .from("trips")
-        .insert({ 
-            user_id: user?.id, 
-            trip_date: trip.trip_date, 
-            name: trip.name
-        })
-        .select("*")
-        .single();
+    // Fallback for trip without wineries (Use RPC for robustness)
+    const { data, error } = await supabase.rpc('create_trip', {
+        p_name: trip.name || 'New Trip',
+        p_trip_date: trip.trip_date
+    });
 
     if (error) throw error;
 
-    // Add creator to trip_members
-    await supabase.from('trip_members').insert({
-        trip_id: newTrip.id,
-        user_id: user?.id,
-        role: 'owner',
-        status: 'joined'
-    });
-
-    return { ...newTrip, wineries: [], members: [user?.id] } as Trip;
+    return this.getTripById(data.id.toString());
   },
 
   async deleteTrip(tripId: string) {
@@ -220,6 +210,23 @@ export const TripService = {
     }
 
     return data;
+  },
+
+  async removeMember(tripId: number, userId: string) {
+    const supabase = createClient();
+    const { error } = await supabase
+        .from('trip_members')
+        .delete()
+        .eq('trip_id', tripId)
+        .eq('user_id', userId)
+        .neq('role', 'owner'); // Safety: cannot remove owner
+
+    if (error) {
+        console.error("Error removing member:", error);
+        throw new Error(error.message || "Failed to remove member.");
+    }
+
+    return { success: true };
   },
 
   async addWineryToNewTrip(date: string, wineryId: number, notes: string, name: string) {

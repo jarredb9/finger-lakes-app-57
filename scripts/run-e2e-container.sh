@@ -25,6 +25,7 @@ echo "📦 Image: $IMAGE"
 
 if [ "$SHOULD_BUILD" = true ]; then
     echo "🏗️  Forcing a fresh production build..."
+    rm -rf .next
 fi
 
 # Determine command based on argument
@@ -48,8 +49,16 @@ if ! podman image exists "$IMAGE"; then
 fi
 
 # 3. Run the container
-# We pass the TEST_CMD as an environment variable to avoid shell escaping issues
+# Use a unique name to prevent stale container persistence
+CONTAINER_NAME="winery-e2e-$(date +%s)"
+podman stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
+podman rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
+
+# Flush filesystem to ensure volume mount sees latest changes
+sync
+
 podman run --rm -it \
+    --name "$CONTAINER_NAME" \
     --network=host \
     -v "$(pwd):/work:Z" \
     --userns=keep-id \
@@ -57,6 +66,7 @@ podman run --rm -it \
     --security-opt seccomp=unconfined \
     -w /work \
     -e IS_E2E=true \
+    -e NEXT_PUBLIC_IS_E2E=true \
     -e E2E_REAL_DATA="$E2E_REAL_DATA" \
     -e TEST_CMD="$TEST_CMD" \
     -e SHOULD_BUILD="$SHOULD_BUILD" \
@@ -69,7 +79,10 @@ podman run --rm -it \
 
         if [ "$SHOULD_BUILD" = "true" ]; then
             echo "🧹 Cleaning and building inside container..."
+            echo "🔍 Sanity Check: e2e/utils.ts console listener:"
+            grep -A 5 "page.on(" e2e/utils.ts
             rm -rf .next
+            npm install
             npm run build
         fi
         

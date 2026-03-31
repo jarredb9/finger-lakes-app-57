@@ -4,17 +4,19 @@ import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, Share2 } from "lucide-react";
 import { useTripStore } from "@/lib/stores/tripStore";
 import TripCard from "@/components/trip-card";
 import { AuthenticatedUser } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import TripForm from "./trip-form";
+import { useUIStore } from "@/lib/stores/uiStore";
 
 export default function TripPlanner({ initialDate, user, hideCalendar = false, hideTrips = false }: { initialDate: Date, user: AuthenticatedUser, hideCalendar?: boolean, hideTrips?: boolean }) {
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
     const [isCreateTripModalOpen, setCreateTripModalOpen] = useState(false);
+    const { openShareDialog } = useUIStore();
     const [isMounted, setIsMounted] = useState(false);
 
     const { tripsForDate = [], isLoading, fetchTripsForDate } = useTripStore();
@@ -56,17 +58,30 @@ export default function TripPlanner({ initialDate, user, hideCalendar = false, h
                     <h2 className="text-lg font-bold">
                         {isMounted && selectedDate ? selectedDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '...'}
                     </h2>
-                    <Dialog open={isCreateTripModalOpen} onOpenChange={setCreateTripModalOpen}>
-                        <DialogTrigger asChild>
-                            <Button size="sm" className="w-full sm:w-auto"><PlusCircle className="mr-2 h-4 w-4" /> New Trip</Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                            <DialogHeader>
-                                <DialogTitle>Create a New Trip</DialogTitle>
-                            </DialogHeader>
-                            <TripForm user={user} initialDate={selectedDate} />
-                        </DialogContent>
-                    </Dialog>
+                    <div className="flex gap-2 w-full sm:w-auto">
+                        {tripsForDate.length > 0 && (
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="flex-1 sm:flex-none"
+                                onClick={() => openShareDialog(tripsForDate[0].id.toString(), `Itinerary for ${selectedDate?.toLocaleDateString()}`)}
+                                data-testid="share-day-btn"
+                            >
+                                <Share2 className="mr-2 h-4 w-4" /> Share Day
+                            </Button>
+                        )}
+                        <Dialog open={isCreateTripModalOpen} onOpenChange={setCreateTripModalOpen}>
+                            <DialogTrigger asChild>
+                                <Button size="sm" className="flex-1 sm:flex-none"><PlusCircle className="mr-2 h-4 w-4" /> New Trip</Button>
+                            </DialogTrigger>
+                            <DialogContent>
+                                <DialogHeader>
+                                    <DialogTitle>Create a New Trip</DialogTitle>
+                                </DialogHeader>
+                                <TripForm user={user} initialDate={selectedDate} />
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                 </div>
 
                 {isLoading ? (

@@ -10,9 +10,12 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
+const SW_VERSION = "2.8.2-stable-" + Date.now();
+console.log(`[SW] Initializing Version: ${SW_VERSION}`);
+
 const serwist = new Serwist({
-  precacheEntries: self.__SW_MANIFEST,
-  skipWaiting: false, // Changed to false for manual updates
+  precacheEntries: self.__SW_MANIFEST || [],
+  skipWaiting: true, // Force activation
   clientsClaim: true,
   navigationPreload: true,
   fallbacks: {
@@ -43,10 +46,27 @@ const serwist = new Serwist({
       }),
     },
     // Supabase API - Network Only (Let App Handle Persistence)
+    // CRITICAL: In E2E mode, we bypass the SW for API calls to ensure Playwright interception works.
     {
-      matcher: ({ url }) => 
-        url.hostname.includes("supabase.co") && 
-        !url.pathname.includes("/storage/v1/object/public"), // Explicitly exclude storage
+      matcher: ({ url, request }) => {
+        const isE2EParam = self.location.search.includes('pwa=true');
+        const isE2EEnv = process.env.NEXT_PUBLIC_IS_E2E === 'true';
+        const skipHeader = request?.headers.get('x-skip-sw-interception') === 'true';
+        const isE2E = isE2EParam || isE2EEnv || skipHeader;
+        
+        const isSupabaseApi = url.hostname.includes("supabase.co") && !url.pathname.includes("/storage/v1/object/public");
+        
+        if (isSupabaseApi && isE2E) {
+            console.log(`[SW] E2E Bypass active for: ${url.pathname} (Env: ${isE2EEnv}, Param: ${isE2EParam}, Header: ${skipHeader})`);
+            return false; // Bypass SW
+        }
+        
+        if (isSupabaseApi) {
+            console.log(`[SW] Handling Supabase API: ${url.pathname}`);
+        }
+        
+        return isSupabaseApi;
+      },
       handler: new NetworkOnly(),
     },
     // Cache Google Maps Tiles with Fallback
@@ -72,7 +92,6 @@ const serwist = new Serwist({
           throw new Error("No response from strategy");
         } catch (error) {
           // Return transparent 1x1 pixel to prevent "No Imagery" errors
-          // allowing the map to show the underlying fuzzy lower-zoom tile if available
           return new Response(
             new Blob([
               new Uint8Array([
@@ -107,6 +126,7 @@ const serwist = new Serwist({
           new ExpirationPlugin({
             maxEntries: 64,
             maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+            purgeOnQuotaError: true,
           }),
         ],
       }),

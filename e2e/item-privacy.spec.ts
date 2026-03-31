@@ -9,7 +9,8 @@ import {
     closeWineryModal,
     ensureSidebarExpanded,
     robustClick,
-    ensureProfileReady
+    ensureProfileReady,
+    waitForToast
 } from './helpers';
 
 test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
@@ -29,15 +30,15 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
 
       // 3. Setup: Login and establish friendship
       await test.step('Initial Setup: Login & Friendship', async () => {
-        await managerA.initDefaultMocks();
         await managerA.useRealSocial();
         await managerA.useRealFavorites();
+        await managerA.initDefaultMocks({ currentUserId: user1.id });
         await login(pageA, user1.email, user1.password);
         await ensureProfileReady(pageA);
 
-        await managerB.initDefaultMocks();
         await managerB.useRealSocial();
         await managerB.useRealFavorites();
+        await managerB.initDefaultMocks({ currentUserId: user2.id });
         await login(pageB, user2.email, user2.password);
         await ensureProfileReady(pageB);
 
@@ -83,14 +84,15 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         await openWineryDetails(pageA, 'Mock Winery One');
         
         const favPrivacyToggle = pageA.getByLabel(/Make favorite private/i);
-        
         await robustClick(pageA, favPrivacyToggle);
-        await expect(pageA.getByText(/Favorite is now private/i).first()).toBeVisible();
+        await waitForToast(pageA, /Favorite is now private/i);
+
+        // Small delay to allow the first toast to settle/not overlap with the next toggle click if needed
+        await pageA.waitForTimeout(500);
 
         const wishPrivacyToggle = pageA.getByLabel(/Make wishlist item private/i);
-        
         await robustClick(pageA, wishPrivacyToggle);
-        await expect(pageA.getByText(/Wishlist item is now private/i).first()).toBeVisible();
+        await waitForToast(pageA, /Wishlist item is now private/i);
 
         await closeWineryModal(pageA);
       });

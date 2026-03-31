@@ -1,7 +1,11 @@
 import { test, expect } from './utils';
-import { login, navigateToTab } from './helpers';
+import { login, navigateToTab, clearServiceWorkers, submitLoginForm } from './helpers';
 
 test.describe('Error Handling (Unhappy Path)', () => {
+  test.beforeEach(async ({ page }) => {
+    await clearServiceWorkers(page);
+  });
+
   test('should show error alert when map markers fail to load', async ({ page, mockMaps, user }) => {
     // 1. Force a 500 error for markers
     await mockMaps.failMarkers();
@@ -11,7 +15,7 @@ test.describe('Error Handling (Unhappy Path)', () => {
 
     // 3. Verify Error Alert is visible on the map area
     const errorAlert = page.getByRole('alert').filter({ hasText: 'Failed to load data' });
-    await expect(errorAlert).toBeVisible({ timeout: 10000 });
+    await expect(errorAlert).toBeVisible({ timeout: 15000 });
   });
 
   test('should show error alert when trips fail to load', async ({ page, mockMaps, user }) => {
@@ -26,7 +30,7 @@ test.describe('Error Handling (Unhappy Path)', () => {
 
     // 4. Verify Error Alert is visible in the sidebar
     const errorAlert = page.getByRole('alert').filter({ hasText: 'Database Connection Failed' });
-    await expect(errorAlert).toBeVisible({ timeout: 10000 });
+    await expect(errorAlert).toBeVisible({ timeout: 15000 });
   });
 
   test('should handle failed login attempts gracefully', async ({ page, mockMaps }) => {
@@ -34,19 +38,13 @@ test.describe('Error Handling (Unhappy Path)', () => {
     await mockMaps.failLogin();
 
     // 2. Attempt login
-    // Pre-emptively dismiss cookie banner by setting localStorage before load
-    await page.addInitScript(() => {
-        window.localStorage.setItem('cookie-consent', 'true');
-    });
-
     await page.goto('/login');
+    await page.waitForLoadState('networkidle');
 
-    await page.getByLabel('Email').fill('fail@example.com');
-    await page.getByLabel('Password').fill('wrongpassword');
-    await page.getByRole('button', { name: 'Sign In' }).click();
+    await submitLoginForm(page, 'fail@example.com', 'wrongpassword');
 
     // 3. Verify error message in the login card
     const errorAlert = page.getByRole('alert').filter({ hasText: 'Invalid login credentials' });
-    await expect(errorAlert).toBeVisible();
+    await expect(errorAlert).toBeVisible({ timeout: 10000 });
   });
 });

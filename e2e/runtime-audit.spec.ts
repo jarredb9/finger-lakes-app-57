@@ -56,9 +56,7 @@ test.describe('Runtime & Performance Audit', () => {
     }).toPass({ timeout: 10000 });
 
     // 6. Performance Check
-    const wineries = await page.locator('[data-testid="winery-card"]').count();
-    console.log(`[Audit] Loaded ${wineries} winery cards.`);
-    
+    await page.locator('[data-testid="winery-card"]').count();
     // 7. Fail if critical errors occurred
     const hydrationErrors = consoleMessages.filter(m => 
         m.toLowerCase().includes('hydration') || 

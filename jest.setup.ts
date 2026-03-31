@@ -44,6 +44,21 @@ if (typeof global.Headers === 'undefined') {
   global.Headers = (require('node-fetch').Headers) as any;
 }
 
+// Polyfill matchMedia for JSDOM
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: jest.fn().mockImplementation(query => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: jest.fn(), // Deprecated
+    removeListener: jest.fn(), // Deprecated
+    addEventListener: jest.fn(),
+    removeEventListener: jest.fn(),
+    dispatchEvent: jest.fn(),
+  })),
+});
+
 // Mock the 'next/cache' functions that are used by server actions
 jest.mock('next/cache', () => ({
   revalidatePath: jest.fn(),

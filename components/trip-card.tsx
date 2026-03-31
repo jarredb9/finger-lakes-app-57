@@ -1,28 +1,30 @@
+"use client";
+
 import { memo, useState, useEffect } from "react";
-import { Trip, Winery, Friend, Visit } from "@/lib/types";
+import { Trip, Winery, Visit, TripMember } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Check, Share2, Star } from "lucide-react";
+import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Share2, Star, Wine } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { DatePicker } from "./DatePicker";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import DailyHours from "@/components/DailyHours";
-import WineryNoteEditor from "./WineryNoteEditor";
-import { cn } from "@/lib/utils";
 import { useTripActions } from "@/hooks/use-trip-actions";
 import { calculateDistance, formatDistance } from "@/lib/utils/geo";
+import { useUIStore } from "@/lib/stores/uiStore";
+import { useUserStore } from "@/lib/stores/userStore";
 
 interface TripCardProps {
   trip: Trip;
 }
 
-const WineryReviews = ({ visits, currentUserId, members }: { visits: Visit[], currentUserId: string, members: Friend[] }) => {
+const WineryReviews = ({ visits, currentUserId, members }: { visits: Visit[], currentUserId: string, members: TripMember[] }) => {
   if (!visits || visits.length === 0) {
     return null;
   }
@@ -65,27 +67,38 @@ const WineryReviews = ({ visits, currentUserId, members }: { visits: Visit[], cu
 
 const TripCard = memo(({ trip }: TripCardProps) => {
   const { toast } = useToast();
-  const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote, addMembersToTrip } = useTripStore();
+  const { updateTrip, deleteTrip, updateWineryOrder, toggleWineryOnTrip, removeWineryFromTrip, saveWineryNote } = useTripStore();
+  const { user } = useUserStore();
   
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const { 
-    friends, 
-    selectedFriends, 
     currentMembers, 
-    handleExportToMaps, 
-    toggleFriendSelection 
+    handleExportToMaps 
   } = useTripActions(trip);
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editedName, setEditedName] = useState(trip.name || "");
-  const [editedDate, setEditedDate] = useState<Date | undefined>(new Date(trip.trip_date));
+  const [editedName, setEditedName] = useState(trip?.name || "");
+  const [editedDate, setEditedDate] = useState<Date | undefined>(() => {
+    try {
+      if (!trip?.trip_date) return undefined;
+      return new Date(trip.trip_date + 'T00:00:00');
+    } catch (e) {
+      return undefined;
+    }
+  });
   const [winerySearch, setWinerySearch] = useState("");
   const [searchResults, setSearchResults] = useState<Winery[]>([]);
   const [isSearching, setIsSearching] = useState(false);
 
   const [addWineryPopoverOpen, setAddWineryPopoverOpen] = useState(false);
+  const { openShareDialog, openWineryNoteEditor } = useUIStore();
 
   useEffect(() => {
-    if (!winerySearch.trim()) {
+    if (!winerySearch.trim() || !trip?.wineries) {
       setSearchResults([]);
       return;
     }
@@ -105,7 +118,6 @@ const TripCard = memo(({ trip }: TripCardProps) => {
           const finalResults = results.filter(r => !tripWineryIds.has(r.id));
           setSearchResults(finalResults);
         } catch (error) {
-          console.error("[TripCard] Winery search failed:", error);
           toast({ variant: "destructive", description: "Winery search failed." });
         } finally {
           setIsSearching(false);
@@ -115,7 +127,16 @@ const TripCard = memo(({ trip }: TripCardProps) => {
     }, 500); // 500ms debounce
 
     return () => clearTimeout(debounceSearch);
-  }, [winerySearch, trip.wineries, toast]);
+  }, [winerySearch, trip?.wineries, toast]);
+
+  // Guard against missing trip or trip_date early (after hooks)
+  if (!trip || !trip.trip_date) {
+    return null;
+  }
+
+  const isOwner = user?.id && trip.user_id && String(user.id).toLowerCase() === String(trip.user_id).toLowerCase();
+  const isMember = trip.members?.some(m => m.id === user?.id);
+  const canEdit = isOwner || isMember;
 
   // Get the most up-to-date winery data from the persistent store
   const tripWineries = trip.wineries || [];
@@ -173,101 +194,214 @@ const TripCard = memo(({ trip }: TripCardProps) => {
     }
   };
 
-  const onFriendSelect = (friendId: string) => {
-    const newSelectedFriends = toggleFriendSelection(friendId);
-    
-    addMembersToTrip(trip.id.toString(), newSelectedFriends)
-      .then(() => {
-        toast({ description: "Trip members updated." });
-      })
-      .catch(() => {
-        toast({ variant: "destructive", description: "Failed to update members." });
-      });
+  // Safe date rendering helper
+  const getSafeDateString = (dateStr: string) => {
+    try {
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return "Invalid Date";
+      return d.toLocaleDateString();
+    } catch (e) {
+      return "Invalid Date";
+    }
   };
-  
+
   return (
-    <Card className="w-full overflow-hidden">
-      <CardHeader className="bg-gray-50">
-        {isEditing ? (
-          <div className="flex items-center gap-2">
-            <Input value={editedName} onChange={(e) => setEditedName(e.target.value)} placeholder="Trip Name" />
-            <DatePicker date={editedDate} onSelect={setEditedDate} />
+    <Card className="w-full overflow-hidden" data-testid="trip-details-card">
+      <CardHeader className="bg-gray-50 border-b">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            {isEditing ? (
+              <Input 
+                value={editedName} 
+                onChange={(e) => setEditedName(e.target.value)} 
+                placeholder="Trip Name" 
+                className="text-xl font-bold h-9"
+              />
+            ) : (
+              <CardTitle className="text-xl md:text-2xl font-bold">
+                {trip.name || `Trip for ${getSafeDateString(trip.trip_date)}`}
+              </CardTitle>
+            )}
+            <div className="flex items-center gap-4 text-sm text-gray-500">
+              <span className="flex items-center gap-1.5">
+                <Calendar className="w-4 h-4" />
+                {isEditing ? (
+                  <DatePicker date={editedDate} onSelect={setEditedDate} />
+                ) : (
+                  getSafeDateString(trip.trip_date)
+                )}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Wine className="w-4 h-4" />
+                {tripWineries.length} {tripWineries.length === 1 ? 'Winery' : 'Wineries'}
+              </span>
+            </div>
           </div>
-        ) : (
-          <CardTitle className="flex justify-between items-center">
-            <span>{trip.name || `Trip for ${new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}`}</span>
-            <span className="text-sm font-normal text-gray-500 flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              {new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}
-            </span>
-          </CardTitle>
-        )}
+
+          <div className="flex items-center gap-3">
+            <div className="flex items-center -space-x-2 mr-1">
+              <TooltipProvider>
+                {(currentMembers || []).map((member: TripMember) => (
+                  <Tooltip key={member.id || `member-${Math.random()}`}>
+                    <TooltipTrigger asChild>
+                      <Avatar className="h-8 w-8 border-2 border-white shadow-sm hover:z-10 transition-all">
+                        <AvatarImage src={`https://i.pravatar.cc/150?u=${member.email || 'unknown'}`} alt={member.name || 'User'} />
+                        <AvatarFallback>{(member.name || 'U').charAt(0)}</AvatarFallback>
+                      </Avatar>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{member.name || 'Unknown User'} ({member.role || 'Member'})</p>
+                    </TooltipContent>
+                  </Tooltip>
+                ))}
+              </TooltipProvider>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon" 
+                      className="h-8 w-8 rounded-full border-dashed bg-gray-50 hover:bg-white"
+                      onClick={() => openShareDialog(trip.id.toString(), trip.name || "Trip")}
+                      disabled={trip.id < 0}
+                      aria-label="Share Trip"
+                    >
+                      <UserPlus className="h-4 w-4 text-gray-500" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Manage Members</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+
+            <div className="h-8 w-px bg-gray-200 mx-1 hidden md:block" />
+
+            <div className="flex items-center gap-2">
+              {isEditing ? (
+                <Button size="sm" onClick={handleSave} className="h-9"><Save className="w-4 h-4 mr-2"/>Save</Button>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setIsEditing(true)} 
+                  className="h-9"
+                  disabled={trip.id < 0 || !canEdit}
+                  aria-label="Edit Trip"
+                >
+                  {trip.id < 0 ? "Creating..." : <><Edit className="w-4 h-4 mr-2"/>Edit</>}
+                </Button>
+              )}
+              {isOwner && (
+                <Button variant="destructive" size="icon" className="h-9 w-9" onClick={() => deleteTrip(trip.id.toString()).catch(() => {})} aria-label="Delete Trip">
+                  <Trash2 className="w-4 h-4"/>
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
       </CardHeader>
       <CardContent className="p-0">
-        <DragDropContext onDragEnd={handleDrop}>
-          <Droppable droppableId={`trip-${trip.id}`}>
-            {(provided) => (
-              <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y" data-testid="winery-list">
-                {tripWineries.map((winery, index) => {
-                  const nextWinery = tripWineries[index + 1];
-                  const hasCoordinates = winery.lat !== undefined && winery.lng !== undefined;
-                  const nextHasCoordinates = nextWinery?.lat !== undefined && nextWinery?.lng !== undefined;
-                  
-                  let distanceText = "";
-                  if (hasCoordinates && nextHasCoordinates) {
-                    const dist = calculateDistance(
-                      { lat: Number(winery.lat), lng: Number(winery.lng) },
-                      { lat: Number(nextWinery.lat), lng: Number(nextWinery.lng) }
-                    );
-                    distanceText = formatDistance(dist);
-                  }
+        {!mounted ? (
+          <div className="divide-y" data-testid="winery-list-loading">
+            {tripWineries.map((winery) => (
+              <div key={winery.id || `loading-${Math.random()}`} className="bg-white">
+                <div className="flex items-start gap-3 p-4">
+                  <div className="pt-1">
+                    <GripVertical className="w-5 h-5 text-gray-200" />
+                  </div>
+                  <div className="grow">
+                    <p className="font-semibold">{winery.name}</p>
+                    <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <DragDropContext onDragEnd={handleDrop}>
+            <Droppable droppableId={`trip-${trip.id}`}>
+              {(provided) => (
+                <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y" data-testid="winery-list">
+                  {(tripWineries || []).map((winery, index) => {
+                    const nextWinery = tripWineries[index + 1];
+                    const hasCoordinates = winery.lat !== undefined && winery.lng !== undefined && winery.lat !== null && winery.lng !== null;
+                    const nextHasCoordinates = nextWinery?.lat !== undefined && nextWinery?.lng !== undefined && nextWinery?.lat !== null && nextWinery?.lng !== null;
+                    
+                    let distanceText = "";
+                    if (hasCoordinates && nextHasCoordinates) {
+                      try {
+                        const dist = calculateDistance(
+                          { lat: Number(winery.lat), lng: Number(winery.lng) },
+                          { lat: Number(nextWinery.lat), lng: Number(nextWinery.lng) }
+                        );
+                        distanceText = formatDistance(dist);
+                      } catch (e) {
+                        // Silent fail for distance calculation in UI
+                      }
+                    }
 
-                  return (
-                    <Draggable key={winery.id} draggableId={winery.id.toString()} index={index}>
-                      {(provided) => (
-                        <div ref={provided.innerRef} {...provided.draggableProps} className="bg-white">
-                          <div className="flex items-start gap-3 p-4 hover:bg-gray-50">
-                            <div {...provided.dragHandleProps} className="pt-1">
-                              <GripVertical className="w-5 h-5 text-gray-400" />
+                    return (
+                      <Draggable key={winery.id} draggableId={winery.id.toString()} index={index}>
+                        {(provided) => (
+                          <div ref={provided.innerRef} {...provided.draggableProps} className="bg-white">
+                            <div className="flex items-start gap-3 p-4 hover:bg-gray-50">
+                              <div {...provided.dragHandleProps} className="pt-1">
+                                <GripVertical className="w-5 h-5 text-gray-400" />
+                              </div>
+                              <div className="grow">
+                                <p className="font-semibold">{winery.name}</p>
+                                <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
+                                <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
+                                
+                                <div className="mt-2">
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="h-8 px-2 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    onClick={() => openWineryNoteEditor(winery.dbId as number, winery.notes || '', handleSaveNote)}
+                                  >
+                                    {winery.notes ? "Edit Notes" : "Add Notes"}
+                                  </Button>
+                                  {winery.notes && (
+                                    <p className="text-xs text-slate-600 mt-1 pl-2 italic border-l-2 border-slate-200">
+                                      {winery.notes}
+                                    </p>
+                                  )}
+                                </div>
+
+                                <WineryReviews visits={winery.visits || []} currentUserId={trip.user_id} members={currentMembers} />
+                              </div>
+                              {isEditing && (
+                                <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              )}
                             </div>
-                            <div className="grow">
-                              <p className="font-semibold">{winery.name}</p>
-                              <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
-                              <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
-                              <WineryNoteEditor
-                                wineryDbId={winery.dbId as number}
-                                initialNotes={winery.notes || ''}
-                                onSave={handleSaveNote}
-                              />
-                              <WineryReviews visits={winery.visits || []} currentUserId={trip.user_id} members={currentMembers} />
-                            </div>
-                            {isEditing && (
-                              <Button variant="ghost" size="icon" onClick={() => handleRemoveWinery(winery.dbId as number)} className="text-red-500">
-                                <X className="w-4 h-4" />
-                              </Button>
+                            
+                            {/* Distance to next stop */}
+                            {distanceText && (
+                              <div className="relative h-8 flex items-center px-12 overflow-hidden">
+                                <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-dashed border-l-2 border-dashed border-gray-300 ml-px"></div>
+                                <div className="z-10 bg-white border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-medium text-gray-500 flex items-center gap-1 shadow-xs">
+                                  <MapPin className="w-2.5 h-2.5" />
+                                  <span>{distanceText} to next stop</span>
+                                </div>
+                              </div>
                             )}
                           </div>
-                          
-                          {/* Distance to next stop */}
-                          {distanceText && (
-                            <div className="relative h-8 flex items-center px-12 overflow-hidden">
-                              <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-dashed border-l-2 border-dashed border-gray-300 ml-px"></div>
-                              <div className="z-10 bg-white border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-medium text-gray-500 flex items-center gap-1 shadow-xs">
-                                <MapPin className="w-2.5 h-2.5" />
-                                <span>{distanceText} to next stop</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </Draggable>
-                  );
-                })}
-                {provided.placeholder}
-              </div>
-            )}
-          </Droppable>
-        </DragDropContext>
+                        )}
+                      </Draggable>
+                    );
+                  })}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </DragDropContext>
+        )}
         {isEditing && (
           <div className="p-4 border-t">
             <Popover open={addWineryPopoverOpen} onOpenChange={setAddWineryPopoverOpen}>
@@ -297,92 +431,60 @@ const TripCard = memo(({ trip }: TripCardProps) => {
           </div>
         )}
       </CardContent>
-      <CardFooter className="bg-gray-50 p-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div className="flex items-center gap-2 text-sm text-gray-600 w-full sm:w-auto justify-between sm:justify-start">
-          <div className="flex items-center gap-2">
-            <Users className="w-4 h-4" />
-            <div className="flex items-center -space-x-2">
-                <TooltipProvider>
-                    {currentMembers.map((friend: Friend) => (
-                        <Tooltip key={friend.id}>
-                            <TooltipTrigger asChild>
-                                <Avatar className="h-6 w-6 border-2 border-white">
-                                    <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name} />
-                                    <AvatarFallback>{friend.name.charAt(0)}</AvatarFallback>
-                                </Avatar>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                                <p>{friend.name}</p>
-                            </TooltipContent>
-                        </Tooltip>
-                    ))}
-                </TooltipProvider>
-            </div>
-          </div>
-          {isEditing && (
-              <Popover>
-                  <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" disabled={trip.id < 0}><UserPlus className="w-4 h-4 mr-2"/>Add/Remove</Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0">
-                      <Command>
-                          <CommandInput placeholder="Search friends..." className="h-9" />
-                          <CommandEmpty>No friends found.</CommandEmpty>
-                          <CommandGroup>
-                              {friends.map((friend: Friend) => (
-                              <CommandItem
-                                  key={friend.id}
-                                  onSelect={() => onFriendSelect(friend.id)}
-                              >
-                                  <div className="flex items-center justify-between w-full">
-                                      <span>{friend.name}</span>
-                                      <Check
-                                          className={cn(
-                                          "h-4 w-4",
-                                          selectedFriends.includes(friend.id) ? "opacity-100" : "opacity-0"
-                                          )}
-                                      />
-                                  </div>
-                              </CommandItem>
-                              ))}
-                          </CommandGroup>
-                      </Command>
-                  </PopoverContent>
-              </Popover>
+      <CardFooter className="bg-gray-50 p-3 border-t flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          {isOwner && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-2 text-xs"
+                    onClick={() => openShareDialog(trip.id.toString(), trip.name || "Trip")}
+                    disabled={trip.id < 0}
+                    data-testid="share-trip-btn"
+                  >
+                    <Users size={14} className="mr-1.5" />
+                    Collaborate
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Invite friends to this trip</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
-          {isEditing ? (
-            <Button onClick={handleSave} className="flex-1 sm:flex-none"><Save className="w-4 h-4 mr-2"/>Save Changes</Button>
-          ) : (
-            <Button 
-                variant="outline" 
-                onClick={() => setIsEditing(true)} 
-                className="flex-1 sm:flex-none"
-                disabled={trip.id < 0}
-            >
-                {trip.id < 0 ? "Creating..." : <><Edit className="w-4 h-4 mr-2"/>Edit Trip</>}
-            </Button>
-          )}
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button size="icon" variant="outline" onClick={() => handleExportToMaps()} disabled={!trip.wineries || trip.wineries.length === 0}>
-                    <Share2 size={16} />
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 px-2 text-xs"
+                  onClick={() => handleExportToMaps()} 
+                  disabled={!tripWineries || tripWineries.length === 0}
+                >
+                  <Share2 size={14} className="mr-1.5" />
+                  Maps Export
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                  <p>Export to Google Maps</p>
+                  <p>Open in Google Maps</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Button variant="destructive" size="icon" onClick={() => deleteTrip(trip.id.toString())}><Trash2 className="w-4 h-4"/></Button>
+        </div>
+
+        <div className="text-[10px] text-gray-400 font-medium uppercase tracking-wider" data-testid="trip-id-display">
+           ID: {trip.id > 0 ? trip.id : 'Pending'}
         </div>
       </CardFooter>
     </Card>
   );
 });
-
 TripCard.displayName = "TripCard";
 
 export default TripCard;
+

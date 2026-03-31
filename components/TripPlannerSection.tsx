@@ -1,5 +1,5 @@
 // components/TripPlannerSection.tsx
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Winery } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { DatePicker } from "./DatePicker"; // Assuming DatePicker is extracted
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
+import { formatDateLocal } from "@/lib/utils";
 
 interface TripPlannerSectionProps {
   winery: Winery;
@@ -19,7 +20,14 @@ interface TripPlannerSectionProps {
 
 export default function TripPlannerSection({ winery, onClose }: TripPlannerSectionProps) {
   const { toast } = useToast();
-  const { selectedTrip, addWineryToTrips, toggleWineryOnTrip, tripsForDate = [], fetchTripsForDate } = useTripStore();
+  
+  // SUBSCRIBE DIRECTLY to state via selectors
+  const selectedTrip = useTripStore((s) => s.selectedTrip);
+  const tripsForDate = useTripStore((s) => s.tripsForDate);
+  const addWineryToTrips = useTripStore((s) => s.addWineryToTrips);
+  const toggleWineryOnTrip = useTripStore((s) => s.toggleWineryOnTrip);
+  const fetchTripsForDate = useTripStore((s) => s.fetchTripsForDate);
+
   const [tripDate, setTripDate] = useState<Date | undefined>();
   const [selectedTrips, setSelectedTrips] = useState<Set<string>>(new Set());
   const [newTripName, setNewTripName] = useState("");
@@ -28,7 +36,7 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
   const handleDateSelect = (date: Date | undefined) => {
     setTripDate(date);
     if (date) {
-      const dateString = date.toISOString().split("T")[0];
+      const dateString = formatDateLocal(date);
       fetchTripsForDate(dateString);
       setSelectedTrips(new Set());
       setNewTripName("");
@@ -103,7 +111,11 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
     }
   };
   
-  const isOnActiveTrip = selectedTrip?.wineries?.some(w => w.dbId === winery.dbId) || false;
+  // Use useMemo for derived state from subscribed store state
+  const isOnActiveTrip = useMemo(() => 
+    selectedTrip?.wineries?.some(w => w.dbId === winery.dbId) || false,
+    [selectedTrip, winery.dbId]
+  );
 
   if (selectedTrip) {
     return (
@@ -144,7 +156,7 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
                 <div key={trip.id} className="flex items-center gap-2 p-3 border rounded-lg bg-white" data-testid={`trip-option-${trip.id}`}>
                   <Checkbox id={`trip-${trip.id}`} checked={selectedTrips.has(trip.id.toString())} onCheckedChange={() => handleToggleTrip(trip.id.toString())} data-testid="trip-checkbox" />
                   <label htmlFor={`trip-${trip.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                    {trip.name || `Trip on ${new Date(trip.trip_date).toLocaleDateString()}`}
+                    {trip.name || `Trip on ${new Date(trip.trip_date + 'T00:00:00').toLocaleDateString()}`}
                   </label>
                 </div>
               ))}

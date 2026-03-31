@@ -1,5 +1,17 @@
-import { test, expect, createTestUser, deleteTestUser, MockMapsManager, supabase } from './utils';
-import { getSidebarContainer, login, navigateToTab, waitForSearchComplete, openWineryDetails, logVisit, closeWineryModal, ensureProfileReady } from './helpers';
+import { test, expect, createTestUser, deleteTestUser, MockMapsManager } from './utils';
+import { 
+    getSidebarContainer, 
+    login, 
+    navigateToTab, 
+    waitForSearchComplete, 
+    openWineryDetails, 
+    logVisit, 
+    closeWineryModal, 
+    ensureProfileReady,
+    setupFriendship,
+    removeFriend,
+    robustClick
+} from './helpers';
 
 test.describe('Social Activity Feed Flow', () => {
   test("User B can see User A's visit in the social feed", async ({ browser, user: userA }) => {
@@ -7,37 +19,32 @@ test.describe('Social Activity Feed Flow', () => {
     const userB = await createTestUser();
     
     try {
-      // 1. Forge backend friendship for total isolation and speed
-      await test.step('Forge backend friendship', async () => {
-          await supabase.from('friends').insert({
-            user1_id: userA.id,
-            user2_id: userB.id,
-            status: 'accepted'
-          });
-          // Ensure profiles are public for the test
-          await supabase.from('profiles').update({ privacy_level: 'public' }).eq('id', userA.id);
-          await supabase.from('profiles').update({ privacy_level: 'public' }).eq('id', userB.id);
-      });
-
-      // 2. Contexts
+      // 1. Contexts
       const contextA = await browser.newContext();
       const contextB = await browser.newContext();
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
       const managerA = new MockMapsManager(pageA);
+      const managerB = new MockMapsManager(pageB);
+
+      // MANDATORY: Call useRealSocial before initDefaultMocks to prevent profile collisions
       await managerA.useRealSocial();
       await managerA.useRealVisits();
-      await managerA.initDefaultMocks();
+      await managerA.initDefaultMocks({ currentUserId: userA.id });
+
+      await managerB.useRealSocial();
+      await managerB.useRealVisits();
+      await managerB.initDefaultMocks({ currentUserId: userB.id });
+
       await login(pageA, userA.email, userA.password, { skipMapReady: true });
       await ensureProfileReady(pageA);
 
-      const managerB = new MockMapsManager(pageB);
-      await managerB.useRealSocial();
-      await managerB.useRealVisits();
-      await managerB.initDefaultMocks();
       await login(pageB, userB.email, userB.password, { skipMapReady: true });
       await ensureProfileReady(pageB);
+
+      // 2. Establish Friendship via UI helper
+      await setupFriendship(pageA, pageB, userA.email, userB.email);
 
       const user1Name = await pageA.evaluate(() => (window as any).useUserStore.getState().user.name);
 
@@ -47,6 +54,11 @@ test.describe('Social Activity Feed Flow', () => {
         await navigateToTab(pageA, 'Explore');
         await waitForSearchComplete(pageA);
         await openWineryDetails(pageA, 'Mock Winery One');
+
+        const logBtn = pageA.getByTestId('log-visit-button');
+        await logBtn.scrollIntoViewIfNeeded();
+        await robustClick(pageA, logBtn);
+
         await logVisit(pageA, { review: reviewText, rating: 5 });
         await closeWineryModal(pageA);
       });
@@ -71,6 +83,9 @@ test.describe('Social Activity Feed Flow', () => {
 
         await expect(sidebarB.getByText(user1Name).first()).toBeVisible();
       });
+
+      // 5. Cleanup: Remove friendship via UI
+      await removeFriend(pageA, userB.email);
 
       await contextA.close();
       await contextB.close();

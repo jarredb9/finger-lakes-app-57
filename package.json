@@ -1,7 +1,10 @@
 {
   "name": "winery-visit-planner",
-  "version": "2.7.0",
+  "version": "2.8.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "build": "next build --webpack",
     "dev": "next dev",

@@ -9,6 +9,7 @@ import { useUserStore } from "@/lib/stores/userStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useEffect } from "react";
+import { createClient } from "@/utils/supabase/client";
 
 export function E2EStoreExposer() {
   useEffect(() => {
@@ -22,10 +23,13 @@ export function E2EStoreExposer() {
       (window as any).useUserStore = useUserStore;
       (window as any).useFriendStore = useFriendStore;
       (window as any).useMapStore = useMapStore;
+      (window as any).supabase = createClient();
       // eslint-disable-next-line no-console
-      console.log('[E2EStoreExposer] Stores exposed to window.');
+      console.log('[E2EStoreExposer] Stores and Supabase client exposed to window.');
     }
   }, []);
+
+  if (typeof window === 'undefined') return null;
 
   return null;
 }

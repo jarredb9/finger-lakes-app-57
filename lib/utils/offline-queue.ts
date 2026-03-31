@@ -16,12 +16,16 @@ const OFFLINE_QUEUE_KEY = 'offline-mutation-queue';
  */
 export async function getOfflineMutations(): Promise<OfflineMutation[]> {
   try {
-    return (await get<OfflineMutation[]>(OFFLINE_QUEUE_KEY)) || [];
+    const mutations = (await get<OfflineMutation[]>(OFFLINE_QUEUE_KEY)) || [];
+    return mutations;
   } catch (err) {
     const fallback = localStorage.getItem(OFFLINE_QUEUE_KEY);
-    if (!fallback) return [];
+    if (!fallback) {
+        return [];
+    }
     try {
-        return deserializeFromLocalStorage(fallback);
+        const mutations = deserializeFromLocalStorage(fallback);
+        return mutations;
     } catch (parseErr) {
         console.error('[OfflineQueue] Failed to parse fallback:', parseErr);
         return [];
@@ -66,7 +70,7 @@ async function stabilizeMutation(m: OfflineMutation): Promise<OfflineMutation> {
             if (p instanceof Blob) {
                 try {
                     const base64 = await blobToBase64(p);
-                    console.log(`[OfflineQueue] Stabilized photo: ${(p as File).name || 'photo.jpg'} (${p.size} bytes)`);
+                    console.log(`[OfflineQueue] Stabilized photo: ${(p as File).name || 'photo.jpg'} ${(p as File).size} bytes`);
                     return {
                         __isBase64: true,
                         name: (p as File).name || 'photo.jpg',
@@ -88,7 +92,7 @@ async function stabilizeMutation(m: OfflineMutation): Promise<OfflineMutation> {
             if (p instanceof Blob) {
                 try {
                     const base64 = await blobToBase64(p);
-                    console.log(`[OfflineQueue] Stabilized new photo: ${(p as File).name || 'photo.jpg'} (${p.size} bytes)`);
+                    console.log(`[OfflineQueue] Stabilized new photo: ${(p as File).name || 'photo.jpg'} ${(p as File).size} bytes`);
                     return {
                         __isBase64: true,
                         name: (p as File).name || 'photo.jpg',

@@ -45,7 +45,10 @@ export function PwaHandler() {
   return (
     <>
       {/* Mobile: Full-width top bar */}
-      <div className="md:hidden fixed top-0 left-0 right-0 z-[100] bg-background border-b shadow-sm animate-in fade-in slide-in-from-top-full duration-300">
+      <div 
+        data-testid="mobile-pwa-install-bar"
+        className="md:hidden fixed top-0 left-0 right-0 z-[100] bg-background border-b shadow-sm animate-in fade-in slide-in-from-top-full duration-300"
+      >
         <div className="flex items-center justify-between px-4 py-2 gap-3">
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <div className="bg-primary/10 p-1.5 rounded-full shrink-0">
@@ -80,7 +83,10 @@ export function PwaHandler() {
       </div>
 
       {/* Desktop: Bottom-left card */}
-      <div className="hidden md:block fixed bottom-4 left-4 z-[100] animate-in fade-in slide-in-from-left-full duration-300">
+      <div 
+        data-testid="desktop-pwa-install-card"
+        className="hidden md:block fixed bottom-4 left-4 z-[100] animate-in fade-in slide-in-from-left-full duration-300"
+      >
         <Card className="w-80 shadow-2xl border-primary/20 overflow-hidden">
           <div className="absolute top-2 right-2">
             <Button

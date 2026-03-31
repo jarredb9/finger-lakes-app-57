@@ -37,10 +37,12 @@ export const config = {
      * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
-     * - any path containing a dot (e.g., .js, .css, .png, .ico)
+     * - favicon.ico
+     * - common static image/style extensions
      * 
-     * Note: We now INCLUDE /api/ routes so the auth check in the proxy function runs.
+     * We want to match /sw.js and /site.webmanifest so the proxy logic can handle them.
+     * So we EXCLUDE images and css, but NOT js or webmanifest.
      */
-    '/((?!_next/static|_next/image|.*\\..*).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|gif|webp|svg|css)$).*)',
   ],
 };

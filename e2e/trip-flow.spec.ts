@@ -6,12 +6,15 @@ import {
     openWineryDetails, 
     closeWineryModal, 
     ensureSidebarExpanded,
-    robustClick 
+    robustClick,
+    waitForToast
 } from './helpers';
 
 test.describe('Trip Planning Flow', () => {
-  test.beforeEach(async ({ page, user }) => {
-    // mockMaps is auto-initialized by the fixture
+  test.beforeEach(async ({ page, user, mockMaps }) => {
+    // Re-initialize mocks with the actual user ID to ensure isOwner works
+    await mockMaps.useRealVisits();
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
   });
 
@@ -30,7 +33,7 @@ test.describe('Trip Planning Flow', () => {
   test('can create a new trip from winery details', async ({ page }) => {
     await navigateToTab(page, 'Explore');
 
-    const uniqueTripName = `Trip ${Date.now()}`;
+    const uniqueTripName = `Flow Trip ${Date.now()}`;
 
     await openWineryDetails(page, 'Mock Winery One');
 
@@ -47,9 +50,14 @@ test.describe('Trip Planning Flow', () => {
     const planner = modal.getByTestId('trip-planner-section');
     await planner.getByTestId('new-trip-checkbox').check();
     await planner.getByTestId('new-trip-name-input').fill(uniqueTripName);
-    await robustClick(page, planner.getByTestId('add-to-trip-btn'));
+    
+    // Wait for the RPC and the refresh calls
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('create_trip_with_winery') && resp.status() === 200),
+        robustClick(page, planner.getByTestId('add-to-trip-btn'))
+    ]);
 
-    await expect(page.getByText('Winery added to trip(s).').first()).toBeVisible();
+    await waitForToast(page, 'Winery added to trip(s).');
     await expect(modal.getByText(new RegExp(`On Trip: ${uniqueTripName}`))).toBeVisible();
 
     // --- Cleanup: Delete the trip ---
@@ -63,14 +71,26 @@ test.describe('Trip Planning Flow', () => {
 
     // 3. Find and delete the trip
     const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
-    await expect(tripCard).toBeVisible({ timeout: 15000 });
+    
+    await expect(async () => {
+        // Proactive sync
+        await page.evaluate(async () => {
+            const store = (window as any).useTripStore?.getState();
+            if (store) await store.fetchTrips(1, 'upcoming', true);
+        });
+        await expect(tripCard).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 20000, intervals: [2000] });
+
     await tripCard.scrollIntoViewIfNeeded();
     
     const deleteBtn = tripCard.getByTestId('delete-trip-btn');
     await robustClick(page, deleteBtn);
 
-    // 4. Confirm deletion
-    await robustClick(page, page.getByTestId('confirm-delete-trip-btn'));
+    // 4. Confirm deletion and wait for response
+    await Promise.all([
+        page.waitForResponse(resp => (resp.url().includes('delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')) && [200, 204].includes(resp.status())),
+        robustClick(page, page.getByTestId('confirm-delete-trip-btn'))
+    ]);
 
     // 5. Verify it is gone
     await expect(sidebar.getByText(uniqueTripName)).not.toBeVisible();

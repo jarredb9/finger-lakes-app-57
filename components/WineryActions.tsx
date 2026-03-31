@@ -1,8 +1,9 @@
 // components/WineryActions.tsx
 import { Winery } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Star, ListPlus, Check, Lock, Unlock } from "lucide-react";
+import { Star, ListPlus, Check, Lock, Unlock, Edit } from "lucide-react";
 import { useWineryStore } from "@/lib/stores/wineryStore";
+import { useUIStore } from "@/lib/stores/uiStore";
 import { useToast } from "@/hooks/use-toast";
 import { shallow } from "zustand/shallow";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -13,6 +14,7 @@ interface WineryActionsProps {
 
 export default function WineryActions({ winery }: WineryActionsProps) {
   const { toast } = useToast();
+  const { openVisitForm } = useUIStore();
   const { toggleWishlist, toggleFavorite, toggleFavoritePrivacy, toggleWishlistPrivacy } = useWineryStore(
     (state) => ({
       toggleWishlist: state.toggleWishlist,
@@ -62,6 +64,16 @@ export default function WineryActions({ winery }: WineryActionsProps) {
   return (
     <TooltipProvider>
       <div className="flex items-center gap-2">
+        <Button 
+            size="sm" 
+            variant="outline-solid" 
+            onClick={() => openVisitForm(winery)}
+            data-testid="log-visit-button"
+        >
+            <Edit className="mr-2 h-4 w-4" />
+            Log Visit
+        </Button>
+
         <div className="flex items-center -space-x-px">
             <Button 
                 size="sm" 

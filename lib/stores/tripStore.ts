@@ -4,6 +4,8 @@ import { Trip, Winery, WineryDbId } from '@/lib/types';
 import { useWineryStore } from './wineryStore';
 import { TripService } from '@/lib/services/tripService';
 import { createClient } from '@/utils/supabase/client';
+import { RealtimeChannel } from '@supabase/supabase-js';
+import { formatDateLocal, getTodayLocal } from '@/lib/utils';
 
 interface TripState {
   trips: Trip[];
@@ -13,9 +15,12 @@ interface TripState {
   isSaving: boolean;
   error: string | null;
   selectedTrip: Trip | null;
+  subscription: RealtimeChannel | null;
   page: number;
   count: number;
   hasMore: boolean;
+  subscribeToTripUpdates: () => void;
+  unsubscribeFromTripUpdates: () => void;
   fetchTrips: (page: number, type: 'upcoming' | 'past', refresh?: boolean) => Promise<void>;
   fetchTripById: (tripId: string) => Promise<void>;
   fetchUpcomingTrips: () => Promise<void>;
@@ -47,11 +52,72 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       isSaving: false,
       error: null,
       selectedTrip: null,
+      subscription: null,
       page: 1,
       count: 0,
       hasMore: true,
 
       setPage: (page: number) => set({ page }),
+
+      subscribeToTripUpdates: () => {
+        const { subscription: existingSub } = get();
+        if (existingSub) return;
+
+        const supabase = createClient();
+        const subscription = supabase
+          .channel('trip-updates')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'trips' },
+            async (payload) => {
+              const changedTripId = (payload.new as any)?.id || (payload.old as any)?.id;
+              
+              // Always refresh lists
+              await get().fetchTrips(get().page, 'upcoming', true);
+              await get().fetchUpcomingTrips();
+              
+              const { selectedTrip } = get();
+              if (selectedTrip?.id === changedTripId) {
+                await get().fetchTripById(changedTripId.toString());
+              }
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'trip_wineries' },
+            async (payload) => {
+              const changedTripId = (payload.new as any)?.trip_id || (payload.old as any)?.trip_id;
+              const { selectedTrip } = get();
+              
+              if (selectedTrip?.id === changedTripId) {
+                await get().fetchTripById(changedTripId.toString());
+              }
+            }
+          )
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'trip_members' },
+            async (payload) => {
+              const changedTripId = (payload.new as any)?.trip_id || (payload.old as any)?.trip_id;
+              const { selectedTrip } = get();
+              
+              if (selectedTrip?.id === changedTripId) {
+                await get().fetchTripById(changedTripId.toString());
+              }
+            }
+          )
+          .subscribe();
+
+        set({ subscription });
+      },
+
+      unsubscribeFromTripUpdates: () => {
+        const { subscription } = get();
+        if (subscription) {
+          subscription.unsubscribe();
+          set({ subscription: null });
+        }
+      },
 
       fetchTrips: async (page: number, type: 'upcoming' | 'past', refresh = false) => {
         set({ isLoading: true, error: null });
@@ -79,13 +145,20 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       fetchTripById: async (tripId: string) => {
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         try {
           const trip = await TripService.getTripById(tripId);
-          set(state => ({
-            trips: [...state.trips.filter(t => t.id !== trip.id), trip],
-            isLoading: false
-          }));
+          
+          set(state => {
+            const numericId = Number(trip.id);
+            const filteredTrips = state.trips.filter(t => Number(t.id) !== numericId);
+            return {
+              trips: [...filteredTrips, trip],
+              selectedTrip: state.selectedTrip && Number(state.selectedTrip.id) === numericId ? trip : state.selectedTrip,
+              isLoading: false,
+              error: null
+            };
+          });
 
           // After setting the trip, ensure all its wineries have their details.
           const { ensureWineryDetails } = useWineryStore.getState();
@@ -96,24 +169,22 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
           // Update the trip in the store with the newly fetched details
           set(state => {
+            const numericId = Number(trip.id);
             const newTrips = state.trips.map(t => {
-              if (t.id !== trip.id) return t;
+              if (Number(t.id) !== numericId) return t;
 
               const updatedWineries = t.wineries.map(wineryInTrip => {
                 const detailedWinery = detailedWineriesMap.get(wineryInTrip.id);
-                // Start with detailed data, then spread trip-specific data over it
-                // to ensure `notes` and `visits` are preserved.
                 return detailedWinery ? { ...detailedWinery, ...wineryInTrip } : wineryInTrip;
               });
               
-              const finalTrip = { ...t, wineries: updatedWineries };
-              return finalTrip;
+              return { ...t, wineries: updatedWineries };
             });
             return { trips: newTrips };
           });
-        } catch (error) {
-          console.error(`[tripStore] fetchTripById: Error during fetch for trip ${tripId}.`, error);
-          set({ isLoading: false });
+        } catch (error: any) {
+          console.error("Failed to fetch trip details", error);
+          set({ isLoading: false, error: error.message || "Failed to load trip details." });
         }
       },
 
@@ -138,7 +209,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             isLoading: false
           });
         } catch (error) {
-          console.error(`[tripStore] fetchTripsForDate: Error during fetch for date ${dateString}.`, error);
           // Do NOT clear data on error. Just stop loading.
           set({ isLoading: false });
         }
@@ -149,13 +219,13 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         const tempTrip: Trip = {
           id: tempId,
           user_id: trip.user_id || '',
-          trip_date: trip.trip_date || new Date().toISOString(),
+          trip_date: trip.trip_date || getTodayLocal(),
           name: trip.name,
           wineries: trip.wineries || [],
-          members: trip.members || [],
+          members: [],
         };
 
-        const isFuture = new Date(tempTrip.trip_date) >= new Date(new Date().setHours(0, 0, 0, 0));
+        const isFuture = new Date(tempTrip.trip_date + 'T00:00:00') >= new Date(new Date().setHours(0, 0, 0, 0));
 
         // Optimistically update ALL lists
         set(state => {
@@ -178,20 +248,22 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           const createdTrip = await TripService.createTrip(trip);
 
           // Replace temporary trip with the real one from the server in ALL lists
-          set(state => ({
-            tripsForDate: state.tripsForDate.map(t => t.id === tempId ? createdTrip! : t),
-            upcomingTrips: state.upcomingTrips.map(t => t.id === tempId ? createdTrip! : t),
-            trips: state.trips.map(t => t.id === tempId ? createdTrip! : t)
-          }));
+          set(state => {
+            return {
+              tripsForDate: state.tripsForDate.map(t => Number(t.id) === tempId ? createdTrip! : t),
+              upcomingTrips: state.upcomingTrips.map(t => Number(t.id) === tempId ? createdTrip! : t),
+              trips: state.trips.map(t => Number(t.id) === tempId ? createdTrip! : t)
+            };
+          });
 
           return createdTrip;
         } catch (error) {
           console.error("Failed to create trip, reverting optimistic update.", error);
           // On failure, remove the temporary trip from ALL lists
           set(state => ({ 
-            tripsForDate: state.tripsForDate.filter(t => t.id !== tempId),
-            upcomingTrips: state.upcomingTrips.filter(t => t.id !== tempId),
-            trips: state.trips.filter(t => t.id !== tempId)
+            tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tempId),
+            upcomingTrips: state.upcomingTrips.filter(t => Number(t.id) !== tempId),
+            trips: state.trips.filter(t => Number(t.id) !== tempId)
           }));
           throw error; // Re-throw to be caught by the UI
         }
@@ -204,8 +276,8 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
         // Optimistically remove from both lists
         set(state => ({ 
-          trips: state.trips.filter(t => t.id !== tripIdAsNumber),
-          tripsForDate: state.tripsForDate.filter(t => t.id !== tripIdAsNumber),
+          trips: state.trips.filter(t => Number(t.id) !== tripIdAsNumber),
+          tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tripIdAsNumber),
         }));
 
         try {
@@ -221,7 +293,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         const tripIdAsNumber = parseInt(tripId, 10);
         set(state => {
           const newTrips = state.trips.map(trip =>
-            trip.id === tripIdAsNumber ? { ...trip, ...updates } : trip
+            Number(trip.id) === tripIdAsNumber ? { ...trip, ...updates } : trip
           );
           return { trips: newTrips };
         });
@@ -229,7 +301,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         try {
           await TripService.updateTrip(tripId, updates);
         } catch (error) {
-          console.error("[tripStore] Error updating trip, reverting state:", error);
           set({ trips: originalTrips }); // Revert on network error
           throw error;
         }
@@ -238,7 +309,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       updateWineryOrder: async (tripId: string, wineryIds: number[]) => {
         const tripIdAsNumber = parseInt(tripId, 10);
         const originalTrips = get().trips;
-        const tripToUpdate = originalTrips.find(t => t.id === tripIdAsNumber);
+        const tripToUpdate = originalTrips.find(t => Number(t.id) === tripIdAsNumber);
 
         if (!tripToUpdate) return;
 
@@ -248,11 +319,11 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         ).filter((w): w is Winery => w !== undefined);
 
         // Optimistically update the state
-        set(state => ({
-          trips: state.trips.map(t => 
-            t.id === tripIdAsNumber ? { ...t, wineries: reorderedWineries } : t
-          )
-        }));
+          set(state => ({
+            trips: state.trips.map(t => 
+              Number(t.id) === tripIdAsNumber ? { ...t, wineries: reorderedWineries } : t
+            )
+          }));
 
         try {
           // Send the update to the backend. The backend only needs the order of IDs.
@@ -268,7 +339,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       removeWineryFromTrip: async (tripId: string, wineryId: number) => {
         const tripIdAsNumber = parseInt(tripId, 10);
         const originalTrips = get().trips;
-        const tripIndex = originalTrips.findIndex(t => t.id === tripIdAsNumber);
+        const tripIndex = originalTrips.findIndex(t => Number(t.id) === tripIdAsNumber);
         if (tripIndex === -1) return;
 
         const tripToUpdate = originalTrips[tripIndex];
@@ -298,22 +369,73 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       saveWineryNote: async (tripId: string, wineryId: number, notes: string) => {
-        await TripService.updateTrip(tripId, { updateNote: { wineryId, notes } });
+        const originalTrips = get().trips;
+        const tripIdAsNumber = parseInt(tripId, 10);
+        
+        // Optimistic Update
+        set(state => ({
+          trips: state.trips.map(t => {
+            if (Number(t.id) !== tripIdAsNumber) return t;
+            return {
+              ...t,
+              wineries: t.wineries.map(w => 
+                w.dbId === wineryId ? { ...w, notes } : w
+              )
+            };
+          })
+        }));
+
+        try {
+          await TripService.updateTrip(tripId, { updateNote: { wineryId, notes } });
+        } catch (error) {
+          console.error("Failed to save winery note, reverting.", error);
+          set({ trips: originalTrips });
+          throw error;
+        }
       },
 
       saveAllWineryNotes: async (tripId: string, notes: Record<number, string>) => {
-        await TripService.updateTrip(tripId, { updateNote: { notes } });
+        const originalTrips = get().trips;
+        const tripIdAsNumber = parseInt(tripId, 10);
+
+        // Optimistic Update
+        set(state => ({
+          trips: state.trips.map(t => {
+            if (Number(t.id) !== tripIdAsNumber) return t;
+            return {
+              ...t,
+              wineries: t.wineries.map(w => 
+                w.dbId && notes[w.dbId] ? { ...w, notes: notes[w.dbId] } : w
+              )
+            };
+          })
+        }));
+
+        try {
+          await TripService.updateTrip(tripId, { updateNote: { notes } });
+        } catch (error) {
+          console.error("Failed to save all winery notes, reverting.", error);
+          set({ trips: originalTrips });
+          throw error;
+        }
       },
       
       addMembersToTrip: async (tripId: string, _memberIds: string[]) => {
-        // Note: For Phase 3 Task 4, we use the addMemberByEmail flow usually from UI.
-        // If we have multiple IDs here (unusual for current UI), we might need a bulk RPC.
-        // For now, to keep Phase 3/4 integrity, we'll refetch the trip after backend updates.
+        const tripIdAsNumber = parseInt(tripId, 10);
+        const originalTrips = get().trips;
+        const tripToUpdate = originalTrips.find(t => Number(t.id) === tripIdAsNumber);
+        
+        if (!tripToUpdate) return;
+
+        // Note: Full member objects (TripMember) are needed for the UI.
+        // Optimistically we only have the IDs. Since the UI (TripShareDialog) 
+        // usually handles one-by-one addition via RPC and then we refetch, 
+        // this bulk 'addMembersToTrip' is more of a sync helper.
+        // However, to fulfill the 'optimistic' requirement, we'll refetch.
         
         try {
-          // In the future (Track 2), we might implement a bulk 'add_trip_members' RPC.
-          // For now, we assume the UI handles one-by-one addition via addMemberByEmail.
-          // If this is called, we just refetch the trip to get the latest members from trip_members.
+          // If this is called, we assume the backend is already being updated or 
+          // we want to ensure sync.
           await get().fetchTripById(tripId);
         } catch (error) {
             console.error("Failed to sync members:", error);
@@ -325,7 +447,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       addWineryToTrips: async (winery, tripDate, selectedTrips, newTripName, addTripNotes) => {
         set({ isSaving: true });
         const supabase = createClient(); // Direct Supabase client for RPCs
-        const dateString = tripDate.toISOString().split("T")[0];
+        const dateString = formatDateLocal(tripDate);
 
         // Optimistic Update for EXISTING trips
         const originalTrips = get().trips;
@@ -541,12 +663,11 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       }),
     }),
     {
-      name: 'trip-storage',
+      name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'trip-storage-e2e' : 'trip-storage',
       partialize: (state) => ({ 
         trips: state.trips, 
         upcomingTrips: state.upcomingTrips,
         tripsForDate: state.tripsForDate,
-        selectedTrip: state.selectedTrip,
         page: state.page,
         count: state.count,
         hasMore: state.hasMore

@@ -71,29 +71,25 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
     if (get().subscription) return;
 
     const supabase = createClient();
-    console.log('[friendStore] Subscribing to social updates...');
 
     const subscription = supabase
       .channel('social-updates')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'visits' },
-        async (payload) => {
-          console.log('[friendStore] Received visit change payload:', JSON.stringify(payload));
+        async (_payload) => {
           await get().fetchFriendActivityFeed();
         }
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'friends' },
-        async (payload) => {
-          console.log('[friendStore] Received friend change payload:', JSON.stringify(payload));
+        async (_payload) => {
           await get().fetchFriends();
           await get().fetchFriendActivityFeed();
         }
       )
-      .subscribe((status) => {
-        console.log('[friendStore] Subscription status:', status);
+      .subscribe((_status) => {
       });
 
     set({ subscription });
@@ -116,13 +112,13 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       if (error) throw error;
 
       // RPC returns a combined object, destructure it
-      // Based on actual structure of get_friends_and_requests: { friends, requests, sent_requests }
-      const { friends, requests, sent_requests } = data as any; 
+      // Based on actual structure of get_friends_and_requests: { friends, pending_incoming, pending_outgoing }
+      const { friends, pending_incoming, pending_outgoing } = data as any; 
 
       set({ 
           friends: friends || [], 
-          friendRequests: requests || [], 
-          sentRequests: sent_requests || [],
+          friendRequests: pending_incoming || [], 
+          sentRequests: pending_outgoing || [],
           isLoading: false 
       });
     } catch (error: any) {

@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isPublicPath = publicPaths.includes(pathname);
   if (!isPublicPath && isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center" data-testid="auth-loading">
         <p>Loading...</p>
       </div>
     );

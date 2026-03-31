@@ -1,59 +1,58 @@
 import { act } from '@testing-library/react';
 import { createMockTrip } from '@/lib/test-utils/fixtures';
 
-// Define the mock outside to share it across tests
-const mockTripService = {
-  getTrips: jest.fn(),
-  getTripById: jest.fn(),
-  getUpcomingTrips: jest.fn(),
-  getTripsForDate: jest.fn(),
-  createTrip: jest.fn(),
-  deleteTrip: jest.fn(),
-  updateTrip: jest.fn(),
-};
-
-// COMPREHENSIVE MOCKING
-jest.mock('@/lib/services/tripService', () => ({
-  TripService: mockTripService
-}));
-
-jest.mock('@/lib/stores/wineryStore', () => ({
-  useWineryStore: {
-    getState: jest.fn(() => ({
-      ensureWineryDetails: jest.fn().mockResolvedValue({}),
-      updateWinery: jest.fn(),
-    })),
-  },
-}));
-
-jest.mock('@/utils/supabase/client', () => ({
-  createClient: jest.fn(() => ({
-    rpc: jest.fn(),
-    from: jest.fn(() => ({
-      select: jest.fn(),
-      insert: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    })),
-    auth: {
-      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user' } }, error: null }),
-    }
-  })),
-}));
-
 describe('tripStore', () => {
-  // Use let for the store so we can reset it if needed
   let useTripStore: any;
+  let mockTripService: any;
   const mockTrip = createMockTrip();
   const mockTrips = [mockTrip];
   const mockCount = 1;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    // Re-require to ensure mocks are applied to the store instance
-    jest.isolateModules(() => {
-        useTripStore = require('../tripStore').useTripStore;
-    });
+    jest.resetModules();
+
+    mockTripService = {
+      getTrips: jest.fn(),
+      getTripById: jest.fn(),
+      getUpcomingTrips: jest.fn(),
+      getTripsForDate: jest.fn(),
+      createTrip: jest.fn(),
+      deleteTrip: jest.fn(),
+      updateTrip: jest.fn(),
+    };
+
+    jest.doMock('@/lib/services/tripService', () => ({
+      TripService: mockTripService
+    }));
+
+    jest.doMock('@/lib/stores/wineryStore', () => ({
+      useWineryStore: {
+        getState: jest.fn(() => ({
+          ensureWineryDetails: jest.fn().mockResolvedValue({}),
+          updateWinery: jest.fn(),
+        })),
+      },
+    }));
+
+    jest.doMock('@/utils/supabase/client', () => ({
+      createClient: jest.fn(() => ({
+        rpc: jest.fn(),
+        from: jest.fn(() => ({
+          select: jest.fn(),
+          insert: jest.fn(),
+          update: jest.fn(),
+          delete: jest.fn(),
+        })),
+        auth: {
+          getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user' } }, error: null }),
+          getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'test-user' } } }, error: null }),
+        }
+      })),
+    }));
+
+    // Re-require to ensure mocks are applied
+    useTripStore = require('../tripStore').useTripStore;
+    useTripStore.getState().reset();
   });
 
   describe('fetchTrips', () => {
