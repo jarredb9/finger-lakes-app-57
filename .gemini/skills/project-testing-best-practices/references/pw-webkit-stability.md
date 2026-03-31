@@ -53,7 +53,7 @@ When Playwright interception is bypassed by Service Worker threads or engine-lev
 
 #### A. Zustand Stores
 - **Standard:** Stores (`wineryDataStore`, `visitStore`) should check `process.env.NEXT_PUBLIC_IS_E2E === 'true'`. 
-- **Pattern:** They MUST return mock data/IDs for heavy RPCs (`hydrateWineries`, `ensureInDb`, `log_visit`) UNLESS an opt-in flag like `globalThis._E2E_ENABLE_REAL_SYNC` is truthy.
+- **Pattern:** They MUST return mock data/IDs for heavy RPCs (`hydrateWineries`, `ensureInDb`, `log_visit`) UNLESS an opt-in flag like `globalThis._E2E_ENABLE_REAL_SYNC` or `localStorage.getItem('_E2E_ENABLE_REAL_SYNC')` is truthy. **Prefer `localStorage` for flags that must survive redirects (e.g. Login).**
 
 #### B. API Routes (Auth & Code Exchange)
 - **Standard:** Any API route that exchanges tokens or codes (e.g., `api/auth/reset-password`) MUST implement a **server-side bypass** for the token value `'mock-code'`.
@@ -86,7 +86,7 @@ Mocking `supabase.storage.upload` is insufficient if the app logic immediately g
 
 ### 11. The Persistent Signal Rule
 In Next.js 16 + WebKit, coming back "online" often triggers hydration reloads or auth redirects that clear `window` state.
-- **Standard:** E2E verification signals (like `_E2E_SYNC_REQUEST_INTERCEPTED`) MUST be mirrored to `localStorage`.
+- **Standard:** E2E verification signals (like `_E2E_SYNC_REQUEST_INTERCEPTED` or `_E2E_ENABLE_REAL_SYNC`) MUST be mirrored to `localStorage`.
 - **Verification:** Tests should check `localStorage` if the signal appears `undefined` despite being set in store logs.
 
 ### 12. The Rendering Verification Rule

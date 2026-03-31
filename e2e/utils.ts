@@ -41,6 +41,34 @@ export class MockMapsManager {
     this.swEnabled = true;
   }
 
+  async failMarkers() {
+    await this.page.addInitScript(() => {
+        console.log('[DIAGNOSTIC] failMarkers init script running');
+        (window as any)._E2E_ENABLE_REAL_SYNC = true;
+        (window as any)._E2E_SKIP_WINERY_INJECTION = true;
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
+            localStorage.removeItem('winery-data-storage-e2e');
+        }
+    });
+    // Also try to set it immediately
+    await this.page.evaluate(() => {
+        (window as any)._E2E_ENABLE_REAL_SYNC = true;
+        (window as any)._E2E_SKIP_WINERY_INJECTION = true;
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
+        }
+        if ((window as any).useWineryDataStore) {
+            (window as any).useWineryDataStore.setState({ persistentWineries: [], error: null });
+        }
+    }).catch(() => {});
+
+    await this.page.route(/\/rpc\/get_map_markers/, async (route) => {
+      console.log(`[DIAGNOSTIC] Intercepting get_map_markers with 500 error`);
+      await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
+    });
+  }
+
   async initDefaultMocks(options: { currentUserId?: string } = {}) {
     if (process.env.E2E_REAL_DATA === 'true') return;
     
@@ -75,6 +103,7 @@ export class MockMapsManager {
                 return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([{ id: currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' }]) });
             }
             if (url.includes('/rpc/')) {
+
                 // 1. Fallback if real data is requested for this category
                 if (this.realSocialEnabled && (
                     url.includes('send_friend_request') || 
@@ -316,11 +345,6 @@ export class MockMapsManager {
 
     // Proactive injection into Store
     await this.page.addInitScript(({ mockMarkers, swEnabled, realFavoritesEnabled, realVisitsEnabled, realTripsEnabled }: any) => {
-        // Clear isolated E2E storage for a fresh start
-        window.localStorage.removeItem('winery-data-storage-e2e');
-        window.localStorage.removeItem('visit-storage-e2e');
-        window.localStorage.removeItem('trip-storage-e2e');
-        
         (window as any)._E2E_MOCKS_ACTIVE = true;
         
         // Enable real sync in store if we're using real favorites/visits/trips
@@ -408,14 +432,11 @@ export class MockMapsManager {
   }
 
   // --- ERROR INJECTION METHODS (Restored for error-handling.spec.ts) ---
-  async failMarkers() {
-    await this.page.addInitScript(() => {
-        (window as any)._E2E_SKIP_WINERY_INJECTION = true;
-    });
-    await this.page.route(/\/rpc\/get_map_markers/, async (route) => {
-      await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
-    });
-  }
+  // async failMarkers() { // REMOVED - now handled by _shouldFailMarkers flag
+  //   await this.page.route(/\/rpc\/get_map_markers/, async (route) => {
+  //     await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
+  //   });
+  // }
 
   async failTrips() {
     await this.page.route(/\/rest\/v1\/trips/, async (route) => {
@@ -497,7 +518,7 @@ export const test = base.extend<{
     };
 
     page.on('console', logHandler);
-    page.context().on('console', logHandler);
+    // page.context().on('console', logHandler); // REMOVED: Duplicate context-level listener causes double logs
 
     await manager.initDefaultMocks();
     await use(manager);

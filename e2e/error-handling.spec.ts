@@ -7,11 +7,6 @@ test.describe('Error Handling (Unhappy Path)', () => {
   });
 
   test('should show error alert when map markers fail to load', async ({ page, mockMaps, user }) => {
-    // Enable real sync to bypass the E2E store skip
-    await page.addInitScript(() => {
-        (window as any)._E2E_ENABLE_REAL_SYNC = true;
-    });
-
     // 1. Force a 500 error for markers
     await mockMaps.failMarkers();
 

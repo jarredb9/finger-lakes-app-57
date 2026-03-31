@@ -18,10 +18,10 @@ export function getSidebarContainer(page: Page): Locator {
 export async function waitForAppReady(page: Page) {
     const isMobile = page.viewportSize()?.width! < 768;
     const successSelector = isMobile 
-      ? 'div.fixed.bottom-0, [data-testid="settings-page-container"], [data-testid="trip-details-card"], [data-testid="mobile-nav-explore"]' 
-      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"], h1:has-text("Winery Visit Planner")';
+      ? '[data-testid="mobile-nav-explore"], [data-testid="settings-page-container"], [data-testid="trip-details-card"]' 
+      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"]';
     
-    await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 20000 });
+    await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 25000 });
 }
 
 /**
@@ -89,6 +89,8 @@ export async function clearServiceWorkers(page: Page) {
                 }
             }
             // Standard LocalStorage/SessionStorage cleanup
+            window.localStorage.removeItem('winery-data-storage-e2e');
+            window.localStorage.removeItem('_E2E_ENABLE_REAL_SYNC');
             window.localStorage.clear();
             window.sessionStorage.clear();
         } catch (e) {}

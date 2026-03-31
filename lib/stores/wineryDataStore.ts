@@ -38,7 +38,9 @@ const getE2EHeaders = () => isE2E() ? { 'x-skip-sw-interception': 'true' } : {};
 const shouldSkipRealSync = () => {
     if (!isE2E()) return false;
     // @ts-ignore
-    return !(globalThis as any)._E2E_ENABLE_REAL_SYNC;
+    const globalVal = !!(globalThis as any)._E2E_ENABLE_REAL_SYNC;
+    const localVal = typeof window !== 'undefined' && localStorage.getItem('_E2E_ENABLE_REAL_SYNC') === 'true';
+    return !(globalVal || localVal);
 };
 
 export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
@@ -73,8 +75,6 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
              return standardizeWineryData(m, existing); 
           }).filter(Boolean) as Winery[];
 
-          // Merge: Replace updated ones, but KEEP those that weren't in the markers list
-          // This prevents detail loss if we navigated deep into a winery then back.
           const processedIds = new Set(processedWineries.map(w => w.id));
           const mergedWineries = [
               ...processedWineries,

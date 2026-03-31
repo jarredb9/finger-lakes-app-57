@@ -55,4 +55,9 @@ If an RPC call returns `400 Bad Request` during a test, it is almost certainly a
 - **Action:** Use the Supabase MCP `execute_sql` tool to fetch the function definition: `SELECT pg_get_functiondef(oid) FROM pg_proc WHERE proname = 'your_function_name';`.
 - **Validation:** Compare the arguments and return columns with the TypeScript interface.
 
+### 9. The Early Hydration Race Rule
+`clearServiceWorkers` (called in `beforeEach`) navigates to `/`, triggering an early `hydrateWineries` call before the test body (`failMarkers()`) can run.
+- **Problem:** If flags like `_E2E_ENABLE_REAL_SYNC` are not set yet, the app skips the logic you intend to test.
+- **Solution:** Tests forcing specific paths MUST use both `addInitScript` (for future navigations) AND `page.evaluate` (for immediate state) to set E2E flags and clear the store. This ensures the *next* navigation (e.g. `login()`) sees the clean state and correct flags.
+
 Reference: [Playwright Debugging](https://playwright.dev/docs/debug)
