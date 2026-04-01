@@ -1,4 +1,3 @@
-"use client";
 
 export function ModalHost() {
     // We render the div immediately to avoid race conditions with Portals.
