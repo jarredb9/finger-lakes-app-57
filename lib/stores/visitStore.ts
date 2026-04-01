@@ -4,6 +4,8 @@ import { persist } from 'zustand/middleware';
 import { Winery, Visit, VisitWithWinery, GooglePlaceId, WineryDbId } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { useWineryStore } from './wineryStore';
+import { useWineryDataStore } from './wineryDataStore';
+import { WineryService } from '@/lib/services/wineryService';
 import { addOfflineMutation, getOfflineMutations, removeOfflineMutation, ensureBlob } from '@/lib/utils/offline-queue';
 
 interface VisitState {
@@ -196,16 +198,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           }
 
 
-          const rpcWineryData = {
-            id: winery.id,
-            name: winery.name,
-            address: winery.address,
-            lat: winery.lat,
-            lng: winery.lng,
-            phone: winery.phone || null,
-            website: winery.website || null,
-            rating: winery.rating || null,
-          };
+          const rpcWineryData = WineryService.getRpcData(winery);
 
           const rpcVisitData = {
             visit_date: visitData.visit_date,
@@ -226,10 +219,21 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           }
           
           const visitId = rpcResult.visit_id;
+          const wineryDbId = rpcResult.winery_id;
+          
+          // Update wineryDataStore with the new dbId if we didn't have it
+          if (wineryDbId && wineryDbId !== winery.dbId) {
+              useWineryDataStore.getState().upsertWinery({ ...winery, dbId: wineryDbId as WineryDbId });
+          }
+
           const finalVisit: VisitWithWinery = { 
               ...tempVisit, 
               id: visitId, 
-              photos: uploadedPaths 
+              photos: uploadedPaths,
+              wineries: {
+                  ...tempVisit.wineries,
+                  id: wineryDbId as WineryDbId
+              }
           };
 
           replaceVisit(winery.id, tempId, finalVisit);
@@ -317,16 +321,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                   }
                 }
 
-                const rpcWineryData = {
-                  id: mutation.winery.id,
-                  name: mutation.winery.name,
-                  address: mutation.winery.address,
-                  lat: mutation.winery.lat,
-                  lng: mutation.winery.lng,
-                  phone: mutation.winery.phone || null,
-                  website: mutation.winery.website || null,
-                  rating: mutation.winery.rating || null,
-                };
+                const rpcWineryData = WineryService.getRpcData(mutation.winery);
 
                 const rpcVisitData = {
                   visit_date: mutation.visitData.visit_date,
@@ -341,7 +336,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 const webkitFallbackRpc = isWebKitFallback();
 
                 if (webkitFallbackRpc || shouldSkipRealSync()) {
-                    rpcResult = { visit_id: 999000 + Math.floor(Math.random() * 1000) };
+                    rpcResult = { visit_id: 999000 + Math.floor(Math.random() * 1000), winery_id: mutation.winery.dbId || 888000 };
                     rpcError = null;
                     signalSyncIntercepted();
                 } else {
@@ -358,8 +353,16 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                     throw rpcError;
                 }
                 
+                const visitId = rpcResult.visit_id;
+                const wineryDbId = rpcResult.winery_id;
+
+                // Update wineryDataStore with the new dbId
+                if (wineryDbId && wineryDbId !== mutation.winery.dbId) {
+                    useWineryDataStore.getState().upsertWinery({ ...mutation.winery, dbId: wineryDbId as WineryDbId });
+                }
+
                 const finalVisit: VisitWithWinery = {
-                  id: rpcResult.visit_id,
+                  id: visitId,
                   user_id: session.user.id,
                   visit_date: mutation.visitData.visit_date,
                   rating: mutation.visitData.rating,
@@ -368,7 +371,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                   wineryName: mutation.winery.name,
                   wineryId: mutation.winery.id,
                   wineries: {
-                    id: mutation.winery.dbId || 0 as WineryDbId,
+                    id: wineryDbId || mutation.winery.dbId || 0 as WineryDbId,
                     google_place_id: mutation.winery.id,
                     name: mutation.winery.name,
                     address: mutation.winery.address,

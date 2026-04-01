@@ -2,7 +2,9 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import { persist } from 'zustand/middleware';
 import { Trip, Winery, WineryDbId } from '@/lib/types';
 import { useWineryStore } from './wineryStore';
+import { useWineryDataStore } from './wineryDataStore';
 import { TripService } from '@/lib/services/tripService';
+import { WineryService } from '@/lib/services/wineryService';
 import { createClient } from '@/utils/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { formatDateLocal, getTodayLocal } from '@/lib/utils';
@@ -482,16 +484,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
         try {
             // Prepare generic winery data object for RPCs
-            const rpcWineryData = {
-              id: winery.id,
-              name: winery.name,
-              address: winery.address,
-              lat: winery.lat,
-              lng: winery.lng,
-              phone: winery.phone || null,
-              website: winery.website || null,
-              rating: winery.rating || null,
-            };
+            const rpcWineryData = WineryService.getRpcData(winery);
 
             const tripPromises = Array.from(selectedTrips).map(async (tripId) => {
                 if (tripId === 'new') {
@@ -506,18 +499,18 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                     });
 
                     if (error) throw error;
-                    return { tripId: data.trip_id, isNew: true };
+                    return { tripId: data.trip_id, wineryId: data.winery_id, isNew: true };
                 } else {
                     // Call RPC to add winery to existing trip
                     const numericTripId = parseInt(tripId, 10);
-                    const { error } = await supabase.rpc('add_winery_to_trip', {
+                    const { data, error } = await supabase.rpc('add_winery_to_trip', {
                         p_trip_id: numericTripId,
                         p_winery_data: rpcWineryData,
                         p_notes: addTripNotes || null
                     });
 
                     if (error) throw error;
-                    return { tripId: numericTripId, isNew: false };
+                    return { tripId: numericTripId, wineryId: (data as any)?.winery_id, isNew: false };
                 }
             });
 
@@ -526,12 +519,14 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             // Update WineryStore to reflect trip status immediately (Badge support)
             let badgeTripId: number | undefined;
             let badgeTripName: string | undefined;
+            let finalWineryDbId: number | undefined;
 
             // 1. Check for new trip result
             const newTripResult = results.find(r => r.isNew);
             if (newTripResult) {
                 badgeTripId = newTripResult.tripId;
                 badgeTripName = newTripName;
+                finalWineryDbId = newTripResult.wineryId;
             } 
             // 2. If not new, find first existing trip ID
             else if (selectedTrips.size > 0) {
@@ -541,14 +536,21 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                      // Find name from tripsForDate
                      const trip = get().tripsForDate.find(t => t.id === badgeTripId);
                      badgeTripName = trip?.name;
+                     finalWineryDbId = results[0].wineryId;
                  }
+            }
+
+            // Centralized ID Sync: Update wineryDataStore with the new dbId if we didn't have it
+            if (finalWineryDbId && finalWineryDbId !== winery.dbId) {
+                useWineryDataStore.getState().upsertWinery({ ...winery, dbId: finalWineryDbId as WineryDbId });
             }
 
             if (badgeTripId && badgeTripName) {
                  useWineryStore.getState().updateWinery(winery.id, { 
                      trip_id: badgeTripId, 
                      trip_name: badgeTripName, 
-                     trip_date: dateString 
+                     trip_date: dateString,
+                     dbId: (finalWineryDbId || winery.dbId) as WineryDbId
                  });
             }
 
@@ -624,23 +626,20 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                  if (error) throw error;
             } else {
                  // For adding, we use the RPC which handles upsert
-                 const rpcWineryData = {
-                    id: winery.id,
-                    name: winery.name,
-                    address: winery.address,
-                    lat: winery.lat,
-                    lng: winery.lng,
-                    phone: winery.phone || null,
-                    website: winery.website || null,
-                    rating: winery.rating || null,
-                  };
+                 const rpcWineryData = WineryService.getRpcData(winery);
                  
-                 const { error } = await supabase.rpc('add_winery_to_trip', {
+                 const { data, error } = await supabase.rpc('add_winery_to_trip', {
                      p_trip_id: trip.id,
                      p_winery_data: rpcWineryData,
                      p_notes: null
                  });
                  if (error) throw error;
+
+                 // Sync DB ID
+                 const wineryDbId = (data as any)?.winery_id;
+                 if (wineryDbId && wineryDbId !== winery.dbId) {
+                     useWineryDataStore.getState().upsertWinery({ ...winery, dbId: wineryDbId as WineryDbId });
+                 }
             }
         } catch (error) {
             console.error("Failed to toggle winery on trip, reverting:", error);

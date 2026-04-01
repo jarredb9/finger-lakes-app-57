@@ -15,6 +15,7 @@ import { useWineryStore } from './lib/stores/wineryStore';
 dotenv.config({ path: path.resolve(__dirname, '.env.local') });
 
 // Reset all Zustand stores before each test to prevent state bleed
+// And setup modal-root for Portals
 beforeEach(() => {
   useUIStore.getState().reset?.();
   useFriendStore.getState().reset?.();
@@ -24,6 +25,16 @@ beforeEach(() => {
   useVisitStore.getState().reset?.();
   useWineryDataStore.getState().reset?.();
   useWineryStore.getState().reset?.();
+
+  // Ensure modal-root exists for Portals
+  let modalRoot = document.getElementById('modal-root');
+  if (!modalRoot) {
+    modalRoot = document.createElement('div');
+    modalRoot.setAttribute('id', 'modal-root');
+    document.body.appendChild(modalRoot);
+  } else {
+    modalRoot.innerHTML = '';
+  }
 });
 
 global.TextEncoder = TextEncoder;

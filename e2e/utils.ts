@@ -4,7 +4,6 @@ import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { Page, test as base } from '@playwright/test';
 import { createMockMapMarkerRpc, createMockVisitWithWinery, createMockTrip } from '@/lib/test-utils/fixtures';
-import { Database } from '@/lib/database.types';
 import { 
   Trip, 
   VisitWithWinery, 
@@ -14,10 +13,19 @@ import {
   GooglePlaceId
 } from '@/lib/types';
 
-type PublicSchema = Database['public'];
-type RPCs = PublicSchema['Functions'];
+export interface FriendActivityFeedItem {
+  activity_type: string;
+  created_at: string;
+  activity_user_id: string;
+  user_name: string;
+  user_email: string;
+  winery_id: number;
+  winery_name: string;
+  visit_rating: number | null;
+  visit_review: string | null;
+  visit_photos: string[] | null;
+}
 
-export type FriendActivityFeedItem = RPCs['get_friend_activity_feed']['Returns'][number];
 export type MapMarker = MapMarkerRpc;
 export type TripDetails = Trip;
 export type VisitItem = VisitWithWinery;
@@ -211,7 +219,7 @@ export class MockMapsManager {
                     MockMapsManager.sharedMockActivityFeed.push({
                         activity_type: 'visit',
                         created_at: new Date().toISOString(),
-                        user_id: currentUserId,
+                        activity_user_id: currentUserId,
                         user_name: 'Test User',
                         user_email: 'test@example.com',
                         winery_id: newVisit.winery_id,

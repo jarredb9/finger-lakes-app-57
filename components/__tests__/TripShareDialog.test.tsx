@@ -83,7 +83,7 @@ describe('TripShareDialog', () => {
     });
   });
 
-  it('displays loading state', () => {
+  it('displays loading state', async () => {
     (useFriendStore as unknown as jest.Mock).mockReturnValue({
       friends: [],
       isLoading: true,
@@ -99,7 +99,9 @@ describe('TripShareDialog', () => {
       />
     );
     
-    expect(screen.getByTestId('loading-friends')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId('loading-friends')).toBeInTheDocument();
+    });
   });
 
   it('displays empty state', async () => {

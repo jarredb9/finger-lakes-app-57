@@ -42,6 +42,11 @@ jobs:
       - name: Run Linting
         run: npm run lint
 
+      - name: Check Database Type Integrity
+        run: npm run db:check-types
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+
       - name: Run Type Checking
         run: npm run type-check
 

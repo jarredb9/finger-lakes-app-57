@@ -24,10 +24,10 @@ Objective: Decouple feature logic from the "God Renderer" singleton.
 ## Phase 3: Type-Safe Testing Infrastructure (Implementation Complete - Awaiting Verification)
 Objective: Eliminate the "Numeric ID" and "Selector Drift" bugs.
 
-- [x] Task 1: Refactor `MockMapsManager` to enforce `database.types.ts` schemas on all RPC mock responses. **Verification:** TypeScript compilation errors if a mock field doesn't match the DB.
-- [x] Task 2: Implement "Atomic State Injection" helpers in `e2e/helpers.ts` (`injectTripState`, `injectVisitState`).
-- [x] Task 3: Refactor `e2e/trip-sharing.spec.ts` to use `injectTripState` and bypass navigation. **Verification:** Test runs in < 10 seconds and is independent of the Sidebar layout.
-- [x] Task 4: Audit all E2E specs for `robustClick` usage and replace with stable `data-testid` based clicks. **Verification:** Zero occurrences of `robustClick` in `e2e/` folder.
+- [x] Task 1: Refactor `MockMapsManager` to enforce `database.types.ts` schemas on all RPC mock responses. **Verification:** TypeScript compilation errors if a mock field doesn't match the DB. (aef83d7)
+- [x] Task 2: Implement "Atomic State Injection" helpers in `e2e/helpers.ts` (`injectTripState`, `injectVisitState`). (aef83d7)
+- [x] Task 3: Refactor `e2e/trip-sharing.spec.ts` to use `injectTripState` and bypass navigation. **Verification:** Test runs in < 10 seconds and is independent of the Sidebar layout.(aef83d7)
+- [x] Task 4: Audit all E2E specs for `robustClick` usage and replace with stable `data-testid` based clicks. **Verification:** Zero occurrences of `robustClick` in `e2e/` folder. (aef83d7)
 
 ## Phase 4: Data Layer Hardening
 Objective: Consolidate the "ID Paradox" (Google vs DB ID).

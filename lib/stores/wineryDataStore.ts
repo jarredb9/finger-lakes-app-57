@@ -1,8 +1,9 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { persist } from 'zustand/middleware';
-import { Winery, Visit, GooglePlaceId, WineryDbId, DbWinery, MapMarkerRpc, WineryDetailsRpc, DbWineryWithUserData } from '@/lib/types'; 
+import { Winery, Visit, GooglePlaceId, WineryDbId, MapMarkerRpc } from '@/lib/types'; 
 import { createClient } from '@/utils/supabase/client';
 import { standardizeWineryData, GoogleWinery } from '@/lib/utils/winery';
+import { WineryService } from '@/lib/services/wineryService';
 
 interface WineryDataState {
   persistentWineries: Winery[]; // The Master Cache
@@ -12,7 +13,7 @@ interface WineryDataState {
 
   // Actions
   hydrateWineries: (userId: string) => Promise<void>;
-  upsertWinery: (data: DbWinery | GoogleWinery | MapMarkerRpc | WineryDetailsRpc | DbWineryWithUserData) => Winery | null;
+  upsertWinery: (data: any) => Winery | null;
   getWinery: (id: GooglePlaceId) => Winery | undefined;
   
   // Data Mutations
@@ -143,28 +144,24 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const winery = original.find(w => w.id === wineryId);
           if (!winery) return;
 
+          // Optimistic Update
           set({
               persistentWineries: original.map(w => w.id === wineryId ? { ...w, isFavorite: !isFavorite } : w)
           });
 
-          const supabase = createClient();
           try {
-              const rpcWineryData = {
-                  id: winery.id,
-                  name: winery.name,
-                  address: winery.address,
-                  lat: winery.lat,
-                  lng: winery.lng,
-                  phone: winery.phone || null,
-                  website: winery.website || null,
-                  rating: winery.rating || null,
-              };
+              const result = await WineryService.toggleFavorite(winery);
               
-              const { error } = await supabase.rpc('toggle_favorite', { p_winery_data: rpcWineryData }, { headers: getE2EHeaders() } as any);
-              if (error) throw error;
-              await get().ensureInDb(wineryId);
+              // Sync the store with the real DB ID returned by the service
+              if (result.dbId) {
+                  set(state => ({
+                      persistentWineries: state.persistentWineries.map(w => 
+                          w.id === wineryId ? { ...w, isFavorite: result.isFavorite, dbId: result.dbId! } : w
+                      )
+                  }));
+              }
           } catch (err) {
-              console.error("Fav toggle failed:", err);
+              console.error("[wineryDataStore] Fav toggle failed:", err);
               set({ persistentWineries: original });
           }
       },
@@ -174,28 +171,24 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
         const winery = original.find(w => w.id === wineryId);
         if (!winery) return;
         
+        // Optimistic Update
         set({
             persistentWineries: original.map(w => w.id === wineryId ? { ...w, onWishlist: !isOnWishlist } : w)
         });
 
-        const supabase = createClient();
         try {
-            const rpcWineryData = {
-                id: winery.id,
-                name: winery.name,
-                address: winery.address,
-                lat: winery.lat,
-                lng: winery.lng,
-                phone: winery.phone || null,
-                website: winery.website || null,
-                rating: winery.rating || null,
-            };
+            const result = await WineryService.toggleWishlist(winery);
             
-            const { error } = await supabase.rpc('toggle_wishlist', { p_winery_data: rpcWineryData }, { headers: getE2EHeaders() } as any);
-            if (error) throw error;
-            await get().ensureInDb(wineryId);
+            // Sync the store with the real DB ID returned by the service
+            if (result.dbId) {
+                set(state => ({
+                    persistentWineries: state.persistentWineries.map(w => 
+                        w.id === wineryId ? { ...w, onWishlist: result.onWishlist, dbId: result.dbId! } : w
+                    )
+                }));
+            }
         } catch (err) {
-            console.error("Wishlist toggle failed:", err);
+            console.error("[wineryDataStore] Wishlist toggle failed:", err);
             set({ persistentWineries: original });
         }
       },
@@ -205,20 +198,20 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const winery = original.find(w => w.id === wineryId);
           if (!winery) return;
 
-          const dbId = await get().ensureInDb(wineryId);
-          if (!dbId) {
-              console.error("[wineryDataStore] Cannot toggle privacy: No DB ID available for winery", wineryId);
-              return;
-          }
-
+          // Optimistic Update
           set({
-              persistentWineries: original.map(w => w.id === wineryId ? { ...w, favoriteIsPrivate: !w.favoriteIsPrivate, dbId } : w)
+              persistentWineries: original.map(w => w.id === wineryId ? { ...w, favoriteIsPrivate: !w.favoriteIsPrivate } : w)
           });
 
-          const supabase = createClient();
           try {
-              const { error } = await supabase.rpc('toggle_favorite_privacy', { p_winery_id: dbId }, { headers: getE2EHeaders() } as any);
-              if (error) throw error;
+              await WineryService.toggleFavoritePrivacy(winery);
+              // Ensure we have the DB ID in store after the operation
+              const dbId = await get().ensureInDb(wineryId);
+              if (dbId) {
+                  set(state => ({
+                      persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId } : w)
+                  }));
+              }
           } catch (err) {
               console.error("[wineryDataStore] Fav privacy toggle failed:", err);
               set({ persistentWineries: original });
@@ -231,20 +224,20 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const winery = original.find(w => w.id === wineryId);
           if (!winery) return;
 
-          const dbId = await get().ensureInDb(wineryId);
-          if (!dbId) {
-              console.error("[wineryDataStore] Cannot toggle privacy: No DB ID available for winery", wineryId);
-              return;
-          }
-
+          // Optimistic Update
           set({
-              persistentWineries: original.map(w => w.id === wineryId ? { ...w, wishlistIsPrivate: !w.wishlistIsPrivate, dbId } : w)
+              persistentWineries: original.map(w => w.id === wineryId ? { ...w, wishlistIsPrivate: !w.wishlistIsPrivate } : w)
           });
 
-          const supabase = createClient();
           try {
-              const { error } = await supabase.rpc('toggle_wishlist_privacy', { p_winery_id: dbId }, { headers: getE2EHeaders() } as any);
-              if (error) throw error;
+              await WineryService.toggleWishlistPrivacy(winery);
+              // Ensure we have the DB ID in store after the operation
+              const dbId = await get().ensureInDb(wineryId);
+              if (dbId) {
+                  set(state => ({
+                      persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId } : w)
+                  }));
+              }
           } catch (err) {
               console.error("[wineryDataStore] Wishlist privacy toggle failed:", err);
               set({ persistentWineries: original });
@@ -256,43 +249,15 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const winery = get().persistentWineries.find(w => w.id === wineryId);
           if (!winery) return null;
           
-          const currentDbId = winery.dbId;
-          if (typeof currentDbId === 'number' && !isNaN(currentDbId) && currentDbId > 100) {
-              return currentDbId;
-          }
-
-          if (isE2E() && shouldSkipRealSync()) {
-              const mockId = 999000 + Math.floor(Math.random() * 1000);
+          const dbId = await WineryService.ensureInDb(winery);
+          
+          if (dbId && dbId !== winery.dbId) {
               set(state => ({
-                  persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId: mockId as WineryDbId } : w)
+                  persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId } : w)
               }));
-              return mockId as WineryDbId;
           }
-
-          const supabase = createClient();
-          const rpcData = {
-              id: winery.id,
-              name: winery.name,
-              address: winery.address,
-              lat: winery.lat,
-              lng: winery.lng,
-              phone: winery.phone || null,
-              website: winery.website || null,
-              rating: winery.rating || null,
-          };
           
-          const { data: dbId, error } = await supabase.rpc('ensure_winery', { p_winery_data: rpcData }, { headers: getE2EHeaders() } as any);
-          if (error || !dbId) {
-              console.error("[wineryDataStore] ensureInDb failed:", error);
-              return null;
-          }
-
-          const numericId = Number(dbId);
-          set(state => ({
-              persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId: numericId as WineryDbId } : w)
-          }));
-          
-          return numericId as WineryDbId;
+          return dbId;
       },
 
       bulkUpsertWineries: async (wineries) => {
