@@ -40,4 +40,4 @@ Objective: Codify the new stable state.
 
 - [x] Task 1: Remove the "Migration & Transition Rule" from the `project-testing-best-practices` skill and update the skill based on changes made in this track. (0e46d19)
 - [x] Task 2: Update `GEMINI.md` to move the Portal/Registry pattern from a "Plan" to a "Mandatory Core Standard." (bc4f40b)
-- [ ] Task 3: Archive the track and update the project CHANGELOG.
+- [~] Task 3: Archive the track and update the project CHANGELOG.
