@@ -21,13 +21,13 @@ Objective: Decouple feature logic from the "God Renderer" singleton.
 - [x] Task 3: Migrate `TripShareDialog` to the same Portal pattern, removing it from `GlobalModalRenderer`. **Verification:** Confirm sharing dialog still opens via store trigger but is managed locally by the feature.
 - [x] Task 4: **Verification:** Run `e2e/visit-flow.spec.ts` and `e2e/trip-sharing.spec.ts` to ensure zero regressions in modal behavior.
 
-## Phase 3: Type-Safe Testing Infrastructure
+## Phase 3: Type-Safe Testing Infrastructure (Implementation Complete - Awaiting Verification)
 Objective: Eliminate the "Numeric ID" and "Selector Drift" bugs.
 
-- [ ] Task 1: Refactor `MockMapsManager` to enforce `database.types.ts` schemas on all RPC mock responses. **Verification:** TypeScript compilation errors if a mock field doesn't match the DB.
-- [ ] Task 2: Implement "Atomic State Injection" helpers in `e2e/helpers.ts` (`injectTripState`, `injectVisitState`).
-- [ ] Task 3: Refactor `e2e/trip-sharing.spec.ts` to use `injectTripState` and bypass navigation. **Verification:** Test runs in < 10 seconds and is independent of the Sidebar layout.
-- [ ] Task 4: Audit all E2E specs for `robustClick` usage and replace with stable `data-testid` based clicks. **Verification:** Zero occurrences of `robustClick` in `e2e/` folder.
+- [x] Task 1: Refactor `MockMapsManager` to enforce `database.types.ts` schemas on all RPC mock responses. **Verification:** TypeScript compilation errors if a mock field doesn't match the DB.
+- [x] Task 2: Implement "Atomic State Injection" helpers in `e2e/helpers.ts` (`injectTripState`, `injectVisitState`).
+- [x] Task 3: Refactor `e2e/trip-sharing.spec.ts` to use `injectTripState` and bypass navigation. **Verification:** Test runs in < 10 seconds and is independent of the Sidebar layout.
+- [x] Task 4: Audit all E2E specs for `robustClick` usage and replace with stable `data-testid` based clicks. **Verification:** Zero occurrences of `robustClick` in `e2e/` folder.
 
 ## Phase 4: Data Layer Hardening
 Objective: Consolidate the "ID Paradox" (Google vs DB ID).

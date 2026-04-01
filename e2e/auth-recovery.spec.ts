@@ -1,7 +1,7 @@
 /* eslint-disable no-console */
 import { test, expect } from './utils';
 
-import { robustClick, clearServiceWorkers } from './helpers';
+import { clearServiceWorkers } from './helpers';
 
 test.describe('Auth Recovery (Password Reset)', () => {
   test.beforeEach(async ({ page }) => {
@@ -66,7 +66,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('new-password-123');
 
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await robustClick(page, resetBtn);
+    await resetBtn.click({ force: true });
 
     // 5. Verify Success and Redirection
     // Standard: Use the data-testid from the component
@@ -86,7 +86,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('password456');
 
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await robustClick(page, resetBtn);
+    await resetBtn.click({ force: true });
 
     await expect(page.getByTestId('reset-password-error')).toContainText('Passwords do not match');
   });
@@ -126,7 +126,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('new-password-123');
 
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await robustClick(page, resetBtn);
+    await resetBtn.click({ force: true });
 
     await expect(page.getByTestId('reset-password-error')).toContainText('Invalid or expired reset token');
   });

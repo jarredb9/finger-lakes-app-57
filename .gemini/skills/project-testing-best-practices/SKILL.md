@@ -38,5 +38,6 @@ These standards move the project from "Defensive Survivability" to "Architectura
 5. **Schema Enforcement:** 100% of mocks in `MockMapsManager` MUST be typed using `lib/database.types.ts`.
 6. **Robust Interaction:** The "Hybrid Click" strategy (Standard click + `robustClick` retry) is the project standard for WebKit reliability. Standard `.click()` is preferred ONLY for non-complex primitives in Chromium.
 7. **Submission Gate:** E2E helpers MUST NOT click a submission button if the store's saving state is true. Verification of the `isSaving` state is a mandatory prerequisite.
-8. **Portal Transition:** While `GlobalModalRenderer` is the current implementation, new features should aim for local feature-owned Portals.
+8. **Portal Architecture:** All feature modals MUST be encapsulated within the feature using React Portals to `#modal-root`. `GlobalModalRenderer` is strictly for generic `modalContent`.
 9. **Zero-Guess Debugging:** All failures follow the "Mandatory Diagnostic Protocol" before any fix is attempted.
+10. **Hydration Optimization:** Data arrays (`trips`, `visits`, etc.) MUST be unpersisted to eliminate hydration bottlenecks. Verification MUST confirm `localStorage` remains < 1KB.

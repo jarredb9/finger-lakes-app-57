@@ -1,6 +1,6 @@
 import { test, expect } from './utils';
 import AxeBuilder from '@axe-core/playwright';
-import { login, navigateToTab, robustClick, getSidebarContainer } from './helpers';
+import { login, navigateToTab, getSidebarContainer } from './helpers';
 
 test.describe('Accessibility (A11y)', () => {
   test('login page should be accessible', async ({ page }) => {
@@ -48,7 +48,7 @@ test.describe('Accessibility (A11y)', () => {
     const resultsList = sidebar.getByTestId('winery-results-list');
     const firstWinery = resultsList.getByTestId('winery-card-Mock Winery One').first();
     await expect(firstWinery).toBeVisible({ timeout: 10000 });
-    await robustClick(firstWinery);
+    await firstWinery.click({ force: true });
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();

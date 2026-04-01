@@ -35,7 +35,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({
 }, ref) => {
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(5);
   const [isPrivate, setIsPrivate] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
   const [isInternalSubmitting, setIsInternalSubmitting] = useState(false);
@@ -46,7 +46,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({
   const resetForm = useCallback(() => {
     setVisitDate(new Date().toISOString().split("T")[0]);
     setUserReview("");
-    setRating(0);
+    setRating(5);
     setIsPrivate(false);
     setPhotos([]);
     setPhotosToDelete([]);
@@ -57,7 +57,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({
     if (editingVisit) {
       setVisitDate(new Date(editingVisit.visit_date + "T00:00:00").toISOString().split("T")[0]);
       setUserReview(editingVisit.user_review || "");
-      setRating(editingVisit.rating || 0);
+      setRating(editingVisit.rating || 5);
       setIsPrivate((editingVisit as any).is_private || false);
       setPhotos([]);
       setPhotosToDelete([]);

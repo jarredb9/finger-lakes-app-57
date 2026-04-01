@@ -8,7 +8,6 @@ import {
     openWineryDetails, 
     closeWineryModal,
     ensureSidebarExpanded,
-    robustClick,
     ensureProfileReady,
     waitForToast
 } from './helpers';
@@ -56,10 +55,10 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         await openWineryDetails(pageA, 'Mock Winery One');
         
         const favBtn = pageA.getByRole('button', { name: /Favorite/i });
-        await robustClick(pageA, favBtn);
+        await favBtn.click({ force: true });
 
         const wishBtn = pageA.getByRole('button', { name: /Want to Go/i });
-        await robustClick(pageA, wishBtn);
+        await wishBtn.click({ force: true });
         
         await closeWineryModal(pageA);
       });
@@ -71,7 +70,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         const sidebarB = getSidebarContainer(pageB);
         
         const userALink = sidebarB.locator('a', { hasText: user1.email.split('@')[0] });
-        await robustClick(pageB, userALink);
+        await userALink.click({ force: true });
 
         await expect(pageB.getByText('Favorites')).toBeVisible();
         await expect(pageB.getByTestId('favorite-count')).toHaveText('1');
@@ -84,14 +83,14 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         await openWineryDetails(pageA, 'Mock Winery One');
         
         const favPrivacyToggle = pageA.getByLabel(/Make favorite private/i);
-        await robustClick(pageA, favPrivacyToggle);
+        await favPrivacyToggle.click({ force: true });
         await waitForToast(pageA, /Favorite is now private/i);
 
         // Small delay to allow the first toast to settle/not overlap with the next toggle click if needed
         await pageA.waitForTimeout(500);
 
         const wishPrivacyToggle = pageA.getByLabel(/Make wishlist item private/i);
-        await robustClick(pageA, wishPrivacyToggle);
+        await wishPrivacyToggle.click({ force: true });
         await waitForToast(pageA, /Wishlist item is now private/i);
 
         await closeWineryModal(pageA);

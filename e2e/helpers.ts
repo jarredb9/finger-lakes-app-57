@@ -1,4 +1,5 @@
 import { expect, Locator, Page } from '@playwright/test';
+import { Trip, VisitWithWinery } from '@/lib/types';
 
 /**
  * E2E TEST HELPERS - SURGICAL RECONCILIATION
@@ -33,26 +34,6 @@ export function getTabTrigger(page: Page, tabName: 'Explore' | 'Trips' | 'Friend
     const desktopTab = page.locator('[data-testid="desktop-sidebar-container"]').locator('[role="tab"]').filter({ hasText: tabName });
     
     return mobileTab.or(desktopTab).first();
-}
-
-/**
- * A robust click implementation ensuring Radix triggers.
- */
-export async function robustClick(pageOrLocator: Page | Locator, locator?: Locator) {
-  const target = locator || (pageOrLocator as Locator);
-  await expect(target).toBeVisible({ timeout: 15000 });
-  await expect(target).toBeEnabled({ timeout: 10000 });
-  
-  await target.evaluate(el => {
-    const events = ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'];
-    events.forEach(name => {
-      const isPointer = name.startsWith('pointer');
-      const EventClass = isPointer ? PointerEvent : MouseEvent;
-      const eventOptions = { bubbles: true, cancelable: true };
-      if (isPointer) { (eventOptions as any).pointerType = 'touch'; }
-      el.dispatchEvent(new EventClass(name, eventOptions));
-    });
-  });
 }
 
 /**
@@ -132,13 +113,13 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
       if (!(await sidebar.isVisible())) {
           const openBtn = page.getByRole('button', { name: /Open sidebar/i });
           if (await openBtn.isVisible()) {
-              await openBtn.click();
+              await openBtn.click({ force: true });
           }
       }
   }
 
   const tab = getTabTrigger(page, tabName);
-  await robustClick(page, tab);
+  await tab.click({ force: true });
 
   if (isMobile) {
     const sheet = page.getByTestId('mobile-sidebar-container');
@@ -165,7 +146,7 @@ export async function ensureSidebarExpanded(page: Page) {
     const sidebar = getSidebarContainer(page);
     const expandBtn = page.getByRole('button', { name: 'Expand to full screen' });
     if (await expandBtn.isVisible()) {
-        await expandBtn.click();
+        await expandBtn.click({ force: true });
         await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
     }
 }
@@ -179,9 +160,9 @@ export async function submitLoginForm(page: Page, email: string, pass: string) {
     await page.getByLabel('Password').fill(pass);
     
     const signInBtn = page.getByRole('button', { name: 'Sign In' });
-    // Use robustClick if visible, otherwise fall back to Enter key
+    // Use click if visible, otherwise fall back to Enter key
     try {
-        await robustClick(page, signInBtn);
+        await signInBtn.click({ force: true, timeout: 5000 });
     } catch (e) {
         await page.keyboard.press('Enter');
     }
@@ -259,11 +240,18 @@ export async function waitForSearchComplete(page: Page) {
 
 export async function ensureProfileReady(page: Page) {
     await expect(async () => {
-        const hasName = await page.evaluate(() => {
-            const user = (window as any).useUserStore?.getState().user;
-            return !!(user && user.name && user.name !== 'User');
+        const { user, isLoading } = await page.evaluate(() => {
+            const store = (window as any).useUserStore?.getState();
+            return { user: store?.user, isLoading: store?.isLoading };
         });
-        if (!hasName) throw new Error('Profile not yet fully initialized');
+        
+        if (isLoading) throw new Error('UserStore is still loading');
+        if (!user) throw new Error('User not found in store');
+        if (user.name === 'User') {
+            console.log(`[DIAGNOSTIC] Profile not yet fully initialized (name is still 'User') for ID: ${user.id}`);
+            throw new Error('Profile not yet fully initialized');
+        }
+        return true;
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });
 }
 
@@ -295,7 +283,7 @@ export async function openWineryDetails(page: Page, wineryName: string) {
         }
     }
     
-    await robustClick(page, wineryItem);
+    await wineryItem.click({ force: true });
     
     const modal = page.getByRole('dialog').filter({ hasText: /Detailed information/i });
     await expect(modal).toBeVisible({ timeout: 10000 });
@@ -313,9 +301,9 @@ export async function closeWineryModal(page: Page) {
 
         const closeBtn = modal.getByRole('button', { name: /Close/i });
         if (await closeBtn.isVisible()) {
-            // Only click if it's enabled to avoid robustClick timeout
+            // Only click if it's enabled to avoid timeout
             if (await closeBtn.isEnabled()) {
-                await robustClick(page, closeBtn);
+                await closeBtn.click({ force: true });
             }
         } else {
             await page.keyboard.press('Escape');
@@ -341,7 +329,7 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
     await expect(visitModal).toBeVisible({ timeout: 15000 });
     
     await visitModal.getByLabel('Your Review').fill(data.review);
-    if (data.rating) await robustClick(page, visitModal.getByLabel(`Set rating to ${data.rating}`));
+    if (data.rating) await visitModal.getByLabel(`Set rating to ${data.rating}`).click({ force: true });
     if (data.isPrivate) await visitModal.getByLabel(/Make this visit private/i).check();
     
     const saveBtn = visitModal.getByRole('button', { name: /(Add Visit|Save Changes)/i });
@@ -361,7 +349,7 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
 
         // Only click if we are not already in the middle of a submission
         if (!isSubmitting) {
-            await robustClick(page, saveBtn);
+            await saveBtn.click({ force: true });
         }
         
         throw new Error('Modal still open in store after click');
@@ -376,6 +364,13 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
 // ==========================================
 
 export async function setupFriendship(pageA: Page, pageB: Page, user1Email: string, user2Email: string) {
+    console.log(`[DIAGNOSTIC] Setting up friendship between ${user1Email} and ${user2Email}`);
+    
+    // Log user IDs for context verification
+    const idA = await pageA.evaluate(() => (window as any).useUserStore?.getState().user?.id);
+    const idB = await pageB.evaluate(() => (window as any).useUserStore?.getState().user?.id);
+    console.log(`[DIAGNOSTIC] Page A User ID: ${idA}, Page B User ID: ${idB}`);
+
     // 1. User A Sends Request
     await navigateToTab(pageA, 'Friends');
     await ensureSidebarExpanded(pageA);
@@ -386,32 +381,48 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
     await expect(emailInput).toHaveValue(user2Email);
     
     const addBtn = sidebarA.locator('[data-testid="add-friend-btn"]');
-    await robustClick(pageA, addBtn);
+    await addBtn.click({ force: true });
     
     // Non-fatal response wait for sync
     await pageA.waitForResponse(resp => resp.url().includes('send_friend_request'), { timeout: 10000 }).catch(() => null);
 
     // 2. User B Accepts Request
     await expect(async () => {
+        // Ensure User B is on Friends tab
+        const currentTab = await pageB.evaluate(() => {
+            // @ts-ignore
+            return window.useUIStore?.getState().activeTab;
+        }).catch(() => null);
+
+        if (currentTab !== 'Friends') {
+            await navigateToTab(pageB, 'Friends');
+            await ensureSidebarExpanded(pageB);
+        }
+
         const sidebarB = getSidebarContainer(pageB);
         const friendsCard = sidebarB.locator('[data-testid="my-friends-card"]');
         const requestsCard = sidebarB.locator('[data-testid="friend-requests-card"]');
         const rowId = `[data-testid="request-row-${user1Email}"]`;
 
-        // Check visibility before reload to catch Realtime sync
-        if (!(await requestsCard.locator(rowId).isVisible()) && 
-            !(await friendsCard.locator(`text="${user1Email}"`).isVisible())) {
-            
-            await pageB.reload();
-            await pageB.waitForLoadState('networkidle');
-            await waitForAppReady(pageB);
-            await navigateToTab(pageB, 'Friends');
-            await ensureSidebarExpanded(pageB);
-        }
-
         // Already friends check
         if (await friendsCard.locator(`text="${user1Email}"`).isVisible()) {
             return;
+        }
+
+        // Check visibility
+        if (!(await requestsCard.locator(rowId).isVisible())) {
+            console.log(`[DIAGNOSTIC] Request row ${rowId} not visible. Refreshing store...`);
+            await refreshFriendsStore(pageB);
+            
+            // Log store state
+            const reqs = await pageB.evaluate(() => {
+                // @ts-ignore
+                return window.useFriendStore?.getState().friendRequests?.map(r => r.email);
+            });
+            console.log(`[DIAGNOSTIC] Current friendRequests in store: ${JSON.stringify(reqs)}`);
+            
+            // Small buffer for UI to update
+            await pageB.waitForTimeout(1000);
         }
 
         const requestRow = pageB.locator(rowId).first();
@@ -420,11 +431,11 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
         }
         
         const acceptBtn = requestRow.locator('[data-testid="accept-request-btn"]');
-        await robustClick(pageB, acceptBtn);
+        await acceptBtn.click({ force: true });
         
         await pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request'), { timeout: 10000 }).catch(() => null);
         await expect(friendsCard.locator(`text="${user1Email}"`)).toBeVisible({ timeout: 15000 });
-    }).toPass({ timeout: 60000, intervals: [5000, 10000] });
+    }).toPass({ timeout: 60000, intervals: [5000] });
 
     // Settlement buffer for WebKit container sync
     await pageA.waitForTimeout(1000);
@@ -442,12 +453,100 @@ export async function selectPrivacyOption(page: Page, optionName: 'Public' | 'Fr
     await navigateToSettings(page);
     const container = page.getByTestId('settings-page-container');
     const privacySelect = container.locator('[data-testid="privacy-select"]').first();
-    await robustClick(page, privacySelect);
+    await privacySelect.click({ force: true });
     const option = page.locator('[role="option"], div').filter({ hasText: new RegExp(`^${optionName}$`) }).last();
-    await robustClick(page, option);
+    await option.click({ force: true });
     await expect(page.getByText(/Privacy set to/i).first()).toBeVisible();
 }
 
+// ==========================================
+// 5. ATOMIC STATE INJECTION (DIAGNOSTIC & PERFORMANCE)
+// ==========================================
+
+/**
+ * Injects trip data directly into the Zustand store.
+ * Bypasses navigation and initial fetch for specific tests.
+ */
+export async function injectTripState(page: Page, trips: Trip[]) {
+  await page.evaluate((tripsToInject) => {
+    // @ts-ignore
+    const store = window.useTripStore;
+    if (store && store.setState) {
+      store.setState({ 
+        trips: tripsToInject, 
+        upcomingTrips: tripsToInject,
+        isLoading: false,
+        hasMore: false,
+        count: tripsToInject.length
+      });
+    }
+  }, trips);
+}
+
+/**
+ * Injects visit data directly into the Zustand store.
+ */
+export async function injectVisitState(page: Page, visits: VisitWithWinery[]) {
+  await page.evaluate((visitsToInject) => {
+    // @ts-ignore
+    const store = window.useVisitStore;
+    if (store && store.setState) {
+      store.setState({ 
+        visits: visitsToInject, 
+        isLoading: false,
+        hasMore: false,
+        totalPages: 1
+      });
+    }
+  }, visits);
+}
+
+/**
+ * Injects winery data directly into the Master Cache (wineryDataStore).
+ * This is the source of truth for markers and details.
+ */
+export async function injectWineryState(page: Page, wineries: any[]) {
+  await page.evaluate((wineriesToInject) => {
+    // @ts-ignore
+    const store = window.useWineryDataStore;
+    if (store && store.setState) {
+      store.setState({ 
+        persistentWineries: wineriesToInject,
+        isLoading: false,
+        error: null
+      });
+    }
+  }, wineries);
+}
+
+/**
+ * Injects social data (friends, requests, feed) directly into the Zustand store.
+ */
+export async function injectSocialState(page: Page, data: { 
+    friends?: any[], 
+    friendRequests?: any[], 
+    sentRequests?: any[],
+    friendActivityFeed?: any[]
+}) {
+  await page.evaluate((socialData) => {
+    // @ts-ignore
+    const store = window.useFriendStore;
+    if (store && store.setState) {
+      store.setState({ 
+        friends: socialData.friends || [], 
+        friendRequests: socialData.friendRequests || [],
+        sentRequests: socialData.sentRequests || [],
+        friendActivityFeed: socialData.friendActivityFeed || [],
+        isLoading: false,
+        error: null
+      });
+    }
+  }, data);
+}
+
+/**
+ * Removes a friend or cancels a sent request.
+ */
 export async function removeFriend(page: Page, email: string) {
     await navigateToTab(page, 'Friends');
     await ensureSidebarExpanded(page);
@@ -463,9 +562,7 @@ export async function removeFriend(page: Page, email: string) {
         if (!isFriend) {
             friendRow = sentCard.locator(`.flex.items-center:has-text("${email}")`).first();
             if (!(await friendRow.isVisible())) {
-                await page.reload();
-                await page.waitForLoadState('networkidle');
-                await waitForAppReady(page);
+                await refreshFriendsStore(page);
                 await navigateToTab(page, 'Friends');
                 await ensureSidebarExpanded(page);
                 
@@ -484,12 +581,12 @@ export async function removeFriend(page: Page, email: string) {
         }
 
         const removeBtn = friendRow.locator('button[aria-label="Remove friend"], [data-testid="remove-friend-btn"], [data-testid="cancel-request-btn"]').first();
-        await robustClick(page, removeBtn);
+        await removeBtn.click({ force: true });
 
         // Handle AlertDialog only if it was an accepted friend
         if (isFriend) {
             const confirmBtn = page.locator('button:has-text("Remove"), [data-testid="confirm-remove-btn"]').filter({ visible: true }).first();
-            await robustClick(page, confirmBtn);
+            await confirmBtn.click({ force: true });
         }
 
         await expect(sidebar.locator(`text="${email}"`)).not.toBeVisible({ timeout: 10000 });

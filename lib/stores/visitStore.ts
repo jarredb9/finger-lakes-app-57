@@ -511,7 +511,12 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           const finalPhotoPaths = [...newOptimisticPhotos, ...newPhotoPaths];
           const { data: updatedVisit, error } = await supabase.rpc('update_visit', {
               p_visit_id: parseInt(visitId),
-              p_visit_data: { ...visitData, photos: finalPhotoPaths, is_private: visitData.is_private }
+              p_visit_data: { 
+                ...visitData, 
+                rating: (visitData.rating && visitData.rating > 0) ? visitData.rating : (originalVisit.rating || 5),
+                photos: finalPhotoPaths, 
+                is_private: visitData.is_private 
+              }
           }, { headers: getE2EHeaders() } as any);
 
           if (error) {

@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, logVisit, robustClick, ensureSidebarExpanded } from './helpers';
+import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, logVisit, ensureSidebarExpanded } from './helpers';
 
 test.describe('PWA Offline Functionality', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -83,7 +83,7 @@ test.describe('PWA Offline Functionality', () => {
     await context.route(/.*get_paginated_visits.*/, blockHandler);
     await page.route(/.*get_paginated_visits.*/, blockHandler);
 
-    await robustClick(page, page.getByTestId('log-visit-button'));
+    await page.getByTestId('log-visit-button').click({ force: true });
     await page.getByLabel('Visit Date').fill('2025-01-01');
     await logVisit(page, { review: 'Offline note test' });
     

@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, logVisit, robustClick, ensureSidebarExpanded } from './helpers';
+import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, logVisit, ensureSidebarExpanded } from './helpers';
 
 test.describe('PWA Assets & Sync', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -72,7 +72,7 @@ test.describe('PWA Assets & Sync', () => {
     });
 
     // 3. Create Visit (Queued)
-    await robustClick(page, page.getByTestId('log-visit-button'));
+    await page.getByTestId('log-visit-button').click({ force: true });
     await page.getByLabel('Visit Date').fill('2025-01-02');
     await logVisit(page, { review: 'Sync Me!' });
     

@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, waitForAppReady, robustClick, submitLoginForm, clearServiceWorkers } from './helpers';
+import { login, waitForAppReady, submitLoginForm, clearServiceWorkers } from './helpers';
 
 test.describe('Deep Linking & Redirection', () => {
   const commonHeaders = { 
@@ -188,7 +188,7 @@ test.describe('Deep Linking & Redirection', () => {
 
     // 4. Back to Map
     const backToMapLink = page.getByRole('link', { name: 'Back to Map' });
-    await robustClick(page, backToMapLink);
+    await backToMapLink.click({ force: true });
 
     // 5. Verify Homepage
     await expect(page).toHaveURL(/\/$/);

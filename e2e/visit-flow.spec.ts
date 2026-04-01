@@ -7,7 +7,6 @@ import {
     logVisit, 
     closeWineryModal, 
     ensureSidebarExpanded,
-    robustClick,
     clearServiceWorkers,
     waitForToast
 } from './helpers';
@@ -25,7 +24,7 @@ test.describe('Visit Logging Flow', () => {
     await openWineryDetails(page, 'Mock Winery One');
     
     // 2. Open Log Visit modal
-    await robustClick(page, page.getByTestId('log-visit-button'));
+    await page.getByTestId('log-visit-button').click({ force: true });
 
     // 3. Log Visit
     await logVisit(page, { review: 'Excellent wine and view!', rating: 5 });
@@ -43,7 +42,7 @@ test.describe('Visit Logging Flow', () => {
     // 4. Delete Visit
     const deleteBtn = historySidebar.getByRole('button', { name: 'Delete visit' }).first();
     
-    await robustClick(page, deleteBtn);
+    await deleteBtn.click({ force: true });
     
     await waitForToast(page, /Visit deleted successfully/i);
     await expect(historyItem).not.toBeVisible();

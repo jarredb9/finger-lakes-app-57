@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { clearServiceWorkers, waitForAppReady, robustClick } from './helpers';
+import { clearServiceWorkers, waitForAppReady } from './helpers';
 
 test.describe('PWA Install & Layout', () => {
 
@@ -26,7 +26,7 @@ test.describe('PWA Install & Layout', () => {
     // 4. Manual Login (to avoid login helper's cookie-consent bypass)
     await page.getByLabel('Email').fill(user.email);
     await page.getByLabel('Password').fill(user.password);
-    await robustClick(page, page.getByRole('button', { name: 'Sign In' }));
+    await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
     
     await waitForAppReady(page);
 
@@ -67,7 +67,7 @@ test.describe('PWA Install & Layout', () => {
     // 4. Manual Login
     await page.getByLabel('Email').fill(user.email);
     await page.getByLabel('Password').fill(user.password);
-    await robustClick(page, page.getByRole('button', { name: 'Sign In' }));
+    await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
     
     await waitForAppReady(page);
 

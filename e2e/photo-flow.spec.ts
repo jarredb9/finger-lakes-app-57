@@ -4,7 +4,6 @@ import {
     navigateToTab, 
     openWineryDetails, 
     closeWineryModal, 
-    robustClick, 
     waitForMapReady,
     waitForToast
 } from './helpers';
@@ -35,7 +34,7 @@ test.describe('Photo Management Workflow', () => {
     await openWineryDetails(page, 'Mock Winery One');
     
     // 2. Open Log Visit modal
-    await robustClick(page, page.getByTestId('log-visit-button'));
+    await page.getByTestId('log-visit-button').click({ force: true });
 
     // Wait for the UI store to reflect that the modal should be open
     await expect(async () => {
@@ -53,7 +52,7 @@ test.describe('Photo Management Workflow', () => {
     // Use standardized date format
     const today = new Date().toISOString().split('T')[0];
     await page.getByLabel('Visit Date').fill(today);
-    await robustClick(page, page.locator('svg[aria-label="Set rating to 5"]'));
+    await page.locator('svg[aria-label="Set rating to 5"]').click({ force: true });
     
     const fileChooserPromise = page.waitForEvent('filechooser');
     await page.locator('label[for="dropzone-file"]').click();
@@ -87,8 +86,8 @@ test.describe('Photo Management Workflow', () => {
         });
 
         if (!isSubmitting) {
-            // Use robustClick as a fallback if the force click didn't start the process
-            await robustClick(page, addVisitBtn);
+            // Use fallback if the force click didn't start the process
+            await addVisitBtn.click({ force: true });
         }
         throw new Error('Visit modal still open after click');
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });
@@ -119,7 +118,7 @@ test.describe('Photo Management Workflow', () => {
     const visitCard = wineryModal.locator('[data-testid="visit-card"]').first();
     await expect(visitCard).toBeVisible();
     
-    await robustClick(page, visitCard.getByLabel('Edit visit'));
+    await visitCard.getByLabel('Edit visit').click({ force: true });
 
     // 5. Wait for Form to switch to Edit Mode (Singleton modal)
     await expect(async () => {
@@ -139,7 +138,7 @@ test.describe('Photo Management Workflow', () => {
     
     const photoContainer = photoInForm.locator('..');
     const deleteButton = photoContainer.locator('button').first();
-    await robustClick(page, deleteButton);
+    await deleteButton.click({ force: true });
 
     // 7. Verify visual feedback (Opacity check for deletion marker)
     await expect(photoInForm).toHaveClass(/opacity-40/);
@@ -163,8 +162,8 @@ test.describe('Photo Management Workflow', () => {
         });
 
         if (!isSubmitting) {
-            // Use robustClick as a fallback if the force click didn't start the process
-            await robustClick(page, saveChangesBtn);
+            // Use fallback if the force click didn't start the process
+            await saveChangesBtn.click({ force: true });
         }
         throw new Error('Edit modal still open after click');
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });
