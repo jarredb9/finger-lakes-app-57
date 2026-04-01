@@ -723,7 +723,8 @@ export type Database = {
       }
       get_user_dashboard: { Args: never; Returns: Json }
       get_user_winery_data_aggregated: {
-        Args: never; Returns: {
+        Args: never
+        Returns: {
           wineries_data: Json
         }[]
       }
