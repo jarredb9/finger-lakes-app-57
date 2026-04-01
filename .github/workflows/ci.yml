@@ -46,6 +46,7 @@ jobs:
         run: npm run db:check-types
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Run Type Checking
         run: npm run type-check
