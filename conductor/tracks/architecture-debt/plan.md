@@ -32,12 +32,12 @@ Objective: Eliminate the "Numeric ID" and "Selector Drift" bugs.
 ## Phase 4: Data Layer Hardening
 Objective: Consolidate the "ID Paradox" (Google vs DB ID).
 
-- [ ] Task 1: Centralize `ensureInDb` logic into `lib/services/wineryService.ts` to ensure consistent ID handling across Trips, Visits, and Favorites.
-- [ ] Task 2: Add a "Schema Integrity" check to the CI pipeline to catch `database.types.ts` drift before tests are run. **Verification:** CI fails if local types don't match the Supabase project schema.
+- [X] Task 1: Centralize `ensureInDb` logic into `lib/services/wineryService.ts` to ensure consistent ID handling across Trips, Visits, and Favorites. ( d8aef19 )
+- [X] Task 2: Add a "Schema Integrity" check to the CI pipeline to catch `database.types.ts` drift before tests are run. **Verification:** CI fails if local types don't match the Supabase project schema. ( d8aef19 )
 
 ## Phase 5: Standard Finalization
 Objective: Codify the new stable state.
 
-- [ ] Task 1: Remove the "Migration & Transition Rule" from the `project-testing-best-practices` skill and update the skill based on changes made in this track.
+- [x] Task 1: Remove the "Migration & Transition Rule" from the `project-testing-best-practices` skill and update the skill based on changes made in this track. (0e46d19)
 - [ ] Task 2: Update `GEMINI.md` to move the Portal/Registry pattern from a "Plan" to a "Mandatory Core Standard."
 - [ ] Task 3: Archive the track and update the project CHANGELOG.
