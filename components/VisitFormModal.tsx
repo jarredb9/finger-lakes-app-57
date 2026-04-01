@@ -1,12 +1,13 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useVisitStore } from "@/lib/stores/visitStore";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import VisitForm from "./VisitForm";
+import { useMounted } from "@/hooks/use-mounted";
 
 export function VisitFormModal() {
     const { 
@@ -21,17 +22,7 @@ export function VisitFormModal() {
     const { saveVisit, updateVisit, isSavingVisit } = useVisitStore();
     const { toast } = useToast();
     const [photosToDelete, setPhotosToDelete] = useState<string[]>([]);
-
-    const [modalRoot, setModalRoot] = useState<HTMLElement | null>(null);
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        const handle = requestAnimationFrame(() => {
-            setMounted(true);
-            setModalRoot(document.getElementById("modal-root"));
-        });
-        return () => cancelAnimationFrame(handle);
-    }, []);
+    const mounted = useMounted();
 
     const handleSave = async (visitData: any, photos: string[]) => {
         try {
@@ -76,7 +67,10 @@ export function VisitFormModal() {
         setPhotosToDelete([]);
     };
 
-    if (!mounted || !modalRoot) return null;
+    if (!mounted) return null;
+
+    const modalRoot = document.getElementById("modal-root");
+    if (!modalRoot) return null;
 
     // We keep the Dialog open if the global isModalOpen is true AND we have an active winery.
     // This ensures we don't show an empty dialog if isModalOpen is true for a DIFFERENT reason.

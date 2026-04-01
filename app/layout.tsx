@@ -78,6 +78,7 @@ export default function RootLayout({
         <TooltipProvider>
           <div className="relative flex min-h-screen flex-col">
             <main className="flex-1">
+              <ModalHost />
               <AuthProvider>
                 {children}
               </AuthProvider>
@@ -87,7 +88,6 @@ export default function RootLayout({
               <GlobalModalRenderer />
               <VisitFormModal />
               <WineryNoteModal />
-              <ModalHost />
             </main>
             {(process.env.NODE_ENV !== 'production' || process.env.IS_E2E === 'true') && <E2EStoreExposer />}
             <CookieConsent />

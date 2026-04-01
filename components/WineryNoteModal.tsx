@@ -1,11 +1,12 @@
 "use client";
 
 import { createPortal } from "react-dom";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { useMounted } from "@/hooks/use-mounted";
 
 export function WineryNoteModal() {
     const { 
@@ -19,29 +20,9 @@ export function WineryNoteModal() {
     } = useUIStore();
     
     const [noteValue, setNoteValue] = useState("");
-    const [modalRoot, setModalRoot] = useState<HTMLElement | null>(null);
-    const [mounted, setMounted] = useState(false);
+    const mounted = useMounted();
 
-    useEffect(() => {
-        const handle = requestAnimationFrame(() => {
-            setMounted(true);
-            setModalRoot(document.getElementById("modal-root"));
-        });
-        return () => cancelAnimationFrame(handle);
-    }, []);
-
-    // Sync internal note value when editor opens
-    useEffect(() => {
-        if (activeNoteWineryDbId !== null) {
-            const handle = requestAnimationFrame(() => {
-                setNoteValue(activeNoteInitialValue);
-            });
-            return () => cancelAnimationFrame(handle);
-        }
-        return undefined;
-    }, [activeNoteWineryDbId, activeNoteInitialValue]);
-
-    if (!mounted || !modalRoot) return null;
+    const isThisModalOpen = isModalOpen && activeNoteWineryDbId !== null;
 
     const handleClose = () => {
         closeWineryNoteEditor();
@@ -54,7 +35,10 @@ export function WineryNoteModal() {
         }
     };
 
-    const isThisModalOpen = isModalOpen && activeNoteWineryDbId !== null;
+    if (!mounted) return null;
+
+    const modalRoot = document.getElementById("modal-root");
+    if (!modalRoot) return null;
 
     return createPortal(
         <Dialog open={isThisModalOpen} onOpenChange={(isOpen) => !isOpen && handleClose()}>
@@ -73,7 +57,8 @@ export function WineryNoteModal() {
                         )}
                         <div className="overflow-y-auto flex-1 p-6 space-y-4">
                             <Textarea 
-                                value={noteValue}
+                                key={`${activeNoteWineryDbId}-${isThisModalOpen}`}
+                                defaultValue={activeNoteInitialValue}
                                 onChange={(e) => setNoteValue(e.target.value)}
                                 placeholder="Add private notes for this winery..."
                                 className="min-h-[200px]"

@@ -23,6 +23,7 @@ import { TripService } from "@/lib/services/tripService"
 import { useToast } from "@/hooks/use-toast"
 import { TripMembersList } from "./TripMembersList"
 import { TripMember } from "@/lib/types"
+import { useMounted } from "@/hooks/use-mounted"
 
 interface TripShareDialogProps {
   isOpen: boolean
@@ -45,16 +46,7 @@ export function TripShareDialog({
   const [members, setMembers] = useState<TripMember[]>([])
   const [isLoadingMembers, setIsLoadingMembers] = useState(false)
   const hasFetchedRef = useRef(false);
-  const [modalRoot, setModalRoot] = useState<HTMLElement | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    const handle = requestAnimationFrame(() => {
-        setMounted(true);
-        setModalRoot(document.getElementById("modal-root"));
-    });
-    return () => cancelAnimationFrame(handle);
-  }, []);
+  const mounted = useMounted();
 
   const fetchTripMembers = useCallback(async () => {
     if (!tripId) return
@@ -63,7 +55,7 @@ export function TripShareDialog({
       const trip = await TripService.getTripById(tripId)
       setMembers(trip.members || [])
     } catch (err) {
-      console.error("fetchTripMembers Error:", err)
+      console.error("[DIAGNOSTIC] fetchTripMembers Error:", err)
     } finally {
       setIsLoadingMembers(false)
     }
@@ -120,7 +112,10 @@ export function TripShareDialog({
     }
   }
 
-  if (!mounted || !modalRoot) return null;
+  if (!mounted) return null;
+
+  const modalRoot = document.getElementById("modal-root");
+  if (!modalRoot) return null;
 
   const isOwner = members.find(m => m.id === user?.id)?.role === 'owner'
 
