@@ -12,6 +12,7 @@ Evolve the application architecture from "Global State-Driven" to **"Pattern-Dri
 - **Pure Function Cards:** Components like `TripCard`, `WineryCard`, and `VisitCard` MUST NOT call `useStore` hooks directly. They must receive data and callbacks via props.
 - **Sync Locking (Revision IDs):** Implement a `version` or `last_updated` check in the `tripStore` and `visitStore` to ignore "stale" Realtime events that arrive after an optimistic update.
 - **Interaction Guards:** UI actions MUST implement a "Readiness Gate" (e.g., a loading state or `data-hydrated` attribute) to ensure tests don't click during hydration flashes.
+- **Selector Stability:** During component refactoring, existing `data-testid` attributes MUST be preserved. If a structural change requires a new selector, the corresponding E2E test MUST be updated in the same commit to prevent CI breakage.
 
 ## Scope
 
