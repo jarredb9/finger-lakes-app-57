@@ -22,7 +22,9 @@ Objective: Achieve "Zero-Mock" unit testing for UI components.
 - [ ] Task 2: Refactor `TripCard.test.tsx` and `VisitCardHistory.test.tsx` to use the factories and direct prop passing. **Verification:** Delete all `jest.mock('zustand')` lines and confirm tests still pass.
 - [ ] Task 3: Transition E2E "Success" assertions from "Toast Visibility" to "Store State Confirmation" using `page.evaluate`. **Verification:** Confirm full E2E suite runs 20% faster.
 
-## Phase 4: System Validation & Codification
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions - Fully decouple search from TripCardPresentational [c99fc88]
+
 Objective: Ensure the "Complexity Ceiling" has been lowered and codified.
 
 - [ ] Task 1: Perform a "Deletion Test." Temporarily rename `lib/stores` and verify that `components/ui` remains error-free in the IDE.
