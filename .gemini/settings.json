@@ -42,11 +42,17 @@
     },
     "vercel": {
       "command": "npx",
-      "args": ["mcp-remote", "https://mcp.vercel.com"]
+      "args": [
+        "mcp-remote",
+        "https://mcp.vercel.com"
+      ]
     },
     "firecrawl-mcp": {
       "command": "npx",
-      "args": ["-y", "firecrawl-mcp"],
+      "args": [
+        "-y",
+        "firecrawl-mcp"
+      ],
       "env": {
         "FIRECRAWL_API_KEY": "$FIRECRAWL_API_KEY"
       }
@@ -72,5 +78,10 @@
         "NEO4J_PASSWORD": "$NEO4J_PASSWORD"
       }
     }
+  },
+  "skills": {
+    "disabled": [
+      "planner"
+    ]
   }
 }
