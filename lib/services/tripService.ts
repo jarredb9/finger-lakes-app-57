@@ -21,6 +21,7 @@ export const TripService = {
           user_id,
           name,
           trip_date,
+          updated_at,
           trip_wineries (count),
           trip_members!inner (user_id)
       `, { count: 'exact' })

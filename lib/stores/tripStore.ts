@@ -77,7 +77,20 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trips' },
             async (payload) => {
-              const changedTripId = (payload.new as any)?.id || (payload.old as any)?.id;
+              const { lastActionTimestamp } = get();
+              const newData = payload.new as any;
+              const updatedAt = newData?.updated_at;
+              
+              // Sync Lock: Ignore if the update is older than our last local action
+              if (lastActionTimestamp && updatedAt) {
+                const payloadTime = new Date(updatedAt).getTime();
+                if (payloadTime < lastActionTimestamp - 1000) {
+                  console.log('[Sync] Ignoring stale trips update', { payloadTime, lastActionTimestamp });
+                  return;
+                }
+              }
+
+              const changedTripId = newData?.id || (payload.old as any)?.id;
               
               // Always refresh lists
               await get().fetchTrips(get().page, 'upcoming', true);
@@ -93,7 +106,19 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trip_wineries' },
             async (payload) => {
-              const changedTripId = (payload.new as any)?.trip_id || (payload.old as any)?.trip_id;
+              const { lastActionTimestamp } = get();
+              const newData = payload.new as any;
+              const updatedAt = newData?.updated_at;
+
+              if (lastActionTimestamp && updatedAt) {
+                const payloadTime = new Date(updatedAt).getTime();
+                if (payloadTime < lastActionTimestamp - 1000) {
+                  console.log('[Sync] Ignoring stale trip_wineries update');
+                  return;
+                }
+              }
+
+              const changedTripId = newData?.trip_id || (payload.old as any)?.trip_id;
               const { selectedTrip } = get();
               
               if (selectedTrip?.id === changedTripId) {
@@ -105,6 +130,9 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trip_members' },
             async (payload) => {
+              // trip_members doesn't have updated_at yet in our migration, 
+              // but we can still check lastActionTimestamp if we want to be safe.
+              // For now, we'll just allow it or rely on the trip refresh.
               const changedTripId = (payload.new as any)?.trip_id || (payload.old as any)?.trip_id;
               const { selectedTrip } = get();
               
@@ -130,8 +158,35 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         set({ isLoading: true, error: null });
         try {
           const { trips: newTrips, count } = await TripService.getTrips(page, type);
+          const { lastActionTimestamp } = get();
+
           set(state => {
-            const updatedTrips = refresh ? newTrips : [...state.trips, ...newTrips];
+            // Sync Lock for fetchTrips
+            const filteredNewTrips = newTrips.filter((newTrip: Trip) => {
+              if (!lastActionTimestamp || !newTrip.updated_at) return true;
+              const payloadTime = new Date(newTrip.updated_at).getTime();
+              return payloadTime >= lastActionTimestamp - 1000;
+            });
+
+            // If we're refreshing and some items were stale, we need to merge carefully
+            // instead of just replacing the whole list.
+            let updatedTrips;
+            if (refresh) {
+              const staleIds = new Set(newTrips.filter((t: Trip) => !filteredNewTrips.includes(t)).map((t: Trip) => t.id));
+              updatedTrips = state.trips.map((oldTrip: Trip) => {
+                if (staleIds.has(oldTrip.id)) return oldTrip; // Keep optimistic state
+                const matchingNew = newTrips.find((t: Trip) => t.id === oldTrip.id);
+                return matchingNew || oldTrip;
+              });
+              
+              // Add any completely new trips that weren't in our state
+              const existingIds = new Set(updatedTrips.map((t: Trip) => t.id));
+              const trulyNew = filteredNewTrips.filter((t: Trip) => !existingIds.has(t.id));
+              updatedTrips = [...trulyNew, ...updatedTrips];
+            } else {
+              updatedTrips = [...state.trips, ...filteredNewTrips];
+            }
+
             return {
               trips: updatedTrips,
               count,
@@ -155,6 +210,16 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         set({ isLoading: true, error: null });
         try {
           const trip = await TripService.getTripById(tripId);
+          const { lastActionTimestamp } = get();
+
+          // Sync Lock: Ignore if stale
+          if (lastActionTimestamp && trip.updated_at) {
+            const payloadTime = new Date(trip.updated_at).getTime();
+            if (payloadTime < lastActionTimestamp - 1000) {
+              set({ isLoading: false });
+              return;
+            }
+          }
           
           set(state => {
             const numericId = Number(trip.id);
@@ -177,7 +242,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           // Update the trip in the store with the newly fetched details
           set(state => {
             const numericId = Number(trip.id);
-            const newTrips = state.trips.map(t => {
+            const newTrips = state.trips.map((t: Trip) => {
               if (Number(t.id) !== numericId) return t;
 
               const updatedWineries = t.wineries.map(wineryInTrip => {
@@ -199,7 +264,27 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         set({ isLoading: true });
         try {
           const trips = await TripService.getUpcomingTrips();
-          set({ upcomingTrips: trips, isLoading: false });
+          const { lastActionTimestamp } = get();
+
+          set(state => {
+            const filteredTrips = trips.filter((t: Trip) => {
+              if (!lastActionTimestamp || !t.updated_at) return true;
+              const payloadTime = new Date(t.updated_at).getTime();
+              return payloadTime >= lastActionTimestamp - 1000;
+            });
+
+            // Keep optimistic items if they are missing/stale in the new list
+            const staleIds = new Set(trips.filter((t: Trip) => !filteredTrips.includes(t)).map((t: Trip) => t.id));
+            const updatedUpcoming = trips.map((newTrip: Trip) => {
+              if (staleIds.has(newTrip.id)) {
+                // Return the version currently in state if it's "newer" (optimistic)
+                return state.upcomingTrips.find((t: Trip) => t.id === newTrip.id) || newTrip;
+              }
+              return newTrip;
+            });
+
+            return { upcomingTrips: updatedUpcoming, isLoading: false };
+          });
         } catch (error) {
           console.error("Failed to fetch upcoming trips", error);
           // Do NOT clear data on error. Just stop loading.
@@ -211,9 +296,27 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         set({ isLoading: true });
         try {
           const tripsForDate = await TripService.getTripsForDate(dateString);
-          set({
-            tripsForDate: tripsForDate,
-            isLoading: false
+          const { lastActionTimestamp } = get();
+
+          set(state => {
+            const filteredTrips = tripsForDate.filter((t: Trip) => {
+              if (!lastActionTimestamp || !t.updated_at) return true;
+              const payloadTime = new Date(t.updated_at).getTime();
+              return payloadTime >= lastActionTimestamp - 1000;
+            });
+
+            const staleIds = new Set(tripsForDate.filter((t: Trip) => !filteredTrips.includes(t)).map((t: Trip) => t.id));
+            const updatedTripsForDate = tripsForDate.map((newTrip: Trip) => {
+              if (staleIds.has(newTrip.id)) {
+                return state.tripsForDate.find((t: Trip) => t.id === newTrip.id) || newTrip;
+              }
+              return newTrip;
+            });
+
+            return {
+              tripsForDate: updatedTripsForDate,
+              isLoading: false
+            };
           });
         } catch (error) {
           // Do NOT clear data on error. Just stop loading.
@@ -386,7 +489,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         
         // Optimistic Update
         set(state => ({
-          trips: state.trips.map(t => {
+          trips: state.trips.map((t: Trip) => {
             if (Number(t.id) !== tripIdAsNumber) return t;
             return {
               ...t,
@@ -413,7 +516,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
         // Optimistic Update
         set(state => ({
-          trips: state.trips.map(t => {
+          trips: state.trips.map((t: Trip) => {
             if (Number(t.id) !== tripIdAsNumber) return t;
             return {
               ...t,

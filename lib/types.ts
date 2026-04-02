@@ -177,6 +177,7 @@ export interface Trip {
     notes?: string;
     updateNote?: { wineryId: WineryDbId; notes: string; } | { notes: Record<WineryDbId, string>; }; // Use new distinct type
     owner_id?: string;
+    updated_at?: string;
 }
 
 export interface VisitWithWinery extends Visit {
