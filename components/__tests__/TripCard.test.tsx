@@ -1,66 +1,18 @@
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
-import TripCard from '../trip-card';
+import TripCard from '../TripCardPresentational';
+import { createMockTrip, createMockUser, createMockTripMember } from '../../test/factories/dataFactory';
 
-// Define stable mocks outside the component to prevent re-render loops
 const mockUpdateTrip = jest.fn();
 const mockDeleteTrip = jest.fn();
 const mockUpdateWineryOrder = jest.fn();
 const mockToggleWineryOnTrip = jest.fn();
 const mockRemoveWineryFromTrip = jest.fn();
 const mockSaveWineryNote = jest.fn();
-const mockAddMembersToTrip = jest.fn();
-
-jest.mock('@/lib/stores/tripStore', () => ({
-  useTripStore: () => ({
-    updateTrip: mockUpdateTrip,
-    deleteTrip: mockDeleteTrip,
-    updateWineryOrder: mockUpdateWineryOrder,
-    toggleWineryOnTrip: mockToggleWineryOnTrip,
-    removeWineryFromTrip: mockRemoveWineryFromTrip,
-    saveWineryNote: mockSaveWineryNote,
-    addMembersToTrip: mockAddMembersToTrip,
-  }),
-}));
-
-const mockToast = jest.fn();
-jest.mock('@/hooks/use-toast', () => ({
-  useToast: () => ({
-    toast: mockToast,
-  }),
-}));
-
-jest.mock('@/lib/stores/userStore', () => ({
-  useUserStore: () => ({
-    user: { id: 'user-1', name: 'Test User', email: 'user@example.com' },
-  }),
-}));
-
 const mockOpenShareDialog = jest.fn();
 const mockOpenWineryNoteEditor = jest.fn();
-jest.mock('@/lib/stores/uiStore', () => ({
-  useUIStore: () => ({
-    openShareDialog: mockOpenShareDialog,
-    openWineryNoteEditor: mockOpenWineryNoteEditor,
-  }),
-}));
-
 const mockHandleExportToMaps = jest.fn();
-const mockToggleFriendSelection = jest.fn();
-jest.mock('@/hooks/use-trip-actions', () => ({
-  useTripActions: () => ({
-    friends: [
-      { id: 'friend-1', name: 'Friend One', email: 'one@example.com', role: 'member', status: 'joined' }
-    ],
-    selectedFriends: [],
-    currentMembers: [
-      { id: 'friend-1', name: 'Friend One', email: 'one@example.com', role: 'member', status: 'joined' }
-    ],
-    handleExportToMaps: mockHandleExportToMaps,
-    toggleFriendSelection: mockToggleFriendSelection,
-  }),
-}));
 
-// Mock UI components simply but functionally
+// Note: We are still mocking UI components for simplicity in unit tests
 jest.mock('@/components/ui/tooltip', () => ({
   Tooltip: ({ children }: any) => children,
   TooltipTrigger: ({ children }: any) => children,
@@ -93,7 +45,6 @@ jest.mock('@/components/ui/command', () => ({
   ),
 }));
 
-// Functional Button mock
 jest.mock('@/components/ui/button', () => {
   const Button = ({ children, onClick, disabled, className, variant, size, ...props }: any) => (
     <button 
@@ -117,7 +68,6 @@ jest.mock('@/components/ui/avatar', () => ({
   AvatarFallback: ({ children }: any) => <div>{children}</div>,
 }));
 
-// Functional DnD mock to trigger handleDrop
 jest.mock('@hello-pangea/dnd', () => ({
   DragDropContext: ({ children, onDragEnd }: any) => (
     <div data-testid="dnd-context" onClick={() => onDragEnd({ destination: { index: 1 }, source: { index: 0 } })}>
@@ -151,11 +101,9 @@ jest.mock('../DailyHours', () => {
 });
 
 describe('TripCard', () => {
-  const mockTrip: any = {
+  const mockTrip = createMockTrip({
     id: 1,
     name: 'Test Trip',
-    trip_date: '2026-03-05',
-    user_id: 'user-1',
     wineries: [
       { 
         id: 'winery-1', 
@@ -168,9 +116,31 @@ describe('TripCard', () => {
           { user_id: 'user-1', rating: 5, user_review: 'Great!', profiles: { name: 'You' } },
           { user_id: 'friend-1', rating: 4, user_review: 'Nice!', profiles: { name: 'Friend One' } }
         ]
-      }
+      } as any
     ],
-    members: [{ id: 'user-1', name: 'You', email: 'you@example.com', role: 'owner', status: 'joined' }],
+  });
+
+  const mockUser = createMockUser({ id: 'user-1' });
+  const mockMembers = [
+    createMockTripMember({ id: 'user-1', name: 'You', email: 'you@example.com' }),
+    createMockTripMember({ id: 'friend-1', name: 'Friend One', email: 'friend@example.com' })
+  ];
+
+  const defaultProps = {
+    trip: mockTrip,
+    isOwner: true,
+    canEdit: true,
+    user: mockUser,
+    currentMembers: mockMembers,
+    onUpdateTrip: mockUpdateTrip,
+    onDeleteTrip: mockDeleteTrip,
+    onUpdateWineryOrder: mockUpdateWineryOrder,
+    onToggleWineryOnTrip: mockToggleWineryOnTrip,
+    onRemoveWineryFromTrip: mockRemoveWineryFromTrip,
+    onSaveWineryNote: mockSaveWineryNote,
+    onOpenShareDialog: mockOpenShareDialog,
+    onOpenWineryNoteEditor: mockOpenWineryNoteEditor,
+    onExportToMaps: mockHandleExportToMaps,
   };
 
   beforeEach(() => {
@@ -179,26 +149,25 @@ describe('TripCard', () => {
     mockDeleteTrip.mockResolvedValue({ success: true });
     mockRemoveWineryFromTrip.mockResolvedValue({ success: true });
     mockSaveWineryNote.mockResolvedValue({ success: true });
-    mockAddMembersToTrip.mockResolvedValue({ success: true });
   });
 
   it('renders correctly including reviews and distance', () => {
     const tripWithTwo = {
       ...mockTrip,
       wineries: [
-        ...mockTrip.wineries,
+        ...mockTrip.wineries!,
         { id: 'winery-2', dbId: 102, name: 'Winery Two', lat: 42.45, lng: -76.51 }
       ]
     };
-    render(<TripCard trip={tripWithTwo} />);
+    render(<TripCard {...defaultProps} trip={tripWithTwo as any} />);
     expect(screen.getByText(/Test Trip/i)).toBeInTheDocument();
     expect(screen.getByText(/Winery One/i)).toBeInTheDocument();
     expect(screen.getByText(/Great!/i)).toBeInTheDocument();
     expect(screen.getByText(/to next stop/i)).toBeInTheDocument();
   });
 
-  it('triggers deleteTrip when delete button is clicked', async () => {
-    render(<TripCard trip={mockTrip} />);
+  it('triggers onDeleteTrip when delete button is clicked', async () => {
+    render(<TripCard {...defaultProps} />);
     const deleteButton = screen.getByLabelText(/Delete Trip/i);
     await act(async () => {
       fireEvent.click(deleteButton);
@@ -206,9 +175,9 @@ describe('TripCard', () => {
     expect(mockDeleteTrip).toHaveBeenCalledWith('1');
   });
 
-  it('handles deleteTrip error', async () => {
+  it('handles onDeleteTrip error', async () => {
     mockDeleteTrip.mockRejectedValue(new Error('Delete failed'));
-    render(<TripCard trip={mockTrip} />);
+    render(<TripCard {...defaultProps} />);
     const deleteButton = screen.getByLabelText(/Delete Trip/i);
     await act(async () => {
       fireEvent.click(deleteButton);
@@ -217,14 +186,14 @@ describe('TripCard', () => {
   });
 
   it('opens share dialog when share button is clicked', () => {
-    render(<TripCard trip={mockTrip} />);
+    render(<TripCard {...defaultProps} />);
     const shareButton = screen.getByLabelText(/Share Trip/i);
     fireEvent.click(shareButton);
     expect(mockOpenShareDialog).toHaveBeenCalledWith('1', expect.stringContaining('Test Trip'));
   });
 
   it('switches to editing mode and saves changes', async () => {
-    render(<TripCard trip={mockTrip} />);
+    render(<TripCard {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Edit Trip/i }));
     
     const input = screen.getByPlaceholderText(/Trip Name/i);
@@ -237,22 +206,21 @@ describe('TripCard', () => {
     expect(mockUpdateTrip).toHaveBeenCalledWith('1', expect.objectContaining({ name: 'Updated Name' }));
   });
 
-  it('handles updateTrip error', async () => {
+  it('handles onUpdateTrip error', async () => {
     mockUpdateTrip.mockRejectedValue(new Error('Update failed'));
-    render(<TripCard trip={mockTrip} />);
+    render(<TripCard {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Edit Trip/i }));
     
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
     });
     
-    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
-      description: "Failed to update trip."
-    }));
+    expect(mockUpdateTrip).toHaveBeenCalled();
+    // Toast is handled by parent, so we just verify call
   });
 
   it('handles empty date validation in handleSave', async () => {
-    render(<TripCard trip={mockTrip} />);
+    render(<TripCard {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Edit Trip/i }));
     fireEvent.click(screen.getByTestId('date-picker'));
     
@@ -260,13 +228,11 @@ describe('TripCard', () => {
       fireEvent.click(screen.getByRole('button', { name: /^Save$/i }));
     });
     
-    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({
-      description: "Trip date cannot be empty."
-    }));
+    expect(mockUpdateTrip).not.toHaveBeenCalled();
   });
 
   it('removes a winery when in edit mode', async () => {
-    render(<TripCard trip={mockTrip} />);
+    render(<TripCard {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Edit Trip/i }));
     
     const removeBtn = screen.getAllByRole('button').find(b => b.className.includes('text-red-500'));
@@ -276,59 +242,27 @@ describe('TripCard', () => {
     expect(mockRemoveWineryFromTrip).toHaveBeenCalledWith('1', 101);
   });
 
-  it('handles removeWineryFromTrip error', async () => {
-    mockRemoveWineryFromTrip.mockRejectedValue(new Error('Remove failed'));
-    render(<TripCard trip={mockTrip} />);
-    fireEvent.click(screen.getByRole('button', { name: /Edit Trip/i }));
-    
-    const removeBtn = screen.getAllByRole('button').find(b => b.className.includes('text-red-500'));
-    await act(async () => {
-      fireEvent.click(removeBtn!);
-    });
-    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ description: "Failed to remove winery." }));
-  });
-
   it('opens the global note editor when clicking add/edit notes', async () => {
-    render(<TripCard trip={mockTrip} />);
+    render(<TripCard {...defaultProps} />);
     const notesBtn = screen.getByRole('button', { name: /Add Notes/i });
     fireEvent.click(notesBtn);
     
     expect(mockOpenWineryNoteEditor).toHaveBeenCalledWith(
       101, 
       '', 
-      expect.any(Function)
+      mockSaveWineryNote
     );
-
-    // Verify it passes handleSaveNote which triggers saveWineryNote
-    const onSaveCallback = mockOpenWineryNoteEditor.mock.calls[0][2];
-    await act(async () => {
-      await onSaveCallback(101, 'Updated Note');
-    });
-    expect(mockSaveWineryNote).toHaveBeenCalledWith('1', 101, 'Updated Note');
-  });
-
-  it('handles saveWineryNote error via the callback', async () => {
-    mockSaveWineryNote.mockRejectedValue(new Error('Save failed'));
-    render(<TripCard trip={mockTrip} />);
-    const notesBtn = screen.getByRole('button', { name: /Add Notes/i });
-    fireEvent.click(notesBtn);
-    
-    const onSaveCallback = mockOpenWineryNoteEditor.mock.calls[0][2];
-    await act(async () => {
-      await onSaveCallback(101, 'Fail');
-    });
-    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ description: "Failed to save notes." }));
   });
 
   it('performs reordering via handleDrop', async () => {
     const tripWithTwo = {
       ...mockTrip,
       wineries: [
-        ...mockTrip.wineries,
+        ...mockTrip.wineries!,
         { id: 'winery-2', dbId: 102, name: 'Winery Two' }
       ]
     };
-    render(<TripCard trip={tripWithTwo} />);
+    render(<TripCard {...defaultProps} trip={tripWithTwo as any} />);
     fireEvent.click(screen.getByTestId('dnd-context'));
     expect(mockUpdateWineryOrder).toHaveBeenCalledWith('1', [102, 101]);
   });
@@ -341,7 +275,7 @@ describe('TripCard', () => {
     });
     global.fetch = mockFetch;
 
-    render(<TripCard trip={mockTrip} />);
+    render(<TripCard {...defaultProps} />);
     fireEvent.click(screen.getByRole('button', { name: /Edit Trip/i }));
     
     const searchInput = screen.getByPlaceholderText(/Search wineries.../i);
@@ -356,39 +290,5 @@ describe('TripCard', () => {
       fireEvent.click(searchResultItem);
     });
     expect(mockToggleWineryOnTrip).toHaveBeenCalledWith(mockWinery, mockTrip);
-  });
-
-  it('handles winery search error (response not ok) and add error', async () => {
-    const mockFetch = jest.fn().mockResolvedValue({ ok: false });
-    global.fetch = mockFetch;
-
-    render(<TripCard trip={mockTrip} />);
-    fireEvent.click(screen.getByRole('button', { name: /Edit Trip/i }));
-    
-    const searchInput = screen.getByPlaceholderText(/Search wineries.../i);
-    await act(async () => {
-      fireEvent.change(searchInput, { target: { value: 'Error' } });
-    });
-    
-    await waitFor(() => {
-      expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ description: "Winery search failed." }));
-    });
-
-    // Test add error
-    const mockWinery = { id: 'winery-2', dbId: 102, name: 'Search Result' };
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([mockWinery])
-    });
-    mockToggleWineryOnTrip.mockImplementation(() => { throw new Error('Add failed'); });
-
-    await act(async () => {
-      fireEvent.change(searchInput, { target: { value: 'Fail' } });
-    });
-    const searchResultItem = await screen.findByText('Search Result');
-    await act(async () => {
-      fireEvent.click(searchResultItem);
-    });
-    expect(mockToast).toHaveBeenCalledWith(expect.objectContaining({ description: "Failed to add Search Result." }));
   });
 });
