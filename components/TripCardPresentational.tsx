@@ -29,6 +29,11 @@ interface TripCardProps {
   onOpenShareDialog: (id: string, name: string) => void;
   onOpenWineryNoteEditor: (wineryDbId: number, notes: string, onSave: (id: number, notes: string) => Promise<void>) => void;
   onExportToMaps: () => void;
+  // Search props
+  searchResults: Winery[];
+  isSearching: boolean;
+  winerySearch: string;
+  onSearchChange: (query: string) => void;
 }
 
 const WineryReviews = ({ visits, currentUserId, members }: { visits: Visit[], currentUserId: string, members: TripMember[] }) => {
@@ -85,11 +90,16 @@ const TripCard = memo(({
   onSaveWineryNote,
   onOpenShareDialog,
   onOpenWineryNoteEditor,
-  onExportToMaps
+  onExportToMaps,
+  searchResults,
+  isSearching,
+  winerySearch,
+  onSearchChange
 }: TripCardProps) => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    setMounted(true);
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
   }, []);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -102,42 +112,7 @@ const TripCard = memo(({
       return undefined;
     }
   });
-  const [winerySearch, setWinerySearch] = useState("");
-  const [searchResults, setSearchResults] = useState<Winery[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
   const [addWineryPopoverOpen, setAddWineryPopoverOpen] = useState(false);
-
-  useEffect(() => {
-    if (!winerySearch.trim() || !trip?.wineries) {
-      setSearchResults([]);
-      return;
-    }
-
-    const debounceSearch = setTimeout(() => {
-      const search = async () => {
-        setIsSearching(true);
-        const fetchUrl = `/api/wineries?query=${encodeURIComponent(winerySearch)}`;
-        try {
-          const response = await fetch(fetchUrl);
-          if (!response.ok) {
-            throw new Error('Search failed');
-          }
-          const results: Winery[] = await response.json();
-          const tripWineryIds = new Set((trip.wineries || []).map(w => w.id));
-          const finalResults = results.filter(r => !tripWineryIds.has(r.id));
-          setSearchResults(finalResults);
-        } catch (error) {
-          // Note: Toast should be handled by the parent container or passed as a prop
-          // But for now, we'll just log or omit since we want to be presentational
-        } finally {
-          setIsSearching(false);
-        }
-      };
-      search();
-    }, 500);
-
-    return () => clearTimeout(debounceSearch);
-  }, [winerySearch, trip?.wineries]);
 
   if (!trip || !trip.trip_date) {
     return null;
@@ -169,8 +144,7 @@ const TripCard = memo(({
 
   const handleAddWinery = (winery: Winery) => {
     onToggleWineryOnTrip(winery, trip);
-    setWinerySearch("");
-    setSearchResults([]);
+    onSearchChange("");
     setAddWineryPopoverOpen(false);
   };
 
@@ -220,8 +194,8 @@ const TripCard = memo(({
           <div className="flex items-center gap-3">
             <div className="flex items-center -space-x-2 mr-1">
               <TooltipProvider>
-                {(currentMembers || []).map((member: TripMember) => (
-                  <Tooltip key={member.id || `member-${Math.random()}`}>
+                {(currentMembers || []).map((member: TripMember, idx: number) => (
+                  <Tooltip key={member.id || `member-${idx}`}>
                     <TooltipTrigger asChild>
                       <Avatar className="h-8 w-8 border-2 border-white shadow-sm hover:z-10 transition-all">
                         <AvatarImage src={`https://i.pravatar.cc/150?u=${member.email || 'unknown'}`} alt={member.name || 'User'} />
@@ -285,8 +259,8 @@ const TripCard = memo(({
       <CardContent className="p-0">
         {!mounted ? (
           <div className="divide-y" data-testid="winery-list-loading">
-            {tripWineries.map((winery) => (
-              <div key={winery.id || `loading-${Math.random()}`} className="bg-white">
+            {tripWineries.map((winery, idx) => (
+              <div key={winery.id || `loading-${idx}`} className="bg-white">
                 <div className="flex items-start gap-3 p-4">
                   <div className="pt-1">
                     <GripVertical className="w-5 h-5 text-gray-200" />
@@ -388,7 +362,7 @@ const TripCard = memo(({
               </PopoverTrigger>
               <PopoverContent className="w-[300px] p-0">
                 <Command>
-                  <CommandInput placeholder="Search wineries..." value={winerySearch} onValueChange={setWinerySearch} />
+                  <CommandInput placeholder="Search wineries..." value={winerySearch} onValueChange={onSearchChange} />
                   <CommandList>
                     <CommandEmpty>{isSearching ? "Searching..." : "No wineries found."}</CommandEmpty>
                     <CommandGroup>

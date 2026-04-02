@@ -1,6 +1,7 @@
 "use client";
 
-import { Trip } from "@/lib/types";
+import { useState, useEffect } from "react";
+import { Trip, Winery } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useUserStore } from "@/lib/stores/userStore";
 import { useUIStore } from "@/lib/stores/uiStore";
@@ -25,6 +26,41 @@ export default function TripCard({ trip }: { trip: Trip }) {
     currentMembers, 
     handleExportToMaps 
   } = useTripActions(trip);
+
+  const [winerySearch, setWinerySearch] = useState("");
+  const [searchResults, setSearchResults] = useState<Winery[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    if (!winerySearch.trim() || !trip?.wineries) {
+      setSearchResults([]);
+      return;
+    }
+
+    const debounceSearch = setTimeout(() => {
+      const search = async () => {
+        setIsSearching(true);
+        const fetchUrl = `/api/wineries?query=${encodeURIComponent(winerySearch)}`;
+        try {
+          const response = await fetch(fetchUrl);
+          if (!response.ok) {
+            throw new Error('Search failed');
+          }
+          const results: Winery[] = await response.json();
+          const tripWineryIds = new Set((trip.wineries || []).map(w => w.id));
+          const finalResults = results.filter(r => !tripWineryIds.has(r.id));
+          setSearchResults(finalResults);
+        } catch (error) {
+          toast({ variant: "destructive", description: "Search failed." });
+        } finally {
+          setIsSearching(false);
+        }
+      };
+      search();
+    }, 500);
+
+    return () => clearTimeout(debounceSearch);
+  }, [winerySearch, trip?.wineries, toast]);
 
   if (!trip) return null;
 
@@ -87,6 +123,10 @@ export default function TripCard({ trip }: { trip: Trip }) {
       onOpenShareDialog={openShareDialog}
       onOpenWineryNoteEditor={openWineryNoteEditor}
       onExportToMaps={handleExportToMaps}
+      searchResults={searchResults}
+      isSearching={isSearching}
+      winerySearch={winerySearch}
+      onSearchChange={setWinerySearch}
     />
   );
 }

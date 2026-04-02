@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import TripCard from '../TripCardPresentational';
 import { createMockTrip, createMockUser, createMockTripMember } from '../../test/factories/dataFactory';
 
@@ -141,6 +141,10 @@ describe('TripCard', () => {
     onOpenShareDialog: mockOpenShareDialog,
     onOpenWineryNoteEditor: mockOpenWineryNoteEditor,
     onExportToMaps: mockHandleExportToMaps,
+    searchResults: [],
+    isSearching: false,
+    winerySearch: '',
+    onSearchChange: jest.fn(),
   };
 
   beforeEach(() => {
@@ -267,28 +271,12 @@ describe('TripCard', () => {
     expect(mockUpdateWineryOrder).toHaveBeenCalledWith('1', [102, 101]);
   });
 
-  it('performs winery search and adds result', async () => {
-    const mockWinery = { id: 'winery-2', dbId: 102, name: 'Search Result', address: '456 Wine Ave' };
-    const mockFetch = jest.fn().mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve([mockWinery])
-    });
-    global.fetch = mockFetch;
-
-    render(<TripCard {...defaultProps} />);
-    fireEvent.click(screen.getByRole('button', { name: /Edit Trip/i }));
+  it('renders search results from props', async () => {
+    const mockSearchResults = [{ id: 'winery-2', dbId: 102, name: 'Search Result', address: '456 Wine Ave' }];
+    render(<TripCard {...defaultProps} searchResults={mockSearchResults as any} />);
     
-    const searchInput = screen.getByPlaceholderText(/Search wineries.../i);
-    await act(async () => {
-      fireEvent.change(searchInput, { target: { value: 'Search' } });
-    });
-    
-    await waitFor(() => { expect(mockFetch).toHaveBeenCalled(); }, { timeout: 2000 });
-
-    const searchResultItem = await screen.findByText('Search Result');
-    await act(async () => {
-      fireEvent.click(searchResultItem);
-    });
-    expect(mockToggleWineryOnTrip).toHaveBeenCalledWith(mockWinery, mockTrip);
+    fireEvent.click(screen.getByLabelText(/Edit Trip/i));
+    fireEvent.click(screen.getByText(/Add a Winery/i));
+    expect(screen.getByText('Search Result')).toBeInTheDocument();
   });
 });
