@@ -3,10 +3,10 @@
 ## Phase 1: Component Purity & Prop Injection
 Objective: Decouple UI components from the Zustand stores.
 
-- [ ] Task 1: Audit `TripCard.tsx`. Refactor to a "Presentational" component that takes `trip`, `isOwner`, `onShare`, `onEdit`, `onDelete` as props. **Verification:** Confirm zero `useStore` hooks are called and all existing `data-testid` attributes are preserved.
-- [ ] Task 2: Create a `TripListContainer` or update `TripList.tsx` to handle the Zustand connections for all its children. **Verification:** Confirm all trip actions still work as expected and the E2E `trip-management.spec.ts` passes.
-- [ ] Task 3: Repeat the process for `WineryCardThumbnail.tsx` and `VisitCardHistory.tsx`. **Verification:** Components should now be testable in isolation.
-- [ ] Task 4: Implement a `HydrationGuard` in the `AppShell`. Buttons must be disabled until `isHydrated` is `true`. **Verification:** Confirm Playwright tests correctly wait for hydration before interacting.
+- [x] Task 1: Audit `TripCard.tsx`. Refactor to a "Presentational" component that takes `trip`, `isOwner`, `onShare`, `onEdit`, `onDelete` as props. **Verification:** Confirm zero `useStore` hooks are called and all existing `data-testid` attributes are preserved. [7eecae0]
+- [x] Task 2: Create a `TripListContainer` or update `TripList.tsx` to handle the Zustand connections for all its children. **Verification:** Confirm all trip actions still work as expected and the E2E `trip-management.spec.ts` passes. [58b20a1]
+- [x] Task 3: Repeat the process for `WineryCardThumbnail.tsx` and `VisitCardHistory.tsx`. **Verification:** Components should now be testable in isolation. [7eecae0]
+- [x] Task 4: Implement a `HydrationGuard` in the `AppShell`. Buttons must be disabled until `isHydrated` is `true`. **Verification:** Confirm Playwright tests correctly wait for hydration before interacting. [7eecae0]
 
 ## Phase 2: State Sync & Revision Control
 Objective: Solve the "Three-Way Sync" paradox and Realtime flickers.
