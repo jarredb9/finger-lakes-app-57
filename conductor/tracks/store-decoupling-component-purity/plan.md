@@ -18,7 +18,7 @@ Objective: Solve the "Three-Way Sync" paradox and Realtime flickers.
 ## Phase 3: Unit Testing Transformation
 Objective: Achieve "Zero-Mock" unit testing for UI components.
 
-- [ ] Task 1: Create a `test/factories/dataFactory.ts` that generates mock `Trip`, `Winery`, and `Visit` objects for tests.
+- [x] Task 1: Create a `test/factories/dataFactory.ts` that generates mock `Trip`, `Winery`, and `Visit` objects for tests. [fbb7747]
 - [ ] Task 2: Refactor `TripCard.test.tsx` and `VisitCardHistory.test.tsx` to use the factories and direct prop passing. **Verification:** Delete all `jest.mock('zustand')` lines and confirm tests still pass.
 - [ ] Task 3: Transition E2E "Success" assertions from "Toast Visibility" to "Store State Confirmation" using `page.evaluate`. **Verification:** Confirm full E2E suite runs 20% faster.
 
