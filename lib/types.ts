@@ -80,6 +80,7 @@ export interface Visit {
   photos?: string[];
   winery_id?: WineryDbId; // Use new distinct type
   is_private?: boolean;
+  updated_at?: string;
   // Expanded fields often joined in queries
   wineries?: {
     id: WineryDbId; // Use new distinct type
