@@ -20,7 +20,7 @@ export default function GlobalVisitHistory({ isActive = true }: GlobalVisitHisto
       isLoading, 
       page, 
       hasMore, 
-      lastMutation,
+      lastActionTimestamp,
       fetchVisits, 
       deleteVisit: deleteVisitAction 
   } = useVisitStore();
@@ -30,7 +30,7 @@ export default function GlobalVisitHistory({ isActive = true }: GlobalVisitHisto
     if (isActive) {
         fetchVisits(1, true); // Re-fetch on activation or mutation
     }
-  }, [fetchVisits, lastMutation, isActive]);
+  }, [fetchVisits, lastActionTimestamp, isActive]);
 
   if (visits.length === 0 && isLoading) {
     return (

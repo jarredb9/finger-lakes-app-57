@@ -13,11 +13,11 @@ import Link from "next/link";
 
 export default function FriendActivityFeed() {
   const { friendActivityFeed = [], fetchFriendActivityFeed, isLoading } = useFriendStore();
-  const lastMutation = useVisitStore(state => state.lastMutation);
+  const lastActionTimestamp = useVisitStore(state => state.lastActionTimestamp);
 
   useEffect(() => {
     fetchFriendActivityFeed();
-  }, [fetchFriendActivityFeed, lastMutation]);
+  }, [fetchFriendActivityFeed, lastActionTimestamp]);
 
   if (isLoading && (!friendActivityFeed || friendActivityFeed.length === 0)) {
     return (
