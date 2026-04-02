@@ -12,8 +12,8 @@ Objective: Decouple UI components from the Zustand stores.
 Objective: Solve the "Three-Way Sync" paradox and Realtime flickers.
 
 - [x] Task 1: Add a `lastActionTimestamp` to the `useTripStore` state. Update all mutation actions to set this timestamp. [6638063]
-- [~] Task 2: Update the `postgres_changes` subscription in `tripStore.ts` to ignore payloads where the DB timestamp is older than the `lastActionTimestamp`. **Verification:** Simulate slow network and confirm Realtime events do not "overwrite" optimistic local updates.
-- [ ] Task 3: Repeat the "Sync Lock" logic for `useVisitStore.ts`. **Verification:** Confirm visits are no longer "ghosted" during heavy sync.
+- [x] Task 2: Update the `postgres_changes` subscription in `tripStore.ts` to implement Sync Lock. **Verification:** Simulate slow network and confirm Realtime events do not "overwrite" optimistic local updates. [0d9b5ef]
+- [x] Task 3: Repeat the "Sync Lock" logic for `useVisitStore.ts`. **Verification:** Confirm visits are no longer "ghosted" during heavy sync. [6d6db32]
 
 ## Phase 3: Unit Testing Transformation
 Objective: Achieve "Zero-Mock" unit testing for UI components.
@@ -24,6 +24,7 @@ Objective: Achieve "Zero-Mock" unit testing for UI components.
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions - Fully decouple search from TripCardPresentational [c99fc88]
+- [x] Task: Apply review suggestions - Add updated_at to visits table and types [b8ad327]
 
 Objective: Ensure the "Complexity Ceiling" has been lowered and codified.
 
