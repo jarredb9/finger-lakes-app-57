@@ -291,7 +291,7 @@ export class MockMapsManager {
                 }
                 if (url.includes('send_friend_request')) {
                     const postData = JSON.parse(req.postData() || '{}');
-                    const targetEmail = postData.p_friend_email;
+                    const targetEmail = postData.target_email || postData.p_friend_email;
                     console.log(`[DIAGNOSTIC] Intercepted send_friend_request to ${targetEmail}`);
                     
                     if (!MockMapsManager.sharedMockSocial) {
@@ -301,8 +301,8 @@ export class MockMapsManager {
                     // Add to outgoing for current context
                     MockMapsManager.sharedMockSocial.pending_outgoing.push({
                         id: 'mock-target-id',
-                        name: targetEmail.split('@')[0],
-                        email: targetEmail
+                        name: (targetEmail || 'unknown').split('@')[0],
+                        email: targetEmail || 'unknown@example.com'
                     });
 
                     // Add to incoming for target context (simulated)
@@ -317,10 +317,10 @@ export class MockMapsManager {
                 
                 if (url.includes('respond_to_friend_request')) {
                     const postData = JSON.parse(req.postData() || '{}');
-                    const requesterId = postData.p_requester_id;
-                    const action = postData.p_action;
+                    const requesterId = postData.requester_id || postData.p_requester_id;
+                    const accept = postData.accept !== undefined ? postData.accept : (postData.p_action === 'accepted');
                     
-                    if (MockMapsManager.sharedMockSocial && action === 'accepted') {
+                    if (MockMapsManager.sharedMockSocial && accept) {
                         const request = MockMapsManager.sharedMockSocial.pending_incoming.find(r => r.id === requesterId);
                         if (request) {
                             MockMapsManager.sharedMockSocial.friends.push(request);

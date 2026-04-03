@@ -117,13 +117,14 @@ export const WineryService = {
     if (!dbId) throw new Error("No DB ID available for winery " + winery.id);
 
     const supabase = createClient();
-    const { error } = await supabase.rpc('toggle_favorite_privacy', { 
-        p_winery_id: dbId 
+    const { error } = await supabase.rpc('toggle_favorite_privacy', {
+        p_winery_id: dbId
     }, { headers: getE2EHeaders() } as any);
 
-    if (error) throw error;
+    if (error) {
+        throw error;
+    }
   },
-
   /**
    * Toggles wishlist privacy for a winery. Requires a DB ID.
    */

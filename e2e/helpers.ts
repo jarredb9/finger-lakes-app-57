@@ -372,6 +372,7 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
     await expect(emailInput).toHaveValue(user2Email);
     
     const addBtn = sidebarA.locator('[data-testid="add-friend-btn"]');
+    await expect(addBtn).toBeEnabled({ timeout: 10000 });
     await addBtn.click({ force: true });
     
     // Non-fatal response wait for sync

@@ -213,12 +213,10 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
                   }));
               }
           } catch (err) {
-              console.error("[wineryDataStore] Fav privacy toggle failed:", err);
               set({ persistentWineries: original });
               throw err;
           }
       },
-
       toggleWishlistPrivacy: async (wineryId: GooglePlaceId) => {
           const original = get().persistentWineries;
           const winery = original.find(w => w.id === wineryId);
