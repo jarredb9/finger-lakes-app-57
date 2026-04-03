@@ -1,5 +1,11 @@
 import { Trip, Winery, Visit, TripMember, GooglePlaceId, WineryDbId, Friend, PlaceReview, AuthenticatedUser } from "@/lib/types";
 
+/**
+ * Branded type assertion helpers for factories
+ */
+export const asGoogleId = (id: string) => id as GooglePlaceId;
+export const asWineryId = (id: number) => id as WineryDbId;
+
 export const createMockUser = (overrides?: Partial<AuthenticatedUser>): AuthenticatedUser => ({
   id: 'user-1',
   name: 'Test User',
@@ -19,7 +25,7 @@ export const createMockTripMember = (overrides?: Partial<TripMember>): TripMembe
 export const createMockVisit = (overrides?: Partial<Visit>): Visit => ({
   id: 'visit-1', // String for consistent mocking (can be cast to number if needed)
   user_id: 'user-1',
-  winery_id: 101 as unknown as WineryDbId,
+  winery_id: asWineryId(101),
   rating: 5,
   user_review: 'Great!',
   profiles: { name: 'Test User' },
@@ -39,8 +45,8 @@ export const createMockPlaceReview = (overrides?: Partial<PlaceReview>): PlaceRe
 });
 
 export const createMockWinery = (overrides?: Partial<Winery>): Winery => ({
-  id: 'winery-1' as unknown as GooglePlaceId,
-  dbId: 101 as unknown as WineryDbId,
+  id: asGoogleId('winery-1'),
+  dbId: asWineryId(101),
   name: 'Winery One',
   address: '123 Wine St',
   lat: 42.44,
