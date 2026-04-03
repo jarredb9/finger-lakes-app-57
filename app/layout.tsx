@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { GeistSans } from 'geist/font/sans'
 import { GeistMono } from 'geist/font/mono'
 import './globals.css'
@@ -11,6 +11,7 @@ import { WineryNoteModal } from '@/components/WineryNoteModal'
 import { ModalHost } from '@/components/modal-host'
 import { PwaHandler } from '@/components/pwa-handler'
 import { E2EStoreExposer } from '@/components/e2e-store-exposer'
+import Script from 'next/script'
 
 import { CookieConsent } from '@/components/cookie-consent'
 import { TripShareDialogWrapper } from '@/components/trip-share-dialog-wrapper'
@@ -18,6 +19,10 @@ import { TripShareDialogWrapper } from '@/components/trip-share-dialog-wrapper'
 export const metadata: Metadata = {
   title: 'Winery Visit Planner',
   description: 'Plan and track your visits to wineries worldwide.',
+  manifest: '/site.webmanifest',
+  icons: {
+    icon: '/placeholder-logo.png',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
@@ -28,7 +33,7 @@ export const metadata: Metadata = {
   },
 }
 
-export const viewport = {
+export const viewport: Viewport = {
   themeColor: '#7c2d12',
   width: 'device-width',
   initialScale: 1,
@@ -43,10 +48,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <head>
-        <link rel="icon" href="/placeholder-logo.png" sizes="any" />
-        <link rel="manifest" href="/site.webmanifest" />
-        <script
+      <body>
+        <Script
+          id="sw-registration"
+          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
@@ -61,7 +66,7 @@ export default function RootLayout({
                     });
                     return;
                   }
-                  
+
                   const swUrl = window.location.search.includes('pwa=true') ? '/sw.js?pwa=true' : '/sw.js';
                   navigator.serviceWorker.register(swUrl).then(function(registration) {
                     console.log('ServiceWorker registration successful with scope: ', registration.scope);
@@ -73,8 +78,6 @@ export default function RootLayout({
             `,
           }}
         />
-      </head>
-      <body>
         <TooltipProvider>
           <div className="relative flex min-h-screen flex-col">
             <main className="flex-1">

@@ -1,73 +1,32 @@
-// components/WineryActions.tsx
 import { Winery } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Star, ListPlus, Check, Lock, Unlock, Edit } from "lucide-react";
-import { useWineryStore } from "@/lib/stores/wineryStore";
-import { useUIStore } from "@/lib/stores/uiStore";
-import { useToast } from "@/hooks/use-toast";
-import { shallow } from "zustand/shallow";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-interface WineryActionsProps {
+interface WineryActionsPresentationalProps {
   winery: Winery;
+  onLogVisit: () => void;
+  onToggleWishlist: () => void;
+  onToggleFavorite: () => void;
+  onToggleFavoritePrivacy: (e: React.MouseEvent) => void;
+  onToggleWishlistPrivacy: (e: React.MouseEvent) => void;
 }
 
-export default function WineryActions({ winery }: WineryActionsProps) {
-  const { toast } = useToast();
-  const { openVisitForm } = useUIStore();
-  const { toggleWishlist, toggleFavorite, toggleFavoritePrivacy, toggleWishlistPrivacy } = useWineryStore(
-    (state) => ({
-      toggleWishlist: state.toggleWishlist,
-      toggleFavorite: state.toggleFavorite,
-      toggleFavoritePrivacy: state.toggleFavoritePrivacy,
-      toggleWishlistPrivacy: state.toggleWishlistPrivacy,
-    }),
-    shallow
-  );
-
-  const handleWishlistToggle = async () => {
-    try {
-      await toggleWishlist(winery, winery.onWishlist || false);
-    } catch (error) {
-      toast({ variant: "destructive", description: "Failed to update wishlist." });
-    }
-  };
-
-  const handleFavoriteToggle = async () => {
-    try {
-      await toggleFavorite(winery, winery.isFavorite || false);
-    } catch (error) {
-      toast({ variant: "destructive", description: "Failed to update favorites." });
-    }
-  };
-
-  const handleToggleFavoritePrivacy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-        await toggleFavoritePrivacy(winery.id);
-        toast({ description: winery.favoriteIsPrivate ? "Favorite is now public." : "Favorite is now private." });
-    } catch (error) {
-        toast({ variant: "destructive", description: "Failed to update favorite privacy." });
-    }
-  };
-
-  const handleToggleWishlistPrivacy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-        await toggleWishlistPrivacy(winery.id);
-        toast({ description: winery.wishlistIsPrivate ? "Wishlist item is now public." : "Wishlist item is now private." });
-    } catch (error) {
-        toast({ variant: "destructive", description: "Failed to update wishlist privacy." });
-    }
-  };
-
+export default function WineryActionsPresentational({ 
+  winery, 
+  onLogVisit, 
+  onToggleWishlist, 
+  onToggleFavorite, 
+  onToggleFavoritePrivacy, 
+  onToggleWishlistPrivacy 
+}: WineryActionsPresentationalProps) {
   return (
     <TooltipProvider>
       <div className="flex items-center gap-2">
         <Button 
             size="sm" 
             variant="outline-solid" 
-            onClick={() => openVisitForm(winery)}
+            onClick={onLogVisit}
             data-testid="log-visit-button"
         >
             <Edit className="mr-2 h-4 w-4" />
@@ -78,8 +37,9 @@ export default function WineryActions({ winery }: WineryActionsProps) {
             <Button 
                 size="sm" 
                 variant={winery.isFavorite ? "default" : "outline-solid"} 
-                onClick={handleFavoriteToggle}
+                onClick={onToggleFavorite}
                 className={winery.isFavorite ? "rounded-r-none" : ""}
+                data-testid="favorite-button"
             >
                 <Star className={`mr-2 h-4 w-4 ${winery.isFavorite ? "text-yellow-400 fill-yellow-400" : ""}`} />
                 Favorite
@@ -91,8 +51,9 @@ export default function WineryActions({ winery }: WineryActionsProps) {
                             size="sm" 
                             variant="default" 
                             className="px-2 rounded-l-none border-l border-primary-foreground/20" 
-                            onClick={handleToggleFavoritePrivacy}
+                            onClick={onToggleFavoritePrivacy}
                             aria-label={winery.favoriteIsPrivate ? "Make favorite public" : "Make favorite private"}
+                            data-testid="favorite-privacy-toggle"
                         >
                             {winery.favoriteIsPrivate ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5 opacity-70" />}
                         </Button>
@@ -108,9 +69,10 @@ export default function WineryActions({ winery }: WineryActionsProps) {
             <Button 
                 size="sm" 
                 variant={winery.onWishlist ? "secondary" : "outline-solid"} 
-                onClick={handleWishlistToggle} 
+                onClick={onToggleWishlist} 
                 disabled={winery.userVisited}
                 className={winery.onWishlist ? "rounded-r-none" : ""}
+                data-testid="wishlist-button"
             >
                 {winery.onWishlist ? <Check className="mr-2 h-4 w-4" /> : <ListPlus className="mr-2 h-4 w-4" />}
                 {winery.onWishlist ? "On List" : "Want to Go"}
@@ -122,8 +84,9 @@ export default function WineryActions({ winery }: WineryActionsProps) {
                             size="sm" 
                             variant="secondary" 
                             className="px-2 rounded-l-none border-l border-secondary-foreground/20" 
-                            onClick={handleToggleWishlistPrivacy}
+                            onClick={onToggleWishlistPrivacy}
                             aria-label={winery.wishlistIsPrivate ? "Make wishlist item public" : "Make wishlist item private"}
+                            data-testid="wishlist-privacy-toggle"
                         >
                             {winery.wishlistIsPrivate ? <Lock className="h-3.5 w-3.5" /> : <Unlock className="h-3.5 w-3.5 opacity-70" />}
                         </Button>
