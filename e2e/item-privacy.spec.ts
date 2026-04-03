@@ -9,7 +9,7 @@ import {
     closeWineryModal,
     ensureSidebarExpanded,
     ensureProfileReady,
-    waitForToast
+    expectWineryPrivacyInStore
 } from './helpers';
 
 test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
@@ -84,14 +84,14 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         
         const favPrivacyToggle = pageA.getByLabel(/Make favorite private/i);
         await favPrivacyToggle.click({ force: true });
-        await waitForToast(pageA, /Favorite is now private/i);
+        await expectWineryPrivacyInStore(pageA, 'Mock Winery One', 'favorite', true);
 
         // Small delay to allow the first toast to settle/not overlap with the next toggle click if needed
         await pageA.waitForTimeout(500);
 
         const wishPrivacyToggle = pageA.getByLabel(/Make wishlist item private/i);
         await wishPrivacyToggle.click({ force: true });
-        await waitForToast(pageA, /Wishlist item is now private/i);
+        await expectWineryPrivacyInStore(pageA, 'Mock Winery One', 'wishlist', true);
 
         await closeWineryModal(pageA);
       });

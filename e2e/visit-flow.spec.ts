@@ -8,7 +8,7 @@ import {
     closeWineryModal, 
     ensureSidebarExpanded,
     clearServiceWorkers,
-    waitForToast
+    expectVisitDeletedFromStore
 } from './helpers';
 
 test.describe('Visit Logging Flow', () => {
@@ -44,7 +44,7 @@ test.describe('Visit Logging Flow', () => {
     
     await deleteBtn.click({ force: true });
     
-    await waitForToast(page, /Visit deleted successfully/i);
+    await expectVisitDeletedFromStore(page, 'Excellent wine and view!');
     await expect(historyItem).not.toBeVisible();
   });
 });

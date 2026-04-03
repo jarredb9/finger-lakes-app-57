@@ -5,7 +5,8 @@ import {
     login, 
     navigateToTab, 
     ensureSidebarExpanded,
-    waitForToast
+    expectTripInStore,
+    expectTripDeletedFromStore
 } from './helpers';
 
 test.describe('Trip Management Flow', () => {
@@ -40,7 +41,7 @@ test.describe('Trip Management Flow', () => {
         tripForm.getByTestId('create-trip-submit-btn').click({ force: true })
     ]);
     
-    await waitForToast(page, 'Trip created successfully!');
+    await expectTripInStore(page, uniqueTripName);
     
     // Ensure the dialog is gone before checking the sidebar
     await expect(page.getByRole('dialog')).not.toBeVisible();
@@ -151,7 +152,7 @@ test.describe('Trip Management Flow', () => {
         page.getByRole('button', { name: /Save/i }).first().click({ force: true })
     ]);
     
-    await waitForToast(page, 'Trip updated successfully.');
+    await expectTripInStore(page, renamedTripName);
     
     // Verify name changed on page
     await expect(page.getByText(renamedTripName, { exact: false }).first()).toBeVisible({ timeout: 10000 });
@@ -184,7 +185,7 @@ test.describe('Trip Management Flow', () => {
         page.getByTestId('confirm-delete-trip-btn').click({ force: true })
     ]);
     
-    await waitForToast(page, 'Trip deleted successfully.');
+    await expectTripDeletedFromStore(page, renamedTripName);
     
     // Verify deleted
     await expect(sidebar.getByText(renamedTripName)).not.toBeVisible();

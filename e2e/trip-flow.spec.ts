@@ -6,7 +6,7 @@ import {
     openWineryDetails, 
     closeWineryModal, 
     ensureSidebarExpanded,
-    waitForToast
+    expectTripInStore
 } from './helpers';
 
 test.describe('Trip Planning Flow', () => {
@@ -56,7 +56,7 @@ test.describe('Trip Planning Flow', () => {
         planner.getByTestId('add-to-trip-btn').click({ force: true })
     ]);
 
-    await waitForToast(page, 'Winery added to trip(s).');
+    await expectTripInStore(page, uniqueTripName);
     await expect(modal.getByText(new RegExp(`On Trip: ${uniqueTripName}`))).toBeVisible();
 
     // --- Cleanup: Delete the trip ---

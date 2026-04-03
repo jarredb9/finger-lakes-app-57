@@ -5,7 +5,7 @@ import {
     openWineryDetails, 
     closeWineryModal, 
     waitForMapReady,
-    waitForToast
+    expectVisitInStore
 } from './helpers';
 
 // Define helper directly in the test file to avoid bundling issues
@@ -36,17 +36,8 @@ test.describe('Photo Management Workflow', () => {
     // 2. Open Log Visit modal
     await page.getByTestId('log-visit-button').click({ force: true });
 
-    // Wait for the UI store to reflect that the modal should be open
-    await expect(async () => {
-        const isModalOpen = await page.evaluate(() => {
-            // @ts-ignore
-            return !!(window.useUIStore?.getState().isModalOpen);
-        });
-        if (!isModalOpen) throw new Error('Visit modal not open in store');
-    }).toPass({ timeout: 10000 });
-
     const modal = page.getByRole('dialog').filter({ hasText: /Log a Visit/i });
-    await expect(modal).toBeVisible();
+    await expect(modal).toBeVisible({ timeout: 15000 });
 
     // 2. Log New Visit with Photo
     // Use standardized date format
@@ -92,7 +83,7 @@ test.describe('Photo Management Workflow', () => {
         throw new Error('Visit modal still open after click');
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });
 
-    await waitForToast(page, 'Visit added successfully.');
+    await expectVisitInStore(page, { date: today });
 
     // 3. Verify Photo is visible in the UI (Winery Modal) and has a valid server URL
     const wineryModal = page.getByRole('dialog').filter({ hasText: /Mock Winery One/i });
@@ -168,7 +159,7 @@ test.describe('Photo Management Workflow', () => {
         throw new Error('Edit modal still open after click');
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });
 
-    await waitForToast(page, 'Visit updated successfully.');
+    await expectVisitInStore(page, { date: today });
 
     // 9. Verify Photo Removal in UI (Visit Card)
     await expect(async () => {
