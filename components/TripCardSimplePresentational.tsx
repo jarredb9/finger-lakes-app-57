@@ -42,7 +42,13 @@ export default function TripCardSimple({
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
-                                    <Button size="icon" variant="outline" onClick={onExportToMaps} disabled={!trip.wineries || trip.wineries.length === 0}>
+                                    <Button 
+                                        size="icon" 
+                                        variant="outline" 
+                                        onClick={onExportToMaps} 
+                                        disabled={!trip.wineries || trip.wineries.length === 0}
+                                        aria-label="Export to Google Maps"
+                                    >
                                         <Share2 size={16} />
                                     </Button>
                                 </TooltipTrigger>
@@ -63,6 +69,7 @@ export default function TripCardSimple({
                                                 onClick={() => onShare(trip.id.toString(), trip.name || "Unnamed Trip")}
                                                 data-testid="share-trip-btn"
                                                 disabled={trip.id < 0}
+                                                aria-label="Share Trip"
                                             >
                                                 <Users size={16} />
                                             </Button>
@@ -75,7 +82,15 @@ export default function TripCardSimple({
 
                                 <AlertDialog>
                                     <AlertDialogTrigger asChild>
-                                        <Button variant="destructive" size="icon" data-testid="delete-trip-btn" disabled={trip.id < 0}><Trash2 size={16} /></Button>
+                                        <Button 
+                                            variant="destructive" 
+                                            size="icon" 
+                                            data-testid="delete-trip-btn" 
+                                            disabled={trip.id < 0}
+                                            aria-label="Delete Trip"
+                                        >
+                                            <Trash2 size={16} />
+                                        </Button>
                                     </AlertDialogTrigger>
                                     <AlertDialogContent>
                                         <AlertDialogHeader>

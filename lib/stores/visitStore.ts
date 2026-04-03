@@ -435,6 +435,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                   visits: state.visits.map(v => String(v.id) === mutation.id ? finalVisit : v),
                   lastActionTimestamp: Date.now()
                 }));
+                console.log(`[Sync] Visit ${visitId} synced successfully`);
 
               } else if (mutation.type === 'update') {
                 let newPhotoPaths: string[] = [];

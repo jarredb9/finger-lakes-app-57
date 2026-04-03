@@ -417,6 +417,7 @@ const TripCard = memo(({
                   className="h-8 px-2 text-xs"
                   onClick={() => onExportToMaps()} 
                   disabled={!tripWineries || tripWineries.length === 0}
+                  aria-label="Export to Google Maps"
                 >
                   <Share2 size={14} className="mr-1.5" />
                   Maps Export
