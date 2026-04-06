@@ -112,31 +112,41 @@ export const WineryService = {
   /**
    * Toggles favorite privacy for a winery. Requires a DB ID.
    */
-  toggleFavoritePrivacy: async (winery: Winery): Promise<void> => {
+  toggleFavoritePrivacy: async (winery: Winery): Promise<{ success: boolean; isPrivate: boolean }> => {
     const dbId = await WineryService.ensureInDb(winery);
     if (!dbId) throw new Error("No DB ID available for winery " + winery.id);
 
     const supabase = createClient();
-    const { error } = await supabase.rpc('toggle_favorite_privacy', {
+    const { data, error } = await supabase.rpc('toggle_favorite_privacy', {
         p_winery_id: dbId
     }, { headers: getE2EHeaders() } as any);
 
     if (error) {
         throw error;
     }
+
+    return { 
+        success: data.success, 
+        isPrivate: data.is_private 
+    };
   },
   /**
    * Toggles wishlist privacy for a winery. Requires a DB ID.
    */
-  toggleWishlistPrivacy: async (winery: Winery): Promise<void> => {
+  toggleWishlistPrivacy: async (winery: Winery): Promise<{ success: boolean; isPrivate: boolean }> => {
     const dbId = await WineryService.ensureInDb(winery);
     if (!dbId) throw new Error("No DB ID available for winery " + winery.id);
 
     const supabase = createClient();
-    const { error } = await supabase.rpc('toggle_wishlist_privacy', { 
+    const { data, error } = await supabase.rpc('toggle_wishlist_privacy', { 
         p_winery_id: dbId 
     }, { headers: getE2EHeaders() } as any);
 
     if (error) throw error;
+
+    return { 
+        success: data.success, 
+        isPrivate: data.is_private 
+    };
   }
 };

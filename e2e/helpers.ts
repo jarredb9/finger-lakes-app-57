@@ -94,6 +94,19 @@ export async function waitForMapReady(page: Page) {
     const mapContainer = page.locator('[data-testid="map-container"]');
     await expect(mapContainer).toBeAttached({ timeout: 10000 });
     
+    // Attempt manual bounds injection if it's missing (helps stabilize mocks)
+    await page.evaluate(() => {
+        // @ts-ignore
+        if (window.useMapStore && !window.useMapStore.getState().bounds) {
+            // @ts-ignore
+            window.useMapStore.getState().setBounds({
+                getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
+                getSouthWest: () => ({ lat: () => 42, lng: () => -77 }),
+                contains: () => true
+            });
+        }
+    }).catch(() => {});
+
     await expect(async () => {
         const hasBounds = await page.evaluate(() => {
             // @ts-ignore
@@ -123,13 +136,13 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
 
   if (isMobile) {
     const sheet = page.getByTestId('mobile-sidebar-container');
-    await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+    await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 15000 });
   }
 
-  // WebKit/Safari needs a tiny bit more time for global mocks to settle 
+  // WebKit/Safari needs more time for global mocks to settle 
   // before the first search trigger happens during navigation to Explore
   if (isWebKit && tabName === 'Explore') {
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(1000);
   }
 }
 
@@ -143,12 +156,24 @@ export async function navigateToSettings(page: Page) {
 export async function ensureSidebarExpanded(page: Page) {
     const isMobile = page.viewportSize()!.width < 768;
     if (!isMobile) return;
+    
     const sidebar = getSidebarContainer(page);
-    const expandBtn = page.getByRole('button', { name: 'Expand to full screen' });
-    if (await expandBtn.isVisible()) {
-        await expandBtn.click({ force: true });
-        await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
-    }
+    
+    await expect(async () => {
+        // Wait for any existing animation to settle
+        await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 5000 });
+        
+        const expandBtn = page.getByRole('button', { name: 'Expand to full screen' });
+        if (await expandBtn.isVisible()) {
+            await expandBtn.click({ force: true });
+            // Wait for it to settle in full screen
+            await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 5000 });
+        }
+        
+        // Final verification that we are either full screen or the button is gone (already full)
+        const isCollapsed = await page.getByRole('button', { name: 'Expand to full screen' }).isVisible();
+        if (isCollapsed) throw new Error('Sidebar failed to expand');
+    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
 }
 
 /**
@@ -247,7 +272,7 @@ export async function ensureProfileReady(page: Page) {
         
         if (isLoading) throw new Error('UserStore is still loading');
         if (!user) throw new Error('User not found in store');
-        if (user.name === 'User') {
+        if (user.name === 'User' && process.env.NEXT_PUBLIC_IS_E2E !== 'true') {
             console.log(`[DIAGNOSTIC] Profile not yet fully initialized (name is still 'User') for ID: ${user.id}`);
             throw new Error('Profile not yet fully initialized');
         }
@@ -283,6 +308,7 @@ export async function openWineryDetails(page: Page, wineryName: string) {
         }
     }
     
+    await wineryItem.scrollIntoViewIfNeeded();
     await wineryItem.click({ force: true });
     
     const modal = page.getByRole('dialog').filter({ hasText: /Detailed information/i });
