@@ -59,7 +59,7 @@ jest.mock('@/components/ui/button', () => {
     </button>
   );
   Button.displayName = 'Button';
-  return { Button };
+  return { Button, buttonVariants: () => '' };
 });
 
 jest.mock('@/components/ui/avatar', () => ({
@@ -178,6 +178,13 @@ describe('TripCard', () => {
     await act(async () => {
       fireEvent.click(deleteButton);
     });
+    
+    // Now click the confirmation button in the AlertDialog
+    const confirmButton = screen.getByTestId('confirm-delete-trip-btn');
+    await act(async () => {
+      fireEvent.click(confirmButton);
+    });
+    
     expect(mockDeleteTrip).toHaveBeenCalledWith('1');
   });
 
@@ -188,6 +195,13 @@ describe('TripCard', () => {
     await act(async () => {
       fireEvent.click(deleteButton);
     });
+    
+    // Now click the confirmation button in the AlertDialog
+    const confirmButton = screen.getByTestId('confirm-delete-trip-btn');
+    await act(async () => {
+      fireEvent.click(confirmButton);
+    });
+    
     expect(mockDeleteTrip).toHaveBeenCalled();
   });
 
