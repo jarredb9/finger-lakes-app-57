@@ -26,11 +26,23 @@ Objective: Achieve "Zero-Mock" unit testing for UI components.
 - [x] Task: Apply review suggestions - Fully decouple search from TripCardPresentational [c99fc88]
 - [x] Task: Apply review suggestions - Add updated_at to visits table and types [b8ad327]
 - [x] Task: Apply review suggestions - Fix accessibility labels and PWA sync verification logs [4bf2a9a]
+- [x] Task 1: Perform a "Deletion Test." Temporarily rename `lib/stores` and verify that `components/ui` remains error-free in the IDE. [d64195b]
+- [x] Task 2: Run the full E2E suite against WebKit in a high-latency Podman environment. [5a91bb9]
+- [x] Task 3: Update `GEMINI.md` Core Architectural Standards to strictly mandate the Container/Presentational pattern [2dc0564]
+- [x] Task 4: Update `project-testing-best-practices` to reflect updated testing structure and best practices as a result of this track [43c3b5e]
 
+## Phase 5: Architectural Hardening
+Objective: Transition from "Defensive Fixes" to a Professional/Principal standard.
+
+- [ ] Task 1: Explicit Persistence States. Implement `SyncStatus` union in `lib/types.ts`. Update `useTripStore` and `useVisitStore` to manage this state.
+- [ ] Task 2: Signal-Based Synchronization. Implement `data-state="ready"` in main containers. Update `e2e/helpers.ts` to utilize these signals.
+- [ ] Task 3: Action Delegation Pattern. Move `AlertDialog` from `TripCardPresentational` to `TripList` container.
+- [ ] Task 4: Strict Mock Validation. Update `MockMapsManager` to throw on invalid state requests.
+
+**Verification Suite:** Run `trip-management.spec.ts`, `visit-flow.spec.ts`, `pwa-sync-deep.spec.ts`, `item-privacy.spec.ts`, and `smoke.spec.ts`.
+
+## Phase: Cleanup
 Objective: Ensure the "Complexity Ceiling" has been lowered and codified.
 
-- [x] Task 1: Perform a "Deletion Test." Temporarily rename `lib/stores` and verify that `components/ui` remains error-free in the IDE. [d64195b]
-- [x] Task 2: Run the full E2E suite against WebKit in a high-latency Podman environment. **Verification:** 100% stability with zero `robustClick` calls. [5a91bb9]
-- [x] Task 3: Update `GEMINI.md` Core Architectural Standards to strictly mandate the Container/Presentational pattern and provide a link to the refactored `TripCard` as the reference implementation. [2dc0564]
-- [x] Task 4: Update `project-testing-best-practices` to reflect updated testing structure and best practices as a result of this track [43c3b5e]
-- [ ] Task 5: Archive the track and update the project CHANGELOG.
+- [ ] Task 1: Archive the track and update the project CHANGELOG.
+

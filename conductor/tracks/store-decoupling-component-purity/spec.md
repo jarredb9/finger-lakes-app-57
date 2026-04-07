@@ -32,6 +32,12 @@ Evolve the application architecture from "Global State-Driven" to **"Pattern-Dri
 - **Hydration Guards:** Add a global `isHydrated` flag to the `AppShell`. UI buttons must be disabled or "Ghost" styled until the store is ready.
 - **E2E Speed:** Transition all remaining `waitForToast` assertions to `expect(store.state)`.
 
+### 5. Architectural Hardening
+- **Persistence Status Pattern:** Eliminate "Magic Number" ID checks (e.g., `dbId > 100`). Implement a formal `SyncStatus` (`pending` | `synced` | `error`) in the entity types to drive UI states and mutation guards.
+- **Signal-Based E2E Sync:** Replace `waitForTimeout` and arbitrary sleeps in test helpers with explicit `data-ready` or `data-state` attribute listeners on the UI containers.
+- **Action Delegation Pattern:** Fully decouple specific UI flows (like Delete Confirmation Dialogs) from presentational cards. Cards must only emit "Intent" events; containers must handle the orchestration of the flow.
+- **Strict Mock Validation:** The `MockMapsManager` must be updated to behave as a "Strict Mock," throwing errors when the application makes requests that violate the expected state or ownership rules.
+
 ## Success Criteria
 1. `TripCard` unit tests require zero store mocks and run in < 1s.
 2. No Realtime "UI Flicker" (item appearing/disappearing) during high-latency network simulations.
