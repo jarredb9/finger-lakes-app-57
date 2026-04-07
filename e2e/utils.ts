@@ -68,7 +68,6 @@ export interface TestUser {
  * that can leak between worker-level test runs.
  */
 export interface MockMapsState {
-    currentUserId: string;
     trips: Trip[] | null;
     visits: RpcVisitWithWinery[] | null;
     activityFeed: FriendActivityFeedItem[] | null;
@@ -87,7 +86,6 @@ export interface MockMapsState {
 
 export function createDefaultMockState(): MockMapsState {
     return {
-        currentUserId: 'test-user-id',
         trips: null,
         visits: null,
         activityFeed: null,
@@ -102,6 +100,7 @@ export function createDefaultMockState(): MockMapsState {
  */
 export class MockMapsManager {
   private state: MockMapsState;
+  private currentUserId: string = 'test-user-id';
   private swEnabled = false;
   private mocksRegistered = false;
 
@@ -205,22 +204,22 @@ export class MockMapsManager {
     if (process.env.E2E_REAL_DATA === 'true') return;
     
     if (options.currentUserId) {
-        const oldId = this.state.currentUserId;
-        this.state.currentUserId = options.currentUserId;
+        const oldId = this.currentUserId;
+        this.currentUserId = options.currentUserId;
         
         // Update existing state IDs if they were using the old ID
         if (this.state.visits) {
-            this.state.visits.forEach(v => { if (v.user_id === oldId) v.user_id = this.state.currentUserId; });
+            this.state.visits.forEach(v => { if (v.user_id === oldId) v.user_id = this.currentUserId; });
         }
         if (this.state.trips) {
             this.state.trips.forEach(t => {
-                if (t.user_id === oldId) t.user_id = this.state.currentUserId;
-                t.members?.forEach(m => { if (m.id === oldId) m.id = this.state.currentUserId; });
+                if (t.user_id === oldId) t.user_id = this.currentUserId;
+                t.members?.forEach(m => { if (m.id === oldId) m.id = this.currentUserId; });
             });
         }
     }
 
-    const currentUserId = this.state.currentUserId;
+    const currentUserId = this.currentUserId;
 
     if (this.mocksRegistered) return;
 
@@ -245,7 +244,7 @@ export class MockMapsManager {
         const url = req.url();
         const method = req.method();
         const type = req.resourceType();
-        const currentUserId = this.state.currentUserId;
+        const currentUserId = this.currentUserId;
 
         if (url.includes('supabase.co')) {
             if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
@@ -449,6 +448,9 @@ export class MockMapsManager {
                     const userSocial = this.state.socialMap.get(currentUserId) 
                                     || this.state.social 
                                     || { friends: [], pending_incoming: [], pending_outgoing: [] };
+                    
+                    console.log(`[DIAGNOSTIC] Fulfilling get_friends_and_requests for ${currentUserId}. Friends: ${userSocial.friends.length}. Map Keys: ${Array.from(this.state.socialMap.keys()).join(', ')}`);
+                    
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(userSocial) });
                 }
                 if (url.includes('get_friend_activity_feed')) {
@@ -457,6 +459,7 @@ export class MockMapsManager {
                         return route.fallback();
                     }
                     const feed = this.state.activityFeed || [];
+                    console.log(`[DIAGNOSTIC] Fulfilling get_friend_activity_feed. Items: ${feed.length}`);
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(feed) });
                 }
                 if (url.includes('add_trip_member_by_email')) {
@@ -464,28 +467,37 @@ export class MockMapsManager {
                     const tripId = postData.p_trip_id;
                     const email = postData.p_email;
                     
+                    console.log(`[DIAGNOSTIC] Fulfilling add_trip_member_by_email for trip ${tripId}, email ${email}`);
+
                     // Update the trip in shared state if it exists
                     if (this.state.trips) {
-                        const trip = this.state.trips.find(t => t.id === Number(tripId));
-                        if (trip && trip.members) {
-                            trip.members.push({
-                                id: 'mock-invited-id',
-                                email: email,
-                                name: email.split('@')[0],
-                                role: 'member',
-                                status: 'invited'
-                            });
+                        const trip = this.state.trips.find(t => Number(t.id) === Number(tripId));
+                        if (trip) {
+                            if (!trip.members) trip.members = [];
+                            
+                            // Check if already a member
+                            if (!trip.members.some(m => m.email.toLowerCase() === email.toLowerCase())) {
+                                trip.members.push({
+                                    id: `mock-invited-${Math.floor(Math.random() * 10000)}`,
+                                    email: email,
+                                    name: email.split('@')[0],
+                                    role: 'member',
+                                    status: 'invited'
+                                });
+                                trip.updated_at = new Date().toISOString();
+                                console.log(`[DIAGNOSTIC] Added ${email} to trip ${tripId}. Members count: ${trip.members.length}`);
+                            }
                         }
                     }
                     
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
                 }
                 if (url.includes('get_trip_details')) {
-                    console.log(`[DIAGNOSTIC] Fulfilling Mock get_trip_details: ${url}`);
                     const postData = JSON.parse(req.postData() || '{}');
                     const requestedId = postData.trip_id_param;
                     const trips = this.state.trips || [];
-                    const found = trips.find(t => t.id === Number(requestedId));
+                    const found = trips.find(t => Number(t.id) === Number(requestedId));
+                    console.log(`[DIAGNOSTIC] Fulfilling Mock get_trip_details for ID ${requestedId}. Found: ${!!found}`);
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(found || trips[0] || {}) });
                 }
                 if (url.includes('get_paginated_visits')) {
@@ -526,9 +538,10 @@ export class MockMapsManager {
                     const idMatch = url.match(/id=eq\.(\d+)/);
                     if (idMatch && this.state.trips) {
                         const tripId = parseInt(idMatch[1], 10);
-                        const trip = this.state.trips.find(t => t.id === tripId);
+                        const trip = this.state.trips.find(t => Number(t.id) === tripId);
                         if (trip) {
                             Object.assign(trip, postData);
+                            trip.updated_at = new Date().toISOString();
                             console.log(`[DIAGNOSTIC] Updated sharedMockTrip ${tripId} with:`, postData);
                         }
                     }

@@ -12,9 +12,10 @@ import {
 } from './helpers';
 
 test.describe('Visit Logging Flow', () => {
-  test.beforeEach(async ({ page, user }) => {
+  test.beforeEach(async ({ page, user, mockMaps }) => {
     await clearServiceWorkers(page);
-    // mockMaps is auto-initialized by the fixture
+    // Re-initialize mocks with the real user ID to satisfy the Real-User Initialization Rule
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
   });
 
