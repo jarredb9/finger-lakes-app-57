@@ -96,8 +96,9 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **The Revision Lock Rule:** Stores implementing Realtime sync MUST track a `lastActionTimestamp`. Incoming `postgres_changes` payloads MUST be ignored if their DB timestamp is older than the last local mutation to prevent "Flicker" race conditions.
 
 ### **C. UI Pattern: Container/Presentational**
-*   **The Pure Component Rule:** UI components (Cards, Buttons, List Items) MUST be "Presentational." They MUST NOT call `useStore` hooks. Data and callbacks (e.g., `onEdit`, `onDelete`) MUST be passed as props.
-*   **The Container Mandate:** Data fetching and store connections MUST be localized in "Container" or "Page" components. This ensures UI components are testable with raw JSON objects and require zero store mocks.
+*   **The Pure Component Rule:** UI components (Cards, Buttons, List Items) MUST be "Presentational." They MUST NOT call `useStore` hooks or perform asynchronous side effects (e.g., `fetch`). Data and callbacks (e.g., `onEdit`, `onDelete`) MUST be passed as props.
+*   **The Container Mandate:** Data fetching, store connections, and complex event handlers MUST be localized in "Container" or "Page" components. This ensures UI components are testable with raw JSON objects and require zero store mocks.
+*   **Naming Convention:** Presentational components should be suffixed with `Presentational` (e.g., `TripCardPresentational.tsx`) if the container shares the base name (e.g., `trip-card.tsx`).
 
 ### **D. Social & Privacy Logic**
 *   **Normalization:** All social relations use `trip_members`, `follows`, and `activity_ledger`.
@@ -145,7 +146,8 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 ## 8. Reference Implementations
 *   **Data Standard:** `lib/utils/winery.ts` (standardizeWineryData)
 *   **RPC Service:** `lib/services/tripService.ts`
-*   **Complex UI/DnD:** `components/trip-card.tsx`
+*   **Complex UI/DnD (Container):** `components/trip-card.tsx`
+*   **Complex UI (Presentational):** `components/TripCardPresentational.tsx`
 *   **Offline Store:** `lib/stores/visitStore.ts`
 *   **E2E Spec:** `e2e/trip-flow.spec.ts`
 
