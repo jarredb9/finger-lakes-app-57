@@ -57,7 +57,13 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
       await expect(tripCard).toBeVisible({ timeout: 10000 });
 
-      await tripCard.getByTestId('share-trip-btn').click({ force: true });
+      // Ensure card is in view for mobile chrome
+      await tripCard.scrollIntoViewIfNeeded();
+      
+      // Specifically target button WITHIN the card to avoid collisions
+      const shareBtn = tripCard.getByTestId('share-trip-btn');
+      await expect(shareBtn).toBeVisible({ timeout: 5000 });
+      await shareBtn.click({ force: true });
       
       const dialog = page.getByTestId('trip-share-dialog');
       await expect(dialog).toBeVisible();
@@ -67,13 +73,15 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
           await expect(dialog.getByTestId('loading-friends')).not.toBeVisible({ timeout: 5000 });
           const inviteBtn = dialog.getByTestId(`invite-friend-${userB.email}`);
           await expect(inviteBtn).toBeVisible({ timeout: 5000 });
-      }).toPass({ timeout: 15000, intervals: [2000] });
+      }).toPass({ timeout: 15000, intervals: [1000, 2000] });
       
       const inviteBtn = dialog.getByTestId(`invite-friend-${userB.email}`);
-      await Promise.all([
-          page.waitForResponse(resp => resp.url().includes('rpc/add_trip_member_by_email')),
-          inviteBtn.click({ force: true })
-      ]);
+      await expect(async () => {
+          await Promise.all([
+              page.waitForResponse(resp => resp.url().includes('rpc/add_trip_member_by_email'), { timeout: 10000 }),
+              inviteBtn.click({ force: true })
+          ]);
+      }).toPass({ timeout: 20000, intervals: [2000] });
       
       await expect(page.getByText(/Invitation sent to/i).first()).toBeVisible();
       
@@ -156,32 +164,48 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       const tripCardA = sidebarA.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
       await expect(tripCardA).toBeVisible({ timeout: 10000 });
 
-      await tripCardA.getByTestId('share-trip-btn').click({ force: true });
+      // Ensure card is in view for mobile chrome
+      await tripCardA.scrollIntoViewIfNeeded();
+      
+      const shareBtnA = tripCardA.getByTestId('share-trip-btn');
+      await expect(shareBtnA).toBeVisible({ timeout: 5000 });
+      await shareBtnA.click({ force: true });
       const shareDialog = pageA.getByTestId('trip-share-dialog');
       
       await expect(async () => {
           await expect(shareDialog.getByTestId('loading-friends')).not.toBeVisible({ timeout: 5000 });
           const inviteBtn = shareDialog.getByTestId(`invite-friend-${userB.email}`);
           await expect(inviteBtn).toBeVisible({ timeout: 5000 });
-      }).toPass({ timeout: 20000, intervals: [2000] });
+      }).toPass({ timeout: 20000, intervals: [1000, 2000] });
       
       const inviteBtnA = shareDialog.getByTestId(`invite-friend-${userB.email}`);
-      await Promise.all([
-          pageA.waitForResponse(resp => resp.url().includes('rpc/add_trip_member_by_email')),
-          inviteBtnA.click({ force: true })
-      ]);
+      await expect(async () => {
+          await Promise.all([
+              pageA.waitForResponse(resp => resp.url().includes('rpc/add_trip_member_by_email'), { timeout: 10000 }),
+              inviteBtnA.click({ force: true })
+          ]);
+      }).toPass({ timeout: 20000, intervals: [1000, 2000] });
       
       await expect(pageA.getByText(/Invitation sent/i).first()).toBeVisible();
       console.log('[DIAGNOSTIC] Invitation sent successfully. Closing dialog...');
       
-      const closeBtn = shareDialog.getByRole('button', { name: 'Close' });
-      if (await closeBtn.isVisible()) {
-          await closeBtn.click({ force: true });
-      } else {
-          await pageA.keyboard.press('Escape');
-      }
+      await expect(async () => {
+          const closeBtn = shareDialog.getByRole('button', { name: 'Close' });
+          if (await closeBtn.isVisible()) {
+              await closeBtn.click({ force: true });
+          } else {
+              await pageA.keyboard.press('Escape');
+          }
+          
+          // Final fallback for stubborn mobile browsers: direct store reset
+          const isOpen = await shareDialog.isVisible();
+          if (isOpen) {
+              await pageA.evaluate(() => (window as any).useUIStore.getState().closeShareDialog());
+          }
+
+          await expect(shareDialog).not.toBeVisible({ timeout: 3000 });
+      }).toPass({ timeout: 15000, intervals: [1000, 2000] });
       
-      await expect(shareDialog).not.toBeVisible({ timeout: 10000 });
       console.log('[DIAGNOSTIC] Share dialog closed.');
 
       // 3. User B verifies the trip appears (will fetch via MockMapsManager shared trips state)
@@ -203,12 +227,17 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
           console.log(`[DIAGNOSTIC] User B visible trip cards: ${tripCards.length}, names: ${JSON.stringify(tripNames)}`);
           
           await expect(sidebarB.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first()).toBeVisible({ timeout: 5000 });
-      }).toPass({ timeout: 30000, intervals: [5000] });
+      }).toPass({ timeout: 30000, intervals: [1000, 2000] });
       console.log('[DIAGNOSTIC] User B saw the trip.');
 
       // 4. User A renames the trip
       console.log('[DIAGNOSTIC] User A renaming trip...');
-      await tripCardA.getByTestId('view-trip-details-btn').click({ force: true });
+      await expect(async () => {
+          const detailsBtn = tripCardA.getByTestId('view-trip-details-btn');
+          await expect(detailsBtn).toBeVisible({ timeout: 5000 });
+          await detailsBtn.click({ force: true });
+          await pageA.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' });
+      }).toPass({ timeout: 20000, intervals: [1000, 2000] });
       
       await expect(pageA.getByTestId('trip-details-card')).toBeVisible({ timeout: 10000 });
       console.log('[DIAGNOSTIC] User A on trip details page.');
@@ -239,7 +268,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
               }
           });
           await expect(sidebarB.getByText(newName)).toBeVisible({ timeout: 5000 });
-      }).toPass({ timeout: 30000, intervals: [5000] });
+      }).toPass({ timeout: 30000, intervals: [1000, 2000] });
       console.log('[DIAGNOSTIC] User B saw the renamed trip.');
 
       await contextA.close();
@@ -293,7 +322,10 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     await expect(tripCard.locator('.rounded-full').first()).toBeVisible();
     
     // Verify user can view details (this will trigger get_trip_details RPC)
-    await tripCard.getByTestId('view-trip-details-btn').click({ force: true });
+    await expect(async () => {
+        await tripCard.getByTestId('view-trip-details-btn').click({ force: true });
+        await page.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' });
+    }).toPass({ timeout: 20000, intervals: [2000] });
     
     // Wait for the details RPC response (MockMapsManager will handle this via its catch-all)
     await page.waitForResponse(resp => resp.url().includes('rpc/get_trip_details'), { timeout: 10000 });

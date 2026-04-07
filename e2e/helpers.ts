@@ -10,7 +10,7 @@ import { Trip, VisitWithWinery } from '@/lib/types';
 // ==========================================
 
 export function getSidebarContainer(page: Page): Locator {
-  return page.locator('[data-testid="desktop-sidebar-container"], [data-testid="mobile-sidebar-container"], [data-testid="app-sidebar"], [data-testid="trip-list-container"]').filter({ visible: true }).first();
+  return page.locator('[data-testid="desktop-sidebar-container"], [data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"], [data-testid="app-sidebar"], [data-testid="trip-list-container"]').filter({ visible: true }).first();
 }
 
 /**
