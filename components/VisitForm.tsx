@@ -68,7 +68,9 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({
   }, [editingVisit, resetForm, setPhotosToDelete]);
 
   const handleSave = async () => {
-    if (submissionGuard.current || isSubmitting) return;
+    if (submissionGuard.current || isSubmitting) {
+        return;
+    }
     
     submissionGuard.current = true;
     setIsInternalSubmitting(true);
@@ -80,6 +82,8 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({
         photos, 
         is_private: isPrivate 
       }, photosToDelete);
+    } catch (err) {
+      // Error handling is handled by the parent's onSave or by UI notifications
     } finally {
       setIsInternalSubmitting(false);
       submissionGuard.current = false;
@@ -138,7 +142,12 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({
         />
       </div>
       <div className="pt-4 mt-4">
-        <Button onClick={handleSave} disabled={!visitDate.trim() || isSubmitting} className="w-full">
+        <Button 
+            data-testid="visit-save-button"
+            onClick={handleSave} 
+            disabled={!visitDate.trim() || isSubmitting} 
+            className="w-full"
+        >
           {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editingVisit ? "Save Changes" : "Add Visit"}
         </Button>
       </div>

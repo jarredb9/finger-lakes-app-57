@@ -1,4 +1,4 @@
-import { test, expect, createTestUser, deleteTestUser, MockMapsManager, createMockTrip } from './utils';
+import { test, expect, createTestUser, deleteTestUser, MockMapsManager, createMockTrip, createDefaultMockState } from './utils';
 import { 
     ensureSidebarExpanded,
     ensureProfileReady,
@@ -27,7 +27,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       });
 
       await mockMaps.initDefaultMocks({ currentUserId: userA.id });
-      MockMapsManager.sharedMockTrips = [mockTrip];
+      mockMaps.getState().trips = [mockTrip];
 
       await login(page, userA.email, userA.password, { skipMapReady: true });
       await ensureProfileReady(page);
@@ -42,7 +42,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
           }, { f: friend, t: mockTrip });
 
           // Sync mock layer
-          MockMapsManager.sharedMockSocialMap.set(userA.id, {
+          mockMaps.getState().socialMap.set(userA.id, {
               friends: [friend],
               pending_incoming: [],
               pending_outgoing: []
@@ -96,8 +96,9 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
-      const managerA = new MockMapsManager(pageA);
-      const managerB = new MockMapsManager(pageB);
+      const sharedState = createDefaultMockState();
+      const managerA = new MockMapsManager(pageA, sharedState);
+      const managerB = new MockMapsManager(pageB, sharedState);
 
       // We use MOCKS for this test to ensure stability in the container
       await managerA.initDefaultMocks({ currentUserId: userA.id });
@@ -135,17 +136,17 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
           }, { f: friendForB });
 
           // Update the mock layer for BOTH users
-          MockMapsManager.sharedMockSocialMap.set(userA.id, {
+          sharedState.socialMap.set(userA.id, {
               friends: [friendForA],
               pending_incoming: [],
               pending_outgoing: []
           });
-          MockMapsManager.sharedMockSocialMap.set(userB.id, {
+          sharedState.socialMap.set(userB.id, {
               friends: [friendForB],
               pending_incoming: [],
               pending_outgoing: []
           });
-          MockMapsManager.sharedMockTrips = [mockTrip];
+          sharedState.trips = [mockTrip];
       });
 
       // 2. User A invites User B via UI (important to test the actual collaboration flow)
@@ -183,7 +184,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       await expect(shareDialog).not.toBeVisible({ timeout: 10000 });
       console.log('[DIAGNOSTIC] Share dialog closed.');
 
-      // 3. User B verifies the trip appears (will fetch via MockMapsManager.sharedMockTrips)
+      // 3. User B verifies the trip appears (will fetch via MockMapsManager shared trips state)
       await navigateToTab(pageB, 'Trips');
       await ensureSidebarExpanded(pageB);
       const sidebarB = getSidebarContainer(pageB);
@@ -266,9 +267,9 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     // 2. Initialize mocks and login
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
     
-    // IMPORTANT: Update static sharedMockTrips so the RPC mock returns this specific trip
+    // IMPORTANT: Update mock trips so the RPC mock returns this specific trip
     // when fetchTripById is called by the component on mount.
-    MockMapsManager.sharedMockTrips = [mockTrip];
+    mockMaps.getState().trips = [mockTrip];
 
     await login(page, user.email, user.password, { skipMapReady: true });
     

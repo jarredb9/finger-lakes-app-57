@@ -14,6 +14,17 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import DailyHours from "@/components/DailyHours";
 import { calculateDistance, formatDistance } from "@/lib/utils/geo";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger 
+} from "@/components/ui/alert-dialog";
 
 interface TripCardProps {
   trip: Trip;
@@ -248,9 +259,23 @@ const TripCard = memo(({
                 </Button>
               )}
               {isOwner && (
-                <Button variant="destructive" size="icon" className="h-9 w-9" onClick={() => onDeleteTrip(trip.id.toString()).catch(() => {})} aria-label="Delete Trip">
-                  <Trash2 className="w-4 h-4"/>
-                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="icon" className="h-9 w-9" data-testid="delete-trip-btn" disabled={trip.id < 0} aria-label="Delete Trip">
+                      <Trash2 className="w-4 h-4"/>
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                      <AlertDialogDescription>This action will permanently delete this trip.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => onDeleteTrip(trip.id.toString()).catch(() => {})} data-testid="confirm-delete-trip-btn">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
             </div>
           </div>

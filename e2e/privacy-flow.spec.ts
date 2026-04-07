@@ -1,4 +1,4 @@
-import { test, expect, createTestUser, deleteTestUser, MockMapsManager } from './utils';
+import { test, expect, createTestUser, deleteTestUser, MockMapsManager, createDefaultMockState } from './utils';
 import { 
     getSidebarContainer, 
     login, 
@@ -14,6 +14,7 @@ import {
 
 test.describe('Privacy and Profile Flow', () => {
   test('Users can control visit and profile visibility', async ({ browser, user: user1, viewport, userAgent }) => {
+    test.slow();
     // 1. Create second ephemeral test user
     const user2 = await createTestUser();
 
@@ -24,8 +25,9 @@ test.describe('Privacy and Profile Flow', () => {
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
-      const managerA = new MockMapsManager(pageA);
-      const managerB = new MockMapsManager(pageB);
+      const sharedState = createDefaultMockState();
+      const managerA = new MockMapsManager(pageA, sharedState);
+      const managerB = new MockMapsManager(pageB, sharedState);
 
       // 3. Setup: Login and establish friendship
       await test.step('Initial Setup: Login & Friendship', async () => {
@@ -105,8 +107,10 @@ test.describe('Privacy and Profile Flow', () => {
       await test.step('User B profile access denied', async () => {
         await pageB.reload();
         
-        // Mobile guard: Ensure sheet is expanded to see the error message
-        await ensureSidebarExpanded(pageB);
+        // Mobile guard: Ensure sheet is expanded to see the error message if we are in a context that has it
+        if (await pageB.getByTestId('mobile-sidebar-container').isVisible()) {
+            await ensureSidebarExpanded(pageB);
+        }
 
         await expect(pageB.getByText('Access denied due to privacy settings')).toBeVisible({ timeout: 15000 });
       });

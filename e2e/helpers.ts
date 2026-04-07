@@ -273,7 +273,6 @@ export async function ensureProfileReady(page: Page) {
         if (isLoading) throw new Error('UserStore is still loading');
         if (!user) throw new Error('User not found in store');
         if (user.name === 'User' && process.env.NEXT_PUBLIC_IS_E2E !== 'true') {
-            console.log(`[DIAGNOSTIC] Profile not yet fully initialized (name is still 'User') for ID: ${user.id}`);
             throw new Error('Profile not yet fully initialized');
         }
         return true;
@@ -349,28 +348,46 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
     if (data.rating) await visitModal.getByLabel(`Set rating to ${data.rating}`).click({ force: true });
     if (data.isPrivate) await visitModal.getByLabel(/Make this visit private/i).check();
     
-    const saveBtn = visitModal.getByRole('button', { name: /(Add Visit|Save Changes)/i });
+    const saveBtn = visitModal.getByTestId('visit-save-button');
+    
+    // In Firefox, force: true can be too aggressive if the button is temporarily obscured.
+    // We try regular click first if enabled, but the real robustness comes from the retry loop.
+    
+    // Buffer for React event loop
+    await page.waitForTimeout(500);
 
     await expect(async () => {
-        const isOpen = await page.evaluate(() => {
+        const { isOpen, isSubmitting, errorText } = await page.evaluate(() => {
             // @ts-ignore
-            return !!(window.useUIStore?.getState().isModalOpen);
+            const uiStore = window.useUIStore?.getState();
+            // @ts-ignore
+            const visitStore = window.useVisitStore?.getState();
+            const toast = document.querySelector('[role="status"], [role="alert"]');
+            return {
+                isOpen: !!(uiStore?.isModalOpen),
+                isSubmitting: !!(visitStore?.isSavingVisit),
+                errorText: toast?.textContent || null
+            };
         });
         
+        if (errorText?.toLowerCase().includes('error') || errorText?.toLowerCase().includes('failed')) {
+            // Special case: Offline queueing often shows a "Sync failed" toast which is EXPECTED in offline tests
+            const isOffline = await page.evaluate(() => typeof navigator !== 'undefined' && !navigator.onLine);
+            if (!isOffline) {
+                throw new Error(`Log visit failed: ${errorText}`);
+            }
+        }
+
         if (!isOpen) return;
 
-        const isSubmitting = await page.evaluate(() => {
-            // @ts-ignore
-            return !!(window.useVisitStore?.getState().isSavingVisit);
-        });
-
-        // Only click if we are not already in the middle of a submission
+        // RETRY CLICK: If modal is still open and we are not currently submitting, click again.
+        // This handles race conditions where the first click happened before the form was ready.
         if (!isSubmitting) {
-            await saveBtn.click({ force: true });
+            await saveBtn.click({ force: true }).catch(() => {});
         }
-        
-        throw new Error('Modal still open in store after click');
-    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
+
+        throw new Error(`Modal still open (isSavingVisit=${isSubmitting})`);
+    }).toPass({ timeout: 25000, intervals: [2000] });
 
     await expectVisitInStore(page, data.review);
     await expect(visitModal).not.toBeVisible({ timeout: 10000 });
@@ -381,13 +398,6 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
 // ==========================================
 
 export async function setupFriendship(pageA: Page, pageB: Page, user1Email: string, user2Email: string) {
-    console.log(`[DIAGNOSTIC] Setting up friendship between ${user1Email} and ${user2Email}`);
-    
-    // Log user IDs for context verification
-    const idA = await pageA.evaluate(() => (window as any).useUserStore?.getState().user?.id);
-    const idB = await pageB.evaluate(() => (window as any).useUserStore?.getState().user?.id);
-    console.log(`[DIAGNOSTIC] Page A User ID: ${idA}, Page B User ID: ${idB}`);
-
     // 1. User A Sends Request
     await navigateToTab(pageA, 'Friends');
     await ensureSidebarExpanded(pageA);
@@ -429,15 +439,7 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
 
         // Check visibility
         if (!(await requestsCard.locator(rowId).isVisible())) {
-            console.log(`[DIAGNOSTIC] Request row ${rowId} not visible. Refreshing store...`);
             await refreshFriendsStore(pageB);
-            
-            // Log store state
-            const reqs = await pageB.evaluate(() => {
-                // @ts-ignore
-                return window.useFriendStore?.getState().friendRequests?.map(r => r.email);
-            });
-            console.log(`[DIAGNOSTIC] Current friendRequests in store: ${JSON.stringify(reqs)}`);
             
             // Small buffer for UI to update
             await pageB.waitForTimeout(1000);

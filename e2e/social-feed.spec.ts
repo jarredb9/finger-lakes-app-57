@@ -1,4 +1,4 @@
-import { test, expect, createTestUser, deleteTestUser, MockMapsManager } from './utils';
+import { test, expect, createTestUser, deleteTestUser, MockMapsManager, createDefaultMockState } from './utils';
 import { 
     getSidebarContainer, 
     login, 
@@ -22,8 +22,9 @@ test.describe('Social Activity Feed Flow', () => {
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
-      const managerA = new MockMapsManager(pageA);
-      const managerB = new MockMapsManager(pageB);
+      const sharedState = createDefaultMockState();
+      const managerA = new MockMapsManager(pageA, sharedState);
+      const managerB = new MockMapsManager(pageB, sharedState);
 
       // We use MOCKS for this test to ensure stability in the container
       await managerA.initDefaultMocks({ currentUserId: userA.id });
@@ -51,7 +52,7 @@ test.describe('Social Activity Feed Flow', () => {
           }, friendForB);
 
           // Update the mock layer so RPCs also see them as friends
-          MockMapsManager.sharedMockSocial = {
+          sharedState.social = {
               friends: [friendForB], // From perspective of B, A is the friend
               pending_incoming: [],
               pending_outgoing: []

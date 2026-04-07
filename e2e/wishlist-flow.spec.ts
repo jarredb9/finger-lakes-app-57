@@ -7,8 +7,9 @@ import {
 } from './helpers';
 
 test.describe('Wishlist Flow', () => {
-  test.beforeEach(async ({ page, user }) => {
-    // mockMaps is auto-initialized by the fixture
+  test.beforeEach(async ({ page, user, mockMaps }) => {
+    // Re-initialize mocks with correct user ID to avoid profile mismatch
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
   });
 
