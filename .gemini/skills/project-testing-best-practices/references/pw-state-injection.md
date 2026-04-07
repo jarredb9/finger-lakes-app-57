@@ -46,3 +46,30 @@ test('Invite Friend', async ({ page }) => {
 - The target store MUST be exposed to `window` (standardized in `GEMINI.md`).
 - The test MUST call `page.goto('/')` or a valid route before injecting to establish the origin.
 - Stores using `persist` middleware MUST have persistence disabled in E2E mode to prevent stale data from overwriting injected state.
+
+## Store State Verification (Speed & Reliability)
+
+Traditional E2E tests wait for a "Success" toast to appear. This is slow (waiting for animation) and prone to failure if the toast is obscured by another UI element. **Standard:** 100% of mutation tests MUST verify success by inspecting the store state via `page.evaluate`.
+
+**Incorrect (Wait for Toast):**
+```typescript
+await page.click('button:has-text("Save")');
+await expect(page.getByText("Trip saved")).toBeVisible(); // Slow, fragile
+```
+
+**Correct (Evaluate Store State):**
+```typescript
+await page.click('button:has-text("Save")');
+await toPass(async () => {
+  const trip = await page.evaluate(() => 
+    window.useTripStore.getState().trips.find(t => t.name === "New Trip")
+  );
+  expect(trip).toBeDefined();
+  expect(trip.dbId).toBeGreaterThan(100);
+});
+```
+
+### Why this is Senior-Level:
+1.  **Speed:** You eliminate 500-1000ms of "Toast Animation" time per test.
+2.  **Data Integrity:** You verify the *actual data* reached the store, not just that a message was shown.
+3.  **Atomic Verification:** In multi-user tests (Collaborative Trips), you can verify that the second user's store correctly received the Realtime update without ever looking at the UI.
