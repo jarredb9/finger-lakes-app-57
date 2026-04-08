@@ -34,7 +34,7 @@ export default function GlobalVisitHistory({ isActive = true }: GlobalVisitHisto
 
   if (visits.length === 0 && isLoading) {
     return (
-      <div className="flex justify-center items-center h-48">
+      <div className="flex justify-center items-center h-48" data-testid="visit-history-container" data-state="loading">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
@@ -42,7 +42,7 @@ export default function GlobalVisitHistory({ isActive = true }: GlobalVisitHisto
 
   if (visits.length === 0 && !isLoading) {
     return (
-      <div className="text-center py-10 text-muted-foreground">
+      <div className="text-center py-10 text-muted-foreground" data-testid="visit-history-container" data-state="ready">
         <Calendar className="mx-auto h-12 w-12 mb-4 opacity-50" />
         <p>No visits recorded yet.</p>
         <p className="text-sm">Visit a winery and log your experience!</p>
@@ -51,7 +51,7 @@ export default function GlobalVisitHistory({ isActive = true }: GlobalVisitHisto
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-testid="visit-history-container" data-state={isLoading ? 'loading' : 'ready'}>
        {visits.map((visit) => (
            <div key={visit.id} className="relative">
                <div className="flex items-center gap-2 mb-2 px-1">

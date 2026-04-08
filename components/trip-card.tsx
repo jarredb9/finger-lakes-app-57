@@ -8,6 +8,16 @@ import { useUIStore } from "@/lib/stores/uiStore";
 import { useToast } from "@/hooks/use-toast";
 import { useTripActions } from "@/hooks/use-trip-actions";
 import TripCardPresentational from "./TripCardPresentational";
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog";
 
 export default function TripCard({ trip }: { trip: Trip }) {
   const { toast } = useToast();
@@ -21,6 +31,8 @@ export default function TripCard({ trip }: { trip: Trip }) {
   } = useTripStore();
   const { user } = useUserStore();
   const { openShareDialog, openWineryNoteEditor } = useUIStore();
+  
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
   const { 
     currentMembers, 
@@ -78,12 +90,18 @@ export default function TripCard({ trip }: { trip: Trip }) {
     }
   };
 
-  const handleDeleteTrip = async (id: string) => {
+  const handleDeleteTrip = () => {
+    setIsDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
     try {
-      await deleteTrip(id);
+      await deleteTrip(trip.id.toString());
       toast({ description: "Trip deleted successfully." });
+      setIsDeleteDialogOpen(false);
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to delete trip." });
+      setIsDeleteDialogOpen(false);
       throw error;
     }
   };
@@ -109,24 +127,39 @@ export default function TripCard({ trip }: { trip: Trip }) {
   };
 
   return (
-    <TripCardPresentational
-      trip={trip}
-      isOwner={!!isOwner}
-      canEdit={!!canEdit}
-      currentMembers={currentMembers}
-      onUpdateTrip={handleUpdateTrip}
-      onDeleteTrip={handleDeleteTrip}
-      onUpdateWineryOrder={updateWineryOrder}
-      onToggleWineryOnTrip={toggleWineryOnTrip}
-      onRemoveWineryFromTrip={handleRemoveWineryFromTrip}
-      onSaveWineryNote={handleSaveWineryNote}
-      onOpenShareDialog={openShareDialog}
-      onOpenWineryNoteEditor={openWineryNoteEditor}
-      onExportToMaps={handleExportToMaps}
-      searchResults={searchResults}
-      isSearching={isSearching}
-      winerySearch={winerySearch}
-      onSearchChange={setWinerySearch}
-    />
+    <>
+      <TripCardPresentational
+        trip={trip}
+        isOwner={!!isOwner}
+        canEdit={!!canEdit}
+        currentMembers={currentMembers}
+        onUpdateTrip={handleUpdateTrip}
+        onDeleteTrip={handleDeleteTrip}
+        onUpdateWineryOrder={updateWineryOrder}
+        onToggleWineryOnTrip={toggleWineryOnTrip}
+        onRemoveWineryFromTrip={handleRemoveWineryFromTrip}
+        onSaveWineryNote={handleSaveWineryNote}
+        onOpenShareDialog={openShareDialog}
+        onOpenWineryNoteEditor={openWineryNoteEditor}
+        onExportToMaps={handleExportToMaps}
+        searchResults={searchResults}
+        isSearching={isSearching}
+        winerySearch={winerySearch}
+        onSearchChange={setWinerySearch}
+      />
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>This action will permanently delete this trip.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setIsDeleteDialogOpen(false)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} data-testid="confirm-delete-trip-btn">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

@@ -14,15 +14,32 @@ export function getSidebarContainer(page: Page): Locator {
 }
 
 /**
+ * Waits for a specific container to reach a signal state.
+ */
+export async function waitForSignal(page: Page, testId: string, state: 'ready' | 'loading' | 'stable' = 'ready', timeout = 15000) {
+    const container = page.locator(`[data-testid="${testId}"]`);
+    await expect(container).toHaveAttribute('data-state', state, { timeout });
+}
+
+/**
  * Waits for the application to be fully loaded and hydrated.
  */
 export async function waitForAppReady(page: Page) {
     const isMobile = page.viewportSize()?.width! < 768;
-    const successSelector = isMobile 
-      ? '[data-testid="mobile-nav-explore"], [data-testid="settings-page-container"], [data-testid="trip-details-card"]' 
-      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"]';
     
-    await expect(page.locator(successSelector).first()).toBeVisible({ timeout: 25000 });
+    // First ensure the core shell is visible
+    const shellSelector = isMobile 
+      ? '[data-testid="mobile-sidebar-container"], [data-testid="settings-page-container"]' 
+      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"]';
+    
+    await expect(page.locator(shellSelector).first()).toBeVisible({ timeout: 25000 });
+
+    // Then wait for the primary feature container to be ready if we're on a main page
+    if (page.url().endsWith('/') || page.url().includes('?')) {
+        await waitForSignal(page, 'map-container', 'ready').catch(() => null);
+    } else if (page.url().includes('/trips')) {
+        await waitForSignal(page, 'trip-list-container', 'ready').catch(() => null);
+    }
 }
 
 /**
@@ -92,7 +109,7 @@ export async function refreshFriendsStore(page: Page) {
 
 export async function waitForMapReady(page: Page) {
     const mapContainer = page.locator('[data-testid="map-container"]');
-    await expect(mapContainer).toBeAttached({ timeout: 10000 });
+    await expect(mapContainer).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
     
     // Attempt manual bounds injection if it's missing (helps stabilize mocks)
     await page.evaluate(() => {
@@ -138,6 +155,16 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
     const sheet = page.getByTestId('mobile-sidebar-container');
     await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 15000 });
   }
+
+  // Wait for the specific tab container signal
+  const containerIdMap = {
+      'Explore': 'map-container',
+      'Trips': 'trip-list-container',
+      'Friends': 'friend-activity-feed',
+      'History': 'visit-history-container'
+  };
+  
+  await waitForSignal(page, containerIdMap[tabName], 'ready').catch(() => null);
 
   // WebKit/Safari needs more time for global mocks to settle 
   // before the first search trigger happens during navigation to Explore

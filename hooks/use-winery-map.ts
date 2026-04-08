@@ -24,7 +24,7 @@ export function useWineryMap(userId: string) {
     setBounds,
   } = useMapStore();
 
-  const { error } = useWineryDataStore();
+  const { error, isLoading } = useWineryDataStore();
   const { fetchWineryData, ensureWineryDetails, getWineries } = useWineryStore();
   const { openWineryModal } = useUIStore();
   const { fetchUpcomingTrips, selectedTrip } = useTripStore();
@@ -162,6 +162,7 @@ export function useWineryMap(userId: string) {
 
   return useMemo(() => ({
     error,
+    isLoading,
     mapWineries,
     listResultsInView,
     isSearching,
@@ -179,7 +180,7 @@ export function useWineryMap(userId: string) {
     setProposedWinery,
     selectedTrip,
   }), [
-    error, mapWineries, listResultsInView, isSearching, hitApiLimit,
+    error, isLoading, mapWineries, listResultsInView, isSearching, hitApiLimit,
     searchLocation, autoSearch, filter, handleFilterChange, handleOpenModal,
     proposedWinery, selectedTrip, setSearchLocation, setAutoSearch, setProposedWinery,
     handleSearchSubmit, handleManualSearchArea

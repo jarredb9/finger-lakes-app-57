@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from './ui/button';
 import { ArrowRight, Trash2, Wine, Share2, Users, Calendar as CalendarIcon } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -80,29 +79,25 @@ export default function TripCardSimple({
                                     </Tooltip>
                                 </TooltipProvider>
 
-                                <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button 
-                                            variant="destructive" 
-                                            size="icon" 
-                                            data-testid="delete-trip-btn" 
-                                            disabled={trip.id < 0}
-                                            aria-label="Delete Trip"
-                                        >
-                                            <Trash2 size={16} />
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                                            <AlertDialogDescription>This action will permanently delete this trip.</AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => onDelete(trip.id)} data-testid="confirm-delete-trip-btn">Delete</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
+                                <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Button 
+                                                variant="destructive" 
+                                                size="icon" 
+                                                onClick={() => onDelete(trip.id)}
+                                                data-testid="delete-trip-btn" 
+                                                disabled={trip.id < 0}
+                                                aria-label="Delete Trip"
+                                            >
+                                                <Trash2 size={16} />
+                                            </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Delete Trip</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TooltipProvider>
                             </>
                         )}
                      </div>

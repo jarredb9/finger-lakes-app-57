@@ -14,17 +14,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import DailyHours from "@/components/DailyHours";
 import { calculateDistance, formatDistance } from "@/lib/utils/geo";
-import { 
-  AlertDialog, 
-  AlertDialogAction, 
-  AlertDialogCancel, 
-  AlertDialogContent, 
-  AlertDialogDescription, 
-  AlertDialogFooter, 
-  AlertDialogHeader, 
-  AlertDialogTitle, 
-  AlertDialogTrigger 
-} from "@/components/ui/alert-dialog";
 
 interface TripCardProps {
   trip: Trip;
@@ -32,7 +21,7 @@ interface TripCardProps {
   canEdit: boolean;
   currentMembers: TripMember[];
   onUpdateTrip: (id: string, updates: { name?: string; trip_date?: string }) => Promise<void>;
-  onDeleteTrip: (id: string) => Promise<void>;
+  onDeleteTrip: (id: string) => void;
   onUpdateWineryOrder: (tripId: string, wineryIds: number[]) => Promise<void>;
   onToggleWineryOnTrip: (winery: Winery, trip: Trip) => void;
   onRemoveWineryFromTrip: (tripId: string, wineryDbId: number) => Promise<void>;
@@ -259,23 +248,17 @@ const TripCard = memo(({
                 </Button>
               )}
               {isOwner && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="icon" className="h-9 w-9" data-testid="delete-trip-btn" disabled={trip.id < 0} aria-label="Delete Trip">
-                      <Trash2 className="w-4 h-4"/>
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                      <AlertDialogDescription>This action will permanently delete this trip.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => onDeleteTrip(trip.id.toString()).catch(() => {})} data-testid="confirm-delete-trip-btn">Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                <Button 
+                  variant="destructive" 
+                  size="icon" 
+                  className="h-9 w-9" 
+                  data-testid="delete-trip-btn" 
+                  disabled={trip.id < 0} 
+                  aria-label="Delete Trip"
+                  onClick={() => onDeleteTrip(trip.id.toString())}
+                >
+                  <Trash2 className="w-4 h-4"/>
+                </Button>
               )}
             </div>
           </div>

@@ -34,15 +34,17 @@ Objective: Achieve "Zero-Mock" unit testing for UI components.
 ## Phase 5: Architectural Hardening
 Objective: Transition from "Defensive Fixes" to a Professional/Principal standard.
 
-- [ ] Task 1: Explicit Persistence States. Implement `SyncStatus` union in `lib/types.ts`. Update `useTripStore` and `useVisitStore` to manage this state.
-- [ ] Task 2: Signal-Based Synchronization. Implement `data-state="ready"` in main containers. Update `e2e/helpers.ts` to utilize these signals.
-- [ ] Task 3: Action Delegation Pattern. Move `AlertDialog` from `TripCardPresentational` to `TripList` container.
-- [ ] Task 4: Strict Mock Validation. Update `MockMapsManager` to throw on invalid state requests.
+- [x] Task 1: Explicit Persistence States. Implement `SyncStatus` union in `lib/types.ts`. Update `useTripStore` and `useVisitStore` to manage this state. [4ae8d1c]
+- [x] Task 2: Signal-Based Synchronization. Implement `data-state="ready"` in main containers. Update `e2e/helpers.ts` to utilize these signals.
+- [x] Task 3: Action Delegation Pattern. Move `AlertDialog` from `TripCardPresentational` to `TripList` container.
+- [x] Task 4: Strict Mock Validation. Update `MockMapsManager` to throw on invalid state requests.
 
 **Verification Suite:** Run `trip-management.spec.ts`, `visit-flow.spec.ts`, `pwa-sync-deep.spec.ts`, `item-privacy.spec.ts`, and `smoke.spec.ts`.
 
 ## Phase: Cleanup
 Objective: Ensure the "Complexity Ceiling" has been lowered and codified.
 
-- [ ] Task 1: Archive the track and update the project CHANGELOG.
+- [ ] Task 1: Update `GEMINI.md` to reflect Phase 5 changes
+- [ ] Task 2: Update `project-testing-best-practices` to reflect Phase 5 changes
+- [ ] Task 3: Archive the track and update the project CHANGELOG.
 

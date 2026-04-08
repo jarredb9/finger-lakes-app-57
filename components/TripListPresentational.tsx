@@ -9,6 +9,16 @@ import TripCardSimple from './trip-card-simple';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import TripForm from "./trip-form";
 import { Alert, AlertDescription } from './ui/alert';
+import { 
+    AlertDialog, 
+    AlertDialogAction, 
+    AlertDialogCancel, 
+    AlertDialogContent, 
+    AlertDialogDescription, 
+    AlertDialogFooter, 
+    AlertDialogHeader, 
+    AlertDialogTitle 
+} from "@/components/ui/alert-dialog";
 
 interface TripListProps {
     user: AuthenticatedUser;
@@ -20,7 +30,10 @@ interface TripListProps {
     tripType: 'upcoming' | 'past';
     onTripTypeChange: (type: 'upcoming' | 'past') => void;
     onPageChange: (page: number) => void;
-    onDeleteTrip: (tripId: number) => Promise<void>;
+    onDeleteTrip: (tripId: number) => void;
+    onConfirmDelete: () => void;
+    onCancelDelete: () => void;
+    tripToDelete: number | null;
     onExploreClick?: () => void;
     today: string;
 }
@@ -36,6 +49,9 @@ export default function TripList({
     onTripTypeChange,
     onPageChange,
     onDeleteTrip,
+    onConfirmDelete,
+    onCancelDelete,
+    tripToDelete,
     onExploreClick,
     today
 }: TripListProps) {
@@ -66,7 +82,7 @@ export default function TripList({
     }
 
     return (
-        <div className="space-y-8 pb-4" data-testid="trip-list-container">
+        <div className="space-y-8 pb-4" data-testid="trip-list-container" data-state={isLoading ? 'loading' : 'ready'}>
             <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <h2 className="text-2xl font-bold">{tripType === 'upcoming' ? 'My Trips' : 'Past Trips'}</h2>
@@ -143,6 +159,19 @@ export default function TripList({
             >
                 View {tripType === 'upcoming' ? 'Past' : 'Upcoming'} Trips
             </Button>
+
+            <AlertDialog open={tripToDelete !== null} onOpenChange={(open) => !open && onCancelDelete()}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>This action will permanently delete this trip.</AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={onCancelDelete}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={onConfirmDelete} data-testid="confirm-delete-trip-btn">Delete</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

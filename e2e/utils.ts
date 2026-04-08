@@ -497,11 +497,31 @@ export class MockMapsManager {
                     const requestedId = postData.trip_id_param;
                     const trips = this.state.trips || [];
                     const found = trips.find(t => Number(t.id) === Number(requestedId));
-                    console.log(`[DIAGNOSTIC] Fulfilling Mock get_trip_details for ID ${requestedId}. Found: ${!!found}`);
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(found || trips[0] || {}) });
+                    
+                    if (!found) {
+                        console.error(`[STRICT-MOCK] Trip ID ${requestedId} not found in mock state. Available: ${trips.map(t => t.id).join(', ')}`);
+                        return route.fulfill({ 
+                            status: 404, 
+                            contentType: 'application/json', 
+                            headers: commonHeaders, 
+                            body: JSON.stringify({ error: `Trip ID ${requestedId} not found in mock state` }) 
+                        });
+                    }
+
+                    console.log(`[DIAGNOSTIC] Fulfilling Mock get_trip_details for ID ${requestedId}`);
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(found) });
                 }
                 if (url.includes('get_paginated_visits')) {
                     if (this.realVisitsEnabled) return route.fallback();
+                    if (!this.state.visits) {
+                        console.error(`[STRICT-MOCK] get_paginated_visits called but visits state is null`);
+                        return route.fulfill({ 
+                            status: 500, 
+                            contentType: 'application/json', 
+                            headers: commonHeaders, 
+                            body: JSON.stringify({ error: 'Visits mock state not initialized' }) 
+                        });
+                    }
                     const visits = [...(this.state.visits || [])].sort((a, b) => 
                         new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
                     );
@@ -511,6 +531,15 @@ export class MockMapsManager {
                     if (this.realSocialEnabled) return route.fallback();
                     const postData = JSON.parse(req.postData() || '{}');
                     const friendId = postData.friend_id_param;
+                    
+                    // Validate friend exists in social map or friends list
+                    const userSocial = this.state.socialMap.get(currentUserId) || this.state.social;
+                    const friendExists = userSocial?.friends.some(f => f.id === friendId);
+                    
+                    if (!friendExists && friendId !== 'mock-friend-id') { // Allow default mock ID
+                         console.warn(`[STRICT-MOCK] get_friend_profile_with_visits for unknown friend ${friendId}`);
+                    }
+
                     const visits = (this.state.visits || []).filter(v => v.user_id === friendId);
                     
                     return route.fulfill({ 
@@ -524,7 +553,25 @@ export class MockMapsManager {
                         }) 
                     });
                 }
-                return route.fallback();
+
+                if (isSocialRpc) {
+                    console.log(`[DIAGNOSTIC] Fulfilling unhandled Social RPC with empty response: ${url}`);
+                    return route.fulfill({ 
+                        status: 200, 
+                        contentType: 'application/json', 
+                        headers: commonHeaders, 
+                        body: JSON.stringify([]) 
+                    });
+                }
+
+                // Default failure for unhandled RPCs to prevent leakage
+                console.error(`[STRICT-MOCK] Unhandled RPC Request: ${url}. If this is expected, add it to MockMapsManager.`);
+                return route.fulfill({ 
+                    status: 501, 
+                    contentType: 'application/json', 
+                    headers: commonHeaders, 
+                    body: JSON.stringify({ error: `Mock not implemented for RPC: ${url}` }) 
+                });
             }
             if (url.includes('/auth/v1/')) return route.fallback();
             if (url.includes('/rest/v1/trips')) {
