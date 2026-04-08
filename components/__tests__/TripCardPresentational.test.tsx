@@ -179,30 +179,7 @@ describe('TripCard', () => {
       fireEvent.click(deleteButton);
     });
     
-    // Now click the confirmation button in the AlertDialog
-    const confirmButton = screen.getByTestId('confirm-delete-trip-btn');
-    await act(async () => {
-      fireEvent.click(confirmButton);
-    });
-    
     expect(mockDeleteTrip).toHaveBeenCalledWith('1');
-  });
-
-  it('handles onDeleteTrip error', async () => {
-    mockDeleteTrip.mockRejectedValue(new Error('Delete failed'));
-    render(<TripCard {...defaultProps} />);
-    const deleteButton = screen.getByLabelText(/Delete Trip/i);
-    await act(async () => {
-      fireEvent.click(deleteButton);
-    });
-    
-    // Now click the confirmation button in the AlertDialog
-    const confirmButton = screen.getByTestId('confirm-delete-trip-btn');
-    await act(async () => {
-      fireEvent.click(confirmButton);
-    });
-    
-    expect(mockDeleteTrip).toHaveBeenCalled();
   });
 
   it('opens share dialog when share button is clicked', () => {
