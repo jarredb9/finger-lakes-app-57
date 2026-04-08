@@ -30,6 +30,7 @@ Objective: Achieve "Zero-Mock" unit testing for UI components.
 - [x] Task 2: Run the full E2E suite against WebKit in a high-latency Podman environment. [5a91bb9]
 - [x] Task 3: Update `GEMINI.md` Core Architectural Standards to strictly mandate the Container/Presentational pattern [2dc0564]
 - [x] Task 4: Update `project-testing-best-practices` to reflect updated testing structure and best practices as a result of this track [43c3b5e]
+- [x] Task 5: Apply review suggestions for Phase 5 - Fix unit test regression in TripCardPresentational.test.tsx [375a5f0]
 
 ## Phase 5: Architectural Hardening
 Objective: Transition from "Defensive Fixes" to a Professional/Principal standard.
