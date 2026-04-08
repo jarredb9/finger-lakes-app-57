@@ -109,6 +109,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             wineryName: v.winery_name,
             wineryId: v.google_place_id as GooglePlaceId,
             friend_visits: v.friend_visits,
+            syncStatus: 'synced',
             wineries: {
               id: v.winery_id as WineryDbId,
               google_place_id: v.google_place_id as GooglePlaceId,
@@ -177,7 +178,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       saveVisit: async (winery, visitData) => {
         set({ isSavingVisit: true });
         const supabase = createClient();
-        const { addVisitToWinery, replaceVisit, optimisticallyDeleteVisit, confirmOptimisticUpdate } = useWineryStore.getState();
+        const { addVisitToWinery, replaceVisit } = useWineryStore.getState();
 
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) throw new Error("User not authenticated.");
@@ -194,6 +195,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             photos: visitData.photos.map(file => URL.createObjectURL(file)),
             wineryName: winery.name,
             wineryId: winery.id,
+            syncStatus: 'pending',
             wineries: {
                 id: winery.dbId || 0 as WineryDbId,
                 google_place_id: winery.id,
@@ -277,6 +279,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
               ...tempVisit, 
               id: visitId, 
               photos: uploadedPaths,
+              syncStatus: 'synced',
               wineries: {
                   ...tempVisit.wineries,
                   id: wineryDbId as WineryDbId
@@ -305,18 +308,22 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             return;
           }
 
-          console.error("Failed to save visit, reverting:", error);
+          console.error("Failed to save visit, marking as error:", error);
           
           if (uploadedPaths.length > 0) {
             await supabase.storage.from('visit-photos').remove(uploadedPaths);
           }
 
-          optimisticallyDeleteVisit(tempId);
+          // Mark as error instead of immediate optimistic delete if possible
+          // But we also need to notify WineryStore
           set(state => ({ 
-              visits: state.visits.filter(v => String(v.id) !== tempId),
+              visits: state.visits.map(v => String(v.id) === tempId ? { ...v, syncStatus: 'error' as const } : v),
               lastActionTimestamp: Date.now()
           }));
-          confirmOptimisticUpdate();
+          // For now, we still call revert in WineryStore to maintain consistency if needed, 
+          // but our store keeps it with 'error' status.
+          // Actually, if we keep it in 'error', the user can see it.
+          
           throw error;
         } finally {
           set({ isSavingVisit: false });
@@ -420,6 +427,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                   photos: uploadedPaths,
                   wineryName: mutation.winery.name,
                   wineryId: mutation.winery.id,
+                  syncStatus: 'synced',
                   wineries: {
                     id: wineryDbId || mutation.winery.dbId || 0 as WineryDbId,
                     google_place_id: mutation.winery.id,
@@ -483,7 +491,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 const finalVisit: VisitWithWinery = {
                   ...updatedVisit,
                   wineryName: updatedVisit.winery_name,
-                  wineryId: updatedVisit.google_place_id
+                  wineryId: updatedVisit.google_place_id,
+                  syncStatus: 'synced'
                 };
 
                 confirmOptimisticUpdate(finalVisit);
@@ -523,7 +532,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         
         optimisticallyUpdateVisit(visitId, { ...visitData, photos: newOptimisticPhotos });
         set(state => ({
-            visits: state.visits.map(v => String(v.id) === String(visitId) ? { ...v, ...visitData, photos: newOptimisticPhotos } : v),
+            visits: state.visits.map(v => String(v.id) === String(visitId) ? { ...v, ...visitData, photos: newOptimisticPhotos, syncStatus: 'pending' as const } : v),
             lastActionTimestamp: Date.now()
         }));
 
@@ -589,7 +598,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           const finalVisit: VisitWithWinery = {
               ...updatedVisit,
               wineryName: updatedVisit.winery_name,
-              wineryId: updatedVisit.google_place_id
+              wineryId: updatedVisit.google_place_id,
+              syncStatus: 'synced'
           };
 
           confirmOptimisticUpdate(finalVisit);
@@ -613,10 +623,13 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             return;
           }
 
-          console.error("Failed to update visit, reverting:", error);
+          console.error("Failed to update visit, marking as error:", error);
           revertOptimisticUpdate();
+          set(state => ({
+            visits: state.visits.map(v => String(v.id) === String(visitId) ? { ...v, syncStatus: 'error' as const } : v),
+            lastActionTimestamp: Date.now()
+          }));
           get().fetchVisits(get().page, true);
-          set({ lastActionTimestamp: Date.now() });
           throw error;
         } finally {
           set({ isSavingVisit: false });
@@ -663,9 +676,13 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 return;
             }
 
-            console.error("Failed to delete visit, reverting:", error);
+            console.error("Failed to delete visit, marking as error:", error);
             revertOptimisticUpdate();
-            set({ visits: originalVisits, lastActionTimestamp: Date.now() });
+            // Set error status on the original visits that were reverted
+            const revertedVisits = originalVisits.map(v => 
+                String(v.id) === String(visitId) ? { ...v, syncStatus: 'error' as const } : v
+            );
+            set({ visits: revertedVisits, lastActionTimestamp: Date.now() });
             throw error;
         }
       },

@@ -69,6 +69,8 @@ export interface DbWineryWithUserData extends DbWinery {
 }
 
 
+export type SyncStatus = 'synced' | 'pending' | 'error';
+
 // Derived Interfaces (Frontend Models)
 
 export interface Visit {
@@ -81,6 +83,7 @@ export interface Visit {
   winery_id?: WineryDbId; // Use new distinct type
   is_private?: boolean;
   updated_at?: string;
+  syncStatus?: SyncStatus;
   // Expanded fields often joined in queries
   wineries?: {
     id: WineryDbId; // Use new distinct type
@@ -179,6 +182,7 @@ export interface Trip {
     updateNote?: { wineryId: WineryDbId; notes: string; } | { notes: Record<WineryDbId, string>; }; // Use new distinct type
     owner_id?: string;
     updated_at?: string;
+    syncStatus?: SyncStatus;
 }
 
 export interface VisitWithWinery extends Visit {
