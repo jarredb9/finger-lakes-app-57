@@ -55,7 +55,7 @@ Objective: Standardize deterministic synchronization between E2E environment and
 ## Phase 7: Concurrency & Infrastructure Scalability
 Objective: Eliminate CPU saturation and network race conditions to support 2+ workers in containerized environments.
 
-- [ ] Task 1: Optimize Network Proxying. Refactor `MockMapsManager` in `e2e/utils.ts` to use targeted regex/glob patterns for Supabase and Google Maps instead of the expensive `**/*` catch-all.
+- [x] Task 1: Optimize Network Proxying. Refactor `MockMapsManager` in `e2e/utils.ts` to use targeted regex/glob patterns for Supabase and Google Maps instead of the expensive `**/*` catch-all. [add9710]
 - [ ] Task 2: Hardened Helper Logic. Audit `e2e/helpers.ts` and ensure no actions (clicks, fills, keypresses) occur inside `toPass` or `expect(async () => ...)` blocks.
 - [ ] Task 3: Service Worker Origin Isolation. Implement a deterministic sabotage or unique scoping strategy in `MockMapsManager` to prevent Worker A's Service Worker from intercepting Worker B's requests.
 - [ ] Task 4: Environment Parallelization. Update `playwright.config.ts` and `scripts/run-e2e-container.sh` to ensure each worker operates in a strictly isolated context (e.g., unique ports or storage partitions) when running "Real Data" tests.
