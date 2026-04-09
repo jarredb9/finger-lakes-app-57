@@ -156,17 +156,17 @@ export class MockMapsManager {
 
     page.on('console', logHandler);
     
-    // Add Request Logging for RPCs
+    // Add Request Logging
     page.on('request', request => {
         const url = request.url();
-        if (url.includes('rpc/')) {
+        if (url.includes('rpc/') || url.includes('google') || url.includes('supabase.co')) {
             console.log(`[DIAGNOSTIC] [NETWORK-REQ] ${request.method()} ${url}`);
         }
     });
 
     page.on('response', async response => {
         const url = response.url();
-        if (url.includes('rpc/')) {
+        if (url.includes('rpc/') || url.includes('google') || url.includes('supabase.co')) {
             const status = response.status();
             console.log(`[DIAGNOSTIC] [NETWORK-RES] ${status} ${url}`);
             if (status >= 400) {
@@ -218,30 +218,8 @@ export class MockMapsManager {
     });
   }
 
-  async initDefaultMocks(options: { currentUserId?: string } = {}) {
-    if (process.env.E2E_REAL_DATA === 'true') return;
-    
-    if (options.currentUserId) {
-        const oldId = this.currentUserId;
-        this.currentUserId = options.currentUserId;
-        
-        // Update existing state IDs if they were using the old ID
-        if (this.state.visits) {
-            this.state.visits.forEach(v => { if (v.user_id === oldId) v.user_id = this.currentUserId; });
-        }
-        if (this.state.trips) {
-            this.state.trips.forEach(t => {
-                if (t.user_id === oldId) t.user_id = this.currentUserId;
-                t.members?.forEach(m => { if (m.id === oldId) m.id = this.currentUserId; });
-            });
-        }
-    }
-
-    const currentUserId = this.currentUserId;
-
+  private async registerMockRoutes() {
     if (this.mocksRegistered) return;
-
-    const todayCA = new Date().toLocaleDateString('en-CA');
 
     const commonHeaders = { 
       'Cache-Control': 'no-store, no-cache, must-revalidate',
@@ -257,488 +235,394 @@ export class MockMapsManager {
         createMockMapMarkerRpc({ id: 3 as WineryDbId, google_place_id: 'ch-abcde-mock-winery-3' as GooglePlaceId, name: 'The Phantom Cellar' })
     ];
 
-    const catchAllHandler = async (route: any) => {
+    const todayCA = new Date().toLocaleDateString('en-CA');
+    const currentUserId = this.currentUserId;
+
+    // 1. Supabase Profiles Handler
+    await this.page.route(/supabase\.co\/rest\/v1\/profiles/, async (route) => {
+        const req = route.request();
+        if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+        if (this.realSocialEnabled) return route.fallback();
+        
+        const idMatch = req.url().match(/id=eq\.([^&]+)/);
+        const requestedId = idMatch ? idMatch[1] : currentUserId;
+        
+        const profile = { id: requestedId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' };
+        const body = req.headers()['accept']?.includes('application/vnd.pgrst.object+json') 
+            ? JSON.stringify(profile) 
+            : JSON.stringify([profile]);
+        
+        return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body });
+    });
+
+    // 2. Supabase RPC Handler
+    await this.page.route(/supabase\.co\/rpc\//, async (route) => {
         const req = route.request();
         const url = req.url();
         const method = req.method();
-        const type = req.resourceType();
-        const currentUserId = this.currentUserId;
 
-        if (url.includes('supabase.co')) {
-            if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
-            if (url.includes('/rest/v1/profiles')) {
-                if (this.realSocialEnabled) return route.fallback();
-                
-                // Extract ID from URL to avoid ownership mismatches in tests
-                const idMatch = url.match(/id=eq\.([^&]+)/);
-                const requestedId = idMatch ? idMatch[1] : currentUserId;
-                
-                const profile = { id: requestedId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' };
-                const body = req.headers()['accept']?.includes('application/vnd.pgrst.object+json') 
-                    ? JSON.stringify(profile) 
-                    : JSON.stringify([profile]);
-                
-                return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body });
-            }
-            if (url.includes('/rpc/')) {
-                console.log(`[DIAGNOSTIC] Seen RPC: ${url}`);
+        if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
 
-                // 1. Fallback if real data is requested for this category
-                // For Social: We fallback for ALL operations if realSocialEnabled is true.
-                const isSocialRpc = /rpc\/(send_friend_request|respond_to_friend_request|get_friends_and_requests|remove_friend|get_friend_activity_feed|get_friend_profile_with_visits|is_visible_to_viewer|update_profile_privacy|get_friends_ratings_for_winery|get_friends_activity_for_winery|send_follow_request|respond_to_follow_request)/.test(url);
-                if (this.realSocialEnabled && isSocialRpc) {
-                    console.log(`[DIAGNOSTIC] Falling back for Social RPC: ${url}`);
-                    return route.fallback();
-                }
+        console.log(`[DIAGNOSTIC] Intercepting RPC: ${url}`);
 
-                if (this.realFavoritesEnabled && /rpc\/(toggle_favorite|toggle_wishlist|toggle_favorite_privacy|toggle_wishlist_privacy|ensure_winery)/.test(url)) {
-                    return route.fallback();
-                }
+        // Social Fallbacks
+        const isSocialRpc = /rpc\/(send_friend_request|respond_to_friend_request|get_friends_and_requests|remove_friend|get_friend_activity_feed|get_friend_profile_with_visits|is_visible_to_viewer|update_profile_privacy|get_friends_ratings_for_winery|get_friends_activity_for_winery|send_follow_request|respond_to_follow_request)/.test(url);
+        if (this.realSocialEnabled && isSocialRpc) return route.fallback();
 
-                if (this.realVisitsEnabled && /rpc\/(ensure_winery|log_visit|update_visit|delete_visit|get_paginated_visits)/.test(url)) {
-                    console.log(`[DIAGNOSTIC] Falling back for Visit RPC: ${url}`);
-                    return route.fallback();
-                }
+        if (this.realFavoritesEnabled && /rpc\/(toggle_favorite|toggle_wishlist|toggle_favorite_privacy|toggle_wishlist_privacy|ensure_winery)/.test(url)) return route.fallback();
+        if (this.realVisitsEnabled && /rpc\/(ensure_winery|log_visit|update_visit|delete_visit|get_paginated_visits)/.test(url)) return route.fallback();
+        if (this.realTripsEnabled && /rpc\/(get_trip_details|get_trips_for_date|create_trip|create_trip_with_winery|delete_trip|reorder_trip_wineries|update_trip_winery_notes|add_trip_member_by_email|add_winery_to_trip|remove_winery_from_trip|add_winery_to_trips)/.test(url)) return route.fallback();
 
-                if (this.realTripsEnabled && /rpc\/(get_trip_details|get_trips_for_date|create_trip|create_trip_with_winery|delete_trip|reorder_trip_wineries|update_trip_winery_notes|add_trip_member_by_email|add_winery_to_trip|remove_winery_from_trip|add_winery_to_trips)/.test(url)) {
-                    console.log(`[DIAGNOSTIC] Falling back for Trip RPC: ${url}`);
-                    return route.fallback();
-                }
-
-                // 2. Mocks for specific RPCs
-                if (url.includes('get_trips_for_date')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const targetDate = postData.target_date;
-                    const trips = (this.state.trips || []).filter(t => t.trip_date === targetDate);
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(trips) });
-                }
-
-                if (url.includes('log_visit')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const newId = 1000 + Math.floor(Math.random() * 9000);
-                    const wineryData = postData.p_winery_data || {};
-                    const visitData = postData.p_visit_data || {};
-                    const wineryId = wineryData.id;
-                    const winery = markers.find(m => m.id === wineryId || m.google_place_id === wineryId);
-                    
-                    if (!this.state.visits) this.state.visits = [];
-                    
-                    const newVisit = {
-                        visit_id: newId,
-                        user_id: currentUserId,
-                        visit_date: visitData.visit_date || todayCA,
-                        user_review: visitData.user_review || null,
-                        rating: visitData.rating || null,
-                        photos: visitData.photos || [],
-                        winery_id: winery?.id || 123,
-                        winery_name: winery?.name || wineryData.name || 'Unknown Winery',
-                        google_place_id: winery?.google_place_id || wineryId,
-                        winery_address: winery?.address || wineryData.address || 'Unknown Address',
-                        friend_visits: []
-                    };
-                    this.state.visits.push(newVisit);
-
-                    // Update shared feed
-                    if (!this.state.activityFeed) this.state.activityFeed = [];
-                    this.state.activityFeed.push({
-                        activity_type: 'visit',
-                        created_at: new Date().toISOString(),
-                        activity_user_id: currentUserId,
-                        user_name: 'Test User',
-                        user_email: 'test@example.com',
-                        winery_id: newVisit.winery_id,
-                        winery_name: newVisit.winery_name,
-                        visit_rating: newVisit.rating,
-                        visit_review: newVisit.user_review,
-                        visit_photos: newVisit.photos
-                    });
-
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ visit_id: newId, winery_id: wineryId }) });
-                }
-
-                if (url.includes('toggle_favorite_privacy') || url.includes('toggle_wishlist_privacy')) {
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
-                }
-
-                if (url.includes('toggle_wishlist')) {
-                    if (this.realFavoritesEnabled) return route.fallback();
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const wineryId = postData.p_winery_data?.id;
-                    
-                    if (!this.state.wishlistMap.has(currentUserId)) {
-                        this.state.wishlistMap.set(currentUserId, new Set());
-                    }
-                    const userWishlist = this.state.wishlistMap.get(currentUserId)!;
-                    let nextState = true;
-                    if (userWishlist.has(wineryId)) {
-                        userWishlist.delete(wineryId);
-                        nextState = false;
-                    } else {
-                        userWishlist.add(wineryId);
-                        nextState = true;
-                    }
-                    console.log(`[DIAGNOSTIC] Wishlist toggle for ${wineryId}: ${nextState}`);
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(nextState) });
-                }
-
-                if (url.includes('toggle_favorite')) {
-                    if (this.realFavoritesEnabled) return route.fallback();
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const wineryId = postData.p_winery_data?.id;
-                    
-                    if (!this.state.favoritesMap.has(currentUserId)) {
-                        this.state.favoritesMap.set(currentUserId, new Set());
-                    }
-                    const userFavorites = this.state.favoritesMap.get(currentUserId)!;
-                    let nextState = true;
-                    if (userFavorites.has(wineryId)) {
-                        userFavorites.delete(wineryId);
-                        nextState = false;
-                    } else {
-                        userFavorites.add(wineryId);
-                        nextState = true;
-                    }
-                    console.log(`[DIAGNOSTIC] Favorite toggle for ${wineryId}: ${nextState}`);
-                    // The real RPC returns a boolean
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(nextState) });
-                }
-
-                if (url.includes('create_trip_with_winery')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const newId = Math.floor(Math.random() * 10000);
-                    const newTrip = createMockTrip({
-                        id: newId,
-                        name: postData.p_trip_name,
-                        trip_date: postData.p_trip_date,
-                        user_id: currentUserId
-                    });
-                    if (!this.state.trips) this.state.trips = [];
-                    this.state.trips.push(newTrip);
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ trip_id: newId }) });
-                }
-
-                if (url.includes('create_trip')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const newId = Math.floor(Math.random() * 10000);
-                    const newTrip = createMockTrip({
-                        id: newId,
-                        name: postData.p_name,
-                        trip_date: postData.p_trip_date,
-                        user_id: currentUserId
-                    });
-                    if (!this.state.trips) this.state.trips = [];
-                    this.state.trips.push(newTrip);
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ id: newId }) });
-                }
-
-                if (url.includes('delete_trip')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const tripId = postData.p_trip_id;
-                    if (this.state.trips) {
-                        this.state.trips = this.state.trips.filter(t => t.id !== tripId);
-                    }
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
-                }
-
-                if (url.includes('delete_visit')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const visitId = Number(postData.p_visit_id);
-                    if (this.state.visits) {
-                        this.state.visits = this.state.visits.filter(v => Number(v.visit_id) !== visitId);
-                    }
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
-                }
-
-                if (url.includes('get_map_markers') || url.includes('get_wineries_in_bounds') || url.includes('get_paginated_wineries')) {
-                    console.log(`[DIAGNOSTIC] Fulfilling Map RPC for ${currentUserId}: ${url}`);
-                    
-                    const userFavorites = this.state.favoritesMap.get(currentUserId);
-                    const userWishlist = this.state.wishlistMap.get(currentUserId);
-                    
-                    const dynamicMarkers = markers.map(m => {
-                        const isFav = userFavorites?.has(m.google_place_id) || false;
-                        const onWish = userWishlist?.has(m.google_place_id) || false;
-                        if (isFav || onWish) {
-                            console.log(`[DIAGNOSTIC] Marker ${m.name} status for ${currentUserId}: fav=${isFav}, wish=${onWish}`);
-                        }
-                        return {
-                            ...m,
-                            is_favorite: isFav,
-                            on_wishlist: onWish
-                        };
-                    });
-                    
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(dynamicMarkers) });
-                }
-                if (url.includes('ensure_winery')) {
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(999123) });
-                }
-                if (url.includes('send_friend_request')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const targetEmail = postData.target_email || postData.p_friend_email;
-                    console.log(`[DIAGNOSTIC] Intercepted send_friend_request to ${targetEmail}`);
-                    
-                    if (!this.state.social) {
-                        this.state.social = { friends: [], pending_incoming: [], pending_outgoing: [] };
-                    }
-                    
-                    // Add to outgoing for current context
-                    this.state.social.pending_outgoing.push({
-                        id: 'mock-target-id',
-                        name: (targetEmail || 'unknown').split('@')[0],
-                        email: targetEmail || 'unknown@example.com'
-                    });
-
-                    // Add to incoming for target context (simulated)
-                    this.state.social.pending_incoming.push({
-                        id: currentUserId,
-                        name: 'Test User',
-                        email: 'test@example.com' // Simplification
-                    });
-                    
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
-                }
-                
-                if (url.includes('respond_to_friend_request')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const requesterId = postData.requester_id || postData.p_requester_id;
-                    const accept = postData.accept !== undefined ? postData.accept : (postData.p_action === 'accepted');
-                    
-                    if (this.state.social && accept) {
-                        const request = this.state.social.pending_incoming.find(r => r.id === requesterId);
-                        if (request) {
-                            this.state.social.friends.push(request);
-                            this.state.social.pending_incoming = this.state.social.pending_incoming.filter(r => r.id !== requesterId);
-                            // Also clear from outgoing (simulated)
-                            this.state.social.pending_outgoing = this.state.social.pending_outgoing.filter(r => r.id !== 'mock-target-id');
-                        }
-                    }
-                    
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
-                }
-
-                if (url.includes('get_friends_and_requests')) {
-                    if (this.realSocialEnabled) {
-                        console.log(`[DIAGNOSTIC] Falling back for Friends RPC: ${url}`);
-                        return route.fallback();
-                    }
-                    const userSocial = this.state.socialMap.get(currentUserId) 
-                                    || this.state.social 
-                                    || { friends: [], pending_incoming: [], pending_outgoing: [] };
-                    
-                    console.log(`[DIAGNOSTIC] Fulfilling get_friends_and_requests for ${currentUserId}. Friends: ${userSocial.friends.length}. Map Keys: ${Array.from(this.state.socialMap.keys()).join(', ')}`);
-                    
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(userSocial) });
-                }
-                if (url.includes('get_friend_activity_feed')) {
-                    if (this.realSocialEnabled) {
-                        console.log(`[DIAGNOSTIC] Falling back for Feed RPC: ${url}`);
-                        return route.fallback();
-                    }
-                    const feed = this.state.activityFeed || [];
-                    console.log(`[DIAGNOSTIC] Fulfilling get_friend_activity_feed. Items: ${feed.length}`);
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(feed) });
-                }
-                if (url.includes('add_trip_member_by_email')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const tripId = postData.p_trip_id;
-                    const email = postData.p_email;
-                    
-                    console.log(`[DIAGNOSTIC] Fulfilling add_trip_member_by_email for trip ${tripId}, email ${email}`);
-
-                    // Update the trip in shared state if it exists
-                    if (this.state.trips) {
-                        const trip = this.state.trips.find(t => Number(t.id) === Number(tripId));
-                        if (trip) {
-                            if (!trip.members) trip.members = [];
-                            
-                            // Check if already a member
-                            if (!trip.members.some(m => m.email.toLowerCase() === email.toLowerCase())) {
-                                trip.members.push({
-                                    id: `mock-invited-${Math.floor(Math.random() * 10000)}`,
-                                    email: email,
-                                    name: email.split('@')[0],
-                                    role: 'member',
-                                    status: 'invited'
-                                });
-                                trip.updated_at = new Date().toISOString();
-                                console.log(`[DIAGNOSTIC] Added ${email} to trip ${tripId}. Members count: ${trip.members.length}`);
-                            }
-                        }
-                    }
-                    
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
-                }
-                if (url.includes('get_trip_details')) {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const requestedId = postData.trip_id_param;
-                    const trips = this.state.trips || [];
-                    const found = trips.find(t => Number(t.id) === Number(requestedId));
-                    
-                    if (!found) {
-                        console.error(`[STRICT-MOCK] Trip ID ${requestedId} not found in mock state. Available: ${trips.map(t => t.id).join(', ')}`);
-                        return route.fulfill({ 
-                            status: 404, 
-                            contentType: 'application/json', 
-                            headers: commonHeaders, 
-                            body: JSON.stringify({ error: `Trip ID ${requestedId} not found in mock state` }) 
-                        });
-                    }
-
-                    console.log(`[DIAGNOSTIC] Fulfilling Mock get_trip_details for ID ${requestedId}`);
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(found) });
-                }
-                if (url.includes('get_paginated_visits')) {
-                    if (this.realVisitsEnabled) return route.fallback();
-                    if (!this.state.visits) {
-                        console.error(`[STRICT-MOCK] get_paginated_visits called but visits state is null`);
-                        return route.fulfill({ 
-                            status: 500, 
-                            contentType: 'application/json', 
-                            headers: commonHeaders, 
-                            body: JSON.stringify({ error: 'Visits mock state not initialized' }) 
-                        });
-                    }
-                    const visits = [...(this.state.visits || [])].sort((a, b) => 
-                        new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
-                    );
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(visits) });
-                }
-                if (url.includes('toggle_favorite')) {
-                    if (this.realFavoritesEnabled) return route.fallback();
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(true) });
-                }
-                if (url.includes('toggle_wishlist')) {
-                    if (this.realFavoritesEnabled) return route.fallback();
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(true) });
-                }
-                if (url.includes('toggle_favorite_privacy') || url.includes('toggle_wishlist_privacy')) {
-                    if (this.realSocialEnabled) return route.fallback();
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, is_private: true }) });
-                }
-
-                if (url.includes('get_friend_profile_with_visits')) {
-                    if (this.realSocialEnabled) return route.fallback();
-                    const postData = JSON.parse(req.postData() || '{}');
-                    const friendId = postData.friend_id_param;
-                    
-                    // Validate friend exists in social map or friends list
-                    const userSocial = this.state.socialMap.get(currentUserId) || this.state.social;
-                    const friendExists = userSocial?.friends.some(f => f.id === friendId);
-                    
-                    if (!friendExists && friendId !== 'mock-friend-id') { // Allow default mock ID
-                         console.warn(`[STRICT-MOCK] get_friend_profile_with_visits for unknown friend ${friendId}`);
-                    }
-
-                    const visits = (this.state.visits || []).filter(v => v.user_id === friendId);
-                    
-                    return route.fulfill({ 
-                        status: 200, 
-                        contentType: 'application/json', 
-                        headers: commonHeaders, 
-                        body: JSON.stringify({
-                            profile: { id: friendId, name: 'Mock Friend', email: 'friend@example.com', privacy_level: 'public' },
-                            visits: visits,
-                            stats: { total_visits: visits.length, favorite_count: 0, wishlist_count: 0 }
-                        }) 
-                    });
-                }
-
-                if (isSocialRpc) {
-                    console.log(`[DIAGNOSTIC] Fulfilling unhandled Social RPC with empty response: ${url}`);
-                    return route.fulfill({ 
-                        status: 200, 
-                        contentType: 'application/json', 
-                        headers: commonHeaders, 
-                        body: JSON.stringify([]) 
-                    });
-                }
-
-                // Default failure for unhandled RPCs to prevent leakage
-                console.error(`[STRICT-MOCK] Unhandled RPC Request: ${url}. If this is expected, add it to MockMapsManager.`);
-                return route.fulfill({ 
-                    status: 501, 
-                    contentType: 'application/json', 
-                    headers: commonHeaders, 
-                    body: JSON.stringify({ 
-                        message: `Mock not implemented for RPC: ${url}`,
-                        code: '501',
-                        details: 'Unhandled RPC in MockMapsManager',
-                        hint: 'Add this RPC to the mock handler in e2e/utils.ts'
-                    }) 
-                });
-            }
-            if (url.includes('/auth/v1/')) return route.fallback();
-            if (url.includes('/rest/v1/trips')) {
-                if (this.realTripsEnabled) return route.fallback();
-                
-                if (method === 'PATCH') {
-                    const postData = JSON.parse(req.postData() || '{}');
-                    console.log(`[DIAGNOSTIC] Intercepting Trips PATCH: ${url}`, postData);
-                    
-                    // Extract ID from URL (e.g., ...trips?id=eq.999)
-                    const idMatch = url.match(/id=eq\.(\d+)/);
-                    if (idMatch && this.state.trips) {
-                        const tripId = parseInt(idMatch[1], 10);
-                        const trip = this.state.trips.find(t => Number(t.id) === tripId);
-                        if (trip) {
-                            Object.assign(trip, postData);
-                            trip.updated_at = new Date().toISOString();
-                            console.log(`[DIAGNOSTIC] Updated sharedMockTrip ${tripId} with:`, postData);
-                        }
-                    }
-                    return route.fulfill({ status: 204, headers: commonHeaders });
-                }
-
-                const trips = this.state.trips || [];
-                console.log(`[DIAGNOSTIC] Intercepting Trips GET: ${url}. Returning ${trips.length} trips.`);
-                
-                // Transform to match TripService.getTrips select structure if needed
-                // TripService expects: trip_wineries (count), trip_members!inner (user_id)
-                const transformed = trips.map(t => ({
-                    ...t,
-                    trip_wineries: [{ count: t.wineries?.length || 0 }],
-                    trip_members: (t.members || []).map(m => ({ user_id: m.id }))
-                }));
-
-                return route.fulfill({ 
-                    status: 200, 
-                    contentType: 'application/json', 
-                    body: JSON.stringify(transformed), 
-                    headers: { ...commonHeaders, 'x-total-count': transformed.length.toString() } 
-                });
-            }
-            if (url.includes('/rest/v1/favorites')) {
-                if (this.realFavoritesEnabled) return route.fallback();
-                console.log(`[DIAGNOSTIC] Intercepting Favorites REST: ${url}`);
-                return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([]) });
-            }
-            if (url.includes('/functions/v1/')) {
-                return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, data: {} }) });
-            }
-            return route.fallback();
+        // Specific RPC Implementations
+        if (url.includes('get_trips_for_date')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const targetDate = postData.target_date;
+            const trips = (this.state.trips || []).filter(t => t.trip_date === targetDate);
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(trips) });
         }
 
-        if (url.includes('google')) {
-            if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
-            if (url.includes('maps/api/js') || url.includes('js?key=')) {
-                return route.fulfill({ status: 200, contentType: 'application/javascript', headers: { 'Access-Control-Allow-Origin': '*' }, body: 'window.google = { maps: { _isMocked: true, importLibrary: () => Promise.resolve({}), LatLngBounds: function() { this.contains = () => true; this.extend = () => {}; this.getCenter = () => ({lat:()=>42.7,lng:()=>-76.9}); this.getNorthEast=()=>({lat:()=>43,lng:()=>-76}); this.getSouthWest=()=>({lat:()=>42,lng:()=>-77}); }, Geocoder: function() { this.geocode = () => Promise.resolve({results:[]}); }, places: { Place: { searchByText: () => Promise.resolve({places:[]}) } } } };' });
-            }
-            if (url.includes('searchText')) {
-                return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ places: markers.map(m => ({ id: m.google_place_id, name: m.name, displayName: { text: m.name }, formattedAddress: 'Mock NY', location: { latitude: 42.7, longitude: -76.9 }, rating: 4.8 })) }) });
-            }
-            if (type === 'font' || type === 'stylesheet') return route.fulfill({ status: 200, contentType: 'text/css', body: '' });
-            if (url.includes('tile')) return route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANghjYAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') });
-            console.error(`[BLOCK-FATAL-FORENSIC] ${url}`);
-            return route.fulfill({ status: 403, body: 'Blocked' });
+        if (url.includes('log_visit')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const newId = 1000 + Math.floor(Math.random() * 9000);
+            const wineryData = postData.p_winery_data || {};
+            const visitData = postData.p_visit_data || {};
+            const wineryId = wineryData.id;
+            const winery = markers.find(m => m.id === wineryId || m.google_place_id === wineryId);
+            
+            if (!this.state.visits) this.state.visits = [];
+            
+            const newVisit = {
+                visit_id: newId,
+                user_id: currentUserId,
+                visit_date: visitData.visit_date || todayCA,
+                user_review: visitData.user_review || null,
+                rating: visitData.rating || null,
+                photos: visitData.photos || [],
+                winery_id: winery?.id || 123,
+                winery_name: winery?.name || wineryData.name || 'Unknown Winery',
+                google_place_id: winery?.google_place_id || wineryId,
+                winery_address: winery?.address || wineryData.address || 'Unknown Address',
+                friend_visits: []
+            };
+            this.state.visits.push(newVisit);
+
+            if (!this.state.activityFeed) this.state.activityFeed = [];
+            this.state.activityFeed.push({
+                activity_type: 'visit',
+                created_at: new Date().toISOString(),
+                activity_user_id: currentUserId,
+                user_name: 'Test User',
+                user_email: 'test@example.com',
+                winery_id: newVisit.winery_id,
+                winery_name: newVisit.winery_name,
+                visit_rating: newVisit.rating,
+                visit_review: newVisit.user_review,
+                visit_photos: newVisit.photos
+            });
+
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ visit_id: newId, winery_id: wineryId }) });
         }
+
+        if (url.includes('toggle_favorite_privacy') || url.includes('toggle_wishlist_privacy')) {
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+        }
+
+        if (url.includes('toggle_wishlist')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const wineryId = postData.p_winery_data?.id;
+            if (!this.state.wishlistMap.has(currentUserId)) this.state.wishlistMap.set(currentUserId, new Set());
+            const userWishlist = this.state.wishlistMap.get(currentUserId)!;
+            let nextState = true;
+            if (userWishlist.has(wineryId)) {
+                userWishlist.delete(wineryId);
+                nextState = false;
+            } else {
+                userWishlist.add(wineryId);
+                nextState = true;
+            }
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(nextState) });
+        }
+
+        if (url.includes('toggle_favorite')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const wineryId = postData.p_winery_data?.id;
+            if (!this.state.favoritesMap.has(currentUserId)) this.state.favoritesMap.set(currentUserId, new Set());
+            const userFavorites = this.state.favoritesMap.get(currentUserId)!;
+            let nextState = true;
+            if (userFavorites.has(wineryId)) {
+                userFavorites.delete(wineryId);
+                nextState = false;
+            } else {
+                userFavorites.add(wineryId);
+                nextState = true;
+            }
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(nextState) });
+        }
+
+        if (url.includes('create_trip_with_winery')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const newId = Math.floor(Math.random() * 10000);
+            const newTrip = createMockTrip({ id: newId, name: postData.p_trip_name, trip_date: postData.p_trip_date, user_id: currentUserId });
+            if (!this.state.trips) this.state.trips = [];
+            this.state.trips.push(newTrip);
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ trip_id: newId }) });
+        }
+
+        if (url.includes('create_trip')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const newId = Math.floor(Math.random() * 10000);
+            const newTrip = createMockTrip({ id: newId, name: postData.p_name, trip_date: postData.p_trip_date, user_id: currentUserId });
+            if (!this.state.trips) this.state.trips = [];
+            this.state.trips.push(newTrip);
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ id: newId }) });
+        }
+
+        if (url.includes('delete_trip')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const tripId = postData.p_trip_id;
+            if (this.state.trips) {
+                this.state.trips = this.state.trips.filter(t => t.id !== tripId);
+            }
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+        }
+
+        if (url.includes('delete_visit')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const visitId = Number(postData.p_visit_id);
+            if (this.state.visits) {
+                this.state.visits = this.state.visits.filter(v => Number(v.visit_id) !== visitId);
+            }
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+        }
+
+        if (url.includes('get_map_markers') || url.includes('get_wineries_in_bounds') || url.includes('get_paginated_wineries')) {
+            const userFavorites = this.state.favoritesMap.get(currentUserId);
+            const userWishlist = this.state.wishlistMap.get(currentUserId);
+            const dynamicMarkers = markers.map(m => ({
+                ...m,
+                is_favorite: userFavorites?.has(m.google_place_id) || false,
+                on_wishlist: userWishlist?.has(m.google_place_id) || false
+            }));
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(dynamicMarkers) });
+        }
+
+        if (url.includes('ensure_winery')) {
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(999123) });
+        }
+
+        if (url.includes('send_friend_request')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const targetEmail = postData.target_email || postData.p_friend_email;
+            if (!this.state.social) this.state.social = { friends: [], pending_incoming: [], pending_outgoing: [] };
+            this.state.social.pending_outgoing.push({ id: 'mock-target-id', name: (targetEmail || 'unknown').split('@')[0], email: targetEmail || 'unknown@example.com' });
+            this.state.social.pending_incoming.push({ id: currentUserId, name: 'Test User', email: 'test@example.com' });
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+        }
+        
+        if (url.includes('respond_to_friend_request')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const requesterId = postData.requester_id || postData.p_requester_id;
+            const accept = postData.accept !== undefined ? postData.accept : (postData.p_action === 'accepted');
+            if (this.state.social && accept) {
+                const request = this.state.social.pending_incoming.find(r => r.id === requesterId);
+                if (request) {
+                    this.state.social.friends.push(request);
+                    this.state.social.pending_incoming = this.state.social.pending_incoming.filter(r => r.id !== requesterId);
+                    this.state.social.pending_outgoing = this.state.social.pending_outgoing.filter(r => r.id !== 'mock-target-id');
+                }
+            }
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+        }
+
+        if (url.includes('get_friends_and_requests')) {
+            const userSocial = this.state.socialMap.get(currentUserId) || this.state.social || { friends: [], pending_incoming: [], pending_outgoing: [] };
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(userSocial) });
+        }
+
+        if (url.includes('get_friend_activity_feed')) {
+            const feed = this.state.activityFeed || [];
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(feed) });
+        }
+
+        if (url.includes('add_trip_member_by_email')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const tripId = postData.p_trip_id;
+            const email = postData.p_email;
+            if (this.state.trips) {
+                const trip = this.state.trips.find(t => Number(t.id) === Number(tripId));
+                if (trip) {
+                    if (!trip.members) trip.members = [];
+                    if (!trip.members.some(m => m.email.toLowerCase() === email.toLowerCase())) {
+                        trip.members.push({ id: `mock-invited-${Math.floor(Math.random() * 10000)}`, email: email, name: email.split('@')[0], role: 'member', status: 'invited' });
+                        trip.updated_at = new Date().toISOString();
+                    }
+                }
+            }
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+        }
+
+        if (url.includes('get_trip_details')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const requestedId = postData.trip_id_param;
+            const trips = this.state.trips || [];
+            const found = trips.find(t => Number(t.id) === Number(requestedId));
+            if (!found) return route.fulfill({ status: 404, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ error: `Trip ID ${requestedId} not found` }) });
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(found) });
+        }
+
+        if (url.includes('get_paginated_visits')) {
+            const visits = [...(this.state.visits || [])].sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(visits) });
+        }
+
+        if (url.includes('get_friend_profile_with_visits')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const friendId = postData.friend_id_param;
+            const visits = (this.state.visits || []).filter(v => v.user_id === friendId);
+            return route.fulfill({ 
+                status: 200, 
+                contentType: 'application/json', 
+                headers: commonHeaders, 
+                body: JSON.stringify({
+                    profile: { id: friendId, name: 'Mock Friend', email: 'friend@example.com', privacy_level: 'public' },
+                    visits: visits,
+                    stats: { total_visits: visits.length, favorite_count: 0, wishlist_count: 0 }
+                }) 
+            });
+        }
+
+        if (isSocialRpc) {
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([]) });
+        }
+
+        return route.fulfill({ 
+            status: 501, 
+            contentType: 'application/json', 
+            headers: commonHeaders, 
+            body: JSON.stringify({ message: `Mock not implemented for RPC: ${url}` }) 
+        });
+    });
+
+    // 3. Supabase Auth Handler
+    await this.page.route(/supabase\.co\/auth\/v1\//, async (route) => {
         return route.fallback();
-    };
+    });
 
-    // PROXY REGISTRATION
-    // We register on page route to handle mocks reliably
-    await this.page.route('**/*', catchAllHandler);
+    // 4. Supabase Trips REST Handler
+    await this.page.route(/supabase\.co\/rest\/v1\/trips/, async (route) => {
+        const req = route.request();
+        if (this.realTripsEnabled) return route.fallback();
+        
+        if (req.method() === 'PATCH') {
+            const postData = JSON.parse(req.postData() || '{}');
+            const idMatch = req.url().match(/id=eq\.(\d+)/);
+            if (idMatch && this.state.trips) {
+                const tripId = parseInt(idMatch[1], 10);
+                const trip = this.state.trips.find(t => Number(t.id) === tripId);
+                if (trip) {
+                    Object.assign(trip, postData);
+                    trip.updated_at = new Date().toISOString();
+                }
+            }
+            return route.fulfill({ status: 204, headers: commonHeaders });
+        }
+
+        const trips = this.state.trips || [];
+        const transformed = trips.map(t => ({
+            ...t,
+            trip_wineries: [{ count: t.wineries?.length || 0 }],
+            trip_members: (t.members || []).map(m => ({ user_id: m.id }))
+        }));
+
+        return route.fulfill({ 
+            status: 200, 
+            contentType: 'application/json', 
+            body: JSON.stringify(transformed), 
+            headers: { ...commonHeaders, 'x-total-count': transformed.length.toString() } 
+        });
+    });
+
+    // 5. Supabase Favorites REST Handler
+    await this.page.route(/supabase\.co\/rest\/v1\/favorites/, async (route) => {
+        if (this.realFavoritesEnabled) return route.fallback();
+        return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([]) });
+    });
+
+    // 6. Supabase Functions Handler
+    await this.page.route(/supabase\.co\/functions\/v1\//, async (route) => {
+        return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, data: {} }) });
+    });
+
+    // 7. Google Maps JS Handler
+    await this.page.route(/(maps\.googleapis\.com|google\.com).*js(\?|&)key=/, async (route) => {
+        const req = route.request();
+        if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+        return route.fulfill({ 
+            status: 200, 
+            contentType: 'application/javascript', 
+            headers: { 'Access-Control-Allow-Origin': '*' }, 
+            body: 'window.google = { maps: { _isMocked: true, importLibrary: () => Promise.resolve({}), LatLngBounds: function() { this.contains = () => true; this.extend = () => {}; this.getCenter = () => ({lat:()=>42.7,lng:()=>-76.9}); this.getNorthEast=()=>({lat:()=>43,lng:()=>-76}); this.getSouthWest=()=>({lat:()=>42,lng:()=>-77}); }, Geocoder: function() { this.geocode = () => Promise.resolve({results:[]}); }, places: { Place: { searchByText: () => Promise.resolve({places:[]}) } } } };' 
+        });
+    });
+
+    // 8. Google Places Search Handler
+    await this.page.route(/places\.googleapis\.com\/v1\/places:searchText/, async (route) => {
+        const req = route.request();
+        if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+        return route.fulfill({ 
+            status: 200, 
+            contentType: 'application/json', 
+            headers: commonHeaders, 
+            body: JSON.stringify({ 
+                places: markers.map(m => ({ id: m.google_place_id, name: m.name, displayName: { text: m.name }, formattedAddress: 'Mock NY', location: { latitude: 42.7, longitude: -76.9 }, rating: 4.8 })) 
+            }) 
+        });
+    });
+
+    // 9. Google Maps Tiles Handler
+    await this.page.route(/google\.com\/maps\/vt\/tile|google\.com\/vt\/tile/, async (route) => {
+        return route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANghjYAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') });
+    });
+
+    // 10. Google Fonts Handler
+    await this.page.route(/fonts\.(googleapis|gstatic)\.com/, async (route) => {
+        const type = route.request().resourceType();
+        if (type === 'font' || type === 'stylesheet') return route.fulfill({ status: 200, contentType: type === 'font' ? 'font/woff2' : 'text/css', body: '' });
+        return route.fallback();
+    });
+
     this.mocksRegistered = true;
+  }
+
+  async initDefaultMocks(options: { currentUserId?: string } = {}) {
+    if (process.env.E2E_REAL_DATA === 'true') return;
+    
+    if (options.currentUserId) {
+        const oldId = this.currentUserId;
+        this.currentUserId = options.currentUserId;
+        
+        if (this.state.visits) {
+            this.state.visits.forEach(v => { if (v.user_id === oldId) v.user_id = this.currentUserId; });
+        }
+        if (this.state.trips) {
+            this.state.trips.forEach(t => {
+                if (t.user_id === oldId) t.user_id = this.currentUserId;
+                t.members?.forEach(m => { if (m.id === oldId) m.id = this.currentUserId; });
+            });
+        }
+    }
+
+    const currentUserId = this.currentUserId;
+    if (this.mocksRegistered) return;
+    const todayCA = new Date().toLocaleDateString('en-CA');
+
+    await this.registerMockRoutes();
+
+    const markers: MapMarkerRpc[] = [
+        createMockMapMarkerRpc({ id: 1 as WineryDbId, google_place_id: 'ch-12345-mock-winery-1' as GooglePlaceId, name: 'Mock Winery One' }),
+        createMockMapMarkerRpc({ id: 2 as WineryDbId, google_place_id: 'ch-67890-mock-winery-2' as GooglePlaceId, name: 'Vineyard of Illusion' }),
+        createMockMapMarkerRpc({ id: 3 as WineryDbId, google_place_id: 'ch-abcde-mock-winery-3' as GooglePlaceId, name: 'The Phantom Cellar' })
+    ];
 
     if (!this.state.visits) {
         const mockVisit = createMockVisitWithWinery({ 
