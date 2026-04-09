@@ -3,7 +3,8 @@ import {
     login, 
     navigateToTab, 
     openWineryDetails, 
-    closeWineryModal 
+    closeWineryModal,
+    expectWineryStatusInStore
 } from './helpers';
 
 test.describe('Wishlist Flow', () => {
@@ -14,41 +15,65 @@ test.describe('Wishlist Flow', () => {
   });
 
   test('can toggle winery on wishlist', async ({ page }) => {
+    test.setTimeout(120000);
     await navigateToTab(page, 'Explore');
     await openWineryDetails(page, 'Mock Winery One');
 
     const modal = page.getByRole('dialog');
 
     // 1. Wishlist Toggle ON
-    const wishlistBtn = modal.getByRole('button', { name: 'Want to Go' });
+    const wishlistBtn = modal.getByTestId('wishlist-button');
     await expect(wishlistBtn).toBeVisible();
+    await expect(wishlistBtn).toHaveText(/Want to Go/i);
     
-    await wishlistBtn.click({ force: true });
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('rpc/toggle_wishlist') && resp.status() === 200),
+        wishlistBtn.click({ force: true })
+    ]);
     
     // Check UI update (label change)
-    await expect(modal.getByRole('button', { name: 'On List' })).toBeVisible({ timeout: 10000 });
+    await expect(wishlistBtn).toHaveText(/On List/i, { timeout: 10000 });
+    await expectWineryStatusInStore(page, 'Mock Winery One', 'wishlist', true);
+
+    await page.waitForTimeout(1000);
 
     // 2. Wishlist Toggle OFF
-    const onListBtn = modal.getByRole('button', { name: 'On List' });
-    await onListBtn.click({ force: true });
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('rpc/toggle_wishlist') && resp.status() === 200),
+        wishlistBtn.click({ force: true })
+    ]);
 
     // Check UI update back to "Want to Go"
-    await expect(modal.getByRole('button', { name: 'Want to Go' })).toBeVisible({ timeout: 10000 });
+    await expect(wishlistBtn).toHaveText(/Want to Go/i, { timeout: 10000 });
+    await expectWineryStatusInStore(page, 'Mock Winery One', 'wishlist', false);
+
+    await page.waitForTimeout(1000);
 
     // 3. Favorite Toggle ON
-    const favoriteBtn = modal.getByRole('button', { name: 'Favorite' }).first();
+    const favoriteBtn = modal.getByTestId('favorite-button');
     await expect(favoriteBtn).toBeVisible();
-    await favoriteBtn.click({ force: true });
+    
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('rpc/toggle_favorite') && resp.status() === 200),
+        favoriteBtn.click({ force: true })
+    ]);
 
     // Verify UI reflects favorite status
     await expect(favoriteBtn.locator('svg')).toHaveClass(/text-yellow-400/);
     await expect(favoriteBtn.locator('svg')).toHaveClass(/fill-yellow-400/);
+    await expectWineryStatusInStore(page, 'Mock Winery One', 'favorite', true);
+
+    await page.waitForTimeout(1000);
 
     // 4. Favorite Toggle OFF
-    await favoriteBtn.click({ force: true });
+    await Promise.all([
+        page.waitForResponse(resp => resp.url().includes('rpc/toggle_favorite') && resp.status() === 200),
+        favoriteBtn.click({ force: true })
+    ]);
 
     // Verify UI reflects non-favorite status
     await expect(favoriteBtn.locator('svg')).not.toHaveClass(/text-yellow-400/);
+    await expectWineryStatusInStore(page, 'Mock Winery One', 'favorite', false);
     
     await closeWineryModal(page);
   });

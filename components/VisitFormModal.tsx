@@ -82,6 +82,7 @@ export function VisitFormModal() {
         <Dialog open={isThisModalOpen} onOpenChange={(isOpen) => !isOpen && handleClose()}>
             <DialogContent
                 data-testid="visit-modal"
+                data-state={isSavingVisit ? "loading" : "ready"}
                 className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
                 onFocusOutside={(e) => e.preventDefault()}
             >

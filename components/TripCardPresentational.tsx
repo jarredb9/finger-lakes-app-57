@@ -15,10 +15,13 @@ import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/comp
 import DailyHours from "@/components/DailyHours";
 import { calculateDistance, formatDistance } from "@/lib/utils/geo";
 
+import { formatDateLocal } from "@/lib/utils";
+
 interface TripCardProps {
   trip: Trip;
   isOwner: boolean;
   canEdit: boolean;
+  isUpdating?: boolean;
   currentMembers: TripMember[];
   onUpdateTrip: (id: string, updates: { name?: string; trip_date?: string }) => Promise<void>;
   onDeleteTrip: (id: string) => void;
@@ -81,6 +84,7 @@ const TripCard = memo(({
   trip, 
   isOwner, 
   canEdit, 
+  isUpdating,
   currentMembers,
   onUpdateTrip,
   onDeleteTrip,
@@ -134,7 +138,7 @@ const TripCard = memo(({
     try {
       await onUpdateTrip(trip.id.toString(), { 
         name: editedName, 
-        trip_date: editedDate.toISOString().split('T')[0] 
+        trip_date: formatDateLocal(editedDate) 
       });
       setIsEditing(false);
     } catch (error) {
@@ -159,7 +163,7 @@ const TripCard = memo(({
   };
 
   return (
-    <Card className="w-full overflow-hidden" data-testid="trip-details-card">
+    <Card className="w-full overflow-hidden" data-testid="trip-details-card" data-state={isUpdating ? 'loading' : 'ready'}>
       <CardHeader className="bg-gray-50 border-b">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">

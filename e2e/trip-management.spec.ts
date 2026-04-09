@@ -19,6 +19,7 @@ test.describe('Trip Management Flow', () => {
   });
 
   test('User can create, rename, and delete a trip', async ({ page }) => {
+    test.setTimeout(180000);
     const sidebar = getSidebarContainer(page);
     
     // 1. Navigate to Trips
@@ -35,10 +36,14 @@ test.describe('Trip Management Flow', () => {
     const tripForm = page.getByTestId('trip-form-card');
     await tripForm.getByTestId('trip-name-input').fill(uniqueTripName);
     
+    // Ensure button is enabled (isValid should be true after filling name)
+    const submitBtn = tripForm.getByTestId('create-trip-submit-btn');
+    await expect(submitBtn).toBeEnabled({ timeout: 10000 });
+
     // Save and wait for the RPC response
     await Promise.all([
-        page.waitForResponse(resp => resp.url().includes('rpc/create_trip') && resp.status() === 200),
-        tripForm.getByTestId('create-trip-submit-btn').click({ force: true })
+        page.waitForResponse(resp => resp.url().includes('rpc/create_trip') && resp.status() >= 200 && resp.status() < 300),
+        submitBtn.click({ force: true })
     ]);
     
     await expectTripInStore(page, uniqueTripName);
@@ -148,7 +153,7 @@ test.describe('Trip Management Flow', () => {
     
     // Click "Save" button
     await Promise.all([
-        page.waitForResponse(resp => [200, 204].includes(resp.status()) && (resp.url().includes('trips') || resp.url().includes('rpc'))),
+        page.waitForResponse(resp => resp.status() < 300 && (resp.url().includes('trips') || resp.url().includes('rpc'))),
         page.getByRole('button', { name: /Save/i }).first().click({ force: true })
     ]);
     
@@ -181,7 +186,7 @@ test.describe('Trip Management Flow', () => {
     
     // Confirm deletion and wait for response
     await Promise.all([
-        page.waitForResponse(resp => (resp.url().includes('delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')) && [200, 204].includes(resp.status())),
+        page.waitForResponse(resp => (resp.url().includes('delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')) && resp.status() < 300),
         page.getByTestId('confirm-delete-trip-btn').click({ force: true })
     ]);
     

@@ -200,6 +200,7 @@ export default function WineryModal() {
     <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
       <DialogContent
         data-testid="winery-modal"
+        data-state={isLoading ? "loading" : "ready"}
         className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
         onFocusOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}

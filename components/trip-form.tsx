@@ -57,6 +57,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
   // Initialize form
   const form = useForm<TripFormValues>({
     resolver: zodResolver(tripSchema),
+    mode: "onChange",
     defaultValues: {
       name: "",
       date: initialDate,
@@ -218,7 +219,12 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
               <FormMessage>{form.formState.errors.wineries?.message}</FormMessage>
             </div>
 
-            <Button type="submit" disabled={!form.formState.isValid || form.formState.isSubmitting} data-testid="create-trip-submit-btn">
+            <Button 
+              type="submit" 
+              disabled={!form.formState.isValid || form.formState.isSubmitting} 
+              data-testid="create-trip-submit-btn"
+              data-is-valid={form.formState.isValid}
+            >
               {form.formState.isSubmitting ? "Creating..." : "Create Trip"}
             </Button>
           </form>

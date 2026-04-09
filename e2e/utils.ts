@@ -82,6 +82,8 @@ export interface MockMapsState {
         pending_outgoing: any[]
     }>;
     tripMembersMap: Map<number, TripMember[]>;
+    favoritesMap: Map<string, Set<string>>;
+    wishlistMap: Map<string, Set<string>>;
 }
 
 export function createDefaultMockState(): MockMapsState {
@@ -91,7 +93,9 @@ export function createDefaultMockState(): MockMapsState {
         activityFeed: null,
         social: null,
         socialMap: new Map(),
-        tripMembersMap: new Map()
+        tripMembersMap: new Map(),
+        favoritesMap: new Map(),
+        wishlistMap: new Map()
     };
 }
 
@@ -157,6 +161,20 @@ export class MockMapsManager {
         const url = request.url();
         if (url.includes('rpc/')) {
             console.log(`[DIAGNOSTIC] [NETWORK-REQ] ${request.method()} ${url}`);
+        }
+    });
+
+    page.on('response', async response => {
+        const url = response.url();
+        if (url.includes('rpc/')) {
+            const status = response.status();
+            console.log(`[DIAGNOSTIC] [NETWORK-RES] ${status} ${url}`);
+            if (status >= 400) {
+                try {
+                    const body = await response.text();
+                    console.log(`[DIAGNOSTIC] [NETWORK-ERROR-BODY] ${body}`);
+                } catch (e) {}
+            }
         }
     });
   }
@@ -282,12 +300,19 @@ export class MockMapsManager {
                     return route.fallback();
                 }
 
-                if (this.realTripsEnabled && /rpc\/(get_trip_details|get_trips_for_date|create_trip|delete_trip|reorder_trip_wineries|update_trip_winery_notes|add_trip_member_by_email|add_winery_to_trip|remove_winery_from_trip|add_winery_to_trips)/.test(url)) {
+                if (this.realTripsEnabled && /rpc\/(get_trip_details|get_trips_for_date|create_trip|create_trip_with_winery|delete_trip|reorder_trip_wineries|update_trip_winery_notes|add_trip_member_by_email|add_winery_to_trip|remove_winery_from_trip|add_winery_to_trips)/.test(url)) {
                     console.log(`[DIAGNOSTIC] Falling back for Trip RPC: ${url}`);
                     return route.fallback();
                 }
 
                 // 2. Mocks for specific RPCs
+                if (url.includes('get_trips_for_date')) {
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const targetDate = postData.target_date;
+                    const trips = (this.state.trips || []).filter(t => t.trip_date === targetDate);
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(trips) });
+                }
+
                 if (url.includes('log_visit')) {
                     const postData = JSON.parse(req.postData() || '{}');
                     const newId = 1000 + Math.floor(Math.random() * 9000);
@@ -336,11 +361,46 @@ export class MockMapsManager {
                 }
 
                 if (url.includes('toggle_wishlist')) {
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(true) });
+                    if (this.realFavoritesEnabled) return route.fallback();
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const wineryId = postData.p_winery_data?.id;
+                    
+                    if (!this.state.wishlistMap.has(currentUserId)) {
+                        this.state.wishlistMap.set(currentUserId, new Set());
+                    }
+                    const userWishlist = this.state.wishlistMap.get(currentUserId)!;
+                    let nextState = true;
+                    if (userWishlist.has(wineryId)) {
+                        userWishlist.delete(wineryId);
+                        nextState = false;
+                    } else {
+                        userWishlist.add(wineryId);
+                        nextState = true;
+                    }
+                    console.log(`[DIAGNOSTIC] Wishlist toggle for ${wineryId}: ${nextState}`);
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(nextState) });
                 }
 
                 if (url.includes('toggle_favorite')) {
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ isFavorite: true, dbId: 999 }) });
+                    if (this.realFavoritesEnabled) return route.fallback();
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const wineryId = postData.p_winery_data?.id;
+                    
+                    if (!this.state.favoritesMap.has(currentUserId)) {
+                        this.state.favoritesMap.set(currentUserId, new Set());
+                    }
+                    const userFavorites = this.state.favoritesMap.get(currentUserId)!;
+                    let nextState = true;
+                    if (userFavorites.has(wineryId)) {
+                        userFavorites.delete(wineryId);
+                        nextState = false;
+                    } else {
+                        userFavorites.add(wineryId);
+                        nextState = true;
+                    }
+                    console.log(`[DIAGNOSTIC] Favorite toggle for ${wineryId}: ${nextState}`);
+                    // The real RPC returns a boolean
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(nextState) });
                 }
 
                 if (url.includes('create_trip_with_winery')) {
@@ -390,8 +450,25 @@ export class MockMapsManager {
                 }
 
                 if (url.includes('get_map_markers') || url.includes('get_wineries_in_bounds') || url.includes('get_paginated_wineries')) {
-                    console.log(`[DIAGNOSTIC] Fulfilling Map RPC: ${url}`);
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(markers) });
+                    console.log(`[DIAGNOSTIC] Fulfilling Map RPC for ${currentUserId}: ${url}`);
+                    
+                    const userFavorites = this.state.favoritesMap.get(currentUserId);
+                    const userWishlist = this.state.wishlistMap.get(currentUserId);
+                    
+                    const dynamicMarkers = markers.map(m => {
+                        const isFav = userFavorites?.has(m.google_place_id) || false;
+                        const onWish = userWishlist?.has(m.google_place_id) || false;
+                        if (isFav || onWish) {
+                            console.log(`[DIAGNOSTIC] Marker ${m.name} status for ${currentUserId}: fav=${isFav}, wish=${onWish}`);
+                        }
+                        return {
+                            ...m,
+                            is_favorite: isFav,
+                            on_wishlist: onWish
+                        };
+                    });
+                    
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(dynamicMarkers) });
                 }
                 if (url.includes('ensure_winery')) {
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(999123) });
@@ -527,6 +604,19 @@ export class MockMapsManager {
                     );
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(visits) });
                 }
+                if (url.includes('toggle_favorite')) {
+                    if (this.realFavoritesEnabled) return route.fallback();
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(true) });
+                }
+                if (url.includes('toggle_wishlist')) {
+                    if (this.realFavoritesEnabled) return route.fallback();
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(true) });
+                }
+                if (url.includes('toggle_favorite_privacy') || url.includes('toggle_wishlist_privacy')) {
+                    if (this.realSocialEnabled) return route.fallback();
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, is_private: true }) });
+                }
+
                 if (url.includes('get_friend_profile_with_visits')) {
                     if (this.realSocialEnabled) return route.fallback();
                     const postData = JSON.parse(req.postData() || '{}');
@@ -570,7 +660,12 @@ export class MockMapsManager {
                     status: 501, 
                     contentType: 'application/json', 
                     headers: commonHeaders, 
-                    body: JSON.stringify({ error: `Mock not implemented for RPC: ${url}` }) 
+                    body: JSON.stringify({ 
+                        message: `Mock not implemented for RPC: ${url}`,
+                        code: '501',
+                        details: 'Unhandled RPC in MockMapsManager',
+                        hint: 'Add this RPC to the mock handler in e2e/utils.ts'
+                    }) 
                 });
             }
             if (url.includes('/auth/v1/')) return route.fallback();
@@ -709,7 +804,9 @@ export class MockMapsManager {
 
             if (wineryStore && wineryStore.getState) {
                 const state = wineryStore.getState();
-                if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0) {
+                // Only inject if store is truly empty AND we haven't already injected in this context
+                // @ts-ignore
+                if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0 && !window._E2E_INJECTED) {
                     // We manually standardize for the store since the utility isn't easily accessible here
                     const standardized = mockMarkers.map((m: any) => ({
                         id: m.google_place_id,
@@ -727,6 +824,9 @@ export class MockMapsManager {
                         reviews: []
                     }));
                     wineryStore.setState({ persistentWineries: standardized });
+                    // @ts-ignore
+                    window._E2E_INJECTED = true;
+                    console.log('[DIAGNOSTIC] Mock wineries injected into store');
                 }
             }
 
@@ -753,14 +853,11 @@ export class MockMapsManager {
             }
             return false;
         };
-        // Interval ensures we catch the store even if hydration lags
-        const intervalId = setInterval(() => {
-            if (inject()) {
-                // Once injected and maps ready, we can slow down or stop
-                // But keeping it running briefly helps with hydration flashes
-            }
-        }, 100);
-        setTimeout(() => clearInterval(intervalId), 10000);
+        // Run injection attempt
+        inject();
+        // Still use a small interval for hydration but with a guard to prevent overwrites
+        const intervalId = setInterval(inject, 200);
+        setTimeout(() => clearInterval(intervalId), 5000);
     }, { 
         mockMarkers: markers, 
         swEnabled: this.swEnabled,

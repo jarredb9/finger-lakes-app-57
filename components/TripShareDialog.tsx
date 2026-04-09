@@ -121,7 +121,11 @@ export function TripShareDialog({
 
   return createPortal(
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md flex flex-col max-h-[90dvh]" data-testid="trip-share-dialog">
+      <DialogContent 
+        className="sm:max-w-md flex flex-col max-h-[90dvh]" 
+        data-testid="trip-share-dialog"
+        data-state={isLoadingMembers || isStoreLoading ? "loading" : "ready"}
+      >
         <DialogHeader>
           <DialogTitle>Collaborate on &quot;{tripName}&quot;</DialogTitle>
           <DialogDescription>

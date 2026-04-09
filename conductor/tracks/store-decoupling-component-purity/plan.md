@@ -42,6 +42,16 @@ Objective: Transition from "Defensive Fixes" to a Professional/Principal standar
 
 **Verification Suite:** Run `trip-management.spec.ts`, `visit-flow.spec.ts`, `pwa-sync-deep.spec.ts`, `item-privacy.spec.ts`, and `smoke.spec.ts`.
 
+## Phase 6: Systemic Test Robustness (Integration Robustness)
+Objective: Standardize deterministic synchronization between E2E environment and application state to prevent race conditions in multi-context and real-database scenarios.
+
+- [~] Task 1: Atomic Injection. Refactored `MockMapsManager` to use a one-time `_E2E_INJECTED` guard rather than a destructive persistent interval.
+- [x] Task 2: Mutation Settlement Protocol. Implemented `waitForMutation` logic and explicit RPC waits in `item-privacy.spec.ts` and `helpers.ts`. 
+- [x] Task 3: Deterministic Hydration. Hardened `waitForAppReady` and implemented `waitForSignal` for modals. 
+- [ ] Task 4: Fix Action-in-Retry Anti-Patterns. Decoupled form submission from retry loops in `login()` helper. 
+
+**Verification Suite:** Run `trip-management.spec.ts`, `item-privacy.spec.ts`, `wishlist-flow.spec.ts`, and `pwa-assets.spec.ts` under high concurrency (e.g., 2+ workers). (Current status: Resolved timeouts in pwa-assets.spec.ts)
+
 ## Phase: Cleanup
 Objective: Ensure the "Complexity Ceiling" has been lowered and codified.
 

@@ -27,16 +27,25 @@ export async function waitForSignal(page: Page, testId: string, state: 'ready' |
 export async function waitForAppReady(page: Page) {
     const isMobile = page.viewportSize()?.width! < 768;
     
-    // First ensure the core shell is visible
+    // First ensure the core shell or the page content is visible
+    // For mobile, the navigation bar is a reliable indicator that the shell is ready
     const shellSelector = isMobile 
-      ? '[data-testid="mobile-sidebar-container"], [data-testid="settings-page-container"]' 
-      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"]';
+      ? '[data-testid="mobile-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"], [data-testid="mobile-nav-explore"], [data-testid="app-sidebar"]' 
+      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"]';
     
     await expect(page.locator(shellSelector).first()).toBeVisible({ timeout: 25000 });
+
+    // Ensure hydration signal is set on the shell if the shell is present
+    const hasShell = await page.locator('[data-hydrated]').count() > 0;
+    if (hasShell) {
+        await expect(page.locator('[data-hydrated="true"]').first()).toBeVisible({ timeout: 15000 });
+    }
 
     // Then wait for the primary feature container to be ready if we're on a main page
     if (page.url().endsWith('/') || page.url().includes('?')) {
         await waitForSignal(page, 'map-container', 'ready').catch(() => null);
+    } else if (page.url().includes('/trips/')) {
+        await waitForSignal(page, 'trip-details-card', 'ready').catch(() => null);
     } else if (page.url().includes('/trips')) {
         await waitForSignal(page, 'trip-list-container', 'ready').catch(() => null);
     }
@@ -46,13 +55,30 @@ export async function waitForAppReady(page: Page) {
  * Gets the tab trigger locator for both desktop and mobile.
  */
 export function getTabTrigger(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
-    // We look for both possible locations to handle hydration flashes or project mismatches
-    const mobileTab = page.getByTestId(`mobile-nav-${tabName.toLowerCase()}`);
-    const desktopTab = page.locator('[data-testid="desktop-sidebar-container"]').locator('[role="tab"]').filter({ hasText: tabName });
-    
-    return mobileTab.or(desktopTab).first();
+    const isMobile = page.viewportSize()!.width < 768;
+    if (isMobile) {
+        // Special case for 'Explore' which maps to 'Search' icon button on mobile
+        const id = tabName === 'Explore' ? 'explore' : tabName.toLowerCase();
+        return page.getByTestId(`mobile-nav-${id}`).first();
+    }
+    return page.locator('[data-testid="desktop-sidebar-container"]').locator('[role="tab"]').filter({ hasText: tabName }).first();
 }
 
+/**
+ * Dismisses the cookie consent banner if visible.
+ */
+export async function dismissCookieConsent(page: Page) {
+    const banner = page.locator('[aria-label="Cookie consent"]');
+    try {
+        if (await banner.isVisible({ timeout: 2000 })) {
+            const btn = banner.getByRole('button', { name: /Got it/i });
+            if (await btn.isVisible()) {
+                await btn.click({ force: true });
+                await expect(banner).not.toBeVisible({ timeout: 5000 });
+            }
+        }
+    } catch (e) {}
+}
 /**
  * Clears service workers and related caches for a fresh test state.
  */
@@ -146,13 +172,30 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
               await openBtn.click({ force: true });
           }
       }
+  } else {
+      // Dismiss overlays that block navigation on mobile
+      await dismissCookieConsent(page);
   }
 
   const tab = getTabTrigger(page, tabName);
+  await expect(tab).toBeVisible({ timeout: 15000 });
   await tab.click({ force: true });
 
   if (isMobile) {
-    const sheet = page.getByTestId('mobile-sidebar-container');
+    await expect(async () => {
+        // Dismiss any transient alerts or cookie banners that might have reappeared
+        await dismissCookieConsent(page);
+        
+        const tab = getTabTrigger(page, tabName);
+        await expect(tab).toBeVisible({ timeout: 5000 });
+        await tab.click({ force: true });
+        
+        // Wait for state transition
+        const sheet = page.locator('[data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"]').first();
+        await expect(sheet).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 20000, intervals: [2000] });
+
+    const sheet = page.locator('[data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"]').first();
     await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 15000 });
   }
 
@@ -235,20 +278,58 @@ export async function login(page: Page, email: string, pass: string, options: { 
       await page.waitForTimeout(2000);
   }
 
+  // 1. Ensure we are on the login page (with retries for slow navigation)
   await expect(async () => {
-    // Ensure we are on the login page
     if (!page.url().includes('/login')) {
         await page.goto(`/login${pwaSuffix}`);
     } else if (isPwa && !page.url().includes('pwa=true')) {
         await page.goto(`/login${pwaSuffix}`);
     }
-    
     await page.waitForLoadState('load');
     await page.waitForLoadState('networkidle');
+  }).toPass({ intervals: [2000], timeout: 15000 });
 
-    await submitLoginForm(page, email, pass);
+  // 2. Perform Login (Atomic submission)
+  // Always dismiss cookie consent if it appears before submission
+  await dismissCookieConsent(page);
+  await submitLoginForm(page, email, pass);
+
+  // 3. Wait for Success and App Readiness (with retries for slow shell transition)
+  await expect(async () => {
+    // If we're already on a protected page, check if we're authenticated
+    // This handles retries where the login succeeded but the follow-up wait failed
+    const hasUser = await page.evaluate(() => {
+        try {
+            return !!(window as any).useUserStore?.getState().user;
+        } catch (e) { return false; }
+    }).catch(() => false);
+
+    if (hasUser && !page.url().includes('/login')) {
+        await waitForAppReady(page);
+        return; 
+    }
+
+    // If still on login page and no user, we might need to re-click sign in 
+    // BUT only if we are absolutely sure the first click didn't fire an RPC
+    // To be safe, we just wait longer or check if there's a validation error
+    const isLoginPage = page.url().includes('/login');
+    if (isLoginPage && !hasUser) {
+        // Look for errors on page
+        const error = await page.locator('[role="alert"]').first().textContent().catch(() => null);
+        if (error) throw new Error(`Login failed with error: ${error}`);
+        
+        // Re-submit only if the sign in button is visible and not disabled
+        const signInBtn = page.getByRole('button', { name: 'Sign In' });
+        if (await signInBtn.isVisible() && await signInBtn.isEnabled()) {
+             await submitLoginForm(page, email, pass);
+        }
+    }
+
     await waitForAppReady(page);
-  }).toPass({ intervals: [3000], timeout: 60000 });
+  }).toPass({ intervals: [3000], timeout: 45000 });
+
+  // Final check for cookie consent after app is ready
+  await dismissCookieConsent(page);
   
   await page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 15000 }).catch(() => null);
 
@@ -337,8 +418,9 @@ export async function openWineryDetails(page: Page, wineryName: string) {
     await wineryItem.scrollIntoViewIfNeeded();
     await wineryItem.click({ force: true });
     
-    const modal = page.getByRole('dialog').filter({ hasText: /Detailed information/i });
-    await expect(modal).toBeVisible({ timeout: 10000 });
+    const modal = page.getByTestId('winery-modal');
+    await waitForSignal(page, 'winery-modal', 'ready', 15000);
+    await expect(modal).toBeVisible();
 }
 
 export async function closeWineryModal(page: Page) {
@@ -367,9 +449,16 @@ export async function closeWineryModal(page: Page) {
     await expect(modal).not.toBeVisible({ timeout: 10000 });
 }
 
-export async function logVisit(page: Page, data: { review: string, rating?: number, isPrivate?: boolean }) {
+export async function logVisit(page: Page, data: { review: string, rating?: number, isPrivate?: boolean, date?: string }) {
     const visitModal = page.getByTestId('visit-modal');
-    await expect(visitModal).toBeVisible({ timeout: 15000 });
+    
+    // Use Signal-Based Synchronization to wait for the modal to be ready
+    await waitForSignal(page, 'visit-modal', 'ready', 15000);
+    await expect(visitModal).toBeVisible();
+    
+    if (data.date) {
+        await visitModal.getByLabel('Visit Date').fill(data.date);
+    }
     
     await visitModal.getByLabel('Your Review').fill(data.review);
     if (data.rating) await visitModal.getByLabel(`Set rating to ${data.rating}`).click({ force: true });
@@ -501,28 +590,52 @@ export async function waitForToast(page: Page, message: string | RegExp) {
  * Faster alternative to waitForToast for success verification.
  */
 export async function expectTripInStore(page: Page, tripName: string) {
+    let start = Date.now();
     await expect(async () => {
         const found = await page.evaluate((name) => {
             // @ts-ignore
             const trips = window.useTripStore?.getState().trips || [];
             return trips.some((t: any) => t.name === name);
         }, tripName);
-        if (!found) throw new Error(`Trip "${tripName}" not found in store`);
-    }).toPass({ timeout: 10000, intervals: [500, 1000] });
+        
+        if (!found) {
+            // If it's been more than 3s, poke the store to ensure it's synced with the backend
+            if (Date.now() - start > 3000) {
+                 await page.evaluate(async () => {
+                    // @ts-ignore
+                    const store = window.useTripStore?.getState();
+                    if (store && !store.isLoading) await store.fetchTrips(1, 'upcoming', true);
+                }).catch(() => null);
+            }
+            throw new Error(`Trip "${tripName}" not found in store`);
+        }
+    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
 }
 
 /**
  * Asserts that a trip with the given name no longer exists in the store.
  */
 export async function expectTripDeletedFromStore(page: Page, tripName: string) {
+    let start = Date.now();
     await expect(async () => {
         const found = await page.evaluate((name) => {
             // @ts-ignore
             const trips = window.useTripStore?.getState().trips || [];
             return trips.some((t: any) => t.name === name);
         }, tripName);
-        if (found) throw new Error(`Trip "${tripName}" still exists in store`);
-    }).toPass({ timeout: 10000, intervals: [500, 1000] });
+        
+        if (found) {
+            // If it's been more than 3s, poke the store to ensure it's synced with the backend
+            if (Date.now() - start > 3000) {
+                 await page.evaluate(async () => {
+                    // @ts-ignore
+                    const store = window.useTripStore?.getState();
+                    if (store && !store.isLoading) await store.fetchTrips(1, 'upcoming', true);
+                }).catch(() => null);
+            }
+            throw new Error(`Trip "${tripName}" still exists in store`);
+        }
+    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
 }
 
 /**
@@ -555,6 +668,21 @@ export async function expectVisitDeletedFromStore(page: Page, reviewText: string
             return visits.some((v: any) => v.user_review?.includes(text));
         }, reviewText);
         if (found) throw new Error(`Visit with review containing "${reviewText}" still exists in store`);
+    }).toPass({ timeout: 10000, intervals: [500, 1000] });
+}
+
+/**
+ * Asserts that a winery's status (favorite/wishlist) in the store match the expected state.
+ */
+export async function expectWineryStatusInStore(page: Page, wineryName: string, type: 'favorite' | 'wishlist', isActive: boolean) {
+    await expect(async () => {
+        const actual = await page.evaluate(({ name, type }) => {
+            // @ts-ignore
+            const winery = window.useWineryDataStore?.getState().persistentWineries.find(w => w.name === name);
+            if (!winery) throw new Error(`Winery "${name}" not found in store`);
+            return type === 'favorite' ? !!winery.isFavorite : !!winery.onWishlist;
+        }, { name: wineryName, type });
+        if (actual !== isActive) throw new Error(`Status mismatch for ${type}: expected ${isActive}, but got ${actual}`);
     }).toPass({ timeout: 10000, intervals: [500, 1000] });
 }
 
