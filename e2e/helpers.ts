@@ -247,13 +247,18 @@ export async function ensureSidebarExpanded(page: Page) {
 }
 
 /**
- * Fills and submits the login form.
+ * Fills the login form fields.
  */
-export async function submitLoginForm(page: Page, email: string, pass: string) {
+export async function fillLoginForm(page: Page, email: string, pass: string) {
     await expect(page.getByLabel('Email')).toBeVisible({ timeout: 10000 });
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(pass);
-    
+}
+
+/**
+ * Clicks the sign-in button or presses Enter.
+ */
+export async function clickSignIn(page: Page) {
     const signInBtn = page.getByRole('button', { name: 'Sign In' });
     // Use click if visible, otherwise fall back to Enter key
     try {
@@ -261,6 +266,14 @@ export async function submitLoginForm(page: Page, email: string, pass: string) {
     } catch (e) {
         await page.keyboard.press('Enter');
     }
+}
+
+/**
+ * Fills and submits the login form.
+ */
+export async function submitLoginForm(page: Page, email: string, pass: string) {
+    await fillLoginForm(page, email, pass);
+    await clickSignIn(page);
 }
 
 export async function login(page: Page, email: string, pass: string, options: { skipMapReady?: boolean, isPwa?: boolean } = {}) {
@@ -318,10 +331,11 @@ export async function login(page: Page, email: string, pass: string, options: { 
         const error = await page.locator('[role="alert"]').first().textContent().catch(() => null);
         if (error) throw new Error(`Login failed with error: ${error}`);
         
-        // Re-submit only if the sign in button is visible and not disabled
+        // Re-click only if the sign in button is visible and not disabled
+        // We decoupled the form fill (Step 2) from this retry loop.
         const signInBtn = page.getByRole('button', { name: 'Sign In' });
         if (await signInBtn.isVisible() && await signInBtn.isEnabled()) {
-             await submitLoginForm(page, email, pass);
+             await clickSignIn(page).catch(() => {});
         }
     }
 
