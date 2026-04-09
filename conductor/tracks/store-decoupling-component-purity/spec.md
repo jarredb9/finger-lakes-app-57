@@ -38,11 +38,17 @@ Evolve the application architecture from "Global State-Driven" to **"Pattern-Dri
 - **Action Delegation Pattern:** Fully decouple specific UI flows (like Delete Confirmation Dialogs) from presentational cards. Cards must only emit "Intent" events; containers must handle the orchestration of the flow.
 - **Strict Mock Validation:** The `MockMapsManager` must be updated to behave as a "Strict Mock," throwing errors when the application makes requests that violate the expected state or ownership rules.
 
+### 6. Concurrency & Infrastructure Scalability
+- **Proxy Optimization:** Transition from a "Full-MITM" proxy approach to a "Targeted Interception" model to reduce CPU overhead in shared-resource environments (RHEL 8/Podman).
+- **Deterministic Helpers:** Standardize on "Action-First, Assertion-Second" patterns in all E2E helpers to eliminate double-submission race conditions.
+- **Worker Isolation:** Implement strict isolation strategies to allow scaling the test suite across multiple CPU cores without data or Service Worker pollution.
+
 ## Success Criteria
 1. `TripCard` unit tests require zero store mocks and run in < 1s.
 2. No Realtime "UI Flicker" (item appearing/disappearing) during high-latency network simulations.
 3. Zero `useEffect` hooks used for prop-to-state synchronization in UI components.
 4. Total decoupling: Deleting the `lib/stores` folder should not cause TypeScript errors in the `components/ui` folder.
+5. Full E2E suite passes with 100% stability when running with 4+ concurrent workers in a resource-constrained container.
 
 ## Validation Strategy
 - **Isolation Audit:** Attempt to run `npm run test` on a single component while intentionally breaking the `useTripStore` file. The test should still pass.
