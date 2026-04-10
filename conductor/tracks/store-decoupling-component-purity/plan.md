@@ -56,16 +56,18 @@ Objective: Standardize deterministic synchronization between E2E environment and
 Objective: Eliminate CPU saturation and network race conditions to support 2+ workers in containerized environments.
 
 - [x] Task 1: Optimize Network Proxying. Refactor `MockMapsManager` in `e2e/utils.ts` to use targeted regex/glob patterns for Supabase and Google Maps instead of the expensive `**/*` catch-all. [add9710]
-- [ ] Task 2: Hardened Helper Logic. Audit `e2e/helpers.ts` and ensure no actions (clicks, fills, keypresses) occur inside `toPass` or `expect(async () => ...)` blocks.
-- [ ] Task 3: Service Worker Origin Isolation. Implement a deterministic sabotage or unique scoping strategy in `MockMapsManager` to prevent Worker A's Service Worker from intercepting Worker B's requests.
-- [ ] Task 4: Environment Parallelization. Update `playwright.config.ts` and `scripts/run-e2e-container.sh` to ensure each worker operates in a strictly isolated context (e.g., unique ports or storage partitions) when running "Real Data" tests.
+- [x] Task 2: Hardened Helper Logic. Audit `e2e/helpers.ts` and ensure no actions (clicks, fills, keypresses) occur inside `toPass` or `expect(async () => ...)` blocks. [6a54052]
+- [x] Task 3: Service Worker Origin Isolation. Implement a deterministic sabotage or unique scoping strategy in `MockMapsManager` to prevent Worker A's Service Worker from intercepting Worker B's requests. [107e96c]
+- [~] Task 4: Environment Parallelization. Update `playwright.config.ts` and `scripts/run-e2e-container.sh` to ensure each worker operates in a strictly isolated context (e.g., unique ports or storage partitions) when running "Real Data" tests.
 
 **Verification Suite:** Run the full E2E suite with `workers: 4` in the Podman container. Confirm zero timeouts and 100% pass rate.
 
 ## Phase: Cleanup
 Objective: Ensure the "Complexity Ceiling" has been lowered and codified.
 
-- [ ] Task 1: Update `GEMINI.md` to reflect Phase 5 changes
-- [ ] Task 2: Update `project-testing-best-practices` to reflect Phase 5 changes
-- [ ] Task 3: Archive the track and update the project CHANGELOG.
+- [ ] Task 1: Remove directives and project information that has become outdated due to this track in `GEMINI.md`
+- [ ] Task 2: Add/update the directives and project information in the `GEMINI.md` that has changed as a result of this track
+- [ ] Task 3: Remove directives and project information that has become outdated due to this track in the `project-testing-best-practices` skill
+- [ ] Task 4: Add/update the directives and project information in the `project-testing-best-practices` skill that has changed as a result of this track
+- [ ] Task 5: Archive the track and update the project CHANGELOG.
 

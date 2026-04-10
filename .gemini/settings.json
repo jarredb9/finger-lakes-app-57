@@ -28,35 +28,35 @@
         "next-devtools-mcp@latest"
       ]
     },
-    "chrome-devtools": {
-      "command": "npx",
-      "args": [
-        "chrome-devtools-mcp@latest"
-      ]
-    },
+    // "chrome-devtools": {
+    //   "command": "npx",
+    //   "args": [
+    //     "chrome-devtools-mcp@latest"
+    //   ]
+    // },
     "supabase": {
       "httpUrl": "https://mcp.supabase.com/mcp"
     },
     "pg-aiguide": {
       "url": "https://mcp.tigerdata.com/docs"
     },
-    "vercel": {
-      "command": "npx",
-      "args": [
-        "mcp-remote",
-        "https://mcp.vercel.com"
-      ]
-    },
-    "firecrawl-mcp": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "firecrawl-mcp"
-      ],
-      "env": {
-        "FIRECRAWL_API_KEY": "$FIRECRAWL_API_KEY"
-      }
-    },
+    // "vercel": {
+    //   "command": "npx",
+    //   "args": [
+    //     "mcp-remote",
+    //     "https://mcp.vercel.com"
+    //   ]
+    // },
+    // "firecrawl-mcp": {
+    //   "command": "npx",
+    //   "args": [
+    //     "-y",
+    //     "firecrawl-mcp"
+    //   ],
+    //   "env": {
+    //     "FIRECRAWL_API_KEY": "$FIRECRAWL_API_KEY"
+    //   }
+    // },
     "tailwindcss-server": {
       "command": "tailwindcss-server"
     },

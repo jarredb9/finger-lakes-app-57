@@ -104,6 +104,12 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **Normalization:** All social relations use `trip_members`, `follows`, and `activity_ledger`.
 *   **Visibility:** Use the `is_visible_to_viewer` RPC to enforce Public/Friends/Private tiers.
 
+### **E. Styling & UI Standards**
+*   **The Tailwind Mandate:** **MANDATORY:** Use **Tailwind CSS v4** utility classes for all layout, spacing, and standard UI elements.
+*   **The shadcn/ui Rule:** Prioritize existing `shadcn/ui` components (found in `components/ui/`) for common primitives (Buttons, Dialogs, Inputs).
+*   **The Utility-First Rule:** Always prefer utility classes over custom CSS unless a component requires highly specialized animations or browser-native styling (e.g., complex `@keyframes` or complex pseudo-elements) that cannot be cleanly expressed with Tailwind.
+*   **The cn() Utility:** Always use the `cn()` helper (from `lib/utils.ts`) for dynamic class merging and overriding component defaults.
+
 ## 5. Engineering & Testing Standards
 **MANDATORY:** Activate specialized skills for detailed workflow and coverage requirements.
 
