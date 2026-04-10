@@ -107,9 +107,11 @@ export class MockMapsManager {
   private currentUserId: string = 'test-user-id';
   private swEnabled = false;
   private mocksRegistered = false;
+  private workerIndex: number;
 
-  constructor(private page: Page, state?: MockMapsState) {
+  constructor(private page: Page, state?: MockMapsState, workerIndex: number = 0) {
       this.state = state || createDefaultMockState();
+      this.workerIndex = workerIndex;
   }
 
   /**
@@ -662,7 +664,7 @@ export class MockMapsManager {
     }
 
     // Proactive injection into Store
-    await this.page.addInitScript(({ mockMarkers, swEnabled, realFavoritesEnabled, realVisitsEnabled, realTripsEnabled }: any) => {
+    await this.page.addInitScript(({ mockMarkers, swEnabled, realFavoritesEnabled, realVisitsEnabled, realTripsEnabled, workerIndex }: any) => {
         (window as any)._E2E_MOCKS_ACTIVE = true;
         
         // Enable real sync in store if we're using real favorites/visits/trips
@@ -670,10 +672,31 @@ export class MockMapsManager {
             (window as any)._E2E_ENABLE_REAL_SYNC = true;
         }
 
-        if (!swEnabled && 'serviceWorker' in navigator) {
-            (navigator.serviceWorker as any).register = () => {
-                console.log('[DIAGNOSTIC] SW Registration blocked by MockMapsManager');
-                return Promise.reject(new Error('SW blocked for test stability'));
+        if ('serviceWorker' in navigator) {
+            // 1. Unregister foreign service workers immediately
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                for (const registration of registrations) {
+                    const scriptURL = registration.active?.scriptURL || registration.installing?.scriptURL || registration.waiting?.scriptURL;
+                    if (scriptURL && !scriptURL.includes(`worker=${workerIndex}`)) {
+                        console.log(`[DIAGNOSTIC] Unregistering foreign SW: ${scriptURL} (Target Worker: ${workerIndex})`);
+                        registration.unregister();
+                    }
+                }
+            });
+
+            // 2. Sabotage or Isolate registration
+            const originalRegister = navigator.serviceWorker.register.bind(navigator.serviceWorker);
+            (navigator.serviceWorker as any).register = (url: string, options?: any) => {
+                if (!swEnabled) {
+                    console.log('[DIAGNOSTIC] SW Registration blocked by MockMapsManager');
+                    return Promise.reject(new Error('SW blocked for test stability'));
+                }
+
+                // Append worker index to SW URL to ensure isolation
+                const swUrl = new URL(url, window.location.href);
+                swUrl.searchParams.set('worker', String(workerIndex));
+                console.log(`[DIAGNOSTIC] Registering isolated SW: ${swUrl.toString()}`);
+                return originalRegister(swUrl.toString(), options);
             };
         }
         
@@ -747,7 +770,8 @@ export class MockMapsManager {
         swEnabled: this.swEnabled,
         realFavoritesEnabled: this.realFavoritesEnabled,
         realVisitsEnabled: this.realVisitsEnabled,
-        realTripsEnabled: this.realTripsEnabled
+        realTripsEnabled: this.realTripsEnabled,
+        workerIndex: this.workerIndex
     } as any);
   }
 
@@ -788,7 +812,7 @@ export const test = base.extend<{
 }>({
   mockMaps: [async ({ page }, use, testInfo) => {
     const state = createDefaultMockState();
-    const manager = new MockMapsManager(page, state);
+    const manager = new MockMapsManager(page, state, testInfo.workerIndex);
     if (testInfo.file.includes('pwa-')) { manager.enableServiceWorker(); }
     
     manager.setupLogging();
