@@ -57,12 +57,6 @@
         "FIRECRAWL_API_KEY": "$FIRECRAWL_API_KEY"
       }
     },
-    "playwright": {
-      "command": "npx",
-      "args": [
-        "@playwright/mcp@latest"
-      ]
-    },
     "tailwindcss-server": {
       "command": "tailwindcss-server"
     },
