@@ -58,9 +58,9 @@ Objective: Eliminate CPU saturation and network race conditions to support 2+ wo
 - [x] Task 1: Optimize Network Proxying. Refactor `MockMapsManager` in `e2e/utils.ts` to use targeted regex/glob patterns for Supabase and Google Maps instead of the expensive `**/*` catch-all. [add9710]
 - [x] Task 2: Hardened Helper Logic. Audit `e2e/helpers.ts` and ensure no actions (clicks, fills, keypresses) occur inside `toPass` or `expect(async () => ...)` blocks. [6a54052]
 - [x] Task 3: Service Worker Origin Isolation. Implement a deterministic sabotage or unique scoping strategy in `MockMapsManager` to prevent Worker A's Service Worker from intercepting Worker B's requests. [107e96c]
-- [~] Task 4: Environment Parallelization. Update `playwright.config.ts` and `scripts/run-e2e-container.sh` to ensure each worker operates in a strictly isolated context (e.g., unique ports or storage partitions) when running "Real Data" tests.
+- [x] Task 4: Environment Parallelization. Update `playwright.config.ts` and `scripts/run-e2e-container.sh` to ensure each worker operates in a strictly isolated context (e.g., unique ports or storage partitions) when running "Real Data" tests. Currently implemented with 2 workers and unique storage partitions per worker. [65a4737]
 
-**Verification Suite:** Run the full E2E suite with `workers: 4` in the Podman container. Confirm zero timeouts and 100% pass rate.
+**Verification Suite:** Run the full E2E suite with `workers: 2` in the Podman container. Confirm zero timeouts and 100% pass rate.
 
 ## Phase: Cleanup
 Objective: Ensure the "Complexity Ceiling" has been lowered and codified.
