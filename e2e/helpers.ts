@@ -182,20 +182,19 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
   await tab.click({ force: true });
 
   if (isMobile) {
-    await expect(async () => {
-        // Dismiss any transient alerts or cookie banners that might have reappeared
-        await dismissCookieConsent(page);
-        
-        const tab = getTabTrigger(page, tabName);
-        await expect(tab).toBeVisible({ timeout: 5000 });
-        await tab.click({ force: true });
-        
-        // Wait for state transition
-        const sheet = page.locator('[data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"]').first();
-        await expect(sheet).toBeVisible({ timeout: 5000 });
-    }).toPass({ timeout: 20000, intervals: [2000] });
-
+    // Wait for state transition to be stable on mobile
     const sheet = page.locator('[data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"]').first();
+    await expect(sheet).toBeVisible({ timeout: 15000 });
+    
+    // If it's still not stable, we can retry the click ONCE outside of toPass if needed,
+    // but usually Playwright's auto-retries on click are enough if the element is visible.
+    // For extreme flakiness, we use a controlled retry.
+    const isStable = await sheet.getAttribute('data-state').then(s => s === 'stable').catch(() => false);
+    if (!isStable) {
+        await dismissCookieConsent(page);
+        await tab.click({ force: true }).catch(() => {});
+    }
+
     await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 15000 });
   }
 
@@ -229,21 +228,19 @@ export async function ensureSidebarExpanded(page: Page) {
     
     const sidebar = getSidebarContainer(page);
     
-    await expect(async () => {
-        // Wait for any existing animation to settle
-        await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 5000 });
-        
-        const expandBtn = page.getByRole('button', { name: 'Expand to full screen' });
-        if (await expandBtn.isVisible()) {
-            await expandBtn.click({ force: true });
-            // Wait for it to settle in full screen
-            await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 5000 });
-        }
-        
-        // Final verification that we are either full screen or the button is gone (already full)
-        const isCollapsed = await page.getByRole('button', { name: 'Expand to full screen' }).isVisible();
-        if (isCollapsed) throw new Error('Sidebar failed to expand');
-    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
+    // 1. Wait for animation to settle
+    await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+    
+    // 2. Click expand if visible
+    const expandBtn = page.getByRole('button', { name: 'Expand to full screen' });
+    if (await expandBtn.isVisible()) {
+        await expandBtn.click({ force: true });
+        // 3. Wait for full screen state
+        await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+    }
+
+    // Final verification: button should be gone (full screen)
+    await expect(expandBtn).not.toBeVisible({ timeout: 5000 });
 }
 
 /**
@@ -307,10 +304,9 @@ export async function login(page: Page, email: string, pass: string, options: { 
   await dismissCookieConsent(page);
   await submitLoginForm(page, email, pass);
 
-  // 3. Wait for Success and App Readiness (with retries for slow shell transition)
+  // 3. Wait for Success and App Readiness
+  // We first wait for the URL to change or the store to have a user
   await expect(async () => {
-    // If we're already on a protected page, check if we're authenticated
-    // This handles retries where the login succeeded but the follow-up wait failed
     const hasUser = await page.evaluate(() => {
         try {
             return !!(window as any).useUserStore?.getState().user;
@@ -318,29 +314,19 @@ export async function login(page: Page, email: string, pass: string, options: { 
     }).catch(() => false);
 
     if (hasUser && !page.url().includes('/login')) {
-        await waitForAppReady(page);
-        return; 
+        return;
+    }
+    
+    // Check for explicit error message on login page
+    const error = await page.locator('[role="alert"]').first().textContent({ timeout: 1000 }).catch(() => null);
+    if (error && (error.toLowerCase().includes('invalid') || error.toLowerCase().includes('error'))) {
+        throw new Error(`Login failed with error: ${error}`);
     }
 
-    // If still on login page and no user, we might need to re-click sign in 
-    // BUT only if we are absolutely sure the first click didn't fire an RPC
-    // To be safe, we just wait longer or check if there's a validation error
-    const isLoginPage = page.url().includes('/login');
-    if (isLoginPage && !hasUser) {
-        // Look for errors on page
-        const error = await page.locator('[role="alert"]').first().textContent().catch(() => null);
-        if (error) throw new Error(`Login failed with error: ${error}`);
-        
-        // Re-click only if the sign in button is visible and not disabled
-        // We decoupled the form fill (Step 2) from this retry loop.
-        const signInBtn = page.getByRole('button', { name: 'Sign In' });
-        if (await signInBtn.isVisible() && await signInBtn.isEnabled()) {
-             await clickSignIn(page).catch(() => {});
-        }
-    }
+    throw new Error('Still waiting for login transition');
+  }).toPass({ intervals: [2000], timeout: 30000 });
 
-    await waitForAppReady(page);
-  }).toPass({ intervals: [3000], timeout: 45000 });
+  await waitForAppReady(page);
 
   // Final check for cookie consent after app is ready
   await dismissCookieConsent(page);
@@ -440,27 +426,34 @@ export async function openWineryDetails(page: Page, wineryName: string) {
 export async function closeWineryModal(page: Page) {
     const modal = page.getByTestId('winery-modal');
     
+    const isOpen = await page.evaluate(() => {
+        // @ts-ignore
+        return !!(window.useUIStore?.getState().isWineryModalOpen);
+    });
+
+    if (isOpen) {
+        const closeBtn = modal.getByRole('button', { name: /Close/i });
+        if (await closeBtn.isVisible({ timeout: 2000 })) {
+            await closeBtn.click({ force: true });
+        } else {
+            await page.keyboard.press('Escape');
+        }
+    }
+
+    // Wait for the store to update and the modal to hide
     await expect(async () => {
         const isOpen = await page.evaluate(() => {
             // @ts-ignore
             return !!(window.useUIStore?.getState().isWineryModalOpen);
         });
-        if (!isOpen) return;
-
-        const closeBtn = modal.getByRole('button', { name: /Close/i });
-        if (await closeBtn.isVisible()) {
-            // Only click if it's enabled to avoid timeout
-            if (await closeBtn.isEnabled()) {
-                await closeBtn.click({ force: true });
-            }
-        } else {
-            await page.keyboard.press('Escape');
+        if (isOpen) {
+            // If it's still open, try hitting Escape one more time as a fallback
+            await page.keyboard.press('Escape').catch(() => {});
+            throw new Error('Winery modal still open in store');
         }
+    }).toPass({ timeout: 10000, intervals: [1000] });
 
-        throw new Error('Winery modal still open in store');
-    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
-
-    await expect(modal).not.toBeVisible({ timeout: 10000 });
+    await expect(modal).not.toBeVisible({ timeout: 5000 });
 }
 
 export async function logVisit(page: Page, data: { review: string, rating?: number, isPrivate?: boolean, date?: string }) {
@@ -480,11 +473,9 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
     
     const saveBtn = visitModal.getByTestId('visit-save-button');
     
-    // In Firefox, force: true can be too aggressive if the button is temporarily obscured.
-    // We try regular click first if enabled, but the real robustness comes from the retry loop.
-    
     // Buffer for React event loop
     await page.waitForTimeout(500);
+    await saveBtn.click({ force: true });
 
     await expect(async () => {
         const { isOpen, isSubmitting, errorText } = await page.evaluate(() => {
@@ -510,14 +501,18 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
 
         if (!isOpen) return;
 
-        // RETRY CLICK: If modal is still open and we are not currently submitting, click again.
-        // This handles race conditions where the first click happened before the form was ready.
+        // If it's still open but not submitting, we might need a fallback click 
+        // if the first one was ignored, but we do it outside of this loop ideally 
+        // or very sparingly.
         if (!isSubmitting) {
-            await saveBtn.click({ force: true }).catch(() => {});
+            // Check if button is still enabled
+            if (await saveBtn.isEnabled({ timeout: 1000 })) {
+                 await saveBtn.click({ force: true }).catch(() => {});
+            }
         }
 
         throw new Error(`Modal still open (isSavingVisit=${isSubmitting})`);
-    }).toPass({ timeout: 25000, intervals: [2000] });
+    }).toPass({ timeout: 25000, intervals: [3000] });
 
     await expectVisitInStore(page, data.review);
     await expect(visitModal).not.toBeVisible({ timeout: 10000 });
@@ -576,14 +571,13 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
         }
 
         const requestRow = pageB.locator(rowId).first();
-        if (!(await requestRow.isVisible())) {
-            throw new Error(`Request from ${user1Email} not found in requests card`);
+        if (await requestRow.isVisible()) {
+            const acceptBtn = requestRow.locator('[data-testid="accept-request-btn"]');
+            await acceptBtn.click({ force: true });
+            await pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request'), { timeout: 10000 }).catch(() => null);
         }
-        
-        const acceptBtn = requestRow.locator('[data-testid="accept-request-btn"]');
-        await acceptBtn.click({ force: true });
-        
-        await pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request'), { timeout: 10000 }).catch(() => null);
+
+        // Wait for User B to see User A as a friend
         await expect(friendsCard.locator(`text="${user1Email}"`)).toBeVisible({ timeout: 15000 });
     }).toPass({ timeout: 60000, intervals: [5000] });
 
@@ -856,12 +850,16 @@ export async function removeFriend(page: Page, email: string) {
         }
 
         const removeBtn = friendRow.locator('button[aria-label="Remove friend"], [data-testid="remove-friend-btn"], [data-testid="cancel-request-btn"]').first();
-        await removeBtn.click({ force: true });
+        if (await removeBtn.isVisible()) {
+            await removeBtn.click({ force: true });
 
-        // Handle AlertDialog only if it was an accepted friend
-        if (isFriend) {
-            const confirmBtn = page.locator('button:has-text("Remove"), [data-testid="confirm-remove-btn"]').filter({ visible: true }).first();
-            await confirmBtn.click({ force: true });
+            // Handle AlertDialog only if it was an accepted friend
+            if (isFriend) {
+                const confirmBtn = page.locator('button:has-text("Remove"), [data-testid="confirm-remove-btn"]').filter({ visible: true }).first();
+                if (await confirmBtn.isVisible({ timeout: 2000 })) {
+                    await confirmBtn.click({ force: true });
+                }
+            }
         }
 
         await expect(sidebar.locator(`text="${email}"`)).not.toBeVisible({ timeout: 10000 });
