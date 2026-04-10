@@ -20,7 +20,7 @@ export default defineConfig({
   /* Retry on CI only */
   retries: process.env.CI ? 2 : 0,
   /* Opt out of parallel tests on CI. */
-  workers: process.env.CI ? 2 : undefined,
+  workers: process.env.IS_E2E === 'true' ? 2 : (process.env.CI ? 2 : undefined),
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [['html', { open: 'never' }]],
   
@@ -85,12 +85,14 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: {
-    command: process.env.IS_E2E === 'true' ? 'npm run start -- -p 3001' : 'npm run dev -- -p 3001',
-    url: 'http://localhost:3001',
+  webServer: [0, 1].map(i => ({
+    command: process.env.IS_E2E === 'true' 
+      ? `npm run start -- -p ${3001 + i}` 
+      : `npm run dev -- -p ${3001 + i}`,
+    url: `http://localhost:${3001 + i}`,
     reuseExistingServer: true,
-    timeout: 120 * 1000,
-    stdout: 'pipe',
+    stdout: 'ignore',
     stderr: 'pipe',
-  },
+    timeout: 120 * 1000,
+  })),
 });

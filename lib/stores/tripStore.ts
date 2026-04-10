@@ -161,12 +161,25 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           const newTrips = rawTrips.map(t => ({ ...t, syncStatus: 'synced' as const }));
           const { lastActionTimestamp } = get();
 
+          if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+            console.log('[DIAGNOSTIC] fetchTrips incoming:', { 
+              type, 
+              lastActionTimestamp, 
+              incomingCount: newTrips.length,
+              incomingNames: newTrips.map(t => t.name)
+            });
+          }
+
           set(state => {
             // Sync Lock for fetchTrips
             const filteredNewTrips = newTrips.filter((newTrip: Trip) => {
               if (!lastActionTimestamp || !newTrip.updated_at) return true;
               const payloadTime = new Date(newTrip.updated_at).getTime();
-              return payloadTime >= lastActionTimestamp - 1000;
+              const isOk = payloadTime >= lastActionTimestamp - 1000;
+              if (!isOk && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+                console.log(`[DIAGNOSTIC] fetchTrips FILTERED OUT stale trip: ${newTrip.name}`, { payloadTime, lastActionTimestamp });
+              }
+              return isOk;
             });
 
             // If we're refreshing and some items were stale, we need to merge carefully

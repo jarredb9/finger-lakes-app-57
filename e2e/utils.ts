@@ -2,6 +2,8 @@
 /* eslint-disable react-hooks/rules-of-hooks */
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+import fs from 'fs';
+import path from 'path';
 import { Page, test as base } from '@playwright/test';
 import { createMockMapMarkerRpc, createMockVisitWithWinery, createMockTrip } from '@/lib/test-utils/fixtures';
 import { 
@@ -45,6 +47,7 @@ export interface RpcVisitWithWinery {
   google_place_id: string;
   winery_address: string;
   friend_visits: any[];
+  updated_at: string;
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -304,7 +307,8 @@ export class MockMapsManager {
                 winery_name: winery?.name || wineryData.name || 'Unknown Winery',
                 google_place_id: winery?.google_place_id || wineryId,
                 winery_address: winery?.address || wineryData.address || 'Unknown Address',
-                friend_visits: []
+                friend_visits: [],
+                updated_at: new Date(Date.now() + 5000).toISOString()
             };
             this.state.visits.push(newVisit);
 
@@ -364,7 +368,13 @@ export class MockMapsManager {
         if (url.includes('create_trip_with_winery')) {
             const postData = JSON.parse(req.postData() || '{}');
             const newId = Math.floor(Math.random() * 10000);
-            const newTrip = createMockTrip({ id: newId, name: postData.p_trip_name, trip_date: postData.p_trip_date, user_id: currentUserId });
+            const newTrip = createMockTrip({ 
+                id: newId, 
+                name: postData.p_trip_name, 
+                trip_date: postData.p_trip_date, 
+                user_id: currentUserId,
+                updated_at: new Date(Date.now() + 5000).toISOString()
+            });
             if (!this.state.trips) this.state.trips = [];
             this.state.trips.push(newTrip);
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ trip_id: newId }) });
@@ -373,7 +383,13 @@ export class MockMapsManager {
         if (url.includes('create_trip')) {
             const postData = JSON.parse(req.postData() || '{}');
             const newId = Math.floor(Math.random() * 10000);
-            const newTrip = createMockTrip({ id: newId, name: postData.p_name, trip_date: postData.p_trip_date, user_id: currentUserId });
+            const newTrip = createMockTrip({ 
+                id: newId, 
+                name: postData.p_name, 
+                trip_date: postData.p_trip_date, 
+                user_id: currentUserId,
+                updated_at: new Date(Date.now() + 5000).toISOString()
+            });
             if (!this.state.trips) this.state.trips = [];
             this.state.trips.push(newTrip);
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ id: newId }) });
@@ -644,7 +660,8 @@ export class MockMapsManager {
             winery_name: mockVisit.wineryName || 'Vineyard of Illusion',
             google_place_id: mockVisit.wineryId || 'ch-67890-mock-winery-2' as GooglePlaceId, 
             winery_address: mockVisit.wineries.address, 
-            friend_visits: []
+            friend_visits: [],
+            updated_at: new Date().toISOString()
         }];
     }
 
@@ -810,6 +827,25 @@ export const test = base.extend<{
   mockMaps: MockMapsManager;
   user: TestUser;
 }>({
+  // Dynamically set baseURL based on worker index for strict port isolation
+  baseURL: async ({}, use, testInfo) => {
+    const port = 3001 + (testInfo.workerIndex % 2);
+    await use(`http://localhost:${port}`);
+  },
+
+  // Use unique storage state per worker to ensure strict filesystem-level partitioning
+  storageState: async ({}, use, testInfo) => {
+    const partition = path.join(process.cwd(), `test-results/.storage/worker-${testInfo.workerIndex}.json`);
+    const dir = path.dirname(partition);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    if (!fs.existsSync(partition)) {
+      fs.writeFileSync(partition, JSON.stringify({ cookies: [], origins: [] }, null, 2));
+    }
+    await use(partition);
+  },
+
   mockMaps: [async ({ page }, use, testInfo) => {
     const state = createDefaultMockState();
     const manager = new MockMapsManager(page, state, testInfo.workerIndex);
