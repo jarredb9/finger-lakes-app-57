@@ -586,7 +586,7 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
 }
 
 export async function waitForToast(page: Page, message: string | RegExp) {
-    const toast = page.locator('[role="status"], [role="alert"]').filter({ hasText: message }).first();
+    const toast = page.locator('ol li[role="status"], ol li[role="alert"]').filter({ hasText: message }).first();
     // Wait for the toast to be attached to the DOM first
     await toast.waitFor({ state: 'attached', timeout: 20000 });
     // Then ensure it's visible to the user

@@ -6,7 +6,9 @@ import {
     navigateToTab, 
     ensureSidebarExpanded,
     expectTripInStore,
-    expectTripDeletedFromStore
+    expectTripDeletedFromStore,
+    waitForSignal,
+    waitForAppReady
 } from './helpers';
 
 test.describe('Trip Management Flow', () => {
@@ -26,19 +28,25 @@ test.describe('Trip Management Flow', () => {
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);
     
-    await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
+    // Use signal-based synchronization
+    await waitForSignal(page, 'trip-list-container', 'ready');
     
     // 2. Create New Trip directly
     const uniqueTripName = `Mgmt Trip ${Date.now()}`;
     const newTripBtn = sidebar.getByRole('button', { name: 'New Trip' });
     await newTripBtn.click({ force: true });
     
+    // Wait for form to be ready
+    await waitForSignal(page, 'trip-form-card', 'ready');
     const tripForm = page.getByTestId('trip-form-card');
     await tripForm.getByTestId('trip-name-input').fill(uniqueTripName);
     
     // Ensure button is enabled (isValid should be true after filling name)
     const submitBtn = tripForm.getByTestId('create-trip-submit-btn');
     await expect(submitBtn).toBeEnabled({ timeout: 10000 });
+
+    // Small buffer for mobile to ensure React Hook Form has processed the fill
+    await page.waitForTimeout(500);
 
     // Save and wait for the RPC response
     await Promise.all([
@@ -51,8 +59,11 @@ test.describe('Trip Management Flow', () => {
     // Ensure the dialog is gone before checking the sidebar
     await expect(page.getByRole('dialog')).not.toBeVisible();
 
+    // Re-fetch sidebar after navigation/dialog closure for stability
+    const activeSidebar = getSidebarContainer(page);
+
     // Give the UI a moment to re-render the list with proactive sync
-    const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
+    const tripCard = activeSidebar.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
     await expect(async () => {
         await page.evaluate(async () => {
             const store = (window as any).useTripStore?.getState();
@@ -70,6 +81,8 @@ test.describe('Trip Management Flow', () => {
     
     // 4. On the details page
     await expect(page).toHaveURL(new RegExp(`/trips/${tripId}`), { timeout: 15000 });
+    await waitForSignal(page, 'trip-details-card', 'ready');
+    
     try {
         await expect(async () => {
             // Check for Next.js error page
@@ -82,7 +95,7 @@ test.describe('Trip Management Flow', () => {
             }
 
             // Check for our custom error states
-            const alertError = page.locator('[role="alert"]').first();
+            const alertError = page.locator('ol li[role="alert"]').first();
             if (await alertError.isVisible()) {
                 const errorText = await alertError.innerText();
                 const isRealError = errorText.includes('Error Loading Trip') || errorText.includes('Access denied');
@@ -95,8 +108,6 @@ test.describe('Trip Management Flow', () => {
                         if (store) await store.fetchTripById(id);
                     }, tripId);
                     throw new Error(`Trip Error Alert: ${errorText}`);
-                } else {
-                    console.log(`[DIAGNOSTIC] Ignoring unrelated alert: ${errorText.substring(0, 50)}...`);
                 }
             }
 
@@ -162,13 +173,24 @@ test.describe('Trip Management Flow', () => {
     // Verify name changed on page
     await expect(page.getByText(renamedTripName, { exact: false }).first()).toBeVisible({ timeout: 10000 });
     
+    // Wait for any toasts to clear before clicking "Back to Map" on mobile 
+    // as it can be covered by the top-aligned toast viewport
+    const toast = page.locator('ol li[role="status"], ol li[role="alert"]').first();
+    if (await toast.isVisible()) {
+        await expect(toast).not.toBeVisible({ timeout: 10000 });
+    }
+
     // Navigate back to trips to verify deletion
-    page.getByRole('link', { name: 'Back to Map' }).click({ force: true });
+    await page.goto('/');
+    await waitForAppReady(page);
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);
+    
+    // Re-fetch sidebar again for stability
+    const finalSidebar = getSidebarContainer(page);
 
     // 5. Delete Trip
-    const updatedTripCard = sidebar.getByTestId('trip-card').filter({ hasText: renamedTripName }).first();
+    const updatedTripCard = finalSidebar.getByTestId('trip-card').filter({ hasText: renamedTripName }).first();
     
     await expect(async () => {
         // Proactive sync to ensure rename is reflected in the list

@@ -43,6 +43,14 @@ const tripSchema = z.object({
 type TripFormValues = z.infer<typeof tripSchema>
 
 export default function TripForm({ initialDate, user, onClose }: TripFormProps) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    // Use requestAnimationFrame to ensure we only mark as ready 
+    // after the browser has had a chance to render the initial frame
+    const raf = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
   const { toast } = useToast();
   const { createTrip } = useTripStore();
   const { ensureInDb, upsertWinery } = useWineryDataStore();
@@ -148,7 +156,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
   };
 
   return (
-    <Card data-testid="trip-form-card">
+    <Card data-testid="trip-form-card" data-state={mounted ? "ready" : "loading"}>
       <CardHeader>
         <CardTitle>Create a New Trip</CardTitle>
         <CardDescription>Give your trip a name and date, then search for wineries to add.</CardDescription>
