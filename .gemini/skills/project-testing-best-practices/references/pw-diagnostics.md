@@ -63,4 +63,12 @@ If an RPC call returns `400 Bad Request` during a test, it is almost certainly a
 - **Problem:** If flags like `_E2E_ENABLE_REAL_SYNC` are not set yet, the app skips the logic you intend to test.
 - **Solution:** Tests forcing specific paths MUST use both `addInitScript` (for future navigations) AND `page.evaluate` (for immediate state) to set E2E flags and clear the store. This ensures the *next* navigation (e.g. `login()`) sees the clean state and correct flags.
 
+### 10. The Mutation Settlement Protocol
+For asynchronous database actions (Log Visit, Edit Trip, etc.), simply clicking the save button is insufficient and leads to race conditions.
+- **Protocol:**
+    1. **Network Wait:** Use `Promise.all([page.waitForResponse(...), btn.click()])` to ensure the RPC finishes.
+    2. **Logic Assert:** Use `expectWineryStatusInStore` or equivalent `page.evaluate` + `toPass` assertion to verify the store updated.
+    3. **UX Assert:** Finally, verify the DOM (Toast or Modal closure).
+- **Why:** This ensures the mutation is fully processed and synced before the test proceeds to the next step, preventing "Ghost State" failures.
+
 Reference: [Playwright Debugging](https://playwright.dev/docs/debug)
