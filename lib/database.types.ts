@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       activity_ledger: {
@@ -647,10 +642,6 @@ export type Database = {
           user_review: string
         }[]
       }
-      get_friends_winery_history: {
-        Args: { winery_id_param: number }
-        Returns: Json
-      }
       get_map_markers: {
         Args: { user_id_param?: string }
         Returns: {
@@ -1037,3 +1028,4 @@ export const Constants = {
     },
   },
 } as const
+
