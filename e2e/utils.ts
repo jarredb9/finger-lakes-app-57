@@ -217,7 +217,7 @@ export class MockMapsManager {
         }
     }).catch(() => {});
 
-    await this.page.route(/\/rpc\/get_map_markers/, async (route) => {
+    await this.page.route(/.*rpc\/get_map_markers/, async (route) => {
       console.log(`[DIAGNOSTIC] Intercepting get_map_markers with 500 error`);
       await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
     });
@@ -241,7 +241,6 @@ export class MockMapsManager {
     ];
 
     const todayCA = new Date().toLocaleDateString('en-CA');
-    const currentUserId = this.currentUserId;
 
     // 1. Supabase Profiles Handler
     await this.page.route(/supabase\.co\/rest\/v1\/profiles/, async (route) => {
@@ -250,7 +249,7 @@ export class MockMapsManager {
         if (this.realSocialEnabled) return route.fallback();
         
         const idMatch = req.url().match(/id=eq\.([^&]+)/);
-        const requestedId = idMatch ? idMatch[1] : currentUserId;
+        const requestedId = idMatch ? idMatch[1] : this.currentUserId;
         
         const profile = { id: requestedId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' };
         const body = req.headers()['accept']?.includes('application/vnd.pgrst.object+json') 
@@ -261,7 +260,7 @@ export class MockMapsManager {
     });
 
     // 2. Supabase RPC Handler
-    await this.page.route(/supabase\.co\/rpc\//, async (route) => {
+    await this.page.route(/supabase\.co\/.*rpc\//, async (route) => {
         const req = route.request();
         const url = req.url();
         const method = req.method();
@@ -298,7 +297,7 @@ export class MockMapsManager {
             
             const newVisit = {
                 visit_id: newId,
-                user_id: currentUserId,
+                user_id: this.currentUserId,
                 visit_date: visitData.visit_date || todayCA,
                 user_review: visitData.user_review || null,
                 rating: visitData.rating || null,
@@ -316,7 +315,7 @@ export class MockMapsManager {
             this.state.activityFeed.push({
                 activity_type: 'visit',
                 created_at: new Date().toISOString(),
-                activity_user_id: currentUserId,
+                activity_user_id: this.currentUserId,
                 user_name: 'Test User',
                 user_email: 'test@example.com',
                 winery_id: newVisit.winery_id,
@@ -336,8 +335,8 @@ export class MockMapsManager {
         if (url.includes('toggle_wishlist')) {
             const postData = JSON.parse(req.postData() || '{}');
             const wineryId = postData.p_winery_data?.id;
-            if (!this.state.wishlistMap.has(currentUserId)) this.state.wishlistMap.set(currentUserId, new Set());
-            const userWishlist = this.state.wishlistMap.get(currentUserId)!;
+            if (!this.state.wishlistMap.has(this.currentUserId)) this.state.wishlistMap.set(this.currentUserId, new Set());
+            const userWishlist = this.state.wishlistMap.get(this.currentUserId)!;
             let nextState = true;
             if (userWishlist.has(wineryId)) {
                 userWishlist.delete(wineryId);
@@ -352,8 +351,8 @@ export class MockMapsManager {
         if (url.includes('toggle_favorite')) {
             const postData = JSON.parse(req.postData() || '{}');
             const wineryId = postData.p_winery_data?.id;
-            if (!this.state.favoritesMap.has(currentUserId)) this.state.favoritesMap.set(currentUserId, new Set());
-            const userFavorites = this.state.favoritesMap.get(currentUserId)!;
+            if (!this.state.favoritesMap.has(this.currentUserId)) this.state.favoritesMap.set(this.currentUserId, new Set());
+            const userFavorites = this.state.favoritesMap.get(this.currentUserId)!;
             let nextState = true;
             if (userFavorites.has(wineryId)) {
                 userFavorites.delete(wineryId);
@@ -372,7 +371,7 @@ export class MockMapsManager {
                 id: newId, 
                 name: postData.p_trip_name, 
                 trip_date: postData.p_trip_date, 
-                user_id: currentUserId,
+                user_id: this.currentUserId,
                 updated_at: new Date(Date.now() + 5000).toISOString()
             });
             if (!this.state.trips) this.state.trips = [];
@@ -387,7 +386,7 @@ export class MockMapsManager {
                 id: newId, 
                 name: postData.p_name, 
                 trip_date: postData.p_trip_date, 
-                user_id: currentUserId,
+                user_id: this.currentUserId,
                 updated_at: new Date(Date.now() + 5000).toISOString()
             });
             if (!this.state.trips) this.state.trips = [];
@@ -414,8 +413,8 @@ export class MockMapsManager {
         }
 
         if (url.includes('get_map_markers') || url.includes('get_wineries_in_bounds') || url.includes('get_paginated_wineries')) {
-            const userFavorites = this.state.favoritesMap.get(currentUserId);
-            const userWishlist = this.state.wishlistMap.get(currentUserId);
+            const userFavorites = this.state.favoritesMap.get(this.currentUserId);
+            const userWishlist = this.state.wishlistMap.get(this.currentUserId);
             const dynamicMarkers = markers.map(m => ({
                 ...m,
                 is_favorite: userFavorites?.has(m.google_place_id) || false,
@@ -433,7 +432,7 @@ export class MockMapsManager {
             const targetEmail = postData.target_email || postData.p_friend_email;
             if (!this.state.social) this.state.social = { friends: [], pending_incoming: [], pending_outgoing: [] };
             this.state.social.pending_outgoing.push({ id: 'mock-target-id', name: (targetEmail || 'unknown').split('@')[0], email: targetEmail || 'unknown@example.com' });
-            this.state.social.pending_incoming.push({ id: currentUserId, name: 'Test User', email: 'test@example.com' });
+            this.state.social.pending_incoming.push({ id: this.currentUserId, name: 'Test User', email: 'test@example.com' });
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
         }
         
@@ -453,7 +452,7 @@ export class MockMapsManager {
         }
 
         if (url.includes('get_friends_and_requests')) {
-            const userSocial = this.state.socialMap.get(currentUserId) || this.state.social || { friends: [], pending_incoming: [], pending_outgoing: [] };
+            const userSocial = this.state.socialMap.get(this.currentUserId) || this.state.social || { friends: [], pending_incoming: [], pending_outgoing: [] };
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(userSocial) });
         }
 
@@ -630,7 +629,6 @@ export class MockMapsManager {
         }
     }
 
-    const currentUserId = this.currentUserId;
     if (this.mocksRegistered) return;
     const todayCA = new Date().toLocaleDateString('en-CA');
 
@@ -651,7 +649,7 @@ export class MockMapsManager {
         });
         this.state.visits = [{
             visit_id: 12345, 
-            user_id: mockVisit.user_id || currentUserId, 
+            user_id: mockVisit.user_id || this.currentUserId, 
             visit_date: mockVisit.visit_date, 
             user_review: mockVisit.user_review || null,
             rating: mockVisit.rating || null, 
@@ -671,9 +669,9 @@ export class MockMapsManager {
                 id: 999, 
                 name: 'Collaboration Trip', 
                 trip_date: todayCA, 
-                user_id: currentUserId,
+                user_id: this.currentUserId,
                 members: [
-                    { id: currentUserId, role: 'owner', status: 'joined', name: 'Test User', email: 'test@example.com' },
+                    { id: this.currentUserId, role: 'owner', status: 'joined', name: 'Test User', email: 'test@example.com' },
                     { id: 'user-b-id', role: 'member', status: 'joined', name: 'User B', email: 'user-b@example.com' }
                 ]
             }) 
