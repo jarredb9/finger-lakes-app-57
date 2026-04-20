@@ -79,6 +79,7 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **The Join-Table Rule:** **MANDATORY:** Always use the `trip_members` table and the `public.is_trip_member(trip_id)` helper function for all membership checks and authorization. **NEVER** reference a `members` column on the `trips` table, as it has been deprecated and removed.
 *   **RPC Schema Parity:** **Standard:** Any change to a database function's return type or parameters MUST be immediately reflected in `lib/database.types.ts`. The Supabase client will throw a `400 Bad Request` if the expected schema does not match the actual function definition.
 *   **Standard:** Use `ensureInDb(wineryId)` before relational RPCs.
+*   **The SyncStatus Rule:** **MANDATORY:** Use `SyncStatus` ('synced' | 'pending' | 'error') in entity models (defined in `lib/types.ts`). UI components MUST use this status to drive loading states, optimistic UI styles (e.g., opacity-50 for 'pending'), and to prevent duplicate mutations while a sync is in progress.
 *   **RLS Visibility Rule:** All `SELECT` policies for tables allowing insertion MUST include a direct ownership check (e.g., `auth.uid() = user_id`) BEFORE any complex function calls (like `is_trip_member()`). This prevents `42501` errors during `INSERT ... RETURNING` caused by recursion or row invisibility.
 *   **Collaborative Trips:** The `Trip` interface and related RPCs (`get_trip_details`) MUST use the structured `TripMember` type (ID, Name, Email, Role, Status). LEGACY string arrays for members are deprecated.
 *   **Migrations:** Sequential files in `supabase/migrations/` are the **SINGLE SOURCE OF TRUTH**.
@@ -115,6 +116,7 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 
 ### **A. Diagnostic & E2E Standards**
 *   **Diagnostic Protocol (Priority 0):** NEVER fix a test based on assumptions. Follow the 3-tier diagnostic sequence (DOM -> Store -> DB) defined in `project-testing-best-practices`.
+*   **The Readiness Gate Rule:** Main containers and feature modals MUST implement a `data-state="ready"` (or `data-hydrated="true"`) attribute once initial data fetching and hydration are complete. E2E tests MUST wait for this attribute before clicking or filling inputs to prevent hydration race conditions.
 *   **The Atomic State Injection Rule:** Use `page.evaluate` to inject store state directly into the browser for feature verification. This bypasses fragile navigation steps and reduces test execution time by 80%.
 *   **The Sub-Pixel Robustness Rule:** WebKit/High-DPI emulators often return non-integer coordinates. **Standard:** Use `expect(box.y).toBeLessThan(5)` instead of `toBe(0)` for edge-aligned elements.
 *   **The Project Filtering Rule:** Emulated environments (User Agent, touch) persist across viewport overrides. **Standard:** Explicitly `test.skip()` layout tests that don't match the project type (Mobile vs Desktop) to prevent hydration mismatches.
@@ -154,6 +156,8 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **RPC Service:** `lib/services/tripService.ts`
 *   **Complex UI/DnD (Container):** `components/trip-card.tsx`
 *   **Complex UI (Presentational):** `components/TripCardPresentational.tsx`
+*   **Presentational Winery Card:** `components/winery-card-thumbnail.tsx`
+*   **Presentational Visit Card:** `components/VisitCardHistory.tsx`
 *   **Offline Store:** `lib/stores/visitStore.ts`
 *   **E2E Spec:** `e2e/trip-flow.spec.ts`
 
