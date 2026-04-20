@@ -9,8 +9,7 @@ import {
     logVisit, 
     closeWineryModal,
     selectPrivacyOption,
-    ensureSidebarExpanded,
-    robustClick
+    ensureSidebarExpanded
 } from './helpers';
 
 test.describe('Privacy and Profile Flow', () => {
@@ -57,7 +56,7 @@ test.describe('Privacy and Profile Flow', () => {
         // Log Public Visit
         const logBtn = pageA.getByTestId('log-visit-button');
         await logBtn.scrollIntoViewIfNeeded();
-        await robustClick(pageA, logBtn);
+        await logBtn.click({ force: true });
         await logVisit(pageA, { review: 'This is a public review' });
 
         // Log Private Visit
@@ -68,7 +67,7 @@ test.describe('Privacy and Profile Flow', () => {
         await logBtn.click({ force: true });
         const isModalOpen = await pageA.evaluate(() => (window as any).useUIStore?.getState().isModalOpen);
         if (!isModalOpen) {
-            await robustClick(pageA, logBtn);
+            await logBtn.click({ force: true });
         }
         
         await logVisit(pageA, { review: 'This is a private review', isPrivate: true });
@@ -85,7 +84,7 @@ test.describe('Privacy and Profile Flow', () => {
         // Find User A in friends list
         const userALink = sidebarB.locator('a', { hasText: user1.email.split('@')[0] });
         await expect(userALink).toBeVisible({ timeout: 15000 });
-        await robustClick(pageB, userALink);
+        await userALink.click({ force: true });
 
         // Verify on profile page
         await expect(pageB).toHaveURL(new RegExp(`/friends/${user1.id}`));

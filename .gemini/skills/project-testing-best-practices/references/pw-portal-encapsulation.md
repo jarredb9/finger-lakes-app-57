@@ -31,7 +31,25 @@ Because modals are now decoupled from a global singleton state, Test A's modal s
 All encapsulated modals MUST render into the `#modal-host` element defined in `layout.tsx`.
 - **E2E Strategy:** Use `page.locator('#modal-host')` as a scope for modal-specific interactions to avoid disambiguation errors with background content.
 
-### 4. Why this is Senior-Level:
+### 4. The SSR Stability Rule (MANDATORY)
+To prevent hydration mismatches and "Portal target not found" race conditions, all Portal-based modals MUST implement a `mounted` check and use `requestAnimationFrame` for state synchronization.
+- **Pattern:** 
+    1.  Render `null` if `!mounted`.
+    2.  Use `requestAnimationFrame` inside `useEffect` to set `mounted = true` and target the `modal-root`.
+    3.  This satisfies ESLint `react-hooks/set-state-in-effect` and ensures the DOM target is ready.
+
+```typescript
+const [mounted, setMounted] = useState(false);
+useEffect(() => {
+    const handle = requestAnimationFrame(() => setMounted(true));
+    return () => cancelAnimationFrame(handle);
+}, []);
+if (!mounted) return null;
+return createPortal(<Dialog ... />, document.getElementById('modal-root')!);
+```
+
+### 5. Why this is Senior-Level:
 1.  **Open/Closed Principle:** You can add or delete features without modifying the "Global Renderer."
 2.  **No Pollution:** Tests no longer need massive `beforeEach` store resets because the UI state is local to the component.
 3.  **Parallelism:** Multiple modals can be open or tested simultaneously without state conflicts.
+

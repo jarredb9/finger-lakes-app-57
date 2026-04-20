@@ -8,6 +8,7 @@ import {
   MapMarkerRpc,
   VisitWithWinery
 } from '@/lib/types';
+import { getTodayLocal } from '@/lib/utils';
 
 /**
  * Standardized Test Fixtures
@@ -34,7 +35,7 @@ export const createMockWinery = (overrides: Partial<Winery> = {}): Winery => ({
 export const createMockTrip = (overrides: Partial<Trip> = {}): Trip => ({
   id: 100,
   user_id: 'user-123',
-  trip_date: new Date().toISOString().split('T')[0],
+  trip_date: getTodayLocal(),
   name: 'Test Trip',
   wineries: [],
   members: [],

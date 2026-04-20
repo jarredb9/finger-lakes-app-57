@@ -36,7 +36,8 @@ These standards move the project from "Defensive Survivability" to "Architectura
 3. **Synchronous Guards:** Mutating handlers (like `handleSave`) MUST use a `useRef` guard to prevent duplicate submissions from rapid synthetic events.
 4. **Modal Closure Retry:** E2E closure helpers MUST retry the close action (click/Escape) inside a `toPass` block that verifies the Store state (`isOpen === false`). Fallback to `page.keyboard.press('Escape')` if the button is unclickable.
 5. **Schema Enforcement:** 100% of mocks in `MockMapsManager` MUST be typed using `lib/database.types.ts`.
-6. **Robust Interaction:** The "Hybrid Click" strategy (Standard click + `robustClick` retry) is the project standard for WebKit reliability. Standard `.click()` is preferred ONLY for non-complex primitives in Chromium.
+6. **Standard Interaction:** The project standard is Playwright's native `.click()` for all interactions. Use `{ force: true }` if an element is temporarily covered by a toast, or encapsulate actions in `toPass` retry blocks for timing issues. **NEVER** use `robustClick` or manual event dispatching.
 7. **Submission Gate:** E2E helpers MUST NOT click a submission button if the store's saving state is true. Verification of the `isSaving` state is a mandatory prerequisite.
-8. **Portal Transition:** While `GlobalModalRenderer` is the current implementation, new features should aim for local feature-owned Portals.
+8. **Portal Architecture:** All feature modals MUST be encapsulated within the feature using React Portals to `#modal-root`. `GlobalModalRenderer` is strictly for generic `modalContent`.
 9. **Zero-Guess Debugging:** All failures follow the "Mandatory Diagnostic Protocol" before any fix is attempted.
+10. **Hydration Optimization:** Data arrays (`trips`, `visits`, etc.) MUST be unpersisted to eliminate hydration bottlenecks. Verification MUST confirm `localStorage` remains < 1KB.

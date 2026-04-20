@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react"
+import { createPortal } from "react-dom"
 import {
   Dialog,
   DialogContent,
@@ -22,6 +23,7 @@ import { TripService } from "@/lib/services/tripService"
 import { useToast } from "@/hooks/use-toast"
 import { TripMembersList } from "./TripMembersList"
 import { TripMember } from "@/lib/types"
+import { useMounted } from "@/hooks/use-mounted"
 
 interface TripShareDialogProps {
   isOpen: boolean
@@ -44,6 +46,7 @@ export function TripShareDialog({
   const [members, setMembers] = useState<TripMember[]>([])
   const [isLoadingMembers, setIsLoadingMembers] = useState(false)
   const hasFetchedRef = useRef(false);
+  const mounted = useMounted();
 
   const fetchTripMembers = useCallback(async () => {
     if (!tripId) return
@@ -52,7 +55,7 @@ export function TripShareDialog({
       const trip = await TripService.getTripById(tripId)
       setMembers(trip.members || [])
     } catch (err) {
-      console.error("fetchTripMembers Error:", err)
+      console.error("[DIAGNOSTIC] fetchTripMembers Error:", err)
     } finally {
       setIsLoadingMembers(false)
     }
@@ -109,9 +112,14 @@ export function TripShareDialog({
     }
   }
 
+  if (!mounted) return null;
+
+  const modalRoot = document.getElementById("modal-root");
+  if (!modalRoot) return null;
+
   const isOwner = members.find(m => m.id === user?.id)?.role === 'owner'
 
-  return (
+  return createPortal(
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md flex flex-col max-h-[90dvh]" data-testid="trip-share-dialog">
         <DialogHeader>
@@ -223,6 +231,7 @@ export function TripShareDialog({
           </div>
         </div>
       </DialogContent>
-    </Dialog>
+    </Dialog>,
+    modalRoot
   )
 }

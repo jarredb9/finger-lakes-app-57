@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { Trip } from '@/lib/types';
 import { getTodayLocal, formatDateLocal } from '@/lib/utils';
+import { WineryService } from './wineryService';
 
 export const TripService = {
   async getTrips(page: number, type: 'upcoming' | 'past', limit = 6) {
@@ -88,16 +89,7 @@ export const TripService = {
         const { data, error } = await supabase.rpc('create_trip_with_winery', {
             p_trip_name: trip.name || 'New Trip',
             p_trip_date: trip.trip_date,
-            p_winery_data: {
-                id: w.id,
-                name: w.name,
-                address: w.address,
-                lat: w.lat,
-                lng: w.lng,
-                phone: w.phone,
-                website: w.website,
-                rating: w.rating
-            },
+            p_winery_data: WineryService.getRpcData(w),
             p_members: []
         });
 
@@ -241,16 +233,7 @@ export const TripService = {
     const { data, error } = await supabase.rpc('create_trip_with_winery', {
         p_trip_name: name,
         p_trip_date: date,
-        p_winery_data: {
-            id: winery.id,
-            name: winery.name,
-            address: winery.address,
-            lat: winery.lat,
-            lng: winery.lng,
-            phone: winery.phone,
-            website: winery.website,
-            rating: winery.rating
-        },
+        p_winery_data: WineryService.getRpcData(winery),
         p_notes: notes
     });
 
@@ -266,10 +249,6 @@ export const TripService = {
     if (!winery) {
         // If not in store, we might just have the ID. 
         // We can't use add_winery_to_trip RPC if it requires full winery data.
-        // Let's check the RPC signature for add_winery_to_trip.
-        // Actually, we have two: 
-        // 1. add_winery_to_trip(integer, integer, text) -> 20251201000005
-        // 2. add_winery_to_trip(integer, jsonb, text) -> 20251209000000
         
         // We should use the simple ID one if we only have wineryId.
         const { error } = await supabase.rpc('add_winery_to_trip', {
@@ -283,16 +262,7 @@ export const TripService = {
 
     const { error } = await supabase.rpc('add_winery_to_trip', {
         p_trip_id: tripId,
-        p_winery_data: {
-            id: winery.id,
-            name: winery.name,
-            address: winery.address,
-            lat: winery.lat,
-            lng: winery.lng,
-            phone: winery.phone,
-            website: winery.website,
-            rating: winery.rating
-        },
+        p_winery_data: WineryService.getRpcData(winery),
         p_notes: notes
     });
 

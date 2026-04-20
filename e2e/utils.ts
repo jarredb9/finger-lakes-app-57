@@ -4,6 +4,48 @@ import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { Page, test as base } from '@playwright/test';
 import { createMockMapMarkerRpc, createMockVisitWithWinery, createMockTrip } from '@/lib/test-utils/fixtures';
+import { 
+  Trip, 
+  VisitWithWinery, 
+  MapMarkerRpc, 
+  TripMember,
+  WineryDbId,
+  GooglePlaceId
+} from '@/lib/types';
+
+export interface FriendActivityFeedItem {
+  activity_type: string;
+  created_at: string;
+  activity_user_id: string;
+  user_name: string;
+  user_email: string;
+  winery_id: number;
+  winery_name: string;
+  visit_rating: number | null;
+  visit_review: string | null;
+  visit_photos: string[] | null;
+}
+
+export type MapMarker = MapMarkerRpc;
+export type TripDetails = Trip;
+export type VisitItem = VisitWithWinery;
+
+/**
+ * Specifically matches the return type of get_paginated_visits_with_winery_and_friends RPC
+ */
+export interface RpcVisitWithWinery {
+  visit_id: number;
+  user_id: string;
+  visit_date: string;
+  user_review: string | null;
+  rating: number | null;
+  photos: string[] | null;
+  winery_id: number;
+  winery_name: string;
+  google_place_id: string;
+  winery_address: string;
+  friend_visits: any[];
+}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -24,14 +66,28 @@ export interface TestUser {
  * Manager class for handling API mocks in E2E tests.
  */
 export class MockMapsManager {
-  public static sharedMockTrips: any[] | null = null;
-  public static sharedMockVisits: any[] | null = null;
-  public static sharedTripMembersMap = new Map<number, any[]>();
+  public static sharedMockTrips: Trip[] | null = null;
+  public static sharedMockVisits: RpcVisitWithWinery[] | null = null;
+  public static sharedMockActivityFeed: FriendActivityFeedItem[] | null = null;
+  public static sharedMockSocial: {
+      friends: any[],
+      pending_incoming: any[],
+      pending_outgoing: any[]
+  } | null = null;
+  public static sharedMockSocialMap = new Map<string, {
+      friends: any[],
+      pending_incoming: any[],
+      pending_outgoing: any[]
+  }>();
+  public static sharedTripMembersMap = new Map<number, TripMember[]>();
   private swEnabled = false;
 
   static resetSharedState() {
     MockMapsManager.sharedMockTrips = null;
     MockMapsManager.sharedMockVisits = null;
+    MockMapsManager.sharedMockActivityFeed = null;
+    MockMapsManager.sharedMockSocial = null;
+    MockMapsManager.sharedMockSocialMap.clear();
     MockMapsManager.sharedTripMembersMap.clear();
   }
 
@@ -84,10 +140,10 @@ export class MockMapsManager {
       'Access-Control-Max-Age': '86400'
     };
 
-    const markers = [
-        createMockMapMarkerRpc({ id: 'mock-1' as any, google_place_id: 'ch-12345-mock-winery-1' as any, name: 'Mock Winery One' }),
-        createMockMapMarkerRpc({ id: 'mock-2' as any, google_place_id: 'ch-67890-mock-winery-2' as any, name: 'Vineyard of Illusion' }),
-        createMockMapMarkerRpc({ id: 'mock-3' as any, google_place_id: 'ch-abcde-mock-winery-3' as any, name: 'The Phantom Cellar' })
+    const markers: MapMarkerRpc[] = [
+        createMockMapMarkerRpc({ id: 1 as WineryDbId, google_place_id: 'ch-12345-mock-winery-1' as GooglePlaceId, name: 'Mock Winery One' }),
+        createMockMapMarkerRpc({ id: 2 as WineryDbId, google_place_id: 'ch-67890-mock-winery-2' as GooglePlaceId, name: 'Vineyard of Illusion' }),
+        createMockMapMarkerRpc({ id: 3 as WineryDbId, google_place_id: 'ch-abcde-mock-winery-3' as GooglePlaceId, name: 'The Phantom Cellar' })
     ];
 
     const catchAllHandler = async (route: any) => {
@@ -100,62 +156,34 @@ export class MockMapsManager {
             if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
             if (url.includes('/rest/v1/profiles')) {
                 if (this.realSocialEnabled) return route.fallback();
-                return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([{ id: currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' }]) });
+                console.log(`[DIAGNOSTIC] Intercepting Profiles REST: ${url}`);
+                const headers = req.headers();
+                const isSingle = headers['accept']?.includes('application/vnd.pgrst.object+json');
+                const profile = { id: currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' };
+                const body = isSingle ? JSON.stringify(profile) : JSON.stringify([profile]);
+                return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body });
             }
             if (url.includes('/rpc/')) {
+                console.log(`[DIAGNOSTIC] Seen RPC: ${url}`);
 
                 // 1. Fallback if real data is requested for this category
-                if (this.realSocialEnabled && (
-                    url.includes('send_friend_request') || 
-                    url.includes('respond_to_friend_request') || 
-                    url.includes('get_friends_and_requests') || 
-                    url.includes('remove_friend') ||
-                    url.includes('get_friend_activity_feed') ||
-                    url.includes('get_friend_profile_with_visits') ||
-                    url.includes('is_visible_to_viewer') ||
-                    url.includes('update_profile_privacy') ||
-                    url.includes('get_friends_ratings_for_winery') ||
-                    url.includes('get_friends_activity_for_winery') ||
-                    url.includes('send_follow_request') ||
-                    url.includes('respond_to_follow_request')
-                )) {
+                // For Social: We fallback for ALL operations if realSocialEnabled is true.
+                const isSocialRpc = /rpc\/(send_friend_request|respond_to_friend_request|get_friends_and_requests|remove_friend|get_friend_activity_feed|get_friend_profile_with_visits|is_visible_to_viewer|update_profile_privacy|get_friends_ratings_for_winery|get_friends_activity_for_winery|send_follow_request|respond_to_follow_request)/.test(url);
+                if (this.realSocialEnabled && isSocialRpc) {
                     console.log(`[DIAGNOSTIC] Falling back for Social RPC: ${url}`);
                     return route.fallback();
                 }
 
-                if (this.realFavoritesEnabled && (
-                    url.includes('toggle_favorite') || 
-                    url.includes('toggle_wishlist') || 
-                    url.includes('toggle_favorite_privacy') || 
-                    url.includes('toggle_wishlist_privacy') ||
-                    url.includes('ensure_winery')
-                )) {
+                if (this.realFavoritesEnabled && /rpc\/(toggle_favorite|toggle_wishlist|toggle_favorite_privacy|toggle_wishlist_privacy|ensure_winery)/.test(url)) {
                     return route.fallback();
                 }
 
-                if (this.realVisitsEnabled && (
-                    url.includes('ensure_winery') ||
-                    url.includes('log_visit') ||
-                    url.includes('update_visit') ||
-                    url.includes('delete_visit') ||
-                    url.includes('get_paginated_visits')
-                )) {
+                if (this.realVisitsEnabled && /rpc\/(ensure_winery|log_visit|update_visit|delete_visit|get_paginated_visits)/.test(url)) {
                     console.log(`[DIAGNOSTIC] Falling back for Visit RPC: ${url}`);
                     return route.fallback();
                 }
 
-                if (this.realTripsEnabled && (
-                    url.includes('get_trip_details') || 
-                    url.includes('get_trips_for_date') || 
-                    url.includes('create_trip') || 
-                    url.includes('delete_trip') || 
-                    url.includes('reorder_trip_wineries') || 
-                    url.includes('update_trip_winery_notes') || 
-                    url.includes('add_trip_member_by_email') || 
-                    url.includes('add_winery_to_trip') ||
-                    url.includes('remove_winery_from_trip') ||
-                    url.includes('add_winery_to_trips')
-                )) {
+                if (this.realTripsEnabled && /rpc\/(get_trip_details|get_trips_for_date|create_trip|delete_trip|reorder_trip_wineries|update_trip_winery_notes|add_trip_member_by_email|add_winery_to_trip|remove_winery_from_trip|add_winery_to_trips)/.test(url)) {
                     console.log(`[DIAGNOSTIC] Falling back for Trip RPC: ${url}`);
                     return route.fallback();
                 }
@@ -171,18 +199,34 @@ export class MockMapsManager {
                     
                     if (!MockMapsManager.sharedMockVisits) MockMapsManager.sharedMockVisits = [];
                     
-                    MockMapsManager.sharedMockVisits.push({
+                    const newVisit = {
                         visit_id: newId,
                         user_id: currentUserId,
                         visit_date: visitData.visit_date || todayCA,
-                        user_review: visitData.user_review,
-                        rating: visitData.rating,
+                        user_review: visitData.user_review || null,
+                        rating: visitData.rating || null,
                         photos: visitData.photos || [],
                         winery_id: winery?.id || 123,
                         winery_name: winery?.name || wineryData.name || 'Unknown Winery',
                         google_place_id: winery?.google_place_id || wineryId,
                         winery_address: winery?.address || wineryData.address || 'Unknown Address',
                         friend_visits: []
+                    };
+                    MockMapsManager.sharedMockVisits.push(newVisit);
+
+                    // Update shared feed
+                    if (!MockMapsManager.sharedMockActivityFeed) MockMapsManager.sharedMockActivityFeed = [];
+                    MockMapsManager.sharedMockActivityFeed.push({
+                        activity_type: 'visit',
+                        created_at: new Date().toISOString(),
+                        activity_user_id: currentUserId,
+                        user_name: 'Test User',
+                        user_email: 'test@example.com',
+                        winery_id: newVisit.winery_id,
+                        winery_name: newVisit.winery_name,
+                        visit_rating: newVisit.rating,
+                        visit_review: newVisit.user_review,
+                        visit_photos: newVisit.photos
                     });
 
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ visit_id: newId, winery_id: wineryId }) });
@@ -245,12 +289,88 @@ export class MockMapsManager {
                 if (url.includes('ensure_winery')) {
                     return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(999123) });
                 }
+                if (url.includes('send_friend_request')) {
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const targetEmail = postData.p_friend_email;
+                    console.log(`[DIAGNOSTIC] Intercepted send_friend_request to ${targetEmail}`);
+                    
+                    if (!MockMapsManager.sharedMockSocial) {
+                        MockMapsManager.sharedMockSocial = { friends: [], pending_incoming: [], pending_outgoing: [] };
+                    }
+                    
+                    // Add to outgoing for current context
+                    MockMapsManager.sharedMockSocial.pending_outgoing.push({
+                        id: 'mock-target-id',
+                        name: targetEmail.split('@')[0],
+                        email: targetEmail
+                    });
+
+                    // Add to incoming for target context (simulated)
+                    MockMapsManager.sharedMockSocial.pending_incoming.push({
+                        id: currentUserId,
+                        name: 'Test User',
+                        email: 'test@example.com' // Simplification
+                    });
+                    
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+                }
+                
+                if (url.includes('respond_to_friend_request')) {
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const requesterId = postData.p_requester_id;
+                    const action = postData.p_action;
+                    
+                    if (MockMapsManager.sharedMockSocial && action === 'accepted') {
+                        const request = MockMapsManager.sharedMockSocial.pending_incoming.find(r => r.id === requesterId);
+                        if (request) {
+                            MockMapsManager.sharedMockSocial.friends.push(request);
+                            MockMapsManager.sharedMockSocial.pending_incoming = MockMapsManager.sharedMockSocial.pending_incoming.filter(r => r.id !== requesterId);
+                            // Also clear from outgoing (simulated)
+                            MockMapsManager.sharedMockSocial.pending_outgoing = MockMapsManager.sharedMockSocial.pending_outgoing.filter(r => r.id !== 'mock-target-id');
+                        }
+                    }
+                    
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+                }
+
                 if (url.includes('get_friends_and_requests')) {
                     if (this.realSocialEnabled) {
                         console.log(`[DIAGNOSTIC] Falling back for Friends RPC: ${url}`);
                         return route.fallback();
                     }
-                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ friends: [], pending_incoming: [], pending_outgoing: [] }) });
+                    const userSocial = MockMapsManager.sharedMockSocialMap.get(currentUserId) 
+                                    || MockMapsManager.sharedMockSocial 
+                                    || { friends: [], pending_incoming: [], pending_outgoing: [] };
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(userSocial) });
+                }
+                if (url.includes('get_friend_activity_feed')) {
+                    if (this.realSocialEnabled) {
+                        console.log(`[DIAGNOSTIC] Falling back for Feed RPC: ${url}`);
+                        return route.fallback();
+                    }
+                    const feed = MockMapsManager.sharedMockActivityFeed || [];
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(feed) });
+                }
+                if (url.includes('add_trip_member_by_email')) {
+                    const postData = JSON.parse(req.postData() || '{}');
+                    const tripId = postData.p_trip_id;
+                    const email = postData.p_email;
+                    
+                    // Update the trip in shared state if it exists
+                    if (MockMapsManager.sharedMockTrips) {
+                        const trip = MockMapsManager.sharedMockTrips.find(t => t.id === Number(tripId));
+                        if (trip && trip.members) {
+                            trip.members.push({
+                                id: 'mock-invited-id',
+                                email: email,
+                                name: email.split('@')[0],
+                                role: 'member',
+                                status: 'invited'
+                            });
+                        }
+                    }
+                    
+                    return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
                 }
                 if (url.includes('get_trip_details')) {
                     console.log(`[DIAGNOSTIC] Fulfilling Mock get_trip_details: ${url}`);
@@ -272,11 +392,45 @@ export class MockMapsManager {
             if (url.includes('/auth/v1/')) return route.fallback();
             if (url.includes('/rest/v1/trips')) {
                 if (this.realTripsEnabled) return route.fallback();
+                
+                if (method === 'PATCH') {
+                    const postData = JSON.parse(req.postData() || '{}');
+                    console.log(`[DIAGNOSTIC] Intercepting Trips PATCH: ${url}`, postData);
+                    
+                    // Extract ID from URL (e.g., ...trips?id=eq.999)
+                    const idMatch = url.match(/id=eq\.(\d+)/);
+                    if (idMatch && MockMapsManager.sharedMockTrips) {
+                        const tripId = parseInt(idMatch[1], 10);
+                        const trip = MockMapsManager.sharedMockTrips.find(t => t.id === tripId);
+                        if (trip) {
+                            Object.assign(trip, postData);
+                            console.log(`[DIAGNOSTIC] Updated sharedMockTrip ${tripId} with:`, postData);
+                        }
+                    }
+                    return route.fulfill({ status: 204, headers: commonHeaders });
+                }
+
                 const trips = MockMapsManager.sharedMockTrips || [];
-                return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(trips), headers: commonHeaders });
+                console.log(`[DIAGNOSTIC] Intercepting Trips GET: ${url}. Returning ${trips.length} trips.`);
+                
+                // Transform to match TripService.getTrips select structure if needed
+                // TripService expects: trip_wineries (count), trip_members!inner (user_id)
+                const transformed = trips.map(t => ({
+                    ...t,
+                    trip_wineries: [{ count: t.wineries?.length || 0 }],
+                    trip_members: (t.members || []).map(m => ({ user_id: m.id }))
+                }));
+
+                return route.fulfill({ 
+                    status: 200, 
+                    contentType: 'application/json', 
+                    body: JSON.stringify(transformed), 
+                    headers: { ...commonHeaders, 'x-total-count': transformed.length.toString() } 
+                });
             }
             if (url.includes('/rest/v1/favorites')) {
                 if (this.realFavoritesEnabled) return route.fallback();
+                console.log(`[DIAGNOSTIC] Intercepting Favorites REST: ${url}`);
                 return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([]) });
             }
             if (url.includes('/functions/v1/')) {
@@ -308,21 +462,21 @@ export class MockMapsManager {
 
     if (!MockMapsManager.sharedMockVisits) {
         const mockVisit = createMockVisitWithWinery({ 
-            wineryId: 'ch-67890-mock-winery-2' as any, 
+            wineryId: 'ch-67890-mock-winery-2' as GooglePlaceId, 
             wineryName: 'Vineyard of Illusion',
             visit_date: '2020-01-01',
             user_review: 'A classic mock visit from the past.'
         });
         MockMapsManager.sharedMockVisits = [{
             visit_id: 12345, 
-            user_id: mockVisit.user_id, 
+            user_id: mockVisit.user_id || currentUserId, 
             visit_date: mockVisit.visit_date, 
-            user_review: mockVisit.user_review,
-            rating: mockVisit.rating, 
-            photos: mockVisit.photos, 
-            winery_id: mockVisit.winery_id, 
-            winery_name: mockVisit.wineryName,
-            google_place_id: mockVisit.wineryId, 
+            user_review: mockVisit.user_review || null,
+            rating: mockVisit.rating || null, 
+            photos: mockVisit.photos || null, 
+            winery_id: mockVisit.winery_id || 2 as WineryDbId, 
+            winery_name: mockVisit.wineryName || 'Vineyard of Illusion',
+            google_place_id: mockVisit.wineryId || 'ch-67890-mock-winery-2' as GooglePlaceId, 
             winery_address: mockVisit.wineries.address, 
             friend_visits: []
         }];
@@ -518,6 +672,14 @@ export const test = base.extend<{
     };
 
     page.on('console', logHandler);
+    
+    // Add Request Logging for RPCs
+    page.on('request', request => {
+        const url = request.url();
+        if (url.includes('rpc/')) {
+            console.log(`[DIAGNOSTIC] [NETWORK-REQ] ${request.method()} ${url}`);
+        }
+    });
     // page.context().on('console', logHandler); // REMOVED: Duplicate context-level listener causes double logs
 
     await manager.initDefaultMocks();
@@ -538,6 +700,7 @@ export const test = base.extend<{
 });
 
 export { expect } from '@playwright/test';
+export { createMockTrip, createMockVisitWithWinery, createMockMapMarkerRpc } from '@/lib/test-utils/fixtures';
 
 // --- LEGACY EXPORTS (Restored for visual.spec.ts and others) ---
 /** @deprecated Use mockMaps fixture */

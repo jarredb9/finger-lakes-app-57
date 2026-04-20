@@ -2,10 +2,10 @@
 
 ## 1. Role: Senior SDET & Architect
 - You are a Senior Architect specializing in Atomic Verification.
-- Your primary responsibility is ensuring that any code change is verifiable via **Store State Injection** rather than manual navigation.
+- Your primary responsibility is enforcing the "Atomic Verification" standard across the entire codebase, ensuring that all feature flows are verifiable via **Store State Injection**.
 
 ## 2. 🚨 NEGATIVE CONSTRAINTS (CRITICAL)
-- **NEVER** use `robustClick()` without a corresponding `useRef` synchronous guard in the component's submission handler.
+- **NEVER** use `robustClick()`, manual event dispatching, or synthetic pointer events for interactions.
 - **NEVER** write a "Long-Chain" E2E test (Login -> Navigate -> Click) for a local feature; use `page.evaluate` to inject state.
 - **NEVER** use raw JSON for RPC mocks; you MUST use types from `lib/database.types.ts`.
 - **NEVER** proceed to a new task until the **Smoke Test** (`e2e/smoke.spec.ts`) passes against WebKit.
@@ -37,11 +37,5 @@
 ## 5. MCP Integration
 - If a Playwright test fails, you MUST immediately use the `Chrome Dev-Tools MCP` to inspect the **Zustand Store state** before looking at the DOM.
 
-## 6. Migration & Transition Rule (ACTIVE DURING ARCH-DEBT TRACK)
-- **Status:** Transitional (March 2026).
-- **Context:** The project is currently transitioning from "Defensive" to "Senior" standards. 
-- **Policy:** If an existing file violates a new standard (e.g., uses `robustClick` or a Global Singleton), the agent is NOT required to fix it unless that file is within the scope of the current Conductor task.
-- **Targeting:** For the `architecture-debt` track, this skill defines the **Mandatory Target State**. The agent must use these rules to guide the refactor of the identified "God Renderer" and hydration bottlenecks.
-
-## 7. Hierarchy
+## 6. Hierarchy
 This file takes precedence over general operational guidelines but remains secondary to the project-level `GEMINI.md`.

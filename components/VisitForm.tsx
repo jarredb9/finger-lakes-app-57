@@ -1,8 +1,5 @@
 import { useState, useEffect, forwardRef, useCallback, useRef } from "react";
-import { Visit, Winery } from "@/lib/types";
-import { useVisitStore } from "@/lib/stores/visitStore";
-import { useUIStore } from "@/lib/stores/uiStore";
-import { useToast } from "@/hooks/use-toast";
+import { Visit } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,30 +9,44 @@ import PhotoUploader from "./PhotoUploader";
 import { Checkbox } from "@/components/ui/checkbox";
 
 interface VisitFormProps {
-  winery: Winery;
   editingVisit: Visit | null;
-  onCancelEdit: () => void;
+  onCancel: () => void;
+  onSave: (visitData: { 
+    visit_date: string; 
+    user_review: string; 
+    rating: number; 
+    photos: File[]; 
+    is_private?: boolean 
+  }, photosToDelete: string[]) => Promise<void>;
+  isSubmitting: boolean;
   photosToDelete: string[];
   togglePhotoForDeletion: (photoPath: string) => void;
   setPhotosToDelete: (photos: string[]) => void;
 }
 
-const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingVisit, onCancelEdit, photosToDelete, togglePhotoForDeletion, setPhotosToDelete }, ref) => {
-  const { toast } = useToast();
-  const { saveVisit, updateVisit, isSavingVisit } = useVisitStore();
-  const { closeVisitForm } = useUIStore();
+const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ 
+  editingVisit, 
+  onCancel, 
+  onSave,
+  isSubmitting: isExternalSubmitting,
+  photosToDelete, 
+  togglePhotoForDeletion, 
+  setPhotosToDelete 
+}, ref) => {
   const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
   const [userReview, setUserReview] = useState("");
-  const [rating, setRating] = useState(0);
+  const [rating, setRating] = useState(5);
   const [isPrivate, setIsPrivate] = useState(false);
   const [photos, setPhotos] = useState<File[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isInternalSubmitting, setIsInternalSubmitting] = useState(false);
   const submissionGuard = useRef(false);
+
+  const isSubmitting = isExternalSubmitting || isInternalSubmitting;
 
   const resetForm = useCallback(() => {
     setVisitDate(new Date().toISOString().split("T")[0]);
     setUserReview("");
-    setRating(0);
+    setRating(5);
     setIsPrivate(false);
     setPhotos([]);
     setPhotosToDelete([]);
@@ -44,10 +55,9 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
 
   useEffect(() => {
     if (editingVisit) {
-       
       setVisitDate(new Date(editingVisit.visit_date + "T00:00:00").toISOString().split("T")[0]);
       setUserReview(editingVisit.user_review || "");
-      setRating(editingVisit.rating || 0);
+      setRating(editingVisit.rating || 5);
       setIsPrivate((editingVisit as any).is_private || false);
       setPhotos([]);
       setPhotosToDelete([]);
@@ -58,42 +68,20 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
   }, [editingVisit, resetForm, setPhotosToDelete]);
 
   const handleSave = async () => {
-    if (submissionGuard.current || isSubmitting || isSavingVisit) return;
+    if (submissionGuard.current || isSubmitting) return;
     
-    if (!visitDate.trim()) {
-      toast({ title: "Error", description: "Visit date is required.", variant: "destructive" });
-      return;
-    }
-
     submissionGuard.current = true;
-    setIsSubmitting(true);
+    setIsInternalSubmitting(true);
     try {
-      if (editingVisit) {
-        await updateVisit(String(editingVisit.id!), { visit_date: visitDate, user_review: userReview, rating, is_private: isPrivate }, photos, photosToDelete);
-        const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-        toast({ 
-          description: isOffline 
-            ? "Edit cached. It will be synced once you're back online." 
-            : "Visit updated successfully." 
-        });
-        onCancelEdit();
-      } else {
-        await saveVisit(winery, { visit_date: visitDate, user_review: userReview, rating, photos, is_private: isPrivate });
-        const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-        toast({ 
-          description: isOffline 
-            ? "Visit cached. It will be synced once you're back online." 
-            : "Visit added successfully." 
-        });
-        resetForm();
-        closeVisitForm();
-      }
-    } catch (error) {
-      submissionGuard.current = false;
-      const message = error instanceof Error ? error.message : "An error occurred.";
-      toast({ variant: "destructive", description: message });
+      await onSave({ 
+        visit_date: visitDate, 
+        user_review: userReview, 
+        rating, 
+        photos, 
+        is_private: isPrivate 
+      }, photosToDelete);
     } finally {
-      setIsSubmitting(false);
+      setIsInternalSubmitting(false);
       submissionGuard.current = false;
     }
   };
@@ -105,35 +93,33 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
           {editingVisit ? <Edit className="w-5 h-5" /> : <Plus className="w-5 h-5" />}
           <span>{editingVisit ? "Edit Visit" : "Add New Visit"}</span>
         </h3>
-        {editingVisit && (
-          <Button variant="outline" size="sm" onClick={onCancelEdit} disabled={isSubmitting || isSavingVisit}>
-            Cancel Edit
-          </Button>
-        )}
+        <Button variant="outline" size="sm" onClick={onCancel} disabled={isSubmitting}>
+          Cancel
+        </Button>
       </div>
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="visitDate">Visit Date *</Label>
-          <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} max={new Date().toISOString().split("T")[0]} required aria-label="Visit Date" disabled={isSubmitting || isSavingVisit} />
+          <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} max={new Date().toISOString().split("T")[0]} required aria-label="Visit Date" disabled={isSubmitting} />
         </div>
         <div className="space-y-2">
           <Label>Your Rating</Label>
           <div className="flex items-center space-x-1">
             {[...Array(5)].map((_, i) => (
-              <Star key={i} className={`w-6 h-6 ${isSubmitting || isSavingVisit ? "cursor-not-allowed opacity-50" : "cursor-pointer"} transition-colors ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"}`} onClick={() => !isSubmitting && !isSavingVisit && setRating(i + 1)} aria-label={`Set rating to ${i + 1}`} />
+              <Star key={i} className={`w-6 h-6 ${isSubmitting ? "cursor-not-allowed opacity-50" : "cursor-pointer"} transition-colors ${i < rating ? "text-yellow-400 fill-yellow-400" : "text-gray-300 hover:text-yellow-300"}`} onClick={() => !isSubmitting && setRating(i + 1)} aria-label={`Set rating to ${i + 1}`} />
             ))}
           </div>
         </div>
         <div className="space-y-2">
           <Label htmlFor="userReview">Your Review (Optional)</Label>
-          <Textarea id="userReview" placeholder="e.g., 'Loved the dry Riesling! Beautiful view from the patio.'" value={userReview} onChange={(e) => setUserReview(e.target.value)} rows={4} aria-label="Your Review" disabled={isSubmitting || isSavingVisit} />
+          <Textarea id="userReview" placeholder="e.g., 'Loved the dry Riesling! Beautiful view from the patio.'" value={userReview} onChange={(e) => setUserReview(e.target.value)} rows={4} aria-label="Your Review" disabled={isSubmitting} />
         </div>
         <div className="flex items-center space-x-2 py-1">
           <Checkbox 
             id="isPrivate" 
             checked={isPrivate} 
             onCheckedChange={(checked) => setIsPrivate(checked === true)} 
-            disabled={isSubmitting || isSavingVisit}
+            disabled={isSubmitting}
           />
           <Label htmlFor="isPrivate" className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
             <Lock className="w-3.5 h-3.5 text-muted-foreground" />
@@ -152,8 +138,8 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({ winery, editingV
         />
       </div>
       <div className="pt-4 mt-4">
-        <Button onClick={handleSave} disabled={!visitDate.trim() || isSavingVisit || isSubmitting} className="w-full">
-          {isSavingVisit || isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editingVisit ? "Save Changes" : "Add Visit"}
+        <Button onClick={handleSave} disabled={!visitDate.trim() || isSubmitting} className="w-full">
+          {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editingVisit ? "Save Changes" : "Add Visit"}
         </Button>
       </div>
     </div>

@@ -6,7 +6,6 @@ import {
     openWineryDetails, 
     closeWineryModal, 
     ensureSidebarExpanded,
-    robustClick,
     waitForToast
 } from './helpers';
 
@@ -54,7 +53,7 @@ test.describe('Trip Planning Flow', () => {
     // Wait for the RPC and the refresh calls
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('create_trip_with_winery') && resp.status() === 200),
-        robustClick(page, planner.getByTestId('add-to-trip-btn'))
+        planner.getByTestId('add-to-trip-btn').click({ force: true })
     ]);
 
     await waitForToast(page, 'Winery added to trip(s).');
@@ -84,12 +83,12 @@ test.describe('Trip Planning Flow', () => {
     await tripCard.scrollIntoViewIfNeeded();
     
     const deleteBtn = tripCard.getByTestId('delete-trip-btn');
-    await robustClick(page, deleteBtn);
+    await deleteBtn.click({ force: true });
 
     // 4. Confirm deletion and wait for response
     await Promise.all([
         page.waitForResponse(resp => (resp.url().includes('delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')) && [200, 204].includes(resp.status())),
-        robustClick(page, page.getByTestId('confirm-delete-trip-btn'))
+        page.getByTestId('confirm-delete-trip-btn').click({ force: true })
     ]);
 
     // 5. Verify it is gone
