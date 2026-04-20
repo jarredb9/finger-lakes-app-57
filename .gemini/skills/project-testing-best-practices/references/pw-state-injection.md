@@ -65,7 +65,7 @@ await toPass(async () => {
     window.useTripStore.getState().trips.find(t => t.name === "New Trip")
   );
   expect(trip).toBeDefined();
-  expect(trip.dbId).toBeGreaterThan(100);
+  expect(trip.syncStatus).toBe('synced');
 });
 ```
 
