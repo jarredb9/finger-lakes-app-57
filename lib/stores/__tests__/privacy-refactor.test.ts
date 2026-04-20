@@ -17,6 +17,9 @@ describe('Privacy Refactor Store Logic', () => {
       if (name === 'log_visit') {
         return Promise.resolve({ data: { visit_id: 123 }, error: null });
       }
+      if (name === 'toggle_favorite_privacy' || name === 'toggle_wishlist_privacy') {
+        return Promise.resolve({ data: { success: true, is_private: true }, error: null });
+      }
       return Promise.resolve({ data: { success: true }, error: null });
     });
 

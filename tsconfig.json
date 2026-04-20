@@ -21,6 +21,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "incremental": true,
+    "types": ["google.maps", "node", "jest", "react", "react-dom", "uuid"],
     "plugins": [
       {
         "name": "next"

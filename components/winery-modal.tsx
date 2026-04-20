@@ -9,9 +9,10 @@ import { useVisitStore } from "@/lib/stores/visitStore";
 import { useToast } from "@/hooks/use-toast";
 import { Visit } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
+import { shallow } from "zustand/shallow";
 
 import WineryDetails from "./WineryDetails";
-import WineryActions from "./WineryActions";
+import WineryActionsPresentational from "./WineryActionsPresentational";
 import FriendActivity from "./FriendActivity";
 import FriendRatings from "./FriendRatings";
 import TripPlannerSection from "./TripPlannerSection";
@@ -24,11 +25,61 @@ export default function WineryModal() {
   const { isWineryModalOpen, activeWineryId, closeWineryModal, openVisitForm } = useUIStore();
   const { toast } = useToast();
   const { fetchTripById, setSelectedTrip } = useTripStore();
+
+  const { toggleWishlist, toggleFavorite, toggleFavoritePrivacy, toggleWishlistPrivacy } = useWineryStore(
+    (state) => ({
+      toggleWishlist: state.toggleWishlist,
+      toggleFavorite: state.toggleFavorite,
+      toggleFavoritePrivacy: state.toggleFavoritePrivacy,
+      toggleWishlistPrivacy: state.toggleWishlistPrivacy,
+    }),
+    shallow
+  );
   
   // Subscribe directly to DataStore for reactive updates
   const activeWinery = useWineryDataStore((state) =>
     activeWineryId ? state.persistentWineries.find((w) => w.id === activeWineryId) : null
   );
+
+  const handleWishlistToggle = async () => {
+    if (!activeWinery) return;
+    try {
+      await toggleWishlist(activeWinery, activeWinery.onWishlist || false);
+    } catch (error) {
+      toast({ variant: "destructive", description: "Failed to update wishlist." });
+    }
+  };
+
+  const handleFavoriteToggle = async () => {
+    if (!activeWinery) return;
+    try {
+      await toggleFavorite(activeWinery, activeWinery.isFavorite || false);
+    } catch (error) {
+      toast({ variant: "destructive", description: "Failed to update favorites." });
+    }
+  };
+
+  const handleToggleFavoritePrivacy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!activeWinery) return;
+    try {
+        await toggleFavoritePrivacy(activeWinery.id);
+        toast({ description: activeWinery.favoriteIsPrivate ? "Favorite is now public." : "Favorite is now private." });
+    } catch (error) {
+        toast({ variant: "destructive", description: "Failed to update favorite privacy." });
+    }
+  };
+
+  const handleToggleWishlistPrivacy = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!activeWinery) return;
+    try {
+        await toggleWishlistPrivacy(activeWinery.id);
+        toast({ description: activeWinery.wishlistIsPrivate ? "Wishlist item is now public." : "Wishlist item is now private." });
+    } catch (error) {
+        toast({ variant: "destructive", description: "Failed to update wishlist privacy." });
+    }
+  };
   
   const loadingWineryId = useWineryStore((state) => state.loadingWineryId); // Get loading state
   const { deleteVisit: deleteVisitAction } = useVisitStore();
@@ -149,6 +200,7 @@ export default function WineryModal() {
     <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
       <DialogContent
         data-testid="winery-modal"
+        data-state={isLoading ? "loading" : "ready"}
         className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
         onFocusOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
@@ -190,7 +242,14 @@ export default function WineryModal() {
                                 </div>
                             )}
                         </div>
-                        <WineryActions winery={activeWinery} />
+                        <WineryActionsPresentational 
+                          winery={activeWinery} 
+                          onLogVisit={() => openVisitForm(activeWinery)}
+                          onToggleWishlist={handleWishlistToggle}
+                          onToggleFavorite={handleFavoriteToggle}
+                          onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
+                          onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
+                        />
                     </div>
                     <DialogDescription className="sr-only">
                         Detailed information about {activeWinery.name}, including address, rating, hours, and visit history.

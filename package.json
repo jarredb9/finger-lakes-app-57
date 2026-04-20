@@ -1,6 +1,6 @@
 {
   "name": "winery-visit-planner",
-  "version": "2.8.0",
+  "version": "2.10.0",
   "private": true,
   "engines": {
     "node": "20.x"
@@ -113,7 +113,7 @@
     "lint-staged": "^15.2.5",
     "node-fetch": "^2.6.7",
     "postcss": "^8.4.38",
-    "supabase": "^2.76.10",
+    "supabase": "^2.90.0",
     "tailwindcss": "^4.1.18",
     "ts-jest": "^29.4.4",
     "typescript": "^5.9.3",

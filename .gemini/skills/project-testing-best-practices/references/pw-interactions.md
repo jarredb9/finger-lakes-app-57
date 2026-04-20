@@ -7,12 +7,7 @@ tags: playwright, interactions, click, hydration
 
 ## Stable Playwright Interactions
 
-In a healthy architecture, standard Playwright `.click()` should always work. However, in the current RHEL 8 / WebKit containerized environment, `robustClick` remains necessary for reliable Radix/Shadcn trigger activation.
-
-### 1. The Hybrid Click Strategy
-While standard `.click()` is preferred, the "Hybrid Click" pattern is the project standard for WebKit reliability.
-- **Pattern:** `await btn.click({ force: true })` followed by a `toPass` retry loop using `robustClick(btn)`.
-- **Why:** This ensures the engine-level click is registered (force: true) while `robustClick` triggers the synthetic events necessary for Radix components to wake up during hydration lags.
+In a healthy architecture, standard Playwright `.click()` should always work. The project mandates standard Playwright `.click()` for all interactions, supported by `data-testid` and `useRef` synchronous guards in the components.
 
 ### 2. Submission Gate Rules
 E2E helpers MUST NOT click a submission button (Save, Delete, Log) if the store's "isSaving" state is true.
@@ -35,7 +30,12 @@ Toast notifications (Radix/Shadcn Toaster) can physically block pointer events.
 - **Rule:** If an interaction fails only on mobile or after a previous success, check for a visible Toast. 
 - **Standard:** Explicitly dismiss the toast or wait for it to hide before the next action.
 
-### 6. DOM Assertions vs. Store Assertions
+### 6. Action Delegation Pattern
+UI components (Cards) MUST NOT own complex flows like "Delete Confirmation" or "Sharing Dialogs." They MUST only emit "Intent" events via props.
+- **Testing Impact:** Feature tests should verify that clicking a card action (e.g., Delete) triggers the *expected signal* in the Container, rather than testing the internal state of the card.
+- **Verification:** Use `page.evaluate` to verify that the container's state reflects the intended action (e.g., `activeTripToDelete` is set).
+
+### 7. DOM Assertions vs. Store Assertions
 - **DOM Assertions (UX):** Use these to verify that the user *sees* what they expect.
 - **Store Assertions (Logic):** Use `page.evaluate` to verify that the internal state changed. Store assertions are 100x more stable and should be used as the primary gate for complex logic verification.
 

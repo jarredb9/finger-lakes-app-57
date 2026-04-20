@@ -10,6 +10,7 @@ import { useWineryMapContext } from "@/components/winery-map-context";
 import WinerySearchResults from "@/components/map/WinerySearchResults";
 import TripList from "@/components/trip-list";
 import { List } from "lucide-react";
+import { cn } from "@/lib/utils";
 import GlobalVisitHistory from "@/components/global-visit-history"; // Import GlobalVisitHistory
 import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon, FileText, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -55,7 +56,7 @@ export function AppSidebar({
     handleFilterChange,
   } = useWineryMapContext();
 
-  const { setVisitHistoryModalOpen } = useUIStore();
+  const { setVisitHistoryModalOpen, isHydrated } = useUIStore();
   const { friendRequests = [] } = useFriendStore();
 
   const friendRequestCount = friendRequests?.length || 0;
@@ -79,6 +80,7 @@ export function AppSidebar({
           size="sm"
           onClick={() => setVisitHistoryModalOpen(true)}
           className="gap-2 shrink-0"
+          disabled={!isHydrated}
         >
           <List className="w-4 h-4" />
           View as Table
@@ -185,7 +187,7 @@ export function AppSidebar({
       {/* Navigation Tabs */}
       <Tabs defaultValue="explore" value={activeTab} onValueChange={onTabChange} className="flex-1 flex flex-col overflow-hidden">
         {!hideTabs && (
-          <div className="px-4 py-2 border-b bg-muted/10 shrink-0">
+          <div className={cn("px-4 py-2 border-b bg-muted/10 shrink-0", !isHydrated && "opacity-50 pointer-events-none")}>
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="explore" className="flex items-center gap-2 px-1" aria-label="Explore">
                 <MapPin className="w-4 h-4" />

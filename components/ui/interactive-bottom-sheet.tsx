@@ -32,19 +32,27 @@ export function InteractiveBottomSheet({
   // Mark as unstable when mode or open state changes
   useEffect(() => {
     if (isOpen) {
-      setTimeout(() => setIsStable(false), 0);
+      // Force immediate non-stable state if we're opening or changing modes
+      // Wrapped in a timeout to avoid synchronous state update within the effect (cascading renders)
+      const initTimeout = setTimeout(() => setIsStable(false), 0);
       
       // Safety fallback: if no transition occurs or property mismatch,
       // force stability after the expected duration + buffer.
       if (transitionTimeout.current) clearTimeout(transitionTimeout.current);
       transitionTimeout.current = setTimeout(() => {
         setIsStable(true);
-      }, 500); // 300ms transition + 200ms buffer
-    }
+      }, 600); // Increased buffer to 600ms for mobile chrome
 
-    return () => {
-      if (transitionTimeout.current) clearTimeout(transitionTimeout.current);
-    };
+      return () => {
+        clearTimeout(initTimeout);
+        if (transitionTimeout.current) {
+          clearTimeout(transitionTimeout.current);
+          transitionTimeout.current = null;
+        }
+      };
+    }
+    // Return a no-op cleanup if not open to satisfy TS7030
+    return () => {};
   }, [mode, isOpen]);
 
   const toggleSize = () => {
@@ -81,16 +89,20 @@ export function InteractiveBottomSheet({
     // Only care about transform transitions on the container itself
     if (e.propertyName === "transform" && e.target === e.currentTarget) {
       setIsStable(true);
-      if (transitionTimeout.current) clearTimeout(transitionTimeout.current);
+      if (transitionTimeout.current) {
+        clearTimeout(transitionTimeout.current);
+        transitionTimeout.current = null;
+      }
     }
   };
 
   return (
     isOpen && (
         <div
-          {...props}
           onTransitionEnd={handleTransitionEnd}
           data-state={isStable ? "stable" : "animating"}
+          data-testid="interactive-bottom-sheet"
+          {...props}
           className={cn(
             "fixed bottom-16 left-0 right-0 z-40 bg-background border-t rounded-t-[15px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex flex-col",
             "transition-transform duration-300 ease-out will-change-transform",

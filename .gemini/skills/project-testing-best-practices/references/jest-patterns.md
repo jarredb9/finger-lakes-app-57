@@ -95,4 +95,35 @@ expect(mockRpc).toHaveBeenCalledWith(
 );
 ```
 
+## Zero-Mock Unit Testing (Presentational Purity)
+
+With the **Container/Presentational pattern**, UI components are "Pure." They don't know about Zustand, IDs, or RPCs. This allows for unit testing with zero mocks.
+
+**Standard:** Use the central `test/factories/dataFactory.ts` to generate robust mock objects. NEVER manually write raw JSON objects in individual tests to avoid drift when schema types change.
+
+```typescript
+// components/__tests__/TripCardPresentational.test.tsx
+import { createMockTrip } from '@/test/factories/dataFactory';
+import TripCardPresentational from '../TripCardPresentational';
+
+describe('TripCardPresentational', () => {
+  it('renders trip name and date correctly', () => {
+    const trip = createMockTrip({ name: "Lake Seneca Tour" });
+    const { getByText } = render(
+      <TripCardPresentational 
+        trip={trip} 
+        isOwner={true}
+        // ... all other props pass directly as props
+      />
+    );
+    expect(getByText("Lake Seneca Tour")).toBeInTheDocument();
+  });
+});
+```
+
+### Why this is Senior-Level:
+1.  **Refactor Safety:** If you change a prop name, TypeScript will immediately highlight all broken tests.
+2.  **Schema Alignment:** The `dataFactory` ensures all tests use data that matches `lib/database.types.ts`.
+3.  **Speed:** Zero mocks = Zero overhead. Tests run at the speed of raw React rendering.
+
 Reference: [Jest Mocking](https://jestjs.io/docs/manual-mocks)

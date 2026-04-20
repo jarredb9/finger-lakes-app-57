@@ -27,6 +27,7 @@ interface WineryMapProps {
 export default function WineryMap({ className }: WineryMapProps) {
   const {
     error,
+    isLoading,
     mapWineries,
     filter,
     handleOpenModal,
@@ -62,7 +63,7 @@ export default function WineryMap({ className }: WineryMapProps) {
   }
 
   return (
-    <div data-testid="map-container" className={`relative w-full h-full group ${className || ''}`}>
+    <div data-testid="map-container" data-state={isLoading ? 'loading' : 'ready'} className={`relative w-full h-full group ${className || ''}`}>
       {/* Main Map View */}
       <div className="w-full h-full">
         <MapView

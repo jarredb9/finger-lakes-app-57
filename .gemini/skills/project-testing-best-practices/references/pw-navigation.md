@@ -37,7 +37,7 @@ Manual navigation helpers (like `navigateToTab`) are restricted to **Smoke Tests
 
 ### 3. Hydration Readiness
 If navigation is strictly required, you MUST verify the "Interaction Readiness" of the page before proceeding.
-- **Gate:** Use `expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true')` or equivalent before the first click.
+- **Gate:** Use `expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true')` or `waitForSignal(page, 'container-id', 'ready')` before the first click.
 
 ### 4. Why this is Senior-Level:
 1.  **Resilience:** Your tests no longer break when the Sidebar, Header, or Bottom Nav are refactored.

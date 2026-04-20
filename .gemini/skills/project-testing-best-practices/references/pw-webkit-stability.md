@@ -30,9 +30,9 @@ await route.fulfill({
 });
 ```
 
-### 3. The Airtight Proxy Rule
-WebKit's handling of specific `RegExp` and glob strings for cross-origin URLs can be inconsistent and segment-aware, leading to "leaks."
-- **Standard:** Use a **Catch-All Proxy** (`context.route('**/*', handler)`) with internal dispatching logic (`url.includes(...)`) to ensure 100% interception reliability. Avoid multiple individual route registrations which create priority gaps.
+### 3. Optimized Network Proxying
+To ensure high performance in containerized environments, avoid expensive `**/*` catch-all proxies.
+- **Standard:** Use targeted regex/glob patterns for Supabase and Google Maps interception. This reduces CPU overhead and eliminates network race conditions in multi-worker scenarios.
 
 ### 4. The Storage Origin Rule
 `window.indexedDB`, `localStorage`, and `caches` in WebKit often throw `SecurityError` or silently fail if accessed before a valid origin is established.

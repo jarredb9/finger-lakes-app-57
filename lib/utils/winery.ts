@@ -151,8 +151,8 @@ export const standardizeWineryData = (
   const onWishlist = source.on_wishlist !== undefined ? source.on_wishlist : (existing?.onWishlist ?? false);
   const isFavorite = source.is_favorite !== undefined ? source.is_favorite : (existing?.isFavorite ?? false);
   
-  const favoriteIsPrivate = source.is_favorite_private !== undefined ? source.is_favorite_private : (existing?.favoriteIsPrivate ?? false);
-  const wishlistIsPrivate = source.on_wishlist_private !== undefined ? source.on_wishlist_private : (existing?.wishlistIsPrivate ?? false);
+  const favoriteIsPrivate = source.is_favorite_private !== undefined ? source.is_favorite_private : (source.favorite_is_private !== undefined ? source.favorite_is_private : (source.favoriteIsPrivate !== undefined ? source.favoriteIsPrivate : (existing?.favoriteIsPrivate ?? false)));
+  const wishlistIsPrivate = source.on_wishlist_private !== undefined ? source.on_wishlist_private : (source.wishlist_is_private !== undefined ? source.wishlist_is_private : (source.wishlistIsPrivate !== undefined ? source.wishlistIsPrivate : (existing?.wishlistIsPrivate ?? false)));
 
   // Logic to preserve existing visits unless new data overrides it
   // CRITICAL FIX: If source explicitly says userVisited is false, we MUST clear the visits array to prevent "ghost visits"

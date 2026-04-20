@@ -8,16 +8,21 @@ import { useWineryDataStore } from './wineryDataStore';
 import { WineryService } from '@/lib/services/wineryService';
 import { addOfflineMutation, getOfflineMutations, removeOfflineMutation, ensureBlob } from '@/lib/utils/offline-queue';
 
+import { RealtimeChannel } from '@supabase/supabase-js';
+
 interface VisitState {
   visits: VisitWithWinery[];
   isLoading: boolean;
   isSavingVisit: boolean;
   isSyncing: boolean;
-  lastMutation: number;
+  lastActionTimestamp: number | null;
+  subscription: RealtimeChannel | null;
   page: number;
   totalPages: number;
   hasMore: boolean;
   fetchVisits: (page?: number, refresh?: boolean) => Promise<void>;
+  subscribeToVisitUpdates: () => void;
+  unsubscribeFromVisitUpdates: () => void;
   saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[]; is_private?: boolean }) => Promise<void>;
   updateVisit: (visitId: string, visitData: Partial<Visit> & { is_private?: boolean }, newPhotos: File[], photosToDelete: string[]) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
@@ -72,7 +77,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       isLoading: false,
       isSavingVisit: false,
       isSyncing: false,
-      lastMutation: 0,
+      lastActionTimestamp: null,
+      subscription: null,
       page: 1,
       totalPages: 1,
       hasMore: false,
@@ -103,6 +109,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             wineryName: v.winery_name,
             wineryId: v.google_place_id as GooglePlaceId,
             friend_visits: v.friend_visits,
+            syncStatus: 'synced',
             wineries: {
               id: v.winery_id as WineryDbId,
               google_place_id: v.google_place_id as GooglePlaceId,
@@ -127,10 +134,51 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         }
       },
 
+      subscribeToVisitUpdates: () => {
+        const { subscription: existingSub } = get();
+        if (existingSub) return;
+
+        const supabase = createClient();
+        const subscription = supabase
+          .channel('visit-updates')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'visits' },
+            async (payload) => {
+              const { lastActionTimestamp } = get();
+              const newData = payload.new as any;
+              const updatedAt = newData?.updated_at;
+              
+              // Sync Lock: Ignore if the update is older than our last local action
+              if (lastActionTimestamp && updatedAt) {
+                const payloadTime = new Date(updatedAt).getTime();
+                if (payloadTime < lastActionTimestamp - 1000) {
+                  console.log('[Sync] Ignoring stale visits update', { payloadTime, lastActionTimestamp });
+                  return;
+                }
+              }
+
+              // Refresh visits list
+              await get().fetchVisits(get().page, true);
+            }
+          )
+          .subscribe();
+
+        set({ subscription });
+      },
+
+      unsubscribeFromVisitUpdates: () => {
+        const { subscription } = get();
+        if (subscription) {
+          subscription.unsubscribe();
+          set({ subscription: null });
+        }
+      },
+
       saveVisit: async (winery, visitData) => {
         set({ isSavingVisit: true });
         const supabase = createClient();
-        const { addVisitToWinery, replaceVisit, optimisticallyDeleteVisit, confirmOptimisticUpdate } = useWineryStore.getState();
+        const { addVisitToWinery, replaceVisit } = useWineryStore.getState();
 
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) throw new Error("User not authenticated.");
@@ -147,6 +195,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             photos: visitData.photos.map(file => URL.createObjectURL(file)),
             wineryName: winery.name,
             wineryId: winery.id,
+            syncStatus: 'pending',
             wineries: {
                 id: winery.dbId || 0 as WineryDbId,
                 google_place_id: winery.id,
@@ -158,7 +207,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         };
 
         addVisitToWinery(winery.id, tempVisit);
-        set(state => ({ visits: [tempVisit, ...state.visits] }));
+        set(state => ({ visits: [tempVisit, ...state.visits], lastActionTimestamp: Date.now() }));
 
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
             try {
@@ -176,7 +225,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 console.error("[saveVisit] addOfflineMutation FAILED:", err.message);
             }
             
-            set({ isSavingVisit: false });
+            set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
         }
 
@@ -230,6 +279,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
               ...tempVisit, 
               id: visitId, 
               photos: uploadedPaths,
+              syncStatus: 'synced',
               wineries: {
                   ...tempVisit.wineries,
                   id: wineryDbId as WineryDbId
@@ -239,7 +289,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           replaceVisit(winery.id, tempId, finalVisit);
           set(state => ({
               visits: state.visits.map(v => String(v.id) === tempId ? finalVisit : v),
-              lastMutation: Date.now()
+              lastActionTimestamp: Date.now()
           }));
 
         } catch (error) {
@@ -254,19 +304,26 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 },
                 timestamp: Date.now()
             });
-            set({ isSavingVisit: false });
+            set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
           }
 
-          console.error("Failed to save visit, reverting:", error);
+          console.error("Failed to save visit, marking as error:", error);
           
           if (uploadedPaths.length > 0) {
             await supabase.storage.from('visit-photos').remove(uploadedPaths);
           }
 
-          optimisticallyDeleteVisit(tempId);
-          set(state => ({ visits: state.visits.filter(v => String(v.id) !== tempId) }));
-          confirmOptimisticUpdate();
+          // Mark as error instead of immediate optimistic delete if possible
+          // But we also need to notify WineryStore
+          set(state => ({ 
+              visits: state.visits.map(v => String(v.id) === tempId ? { ...v, syncStatus: 'error' as const } : v),
+              lastActionTimestamp: Date.now()
+          }));
+          // For now, we still call revert in WineryStore to maintain consistency if needed, 
+          // but our store keeps it with 'error' status.
+          // Actually, if we keep it in 'error', the user can see it.
+          
           throw error;
         } finally {
           set({ isSavingVisit: false });
@@ -370,6 +427,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                   photos: uploadedPaths,
                   wineryName: mutation.winery.name,
                   wineryId: mutation.winery.id,
+                  syncStatus: 'synced',
                   wineries: {
                     id: wineryDbId || mutation.winery.dbId || 0 as WineryDbId,
                     google_place_id: mutation.winery.id,
@@ -383,8 +441,9 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 replaceVisit(mutation.winery.id, mutation.id, finalVisit);
                 set(state => ({
                   visits: state.visits.map(v => String(v.id) === mutation.id ? finalVisit : v),
-                  lastMutation: Date.now()
+                  lastActionTimestamp: Date.now()
                 }));
+                console.log(`[Sync] Visit ${visitId} synced successfully`);
 
               } else if (mutation.type === 'update') {
                 let newPhotoPaths: string[] = [];
@@ -432,13 +491,14 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 const finalVisit: VisitWithWinery = {
                   ...updatedVisit,
                   wineryName: updatedVisit.winery_name,
-                  wineryId: updatedVisit.google_place_id
+                  wineryId: updatedVisit.google_place_id,
+                  syncStatus: 'synced'
                 };
 
                 confirmOptimisticUpdate(finalVisit);
                 set(state => ({
                   visits: state.visits.map(v => String(v.id) === String(mutation.visitId) ? finalVisit : v),
-                  lastMutation: Date.now()
+                  lastActionTimestamp: Date.now()
                 }));
 
               } else if (mutation.type === 'delete') {
@@ -446,7 +506,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 if (error) throw error;
 
                 confirmOptimisticUpdate();
-                set({ lastMutation: Date.now() });
+                set({ lastActionTimestamp: Date.now() });
               }
 
               await removeOfflineMutation(mutation.id);
@@ -472,7 +532,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         
         optimisticallyUpdateVisit(visitId, { ...visitData, photos: newOptimisticPhotos });
         set(state => ({
-            visits: state.visits.map(v => String(v.id) === String(visitId) ? { ...v, ...visitData, photos: newOptimisticPhotos } : v)
+            visits: state.visits.map(v => String(v.id) === String(visitId) ? { ...v, ...visitData, photos: newOptimisticPhotos, syncStatus: 'pending' as const } : v),
+            lastActionTimestamp: Date.now()
         }));
 
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -490,7 +551,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 photosToDelete: photosToDelete,
                 timestamp: Date.now()
             });
-            set({ isSavingVisit: false });
+            set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
         }
 
@@ -537,13 +598,14 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           const finalVisit: VisitWithWinery = {
               ...updatedVisit,
               wineryName: updatedVisit.winery_name,
-              wineryId: updatedVisit.google_place_id
+              wineryId: updatedVisit.google_place_id,
+              syncStatus: 'synced'
           };
 
           confirmOptimisticUpdate(finalVisit);
           set(state => ({
               visits: state.visits.map(v => String(v.id) === String(visitId) ? finalVisit : v),
-              lastMutation: Date.now()
+              lastActionTimestamp: Date.now()
           }));
 
         } catch (error) {
@@ -557,12 +619,16 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 photosToDelete: photosToDelete,
                 timestamp: Date.now()
             });
-            set({ isSavingVisit: false });
+            set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
           }
 
-          console.error("Failed to update visit, reverting:", error);
+          console.error("Failed to update visit, marking as error:", error);
           revertOptimisticUpdate();
+          set(state => ({
+            visits: state.visits.map(v => String(v.id) === String(visitId) ? { ...v, syncStatus: 'error' as const } : v),
+            lastActionTimestamp: Date.now()
+          }));
           get().fetchVisits(get().page, true);
           throw error;
         } finally {
@@ -576,7 +642,10 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         
         optimisticallyDeleteVisit(visitId);
         const originalVisits = get().visits;
-        set(state => ({ visits: state.visits.filter(v => String(v.id) !== String(visitId)) }));
+        set(state => ({ 
+            visits: state.visits.filter(v => String(v.id) !== String(visitId)),
+            lastActionTimestamp: Date.now()
+        }));
 
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
             await addOfflineMutation({
@@ -585,6 +654,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 visitId: visitId,
                 timestamp: Date.now()
             });
+            set({ lastActionTimestamp: Date.now() });
             return;
         }
 
@@ -593,7 +663,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             if (error) throw error;
             
             confirmOptimisticUpdate();
-            set({ lastMutation: Date.now() });
+            set({ lastActionTimestamp: Date.now() });
         } catch (error) {
             if (isNetworkError(error)) {
                 await addOfflineMutation({
@@ -602,12 +672,17 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                     visitId: visitId,
                     timestamp: Date.now()
                 });
+                set({ lastActionTimestamp: Date.now() });
                 return;
             }
 
-            console.error("Failed to delete visit, reverting:", error);
+            console.error("Failed to delete visit, marking as error:", error);
             revertOptimisticUpdate();
-            set({ visits: originalVisits });
+            // Set error status on the original visits that were reverted
+            const revertedVisits = originalVisits.map(v => 
+                String(v.id) === String(visitId) ? { ...v, syncStatus: 'error' as const } : v
+            );
+            set({ visits: revertedVisits, lastActionTimestamp: Date.now() });
             throw error;
         }
       },
@@ -685,7 +760,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             timestamp: Date.now()
         });
         
-        set({ lastMutation: Date.now() });
+        set({ lastActionTimestamp: Date.now() });
       },
 
       reset: () => set({
@@ -693,7 +768,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         isLoading: false,
         isSavingVisit: false,
         isSyncing: false,
-        lastMutation: 0,
+        lastActionTimestamp: null,
         page: 1,
         totalPages: 1,
         hasMore: false,
@@ -707,7 +782,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           page: state.page, 
           totalPages: state.totalPages, 
           hasMore: state.hasMore,
-          lastMutation: state.lastMutation
+          lastActionTimestamp: state.lastActionTimestamp
         };
       },
     }

@@ -78,7 +78,8 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 * **The Case-Insensitive ID Rule:** UUIDs and foreign key strings can have inconsistent casing across different stores (Zustand vs Supabase). **Standard:** Always use `String(id1).toLowerCase() === String(id2).toLowerCase()` when filtering or matching members/friends in the UI. This is critical for `isOwner` checks in components to ensure consistent behavior across all browsers.
 *   **The Join-Table Rule:** **MANDATORY:** Always use the `trip_members` table and the `public.is_trip_member(trip_id)` helper function for all membership checks and authorization. **NEVER** reference a `members` column on the `trips` table, as it has been deprecated and removed.
 *   **RPC Schema Parity:** **Standard:** Any change to a database function's return type or parameters MUST be immediately reflected in `lib/database.types.ts`. The Supabase client will throw a `400 Bad Request` if the expected schema does not match the actual function definition.
-*   **Standard:** Use `ensureInDb(wineryId)` before relational RPCs. Treat `dbId > 100` as a record.
+*   **Standard:** Use `ensureInDb(wineryId)` before relational RPCs.
+*   **The SyncStatus Rule:** **MANDATORY:** Use `SyncStatus` ('synced' | 'pending' | 'error') in entity models (defined in `lib/types.ts`). UI components MUST use this status to drive loading states, optimistic UI styles (e.g., opacity-50 for 'pending'), and to prevent duplicate mutations while a sync is in progress.
 *   **RLS Visibility Rule:** All `SELECT` policies for tables allowing insertion MUST include a direct ownership check (e.g., `auth.uid() = user_id`) BEFORE any complex function calls (like `is_trip_member()`). This prevents `42501` errors during `INSERT ... RETURNING` caused by recursion or row invisibility.
 *   **Collaborative Trips:** The `Trip` interface and related RPCs (`get_trip_details`) MUST use the structured `TripMember` type (ID, Name, Email, Role, Status). LEGACY string arrays for members are deprecated.
 *   **Migrations:** Sequential files in `supabase/migrations/` are the **SINGLE SOURCE OF TRUTH**.
@@ -96,18 +97,26 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 *   **The Revision Lock Rule:** Stores implementing Realtime sync MUST track a `lastActionTimestamp`. Incoming `postgres_changes` payloads MUST be ignored if their DB timestamp is older than the last local mutation to prevent "Flicker" race conditions.
 
 ### **C. UI Pattern: Container/Presentational**
-*   **The Pure Component Rule:** UI components (Cards, Buttons, List Items) MUST be "Presentational." They MUST NOT call `useStore` hooks. Data and callbacks (e.g., `onEdit`, `onDelete`) MUST be passed as props.
-*   **The Container Mandate:** Data fetching and store connections MUST be localized in "Container" or "Page" components. This ensures UI components are testable with raw JSON objects and require zero store mocks.
+*   **The Pure Component Rule:** UI components (Cards, Buttons, List Items) MUST be "Presentational." They MUST NOT call `useStore` hooks or perform asynchronous side effects (e.g., `fetch`). Data and callbacks (e.g., `onEdit`, `onDelete`) MUST be passed as props.
+*   **The Container Mandate:** Data fetching, store connections, and complex event handlers MUST be localized in "Container" or "Page" components. This ensures UI components are testable with raw JSON objects and require zero store mocks.
+*   **Naming Convention:** Presentational components should be suffixed with `Presentational` (e.g., `TripCardPresentational.tsx`) if the container shares the base name (e.g., `trip-card.tsx`).
 
 ### **D. Social & Privacy Logic**
 *   **Normalization:** All social relations use `trip_members`, `follows`, and `activity_ledger`.
 *   **Visibility:** Use the `is_visible_to_viewer` RPC to enforce Public/Friends/Private tiers.
+
+### **E. Styling & UI Standards**
+*   **The Tailwind Mandate:** **MANDATORY:** Use **Tailwind CSS v4** utility classes for all layout, spacing, and standard UI elements.
+*   **The shadcn/ui Rule:** Prioritize existing `shadcn/ui` components (found in `components/ui/`) for common primitives (Buttons, Dialogs, Inputs).
+*   **The Utility-First Rule:** Always prefer utility classes over custom CSS unless a component requires highly specialized animations or browser-native styling (e.g., complex `@keyframes` or complex pseudo-elements) that cannot be cleanly expressed with Tailwind.
+*   **The cn() Utility:** Always use the `cn()` helper (from `lib/utils.ts`) for dynamic class merging and overriding component defaults.
 
 ## 5. Engineering & Testing Standards
 **MANDATORY:** Activate specialized skills for detailed workflow and coverage requirements.
 
 ### **A. Diagnostic & E2E Standards**
 *   **Diagnostic Protocol (Priority 0):** NEVER fix a test based on assumptions. Follow the 3-tier diagnostic sequence (DOM -> Store -> DB) defined in `project-testing-best-practices`.
+*   **The Readiness Gate Rule:** Main containers and feature modals MUST implement a `data-state="ready"` (or `data-hydrated="true"`) attribute once initial data fetching and hydration are complete. E2E tests MUST wait for this attribute before clicking or filling inputs to prevent hydration race conditions.
 *   **The Atomic State Injection Rule:** Use `page.evaluate` to inject store state directly into the browser for feature verification. This bypasses fragile navigation steps and reduces test execution time by 80%.
 *   **The Sub-Pixel Robustness Rule:** WebKit/High-DPI emulators often return non-integer coordinates. **Standard:** Use `expect(box.y).toBeLessThan(5)` instead of `toBe(0)` for edge-aligned elements.
 *   **The Project Filtering Rule:** Emulated environments (User Agent, touch) persist across viewport overrides. **Standard:** Explicitly `test.skip()` layout tests that don't match the project type (Mobile vs Desktop) to prevent hydration mismatches.
@@ -145,7 +154,10 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 ## 8. Reference Implementations
 *   **Data Standard:** `lib/utils/winery.ts` (standardizeWineryData)
 *   **RPC Service:** `lib/services/tripService.ts`
-*   **Complex UI/DnD:** `components/trip-card.tsx`
+*   **Complex UI/DnD (Container):** `components/trip-card.tsx`
+*   **Complex UI (Presentational):** `components/TripCardPresentational.tsx`
+*   **Presentational Winery Card:** `components/winery-card-thumbnail.tsx`
+*   **Presentational Visit Card:** `components/VisitCardHistory.tsx`
 *   **Offline Store:** `lib/stores/visitStore.ts`
 *   **E2E Spec:** `e2e/trip-flow.spec.ts`
 

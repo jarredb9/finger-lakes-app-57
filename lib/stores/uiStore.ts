@@ -24,6 +24,7 @@ interface UIState {
   isShareDialogOpen: boolean;
   shareTripId: string | null;
   shareTripName: string | null;
+  isHydrated: boolean;
 
   // Singleton Modal State
   activeVisitWinery: Winery | null;
@@ -50,6 +51,7 @@ interface UIState {
 
   openShareDialog: (tripId: string, tripName: string) => void;
   closeShareDialog: () => void;
+  setHydrated: (isHydrated: boolean) => void;
   reset: () => void;
 }
 
@@ -70,6 +72,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
       isShareDialogOpen: false,
       shareTripId: null,
       shareTripName: null,
+      isHydrated: false,
       
       activeVisitWinery: null,
       editingVisit: null,
@@ -163,6 +166,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         shareTripId: null, 
         shareTripName: null 
       }),
+      setHydrated: (isHydrated) => set({ isHydrated }),
       reset: () => set({
         isSidebarOpen: false,
         isWineryModalOpen: false,
@@ -178,6 +182,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         isShareDialogOpen: false,
         shareTripId: null,
         shareTripName: null,
+        isHydrated: false,
         activeVisitWinery: null,
         editingVisit: null,
         activeNoteWineryDbId: null,

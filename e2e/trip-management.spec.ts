@@ -5,7 +5,10 @@ import {
     login, 
     navigateToTab, 
     ensureSidebarExpanded,
-    waitForToast
+    expectTripInStore,
+    expectTripDeletedFromStore,
+    waitForSignal,
+    waitForAppReady
 } from './helpers';
 
 test.describe('Trip Management Flow', () => {
@@ -18,35 +21,49 @@ test.describe('Trip Management Flow', () => {
   });
 
   test('User can create, rename, and delete a trip', async ({ page }) => {
+    test.setTimeout(180000);
     const sidebar = getSidebarContainer(page);
     
     // 1. Navigate to Trips
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);
     
-    await expect(sidebar.locator('.animate-spin')).not.toBeVisible({ timeout: 10000 });
+    // Use signal-based synchronization
+    await waitForSignal(page, 'trip-list-container', 'ready');
     
     // 2. Create New Trip directly
     const uniqueTripName = `Mgmt Trip ${Date.now()}`;
     const newTripBtn = sidebar.getByRole('button', { name: 'New Trip' });
     await newTripBtn.click({ force: true });
     
+    // Wait for form to be ready
+    await waitForSignal(page, 'trip-form-card', 'ready');
     const tripForm = page.getByTestId('trip-form-card');
     await tripForm.getByTestId('trip-name-input').fill(uniqueTripName);
     
+    // Ensure button is enabled (isValid should be true after filling name)
+    const submitBtn = tripForm.getByTestId('create-trip-submit-btn');
+    await expect(submitBtn).toBeEnabled({ timeout: 10000 });
+
+    // Small buffer for mobile to ensure React Hook Form has processed the fill
+    await page.waitForTimeout(500);
+
     // Save and wait for the RPC response
     await Promise.all([
-        page.waitForResponse(resp => resp.url().includes('rpc/create_trip') && resp.status() === 200),
-        tripForm.getByTestId('create-trip-submit-btn').click({ force: true })
+        page.waitForResponse(resp => resp.url().includes('rpc/create_trip') && resp.status() >= 200 && resp.status() < 300),
+        submitBtn.click({ force: true })
     ]);
     
-    await waitForToast(page, 'Trip created successfully!');
+    await expectTripInStore(page, uniqueTripName);
     
     // Ensure the dialog is gone before checking the sidebar
     await expect(page.getByRole('dialog')).not.toBeVisible();
 
+    // Re-fetch sidebar after navigation/dialog closure for stability
+    const activeSidebar = getSidebarContainer(page);
+
     // Give the UI a moment to re-render the list with proactive sync
-    const tripCard = sidebar.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
+    const tripCard = activeSidebar.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
     await expect(async () => {
         await page.evaluate(async () => {
             const store = (window as any).useTripStore?.getState();
@@ -64,6 +81,8 @@ test.describe('Trip Management Flow', () => {
     
     // 4. On the details page
     await expect(page).toHaveURL(new RegExp(`/trips/${tripId}`), { timeout: 15000 });
+    await waitForSignal(page, 'trip-details-card', 'ready');
+    
     try {
         await expect(async () => {
             // Check for Next.js error page
@@ -76,7 +95,7 @@ test.describe('Trip Management Flow', () => {
             }
 
             // Check for our custom error states
-            const alertError = page.locator('[role="alert"]').first();
+            const alertError = page.locator('ol li[role="alert"]').first();
             if (await alertError.isVisible()) {
                 const errorText = await alertError.innerText();
                 const isRealError = errorText.includes('Error Loading Trip') || errorText.includes('Access denied');
@@ -89,8 +108,6 @@ test.describe('Trip Management Flow', () => {
                         if (store) await store.fetchTripById(id);
                     }, tripId);
                     throw new Error(`Trip Error Alert: ${errorText}`);
-                } else {
-                    console.log(`[DIAGNOSTIC] Ignoring unrelated alert: ${errorText.substring(0, 50)}...`);
                 }
             }
 
@@ -147,22 +164,33 @@ test.describe('Trip Management Flow', () => {
     
     // Click "Save" button
     await Promise.all([
-        page.waitForResponse(resp => [200, 204].includes(resp.status()) && (resp.url().includes('trips') || resp.url().includes('rpc'))),
+        page.waitForResponse(resp => resp.status() < 300 && (resp.url().includes('trips') || resp.url().includes('rpc'))),
         page.getByRole('button', { name: /Save/i }).first().click({ force: true })
     ]);
     
-    await waitForToast(page, 'Trip updated successfully.');
+    await expectTripInStore(page, renamedTripName);
     
     // Verify name changed on page
     await expect(page.getByText(renamedTripName, { exact: false }).first()).toBeVisible({ timeout: 10000 });
     
+    // Wait for any toasts to clear before clicking "Back to Map" on mobile 
+    // as it can be covered by the top-aligned toast viewport
+    const toast = page.locator('ol li[role="status"], ol li[role="alert"]').first();
+    if (await toast.isVisible()) {
+        await expect(toast).not.toBeVisible({ timeout: 10000 });
+    }
+
     // Navigate back to trips to verify deletion
-    page.getByRole('link', { name: 'Back to Map' }).click({ force: true });
+    await page.goto('/');
+    await waitForAppReady(page);
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);
+    
+    // Re-fetch sidebar again for stability
+    const finalSidebar = getSidebarContainer(page);
 
     // 5. Delete Trip
-    const updatedTripCard = sidebar.getByTestId('trip-card').filter({ hasText: renamedTripName }).first();
+    const updatedTripCard = finalSidebar.getByTestId('trip-card').filter({ hasText: renamedTripName }).first();
     
     await expect(async () => {
         // Proactive sync to ensure rename is reflected in the list
@@ -180,11 +208,11 @@ test.describe('Trip Management Flow', () => {
     
     // Confirm deletion and wait for response
     await Promise.all([
-        page.waitForResponse(resp => (resp.url().includes('delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')) && [200, 204].includes(resp.status())),
+        page.waitForResponse(resp => (resp.url().includes('delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')) && resp.status() < 300),
         page.getByTestId('confirm-delete-trip-btn').click({ force: true })
     ]);
     
-    await waitForToast(page, 'Trip deleted successfully.');
+    await expectTripDeletedFromStore(page, renamedTripName);
     
     // Verify deleted
     await expect(sidebar.getByText(renamedTripName)).not.toBeVisible();

@@ -1,7 +1,11 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, getSidebarContainer } from './helpers';
+import { login, navigateToTab, getSidebarContainer, clearServiceWorkers } from './helpers';
 
 test.describe('DatePicker UX', () => {
+  test.beforeEach(async ({ page }) => {
+    await clearServiceWorkers(page);
+  });
+
   test('Desktop: should open popover and close on date selection', async ({ page, user }) => {
     await login(page, user.email, user.password);
     await navigateToTab(page, 'Explore');
@@ -34,13 +38,19 @@ test.describe('DatePicker UX', () => {
         const datePickerBtn = page.getByRole('button', { name: /2026/ });
         await expect(datePickerBtn).toBeVisible();
     });
+
+    // Cleanup: Close modal
+    await page.keyboard.press('Escape');
+    await expect(page.getByRole('dialog')).not.toBeVisible();
   });
 
   test('Mobile: should open drawer and close on date selection', async ({ page, user }) => {
-    // Use Mobile Chrome viewport size
+    // Use Mobile Chrome viewport size BEFORE login so the app handles mobile shell correctly
     await page.setViewportSize({ width: 393, height: 851 });
     
     await login(page, user.email, user.password);
+
+    // navigateToTab is handled by login() on mobile, but we call it explicitly to be certain
     await navigateToTab(page, 'Explore');
 
     await test.step('Open Winery Modal', async () => {

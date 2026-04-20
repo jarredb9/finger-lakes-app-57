@@ -42,6 +42,11 @@ await route.fulfill({ body: JSON.stringify([mockTrip]) });
 Mocks for "Get By ID" RPCs MUST NOT return the first item in a list. They MUST parse the request and return the matching record.
 - **Requirement:** Parse `route.request().postData()` to identify the requested ID.
 
+### 5. Strict Mocking (501 Fail-Fast)
+To prevent silent integration failures, the `MockMapsManager` implements a "Strict Mock" policy.
+- **Standard:** If the application calls an RPC or REST endpoint that is NOT explicitly handled by the mock registry, the interceptor MUST fulfill with a `501 Not Implemented` status.
+- **Why:** This forces E2E tests to fail immediately when new network dependencies are introduced, rather than falling back to slow timeouts or confusing "Empty State" UI.
+
 ### 4. Why this is Senior-Level:
 1.  **Zero Drift:** You catch backend changes in your frontend tests immediately.
 2.  **Predictability:** You eliminate 90% of "400 Bad Request" errors in E2E tests.

@@ -13,15 +13,15 @@ import Link from "next/link";
 
 export default function FriendActivityFeed() {
   const { friendActivityFeed = [], fetchFriendActivityFeed, isLoading } = useFriendStore();
-  const lastMutation = useVisitStore(state => state.lastMutation);
+  const lastActionTimestamp = useVisitStore(state => state.lastActionTimestamp);
 
   useEffect(() => {
     fetchFriendActivityFeed();
-  }, [fetchFriendActivityFeed, lastMutation]);
+  }, [fetchFriendActivityFeed, lastActionTimestamp]);
 
   if (isLoading && (!friendActivityFeed || friendActivityFeed.length === 0)) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4" data-testid="friend-activity-feed" data-state="loading">
         {[1, 2, 3].map((i) => (
           <Card key={i} className="overflow-hidden">
             <CardHeader className="p-4 pb-2 flex flex-row items-center gap-3 space-y-0">
@@ -43,7 +43,7 @@ export default function FriendActivityFeed() {
 
   if (!friendActivityFeed || friendActivityFeed.length === 0) {
     return (
-      <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg border border-dashed">
+      <div className="text-center py-8 text-muted-foreground bg-muted/30 rounded-lg border border-dashed" data-testid="friend-activity-feed" data-state="ready">
         <p>No recent activity from friends.</p>
         <p className="text-xs mt-1">Add more friends to see their winery visits here!</p>
       </div>
@@ -51,7 +51,7 @@ export default function FriendActivityFeed() {
   }
 
   return (
-    <div className="space-y-4" data-testid="friend-activity-feed">
+    <div className="space-y-4" data-testid="friend-activity-feed" data-state={isLoading ? 'loading' : 'ready'}>
       <h3 className="font-semibold text-lg px-1">Friend Activity</h3>
       {friendActivityFeed.map((item, index) => (
         <Card key={`${item.activity_user_id}-${item.created_at}-${index}`} className="overflow-hidden hover:shadow-xs transition-shadow" data-testid="friend-activity-item">

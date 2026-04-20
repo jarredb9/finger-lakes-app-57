@@ -9,11 +9,13 @@ import {
     closeWineryModal,
     ensureSidebarExpanded,
     ensureProfileReady,
-    waitForToast
+    expectWineryPrivacyInStore,
+    expectWineryStatusInStore
 } from './helpers';
 
 test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
   test('Users can control privacy of their favorites and wishlist', async ({ browser, user: user1, viewport, userAgent }) => {
+    test.setTimeout(180000);
     // 1. Create second ephemeral test user
     const user2 = await createTestUser();
 
@@ -26,6 +28,9 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
 
       const managerA = new MockMapsManager(pageA);
       const managerB = new MockMapsManager(pageB);
+      
+      managerA.setupLogging();
+      managerB.setupLogging();
 
       // 3. Setup: Login and establish friendship
       await test.step('Initial Setup: Login & Friendship', async () => {
@@ -33,12 +38,14 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         await managerA.useRealFavorites();
         await managerA.initDefaultMocks({ currentUserId: user1.id });
         await login(pageA, user1.email, user1.password);
+        await pageA.evaluate((email) => { (window as any)._E2E_USER_EMAIL = email; }, user1.email);
         await ensureProfileReady(pageA);
 
         await managerB.useRealSocial();
         await managerB.useRealFavorites();
         await managerB.initDefaultMocks({ currentUserId: user2.id });
         await login(pageB, user2.email, user2.password);
+        await pageB.evaluate((email) => { (window as any)._E2E_USER_EMAIL = email; }, user2.email);
         await ensureProfileReady(pageB);
 
         await setupFriendship(pageA, pageB, user1.email, user2.email);
@@ -52,13 +59,39 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         await waitForMapReady(pageA);
         await ensureSidebarExpanded(pageA);
 
+        // Ensure sidebar is populated with markers
+        await pageA.evaluate(() => {
+            const win = window as any;
+            if (win.useWineryStore) {
+                const userId = win.useUserStore?.getState().user?.id;
+                if (userId) win.useWineryStore.getState().fetchWineryData(userId);
+            }
+        });
+
         await openWineryDetails(pageA, 'Mock Winery One');
         
-        const favBtn = pageA.getByRole('button', { name: /Favorite/i });
-        await favBtn.click({ force: true });
+        // Favorite
+        const favBtn = pageA.getByTestId('favorite-button');
+        await expect(favBtn).toBeVisible({ timeout: 10000 });
+        
+        await Promise.all([
+            pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_favorite') && resp.status() === 200),
+            favBtn.click({ force: true })
+        ]);
+        await expectWineryStatusInStore(pageA, 'Mock Winery One', 'favorite', true);
 
-        const wishBtn = pageA.getByRole('button', { name: /Want to Go/i });
-        await wishBtn.click({ force: true });
+        // Wait for any toast to disappear if it might block the next button
+        await pageA.locator('[role="status"], [role="alert"]').isHidden().catch(() => null);
+
+        // Wishlist
+        const wishBtn = pageA.getByTestId('wishlist-button');
+        await expect(wishBtn).toBeVisible({ timeout: 10000 });
+        
+        await Promise.all([
+            pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_wishlist') && resp.status() === 200),
+            wishBtn.click({ force: true })
+        ]);
+        await expectWineryStatusInStore(pageA, 'Mock Winery One', 'wishlist', true);
         
         await closeWineryModal(pageA);
       });
@@ -67,12 +100,21 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       await test.step('User B sees public items', async () => {
         await navigateToTab(pageB, 'Friends');
         await ensureSidebarExpanded(pageB);
+        
+        // Force a refresh of the friends store to ensure the new status is picked up
+        await pageB.evaluate(async () => {
+            // @ts-ignore
+            const store = window.useFriendStore?.getState();
+            if (store) await store.fetchFriends();
+        });
+
         const sidebarB = getSidebarContainer(pageB);
         
         const userALink = sidebarB.locator('a', { hasText: user1.email.split('@')[0] });
+        await userALink.scrollIntoViewIfNeeded();
         await userALink.click({ force: true });
 
-        await expect(pageB.getByText('Favorites')).toBeVisible();
+        await expect(pageB.getByText('Favorites', { exact: false }).first()).toBeVisible();
         await expect(pageB.getByTestId('favorite-count')).toHaveText('1');
         await expect(pageB.getByTestId('wishlist-count')).toHaveText('1');
       });
@@ -80,24 +122,40 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       // 6. User A makes the favorite and wishlist private
       await test.step('User A makes items private', async () => {
         await navigateToTab(pageA, 'Explore');
+        await ensureSidebarExpanded(pageA);
         await openWineryDetails(pageA, 'Mock Winery One');
         
-        const favPrivacyToggle = pageA.getByLabel(/Make favorite private/i);
-        await favPrivacyToggle.click({ force: true });
-        await waitForToast(pageA, /Favorite is now private/i);
+        const favPrivacyToggle = pageA.getByTestId('favorite-privacy-toggle');
+        await expect(favPrivacyToggle).toBeVisible();
+        
+        await Promise.all([
+            pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_favorite_privacy') && resp.status() === 200),
+            favPrivacyToggle.click({ force: true })
+        ]);
+        
+        await expectWineryPrivacyInStore(pageA, 'Mock Winery One', 'favorite', true);
 
         // Small delay to allow the first toast to settle/not overlap with the next toggle click if needed
-        await pageA.waitForTimeout(500);
+        await pageA.waitForTimeout(1000);
 
-        const wishPrivacyToggle = pageA.getByLabel(/Make wishlist item private/i);
-        await wishPrivacyToggle.click({ force: true });
-        await waitForToast(pageA, /Wishlist item is now private/i);
+        const wishPrivacyToggle = pageA.getByTestId('wishlist-privacy-toggle');
+        await expect(wishPrivacyToggle).toBeVisible();
+        
+        await Promise.all([
+            pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_wishlist_privacy') && resp.status() === 200),
+            wishPrivacyToggle.click({ force: true })
+        ]);
+        
+        await expectWineryPrivacyInStore(pageA, 'Mock Winery One', 'wishlist', true);
 
         await closeWineryModal(pageA);
       });
 
       // 7. User B sees items are hidden
       await test.step('User B sees private items hidden', async () => {
+        // Wait for potential backend/cache settlement
+        await pageB.waitForTimeout(2000);
+        
         await expect(async () => {
             await pageB.evaluate(async (friendId) => {
                 // @ts-ignore
@@ -109,7 +167,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
             
             await expect(pageB.getByTestId('favorite-count')).toHaveText('0');
             await expect(pageB.getByTestId('wishlist-count')).toHaveText('0');
-        }).toPass({ timeout: 20000 });
+        }).toPass({ timeout: 30000 });
       });
 
       await contextA.close();

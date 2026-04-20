@@ -144,9 +144,10 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const winery = original.find(w => w.id === wineryId);
           if (!winery) return;
 
-          // Optimistic Update
+          // Optimistic Update - toggle the value
+          const nextState = !isFavorite;
           set({
-              persistentWineries: original.map(w => w.id === wineryId ? { ...w, isFavorite: !isFavorite } : w)
+              persistentWineries: original.map(w => w.id === wineryId ? { ...w, isFavorite: nextState } : w)
           });
 
           try {
@@ -171,9 +172,10 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
         const winery = original.find(w => w.id === wineryId);
         if (!winery) return;
         
-        // Optimistic Update
+        // Optimistic Update - toggle the value
+        const nextState = !isOnWishlist;
         set({
-            persistentWineries: original.map(w => w.id === wineryId ? { ...w, onWishlist: !isOnWishlist } : w)
+            persistentWineries: original.map(w => w.id === wineryId ? { ...w, onWishlist: nextState } : w)
         });
 
         try {
@@ -204,21 +206,25 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           });
 
           try {
-              await WineryService.toggleFavoritePrivacy(winery);
-              // Ensure we have the DB ID in store after the operation
-              const dbId = await get().ensureInDb(wineryId);
-              if (dbId) {
-                  set(state => ({
-                      persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId } : w)
-                  }));
-              }
+              const result = await WineryService.toggleFavoritePrivacy(winery);
+              
+              // Only ensure in DB if we don't already have a real DB ID
+              const dbId = (winery.dbId && winery.dbId > 100) ? winery.dbId : await get().ensureInDb(wineryId);
+              
+              set(state => ({
+                  persistentWineries: state.persistentWineries.map(w => 
+                      w.id === wineryId ? { 
+                          ...w, 
+                          dbId: dbId || w.dbId, 
+                          favoriteIsPrivate: result.isPrivate 
+                      } : w
+                  )
+              }));
           } catch (err) {
-              console.error("[wineryDataStore] Fav privacy toggle failed:", err);
               set({ persistentWineries: original });
               throw err;
           }
       },
-
       toggleWishlistPrivacy: async (wineryId: GooglePlaceId) => {
           const original = get().persistentWineries;
           const winery = original.find(w => w.id === wineryId);
@@ -230,14 +236,20 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           });
 
           try {
-              await WineryService.toggleWishlistPrivacy(winery);
-              // Ensure we have the DB ID in store after the operation
-              const dbId = await get().ensureInDb(wineryId);
-              if (dbId) {
-                  set(state => ({
-                      persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId } : w)
-                  }));
-              }
+              const result = await WineryService.toggleWishlistPrivacy(winery);
+              
+              // Only ensure in DB if we don't already have a real DB ID
+              const dbId = (winery.dbId && winery.dbId > 100) ? winery.dbId : await get().ensureInDb(wineryId);
+              
+              set(state => ({
+                  persistentWineries: state.persistentWineries.map(w => 
+                      w.id === wineryId ? { 
+                          ...w, 
+                          dbId: dbId || w.dbId, 
+                          wishlistIsPrivate: result.isPrivate 
+                      } : w
+                  )
+              }));
           } catch (err) {
               console.error("[wineryDataStore] Wishlist privacy toggle failed:", err);
               set({ persistentWineries: original });

@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.10.0] - 2026-04-20
+
+**Pattern Isolation, Sync Lock & Zero-Mock Testing**
+
+Version 2.10.0 is a major architectural milestone that completes the decoupling of UI components from global state and introduces a robust synchronization framework. By enforcing the **Container/Presentational pattern** and implementing a database-backed **Sync Lock**, we have achieved 100% deterministic UI state and eliminated Realtime synchronization flickers.
+
+### 🚀 Features
+*   **Container/Presentational Architecture:** Fully refactored core UI components (`TripCard`, `TripList`, `WineryActions`) into pure "Presentational" components. All store dependencies have been hoisted into "Container" wrappers, enabling 100% isolated unit testing and clear data flow.
+*   **Sync Lock & Revision Control:** Introduced `lastActionTimestamp` and `updated_at` tracking across the State layer. The application now implements a **Sync Lock** that intelligently ignores stale Realtime payloads if they are older than the user's last local interaction, solving the "Three-Way Sync" paradox.
+*   **Signal-Based Synchronization:** Implemented `data-state="ready"` signals across all main feature containers. E2E tests now synchronize with these lifecycle signals, eliminating the need for fragile timeouts and "magic number" waits.
+*   **Zero-Mock Unit Testing:** Established the `dataFactory` pattern and transitioned unit tests to a "Zero-Mock" model. UI components are now verified by passing raw JSON factories directly to props, removing the maintenance overhead of complex Zustand mocks.
+
+### 🛡 Security & Privacy
+*   **Privacy-Aware RPCs:** Updated `get_map_markers` and `get_winery_details_by_id` to include granular privacy columns (`is_favorite_private`, `on_wishlist_private`), ensuring items are only visible to authorized viewers.
+*   **Friend Profile Privacy:** Hardened `get_friend_profile_with_visits` to allow users to see their own private items in counts while strictly enforcing social privacy for external viewers.
+
+### ⚙ Infrastructure & Testing
+*   **Concurrency Scaling:** Optimized the E2E infrastructure to support parallel execution with 2+ workers in containerized environments.
+    *   **Worker Isolation:** Implemented unique storage partitions and isolated Service Worker registration per worker.
+    *   **Network Optimization:** Refactored `MockMapsManager` to use targeted regex/glob routing, reducing CPU saturation during high-concurrency test runs.
+*   **Migration-First Schema:** Deployed a series of migrations to add `updated_at` triggers and privacy fields to `trips`, `trip_wineries`, and `visits` tables.
+
+### 📝 Documentation
+*   **Standardized Mandates:** Updated `GEMINI.md` and the project testing skill to strictly mandate the Container/Presentational pattern, Sync Lock requirements, and Signal-Based Synchronization.
+
 ## [2.9.0] - 2026-04-01
 
 **Atomic Architecture, Hydration Mastery & Portal Decoupling**

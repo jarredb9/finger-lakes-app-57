@@ -24,8 +24,9 @@ echo "🚀 Starting Playwright Containerized Tests (Rootless)..."
 echo "📦 Image: $IMAGE"
 
 if [ "$SHOULD_BUILD" = true ]; then
-    echo "🏗️  Forcing a fresh production build..."
+    echo "🏗️  Forcing a fresh production build and clearing isolated storage..."
     rm -rf .next
+    rm -rf test-results/.storage
 fi
 
 # Determine command based on argument

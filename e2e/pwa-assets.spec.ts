@@ -55,7 +55,7 @@ test.describe('PWA Assets & Sync', () => {
     await ensureSidebarExpanded(page);
     await openWineryDetails(page, 'Vineyard of Illusion');
 
-    const modal = page.getByRole('dialog');
+    const modal = page.getByTestId('winery-modal');
     await expect(modal.getByRole('heading', { name: 'Vineyard of Illusion' })).toBeVisible();
 
     // 2. Go Offline
@@ -73,8 +73,7 @@ test.describe('PWA Assets & Sync', () => {
 
     // 3. Create Visit (Queued)
     await page.getByTestId('log-visit-button').click({ force: true });
-    await page.getByLabel('Visit Date').fill('2025-01-02');
-    await logVisit(page, { review: 'Sync Me!' });
+    await logVisit(page, { date: '2025-01-02', review: 'Sync Me!' });
     
     // 4. Setup Interception for Sync (using context.route and page.route for SW/Direct)
     let syncRequestMade = false;

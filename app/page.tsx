@@ -11,6 +11,7 @@ export default async function HomePage() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
+      <title>Winery Visit Planner</title>
       <div className="flex-1 overflow-hidden relative">
         <AppShell user={user} />
       </div>

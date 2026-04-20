@@ -39,6 +39,7 @@ export const createMockTrip = (overrides: Partial<Trip> = {}): Trip => ({
   name: 'Test Trip',
   wineries: [],
   members: [],
+  syncStatus: 'synced',
   ...overrides,
 });
 
@@ -49,6 +50,7 @@ export const createMockVisit = (overrides: Partial<Visit> = {}): Visit => ({
   user_review: 'Excellent wine and view!',
   rating: 5,
   photos: [],
+  syncStatus: 'synced',
   ...overrides,
 });
 

@@ -67,19 +67,22 @@ export function VisitFormModal() {
         setPhotosToDelete([]);
     };
 
+    const isThisModalOpen = isModalOpen && !!activeVisitWinery;
+
+    if (isModalOpen || !!activeVisitWinery) {
+        console.log(`[DIAGNOSTIC] VisitFormModal: isModalOpen=${isModalOpen}, activeVisitWinery=${JSON.stringify(activeVisitWinery)}, mounted=${mounted}, isThisModalOpen=${isThisModalOpen}`);
+    }
+
     if (!mounted) return null;
 
     const modalRoot = document.getElementById("modal-root");
     if (!modalRoot) return null;
 
-    // We keep the Dialog open if the global isModalOpen is true AND we have an active winery.
-    // This ensures we don't show an empty dialog if isModalOpen is true for a DIFFERENT reason.
-    const isThisModalOpen = isModalOpen && !!activeVisitWinery;
-
     return createPortal(
         <Dialog open={isThisModalOpen} onOpenChange={(isOpen) => !isOpen && handleClose()}>
             <DialogContent
                 data-testid="visit-modal"
+                data-state={isSavingVisit ? "loading" : "ready"}
                 className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
                 onFocusOutside={(e) => e.preventDefault()}
             >

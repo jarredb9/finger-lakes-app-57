@@ -20,6 +20,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import Link from "next/link";
+import { useUIStore } from "@/lib/stores/uiStore";
 import { InteractiveBottomSheet, SheetMode } from "@/components/ui/interactive-bottom-sheet";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { VisitHistoryModal } from "@/components/visit-history-modal";
@@ -43,13 +44,19 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
     const isMobile = useIsMobile();
     const [activeTab, setActiveTab] = useState<"explore" | "trips" | "friends" | "history">(initialTab);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
+    const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(initialTab !== "explore");
     const [sheetMode, setSheetMode] = useState<SheetMode>("mini");
     const { friendRequests = [] } = useFriendStore();
     const { isInstallable, isStandalone, installApp, isUpdateAvailable, updateApp } = usePwa();
     const { toast } = useToast();
+    const isHydrated = useUIStore(state => state.isHydrated);
+    const setHydrated = useUIStore(state => state.setHydrated);
 
     const friendRequestCount = friendRequests?.length || 0;
+
+    useEffect(() => {
+        setHydrated(true);
+    }, [setHydrated]);
 
     // Sync offline visits on mount and when coming back online
     useEffect(() => {
@@ -98,7 +105,10 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
     };
 
     return (
-        <div className="flex h-screen w-screen overflow-hidden flex-col md:flex-row relative">
+        <div 
+            className="flex h-screen w-screen overflow-hidden flex-col md:flex-row relative"
+            data-hydrated={isHydrated}
+        >
             <h1 className="sr-only">Winery Visit Planner and Tracker</h1>
             <OfflineIndicator />
             <WineryModal />
