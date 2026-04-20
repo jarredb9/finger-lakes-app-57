@@ -47,16 +47,16 @@
     //     "https://mcp.vercel.com"
     //   ]
     // },
-    // "firecrawl-mcp": {
-    //   "command": "npx",
-    //   "args": [
-    //     "-y",
-    //     "firecrawl-mcp"
-    //   ],
-    //   "env": {
-    //     "FIRECRAWL_API_KEY": "$FIRECRAWL_API_KEY"
-    //   }
-    // },
+    "firecrawl-mcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "firecrawl-mcp"
+      ],
+      "env": {
+        "FIRECRAWL_API_KEY": "$FIRECRAWL_API_KEY"
+      }
+    },
     "tailwindcss-server": {
       "command": "tailwindcss-server"
     },
