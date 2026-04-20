@@ -67,7 +67,7 @@ Objective: Ensure the "Complexity Ceiling" has been lowered and codified.
 
 - [x] Task 1: Remove directives and project information that has become outdated due to this track in `GEMINI.md` [0df0b29]
 - [x] Task 2: Add/update the directives and project information in the `GEMINI.md` that has changed as a result of this track [76e619d]
-- [ ] Task 3: Remove directives and project information that has become outdated due to this track in the `project-testing-best-practices` skill
+- [x] Task 3: Remove directives and project information that has become outdated due to this track in the `project-testing-best-practices` skill [4aba67f]
 - [ ] Task 4: Add/update the directives and project information in the `project-testing-best-practices` skill that has changed as a result of this track
 - [ ] Task 5: Archive the track and update the project CHANGELOG.
 
