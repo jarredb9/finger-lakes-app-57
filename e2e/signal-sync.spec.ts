@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login } from './helpers';
+import { login, navigateToTab } from './helpers';
 
 test.describe('Signal-Based Synchronization', () => {
   test.beforeEach(async ({ page, mockMaps, user }) => {
@@ -10,33 +10,29 @@ test.describe('Signal-Based Synchronization', () => {
   });
 
   test('TripList should have data-state="ready" after loading', async ({ page }) => {
-    await page.goto('/trips');
+    // Use navigateToTab to handle both mobile and desktop robustly
+    await navigateToTab(page, 'Trips');
     const container = page.locator('[data-testid="trip-list-container"]');
     await expect(container).toBeVisible();
     await expect(container).toHaveAttribute('data-state', 'ready');
   });
 
   test('WineryMap should have data-state="ready" after loading', async ({ page }) => {
-    await page.goto('/');
+    await navigateToTab(page, 'Explore');
     const container = page.locator('[data-testid="map-container"]');
     await expect(container).toBeVisible();
     await expect(container).toHaveAttribute('data-state', 'ready');
   });
 
   test('FriendActivityFeed should have data-state="ready" after loading', async ({ page }) => {
-    await page.goto('/');
-    const friendsTab = page.locator('[data-testid="tab-friends"], [role="tab"]:has-text("Friends")');
-    await friendsTab.click();
+    await navigateToTab(page, 'Friends');
     const container = page.locator('[data-testid="friend-activity-feed"]');
     await expect(container).toBeVisible();
     await expect(container).toHaveAttribute('data-state', 'ready');
   });
 
   test('GlobalVisitHistory should have data-state="ready" after loading', async ({ page }) => {
-    await page.goto('/');
-    // Switch to history tab in sidebar if needed
-    const historyTab = page.locator('[data-testid="tab-history"], [role="tab"]:has-text("History")');
-    await historyTab.click(); 
+    await navigateToTab(page, 'History');
     const container = page.locator('[data-testid="visit-history-container"]');
     await expect(container).toBeVisible();
     await expect(container).toHaveAttribute('data-state', 'ready');

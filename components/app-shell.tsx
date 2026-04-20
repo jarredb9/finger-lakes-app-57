@@ -44,7 +44,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
     const isMobile = useIsMobile();
     const [activeTab, setActiveTab] = useState<"explore" | "trips" | "friends" | "history">(initialTab);
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(false);
+    const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(initialTab !== "explore");
     const [sheetMode, setSheetMode] = useState<SheetMode>("mini");
     const { friendRequests = [] } = useFriendStore();
     const { isInstallable, isStandalone, installApp, isUpdateAvailable, updateApp } = usePwa();
