@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   public: {
     Tables: {
       activity_ledger: {
@@ -278,6 +283,7 @@ export type Database = {
           id: number
           notes: string | null
           trip_id: number
+          updated_at: string | null
           visit_order: number
           winery_id: number
         }
@@ -286,6 +292,7 @@ export type Database = {
           id?: number
           notes?: string | null
           trip_id: number
+          updated_at?: string | null
           visit_order: number
           winery_id: number
         }
@@ -294,6 +301,7 @@ export type Database = {
           id?: number
           notes?: string | null
           trip_id?: number
+          updated_at?: string | null
           visit_order?: number
           winery_id?: number
         }
@@ -320,6 +328,7 @@ export type Database = {
           id: number
           name: string | null
           trip_date: string
+          updated_at: string | null
           user_id: string
         }
         Insert: {
@@ -327,6 +336,7 @@ export type Database = {
           id?: number
           name?: string | null
           trip_date: string
+          updated_at?: string | null
           user_id: string
         }
         Update: {
@@ -334,6 +344,7 @@ export type Database = {
           id?: number
           name?: string | null
           trip_date?: string
+          updated_at?: string | null
           user_id?: string
         }
         Relationships: [
@@ -636,16 +647,22 @@ export type Database = {
           user_review: string
         }[]
       }
+      get_friends_winery_history: {
+        Args: { winery_id_param: number }
+        Returns: Json
+      }
       get_map_markers: {
         Args: { user_id_param?: string }
         Returns: {
           google_place_id: string
           id: number
           is_favorite: boolean
+          is_favorite_private: boolean
           latitude: number
           longitude: number
           name: string
           on_wishlist: boolean
+          on_wishlist_private: boolean
           user_visited: boolean
         }[]
       }
@@ -712,6 +729,7 @@ export type Database = {
           id: number
           name: string
           trip_date: string
+          updated_at: string
           user_id: string
           wineries: Json
         }[]
@@ -800,10 +818,12 @@ export type Database = {
           google_rating: number
           id: number
           is_favorite: boolean
+          is_favorite_private: boolean
           lat: number
           lng: number
           name: string
           on_wishlist: boolean
+          on_wishlist_private: boolean
           opening_hours: Json
           phone: string
           reservable: boolean
@@ -1017,4 +1037,3 @@ export const Constants = {
     },
   },
 } as const
-
