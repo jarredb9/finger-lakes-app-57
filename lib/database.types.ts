@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       activity_ledger: {
@@ -667,6 +662,7 @@ export type Database = {
         Returns: {
           created_at: string
           id: number
+          members: string[]
           name: string
           total_count: number
           trip_date: string
@@ -712,6 +708,7 @@ export type Database = {
         Returns: {
           created_at: string
           id: number
+          members: string[]
           name: string
           trip_date: string
           user_id: string
@@ -731,6 +728,18 @@ export type Database = {
         }[]
       }
       get_user_dashboard: { Args: never; Returns: Json }
+      get_user_trips_with_wineries: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: number
+          members: string[]
+          name: string
+          trip_date: string
+          user_id: string
+          wineries: Json
+        }[]
+      }
       get_user_winery_data_aggregated: {
         Args: never
         Returns: {
@@ -835,10 +844,19 @@ export type Database = {
         Args: { p_is_item_private?: boolean; p_target_user_id: string }
         Returns: boolean
       }
-      log_visit: {
-        Args: { p_visit_data: Json; p_winery_data: Json }
-        Returns: Json
-      }
+      log_visit:
+        | { Args: { p_visit_data: Json; p_winery_data: Json }; Returns: Json }
+        | {
+            Args: {
+              p_is_private?: boolean
+              p_photos?: string[]
+              p_rating: number
+              p_user_review: string
+              p_visit_date: string
+              p_winery_data: Json
+            }
+            Returns: Json
+          }
       remove_friend: { Args: { target_friend_id: string }; Returns: undefined }
       remove_winery_from_trip: {
         Args: { p_trip_id: number; p_winery_id: number }
@@ -1033,3 +1051,4 @@ export const Constants = {
     },
   },
 } as const
+
