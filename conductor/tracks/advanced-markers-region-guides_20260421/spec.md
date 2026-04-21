@@ -1,34 +1,33 @@
-# Specification: Advanced Map Markers & Region Guides
+# Specification: Global Advanced Markers & Regional Guides
 
 ## Overview
-This track focuses on upgrading the core exploration experience by implementing Google Maps **Advanced Markers** and introducing **Region Guides**. Advanced Markers will provide immediate visual context for winery attributes and user status (Visited, Wishlist, Favorite) directly on the map, while Region Guides will offer Gemini-powered summaries and curated recommendations for specific sub-regions.
+This track upgrades the core map experience to a global-ready architecture. It implements Google Maps **Advanced Markers** for rich winery visualization and introduces a **PostGIS-powered Regional Guide system**. Users can discover world-famous wine regions (AVAs, AOCs) via interactive map overlays that provide Gemini-powered narrative summaries and curated top picks.
+
+**CRITICAL MANDATE:** All development must follow TDD and adhere to `project-testing-best-practices`.
 
 ## Functional Requirements
-1.  **Advanced Markers Implementation:**
-    *   Migrate from legacy `google.maps.Marker` to `google.maps.marker.AdvancedMarkerElement`.
-    *   **Attribute Emblems:** Display icons for key attributes (e.g., dog-friendly, EV charging) directly on the marker pins using the `content` property.
-    *   **Status-Based Coloration:** Inherit existing coloration (Green: Visited, Blue: Wishlist, Default: Map default) and merge with attribute icons.
-    *   **Dynamic Scaling:** Implement scaling based on status (e.g., Favorites are 1.2x size) and interactive scaling/pop animations on hover/selection.
-2.  **Region Guides:**
-    *   **Trigger:** Add an explicit interaction (e.g., a "Explore Region" button or clicking a defined map boundary) to activate a guide, including "in-flight" guards to prevent duplicate calls.
-    *   **AI Region Summaries:** Fetch and display Gemini-powered overviews of the selected area's viticultural characteristics and "vibe."
-    *   **Cache-First Logic:** Store and retrieve summaries from a `region_summaries` table in Supabase to minimize API costs and prevent spam.
-    *   **Local Top Picks:** Display a curated list of the top 3 wineries in the region based on ratings and friend activity.
-3.  **UI/UX:**
-    *   Implement a responsive **Side Panel (Desktop) / Bottom Drawer (Mobile)** using Radix UI primitives to display Region Guide content.
+1.  **Global Region Infrastructure (PostGIS):**
+    *   Enable PostGIS in Supabase to support geographic boundary queries (`ST_Contains`, `ST_Intersects`).
+    *   Create a `regions` table to store GeoJSON boundaries and cached AI summaries.
+    *   Implement an API that returns region boundaries based on the user's current map viewport.
+2.  **Advanced Markers Implementation:**
+    *   Migrate to `AdvancedMarkerElement`.
+    *   **Dynamic UI:** Merge user status (Visited, etc.) with attribute emblems (Dog-Friendly, EV) and dynamic scaling for favorites.
+3.  **Hybrid Region Guides:**
+    *   **Visual Anchor:** Display semi-transparent region boundaries and clickable "Regional Labels" on the map.
+    *   **UI Pattern:** Implement a "Navigation-Stacked" bottom sheet/side panel.
+    *   **Lazy Enrichment:** Fetch Gemini summaries for a region only upon user request and cache them in the database.
+4.  **Interaction Flow:**
+    *   Clicking a region polygon opens the Region Guide.
+    *   Clicking a winery within that guide transitions the UI to the Winery Detail view with a "Back" button.
 
 ## Quality & Testing Requirements
-1.  **TDD Protocol:** Each component and utility must be preceded by failing tests.
-2.  **E2E Standards:** Verify marker interaction states (hover/scale) and region guide activation flows using Playwright.
-3.  **Performance:** Ensure that rendering 100+ Advanced Markers does not cause frame-rate drops on mobile devices.
+1.  **Geospatial Tests:** Write unit tests for boundary detection (ensuring wineries map to the correct regions).
+2.  **TDD:** All new API routes and components must have failing tests first.
+3.  **Mock Integrity:** Update `MockMapsManager` to support v1 Places API and GeoJSON layers.
 
 ## Acceptance Criteria
-*   Map markers show clear icons for attributes like "Dog Friendly" while maintaining status colors.
-*   Markers scale and animate smoothly on interaction.
-*   Clicking a region trigger opens a panel with valid AI summaries and top winery picks.
-*   The UI remains responsive and does not block map navigation.
-*   The system does not make redundant API calls for cached region data.
-
-## Out of Scope
-*   Custom 3D modeling for markers.
-*   Real-time "Region Chat" or social forums within the guides.
+*   Map renders polygons for pre-defined wine regions.
+*   Advanced Markers display status and attributes correctly.
+*   Region summaries are fetched on-demand and cached in Supabase.
+*   The UI transition between Region Guide and Winery Detail is smooth.

@@ -1,39 +1,36 @@
-# Implementation Plan: Advanced Markers & Region Guides
+# Implementation Plan: Global Advanced Markers & Regional Guides
 
-### Phase 1: Infrastructure & Marker Migration
-- [ ] Task: Configure Map ID & Provider
-    - [ ] Update `components/google-maps-provider.tsx` to include a `mapId`.
-    - [ ] Update `tech-stack.md` to reflect the requirement for a Google Maps Map ID.
-- [ ] Task: Implement Advanced Marker Component
-    - [ ] Create `components/map/AdvancedWineryMarker.tsx` using `google.maps.marker.AdvancedMarkerElement`.
-    - [ ] **MANDATORY:** Migrate existing status-based coloration (Visited, Wishlist, Favorite) into the new component logic.
-    - [ ] Implement the `content` property to merge status colors with Attribute Emblems (Dogs, EV).
-    - [ ] Implement **Dynamic Scaling** (e.g., Favorites are 1.2x size).
+### Phase 1: Global Region Infrastructure (PostGIS)
+- [ ] Task: Enable PostGIS & Create `regions` Table
+    - [ ] Create Supabase migration to enable `postgis` and create `regions` table (id, name, slug, boundary [geography], ai_summary, last_updated)
+    - [ ] Seed the database with initial boundaries for "The Big Three" (Seneca, Cayuga, Keuka) for testing
+- [ ] Task: Implement Region Discovery API
+    - [ ] Write failing test for fetching regions within a bounding box
+    - [ ] Implement `app/api/regions/list/route.ts` using `ST_Intersects` for map-view discovery
+- [ ] Task: Conductor - User Manual Verification 'Global Region Infrastructure' (Protocol in workflow.md)
+
+### Phase 2: Advanced Marker Migration (TDD)
+- [ ] Task: Configure Map ID & Advanced Marker Component
+    - [ ] Update `google-maps-provider.tsx` with a valid Map ID
+    - [ ] Create `AdvancedWineryMarker.tsx` merging status colors with new Attribute Emblems (Dogs, EV)
 - [ ] Task: Refactor Marker Clustering
-    - [ ] Update `components/generic-marker-clusterer.tsx` to support the new `AdvancedMarkerElement`.
-- [ ] Task: Conductor - User Manual Verification 'Infrastructure & Marker Migration' (Protocol in workflow.md)
+    - [ ] Update `generic-marker-clusterer.tsx` for `AdvancedMarkerElement` compatibility
+- [ ] Task: Conductor - User Manual Verification 'Advanced Marker Migration' (Protocol in workflow.md)
 
-### Phase 2: Region Guide Backend & Caching (TDD)
-- [ ] Task: Create `region_summaries` Table
-    - [ ] Create a Supabase migration for a `region_summaries` table (ID, region_name, geometry/bounds, summary_text, top_picks_json, last_updated).
-- [ ] Task: Implement Region Guide API Route
-    - [ ] Write failing unit test for the **Cache-First** logic.
-    - [ ] Implement `app/api/regions/guide/route.ts` with deduplication and Google Places "Area Summary" integration.
-- [ ] Task: Conductor - User Manual Verification 'Region Guide Backend' (Protocol in workflow.md)
+### Phase 3: Hybrid Region Guide UI (TDD)
+- [ ] Task: Implement Map Overlay Layer
+    - [ ] Write unit tests for GeoJSON rendering in `WineryMap.tsx`
+    - [ ] Implement polygon rendering and Regional Anchor Labels
+- [ ] Task: Build Navigation-Stacked Info Panel
+    - [ ] Create `RegionGuidePanel.tsx` with Radix UI
+    - [ ] Implement the navigation flow (Region -> Winery -> Region) within the tray/sidebar
+- [ ] Task: Conductor - User Manual Verification 'Hybrid Region Guide UI' (Protocol in workflow.md)
 
-### Phase 3: Region Guide UI (TDD)
-- [ ] Task: Build Region Info Panel
-    - [ ] Write unit tests for the responsive Side Panel / Bottom Drawer component.
-    - [ ] Implement `components/RegionGuidePanel.tsx` using Radix UI primitives.
-- [ ] Task: Implement Trigger Logic on Map
-    - [ ] Add explicit region trigger (e.g., a floating "Explore This Area" button that appears when the map is centered on a major lake).
-    - [ ] Implement the "In-Flight" guard (disable button during fetch).
-- [ ] Task: Conductor - User Manual Verification 'Region Guide UI' (Protocol in workflow.md)
-
-### Phase 4: Polish & Performance
-- [ ] Task: Implement Interactive Animations
-    - [ ] Add CSS/Web Animations for marker scaling and transitions.
+### Phase 4: Lazy Enrichment & Content (TDD)
+- [ ] Task: Implement Regional AI Summaries
+    - [ ] Write failing test for the Cache-First summary fetch
+    - [ ] Implement `app/api/regions/guide/route.ts` with Google Places v1 integration
 - [ ] Task: Performance Audit & E2E Verification
-    - [ ] Run Playwright tests to ensure smooth marker clustering with 100+ points.
-    - [ ] Verify that no duplicate API calls are made for cached regions.
-- [ ] Task: Conductor - User Manual Verification 'Polish & Performance' (Protocol in workflow.md)
+    - [ ] Verify 100+ marker performance on mobile
+    - [ ] Verify deduplication and caching for regional summaries
+- [ ] Task: Conductor - User Manual Verification 'Lazy Enrichment & Content' (Protocol in workflow.md)
