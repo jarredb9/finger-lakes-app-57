@@ -1,6 +1,7 @@
-import type { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate } from "serwist";
+import { PrecacheEntry, SerwistGlobalConfig } from "serwist";
+import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate, NetworkFirst } from "serwist";
 import { ExpirationPlugin } from "serwist";
+
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -117,11 +118,13 @@ const serwist = new Serwist({
         ],
       }),
     },
-    // Cache documents (pages) with StaleWhileRevalidate for instant PWA load
+    // Cache documents (pages) with NetworkFirst for authenticated state stability
+    // We use a 3s timeout to mitigate "Lie-Fi" issues while ensuring fresh hydration
     {
       matcher: ({ request }) => request.destination === "document",
-      handler: new StaleWhileRevalidate({
+      handler: new NetworkFirst({
         cacheName: "pages",
+        networkTimeoutSeconds: 3,
         plugins: [
           new ExpirationPlugin({
             maxEntries: 64,

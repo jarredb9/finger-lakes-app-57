@@ -37,10 +37,10 @@ export function CookieConsent() {
 
   return (
     <aside 
-        className="fixed bottom-0 left-0 right-0 z-50 md:bottom-4 md:left-auto md:right-4 md:w-[340px] md:max-w-sm"
+        className="fixed bottom-0 left-0 right-0 z-60 md:bottom-4 md:left-auto md:right-4 md:w-[340px] md:max-w-sm pointer-events-none"
         aria-label="Cookie consent"
     >
-      <div className="md:hidden bg-background border-t p-4 flex items-center justify-between gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+      <div className="md:hidden bg-background border-t p-4 flex items-center justify-between gap-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] pointer-events-auto">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <CookieIcon className="h-4 w-4 text-primary shrink-0" />
           <span>We use necessary cookies for login sessions.</span>
@@ -50,7 +50,7 @@ export function CookieConsent() {
         </Button>
       </div>
 
-      <Card className="hidden md:block shadow-lg border-primary/20">
+      <Card className="hidden md:block shadow-lg border-primary/20 pointer-events-auto">
         <CardHeader className="p-4 pb-2">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
             <CookieIcon className="h-4 w-4 text-primary" />
