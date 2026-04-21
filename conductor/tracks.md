@@ -11,3 +11,8 @@
 
 - [ ] **Track: Places API (New) Migration & Enhancement**
 *Link: [./tracks/places-api-migration_20260420/](./tracks/places-api-migration_20260420/)*
+
+---
+
+- [ ] **Track: Advanced Map Markers & Region Guides**
+*Link: [./tracks/advanced-markers-region-guides_20260421/](./tracks/advanced-markers-region-guides_20260421/)*
