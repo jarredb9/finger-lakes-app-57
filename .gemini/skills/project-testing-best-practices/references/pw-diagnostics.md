@@ -71,4 +71,13 @@ For asynchronous database actions (Log Visit, Edit Trip, etc.), simply clicking 
     3. **UX Assert:** Finally, verify the DOM (Toast or Modal closure).
 - **Why:** This ensures the mutation is fully processed and synced before the test proceeds to the next step, preventing "Ghost State" failures.
 
+### 11. Local Stack Verification (Tier 3)
+When moving from mocks (Tier 2) to Real Data verification (Tier 3), you MUST use the **Local Supabase Stack**.
+- **Standard:** Use `./scripts/run-e2e-container.sh --build all ...` to ensure the container build picks up local environment variables.
+- **Verification:** Monitor diagnostic logs for `[NETWORK-REQ]` to confirm the URL is `http://127.0.0.1:54321`.
+- **Targeting Rule:** 
+    - **Local:** Targets local Supabase (`127.0.0.1:54321`).
+    - **GitHub CI:** Targets Live Database (`supabase.co`) using secrets.
+- **Action:** If a Tier 3 test fails locally but logic seems correct, verify the local database schema matches `lib/database.types.ts` using Supabase MCP tools.
+
 Reference: [Playwright Debugging](https://playwright.dev/docs/debug)

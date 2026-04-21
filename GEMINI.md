@@ -15,7 +15,8 @@
 *   **Environment:** Use `python3.11` and set `PYTHONPATH=$PYTHONPATH:/home/byrnesjd4821/.gemini/skills/scripts`.
 
 ### 2. Framework & Architecture Truths
-*   **Database Operations:** **MANDATORY:** Use the Supabase MCP server tools (e.g., `execute_sql`, `apply_migration`) for ALL database-related tasks. There is NO local copy of the database.
+*   **Database Operations:** **MANDATORY:** Use the Supabase MCP server tools (e.g., `execute_sql`, `apply_migration`) for ALL database-related tasks. A **Local Supabase Stack** is available (URL: http://127.0.0.1:54321). Use this for all development and destructive testing.
+*   **E2E Targeting:** Local E2E tests (Tier 3) target the **Local Supabase Stack**. GitHub CI currently targets the **Live Database** using secrets. To verify local stack connectivity in E2E, set `IS_E2E=true` in `.env.local` and run with `--build all`.
 *   **Middleware:** `proxy.ts` IS the valid middleware. `middleware.ts` DOES NOT exist.
 *   **Supabase Native:** Prioritize direct client-to-Supabase logic (RPCs/SDK). **NEVER** create new Next.js API routes for CRUD logic.
 *   **Portal Modals:** Feature dialogs **MUST** use React Portals to render into the `#modal-root` div (provided by `ModalHost` in `layout.tsx`).
@@ -78,6 +79,7 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 * **The Case-Insensitive ID Rule:** UUIDs and foreign key strings can have inconsistent casing across different stores (Zustand vs Supabase). **Standard:** Always use `String(id1).toLowerCase() === String(id2).toLowerCase()` when filtering or matching members/friends in the UI. This is critical for `isOwner` checks in components to ensure consistent behavior across all browsers.
 *   **The Join-Table Rule:** **MANDATORY:** Always use the `trip_members` table and the `public.is_trip_member(trip_id)` helper function for all membership checks and authorization. **NEVER** reference a `members` column on the `trips` table, as it has been deprecated and removed.
 *   **RPC Schema Parity:** **Standard:** Any change to a database function's return type or parameters MUST be immediately reflected in `lib/database.types.ts`. The Supabase client will throw a `400 Bad Request` if the expected schema does not match the actual function definition.
+*   **The Seeding & Test User Rule:** **Standard:** The local database is pre-seeded with fixed UUIDs for `jarred@mail.com` (617ea073...) and `tester@mail.com` (c2ad5f0b...) via `supabase/seed.sql`. Use `npm run db:seed` to reset the local DB to this known state. `scripts/create-test-users.js` is available as a surgical repair utility for re-creating users without a full reset.
 *   **Standard:** Use `ensureInDb(wineryId)` before relational RPCs.
 *   **The SyncStatus Rule:** **MANDATORY:** Use `SyncStatus` ('synced' | 'pending' | 'error') in entity models (defined in `lib/types.ts`). UI components MUST use this status to drive loading states, optimistic UI styles (e.g., opacity-50 for 'pending'), and to prevent duplicate mutations while a sync is in progress.
 *   **RLS Visibility Rule:** All `SELECT` policies for tables allowing insertion MUST include a direct ownership check (e.g., `auth.uid() = user_id`) BEFORE any complex function calls (like `is_trip_member()`). This prevents `42501` errors during `INSERT ... RETURNING` caused by recursion or row invisibility.

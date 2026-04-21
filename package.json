@@ -19,6 +19,7 @@
     "test:e2e": "npx playwright test",
     "test:e2e:real": "E2E_REAL_DATA=true npx playwright test",
     "db:lint": "npx supabase db lint --level error",
+    "db:seed": "npx supabase db reset",
     "db:check-types": "npx supabase gen types typescript --db-url \"$SUPABASE_DB_URL\" --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts"
   },
   "dependencies": {
@@ -113,7 +114,7 @@
     "lint-staged": "^15.2.5",
     "node-fetch": "^2.6.7",
     "postcss": "^8.4.38",
-    "supabase": "^2.90.0",
+    "supabase": "^2.93.0",
     "tailwindcss": "^4.1.18",
     "ts-jest": "^29.4.4",
     "typescript": "^5.9.3",

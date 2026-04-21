@@ -43,3 +43,4 @@ These standards move the project from "Defensive Survivability" to "Architectura
 9. **Portal Architecture:** All feature modals MUST be encapsulated within the feature using React Portals to `#modal-root`. `GlobalModalRenderer` is strictly for generic `modalContent`.
 10. **Zero-Guess Debugging:** All failures follow the "Mandatory Diagnostic Protocol" before any fix is attempted.
 11. **Hydration Optimization:** Data arrays (`trips`, `visits`, etc.) MUST be unpersisted to eliminate hydration bottlenecks. Verification MUST confirm `localStorage` remains < 1KB.
+12. **Local Database Verification:** Feature logic MUST be verified against the **Local Supabase Stack** using Tier 3 (Real Data) E2E tests before finalization. This ensures RLS policies and RPC schemas are correct beyond mock-level assumptions.

@@ -38,6 +38,7 @@ END;
 $$;
 
 -- 2. get_map_markers (Explicit uid and search path)
+DROP FUNCTION IF EXISTS public.get_map_markers(uuid);
 CREATE OR REPLACE FUNCTION public.get_map_markers(user_id_param uuid DEFAULT auth.uid())
 RETURNS TABLE(
     id integer,

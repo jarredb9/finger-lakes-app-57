@@ -100,6 +100,7 @@ END;
 $$;
 
 -- Update get_trips_for_date to include updated_at
+DROP FUNCTION IF EXISTS public.get_trips_for_date(date);
 CREATE OR REPLACE FUNCTION public.get_trips_for_date(target_date date)
 RETURNS TABLE(id integer, user_id uuid, trip_date date, name text, updated_at timestamp with time zone, wineries jsonb)
 LANGUAGE plpgsql
