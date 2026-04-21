@@ -30,6 +30,8 @@
 ## 1. Environment & Shell (RHEL 8)
 *   **Dev Server:** Use PM2 for stability: `pm2 start npm --name "winery-dev" -- run dev -- -p 3001`.
 *   **Shell:** Use `npm` directly.
+*   **Supabase CLI & Podman:** To run Supabase CLI commands (like `db diff`) in this environment, you MUST point to the Podman socket:
+    `export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock`
 *   **Playwright Container:** **MANDATORY:** Local testing MUST use rootless Podman via the provided script: `./scripts/run-e2e-container.sh [project] [test_file]`. DO NOT run `npx playwright test` directly on the host.
     *   **Usage:** `./scripts/run-e2e-container.sh chromium e2e/smoke.spec.ts` (Project defaults to `webkit`).
     *   **Mandatory Build:** Use `--build` if core logic (stores, services, components) changed: `./scripts/run-e2e-container.sh --build all`.
