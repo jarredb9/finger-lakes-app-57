@@ -3,7 +3,8 @@
 ### Phase 1: Infrastructure & Data Schema
 - [ ] Task: Update Supabase schema for enriched winery attributes
     - [ ] Create migration for new columns: ai_summary, allows_dogs, good_for_children, outdoor_seating, ev_charging, parking_options, accessibility_flags
-    - [ ] Run `supabase db remote commit` (or apply_migration) to update local/remote schema
+    - [ ] Apply migration to the **Local Supabase Stack** (`127.0.0.1:54321`)
+    - [ ] Verify RLS and schema integrity using Tier 3 (Real Data) E2E tests locally
     - [ ] Update `lib/database.types.ts` to reflect the new schema
 - [ ] Task: Update TypeScript models and `standardizeWineryData`
     - [ ] Update `Winery` interface in `lib/types.ts`

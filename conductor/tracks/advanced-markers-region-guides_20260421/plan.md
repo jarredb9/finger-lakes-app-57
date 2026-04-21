@@ -3,6 +3,8 @@
 ### Phase 1: Global Region Infrastructure (PostGIS)
 - [ ] Task: Enable PostGIS & Create `regions` Table
     - [ ] Create Supabase migration to enable `postgis` and create `regions` table (id, name, slug, boundary [geography], ai_summary, last_updated)
+    - [ ] Apply migration to the **Local Supabase Stack** (`127.0.0.1:54321`)
+    - [ ] Verify PostGIS functionality and RLS using Tier 3 (Real Data) E2E tests locally
     - [ ] Seed the database with initial boundaries for "The Big Three" (Seneca, Cayuga, Keuka) for testing
 - [ ] Task: Implement Region Discovery API
     - [ ] Write failing test for fetching regions within a bounding box
