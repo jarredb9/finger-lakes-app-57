@@ -1,8 +1,12 @@
 -- Create missing create_trip RPC
 -- This RPC creates a new trip and adds the creator as the owner in trip_members.
 
+-- Drop existing version if it exists with different types (text vs varchar)
+DROP FUNCTION IF EXISTS public.create_trip(text, date);
+DROP FUNCTION IF EXISTS public.create_trip(character varying, date);
+
 CREATE OR REPLACE FUNCTION public.create_trip(
-  p_name character varying(255),
+  p_name text,
   p_trip_date date
 )
 RETURNS jsonb
@@ -33,4 +37,4 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.create_trip(character varying, date) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.create_trip(text, date) TO authenticated;
