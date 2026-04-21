@@ -402,9 +402,9 @@ export class MockMapsManager {
 
         if (url.includes('delete_trip')) {
             const postData = JSON.parse(req.postData() || '{}');
-            const tripId = postData.p_trip_id;
+            const tripId = Number(postData.p_trip_id);
             if (this.state.trips) {
-                this.state.trips = this.state.trips.filter(t => t.id !== tripId);
+                this.state.trips = this.state.trips.filter(t => Number(t.id) !== tripId);
             }
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
         }

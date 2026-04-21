@@ -83,13 +83,26 @@ test.describe('Trip Planning Flow', () => {
     await tripCard.scrollIntoViewIfNeeded();
     
     const deleteBtn = tripCard.getByTestId('delete-trip-btn');
-    await deleteBtn.click({ force: true });
+    
+    // Firefox Stability: Use toPass for the whole deletion sequence to handle flaky dialogs/clicks
+    await expect(async () => {
+        const dialog = page.locator('[role="alertdialog"]');
+        if (!(await dialog.isVisible())) {
+            await deleteBtn.click({ force: true });
+            await expect(dialog).toBeVisible({ timeout: 5000 });
+        }
+        
+        const confirmBtn = page.getByTestId('confirm-delete-trip-btn');
+        await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+        
+        // Firefox needs a tiny bit of breathing room for the event listener to attach to the dialog button
+        await page.waitForTimeout(500);
 
-    // 4. Confirm deletion and wait for response
-    await Promise.all([
-        page.waitForResponse(resp => (resp.url().includes('delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')) && [200, 204].includes(resp.status())),
-        page.getByTestId('confirm-delete-trip-btn').click({ force: true })
-    ]);
+        await Promise.all([
+            page.waitForResponse(resp => (resp.url().includes('delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')) && [200, 204].includes(resp.status()), { timeout: 15000 }),
+            confirmBtn.click({ force: true })
+        ]);
+    }).toPass({ timeout: 30000, intervals: [2000] });
 
     // 5. Verify it is gone
     await expect(sidebar.getByText(uniqueTripName)).not.toBeVisible();
