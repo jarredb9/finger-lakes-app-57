@@ -1,4 +1,4 @@
-import { test, expect, createTestUser, deleteTestUser, MockMapsManager, createDefaultMockState } from './utils';
+import { test, expect, MockMapsManager, createDefaultMockState } from './utils';
 import { 
     getSidebarContainer, 
     login, 
@@ -13,11 +13,9 @@ import {
 } from './helpers';
 
 test.describe('Privacy and Profile Flow', () => {
-  test('Users can control visit and profile visibility', async ({ browser, user: user1, viewport, userAgent }) => {
+  test('Users can control visit and profile visibility', async ({ browser, user: user1, user2, viewport, userAgent }) => {
     test.slow();
-    // 1. Create second ephemeral test user
-    const user2 = await createTestUser();
-
+    
     try {
       // 2. Create isolated contexts using project defaults
       const contextA = await browser.newContext({ viewport, userAgent });
@@ -118,7 +116,7 @@ test.describe('Privacy and Profile Flow', () => {
       await contextA.close();
       await contextB.close();
     } finally {
-      await deleteTestUser(user2.id);
+      // Cleanup handled by user fixtures
     }
   });
 });

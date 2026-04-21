@@ -14,6 +14,9 @@ declare const self: ServiceWorkerGlobalScope;
 const SW_VERSION = "2.8.2-stable-" + Date.now();
 console.log(`[SW] Initializing Version: ${SW_VERSION}`);
 
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const SUPABASE_DOMAIN = SUPABASE_URL ? new URL(SUPABASE_URL).hostname : "supabase.co";
+
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST || [],
   skipWaiting: true, // Force activation
@@ -33,7 +36,7 @@ const serwist = new Serwist({
     // Supabase Storage (Images) - Cache First/SWR
     {
       matcher: ({ url }) => 
-        url.hostname.includes("supabase.co") && 
+        url.hostname.includes(SUPABASE_DOMAIN) && 
         url.pathname.includes("/storage/v1/object/public"),
       handler: new StaleWhileRevalidate({
         cacheName: "supabase-storage",
@@ -55,7 +58,7 @@ const serwist = new Serwist({
         const skipHeader = request?.headers.get('x-skip-sw-interception') === 'true';
         const isE2E = isE2EParam || isE2EEnv || skipHeader;
         
-        const isSupabaseApi = url.hostname.includes("supabase.co") && !url.pathname.includes("/storage/v1/object/public");
+        const isSupabaseApi = url.hostname.includes(SUPABASE_DOMAIN) && !url.pathname.includes("/storage/v1/object/public");
         
         if (isSupabaseApi && isE2E) {
             console.log(`[SW] E2E Bypass active for: ${url.pathname} (Env: ${isE2EEnv}, Param: ${isE2EParam}, Header: ${skipHeader})`);

@@ -1,18 +1,12 @@
-import { test, expect } from '@playwright/test';
-import { createTestUser, deleteTestUser, TestUser, mockGoogleMapsApi } from './utils';
+import { test, expect, mockGoogleMapsApi } from './utils';
 import { getSidebarContainer, login, navigateToTab } from './helpers';
 
 test.describe('Visual Regression Testing', () => {
-  let user: TestUser;
 
   test.beforeEach(({ browserName }) => {
     // Only run visual tests on chromium to avoid maintaining multiple sets of snapshots
     // and because different engines render slightly differently.
     test.skip(browserName !== 'chromium', 'Visual tests are chromium-only');
-  });
-
-  test.afterEach(async () => {
-    if (user) await deleteTestUser(user.id);
   });
 
   test('login page visual baseline', async ({ page }) => {
@@ -27,8 +21,7 @@ test.describe('Visual Regression Testing', () => {
     });
   });
 
-  test('main dashboard visual baseline', async ({ page }) => {
-    user = await createTestUser();
+  test('main dashboard visual baseline', async ({ page, user }) => {
     await mockGoogleMapsApi(page);
     await login(page, user.email, user.password);
 
@@ -48,7 +41,7 @@ test.describe('Visual Regression Testing', () => {
     });
   });
 
-  test('winery modal visual baseline', async ({ page }) => {
+  test('winery modal visual baseline', async ({ page, user }) => {
     const viewport = page.viewportSize();
     const isMobile = viewport && viewport.width < 768;
 
@@ -56,7 +49,6 @@ test.describe('Visual Regression Testing', () => {
         test.skip(true, 'Skipping modal visual scan on mobile due to visibility constraints in the interactive sheet');
     }
 
-    user = await createTestUser();
     await mockGoogleMapsApi(page);
     await login(page, user.email, user.password);
 

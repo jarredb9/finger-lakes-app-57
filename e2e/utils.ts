@@ -161,17 +161,20 @@ export class MockMapsManager {
 
     page.on('console', logHandler);
     
+    const supabaseUrlObj = new URL(supabaseUrl!);
+    const supabaseHost = supabaseUrlObj.host;
+    
     // Add Request Logging
     page.on('request', request => {
         const url = request.url();
-        if (url.includes('rpc/') || url.includes('google') || url.includes('supabase.co')) {
+        if (url.includes('rpc/') || url.includes('google') || url.includes(supabaseHost)) {
             console.log(`[DIAGNOSTIC] [NETWORK-REQ] ${request.method()} ${url}`);
         }
     });
 
     page.on('response', async response => {
         const url = response.url();
-        if (url.includes('rpc/') || url.includes('google') || url.includes('supabase.co')) {
+        if (url.includes('rpc/') || url.includes('google') || url.includes(supabaseHost)) {
             const status = response.status();
             console.log(`[DIAGNOSTIC] [NETWORK-RES] ${status} ${url}`);
             if (status >= 400) {
@@ -242,8 +245,11 @@ export class MockMapsManager {
 
     const todayCA = new Date().toLocaleDateString('en-CA');
 
+    const supabaseUrlObj = new URL(supabaseUrl!);
+    const supabaseHost = supabaseUrlObj.host.replace(/\./g, '\\.');
+
     // 1. Supabase Profiles Handler
-    await this.page.route(/supabase\.co\/rest\/v1\/profiles/, async (route) => {
+    await this.page.route(new RegExp(`${supabaseHost}/rest/v1/profiles`), async (route) => {
         const req = route.request();
         if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
         if (this.realSocialEnabled) return route.fallback();
@@ -260,7 +266,7 @@ export class MockMapsManager {
     });
 
     // 2. Supabase RPC Handler
-    await this.page.route(/supabase\.co\/.*rpc\//, async (route) => {
+    await this.page.route(new RegExp(`${supabaseHost}/.*rpc/`), async (route) => {
         const req = route.request();
         const url = req.url();
         const method = req.method();
@@ -521,12 +527,12 @@ export class MockMapsManager {
     });
 
     // 3. Supabase Auth Handler
-    await this.page.route(/supabase\.co\/auth\/v1\//, async (route) => {
+    await this.page.route(new RegExp(`${supabaseHost}/auth/v1/`), async (route) => {
         return route.fallback();
     });
 
     // 4. Supabase Trips REST Handler
-    await this.page.route(/supabase\.co\/rest\/v1\/trips/, async (route) => {
+    await this.page.route(new RegExp(`${supabaseHost}/rest/v1/trips`), async (route) => {
         const req = route.request();
         if (this.realTripsEnabled) return route.fallback();
         
@@ -560,13 +566,13 @@ export class MockMapsManager {
     });
 
     // 5. Supabase Favorites REST Handler
-    await this.page.route(/supabase\.co\/rest\/v1\/favorites/, async (route) => {
+    await this.page.route(new RegExp(`${supabaseHost}/rest/v1/favorites`), async (route) => {
         if (this.realFavoritesEnabled) return route.fallback();
         return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([]) });
     });
 
     // 6. Supabase Functions Handler
-    await this.page.route(/supabase\.co\/functions\/v1\//, async (route) => {
+    await this.page.route(new RegExp(`${supabaseHost}/functions/v1/`), async (route) => {
         return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, data: {} }) });
     });
 
@@ -824,6 +830,7 @@ export class MockMapsManager {
 export const test = base.extend<{
   mockMaps: MockMapsManager;
   user: TestUser;
+  user2: TestUser;
 }>({
   // Dynamically set baseURL based on worker index for strict port isolation
   baseURL: async ({}, use, testInfo) => {
@@ -856,6 +863,18 @@ export const test = base.extend<{
   }, { auto: true }],
 
   user: async ({}, use) => {
+    const email = `test-${uuidv4()}@example.com`;
+    const password = `pass-${uuidv4()}`;
+    const name = `User-${uuidv4().substring(0, 8)}`;
+    const { data, error } = await supabase.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { name } });
+    if (error || !data.user) throw new Error(`Failed: ${error?.message}`);
+    await supabase.from('profiles').upsert({ id: data.user.id, email, name, privacy_level: 'public' });
+    const testUser = { id: data.user.id, email, password };
+    await use(testUser);
+    await supabase.auth.admin.deleteUser(testUser.id);
+  },
+
+  user2: async ({}, use) => {
     const email = `test-${uuidv4()}@example.com`;
     const password = `pass-${uuidv4()}`;
     const name = `User-${uuidv4().substring(0, 8)}`;

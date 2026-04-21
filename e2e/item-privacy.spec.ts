@@ -1,4 +1,4 @@
-import { test, expect, createTestUser, deleteTestUser, MockMapsManager } from './utils';
+import { test, expect, MockMapsManager } from './utils';
 import { 
     getSidebarContainer, 
     login, 
@@ -14,11 +14,9 @@ import {
 } from './helpers';
 
 test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
-  test('Users can control privacy of their favorites and wishlist', async ({ browser, user: user1, viewport, userAgent }) => {
+  test('Users can control privacy of their favorites and wishlist', async ({ browser, user: user1, user2, viewport, userAgent }) => {
     test.setTimeout(180000);
-    // 1. Create second ephemeral test user
-    const user2 = await createTestUser();
-
+    
     try {
       // 2. Create isolated contexts using project defaults
       const contextA = await browser.newContext({ viewport, userAgent });
@@ -173,7 +171,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       await contextA.close();
       await contextB.close();
     } finally {
-      await deleteTestUser(user2.id);
+      // Cleanup handled by user fixtures
     }
   });
 });

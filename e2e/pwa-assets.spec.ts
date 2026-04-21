@@ -160,7 +160,8 @@ test.describe('PWA Assets & Sync', () => {
   });
 
   test('should cache images and load them offline', async ({ page, context }) => {
-    const fakeImageUrl = 'https://supabase.co/storage/v1/object/public/visit-photos/test-image.jpg';
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://supabase.co';
+    const fakeImageUrl = `${supabaseUrl}/storage/v1/object/public/visit-photos/test-image.jpg`;
 
     await context.route(fakeImageUrl, async route => {
         await route.fulfill({

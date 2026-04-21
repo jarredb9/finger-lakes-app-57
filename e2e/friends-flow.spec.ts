@@ -1,15 +1,10 @@
-import { test, MockMapsManager, deleteTestUser } from './utils';
+import { test, MockMapsManager } from './utils';
 import { login, ensureProfileReady, setupFriendship, removeFriend } from './helpers';
 
 test.describe('Friends Interaction Flow', () => {
-  test('User A can send friend request and User B can accept it', async ({ browser, user: user1 }) => {
+  test('User A can send friend request and User B can accept it', async ({ browser, user: user1, user2 }) => {
     test.setTimeout(90000);
     
-    // User 2 is created via deprecated helper to maintain context isolation 
-    // for this multi-user test until the fixture supports dual-user generation.
-    const { createTestUser } = require('./utils');
-    const user2 = await createTestUser();
-
     try {
       const contextA = await browser.newContext();
       const contextB = await browser.newContext();
@@ -41,7 +36,7 @@ test.describe('Friends Interaction Flow', () => {
       await contextA.close();
       await contextB.close();
     } finally {
-      await deleteTestUser(user2.id);
+      // Cleanup handled by user fixtures
     }
   });
 });

@@ -1,4 +1,4 @@
-import { test, expect, createTestUser, deleteTestUser, MockMapsManager, createDefaultMockState } from './utils';
+import { test, expect, MockMapsManager, createDefaultMockState } from './utils';
 import { 
     getSidebarContainer, 
     login, 
@@ -11,9 +11,8 @@ import {
 } from './helpers';
 
 test.describe('Social Activity Feed Flow', () => {
-  test("User B can see User A's visit in the social feed", async ({ browser, user: userA }) => {
+  test("User B can see User A's visit in the social feed", async ({ browser, user: userA, user2: userB }) => {
     test.setTimeout(90000);
-    const userB = await createTestUser();
     
     try {
       // 1. Contexts
@@ -98,7 +97,7 @@ test.describe('Social Activity Feed Flow', () => {
       await contextA.close();
       await contextB.close();
     } finally {
-      await deleteTestUser(userB.id);
+      // Cleanup handled by user fixtures
     }
   });
 });

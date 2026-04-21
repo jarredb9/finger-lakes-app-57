@@ -1,4 +1,4 @@
-import { test, expect, createTestUser, deleteTestUser, MockMapsManager, createMockTrip, createDefaultMockState } from './utils';
+import { test, expect, MockMapsManager, createMockTrip, createDefaultMockState } from './utils';
 import { 
     ensureSidebarExpanded,
     ensureProfileReady,
@@ -9,9 +9,8 @@ import {
 } from './helpers';
 
 test.describe('Trip Sharing and Collaboration Flow', () => {
-  test('User can invite a friend to a trip', async ({ page, user: userA, mockMaps }) => {
+  test('User can invite a friend to a trip', async ({ page, user: userA, user2: userB, mockMaps }) => {
     test.setTimeout(90000);
-    const userB = await createTestUser();
     
     try {
       // 1. Setup: Mock state and login
@@ -89,14 +88,13 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       await expect(dialog.getByTestId('member-email').filter({ hasText: userB.email })).toBeVisible({ timeout: 15000 });
 
     } finally {
-      await deleteTestUser(userB.id);
+      // Cleanup handled by user fixtures
     }
   });
 
-  test('Collaborative editing: Multi-context sync', async ({ browser, user: userA }) => {
+  test('Collaborative editing: Multi-context sync', async ({ browser, user: userA, user2: userB }) => {
     // This test verifies that if User A changes something, User B sees it
     test.setTimeout(150000);
-    const userB = await createTestUser();
     
     try {
       const contextA = await browser.newContext();
@@ -274,7 +272,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       await contextA.close();
       await contextB.close();
     } finally {
-      await deleteTestUser(userB.id);
+      // Cleanup handled by user fixtures
     }
   });
 
