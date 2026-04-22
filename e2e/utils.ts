@@ -618,7 +618,7 @@ export class MockMapsManager {
   }
 
   async initDefaultMocks(options: { currentUserId?: string } = {}) {
-    if (process.env.E2E_REAL_DATA === 'true') return;
+    const isRealData = process.env.E2E_REAL_DATA === 'true';
     
     if (options.currentUserId) {
         const oldId = this.currentUserId;
@@ -638,7 +638,10 @@ export class MockMapsManager {
     if (this.mocksRegistered) return;
     const todayCA = new Date().toLocaleDateString('en-CA');
 
-    await this.registerMockRoutes();
+    // Only register full network interception if NOT in real data mode
+    if (!isRealData) {
+        await this.registerMockRoutes();
+    }
 
     const markers: MapMarkerRpc[] = [
         createMockMapMarkerRpc({ id: 1 as WineryDbId, google_place_id: 'ch-12345-mock-winery-1' as GooglePlaceId, name: 'Mock Winery One' }),

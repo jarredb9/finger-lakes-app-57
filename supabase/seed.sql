@@ -28,9 +28,9 @@ BEGIN
         
         -- Identity
         INSERT INTO auth.identities (
-            id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+            id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
         ) VALUES (
-            jarred_id, jarred_id, format('{"sub":"%s","email":"jarred@mail.com"}', jarred_id)::jsonb, 'email', now(), now(), now()
+            jarred_id, jarred_id, format('{"sub":"%s","email":"jarred@mail.com"}', jarred_id)::jsonb, 'email', jarred_id, now(), now(), now()
         );
     END IF;
 
@@ -52,9 +52,9 @@ BEGIN
 
         -- Identity
         INSERT INTO auth.identities (
-            id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at
+            id, user_id, identity_data, provider, provider_id, last_sign_in_at, created_at, updated_at
         ) VALUES (
-            tester_id, tester_id, format('{"sub":"%s","email":"tester@mail.com"}', tester_id)::jsonb, 'email', now(), now(), now()
+            tester_id, tester_id, format('{"sub":"%s","email":"tester@mail.com"}', tester_id)::jsonb, 'email', tester_id, now(), now(), now()
         );
     END IF;
 

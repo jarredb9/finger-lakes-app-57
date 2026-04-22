@@ -11,9 +11,11 @@ IMAGE="mcr.microsoft.com/playwright:$PLAYWRIGHT_VERSION"
 
 # Parse optional flags
 SHOULD_BUILD=false
+USE_LIVE=false
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         -b|--build) SHOULD_BUILD=true; shift ;;
+        -l|--live) USE_LIVE=true; shift ;;
         *) break ;; # Stop parsing if we hit the project arg or a filename
     esac
 done
@@ -22,6 +24,19 @@ PROJECT_ARG=$1
 
 echo "🚀 Starting Playwright Containerized Tests (Rootless)..."
 echo "📦 Image: $IMAGE"
+
+if [ "$USE_LIVE" = true ]; then
+    echo "🌍 Using LIVE database (loading .env.local.production)..."
+    # Export variables from .env.local.production for the container
+    set -a
+    source .env.local.production
+    set +a
+else
+    echo "🏠 Using LOCAL database stack..."
+    set -a
+    source .env.local
+    set +a
+fi
 
 if [ "$SHOULD_BUILD" = true ]; then
     echo "🏗️  Forcing a fresh production build and clearing isolated storage..."
@@ -68,7 +83,10 @@ podman run --rm -it \
     -w /work \
     -e IS_E2E=true \
     -e NEXT_PUBLIC_IS_E2E=true \
-    -e E2E_REAL_DATA="$E2E_REAL_DATA" \
+    -e NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+    -e NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+    -e SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
+    -e E2E_REAL_DATA="${E2E_REAL_DATA:-true}" \
     -e TEST_CMD="$TEST_CMD" \
     -e SHOULD_BUILD="$SHOULD_BUILD" \
     "$IMAGE" \
