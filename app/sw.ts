@@ -2,7 +2,6 @@ import { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate, NetworkFirst } from "serwist";
 import { ExpirationPlugin } from "serwist";
 
-
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
     __SW_MANIFEST: (PrecacheEntry | string)[] | undefined;
@@ -15,11 +14,29 @@ const SW_VERSION = "2.8.2-stable-" + Date.now();
 console.log(`[SW] Initializing Version: ${SW_VERSION}`);
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_DOMAIN = SUPABASE_URL ? new URL(SUPABASE_URL).hostname : "supabase.co";
+let SUPABASE_DOMAIN = "supabase.co";
+try {
+  if (SUPABASE_URL) {
+    SUPABASE_DOMAIN = new URL(SUPABASE_URL).hostname;
+  }
+} catch (e) {
+  console.error("[SW] Invalid SUPABASE_URL:", SUPABASE_URL);
+}
+
+const googleMapsStrategy = new CacheFirst({
+  cacheName: "google-maps-tiles",
+  plugins: [
+    new ExpirationPlugin({
+      maxEntries: 40,
+      maxAgeSeconds: 30 * 24 * 60 * 60,
+      purgeOnQuotaError: true,
+    }),
+  ],
+});
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST || [],
-  skipWaiting: true, // Force activation
+  skipWaiting: true,
   clientsClaim: true,
   navigationPreload: true,
   fallbacks: {
@@ -33,7 +50,6 @@ const serwist = new Serwist({
     ],
   },
   runtimeCaching: [
-    // Supabase Storage (Images) - Cache First/SWR
     {
       matcher: ({ url }) => 
         url.hostname.includes(SUPABASE_DOMAIN) && 
@@ -42,60 +58,39 @@ const serwist = new Serwist({
         cacheName: "supabase-storage",
         plugins: [
           new ExpirationPlugin({
-            maxEntries: 100,
-            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+            maxEntries: 40,
+            maxAgeSeconds: 30 * 24 * 60 * 60,
             purgeOnQuotaError: true,
           }),
         ],
       }),
     },
-    // Supabase API - Network Only (Let App Handle Persistence)
-    // CRITICAL: In E2E mode, we bypass the SW for API calls to ensure Playwright interception works.
     {
       matcher: ({ url, request }) => {
-        const isE2EParam = self.location.search.includes('pwa=true');
         const isE2EEnv = process.env.NEXT_PUBLIC_IS_E2E === 'true';
         const skipHeader = request?.headers.get('x-skip-sw-interception') === 'true';
-        const isE2E = isE2EParam || isE2EEnv || skipHeader;
+        const isE2E = isE2EEnv || skipHeader;
         
         const isSupabaseApi = url.hostname.includes(SUPABASE_DOMAIN) && !url.pathname.includes("/storage/v1/object/public");
         
         if (isSupabaseApi && isE2E) {
-            console.log(`[SW] E2E Bypass active for: ${url.pathname} (Env: ${isE2EEnv}, Param: ${isE2EParam}, Header: ${skipHeader})`);
-            return false; // Bypass SW
-        }
-        
-        if (isSupabaseApi) {
-            console.log(`[SW] Handling Supabase API: ${url.pathname}`);
+            return false;
         }
         
         return isSupabaseApi;
       },
       handler: new NetworkOnly(),
     },
-    // Cache Google Maps Tiles with Fallback
     {
       matcher: ({ url, request }) => 
         (url.hostname.includes("google") || url.hostname.includes("gstatic")) && 
         request.destination === "image",
       handler: async ({ request, event, params }) => {
-        const strategy = new StaleWhileRevalidate({
-          cacheName: "google-maps-tiles",
-          plugins: [
-            new ExpirationPlugin({
-              maxEntries: 200,
-              maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
-              purgeOnQuotaError: true,
-            }),
-          ],
-        });
-
         try {
-          const response = await strategy.handle({ request, event, params: params as any });
+          const response = await googleMapsStrategy.handle({ request, event, params: params as any });
           if (response) return response;
-          throw new Error("No response from strategy");
+          throw new Error("No imagery response");
         } catch (error) {
-          // Return transparent 1x1 pixel to prevent "No Imagery" errors
           return new Response(
             new Blob([
               new Uint8Array([
@@ -106,23 +101,23 @@ const serwist = new Serwist({
         }
       },
     },
-    // Cache static assets (fonts, images) with CacheFirst
     {
-      matcher: ({ request }) =>
-        request.destination === "font" || request.destination === "image",
+      matcher: ({ url, request }) =>
+        (request.destination === "font" || request.destination === "image") &&
+        !url.hostname.includes("google") && 
+        !url.hostname.includes("gstatic") &&
+        !url.hostname.includes(SUPABASE_DOMAIN),
       handler: new CacheFirst({
         cacheName: "static-assets",
         plugins: [
           new ExpirationPlugin({
-            maxEntries: 200,
-            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+            maxEntries: 50,
+            maxAgeSeconds: 30 * 24 * 60 * 60,
             purgeOnQuotaError: true,
           }),
         ],
       }),
     },
-    // Cache documents (pages) with NetworkFirst for authenticated state stability
-    // We use a 3s timeout to mitigate "Lie-Fi" issues while ensuring fresh hydration
     {
       matcher: ({ request }) => request.destination === "document",
       handler: new NetworkFirst({
@@ -130,8 +125,8 @@ const serwist = new Serwist({
         networkTimeoutSeconds: 3,
         plugins: [
           new ExpirationPlugin({
-            maxEntries: 64,
-            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 Days
+            maxEntries: 32,
+            maxAgeSeconds: 30 * 24 * 60 * 60,
             purgeOnQuotaError: true,
           }),
         ],
@@ -145,5 +140,29 @@ self.addEventListener("message", (event) => {
     self.skipWaiting();
   }
 });
+
+function handleUnhandledRejection(event: PromiseRejectionEvent) {
+  const reason = event.reason;
+  if (reason && (reason.name === "QuotaExceededError" || (reason.message && reason.message.includes("Quota")))) {
+    console.error("[SW] Storage quota exceeded. Clearing caches.");
+    event.preventDefault();
+    
+    const cachesToClear = ["google-maps-tiles", "pages", "supabase-storage"];
+    caches.keys().then((keys) => {
+      return Promise.all(
+        keys.filter((key) => {
+          return cachesToClear.some((c) => key.includes(c));
+        }).map((key) => {
+          console.log("[SW] Deleting cache: " + key);
+          return caches.delete(key);
+        })
+      );
+    }).catch((err) => {
+      console.error("[SW] Quota recovery failed:", err);
+    });
+  }
+}
+
+self.addEventListener("unhandledrejection", handleUnhandledRejection);
 
 serwist.addEventListeners();

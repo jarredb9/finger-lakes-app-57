@@ -52,7 +52,14 @@ export async function addOfflineMutation(mutation: OfflineMutation): Promise<voi
   } catch (err: any) {
     console.warn('[OfflineQueue] IndexedDB set failed, falling back to LocalStorage:', err.message);
     try {
-        localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(updated));
+        const serialized = JSON.stringify(updated);
+        // SAFETY: LocalStorage has a hard ~5MB limit. Base64 photos can easily exceed this.
+        // We limit fallback to 2MB to prevent QuotaExceededError from crashing the main thread.
+        if (serialized.length > 2 * 1024 * 1024) {
+            console.error('[OfflineQueue] Mutation queue too large for LocalStorage fallback (>2MB). Data only exists in memory.');
+            return;
+        }
+        localStorage.setItem(OFFLINE_QUEUE_KEY, serialized);
     } catch (lsErr: any) {
         console.error('[OfflineQueue] LocalStorage fallback failed:', lsErr?.message || lsErr);
     }
@@ -122,6 +129,11 @@ export async function removeOfflineMutation(mutationId: string): Promise<void> {
   } catch (err) {
     try {
         const serialized = await serializeForLocalStorage(updated);
+        // SAFETY: Prevent QuotaExceededError in LocalStorage
+        if (serialized.length > 2 * 1024 * 1024) {
+            console.error('[OfflineQueue] Mutation queue too large for LocalStorage fallback after removal.');
+            return;
+        }
         localStorage.setItem(OFFLINE_QUEUE_KEY, serialized);
     } catch (lsErr) {
         console.error('[OfflineQueue] Failed to update LS fallback after removal:', lsErr);
