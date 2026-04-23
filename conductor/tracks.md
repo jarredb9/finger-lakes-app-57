@@ -21,3 +21,8 @@
 
 - [ ] **Track: Improve PWA resilience, offline data integrity, and update UX.**
 *Link: [./tracks/pwa-resilience_20260423/](./tracks/pwa-resilience_20260423/)*
+
+---
+
+- [ ] **Track: Upgrade search function with 'Search My Current Location' and improved mobile UX for map searching.**
+*Link: [./tracks/search-upgrade_20260423/](./tracks/search-upgrade_20260423/)*
