@@ -7,6 +7,7 @@ import { useWineryStore } from './wineryStore';
 import { useWineryDataStore } from './wineryDataStore';
 import { WineryService } from '@/lib/services/wineryService';
 import { addOfflineMutation, getOfflineMutations, removeOfflineMutation, ensureBlob } from '@/lib/utils/offline-queue';
+import { isE2E, getE2EHeaders, shouldSkipRealSync, isWebKitFallback, signalSyncIntercepted } from './e2e-utils';
 
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -44,31 +45,7 @@ const isNetworkError = (error: any) => {
   );
 };
 
-// --- E2E Helpers ---
-const isE2E = () => typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true';
-const getE2EHeaders = () => isE2E() ? { 'x-skip-sw-interception': 'true' } : {};
-const shouldSkipRealSync = () => {
-    if (!isE2E()) return false;
-    // Check localStorage first (survives reloads)
-    if (typeof window !== 'undefined' && localStorage.getItem('_E2E_ENABLE_REAL_SYNC') === 'true') return false;
-    // Fallback to globalThis
-    // @ts-ignore
-    return !(globalThis as any)._E2E_ENABLE_REAL_SYNC;
-};
-const isWebKitFallback = () => {
-    if (typeof window !== 'undefined' && localStorage.getItem('_E2E_WEBKIT_SYNC_FALLBACK') === 'true') return true;
-    // @ts-ignore
-    return typeof window !== 'undefined' && (globalThis as any)._E2E_WEBKIT_SYNC_FALLBACK === true;
-};
-const signalSyncIntercepted = () => {
-    if (typeof window !== 'undefined') {
-        // @ts-ignore
-        (globalThis as any)._E2E_SYNC_REQUEST_INTERCEPTED = true;
-        // @ts-ignore
-        (window as any)._E2E_SYNC_REQUEST_INTERCEPTED = true;
-        localStorage.setItem('_E2E_SYNC_REQUEST_INTERCEPTED', 'true');
-    }
-};
+// --- Store Implementation ---
 
 export const useVisitStore = createWithEqualityFn<VisitState>()(
   persist(
@@ -84,9 +61,9 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       hasMore: false,
 
       fetchVisits: async (pageNumber = 1, refresh = false) => {
-        if (isE2E() && !localStorage.getItem('_E2E_ENABLE_REAL_SYNC')) {
-            // We still allow the call to proceed to trigger the mock in MockMapsManager
-            // unless we explicitly want to skip it.
+        if (isE2E() && shouldSkipRealSync()) {
+            set({ isLoading: false });
+            return;
         }
         set({ isLoading: true });
         const supabase = createClient();

@@ -1,6 +1,7 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { createClient } from '@/utils/supabase/client';
 import { ProfileService } from '@/lib/services/profileService';
+import { isE2E, shouldSkipRealSync } from './e2e-utils';
 
 export interface User {
   id: string;
@@ -25,6 +26,10 @@ export const useUserStore = createWithEqualityFn<UserState>((set, get) => ({
   isLoading: true,
 
   fetchUser: async () => {
+    if (isE2E() && shouldSkipRealSync()) {
+      set({ isLoading: false });
+      return;
+    }
     set({ isLoading: true });
     const supabase = createClient();
     try {

@@ -2,6 +2,7 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import { shallow } from 'zustand/shallow';
 import { FriendRating, WineryDbId } from '@/lib/types'; // Import WineryDbId
 import { createClient } from '@/utils/supabase/client';
+import { isE2E, getE2EHeaders, shouldSkipRealSync } from './e2e-utils';
 
 interface Friend {
   id: string;
@@ -104,10 +105,14 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   },
 
   fetchFriends: async () => {
+    if (isE2E() && shouldSkipRealSync()) {
+      set({ isLoading: false });
+      return;
+    }
     set({ isLoading: true });
     const supabase = createClient();
     try {
-      const { data, error } = await supabase.rpc('get_friends_and_requests');
+      const { data, error } = await supabase.rpc('get_friends_and_requests', {}, { headers: getE2EHeaders() } as any);
       
       if (error) throw error;
 
@@ -127,6 +132,10 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   },
 
   fetchFriendActivityFeed: async () => {
+    if (isE2E() && shouldSkipRealSync()) {
+      set({ isLoading: false });
+      return;
+    }
     // Only set loading if not already loading friends (to avoid double spinner)
     if (!get().isLoading) set({ isLoading: true });
     
@@ -134,7 +143,7 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
     try {
       const { data, error } = await supabase.rpc('get_friend_activity_feed', { 
           limit_val: 20
-      });
+      }, { headers: getE2EHeaders() } as any);
       
       if (error) throw error;
 
@@ -167,12 +176,16 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
   },
 
   fetchFriendProfile: async (friendId: string) => {
+    if (isE2E() && shouldSkipRealSync()) {
+      set({ isLoading: false });
+      return;
+    }
     set({ isLoading: true, selectedFriendProfile: null });
     const supabase = createClient();
     try {
         const { data, error } = await supabase.rpc('get_friend_profile_with_visits', {
             friend_id_param: friendId
-        });
+        }, { headers: getE2EHeaders() } as any);
 
         if (error) throw error;
         
@@ -211,7 +224,7 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
 
   addFriend: async (email: string) => {
     const supabase = createClient();
-    const { error } = await supabase.rpc('send_friend_request', { target_email: email });
+    const { error } = await supabase.rpc('send_friend_request', { target_email: email }, { headers: getE2EHeaders() } as any);
 
     if (error) {
       throw new Error(error.message || "Failed to send friend request.");
@@ -244,7 +257,7 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
 
     const supabase = createClient();
     try {
-      const { error } = await supabase.rpc('remove_friend', { target_friend_id: friendId });
+      const { error } = await supabase.rpc('remove_friend', { target_friend_id: friendId }, { headers: getE2EHeaders() } as any);
 
       if (error) throw error;
     } catch (error) {
@@ -278,7 +291,7 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
       const { error } = await supabase.rpc('respond_to_friend_request', { 
         requester_id: requesterId, 
         accept: accept 
-      });
+      }, { headers: getE2EHeaders() } as any);
       
       if (error) {
           throw new Error(error.message || "Failed to update friend request.");
@@ -297,13 +310,18 @@ export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
         return;
     }
 
+    if (isE2E() && shouldSkipRealSync()) {
+      set({ isLoading: false });
+      return;
+    }
+
     set({ isLoading: true });
     const supabase = createClient();
     try {
       // Parallel RPC calls
       const [ratingsResult, activityResult] = await Promise.all([
-        supabase.rpc('get_friends_ratings_for_winery', { winery_id_param: wineryId }),
-        supabase.rpc('get_friends_activity_for_winery', { winery_id_param: wineryId })
+        supabase.rpc('get_friends_ratings_for_winery', { winery_id_param: wineryId }, { headers: getE2EHeaders() } as any),
+        supabase.rpc('get_friends_activity_for_winery', { winery_id_param: wineryId }, { headers: getE2EHeaders() } as any)
       ]);
 
       if (ratingsResult.error) {

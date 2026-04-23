@@ -8,6 +8,7 @@ import { WineryService } from '@/lib/services/wineryService';
 import { createClient } from '@/utils/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { formatDateLocal, getTodayLocal } from '@/lib/utils';
+import { isE2E, getE2EHeaders, shouldSkipRealSync } from './e2e-utils';
 
 interface TripState {
   trips: Trip[];
@@ -155,6 +156,10 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       fetchTrips: async (page: number, type: 'upcoming' | 'past', refresh = false) => {
+        if (isE2E() && shouldSkipRealSync()) {
+          set({ isLoading: false });
+          return;
+        }
         set({ isLoading: true, error: null });
         try {
           const { trips: rawTrips, count } = await TripService.getTrips(page, type);
@@ -276,6 +281,10 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       fetchUpcomingTrips: async () => {
+        if (isE2E() && shouldSkipRealSync()) {
+          set({ isLoading: false });
+          return;
+        }
         set({ isLoading: true });
         try {
           const rawTrips = await TripService.getUpcomingTrips();
@@ -309,6 +318,10 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       fetchTripsForDate: async (dateString: string) => {
+        if (isE2E() && shouldSkipRealSync()) {
+          set({ isLoading: false });
+          return;
+        }
         set({ isLoading: true });
         try {
           const rawTrips = await TripService.getTripsForDate(dateString);
@@ -522,7 +535,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           const { error } = await supabase.rpc('remove_winery_from_trip', {
             p_trip_id: tripIdAsNumber,
             p_winery_id: wineryId
-          });
+          }, { headers: getE2EHeaders() } as any);
 
           if (error) throw error;
           
@@ -695,7 +708,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                         p_trip_date: dateString,
                         p_winery_data: rpcWineryData,
                         p_notes: addTripNotes || null
-                    });
+                    }, { headers: getE2EHeaders() } as any);
 
                     if (error) throw error;
                     return { tripId: data.trip_id, wineryId: data.winery_id, isNew: true };
@@ -706,7 +719,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                         p_trip_id: numericTripId,
                         p_winery_data: rpcWineryData,
                         p_notes: addTripNotes || null
-                    });
+                    }, { headers: getE2EHeaders() } as any);
 
                     if (error) throw error;
                     return { tripId: numericTripId, wineryId: (data as any)?.winery_id, isNew: false };
@@ -849,7 +862,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                  const { error } = await supabase.rpc('remove_winery_from_trip', {
                     p_trip_id: trip.id,
                     p_winery_id: existingWineryOnTrip.dbId
-                 });
+                 }, { headers: getE2EHeaders() } as any);
                  if (error) throw error;
             } else {
                  // For adding, we use the RPC which handles upsert
@@ -859,7 +872,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                      p_trip_id: trip.id,
                      p_winery_data: rpcWineryData,
                      p_notes: null
-                 });
+                 }, { headers: getE2EHeaders() } as any);
                  if (error) throw error;
 
                  // Sync DB ID

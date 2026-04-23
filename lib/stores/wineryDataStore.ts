@@ -4,6 +4,7 @@ import { Winery, Visit, GooglePlaceId, WineryDbId, MapMarkerRpc } from '@/lib/ty
 import { createClient } from '@/utils/supabase/client';
 import { standardizeWineryData, GoogleWinery } from '@/lib/utils/winery';
 import { WineryService } from '@/lib/services/wineryService';
+import { isE2E, getE2EHeaders, shouldSkipRealSync } from './e2e-utils';
 
 interface WineryDataState {
   persistentWineries: Winery[]; // The Master Cache
@@ -33,16 +34,7 @@ interface WineryDataState {
   reset: () => void;
 }
 
-// --- E2E Helpers ---
-const isE2E = () => typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true';
-const getE2EHeaders = () => isE2E() ? { 'x-skip-sw-interception': 'true' } : {};
-const shouldSkipRealSync = () => {
-    if (!isE2E()) return false;
-    // @ts-ignore
-    const globalVal = !!(globalThis as any)._E2E_ENABLE_REAL_SYNC;
-    const localVal = typeof window !== 'undefined' && localStorage.getItem('_E2E_ENABLE_REAL_SYNC') === 'true';
-    return !(globalVal || localVal);
-};
+// --- Store Implementation ---
 
 export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
   persist(
