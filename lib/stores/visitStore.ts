@@ -105,13 +105,13 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             user_review: v.user_review,
             rating: v.rating,
             photos: v.photos,
-            winery_id: v.winery_id as WineryDbId,
+            winery_id: Number(v.winery_id) as WineryDbId,
             wineryName: v.winery_name,
             wineryId: v.google_place_id as GooglePlaceId,
             friend_visits: v.friend_visits,
             syncStatus: 'synced',
             wineries: {
-              id: v.winery_id as WineryDbId,
+              id: Number(v.winery_id) as WineryDbId,
               google_place_id: v.google_place_id as GooglePlaceId,
               name: v.winery_name,
               address: v.winery_address,
@@ -197,7 +197,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             wineryId: winery.id,
             syncStatus: 'pending',
             wineries: {
-                id: winery.dbId || 0 as WineryDbId,
+                id: Number(winery.dbId || 0) as WineryDbId,
                 google_place_id: winery.id,
                 name: winery.name,
                 address: winery.address,
@@ -282,7 +282,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
               syncStatus: 'synced',
               wineries: {
                   ...tempVisit.wineries,
-                  id: wineryDbId as WineryDbId
+                  id: Number(wineryDbId) as WineryDbId
               }
           };
 
@@ -429,7 +429,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                   wineryId: mutation.winery.id,
                   syncStatus: 'synced',
                   wineries: {
-                    id: wineryDbId || mutation.winery.dbId || 0 as WineryDbId,
+                    id: Number(wineryDbId || mutation.winery.dbId || 0) as WineryDbId,
                     google_place_id: mutation.winery.id,
                     name: mutation.winery.name,
                     address: mutation.winery.address,
@@ -735,7 +735,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             wineryName: winery.name,
             wineryId: winery.id,
             wineries: {
-                id: winery.dbId || 0 as WineryDbId,
+                id: Number(winery.dbId || 0) as WineryDbId,
                 google_place_id: winery.id,
                 name: winery.name,
                 address: winery.address,

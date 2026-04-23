@@ -402,7 +402,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       deleteTrip: async (tripId: string) => {
-        const tripIdAsNumber = parseInt(tripId, 10);
+        const tripIdAsNumber = Number(tripId);
         const originalTrips = get().trips;
         const originalTripsForDate = get().tripsForDate;
 
@@ -430,7 +430,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       updateTrip: async (tripId: string, updates: Partial<Trip>) => {
-        const tripIdAsNumber = parseInt(tripId, 10);
+        const tripIdAsNumber = Number(tripId);
         set(state => {
           const newTrips = state.trips.map(trip =>
             Number(trip.id) === tripIdAsNumber ? { ...trip, ...updates, syncStatus: 'pending' as const } : trip
@@ -458,7 +458,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       updateWineryOrder: async (tripId: string, wineryIds: number[]) => {
-        const tripIdAsNumber = parseInt(tripId, 10);
+        const tripIdAsNumber = Number(tripId);
         const originalTrips = get().trips;
         const tripToUpdate = originalTrips.find(t => Number(t.id) === tripIdAsNumber);
 
@@ -500,7 +500,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       removeWineryFromTrip: async (tripId: string, wineryId: number) => {
-        const tripIdAsNumber = parseInt(tripId, 10);
+        const tripIdAsNumber = Number(tripId);
         const originalTrips = get().trips;
         const tripIndex = originalTrips.findIndex(t => Number(t.id) === tripIdAsNumber);
         if (tripIndex === -1) return;
@@ -544,8 +544,8 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       saveWineryNote: async (tripId: string, wineryId: number, notes: string) => {
-        const tripIdAsNumber = parseInt(tripId, 10);
-        
+        const tripIdAsNumber = Number(tripId);
+
         // Optimistic Update
         set(state => ({
           trips: state.trips.map((t: Trip) => {
@@ -582,7 +582,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       saveAllWineryNotes: async (tripId: string, notes: Record<number, string>) => {
-        const tripIdAsNumber = parseInt(tripId, 10);
+        const tripIdAsNumber = Number(tripId);
 
         // Optimistic Update
         set(state => ({
@@ -620,7 +620,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
       
       addMembersToTrip: async (tripId: string, _memberIds: string[]) => {
-        const tripIdAsNumber = parseInt(tripId, 10);
+        const tripIdAsNumber = Number(tripId);
         const originalTrips = get().trips;
         const tripToUpdate = originalTrips.find(t => Number(t.id) === tripIdAsNumber);
         
@@ -701,7 +701,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                     return { tripId: data.trip_id, wineryId: data.winery_id, isNew: true };
                 } else {
                     // Call RPC to add winery to existing trip
-                    const numericTripId = parseInt(tripId, 10);
+                    const numericTripId = Number(tripId);
                     const { data, error } = await supabase.rpc('add_winery_to_trip', {
                         p_trip_id: numericTripId,
                         p_winery_data: rpcWineryData,
@@ -746,7 +746,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             else if (selectedTrips.size > 0) {
                  const firstTripId = Array.from(selectedTrips).find(id => id !== 'new');
                  if (firstTripId) {
-                     badgeTripId = parseInt(firstTripId, 10);
+                     badgeTripId = Number(firstTripId);
                      // Find name from tripsForDate
                      const trip = get().tripsForDate.find(t => t.id === badgeTripId);
                      badgeTripName = trip?.name;

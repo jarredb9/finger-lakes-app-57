@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Share2, Star, Wine } from "lucide-react";
+import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Share2, Star, Wine, Loader2, Clock } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { DatePicker } from "./DatePicker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -285,7 +285,7 @@ const TripCard = memo(({
               </div>
             ))}
           </div>
-        ) : (
+        ) : mounted ? (
           <DragDropContext onDragEnd={handleDrop}>
             <Droppable droppableId={`trip-${trip.id}`}>
               {(provided) => (
@@ -350,7 +350,7 @@ const TripCard = memo(({
                               <div className="relative h-8 flex items-center px-12 overflow-hidden">
                                 <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-dashed border-l-2 border-dashed border-gray-300 ml-px"></div>
                                 <div className="z-10 bg-white border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-medium text-gray-500 flex items-center gap-1 shadow-xs">
-                                  <MapPin className="w-2.5 h-2.5" />
+                                  <Clock className="w-2.5 h-2.5" />
                                   <span>{distanceText} to next stop</span>
                                 </div>
                               </div>
@@ -365,6 +365,11 @@ const TripCard = memo(({
               )}
             </Droppable>
           </DragDropContext>
+        ) : (
+          <div className="p-8 text-center text-muted-foreground flex flex-col items-center gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
+            <p className="text-sm">Initializing Trip...</p>
+          </div>
         )}
         {isEditing && (
           <div className="p-4 border-t">
