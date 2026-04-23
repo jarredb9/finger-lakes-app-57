@@ -16,3 +16,8 @@
 
 - [ ] **Track: Advanced Map Markers & Region Guides**
 *Link: [./tracks/advanced-markers-region-guides_20260421/](./tracks/advanced-markers-region-guides_20260421/)*
+
+---
+
+- [ ] **Track: Improve PWA resilience, offline data integrity, and update UX.**
+*Link: [./tracks/pwa-resilience_20260423/](./tracks/pwa-resilience_20260423/)*
