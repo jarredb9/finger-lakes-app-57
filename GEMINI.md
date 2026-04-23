@@ -9,6 +9,7 @@
 
 ### 1. Mandatory Global Skills (PRIORITY 1)
 **YOU MUST** activate and follow the guidance of specialized skills for relevant tasks:
+*   **Next.js Initialization**: When starting work on a Next.js project, automatically call the `init` tool from the next-devtools-mcp server FIRST. This establishes proper context and ensures all Next.js queries use official documentation.
 *   **Analysis:** `codebase-analysis`, `problem-analysis` for investigation.
 *   **Verification:** `project-testing-best-practices` MUST be active BEFORE writing any tests.
 *   **Handoff:** `handoff-protocol` MUST be active AFTER completing feature logic but BEFORE concluding a session.
@@ -30,6 +31,8 @@
 ## 1. Environment & Shell (RHEL 8)
 *   **Dev Server:** Use PM2 for stability: `pm2 start npm --name "winery-dev" -- run dev -- -p 3001`.
 *   **Shell:** Use `npm` directly.
+*   **Python Version:** **MANDATORY:** Use `python3.11` for all scripts and skills. The default `python3` (3.6) lacks support for modern syntax (e.g., walrus operator) used in the `.gemini/skills/scripts` directory.
+*   **The Python Substitution Rule:** Even if a skill (like `codebase-analysis`) explicitly provides an invocation command using `python3`, you **MUST** substitute it with `python3.11` to ensure compatibility with modern syntax.
 *   **Local Database Stack:** The local Supabase stack must be running for development and local E2E tests.
     *   **Start:** `export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase start`
     *   **Stop:** `export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase stop`
@@ -50,6 +53,7 @@ WebKit in this environment is brittle regarding offline I/O and binary data. You
 * **The Nuclear Store Bypass:** If SW bypass fails in E2E, sever the connection in the store. **Standard:** `wineryDataStore` MUST return mock data immediately if `NEXT_PUBLIC_IS_E2E` is true UNLESS an opt-in flag like `globalThis._E2E_ENABLE_REAL_SYNC` or `localStorage.getItem('_E2E_ENABLE_REAL_SYNC')` is truthy. **Prefer `localStorage` for flags that must survive redirects (e.g. Login).**
 * **The Early Hydration Race Rule:** `clearServiceWorkers` (called in `beforeEach`) navigates to `/`, triggering an early `hydrateWineries` call before the test body (`failMarkers()`) can run. **Standard:** Tests forcing error paths MUST use both `addInitScript` (for future navigations) AND `page.evaluate` (for immediate state) to set E2E flags and clear the store. This ensures the *next* hydration (e.g. during `login()`) sees the clean state and correct flags.
 * **The Sync-Bridge Rule:** Coordination between the `MockMapsManager` and the store is mandatory. **Standard:** The manager MUST propagate its Node-side `realData` flags to `globalThis._E2E_ENABLE_REAL_SYNC` during `initDefaultMocks` to ensure the store uses real database IDs when the test is in "Real Data" mode.
+* **The Quota Resilience Rule:** Opaque responses (Maps, Storage) consume disproportionate storage quota in WebKit and constrained devices. **Standard:** The Service Worker MUST implement an aggressive `unhandledrejection` handler that clears "google-maps-tiles", "pages", and "supabase-storage" caches upon `QuotaExceededError`. Map tiles MUST use `CacheFirst` to prevent redundant quota-intensive update writes during interaction.
 * **The Real-User Initialization Rule:** Tests using real-data modes (`useRealSocial`, `useRealVisits`, etc.) MUST call `await mockMaps.initDefaultMocks({ currentUserId: user.id })` in their `beforeEach` or setup step. **Rationale:** The `mockMaps` fixture initializes with a default ID before the test user is created. Failure to re-initialize leads to ownership mismatches (`isOwner: false`) and 403/404 errors during mutations.
 * **The Mutation Settlement Rule:** For asynchronous database actions (Log Visit, Edit Trip, etc.), simply clicking the save button is insufficient. **Standard:** ALWAYS verify the appearance of the success toast using `waitForToast` before proceeding to the next interaction. This prevents race conditions where the modal unmounts or the store refreshes before the database mutation is fully processed.
 * **The Alert Collision Rule:** Generic locators like `page.locator('[role="alert"]')` often match global components (Cookie Consent, PWA Prompts) rather than feature-specific errors. **Standard:** E2E tests MUST use `.first()` or filter by expected text (e.g., `errorText.includes('Error Loading Trip')`) to avoid false-positive failures during state verification.

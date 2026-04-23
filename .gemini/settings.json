@@ -28,12 +28,12 @@
         "next-devtools-mcp@latest"
       ]
     },
-    // "chrome-devtools": {
-    //   "command": "npx",
-    //   "args": [
-    //     "chrome-devtools-mcp@latest"
-    //   ]
-    // },
+    "chrome-devtools": {
+      "command": "npx",
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ]
+    },
     "supabase": {
       "httpUrl": "https://mcp.supabase.com/mcp"
     },
