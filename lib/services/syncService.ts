@@ -35,12 +35,12 @@ export const SyncService = {
             case 'log_visit':
               const { error: visitError } = await supabase.rpc('log_visit', {
                 p_winery_data: WineryService.getRpcData({
-                    id: payload.wineryId,
-                    dbId: payload.wineryDbId,
-                    name: payload.wineryName,
-                    address: payload.wineryAddress,
-                    lat: payload.lat,
-                    lng: payload.lng,
+                  id: payload.wineryId,
+                  dbId: payload.wineryDbId,
+                  name: payload.wineryName,
+                  address: payload.wineryAddress,
+                  lat: payload.lat,
+                  lng: payload.lng,
                 } as any),
                 p_visit_data: {
                   visit_date: payload.visit_date,
@@ -54,111 +54,107 @@ export const SyncService = {
               break;
 
             case 'update_visit':
-                const { error: updateError } = await supabase.rpc('update_visit', {
-                    p_visit_id: parseInt(payload.visitId),
-                    p_visit_data: payload.visitData
-                });
-                error = updateError;
-                break;
+              const { error: updateError } = await supabase.rpc('update_visit', {
+                p_visit_id: parseInt(payload.visitId),
+                p_visit_data: payload.visitData
+              });
+              error = updateError;
+              break;
 
             case 'delete_visit':
-                const { error: deleteError } = await supabase.rpc('delete_visit', { 
-                    p_visit_id: parseInt(payload.visitId) 
-                });
-                error = deleteError;
-                break;
+              const { error: deleteError } = await supabase.rpc('delete_visit', {
+                p_visit_id: parseInt(payload.visitId)
+              });
+              error = deleteError;
+              break;
 
             case 'create_trip':
-                const { error: tripError } = await supabase.rpc('create_trip', {
-                    p_name: payload.name,
-                    p_trip_date: payload.trip_date
-                });
-                error = tripError;
-                break;
+              const { error: tripError } = await supabase.rpc('create_trip', {
+                p_name: payload.name,
+                p_trip_date: payload.trip_date
+              });
+              error = tripError;
+              break;
 
             case 'update_trip':
-                const { tripId: uTripId, updates: uUpdates } = payload;
-                if (uUpdates.wineryOrder) {
-                    const { error: reorderError } = await supabase.rpc('reorder_trip_wineries', {
-                        p_trip_id: parseInt(uTripId),
-                        p_winery_ids: uUpdates.wineryOrder
-                    });
-                    error = reorderError;
-                } else if (uUpdates.removeWineryId) {
-                    const { error: removeWineryError } = await supabase
-                        .from("trip_wineries")
-                        .delete()
-                        .eq("trip_id", uTripId)
-                        .eq("winery_id", uUpdates.removeWineryId);
-                    error = removeWineryError;
-                } else if (uUpdates.updateNote) {
-                    const { wineryId: nWineryId, notes: nNotes } = uUpdates.updateNote;
-                    const { error: noteError } = await supabase.rpc('update_trip_winery_notes', {
-                        p_trip_id: parseInt(uTripId),
-                        p_winery_id: nWineryId,
-                        p_notes: nNotes
-                    });
-                    error = noteError;
-                } else {
-                    const { error: updateTripError } = await supabase
-                        .from("trips")
-                        .update(uUpdates)
-                        .eq("id", uTripId);
-                    error = updateTripError;
-                }
-                break;
+              const { tripId: uTripId, updates: uUpdates } = payload;
+              if (uUpdates.wineryOrder) {
+                const { error: reorderError } = await supabase.rpc('reorder_trip_wineries', {
+                  p_trip_id: parseInt(uTripId),
+                  p_winery_ids: uUpdates.wineryOrder
+                });
+                error = reorderError;
+              } else if (uUpdates.removeWineryId) {
+                const { error: removeWineryError } = await supabase
+                  .from('trip_wineries')
+                  .delete()
+                  .eq('trip_id', uTripId)
+                  .eq('winery_id', uUpdates.removeWineryId);
+                error = removeWineryError;
+              } else if (uUpdates.updateNote) {
+                const { wineryId: nWineryId, notes: nNotes } = uUpdates.updateNote;
+                const { error: noteError } = await supabase.rpc('update_trip_winery_notes', {
+                  p_trip_id: parseInt(uTripId),
+                  p_winery_id: nWineryId,
+                  p_notes: nNotes
+                });
+                error = noteError;
+              } else {
+                const { error: updateTripError } = await supabase
+                  .from('trips')
+                  .update(uUpdates)
+                  .eq('id', uTripId);
+                error = updateTripError;
+              }
+              break;
 
             case 'delete_trip':
-                const { error: dTripError } = await supabase.rpc('delete_trip', { 
-                    p_trip_id: parseInt(payload.tripId) 
-                });
-                error = dTripError;
-                break;
+              const { error: dTripError } = await supabase.rpc('delete_trip', {
+                p_trip_id: parseInt(payload.tripId)
+              });
+              error = dTripError;
+              break;
 
             case 'update_profile':
-                if (payload.type === 'privacy') {
-                    const { error: pError } = await supabase.rpc('update_profile_privacy', {
-                        p_privacy_level: payload.level
-                    });
-                    error = pError;
-                }
-                break;
+              if (payload.type === 'privacy') {
+                const { error: pError } = await supabase.rpc('update_profile_privacy', {
+                  p_privacy_level: payload.level
+                });
+                error = pError;
+              }
+              break;
 
             case 'social_action':
-                if (payload.action === 'send_request') {
-                    const { error: sError } = await supabase.rpc('send_friend_request', { 
-                        target_email: payload.email 
-                    });
-                    error = sError;
-                } else if (payload.action === 'respond') {
-                    const { error: rError } = await supabase.rpc('respond_to_friend_request', {
-                        requester_id: payload.requesterId,
-                        accept: payload.accept
-                    });
-                    error = rError;
-                } else if (payload.action === 'remove') {
-                    const { error: remError } = await supabase.rpc('remove_friend', {
-                        target_friend_id: payload.friendId
-                    });
-                    error = remError;
-                }
-                break;
+              if (payload.action === 'send_request') {
+                const { error: sError } = await supabase.rpc('send_friend_request', {
+                  target_email: payload.email
+                });
+                error = sError;
+              } else if (payload.action === 'respond') {
+                const { error: rError } = await supabase.rpc('respond_to_friend_request', {
+                  requester_id: payload.requesterId,
+                  accept: payload.accept
+                });
+                error = rError;
+              } else if (payload.action === 'remove') {
+                const { error: remError } = await supabase.rpc('remove_friend', {
+                  target_friend_id: payload.friendId
+                });
+                error = remError;
+              }
+              break;
 
-            // Add other types as needed based on SyncItem['type']
             default:
               console.warn(`[SyncService] Unsupported mutation type: ${item.type}`);
-              // We might want to remove unsupported items to prevent stuck queue
               await removeMutation(item.id);
               continue;
           }
 
           if (error) {
             console.error(`[SyncService] Failed to sync item ${item.id}:`, error);
-            // Stop processing the queue on first error to maintain order
             break;
           }
 
-          // Successfully synced, remove from queue
           await removeMutation(item.id);
           console.log(`[SyncService] Successfully synced item ${item.id}`);
 
@@ -174,14 +170,12 @@ export const SyncService = {
   }
 };
 
-// Auto-trigger sync on network change if in browser
 if (typeof window !== 'undefined') {
   window.addEventListener('online', () => {
     console.log('[SyncService] Network online, triggering sync.');
     SyncService.sync();
   });
 
-  // Trigger on load if already online
   if (navigator.onLine) {
     SyncService.sync();
   }

@@ -43,7 +43,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
     // 2. Create sync item
     const newItem: SyncItem = {
-      id: `sync-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `sync-${crypto.randomUUID()}`,
       type,
       encryptedPayload,
       createdAt: new Date().toISOString(),
