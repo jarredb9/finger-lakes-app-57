@@ -10,18 +10,14 @@ export const getE2EHeaders = () => isE2E() ? { 'x-skip-sw-interception': 'true' 
 export const shouldSkipRealSync = () => {
     if (!isE2E()) return false;
     
-    // Check localStorage first (survives reloads and navigations)
-    if (typeof window !== 'undefined' && localStorage.getItem('_E2E_ENABLE_REAL_SYNC') === 'true') {
-        return false;
-    }
-    
-    // Fallback to globalThis (for immediate state before storage sync)
+    const localVal = typeof window !== 'undefined' && localStorage.getItem('_E2E_ENABLE_REAL_SYNC');
     // @ts-ignore
-    if (typeof window !== 'undefined' && globalThis._E2E_ENABLE_REAL_SYNC === true) {
+    const globalVal = typeof window !== 'undefined' && globalThis._E2E_ENABLE_REAL_SYNC;
+
+    if (localVal === 'true' || globalVal === true) {
         return false;
     }
     
-    // If not explicitly enabled, we skip real sync to avoid network issues in emulated environments (WebKit)
     return true;
 };
 

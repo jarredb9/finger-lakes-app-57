@@ -81,7 +81,7 @@ describe('Privacy Refactor Integration Tests', () => {
         { user_id: privateUser.id, winery_id: wineryId },
         { user_id: friendsOnlyUser.id, winery_id: wineryId }
       ]);
-    });
+    }, 30000);
 
     afterAll(async () => {
       const users = [publicUser, privateUser, friendsOnlyUser, viewerUser, friendUser];

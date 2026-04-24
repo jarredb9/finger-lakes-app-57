@@ -26,6 +26,11 @@
 *   **RPC Search Paths:** All Postgres functions **MUST** set `SET search_path = public, auth` and use explicit `public.` prefixes to resolve auth schema helpers in `SECURITY DEFINER` contexts.
 *   **API Nuclear Bypass:** Any API route exchanging tokens or codes (Reset Password, Signup Confirm) **MUST** implement a bypass for `'mock-code'` **BEFORE** initializing the Supabase client. This prevents `AuthPKCECodeVerifierMissingError` in emulated E2E environments.
 
+### 3. Conductor Execution Protocol (MANDATORY)
+*   **NEVER BATCH TASKS:** You MUST execute the implementation plan strictly ONE task at a time.
+*   **STRICT LIFECYCLE:** For every single task, you must complete the full cycle: Write Failing Test -> Implement -> Pass Test -> Commit -> Attach Git Note -> Update `plan.md`.
+*   **NO PROCEEDING:** Do NOT begin work on, or even modify files for, the next task until the current task's commit and plan update are completely finished and verified. Violation of this sequence is a critical failure.
+
 # Winery Visit Planner and Tracker
 
 ## 1. Environment & Shell (RHEL 8)
