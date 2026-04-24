@@ -61,4 +61,5 @@
 - [x] Task: Normalize string quotes in usePWAUpdate 683eed0
 - [x] Task: E2E Stabilization (Hydration & Real-Sync Persistence) 154af76
 - [x] Task: Mock window.location.reload in usePWAUpdate for cleaner tests eac1d88
+- [x] Task: Apply Phase 2 review suggestions (Indentation & ID standard) 003dbad
 - [~] Task: Trigger SyncService on initialization if online
