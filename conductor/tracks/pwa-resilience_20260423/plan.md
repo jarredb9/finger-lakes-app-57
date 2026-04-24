@@ -33,9 +33,14 @@
 - [x] Task: Implement Centralized `SyncService` with Concurrency Locking b70b233
     - [x] Create `lib/services/syncService.ts` with "Upload First" replay logic.
     - [x] Implement an atomic `isSyncing` flag to prevent duplicate sync triggers.
+- [x] Task: Infrastructure Verification (E2E)
+    - [x] Create `e2e/sync-infrastructure.spec.ts` to verify encrypted persistence and auto-sync triggers.
+    - [x] Verify reload/hydration stability in containerized environment.
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Offline Mutation Queue' 4650988
 
 ### Phase 3: Store Integration & Photo Reconstitution (TDD)
+- [ ] Task: Establish Sync Helpers for Binary Data
+    - [x] Create `lib/utils/sync-helpers.ts` to centralize photo stabilization (Blob -> Base64) and reconstitution (Base64 -> File) for the encrypted queue.
 - [ ] Task: Integrate `SyncService` into Entity Stores
     - [ ] Refactor stores to utilize `SyncService` for all mutations.
 - [ ] Task: Implement Photo Reconstitution in Uploader
@@ -56,3 +61,4 @@
 - [x] Task: Normalize string quotes in usePWAUpdate 683eed0
 - [x] Task: E2E Stabilization (Hydration & Real-Sync Persistence) 154af76
 - [x] Task: Mock window.location.reload in usePWAUpdate for cleaner tests eac1d88
+- [~] Task: Trigger SyncService on initialization if online

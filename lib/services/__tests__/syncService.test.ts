@@ -210,4 +210,14 @@ describe('SyncService', () => {
     // Verify first mutation was NOT removed
     expect(mockSyncStore.removeMutation).not.toHaveBeenCalled();
   });
+
+  it('should trigger sync when the window online event fires', async () => {
+    const syncSpy = jest.spyOn(SyncService, 'sync').mockImplementation(() => Promise.resolve());
+    
+    // Simulate the online event
+    window.dispatchEvent(new Event('online'));
+    
+    expect(syncSpy).toHaveBeenCalled();
+    syncSpy.mockRestore();
+  });
 });

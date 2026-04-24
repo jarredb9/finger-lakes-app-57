@@ -12,6 +12,7 @@ import { useSyncStore } from "@/lib/stores/syncStore";
 import { SyncService } from "@/lib/services/syncService";
 import { useEffect } from "react";
 import { createClient } from "@/utils/supabase/client";
+import * as idbKeyVal from "idb-keyval";
 
 export function E2EStoreExposer() {
   useEffect(() => {
@@ -19,6 +20,8 @@ export function E2EStoreExposer() {
     if (typeof window !== 'undefined') {
       const isDev = process.env.NODE_ENV === 'development';
       const isE2E = process.env.NEXT_PUBLIC_IS_E2E === 'true';
+      
+      console.log(`[DIAGNOSTIC] E2EStoreExposer mounting. isDev=${isDev}, isE2E=${isE2E}`);
 
       if (isDev || isE2E) {
         (window as any).useWineryDataStore = useWineryDataStore;
@@ -31,9 +34,10 @@ export function E2EStoreExposer() {
         (window as any).useMapStore = useMapStore;
         (window as any).useSyncStore = useSyncStore;
         (window as any).SyncService = SyncService;
+        (window as any).idbKeyVal = idbKeyVal;
         (window as any).supabase = createClient();
         // eslint-disable-next-line no-console
-        console.log('[E2EStoreExposer] Stores, SyncService and Supabase client exposed to window.');
+        console.log('[E2EStoreExposer] Stores, SyncService, idbKeyVal and Supabase client exposed to window.');
       }
     }
   }, []);

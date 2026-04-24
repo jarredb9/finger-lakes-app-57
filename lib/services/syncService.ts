@@ -180,4 +180,9 @@ if (typeof window !== 'undefined') {
     console.log('[SyncService] Network online, triggering sync.');
     SyncService.sync();
   });
+
+  // Trigger on load if already online
+  if (navigator.onLine) {
+    SyncService.sync();
+  }
 }
