@@ -39,7 +39,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Offline Mutation Queue' 4650988
 
 ### Phase 3: Store Integration & Photo Reconstitution (TDD)
-- [ ] Task: Establish Sync Helpers for Binary Data
+- [x] Task: Establish Sync Helpers for Binary Data 2e69439
     - [x] Create `lib/utils/sync-helpers.ts` to centralize photo stabilization (Blob -> Base64) and reconstitution (Base64 -> File) for the encrypted queue.
 - [ ] Task: Integrate `SyncService` into Entity Stores
     - [ ] Refactor stores to utilize `SyncService` for all mutations.
