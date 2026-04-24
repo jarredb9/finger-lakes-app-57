@@ -22,9 +22,9 @@
 ### Phase 1: Cryptographic Foundation & Reconstitution (TDD)
 - [x] Task: Implement Hardened Web Crypto Wrapper 6743724
     - [x] Create `lib/utils/crypto.ts` for AES-GCM encryption with PBKDF2 key derivation from `user.id`.
-- [ ] Task: Implement Binary Reconstitution Utilities (The Reconstitution Rule)
-    - [ ] Create `lib/utils/binary.ts` with `fileToBase64` and `base64ToFile`.
-    - [ ] Write unit tests verifying WebKit-compliant photo storage (Base64 -> File).
+- [x] Task: Implement Binary Reconstitution Utilities (The Reconstitution Rule) 274fdf8
+    - [x] Create `lib/utils/binary.ts` with `fileToBase64` and `base64ToFile`.
+    - [x] Write unit tests verifying WebKit-compliant photo storage (Base64 -> File).
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Cryptographic Foundation'
 
 ### Phase 2: Offline Mutation Queue (TDD)
