@@ -55,3 +55,4 @@
 - [x] Task: Apply review suggestions 6ac8f57
 - [x] Task: Normalize string quotes in usePWAUpdate 683eed0
 - [x] Task: E2E Stabilization (Hydration & Real-Sync Persistence) 154af76
+- [x] Task: Mock window.location.reload in usePWAUpdate for cleaner tests eac1d88
