@@ -36,7 +36,12 @@ export function usePWAUpdate() {
           return;
       }
       (globalThis as any)._PWA_UPDATING = true;
-      window.location.reload();
+      // Use a wrapper or mock for reload to avoid JSDOM limitations in tests
+      if (typeof window !== 'undefined' && (window as any)._E2E_RELOAD) {
+          (window as any)._E2E_RELOAD();
+      } else {
+          window.location.reload();
+      }
     };
 
     navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);

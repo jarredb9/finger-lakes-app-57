@@ -27,15 +27,9 @@ describe('usePWAUpdate', () => {
       writable: true,
     });
 
-    // Satisfy JSDOM by using a fresh object
+    // Satisfy JSDOM by using a mock for reload
     const mockReload = jest.fn();
-    // @ts-ignore
-    delete window.location;
-    // @ts-ignore
-    window.location = {
-        reload: mockReload,
-        href: 'http://localhost/'
-    } as any;
+    (window as any)._E2E_RELOAD = mockReload;
 
     // @ts-ignore
     delete globalThis._PWA_UPDATING;
@@ -64,6 +58,7 @@ describe('usePWAUpdate', () => {
     });
 
     expect((globalThis as any)._PWA_UPDATING).toBe(true);
+    expect((window as any)._E2E_RELOAD).toHaveBeenCalled();
   });
 
   it('should NOT reload on controllerchange if already updating', async () => {
