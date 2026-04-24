@@ -334,8 +334,8 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
-# [edge_runtime.secrets]
-# secret_key = "env(SECRET_VALUE)"
+[edge_runtime.secrets]
+GOOGLE_MAPS_API_KEY = "env(GOOGLE_MAPS_API_KEY)"
 
 [analytics]
 enabled = true

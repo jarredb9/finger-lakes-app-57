@@ -34,7 +34,7 @@
 # Winery Visit Planner and Tracker
 
 ## 1. Environment & Shell (RHEL 8)
-*   **Dev Server:** Use PM2 for stability: `pm2 start npm --name "winery-dev" -- run dev -- -p 3001`.
+*   **Dev Server:** Request user to run `npm run dev` to start the dev server on `http://localhost:3000`.
 *   **Shell:** Use `npm` directly.
 *   **Python Version:** **MANDATORY:** Use `python3.11` for all scripts and skills. The default `python3` (3.6) lacks support for modern syntax (e.g., walrus operator) used in the `.gemini/skills/scripts` directory.
 *   **The Python Substitution Rule:** Even if a skill (like `codebase-analysis`) explicitly provides an invocation command using `python3`, you **MUST** substitute it with `python3.11` to ensure compatibility with modern syntax.
