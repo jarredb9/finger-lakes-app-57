@@ -76,6 +76,74 @@ export const SyncService = {
                 error = tripError;
                 break;
 
+            case 'update_trip':
+                const { tripId: uTripId, updates: uUpdates } = payload;
+                if (uUpdates.wineryOrder) {
+                    const { error: reorderError } = await supabase.rpc('reorder_trip_wineries', {
+                        p_trip_id: parseInt(uTripId),
+                        p_winery_ids: uUpdates.wineryOrder
+                    });
+                    error = reorderError;
+                } else if (uUpdates.removeWineryId) {
+                    const { error: removeWineryError } = await supabase
+                        .from("trip_wineries")
+                        .delete()
+                        .eq("trip_id", uTripId)
+                        .eq("winery_id", uUpdates.removeWineryId);
+                    error = removeWineryError;
+                } else if (uUpdates.updateNote) {
+                    const { wineryId: nWineryId, notes: nNotes } = uUpdates.updateNote;
+                    const { error: noteError } = await supabase.rpc('update_trip_winery_notes', {
+                        p_trip_id: parseInt(uTripId),
+                        p_winery_id: nWineryId,
+                        p_notes: nNotes
+                    });
+                    error = noteError;
+                } else {
+                    const { error: updateTripError } = await supabase
+                        .from("trips")
+                        .update(uUpdates)
+                        .eq("id", uTripId);
+                    error = updateTripError;
+                }
+                break;
+
+            case 'delete_trip':
+                const { error: dTripError } = await supabase.rpc('delete_trip', { 
+                    p_trip_id: parseInt(payload.tripId) 
+                });
+                error = dTripError;
+                break;
+
+            case 'update_profile':
+                if (payload.type === 'privacy') {
+                    const { error: pError } = await supabase.rpc('update_profile_privacy', {
+                        p_privacy_level: payload.level
+                    });
+                    error = pError;
+                }
+                break;
+
+            case 'social_action':
+                if (payload.action === 'send_request') {
+                    const { error: sError } = await supabase.rpc('send_friend_request', { 
+                        target_email: payload.email 
+                    });
+                    error = sError;
+                } else if (payload.action === 'respond') {
+                    const { error: rError } = await supabase.rpc('respond_to_friend_request', {
+                        requester_id: payload.requesterId,
+                        accept: payload.accept
+                    });
+                    error = rError;
+                } else if (payload.action === 'remove') {
+                    const { error: remError } = await supabase.rpc('remove_friend', {
+                        target_friend_id: payload.friendId
+                    });
+                    error = remError;
+                }
+                break;
+
             // Add other types as needed based on SyncItem['type']
             default:
               console.warn(`[SyncService] Unsupported mutation type: ${item.type}`);

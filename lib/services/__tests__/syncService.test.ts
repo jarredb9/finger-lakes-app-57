@@ -86,6 +86,107 @@ describe('SyncService', () => {
     expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-1');
   });
 
+  it('should handle update_trip mutations', async () => {
+    const mockMutation = {
+      id: 'sync-trip-update',
+      type: 'update_trip',
+      encryptedPayload: 'encrypted-{"tripId":"456","updates":{"name":"Updated Trip"}}',
+      userId: 'test-user-id',
+    };
+
+    const mockSyncStore = {
+      queue: [mockMutation],
+      removeMutation: jest.fn().mockResolvedValue(undefined),
+      getDecryptedPayload: jest.fn().mockResolvedValue({
+        tripId: '456',
+        updates: { name: 'Updated Trip' }
+      }),
+    };
+
+    (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+    // Mock supabase.from('trips').update().eq()
+    const mockUpdate = jest.fn().mockReturnThis();
+    const mockEq = jest.fn().mockResolvedValue({ error: null });
+    mockSupabase.from = jest.fn().mockReturnValue({
+        update: mockUpdate,
+        eq: mockEq
+    });
+
+    await SyncService.sync();
+
+    expect(mockSupabase.from).toHaveBeenCalledWith('trips');
+    expect(mockUpdate).toHaveBeenCalledWith({ name: 'Updated Trip' });
+    expect(mockEq).toHaveBeenCalledWith('id', '456');
+    expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-trip-update');
+  });
+
+  it('should handle delete_trip mutations', async () => {
+    const mockMutation = {
+      id: 'sync-trip-delete',
+      type: 'delete_trip',
+      encryptedPayload: 'encrypted-{"tripId":"456"}',
+      userId: 'test-user-id',
+    };
+
+    const mockSyncStore = {
+      queue: [mockMutation],
+      removeMutation: jest.fn().mockResolvedValue(undefined),
+      getDecryptedPayload: jest.fn().mockResolvedValue({ tripId: '456' }),
+    };
+
+    (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+    await SyncService.sync();
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('delete_trip', { p_trip_id: 456 });
+    expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-trip-delete');
+  });
+
+  it('should handle update_profile mutations', async () => {
+    const mockMutation = {
+      id: 'sync-profile',
+      type: 'update_profile',
+      encryptedPayload: 'encrypted-{"type":"privacy","level":"friends_only"}',
+      userId: 'test-user-id',
+    };
+
+    const mockSyncStore = {
+      queue: [mockMutation],
+      removeMutation: jest.fn().mockResolvedValue(undefined),
+      getDecryptedPayload: jest.fn().mockResolvedValue({ type: 'privacy', level: 'friends_only' }),
+    };
+
+    (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+    await SyncService.sync();
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('update_profile_privacy', { p_privacy_level: 'friends_only' });
+    expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-profile');
+  });
+
+  it('should handle social_action mutations (send_request)', async () => {
+    const mockMutation = {
+      id: 'sync-social',
+      type: 'social_action',
+      encryptedPayload: 'encrypted-{"action":"send_request","email":"friend@example.com"}',
+      userId: 'test-user-id',
+    };
+
+    const mockSyncStore = {
+      queue: [mockMutation],
+      removeMutation: jest.fn().mockResolvedValue(undefined),
+      getDecryptedPayload: jest.fn().mockResolvedValue({ action: 'send_request', email: 'friend@example.com' }),
+    };
+
+    (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+    await SyncService.sync();
+
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('send_friend_request', { target_email: 'friend@example.com' });
+    expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-social');
+  });
+
   it('should stop replaying if a mutation fails (atomic-ish)', async () => {
     const mockMutation1 = { id: 'sync-1', type: 'log_visit', userId: 'test-user-id' };
     const mockMutation2 = { id: 'sync-2', type: 'log_visit', userId: 'test-user-id' };
