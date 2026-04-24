@@ -17,7 +17,7 @@
     - [x] Audit all entity stores (`visitStore`, `tripStore`, `wineryDataStore`) to ensure `Number()` is used for `WineryDbId` conversions.
 - [x] Task: Strengthen E2E Store Bypass (The Nuclear Rule) 6a3f8ee
     - [x] Update stores to strictly respect `globalThis._E2E_ENABLE_REAL_SYNC`.
-- [ ] Task: Conductor - User Manual Verification 'Phase 0: Foundations & Stability'
+- [X] Task: Conductor - User Manual Verification 'Phase 0: Foundations & Stability' (45fd614371f187668e5a22a7e52e4cc23192e8d2)
 
 ### Phase 1: Cryptographic Foundation & Reconstitution (TDD)
 - [ ] Task: Implement Hardened Web Crypto Wrapper
