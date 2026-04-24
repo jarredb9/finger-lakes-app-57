@@ -27,7 +27,7 @@
     - [x] Write unit tests verifying WebKit-compliant photo storage (Base64 -> File).
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Cryptographic Foundation' 78afad4
 
-### Phase 2: Offline Mutation Queue (TDD)
+### Phase 2: Offline Mutation Queue (TDD) [checkpoint: b041c2a]
 - [x] Task: Create `SyncStore` (Zustand) 1fac701
     - [x] Create `lib/stores/syncStore.ts` using `idb-keyval` and the crypto wrapper.
 - [x] Task: Implement Centralized `SyncService` with Concurrency Locking b70b233
