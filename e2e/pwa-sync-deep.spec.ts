@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, openWineryDetails, clearServiceWorkers } from './helpers';
+import { login, navigateToTab, openWineryDetails, clearServiceWorkers, waitForAppReady } from './helpers';
 
 test.describe('Deep PWA Offline Sync (Photos)', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -11,6 +11,32 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
     
     // Login with PWA flag to set ?pwa=true
     await login(page, user.email, user.password, { isPwa: true });
+    await waitForAppReady(page);
+
+    // Wait for store exposure and user hydration with higher timeout
+    await page.waitForFunction(() => {
+        const uStore = (window as any).useUserStore;
+        const sStore = (window as any).useSyncStore;
+        const uState = uStore?.getState?.();
+        const sState = sStore?.getState?.();
+        
+        const hasUStore = !!uStore;
+        const hasSStore = !!sStore;
+        const hasUser = !!uState?.user;
+        const isSInit = !!sState?.isInitialized;
+
+        if (!hasUStore || !hasSStore || !hasUser || !isSInit) {
+            // @ts-ignore
+            if (window._lastLog !== `${hasUStore}-${hasSStore}-${hasUser}-${isSInit}`) {
+                console.log(`[DIAGNOSTIC] Waiting for hydration: uStore=${hasUStore}, sStore=${hasSStore}, user=${hasUser}, sInit=${isSInit}`);
+                // @ts-ignore
+                window._lastLog = `${hasUStore}-${hasSStore}-${hasUser}-${isSInit}`;
+            }
+            return false;
+        }
+        return true;
+    }, { timeout: 30000 });
+
     await navigateToTab(page, 'Explore');
   });
 

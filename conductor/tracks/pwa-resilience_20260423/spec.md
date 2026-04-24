@@ -18,6 +18,7 @@ Enhance the application's PWA capabilities by implementing a robust offline muta
 3.  **Binary Data Reconstitution (The Reconstitution Rule):**
     *   **Logic**: Strictly enforce the rule for all binary assets (Photos). 
     *   **WebKit Compatibility**: Store photos as **Base64 strings** in the offline queue (IndexedDB) to prevent detached Blob handles. Reconstitute as `File` objects immediately before the network request.
+    *   **Implementation**: Utilize the standardized utilities in `lib/utils/sync-helpers.ts` (`stabilizePhotos` for queueing and `base64ToFile` for sync replay) to ensure consistent data reconstitution across all stores.
 4.  **Refined Update UX:**
     *   **Logic**: Change SW update logic to `skipWaiting: false`. Apply updates only on the **Next Navigation** or user confirmation.
     *   **Loop Fix**: Explicitly handle the `controllerchange` event to prevent infinite update reloads.

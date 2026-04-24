@@ -54,6 +54,7 @@
     - [ ] Update `sw.ts` to include a `storage.estimate` listener and 80% usage threshold trigger.
 - [ ] Task: Final E2E Validation
     - [ ] Create `e2e/pwa-resilience.spec.ts` covering offline visit creation, photo reconstitution, and queue persistence.
+    - [ ] **MANDATORY**: Merge logic from `e2e/pwa-sync-deep.spec.ts` (multiple photos + reconstitution) into this final spec.
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Final Verification'
 
 ## Phase: Review Fixes
@@ -62,4 +63,5 @@
 - [x] Task: E2E Stabilization (Hydration & Real-Sync Persistence) 154af76
 - [x] Task: Mock window.location.reload in usePWAUpdate for cleaner tests eac1d88
 - [x] Task: Apply Phase 2 review suggestions (Indentation & ID standard) 003dbad
+- [x] Task: Refactor Deep Sync test for hydration stability & update Phase 4 merge mandate
 - [~] Task: Trigger SyncService on initialization if online
