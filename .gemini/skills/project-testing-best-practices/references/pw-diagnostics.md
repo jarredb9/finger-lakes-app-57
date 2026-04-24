@@ -80,4 +80,14 @@ When moving from mocks (Tier 2) to Real Data verification (Tier 3), you MUST use
     - **GitHub CI:** Targets Live Database (`supabase.co`) using secrets.
 - **Action:** If a Tier 3 test fails locally but logic seems correct, verify the local database schema matches `lib/database.types.ts` using Supabase MCP tools.
 
+### 12. The IDB Stall Rule
+Raw `window.indexedDB.open()` calls inside `page.evaluate` can hang indefinitely in containerized Chromium instances due to connection lock contention with the main application thread.
+- **Standard:** Always expose the application's persistence library (e.g., `idbKeyVal`) to `window` and use its methods for inspection.
+- **Example:** `await page.evaluate(() => window.idbKeyVal.get('my-key'))` instead of manual IDB request handlers.
+
+### 13. The Offline Reload Constraint
+`page.reload()` while `context.setOffline(true)` is active will result in `net::ERR_INTERNET_DISCONNECTED` unless the Service Worker is fully active and the route is cached. 
+- **Standard:** For persistence/hydration tests, restore connectivity with `context.setOffline(false)` before calling `reload()` to ensure the application environment can rebuild and successfully hydrate state from IndexedDB.
+- **Exception:** Only use offline reloads when explicitly testing the PWA "Offline Page" UX.
+
 Reference: [Playwright Debugging](https://playwright.dev/docs/debug)

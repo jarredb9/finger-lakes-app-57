@@ -44,3 +44,5 @@ These standards move the project from "Defensive Survivability" to "Architectura
 10. **Zero-Guess Debugging:** All failures follow the "Mandatory Diagnostic Protocol" before any fix is attempted.
 11. **Hydration Optimization:** Data arrays (`trips`, `visits`, etc.) MUST be unpersisted to eliminate hydration bottlenecks. Verification MUST confirm `localStorage` remains < 1KB.
 12. **Local Database Verification:** Feature logic MUST be verified against the **Local Supabase Stack** using Tier 3 (Real Data) E2E tests before finalization. This ensures RLS policies and RPC schemas are correct beyond mock-level assumptions.
+13. **IDB Robustness:** E2E tests inspecting local persistence MUST use the project's exposed `idbKeyVal` instance rather than raw `indexedDB.open()`. Raw IDB requests in `page.evaluate` are prone to deadlocks in containerized environments.
+14. **Offline Reload Protocol:** `page.reload()` MUST NOT be called while `context.setOffline(true)` is active in infrastructure tests unless testing the SW offline fallback specifically. Restore connectivity before reloads to ensure a stable hydration environment.
