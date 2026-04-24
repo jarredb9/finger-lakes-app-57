@@ -50,3 +50,6 @@
 - [ ] Task: Final E2E Validation
     - [ ] Create `e2e/pwa-resilience.spec.ts` covering offline visit creation, photo reconstitution, and queue persistence.
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Final Verification'
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions 6ac8f57
