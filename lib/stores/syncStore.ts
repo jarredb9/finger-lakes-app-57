@@ -3,7 +3,7 @@ import { SyncItem } from '@/lib/types';
 import { encrypt, decrypt } from '@/lib/utils/crypto';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 
-const IDB_KEY = 'offline-mutation-queue';
+const IDB_KEY = 'encrypted-offline-queue';
 
 interface SyncState {
   queue: SyncItem[];

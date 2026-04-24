@@ -33,7 +33,7 @@
 - [x] Task: Implement Centralized `SyncService` with Concurrency Locking b70b233
     - [x] Create `lib/services/syncService.ts` with "Upload First" replay logic.
     - [x] Implement an atomic `isSyncing` flag to prevent duplicate sync triggers.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Offline Mutation Queue'
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Offline Mutation Queue' 4650988
 
 ### Phase 3: Store Integration & Photo Reconstitution (TDD)
 - [ ] Task: Integrate `SyncService` into Entity Stores
