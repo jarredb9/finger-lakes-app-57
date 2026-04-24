@@ -20,8 +20,8 @@
 - [X] Task: Conductor - User Manual Verification 'Phase 0: Foundations & Stability' (45fd614371f187668e5a22a7e52e4cc23192e8d2)
 
 ### Phase 1: Cryptographic Foundation & Reconstitution (TDD)
-- [ ] Task: Implement Hardened Web Crypto Wrapper
-    - [ ] Create `lib/utils/crypto.ts` for AES-GCM encryption with PBKDF2 key derivation from `user.id`.
+- [x] Task: Implement Hardened Web Crypto Wrapper 6743724
+    - [x] Create `lib/utils/crypto.ts` for AES-GCM encryption with PBKDF2 key derivation from `user.id`.
 - [ ] Task: Implement Binary Reconstitution Utilities (The Reconstitution Rule)
     - [ ] Create `lib/utils/binary.ts` with `fileToBase64` and `base64ToFile`.
     - [ ] Write unit tests verifying WebKit-compliant photo storage (Base64 -> File).
