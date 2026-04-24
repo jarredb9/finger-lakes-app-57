@@ -28,8 +28,8 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Cryptographic Foundation' 78afad4
 
 ### Phase 2: Offline Mutation Queue (TDD)
-- [ ] Task: Create `SyncStore` (Zustand)
-    - [ ] Create `lib/stores/syncStore.ts` using `idb-keyval` and the crypto wrapper.
+- [x] Task: Create `SyncStore` (Zustand) 1fac701
+    - [x] Create `lib/stores/syncStore.ts` using `idb-keyval` and the crypto wrapper.
 - [ ] Task: Implement Centralized `SyncService` with Concurrency Locking
     - [ ] Create `lib/services/syncService.ts` with "Upload First" replay logic.
     - [ ] Implement an atomic `isSyncing` flag to prevent duplicate sync triggers.
