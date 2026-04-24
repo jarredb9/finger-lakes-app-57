@@ -71,6 +71,14 @@ export interface DbWineryWithUserData extends DbWinery {
 
 export type SyncStatus = 'synced' | 'pending' | 'error';
 
+export interface SyncItem {
+  id: string; // UUID or timestamp-based ID
+  type: 'log_visit' | 'update_visit' | 'delete_visit' | 'create_trip' | 'update_trip' | 'delete_trip' | 'update_profile' | 'social_action';
+  encryptedPayload: string; // AES-GCM encrypted JSON
+  createdAt: string;
+  userId: string; // To ensure multi-user isolation on the same device
+}
+
 // Derived Interfaces (Frontend Models)
 
 export interface Visit {
