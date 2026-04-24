@@ -83,10 +83,17 @@ export async function dismissCookieConsent(page: Page) {
  * Clears service workers and related caches for a fresh test state.
  */
 export async function clearServiceWorkers(page: Page) {
+    // Proactively set flags that MUST survive across the cleanup navigations
+    await page.addInitScript(() => {
+        (window as any)._E2E_ENABLE_REAL_SYNC = true;
+        window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
+        window.localStorage.setItem('cookie-consent', 'true');
+    });
+
     // Navigate to / first to ensure we have a valid origin for SW/IndexedDB access
     // This is CRITICAL for WebKit/Safari to allow cross-origin storage cleanup
-    await page.goto('/').catch(() => {}); 
-    
+    await page.goto('/').catch(() => {});
+
     await page.evaluate(async () => {
         try {
             if ('serviceWorker' in navigator) {
@@ -114,13 +121,15 @@ export async function clearServiceWorkers(page: Page) {
             }
             // Standard LocalStorage/SessionStorage cleanup
             window.localStorage.removeItem('winery-data-storage-e2e');
-            window.localStorage.removeItem('_E2E_ENABLE_REAL_SYNC');
+            // We KEEP _E2E_ENABLE_REAL_SYNC as it's foundational for the test session
+            // window.localStorage.clear() below will hit it, so we re-set after clear
             window.localStorage.clear();
+            window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
+            window.localStorage.setItem('cookie-consent', 'true');
             window.sessionStorage.clear();
         } catch (e) {}
     });
 }
-
 export async function refreshFriendsStore(page: Page) {
     await page.evaluate(async () => {
         // @ts-ignore
@@ -276,6 +285,8 @@ export async function submitLoginForm(page: Page, email: string, pass: string) {
 export async function login(page: Page, email: string, pass: string, options: { skipMapReady?: boolean, isPwa?: boolean } = {}) {
   await page.addInitScript(() => {
     window.localStorage.setItem('cookie-consent', 'true');
+    (window as any)._E2E_ENABLE_REAL_SYNC = true;
+    window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
   });
 
   const isMobile = page.viewportSize()?.width! < 768;
@@ -295,6 +306,13 @@ export async function login(page: Page, email: string, pass: string, options: { 
     } else if (isPwa && !page.url().includes('pwa=true')) {
         await page.goto(`/login${pwaSuffix}`);
     }
+
+    // Enable real sync after we are on the domain
+    await page.evaluate(() => {
+        (window as any)._E2E_ENABLE_REAL_SYNC = true;
+        try { localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true'); } catch (e) {}
+    }).catch(() => {});
+
     await page.waitForLoadState('load');
     await page.waitForLoadState('networkidle');
   }).toPass({ intervals: [2000], timeout: 15000 });
@@ -313,7 +331,7 @@ export async function login(page: Page, email: string, pass: string, options: { 
         } catch (e) { return false; }
     }).catch(() => false);
 
-    if (hasUser && !page.url().includes('/login')) {
+    if (hasUser && !page.url().includes('/login') && !page.url().includes('/signup')) {
         return;
     }
     
