@@ -34,7 +34,7 @@ export function OfflineIndicator() {
       aria-live="polite"
     >
       <WifiOff className="h-4 w-4" />
-      <span>You are offline. Showing cached data.</span>
+      <span>Offline: Map detail limited</span>
     </div>
   );
 }

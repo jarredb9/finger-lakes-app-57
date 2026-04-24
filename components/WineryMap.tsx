@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import {
   Alert,
   AlertDescription,
@@ -16,7 +15,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, WifiOff } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import MapView from "./map/MapView";
 import { useWineryMapContext } from "@/components/winery-map-context";
 
@@ -35,23 +34,6 @@ export default function WineryMap({ className }: WineryMapProps) {
     setProposedWinery,
     selectedTrip,
   } = useWineryMapContext();
-
-  const [isOffline, setIsOffline] = useState(() => 
-    typeof navigator !== "undefined" ? !navigator.onLine : false
-  );
-
-  useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
-
-    window.addEventListener("online", handleOnline);
-    window.addEventListener("offline", handleOffline);
-
-    return () => {
-      window.removeEventListener("online", handleOnline);
-      window.removeEventListener("offline", handleOffline);
-    };
-  }, []);
 
   if (error) {
     return (
@@ -76,16 +58,6 @@ export default function WineryMap({ className }: WineryMapProps) {
             selectedTrip={selectedTrip}
         />
       </div>
-
-      {/* Offline Map Warning */}
-      {isOffline && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-5 pointer-events-none">
-           <div className="bg-background/90 backdrop-blur-md border rounded-full px-4 py-1.5 shadow-xs text-xs font-medium flex items-center gap-2 text-muted-foreground">
-              <WifiOff className="w-3 h-3" />
-              <span>Offline: Map detail limited</span>
-           </div>
-        </div>
-      )}
 
       {/* Proposed Winery Dialog */}
       {proposedWinery && (
