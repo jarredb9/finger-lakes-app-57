@@ -30,9 +30,9 @@
 ### Phase 2: Offline Mutation Queue (TDD)
 - [x] Task: Create `SyncStore` (Zustand) 1fac701
     - [x] Create `lib/stores/syncStore.ts` using `idb-keyval` and the crypto wrapper.
-- [ ] Task: Implement Centralized `SyncService` with Concurrency Locking
-    - [ ] Create `lib/services/syncService.ts` with "Upload First" replay logic.
-    - [ ] Implement an atomic `isSyncing` flag to prevent duplicate sync triggers.
+- [x] Task: Implement Centralized `SyncService` with Concurrency Locking b70b233
+    - [x] Create `lib/services/syncService.ts` with "Upload First" replay logic.
+    - [x] Implement an atomic `isSyncing` flag to prevent duplicate sync triggers.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Offline Mutation Queue'
 
 ### Phase 3: Store Integration & Photo Reconstitution (TDD)
