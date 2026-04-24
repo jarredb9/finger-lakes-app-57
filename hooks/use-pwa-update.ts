@@ -1,13 +1,13 @@
-"use client";
+'use client';
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState } from 'react';
 
 export function usePWAUpdate() {
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
   const [registration, setRegistration] = useState<ServiceWorkerRegistration | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
     // Listen for new updates
     navigator.serviceWorker.ready.then((reg) => {
@@ -17,11 +17,11 @@ export function usePWAUpdate() {
         setIsUpdateAvailable(true);
       }
 
-      reg.addEventListener("updatefound", () => {
+      reg.addEventListener('updatefound', () => {
         const newWorker = reg.installing;
         if (newWorker) {
-          newWorker.addEventListener("statechange", () => {
-            if (newWorker.state === "installed" && navigator.serviceWorker.controller) {
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
               setIsUpdateAvailable(true);
             }
           });
@@ -39,15 +39,15 @@ export function usePWAUpdate() {
       window.location.reload();
     };
 
-    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
     return () => {
-      navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
     };
   }, []);
 
   const applyUpdate = useCallback(() => {
     if (registration?.waiting) {
-      registration.waiting.postMessage({ type: "SKIP_WAITING" });
+      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
     }
   }, [registration]);
 
