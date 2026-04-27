@@ -1,40 +1,29 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { persist } from 'zustand/middleware';
-import { Winery, Visit, GooglePlaceId, WineryDbId, MapMarkerRpc } from '@/lib/types'; 
+import { Winery, Visit, WineryDbId } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { standardizeWineryData, GoogleWinery } from '@/lib/utils/winery';
 import { WineryService } from '@/lib/services/wineryService';
-import { isE2E, getE2EHeaders, shouldSkipRealSync } from './e2e-utils';
+import { enqueueIfOffline, handleSyncError } from './sync-utils';
 
 interface WineryDataState {
   persistentWineries: Winery[]; // The Master Cache
   isLoading: boolean;
   error: string | null;
-  _backup: Winery[] | null; // For rollback
-
-  // Actions
-  hydrateWineries: (userId: string) => Promise<void>;
-  upsertWinery: (data: any) => Winery | null;
-  getWinery: (id: GooglePlaceId) => Winery | undefined;
-  
-  // Data Mutations
-  addVisit: (wineryId: GooglePlaceId, visit: Visit) => void;
-  updateVisit: (visitId: string, updates: Partial<Visit>) => void;
+  getWinery: (id: string) => Winery | undefined;
+  upsertWinery: (winery: Winery) => void;
+  bulkUpsertWineries: (wineries: Winery[]) => void;
+  ensureInDb: (wineryId: string) => Promise<WineryDbId | null>;
+  hydrateWineries: (markers: GoogleWinery[]) => void;
+  toggleFavorite: (wineryId: string) => Promise<void>;
+  toggleWishlist: (wineryId: string) => Promise<void>;
+  toggleFavoritePrivacy: (wineryId: string) => Promise<void>;
+  toggleWishlistPrivacy: (wineryId: string) => Promise<void>;
+  addVisit: (wineryId: string, visit: Visit) => void;
+  updateVisit: (visitId: string, data: Partial<Visit>) => void;
   removeVisit: (visitId: string) => void;
-  
-  // User Actions
-  toggleFavorite: (wineryId: GooglePlaceId, isFavorite: boolean) => Promise<void>;
-  toggleWishlist: (wineryId: GooglePlaceId, isOnWishlist: boolean) => Promise<void>;
-  toggleFavoritePrivacy: (wineryId: GooglePlaceId) => Promise<void>;
-  toggleWishlistPrivacy: (wineryId: GooglePlaceId) => Promise<void>;
-  
-  // Sync
-  ensureInDb: (wineryId: GooglePlaceId) => Promise<WineryDbId | null>;
-  bulkUpsertWineries: (wineries: (GoogleWinery | Winery)[]) => Promise<void>;
   reset: () => void;
 }
-
-// --- Store Implementation ---
 
 export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
   persist(
@@ -42,279 +31,282 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
       persistentWineries: [],
       isLoading: false,
       error: null,
-      _backup: null,
 
       getWinery: (id) => get().persistentWineries.find(w => w.id === id),
 
-      hydrateWineries: async (userId: string) => {
-        if (isE2E() && shouldSkipRealSync()) {
-          set({ isLoading: false });
-          return;
-        }
-        set({ isLoading: true, error: null });
-        const supabase = createClient();
-        try {
-          const { data: markers, error: markersError } = await supabase.rpc('get_map_markers', { 
-              user_id_param: userId 
-          }, { headers: getE2EHeaders() } as any); 
-          
-          if (markersError) throw markersError;
-
-          const currentWineries = get().persistentWineries;
-          const existingMap = new Map(currentWineries.map(w => [w.id, w]));
-
-          const processedWineries = (markers as MapMarkerRpc[] || []).map((m) => { 
-             const existing = existingMap.get(m.google_place_id);
-             return standardizeWineryData(m, existing); 
-          }).filter(Boolean) as Winery[];
-
-          const processedIds = new Set(processedWineries.map(w => w.id));
-          const mergedWineries = [
-              ...processedWineries,
-              ...currentWineries.filter(w => !processedIds.has(w.id))
-          ];
-
-          set({ persistentWineries: mergedWineries, isLoading: false });
-        } catch (err) {
-          console.error("Hydration failed:", err);
-          if (get().persistentWineries.length > 0) {
-            set({ isLoading: false });
-          } else {
-            set({ error: "Failed to load data", isLoading: false });
-          }
-        }
-      },
-
-      upsertWinery: (data) => {
-          const existing = get().persistentWineries.find(w => w.id === (data.google_place_id || (data as any).id));
-          const standardized = standardizeWineryData(data, existing);
-          
-          if (standardized) {
-              set(state => ({
-                  persistentWineries: existing 
-                    ? state.persistentWineries.map(w => w.id === standardized.id ? standardized : w)
-                    : [...state.persistentWineries, standardized]
-              }));
-          }
-          return standardized;
-      },
-
-      addVisit: (wineryId: GooglePlaceId, visit: Visit) => {
-          set(state => ({
-              persistentWineries: state.persistentWineries.map(w => 
-                  w.id === wineryId ? { ...w, userVisited: true, visits: [visit, ...(w.visits || [])] } : w
+      upsertWinery: (winery) => {
+        set(state => {
+          const exists = state.persistentWineries.find(w => w.id === winery.id);
+          if (exists) {
+            return {
+              persistentWineries: state.persistentWineries.map(w =>
+                w.id === winery.id ? { ...w, ...winery } : w
               )
-          }));
+            };
+          }
+          return { persistentWineries: [...state.persistentWineries, winery] };
+        });
       },
 
-      updateVisit: (visitId: string, updates: Partial<Visit>) => {
+      bulkUpsertWineries: (wineries) => {
+        set(state => {
+          const current = [...state.persistentWineries];
+          wineries.forEach(w => {
+            const idx = current.findIndex(existing => existing.id === w.id);
+            if (idx !== -1) {
+              current[idx] = { ...current[idx], ...w };
+            } else {
+              current.push(w);
+            }
+          });
+          return { persistentWineries: current };
+        });
+      },
+
+      ensureInDb: async (wineryId) => {
+          const winery = get().persistentWineries.find(w => w.id === wineryId);
+          if (!winery) return null;
+
+          const dbId = await WineryService.ensureInDb(winery);
+          if (dbId && dbId !== winery.dbId) {
+              get().upsertWinery({ ...winery, dbId });
+          }
+          return dbId;
+      },
+
+      hydrateWineries: (markers) => {
           set(state => {
-              return {
-                  persistentWineries: state.persistentWineries.map(w => {
-                      if (!w.visits?.some(v => String(v.id) === String(visitId))) return w;
-                      return {
-                          ...w,
-                          visits: w.visits.map(v => String(v.id) === String(visitId) ? { ...v, ...updates } : v)
-                      };
-                  })
-              };
+              const currentWineries = state.persistentWineries;
+              const hydrated = markers.map(m => {
+                  const existing = currentWineries.find(w => w.id === m.id);
+                  return standardizeWineryData(m, existing);
+              }).filter((w): w is Winery => w !== null);
+
+              // Also keep any wineries that were in our cache but NOT in the new markers
+              const markerIds = new Set(markers.map(m => m.id));
+              const extras = currentWineries.filter(w => !markerIds.has(w.id));
+
+              return { persistentWineries: [...hydrated, ...extras] };
           });
       },
 
-      removeVisit: (visitId: string) => {
-          set(state => ({
-              persistentWineries: state.persistentWineries.map(w => {
-                   if (!w.visits?.some(v => String(v.id) === String(visitId))) return w;
-                   const newVisits = w.visits.filter(v => String(v.id) !== String(visitId));
-                   return { ...w, visits: newVisits, userVisited: newVisits.length > 0 };
-              })
-          }));
-      },
-
-      toggleFavorite: async (wineryId: GooglePlaceId, isFavorite: boolean) => {
+      toggleFavorite: async (wineryId) => {
           const original = get().persistentWineries;
           const winery = original.find(w => w.id === wineryId);
           if (!winery) return;
 
-          // Optimistic Update - toggle the value
-          const nextState = !isFavorite;
+          const nextState = !winery.isFavorite;
+
+          // Optimistic Update
           set({
               persistentWineries: original.map(w => w.id === wineryId ? { ...w, isFavorite: nextState } : w)
           });
 
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          const user = session?.user;
+          const syncPayload = {
+              action: 'toggle_favorite',
+              wineryId: winery.id,
+              wineryDbId: winery.dbId,
+              wineryName: winery.name,
+              wineryAddress: winery.address,
+              lat: winery.lat,
+              lng: winery.lng
+          };
+
+          if (await enqueueIfOffline('winery_action', user?.id, syncPayload)) {
+              return;
+          }
+
           try {
               const result = await WineryService.toggleFavorite(winery);
               
-              // Sync the store with the real DB ID returned by the service
               if (result.dbId) {
                   set(state => ({
                       persistentWineries: state.persistentWineries.map(w => 
-                          w.id === wineryId ? { ...w, isFavorite: result.isFavorite, dbId: result.dbId! } : w
+                          w.id === wineryId ? { ...w, dbId: result.dbId as WineryDbId } : w
                       )
                   }));
               }
-          } catch (err) {
+          } catch (err: any) {
+              if (await handleSyncError(err, 'winery_action', user?.id, syncPayload)) {
+                  return;
+              }
               console.error("[wineryDataStore] Fav toggle failed:", err);
-              set({ persistentWineries: original });
+              set({ persistentWineries: original, error: err.message });
           }
       },
-      
-      toggleWishlist: async (wineryId: GooglePlaceId, isOnWishlist: boolean) => {
+
+      toggleWishlist: async (wineryId) => {
         const original = get().persistentWineries;
         const winery = original.find(w => w.id === wineryId);
         if (!winery) return;
-        
-        // Optimistic Update - toggle the value
-        const nextState = !isOnWishlist;
+
+        const nextState = !winery.onWishlist;
+
         set({
             persistentWineries: original.map(w => w.id === wineryId ? { ...w, onWishlist: nextState } : w)
         });
 
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        const syncPayload = {
+            action: 'toggle_wishlist',
+            wineryId: winery.id,
+            wineryDbId: winery.dbId,
+            wineryName: winery.name,
+            wineryAddress: winery.address,
+            lat: winery.lat,
+            lng: winery.lng
+        };
+
+        if (await enqueueIfOffline('winery_action', user?.id, syncPayload)) {
+            return;
+        }
+
         try {
             const result = await WineryService.toggleWishlist(winery);
             
-            // Sync the store with the real DB ID returned by the service
             if (result.dbId) {
                 set(state => ({
                     persistentWineries: state.persistentWineries.map(w => 
-                        w.id === wineryId ? { ...w, onWishlist: result.onWishlist, dbId: result.dbId! } : w
+                        w.id === wineryId ? { ...w, dbId: result.dbId as WineryDbId } : w
                     )
                 }));
             }
-        } catch (err) {
+        } catch (err: any) {
+            if (await handleSyncError(err, 'winery_action', user?.id, syncPayload)) {
+                return;
+            }
             console.error("[wineryDataStore] Wishlist toggle failed:", err);
-            set({ persistentWineries: original });
+            set({ persistentWineries: original, error: err.message });
         }
       },
 
-      toggleFavoritePrivacy: async (wineryId: GooglePlaceId) => {
+      toggleFavoritePrivacy: async (wineryId) => {
           const original = get().persistentWineries;
           const winery = original.find(w => w.id === wineryId);
           if (!winery) return;
 
-          // Optimistic Update
           set({
               persistentWineries: original.map(w => w.id === wineryId ? { ...w, favoriteIsPrivate: !w.favoriteIsPrivate } : w)
           });
 
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          const user = session?.user;
+          const syncPayload = {
+              action: 'toggle_favorite_privacy',
+              wineryDbId: winery.dbId
+          };
+
+          if (await enqueueIfOffline('winery_action', user?.id, syncPayload)) {
+              return;
+          }
+
           try {
               const result = await WineryService.toggleFavoritePrivacy(winery);
               
-              // Only ensure in DB if we don't already have a real DB ID
-              const dbId = (winery.dbId && winery.dbId > 100) ? winery.dbId : await get().ensureInDb(wineryId);
-              
               set(state => ({
                   persistentWineries: state.persistentWineries.map(w => 
-                      w.id === wineryId ? { 
-                          ...w, 
-                          dbId: dbId || w.dbId, 
-                          favoriteIsPrivate: result.isPrivate 
-                      } : w
+                      w.id === wineryId ? { ...w, favoriteIsPrivate: result.isPrivate } : w
                   )
               }));
-          } catch (err) {
-              set({ persistentWineries: original });
+          } catch (err: any) {
+              if (await handleSyncError(err, 'winery_action', user?.id, syncPayload)) {
+                  return;
+              }
+              set({ persistentWineries: original, error: err.message });
               throw err;
           }
       },
-      toggleWishlistPrivacy: async (wineryId: GooglePlaceId) => {
+
+      toggleWishlistPrivacy: async (wineryId) => {
           const original = get().persistentWineries;
           const winery = original.find(w => w.id === wineryId);
           if (!winery) return;
 
-          // Optimistic Update
           set({
               persistentWineries: original.map(w => w.id === wineryId ? { ...w, wishlistIsPrivate: !w.wishlistIsPrivate } : w)
           });
 
+          const supabase = createClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          const user = session?.user;
+          const syncPayload = {
+              action: 'toggle_wishlist_privacy',
+              wineryDbId: winery.dbId
+          };
+
+          if (await enqueueIfOffline('winery_action', user?.id, syncPayload)) {
+              return;
+          }
+
           try {
               const result = await WineryService.toggleWishlistPrivacy(winery);
               
-              // Only ensure in DB if we don't already have a real DB ID
-              const dbId = (winery.dbId && winery.dbId > 100) ? winery.dbId : await get().ensureInDb(wineryId);
-              
               set(state => ({
                   persistentWineries: state.persistentWineries.map(w => 
-                      w.id === wineryId ? { 
-                          ...w, 
-                          dbId: dbId || w.dbId, 
-                          wishlistIsPrivate: result.isPrivate 
-                      } : w
+                      w.id === wineryId ? { ...w, wishlistIsPrivate: result.isPrivate } : w
                   )
               }));
-          } catch (err) {
+          } catch (err: any) {
+              if (await handleSyncError(err, 'winery_action', user?.id, syncPayload)) {
+                  return;
+              }
               console.error("[wineryDataStore] Wishlist privacy toggle failed:", err);
-              set({ persistentWineries: original });
+              set({ persistentWineries: original, error: err.message });
               throw err;
           }
       },
 
-      ensureInDb: async (wineryId: GooglePlaceId) => {
-          const winery = get().persistentWineries.find(w => w.id === wineryId);
-          if (!winery) return null;
-          
-          const dbId = await WineryService.ensureInDb(winery);
-          
-          if (dbId && dbId !== winery.dbId) {
-              set(state => ({
-                  persistentWineries: state.persistentWineries.map(w => w.id === wineryId ? { ...w, dbId } : w)
-              }));
-          }
-          
-          return dbId;
-      },
-
-      bulkUpsertWineries: async (wineries) => {
-        const standardizedWineries = wineries.map(w => standardizeWineryData(w)).filter(Boolean) as Winery[];
-        if (standardizedWineries.length === 0) return;
-
-        set(state => {
-          const existingWineries = new Map(state.persistentWineries.map(w => [w.id, w]));
-          standardizedWineries.forEach(newWinery => {
-            existingWineries.set(newWinery.id, { ...(existingWineries.get(newWinery.id) || {}), ...newWinery });
-          });
-          return { persistentWineries: Array.from(existingWineries.values()) };
-        });
-
-        if (isE2E() && shouldSkipRealSync()) return;
-
-        const rpcData = standardizedWineries.map(w => ({
-          google_place_id: w.id,
-          name: w.name,
-          address: w.address,
-          latitude: w.lat,
-          longitude: w.lng,
-          google_rating: w.rating,
+      addVisit: (wineryId, visit) => {
+        set(state => ({
+          persistentWineries: state.persistentWineries.map(w =>
+            w.id === wineryId ? { ...w, visits: [visit, ...(w.visits || [])], userVisited: true } : w
+          )
         }));
-
-        const supabase = createClient();
-        const { error } = await supabase.rpc('upsert_wineries_from_search', { wineries_data: rpcData }, { headers: getE2EHeaders() } as any);
-        if (error) console.error("Failed to bulk upsert wineries:", error);
       },
 
-      reset: () => set({
-        persistentWineries: [],
-        isLoading: false,
-        error: null,
-        _backup: null,
-      }),
+      updateVisit: (visitId, data) => {
+        set(state => ({
+          persistentWineries: state.persistentWineries.map(w => ({
+            ...w,
+            visits: w.visits?.map(v => String(v.id) === String(visitId) ? { ...v, ...data } : v)
+          }))
+        }));
+      },
+
+      removeVisit: (visitId) => {
+        set(state => ({
+          persistentWineries: state.persistentWineries.map(w => {
+            const nextVisits = w.visits?.filter(v => String(v.id) !== String(visitId)) || [];
+            return {
+              ...w,
+              visits: nextVisits,
+              userVisited: nextVisits.length > 0
+            };
+          })
+        }));
+      },
+
+      reset: () => set({ persistentWineries: [], isLoading: false, error: null }),
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'winery-data-storage-e2e' : 'winery-data-storage',
       partialize: (_state) => {
-        if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
-        return { 
-          // wineryDataStore can be completely empty if we don't persist persistentWineries
-        };
+          if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
+          return { 
+              // We don't persist persistentWineries anymore to avoid hydration lag
+          };
       },
     }
   )
 );
 
+// Expose store for E2E testing
 if (typeof window !== 'undefined') {
   (window as any).useWineryDataStore = useWineryDataStore;
 }
-
-export const findWineryByDbId = (dbId: number) => {
-    return useWineryDataStore.getState().persistentWineries.find(w => w.dbId === (dbId as WineryDbId));
-};

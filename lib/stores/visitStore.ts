@@ -6,8 +6,10 @@ import { createClient } from '@/utils/supabase/client';
 import { useWineryStore } from './wineryStore';
 import { useWineryDataStore } from './wineryDataStore';
 import { WineryService } from '@/lib/services/wineryService';
-import { addOfflineMutation, getOfflineMutations, removeOfflineMutation, ensureBlob } from '@/lib/utils/offline-queue';
-import { isE2E, getE2EHeaders, shouldSkipRealSync, isWebKitFallback, signalSyncIntercepted } from './e2e-utils';
+import { useSyncStore } from './syncStore';
+import { stabilizePhotos } from '@/lib/utils/sync-helpers';
+import { enqueueIfOffline, handleSyncError } from './sync-utils';
+import { isE2E, getE2EHeaders, shouldSkipRealSync } from './e2e-utils';
 
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -27,23 +29,12 @@ interface VisitState {
   saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[]; is_private?: boolean }) => Promise<void>;
   updateVisit: (visitId: string, visitData: Partial<Visit> & { is_private?: boolean }, newPhotos: File[], photosToDelete: string[]) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
-  syncOfflineVisits: () => Promise<void>;
   reset: () => void;
   // E2E Helper
   injectVisitWithPhotos?: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: (File | { base64: string; type: string; name: string })[] }) => Promise<void>;
 }
 
 const VISITS_PER_PAGE = 10;
-
-const isNetworkError = (error: any) => {
-  return (
-    error?.message?.includes("Failed to fetch") ||
-    error?.message?.includes("Network request failed") ||
-    error?.message?.includes("timeout") ||
-    error?.status === 503 ||
-    error?.status === 504
-  );
-};
 
 // --- Store Implementation ---
 
@@ -186,22 +177,22 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         addVisitToWinery(winery.id, tempVisit);
         set(state => ({ visits: [tempVisit, ...state.visits], lastActionTimestamp: Date.now() }));
 
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-            try {
-                await addOfflineMutation({
-                    type: 'create',
-                    id: tempId,
-                    winery: winery,
-                    visitData: {
-                        ...visitData,
-                        photos: visitData.photos as any
-                    },
-                    timestamp: Date.now()
-                });
-            } catch (err: any) {
-                console.error("[saveVisit] addOfflineMutation FAILED:", err.message);
-            }
-            
+        const syncPayload = {
+            wineryId: winery.id,
+            wineryDbId: winery.dbId,
+            wineryName: winery.name,
+            wineryAddress: winery.address,
+            lat: winery.lat,
+            lng: winery.lng,
+            visit_date: visitData.visit_date,
+            user_review: visitData.user_review,
+            rating: visitData.rating,
+            photos: await stabilizePhotos(visitData.photos),
+            is_private: visitData.is_private,
+            tempId
+        };
+
+        if (await enqueueIfOffline('log_visit', user.id, syncPayload)) {
             set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
         }
@@ -270,17 +261,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           }));
 
         } catch (error) {
-          if (isNetworkError(error)) {
-             await addOfflineMutation({
-                type: 'create',
-                id: tempId,
-                winery: winery,
-                visitData: {
-                    ...visitData,
-                    photos: visitData.photos
-                },
-                timestamp: Date.now()
-            });
+          if (await handleSyncError(error, 'log_visit', user.id, syncPayload)) {
             set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
           }
@@ -291,207 +272,14 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             await supabase.storage.from('visit-photos').remove(uploadedPaths);
           }
 
-          // Mark as error instead of immediate optimistic delete if possible
-          // But we also need to notify WineryStore
           set(state => ({ 
               visits: state.visits.map(v => String(v.id) === tempId ? { ...v, syncStatus: 'error' as const } : v),
               lastActionTimestamp: Date.now()
           }));
-          // For now, we still call revert in WineryStore to maintain consistency if needed, 
-          // but our store keeps it with 'error' status.
-          // Actually, if we keep it in 'error', the user can see it.
           
           throw error;
         } finally {
           set({ isSavingVisit: false });
-        }
-      },
-
-      syncOfflineVisits: async () => {
-        if (get().isSyncing) return;
-
-        const supabase = createClient();
-        
-        const mutations = await getOfflineMutations();
-
-        if (mutations.length === 0) {
-            return;
-        }
-
-        set({ isSyncing: true });
-
-        try {
-          const { replaceVisit, confirmOptimisticUpdate } = useWineryStore.getState();
-          const { data: { session } } = await supabase.auth.getSession();
-
-          if (!session?.user) {
-              return;
-          }
-
-          for (const mutation of mutations) {
-            try {
-              if (mutation.type === 'create') {
-                let uploadedPaths: string[] = [];
-                const folderUuid = crypto.randomUUID();
-
-                if (mutation.visitData.photos.length > 0) {
-                  
-                  // NUCLEAR BYPASS / FALLBACK (E2E)
-                  const webkitFallback = isWebKitFallback();
-                  if (webkitFallback || shouldSkipRealSync()) {
-                      uploadedPaths = mutation.visitData.photos.map((_, idx) => `mocked-path-${idx}`);
-                      signalSyncIntercepted();
-                  } else {
-                      const uploadPromises = mutation.visitData.photos.map(async (offlinePhoto) => {
-                        const blob = ensureBlob(offlinePhoto);
-                        const fileName = `${Date.now()}-${(offlinePhoto as any).name || 'photo.jpg'}`;
-                        const filePath = `${session.user.id}/${folderUuid}/${fileName}`;
-                        
-                        const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, blob, { upsert: true });
-                        if (uploadError) throw uploadError;
-                        return filePath;
-                      });
-                      uploadedPaths = await Promise.all(uploadPromises);
-                  }
-                }
-
-                const rpcWineryData = WineryService.getRpcData(mutation.winery);
-
-                const rpcVisitData = {
-                  visit_date: mutation.visitData.visit_date,
-                  user_review: mutation.visitData.user_review,
-                  rating: mutation.visitData.rating > 0 ? mutation.visitData.rating : 1,
-                  photos: uploadedPaths,
-                };
-
-                
-                // NUCLEAR BYPASS / FALLBACK (E2E)
-                let rpcResult, rpcError;
-                const webkitFallbackRpc = isWebKitFallback();
-
-                if (webkitFallbackRpc || shouldSkipRealSync()) {
-                    rpcResult = { visit_id: 999000 + Math.floor(Math.random() * 1000), winery_id: mutation.winery.dbId || 888000 };
-                    rpcError = null;
-                    signalSyncIntercepted();
-                } else {
-                    const response = await supabase.rpc('log_visit', {
-                        p_winery_data: rpcWineryData,
-                        p_visit_data: rpcVisitData,
-                    }, { headers: getE2EHeaders() } as any);
-                    rpcResult = response.data;
-                    rpcError = response.error;
-                }
-                
-
-                if (rpcError) {
-                    throw rpcError;
-                }
-                
-                const visitId = rpcResult.visit_id;
-                const wineryDbId = rpcResult.winery_id;
-
-                // Update wineryDataStore with the new dbId
-                if (wineryDbId && wineryDbId !== mutation.winery.dbId) {
-                    useWineryDataStore.getState().upsertWinery({ ...mutation.winery, dbId: wineryDbId as WineryDbId });
-                }
-
-                const finalVisit: VisitWithWinery = {
-                  id: visitId,
-                  user_id: session.user.id,
-                  visit_date: mutation.visitData.visit_date,
-                  rating: mutation.visitData.rating,
-                  user_review: mutation.visitData.user_review,
-                  photos: uploadedPaths,
-                  wineryName: mutation.winery.name,
-                  wineryId: mutation.winery.id,
-                  syncStatus: 'synced',
-                  wineries: {
-                    id: Number(wineryDbId || mutation.winery.dbId || 0) as WineryDbId,
-                    google_place_id: mutation.winery.id,
-                    name: mutation.winery.name,
-                    address: mutation.winery.address,
-                    latitude: mutation.winery.lat.toString(),
-                    longitude: mutation.winery.lng.toString(),
-                  }
-                };
-
-                replaceVisit(mutation.winery.id, mutation.id, finalVisit);
-                set(state => ({
-                  visits: state.visits.map(v => String(v.id) === mutation.id ? finalVisit : v),
-                  lastActionTimestamp: Date.now()
-                }));
-                console.log(`[Sync] Visit ${visitId} synced successfully`);
-
-              } else if (mutation.type === 'update') {
-                let newPhotoPaths: string[] = [];
-                if (mutation.newPhotos.length > 0) {
-                  
-                  const webkitFallbackUpd = isWebKitFallback();
-                  if (webkitFallbackUpd || shouldSkipRealSync()) {
-                      newPhotoPaths = mutation.newPhotos.map((_, idx) => `mocked-path-update-${idx}`);
-                      signalSyncIntercepted();
-                  } else {
-                      const uploadPromises = mutation.newPhotos.map(async (offlinePhoto) => {
-                        const blob = ensureBlob(offlinePhoto);
-                        const fileName = `${Date.now()}-${(offlinePhoto as any).name || 'photo.jpg'}`;
-                        const filePath = `${session.user.id}/${mutation.visitId}/${fileName}`;
-                        
-                        const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, blob, { upsert: true });
-                        if (uploadError) throw uploadError;
-                        return filePath;
-                      });
-                      newPhotoPaths = (await Promise.all(uploadPromises)).filter((p): p is string => p !== null);
-                  }
-                }
-
-                const { data: currentVisit } = await supabase
-                  .from('visits')
-                  .select('photos')
-                  .eq('id', mutation.visitId)
-                  .single();
-
-                const existingServerPhotos = (currentVisit?.photos as string[]) || [];
-                const preservedPhotos = existingServerPhotos.filter(p => !mutation.photosToDelete.includes(p));
-                const finalPhotoPaths = [...preservedPhotos, ...newPhotoPaths];
-
-                const { data: updatedVisit, error } = await supabase.rpc('update_visit', {
-                  p_visit_id: parseInt(mutation.visitId),
-                  p_visit_data: { ...mutation.visitData, photos: finalPhotoPaths }
-                }, { headers: getE2EHeaders() } as any);
-
-                if (error) throw error;
-
-                if (mutation.photosToDelete.length > 0) {
-                  await supabase.storage.from('visit-photos').remove(mutation.photosToDelete);
-                }
-
-                const finalVisit: VisitWithWinery = {
-                  ...updatedVisit,
-                  wineryName: updatedVisit.winery_name,
-                  wineryId: updatedVisit.google_place_id,
-                  syncStatus: 'synced'
-                };
-
-                confirmOptimisticUpdate(finalVisit);
-                set(state => ({
-                  visits: state.visits.map(v => String(v.id) === String(mutation.visitId) ? finalVisit : v),
-                  lastActionTimestamp: Date.now()
-                }));
-
-              } else if (mutation.type === 'delete') {
-                const { error } = await supabase.rpc('delete_visit', { p_visit_id: parseInt(mutation.visitId) }, { headers: getE2EHeaders() } as any);
-                if (error) throw error;
-
-                confirmOptimisticUpdate();
-                set({ lastActionTimestamp: Date.now() });
-              }
-
-              await removeOfflineMutation(mutation.id);
-            } catch (error) {
-            }
-          }
-        } finally {
-          set({ isSyncing: false });
         }
       },
 
@@ -513,21 +301,18 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             lastActionTimestamp: Date.now()
         }));
 
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-            const stableNewPhotos = await Promise.all(newPhotos.map(async (file) => {
-                const ab = await file.arrayBuffer();
-                return new Blob([ab], { type: file.type });
-            }));
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) throw new Error("User not authenticated.");
+        const user = session.user;
 
-            await addOfflineMutation({
-                type: 'update',
-                id: `update-${visitId}-${Date.now()}`,
-                visitId: visitId,
-                visitData: visitData,
-                newPhotos: stableNewPhotos, 
-                photosToDelete: photosToDelete,
-                timestamp: Date.now()
-            });
+        const syncPayload = {
+            visitId,
+            visitData,
+            newPhotos: await stabilizePhotos(newPhotos),
+            photosToDelete
+        };
+
+        if (await enqueueIfOffline('update_visit', user.id, syncPayload)) {
             set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
         }
@@ -535,9 +320,6 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         try {
           let newPhotoPaths: string[] = [];
           if (newPhotos.length > 0) {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) throw new Error("Unauthorized.");
-
             const uploadPromises = newPhotos.map(async (photoFile) => {
               const fileName = `${Date.now()}-${photoFile.name}`;
               const filePath = `${user.id}/${visitId}/${fileName}`;
@@ -586,20 +368,10 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           }));
 
         } catch (error) {
-          if (isNetworkError(error)) {
-             await addOfflineMutation({
-                type: 'update',
-                id: `update-${visitId}-${Date.now()}`,
-                visitId: visitId,
-                visitData: visitData,
-                newPhotos: newPhotos, 
-                photosToDelete: photosToDelete,
-                timestamp: Date.now()
-            });
+          if (await handleSyncError(error, 'update_visit', user.id, syncPayload)) {
             set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
           }
-
           console.error("Failed to update visit, marking as error:", error);
           revertOptimisticUpdate();
           set(state => ({
@@ -619,18 +391,17 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         
         optimisticallyDeleteVisit(visitId);
         const originalVisits = get().visits;
-        set(state => ({ 
+        set(state => ({
             visits: state.visits.filter(v => String(v.id) !== String(visitId)),
             lastActionTimestamp: Date.now()
         }));
 
-        if (typeof navigator !== 'undefined' && !navigator.onLine) {
-            await addOfflineMutation({
-                type: 'delete',
-                id: `delete-${visitId}-${Date.now()}`,
-                visitId: visitId,
-                timestamp: Date.now()
-            });
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+
+        const syncPayload = { visitId };
+
+        if (await enqueueIfOffline('delete_visit', user?.id, syncPayload)) {
             set({ lastActionTimestamp: Date.now() });
             return;
         }
@@ -642,13 +413,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             confirmOptimisticUpdate();
             set({ lastActionTimestamp: Date.now() });
         } catch (error) {
-            if (isNetworkError(error)) {
-                await addOfflineMutation({
-                    type: 'delete',
-                    id: `delete-${visitId}-${Date.now()}`,
-                    visitId: visitId,
-                    timestamp: Date.now()
-                });
+            if (await handleSyncError(error, 'delete_visit', user?.id, syncPayload)) {
                 set({ lastActionTimestamp: Date.now() });
                 return;
             }
@@ -666,8 +431,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
 
       // E2E Helper: Directly injects a visit into the offline queue with stable photos
       injectVisitWithPhotos: async (winery, visitData) => {
-        const supabase = createClient();
         const { addVisitToWinery } = useWineryStore.getState();
+        const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) throw new Error("User not authenticated.");
         
@@ -724,17 +489,22 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         addVisitToWinery(winery.id, tempVisit);
         set(state => ({ visits: [tempVisit, ...state.visits] }));
 
-        await addOfflineMutation({
-            type: 'create',
-            id: tempId,
-            winery: winery,
-            visitData: {
+        await useSyncStore.getState().addMutation({
+            type: 'log_visit',
+            userId: session.user.id,
+            payload: {
+                wineryId: winery.id,
+                wineryDbId: winery.dbId,
+                wineryName: winery.name,
+                wineryAddress: winery.address,
+                lat: winery.lat,
+                lng: winery.lng,
                 visit_date: visitData.visit_date,
                 user_review: visitData.user_review,
                 rating: visitData.rating,
-                photos: queuePhotos
-            },
-            timestamp: Date.now()
+                photos: queuePhotos,
+                tempId
+            }
         });
         
         set({ lastActionTimestamp: Date.now() });

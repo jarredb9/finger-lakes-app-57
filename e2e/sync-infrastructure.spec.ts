@@ -78,6 +78,15 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
     expect(idbData[0].encryptedPayload).not.toContain('wineryDbId');
     expect(idbData[0].encryptedPayload).not.toContain('2026-04-24');
 
+    // Verify it CAN be decrypted
+    const decryptedPayload = await page.evaluate(async ({ item, uid }) => {
+      // @ts-ignore
+      return await window.useSyncStore.getState().getDecryptedPayload(item, uid);
+    }, { item: idbData[0], uid: userId });
+
+    expect(decryptedPayload.wineryDbId).toBe(999);
+    expect(decryptedPayload.rating).toBe(5);
+
     // 4. Reload and verify persistence (Hydration)
     // We must be online to reload since Service Worker is blocked in this test
     await context.setOffline(false);

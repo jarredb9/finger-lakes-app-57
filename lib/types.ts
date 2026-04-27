@@ -73,7 +73,7 @@ export type SyncStatus = 'synced' | 'pending' | 'error';
 
 export interface SyncItem {
   id: string; // UUID or timestamp-based ID
-  type: 'log_visit' | 'update_visit' | 'delete_visit' | 'create_trip' | 'update_trip' | 'delete_trip' | 'update_profile' | 'social_action';
+  type: 'log_visit' | 'update_visit' | 'delete_visit' | 'create_trip' | 'update_trip' | 'delete_trip' | 'update_profile' | 'social_action' | 'winery_action';
   encryptedPayload: string; // AES-GCM encrypted JSON
   createdAt: string;
   userId: string; // To ensure multi-user isolation on the same device
@@ -214,6 +214,31 @@ export interface Friend {
   status?: 'pending' | 'accepted';
   requester_id?: string;
   privacy_level?: 'public' | 'friends_only' | 'private';
+}
+
+export interface FriendRequest {
+  id: string;
+  requester_id: string;
+  receiver_id: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  created_at: string;
+  requester_name?: string;
+  requester_email?: string;
+  receiver_name?: string;
+  receiver_email?: string;
+}
+
+export interface FriendActivity {
+  activity_type: string;
+  created_at: string;
+  activity_user_id: string;
+  user_name: string;
+  user_email: string;
+  winery_id: number;
+  winery_name: string;
+  visit_rating: number | null;
+  visit_review: string | null;
+  visit_photos: string[] | null;
 }
 
 export interface FriendRating {
