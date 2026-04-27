@@ -52,13 +52,14 @@
     - [x] Update cards to show `opacity-50` and "Pending" badges for items with `syncStatus === 'pending'`.
 
 
-### Phase 4: Quota Management & Verification (TDD)
+### Phase 4: Quota Management & Verification (TDD) [checkpoint: b9db1ac]
 - [x] Task: Implement Proactive Quota Cleanup (The Quota Resilience Rule) 31295c7
     - [x] Update `sw.ts` to include a `storage.estimate` listener and 80% usage threshold trigger.
-- [x] Task: Final E2E Validation 11cf06b
+- [x] Task: Final E2E Validation ceb6420
     - [x] Create `e2e/pwa-resilience.spec.ts` covering offline visit creation, photo reconstitution, and queue persistence.
     - [x] **MANDATORY**: Merge logic from `e2e/pwa-sync-deep.spec.ts` (multiple photos + reconstitution) into this final spec.
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Final Verification'
+    - [x] **FIX**: Resolved hydration mismatch in `AppShell` and `OfflineIndicator` using `useMounted` and `useOnlineStatus` hooks.
+- [ ] Task: Conductor - User Manual Verification 'Phase 4: Final Verification' 
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions 6ac8f57
