@@ -4,6 +4,7 @@ import { memo, useState, useEffect } from "react";
 import { Trip, Winery, Visit, TripMember } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -14,6 +15,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import DailyHours from "@/components/DailyHours";
 import { calculateDistance, formatDistance } from "@/lib/utils/geo";
+import { cn } from "@/lib/utils";
 
 import { formatDateLocal } from "@/lib/utils";
 
@@ -162,23 +164,40 @@ const TripCard = memo(({
     }
   };
 
+  const isPending = trip.syncStatus === 'pending';
+
   return (
-    <Card className="w-full overflow-hidden" data-testid="trip-details-card" data-state={isUpdating ? 'loading' : 'ready'}>
+    <Card 
+      className={cn(
+        "w-full overflow-hidden transition-opacity", 
+        isPending && "opacity-50"
+      )} 
+      data-testid="trip-details-card" 
+      data-state={isUpdating ? 'loading' : 'ready'}
+    >
       <CardHeader className="bg-gray-50 border-b">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            {isEditing ? (
-              <Input 
-                value={editedName} 
-                onChange={(e) => setEditedName(e.target.value)} 
-                placeholder="Trip Name" 
-                className="text-xl font-bold h-9"
-              />
-            ) : (
-              <CardTitle className="text-xl md:text-2xl font-bold">
-                {trip.name || `Trip for ${getSafeDateString(trip.trip_date)}`}
-              </CardTitle>
-            )}
+            <div className="flex items-center gap-2">
+              {isEditing ? (
+                <Input 
+                  value={editedName} 
+                  onChange={(e) => setEditedName(e.target.value)} 
+                  placeholder="Trip Name" 
+                  className="text-xl font-bold h-9"
+                />
+              ) : (
+                <CardTitle className="text-xl md:text-2xl font-bold">
+                  {trip.name || `Trip for ${getSafeDateString(trip.trip_date)}`}
+                </CardTitle>
+              )}
+              {isPending && (
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200 animate-pulse flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Syncing
+                </Badge>
+              )}
+            </div>
             <div className="flex items-center gap-4 text-sm text-gray-500">
               <span className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4" />
@@ -238,14 +257,14 @@ const TripCard = memo(({
 
             <div className="flex items-center gap-2">
               {isEditing ? (
-                <Button size="sm" onClick={handleSave} className="h-9"><Save className="w-4 h-4 mr-2"/>Save</Button>
+                <Button size="sm" onClick={handleSave} className="h-9" disabled={isPending}><Save className="w-4 h-4 mr-2"/>Save</Button>
               ) : (
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => setIsEditing(true)} 
                   className="h-9"
-                  disabled={trip.id < 0 || !canEdit}
+                  disabled={trip.id < 0 || !canEdit || isPending}
                   aria-label="Edit Trip"
                 >
                   {trip.id < 0 ? "Creating..." : <><Edit className="w-4 h-4 mr-2"/>Edit</>}
@@ -257,7 +276,7 @@ const TripCard = memo(({
                   size="icon" 
                   className="h-9 w-9" 
                   data-testid="delete-trip-btn" 
-                  disabled={trip.id < 0} 
+                  disabled={trip.id < 0 || isPending} 
                   aria-label="Delete Trip"
                   onClick={() => onDeleteTrip(trip.id.toString())}
                 >
