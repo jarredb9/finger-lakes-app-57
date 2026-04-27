@@ -78,12 +78,13 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           set(state => {
               const currentWineries = state.persistentWineries;
               const hydrated = markers.map(m => {
-                  const existing = currentWineries.find(w => w.id === m.id);
+                  const mId = m.google_place_id || m.place_id || (typeof m.id === 'string' ? m.id : undefined);
+                  const existing = currentWineries.find(w => w.id === mId);
                   return standardizeWineryData(m, existing);
               }).filter((w): w is Winery => w !== null);
 
               // Also keep any wineries that were in our cache but NOT in the new markers
-              const markerIds = new Set(markers.map(m => m.id));
+              const markerIds = new Set(markers.map(m => m.google_place_id || m.place_id || (typeof m.id === 'string' ? m.id : undefined)));
               const extras = currentWineries.filter(w => !markerIds.has(w.id));
 
               return { persistentWineries: [...hydrated, ...extras] };

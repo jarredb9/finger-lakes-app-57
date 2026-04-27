@@ -49,7 +49,7 @@ describe('friendStore SyncStore integration', () => {
     const email = 'test@example.com';
 
     await act(async () => {
-      await useFriendStore.getState().sendFriendRequest(email);
+      await useFriendStore.getState().addFriend(email);
     });
 
     const addMutation = useSyncStore.getState().addMutation;
@@ -67,7 +67,7 @@ describe('friendStore SyncStore integration', () => {
     const requesterId = 'r123';
 
     await act(async () => {
-      await useFriendStore.getState().respondToRequest(requesterId, true);
+      await useFriendStore.getState().acceptFriend(requesterId);
     });
 
     const addMutation = useSyncStore.getState().addMutation;

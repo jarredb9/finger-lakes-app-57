@@ -14,6 +14,15 @@ import { useWineryStore } from './lib/stores/wineryStore';
 // Load env vars from .env.local
 dotenv.config({ path: path.resolve(__dirname, '.env.local') });
 
+// Mock idb-keyval globally as it's used in syncStore and initialized at top level
+jest.mock('idb-keyval', () => ({
+  get: jest.fn().mockResolvedValue(null),
+  set: jest.fn().mockResolvedValue(undefined),
+  del: jest.fn().mockResolvedValue(undefined),
+  clear: jest.fn().mockResolvedValue(undefined),
+  keys: jest.fn().mockResolvedValue([]),
+}));
+
 // Reset all Zustand stores before each test to prevent state bleed
 // And setup modal-root for Portals
 beforeEach(() => {

@@ -37,6 +37,9 @@ describe('tripStore sync locking', () => {
 
     jest.doMock('@/utils/supabase/client', () => ({
       createClient: jest.fn(() => ({
+        auth: {
+          getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
+        },
         rpc: jest.fn().mockResolvedValue({ data: {}, error: null }),
       })),
     }));

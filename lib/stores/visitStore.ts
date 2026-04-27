@@ -31,6 +31,7 @@ interface VisitState {
   updateVisit: (visitId: string, visitData: Partial<Visit> & { is_private?: boolean }, newPhotos: (File | Base64Photo)[], photosToDelete: string[]) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
   reset: () => void;
+  initialize: () => Promise<void>;
   // E2E Helper
   injectVisitWithPhotos?: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: (File | Base64Photo)[] }) => Promise<void>;
 }
@@ -514,6 +515,64 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         totalPages: 1,
         hasMore: false,
       }),
+
+      initialize: async () => {
+        // Wait for SyncStore to initialize from IDB
+        const syncStore = useSyncStore.getState();
+        if (!syncStore.isInitialized) {
+            await syncStore.initialize();
+        }
+
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const queue = useSyncStore.getState().queue;
+        const pendingVisits: VisitWithWinery[] = [];
+
+        for (const item of queue) {
+            if (item.type === 'log_visit') {
+                try {
+                    const payload = await syncStore.getDecryptedPayload<any>(item, user.id);
+                    pendingVisits.push({
+                        id: payload.tempId || item.id,
+                        user_id: user.id,
+                        visit_date: payload.visit_date,
+                        rating: payload.rating,
+                        user_review: payload.user_review,
+                        is_private: payload.is_private || false,
+                        photos: (payload.photos || []).map((p: any) => isBase64Photo(p) ? `data:${p.type};base64,${p.base64}` : p),
+                        wineryName: payload.wineryName,
+                        wineryId: payload.wineryId,
+                        syncStatus: 'pending',
+                        wineries: {
+                            id: Number(payload.wineryDbId || 0) as WineryDbId,
+                            google_place_id: payload.wineryId,
+                            name: payload.wineryName,
+                            address: payload.wineryAddress,
+                            latitude: payload.lat?.toString() || '0',
+                            longitude: payload.lng?.toString() || '0',
+                        }
+                    });
+                } catch (e) {
+                    console.error('[VisitStore] Failed to decrypt pending visit:', e);
+                }
+            }
+        }
+
+        if (pendingVisits.length > 0) {
+            set(state => {
+                // Filter out any that might already be in state (though unlikely)
+                const newVisits = [...state.visits];
+                for (const pv of pendingVisits) {
+                    if (!newVisits.find(v => v.id === pv.id)) {
+                        newVisits.unshift(pv);
+                    }
+                }
+                return { visits: newVisits };
+            });
+        }
+      },
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'visit-storage-e2e' : 'visit-storage',

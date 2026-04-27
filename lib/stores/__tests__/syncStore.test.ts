@@ -64,7 +64,7 @@ describe('SyncStore', () => {
     });
 
     const id = useSyncStore.getState().queue[0].id;
-    useSyncStore.getState().removeMutation(id);
+    await useSyncStore.getState().removeMutation(id);
     
     expect(useSyncStore.getState().queue.length).toBe(0);
   });

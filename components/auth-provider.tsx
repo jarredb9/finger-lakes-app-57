@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { useUserStore } from '@/lib/stores/userStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
+import { useVisitStore } from '@/lib/stores/visitStore';
+import { useTripStore } from '@/lib/stores/tripStore';
 
 const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password', '/manual-confirm', '/logout'];
 
@@ -14,8 +16,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!publicPaths.includes(pathname)) {
-      fetchUser();
-      fetchFriends();
+      const init = async () => {
+        await fetchUser();
+        await fetchFriends();
+        // Hydrate pending offline items
+        await useVisitStore.getState().initialize();
+        await useTripStore.getState().initialize();
+      };
+      init();
     }
   }, [fetchUser, fetchFriends, pathname]);
 

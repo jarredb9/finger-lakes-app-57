@@ -38,6 +38,10 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   },
 
   addMutation: async ({ type, payload, userId }) => {
+    // Reload from IDB first to ensure we don't overwrite other tabs or recent reloads
+    const currentPersisted = await idbGet(IDB_KEY);
+    const existingQueue = Array.isArray(currentPersisted) ? currentPersisted : get().queue;
+
     // 1. Encrypt payload
     const encryptedPayload = await encrypt(payload, userId);
 
@@ -51,13 +55,17 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     };
 
     // 3. Update state and persist
-    const newQueue = [...get().queue, newItem];
+    const newQueue = [...existingQueue, newItem];
     set({ queue: newQueue });
     await idbSet(IDB_KEY, newQueue);
   },
 
   removeMutation: async (id: string) => {
-    const newQueue = get().queue.filter((item) => item.id !== id);
+    // Reload from IDB first
+    const currentPersisted = await idbGet(IDB_KEY);
+    const existingQueue = Array.isArray(currentPersisted) ? currentPersisted : get().queue;
+
+    const newQueue = existingQueue.filter((item) => item.id !== id);
     set({ queue: newQueue });
     await idbSet(IDB_KEY, newQueue);
   },
