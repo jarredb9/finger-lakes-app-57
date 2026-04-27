@@ -1,6 +1,7 @@
 import { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate, NetworkFirst } from "serwist";
 import { ExpirationPlugin } from "serwist";
+import { checkAndCleanupQuota } from "../lib/utils/quota";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -138,6 +139,14 @@ const serwist = new Serwist({
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
+  }
+});
+
+// Proactively check quota on navigation to prevent QuotaExceededError
+// following "The Quota Resilience Rule" in GEMINI.md
+self.addEventListener("fetch", (event: any) => {
+  if (event.request.mode === "navigate") {
+    event.waitUntil(checkAndCleanupQuota(0.8));
   }
 });
 
