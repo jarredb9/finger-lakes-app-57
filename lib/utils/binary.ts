@@ -5,7 +5,7 @@
  */
 
 /**
- * Converts a File or Blob to a Base64 data URL string.
+ * Converts a File or Blob to a Base64 data URL string (includes header).
  */
 export async function fileToBase64(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -17,13 +17,29 @@ export async function fileToBase64(file: File | Blob): Promise<string> {
 }
 
 /**
- * Converts a Base64 data URL string back to a File object.
- * Reconstitutes the binary data from the data URL.
+ * Converts a File or Blob to a raw Base64 string (no header).
  */
-export function base64ToFile(base64: string, filename: string): File {
-  const [header, data] = base64.split(',');
-  const mimeMatch = header.match(/:(.*?);/);
-  const mime = mimeMatch ? mimeMatch[1] : '';
+export async function blobToBase64Raw(blob: Blob): Promise<string> {
+  const dataUrl = await fileToBase64(blob);
+  return dataUrl.split(',')[1];
+}
+
+/**
+ * Converts a Base64 string back to a File object.
+ * Reconstitutes the binary data. Handles both full data URLs and raw base64 strings.
+ */
+export function base64ToFile(base64: string, filename: string, type?: string): File {
+  let data = base64;
+  let mime = type || '';
+
+  if (base64.includes(',')) {
+    const [header, body] = base64.split(',');
+    data = body;
+    if (!mime) {
+      const mimeMatch = header.match(/:(.*?);/);
+      mime = mimeMatch ? mimeMatch[1] : '';
+    }
+  }
   
   // Use Buffer if available (Node environment/Tests), otherwise atob
   let binaryString: string;

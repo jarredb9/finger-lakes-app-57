@@ -1,3 +1,4 @@
+import { blobToBase64Raw as blobToBase64, base64ToFile as base64ToFileRaw } from './binary';
 
 /**
  * Utility functions for handling sync payloads, especially binary data (photos).
@@ -10,26 +11,10 @@ export interface Base64Photo {
   type: string;
 }
 
-export const blobToBase64 = (blob: Blob): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const result = reader.result as string;
-      const base64 = result.split(',')[1];
-      resolve(base64);
-    };
-    reader.onerror = (err) => reject(err);
-    reader.readAsDataURL(blob);
-  });
-};
+export { blobToBase64 };
 
 export const base64ToFile = (base64: string, type: string, name: string): File => {
-  const bin = atob(base64);
-  const len = bin.length;
-  const arr = new Uint8Array(len);
-  for (let i = 0; i < len; i++) arr[i] = bin.charCodeAt(i);
-  
-  return new File([arr], name, { type, lastModified: Date.now() });
+  return base64ToFileRaw(base64, name, type);
 };
 
 /**
