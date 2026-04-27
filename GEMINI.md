@@ -47,7 +47,7 @@
     *   **Local Usage:** `./scripts/run-e2e-container.sh chromium e2e/smoke.spec.ts`
     *   **Live Database Usage:** Use the `--live` (or `-l`) flag to run tests against the live Supabase instance (loads `.env.local.production`):
         `./scripts/run-e2e-container.sh --live chromium e2e/privacy-flow.spec.ts`
-    *   **Mandatory Build:** Use `--build` if core logic (stores, services, components) changed: `./scripts/run-e2e-container.sh --build all`.
+    *   **Mandatory Build:** Use `--build` if core logic (stores, services, components) changed: Example: `./scripts/run-e2e-container.sh --build chromium e2e/smoke.spec.ts`.
     *   **Standard:** ALWAYS use `--build` if you have modified any files in `app/`, `components/`, or `lib/` since the last test run. The container needs to recompile the application to see your changes.
     *   **Production Parity:** CI runs against `next start`. Ensure `IS_E2E=true` is set for store exposure.
 
