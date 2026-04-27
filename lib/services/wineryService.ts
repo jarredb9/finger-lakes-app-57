@@ -52,7 +52,7 @@ export const WineryService = {
     
     try {
         // The 'ensure_winery' RPC handles the UPSERT and returns the integer ID
-        const { data: dbId, error } = await supabase.rpc('ensure_winery', { 
+        const { data: dbId, error } = await supabase.rpc('public.ensure_winery', { 
             p_winery_data: rpcData 
         }, { headers: getE2EHeaders() } as any);
 
@@ -77,7 +77,7 @@ export const WineryService = {
     
     const rpcWineryData = WineryService.getRpcData(winery);
 
-    const { data: isFavorite, error } = await supabase.rpc('toggle_favorite', { 
+    const { data: isFavorite, error } = await supabase.rpc('public.toggle_favorite', { 
         p_winery_data: rpcWineryData 
     }, { headers: getE2EHeaders() } as any);
 
@@ -98,7 +98,7 @@ export const WineryService = {
     
     const rpcWineryData = WineryService.getRpcData(winery);
 
-    const { data: onWishlist, error } = await supabase.rpc('toggle_wishlist', { 
+    const { data: onWishlist, error } = await supabase.rpc('public.toggle_wishlist', { 
         p_winery_data: rpcWineryData 
     }, { headers: getE2EHeaders() } as any);
 
@@ -117,7 +117,7 @@ export const WineryService = {
     if (!dbId) throw new Error("No DB ID available for winery " + winery.id);
 
     const supabase = createClient();
-    const { data, error } = await supabase.rpc('toggle_favorite_privacy', {
+    const { data, error } = await supabase.rpc('public.toggle_favorite_privacy', {
         p_winery_id: dbId
     }, { headers: getE2EHeaders() } as any);
 
@@ -138,7 +138,7 @@ export const WineryService = {
     if (!dbId) throw new Error("No DB ID available for winery " + winery.id);
 
     const supabase = createClient();
-    const { data, error } = await supabase.rpc('toggle_wishlist_privacy', { 
+    const { data, error } = await supabase.rpc('public.toggle_wishlist_privacy', { 
         p_winery_id: dbId 
     }, { headers: getE2EHeaders() } as any);
 

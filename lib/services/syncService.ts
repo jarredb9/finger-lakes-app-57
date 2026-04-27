@@ -78,7 +78,7 @@ export const SyncService = {
                 uploadedPaths = await Promise.all(uploadPromises);
               }
 
-              const { error: visitError } = await supabase.rpc('log_visit', {
+              const { error: visitError } = await supabase.rpc('public.log_visit', {
                 p_winery_data: WineryService.getRpcData({
                   id: p.wineryId as any,
                   dbId: p.wineryDbId as any,
@@ -130,7 +130,7 @@ export const SyncService = {
               const preservedPhotos = existingServerPhotos.filter(photo => !photosToDelete.includes(photo));
               const finalPhotoPaths = [...preservedPhotos, ...newPhotoPaths];
 
-              const { error: updateError } = await supabase.rpc('update_visit', {
+              const { error: updateError } = await supabase.rpc('public.update_visit', {
                 p_visit_id: parseInt(p.visitId),
                 p_visit_data: { ...p.visitData, photos: finalPhotoPaths }
               });
@@ -144,7 +144,7 @@ export const SyncService = {
             }
 
             case 'delete_visit':
-              const { error: deleteError } = await supabase.rpc('delete_visit', {
+              const { error: deleteError } = await supabase.rpc('public.delete_visit', {
                 p_visit_id: parseInt(payload.visitId)
               });
               error = deleteError;
@@ -152,7 +152,7 @@ export const SyncService = {
 
             case 'create_trip':
               if (payload.wineries && payload.wineries.length > 0) {
-                  const { error: tripError } = await supabase.rpc('create_trip_with_winery', {
+                  const { error: tripError } = await supabase.rpc('public.create_trip_with_winery', {
                     p_trip_name: payload.name,
                     p_trip_date: payload.trip_date,
                     p_winery_data: WineryService.getRpcData(payload.wineries[0]),
@@ -161,7 +161,7 @@ export const SyncService = {
                   });
                   error = tripError;
               } else {
-                  const { error: tripError } = await supabase.rpc('create_trip', {
+                  const { error: tripError } = await supabase.rpc('public.create_trip', {
                     p_name: payload.name,
                     p_trip_date: payload.trip_date
                   });
@@ -172,7 +172,7 @@ export const SyncService = {
             case 'update_trip':
               const { tripId: uTripId, updates: uUpdates } = payload;
               if (uUpdates.wineryOrder) {
-                const { error: reorderError } = await supabase.rpc('reorder_trip_wineries', {
+                const { error: reorderError } = await supabase.rpc('public.reorder_trip_wineries', {
                   p_trip_id: parseInt(uTripId),
                   p_winery_ids: uUpdates.wineryOrder
                 });
@@ -187,7 +187,7 @@ export const SyncService = {
               } else if (uUpdates.updateNote) {
                 const { wineryId: nWineryId, notes: nNotes } = uUpdates.updateNote;
                 if (typeof nNotes === 'string') {
-                    const { error: noteError } = await supabase.rpc('update_trip_winery_notes', {
+                    const { error: noteError } = await supabase.rpc('public.update_trip_winery_notes', {
                       p_trip_id: parseInt(uTripId),
                       p_winery_id: nWineryId,
                       p_notes: nNotes
@@ -195,7 +195,7 @@ export const SyncService = {
                     error = noteError;
                 } else if (typeof nNotes === 'object') {
                     const promises = Object.entries(nNotes).map(([wId, text]) => 
-                        supabase.rpc('update_trip_winery_notes', {
+                        supabase.rpc('public.update_trip_winery_notes', {
                             p_trip_id: parseInt(uTripId),
                             p_winery_id: parseInt(wId),
                             p_notes: text as string
@@ -207,7 +207,7 @@ export const SyncService = {
                 }
               } else if (uUpdates.addWinery) {
                   const { winery, notes: aNotes } = uUpdates.addWinery;
-                  const { error: addError } = await supabase.rpc('add_winery_to_trip', {
+                  const { error: addError } = await supabase.rpc('public.add_winery_to_trip', {
                       p_trip_id: parseInt(uTripId),
                       p_winery_data: WineryService.getRpcData(winery),
                       p_notes: aNotes
@@ -223,7 +223,7 @@ export const SyncService = {
               break;
 
             case 'delete_trip':
-              const { error: dTripError } = await supabase.rpc('delete_trip', {
+              const { error: dTripError } = await supabase.rpc('public.delete_trip', {
                 p_trip_id: parseInt(payload.tripId)
               });
               error = dTripError;
@@ -231,7 +231,7 @@ export const SyncService = {
 
             case 'update_profile':
               if (payload.type === 'privacy') {
-                const { error: pError } = await supabase.rpc('update_profile_privacy', {
+                const { error: pError } = await supabase.rpc('public.update_profile_privacy', {
                   p_privacy_level: payload.level
                 });
                 error = pError;
@@ -240,18 +240,18 @@ export const SyncService = {
 
             case 'social_action':
               if (payload.action === 'send_request') {
-                const { error: sError } = await supabase.rpc('send_friend_request', {
+                const { error: sError } = await supabase.rpc('public.send_friend_request', {
                   target_email: payload.email
                 });
                 error = sError;
               } else if (payload.action === 'respond') {
-                const { error: rError } = await supabase.rpc('respond_to_friend_request', {
+                const { error: rError } = await supabase.rpc('public.respond_to_friend_request', {
                   requester_id: payload.requesterId,
                   accept: payload.accept
                 });
                 error = rError;
               } else if (payload.action === 'remove') {
-                const { error: remError } = await supabase.rpc('remove_friend', {
+                const { error: remError } = await supabase.rpc('public.remove_friend', {
                   target_friend_id: payload.friendId
                 });
                 error = remError;
@@ -261,7 +261,7 @@ export const SyncService = {
             case 'winery_action':
               if (payload.action === 'toggle_favorite') {
                 const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; lat: number; lng: number };
-                const { error: fError } = await supabase.rpc('toggle_favorite', {
+                const { error: fError } = await supabase.rpc('public.toggle_favorite', {
                   p_winery_data: WineryService.getRpcData({
                     id: pW.wineryId as any,
                     dbId: pW.wineryDbId as any,
@@ -274,7 +274,7 @@ export const SyncService = {
                 error = fError;
               } else if (payload.action === 'toggle_wishlist') {
                 const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; lat: number; lng: number };
-                const { error: wError } = await supabase.rpc('toggle_wishlist', {
+                const { error: wError } = await supabase.rpc('public.toggle_wishlist', {
                   p_winery_data: WineryService.getRpcData({
                     id: pW.wineryId as any,
                     dbId: pW.wineryDbId as any,
@@ -286,12 +286,12 @@ export const SyncService = {
                 });
                 error = wError;
               } else if (payload.action === 'toggle_favorite_privacy') {
-                const { error: fpError } = await supabase.rpc('toggle_favorite_privacy', {
+                const { error: fpError } = await supabase.rpc('public.toggle_favorite_privacy', {
                   p_winery_id: payload.wineryDbId
                 });
                 error = fpError;
               } else if (payload.action === 'toggle_wishlist_privacy') {
-                const { error: wpError } = await supabase.rpc('toggle_wishlist_privacy', {
+                const { error: wpError } = await supabase.rpc('public.toggle_wishlist_privacy', {
                   p_winery_id: payload.wineryDbId
                 });
                 error = wpError;

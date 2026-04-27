@@ -116,7 +116,7 @@ export function useWinerySearch() {
 
       const bounds = new google.maps.LatLngBounds(finalSearchBounds);
       const supabase = createClient();
-      const { data: cachedWineries } = await supabase.rpc('get_wineries_in_bounds', {
+      const { data: cachedWineries } = await supabase.rpc('public.get_wineries_in_bounds', {
         min_lat: bounds.getSouthWest().lat(),
         min_lng: bounds.getSouthWest().lng(),
         max_lat: bounds.getNorthEast().lat(),

@@ -51,7 +51,7 @@ export const TripService = {
   async getTripById(tripId: string) {
     const supabase = createClient();
     
-    const { data, error } = await supabase.rpc('get_trip_details', { 
+    const { data, error } = await supabase.rpc('public.get_trip_details', { 
       trip_id_param: parseInt(tripId) 
     });
 
@@ -72,7 +72,7 @@ export const TripService = {
     const supabase = createClient();
     // Standardize to local YYYY-MM-DD
     const formattedDate = formatDateLocal(new Date(dateString + 'T00:00:00'));
-    const { data, error } = await supabase.rpc('get_trips_for_date', { target_date: formattedDate });
+    const { data, error } = await supabase.rpc('public.get_trips_for_date', { target_date: formattedDate });
 
     if (error) throw new Error(error.message);
     return data || [];
@@ -87,7 +87,7 @@ export const TripService = {
     
     if (trip.wineries && trip.wineries.length > 0) {
         const w = trip.wineries[0];
-        const { data, error } = await supabase.rpc('create_trip_with_winery', {
+        const { data, error } = await supabase.rpc('public.create_trip_with_winery', {
             p_trip_name: trip.name || 'New Trip',
             p_trip_date: trip.trip_date,
             p_winery_data: WineryService.getRpcData(w),
@@ -108,7 +108,7 @@ export const TripService = {
     }
 
     // Fallback for trip without wineries (Use RPC for robustness)
-    const { data, error } = await supabase.rpc('create_trip', {
+    const { data, error } = await supabase.rpc('public.create_trip', {
         p_name: trip.name || 'New Trip',
         p_trip_date: trip.trip_date
     });
@@ -120,7 +120,7 @@ export const TripService = {
 
   async deleteTrip(tripId: string) {
     const supabase = createClient();
-    const { error } = await supabase.rpc('delete_trip', { p_trip_id: parseInt(tripId) });
+    const { error } = await supabase.rpc('public.delete_trip', { p_trip_id: parseInt(tripId) });
     if (error) throw error;
   },
 
@@ -129,7 +129,7 @@ export const TripService = {
 
     // 1. Handle Winery Reordering
     if ('wineryOrder' in updates && Array.isArray(updates.wineryOrder)) {
-        const { error } = await supabase.rpc('reorder_trip_wineries', {
+        const { error } = await supabase.rpc('public.reorder_trip_wineries', {
             p_trip_id: parseInt(tripId),
             p_winery_ids: updates.wineryOrder
         });
@@ -154,7 +154,7 @@ export const TripService = {
        const { wineryId, notes } = updates.updateNote;
        
        if (typeof notes === 'string') {
-           const { error } = await supabase.rpc('update_trip_winery_notes', {
+           const { error } = await supabase.rpc('public.update_trip_winery_notes', {
                p_trip_id: parseInt(tripId),
                p_winery_id: wineryId,
                p_notes: notes
@@ -163,7 +163,7 @@ export const TripService = {
        } 
        else if (typeof notes === 'object') {
            const promises = Object.entries(notes).map(([wId, text]) => 
-                supabase.rpc('update_trip_winery_notes', {
+                supabase.rpc('public.update_trip_winery_notes', {
                     p_trip_id: parseInt(tripId),
                     p_winery_id: parseInt(wId),
                     p_notes: text as string
@@ -192,7 +192,7 @@ export const TripService = {
 
   async addMemberByEmail(tripId: number, email: string) {
     const supabase = createClient();
-    const { data, error } = await supabase.rpc('add_trip_member_by_email', {
+    const { data, error } = await supabase.rpc('public.add_trip_member_by_email', {
         p_trip_id: tripId,
         p_email: email
     });
@@ -231,7 +231,7 @@ export const TripService = {
         throw new Error("Winery data not found in local store for creation.");
     }
 
-    const { data, error } = await supabase.rpc('create_trip_with_winery', {
+    const { data, error } = await supabase.rpc('public.create_trip_with_winery', {
         p_trip_name: name,
         p_trip_date: date,
         p_winery_data: WineryService.getRpcData(winery),
@@ -252,7 +252,7 @@ export const TripService = {
         // We can't use add_winery_to_trip RPC if it requires full winery data.
         
         // We should use the simple ID one if we only have wineryId.
-        const { error } = await supabase.rpc('add_winery_to_trip', {
+        const { error } = await supabase.rpc('public.add_winery_to_trip', {
             trip_id_param: tripId,
             winery_id_param: wineryId,
             notes_param: notes
@@ -261,7 +261,7 @@ export const TripService = {
         return { success: true };
     }
 
-    const { error } = await supabase.rpc('add_winery_to_trip', {
+    const { error } = await supabase.rpc('public.add_winery_to_trip', {
         p_trip_id: tripId,
         p_winery_data: WineryService.getRpcData(winery),
         p_notes: notes
@@ -273,7 +273,7 @@ export const TripService = {
 
   async addWineryToTripByApi(wineryId: number, tripIds: number[]) {
      const supabase = createClient();
-     const { error } = await supabase.rpc('add_winery_to_trips', {
+     const { error } = await supabase.rpc('public.add_winery_to_trips', {
          p_winery_id: wineryId,
          p_trip_ids: tripIds
      });
