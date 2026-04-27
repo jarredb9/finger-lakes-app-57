@@ -41,13 +41,15 @@
 ### Phase 3: Store Integration & Photo Reconstitution (TDD)
 - [x] Task: Establish Sync Helpers for Binary Data 2e69439
     - [x] Create `lib/utils/sync-helpers.ts` to centralize photo stabilization (Blob -> Base64) and reconstitution (Base64 -> File) for the encrypted queue.
-- [ ] Task: Integrate `SyncService` into Entity Stores
-    - [ ] Refactor stores to utilize `SyncService` for all mutations.
+- [x] Task: Integrate `SyncService` into Entity Stores f7862e8
+    - [x] Refactor stores to utilize `SyncService` for all mutations.
+    - [x] Resolve build and type errors in entity stores and tests.
+    - [x] Verify encryption and decryption in e2e/sync-infrastructure.spec.ts.
 - [ ] Task: Implement Photo Reconstitution in Uploader
     - [ ] Update `PhotoUploader.tsx` to use `binary.ts` (Base64 storage) for offline photos.
 - [ ] Task: Visual Sync Indicators
     - [ ] Update cards to show `opacity-50` and "Pending" badges for items with `syncStatus === 'pending'`.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Store Integration'
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Store Integration' f7862e8
 
 ### Phase 4: Quota Management & Verification (TDD)
 - [ ] Task: Implement Proactive Quota Cleanup (The Quota Resilience Rule)
@@ -64,4 +66,5 @@
 - [x] Task: Mock window.location.reload in usePWAUpdate for cleaner tests eac1d88
 - [x] Task: Apply Phase 2 review suggestions (Indentation & ID standard) 003dbad
 - [x] Task: Refactor Deep Sync test for hydration stability & update Phase 4 merge mandate
-- [~] Task: Trigger SyncService on initialization if online
+- [x] Task: Trigger SyncService on initialization if online f7862e8
+    - [x] Implemented in app-shell.tsx to trigger on mount and when online event fires.
