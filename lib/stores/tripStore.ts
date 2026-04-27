@@ -572,7 +572,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         }
 
         try {
-          const { error } = await supabase.rpc('public.remove_winery_from_trip', { 
+          const { error } = await supabase.rpc('remove_winery_from_trip', { 
             p_trip_id: tripIdAsNumber, 
             p_winery_id: wineryId 
           }, { headers: getE2EHeaders() } as any);
@@ -795,7 +795,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             const tripPromises = Array.from(selectedTrips).map(async (tripId) => {
                 if (tripId === 'new') {
                     if (!newTripName.trim()) throw new Error("New trip requires a name.");
-                    const { data, error } = await supabase.rpc('public.create_trip_with_winery', {
+                    const { data, error } = await supabase.rpc('create_trip_with_winery', {
                         p_trip_name: newTripName,
                         p_trip_date: dateString,
                         p_winery_data: rpcWineryData,
@@ -805,7 +805,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                     return { tripId: data.trip_id, wineryId: data.winery_id, isNew: true };
                 } else {
                     const numericTripId = Number(tripId);
-                    const { data, error } = await supabase.rpc('public.add_winery_to_trip', {
+                    const { data, error } = await supabase.rpc('add_winery_to_trip', {
                         p_trip_id: numericTripId,
                         p_winery_data: rpcWineryData,
                         p_notes: addTripNotes || null
@@ -971,7 +971,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                  const removeId = existingWineryOnTrip?.dbId || winery.dbId;
                  if (!removeId) throw new Error("Cannot remove winery without DB ID.");
                  
-                 const { error } = await supabase.rpc('public.remove_winery_from_trip', {
+                 const { error } = await supabase.rpc('remove_winery_from_trip', {
                     p_trip_id: trip.id,
                     p_winery_id: removeId
                  }, { headers: getE2EHeaders() } as any);
@@ -983,7 +983,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                  }
             } else {
                  const rpcWineryData = WineryService.getRpcData(winery);
-                 const { data, error } = await supabase.rpc('public.add_winery_to_trip', {
+                 const { data, error } = await supabase.rpc('add_winery_to_trip', {
                      p_trip_id: trip.id,
                      p_winery_data: rpcWineryData,
                      p_notes: null

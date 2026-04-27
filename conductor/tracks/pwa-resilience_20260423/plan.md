@@ -55,9 +55,9 @@
 ### Phase 4: Quota Management & Verification (TDD)
 - [x] Task: Implement Proactive Quota Cleanup (The Quota Resilience Rule) 31295c7
     - [x] Update `sw.ts` to include a `storage.estimate` listener and 80% usage threshold trigger.
-- [ ] Task: Final E2E Validation
-    - [ ] Create `e2e/pwa-resilience.spec.ts` covering offline visit creation, photo reconstitution, and queue persistence.
-    - [ ] **MANDATORY**: Merge logic from `e2e/pwa-sync-deep.spec.ts` (multiple photos + reconstitution) into this final spec.
+- [x] Task: Final E2E Validation 11cf06b
+    - [x] Create `e2e/pwa-resilience.spec.ts` covering offline visit creation, photo reconstitution, and queue persistence.
+    - [x] **MANDATORY**: Merge logic from `e2e/pwa-sync-deep.spec.ts` (multiple photos + reconstitution) into this final spec.
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Final Verification'
 
 ## Phase: Review Fixes

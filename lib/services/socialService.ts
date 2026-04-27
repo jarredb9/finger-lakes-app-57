@@ -5,7 +5,7 @@ import { getE2EHeaders } from '@/lib/stores/e2e-utils';
 export const SocialService = {
   async getFriends() {
     const supabase = createClient();
-    const { data, error } = await supabase.rpc('public.get_friends_and_requests', {}, { headers: getE2EHeaders() } as any);
+    const { data, error } = await supabase.rpc('get_friends_and_requests', {}, { headers: getE2EHeaders() } as any);
     if (error) throw error;
     
     // Structure: { friends, pending_incoming, pending_outgoing }
@@ -14,7 +14,7 @@ export const SocialService = {
 
   async getFriendRequests() {
     const supabase = createClient();
-    const { data, error } = await supabase.rpc('public.get_friends_and_requests', {}, { headers: getE2EHeaders() } as any);
+    const { data, error } = await supabase.rpc('get_friends_and_requests', {}, { headers: getE2EHeaders() } as any);
     if (error) throw error;
     
     return {
@@ -25,7 +25,7 @@ export const SocialService = {
 
   async getFriendActivity() {
     const supabase = createClient();
-    const { data, error } = await supabase.rpc('public.get_friend_activity_feed', { 
+    const { data, error } = await supabase.rpc('get_friend_activity_feed', { 
         limit_val: 20
     }, { headers: getE2EHeaders() } as any);
     if (error) throw error;
@@ -34,13 +34,13 @@ export const SocialService = {
 
   async sendFriendRequest(email: string) {
     const supabase = createClient();
-    const { error } = await supabase.rpc('public.send_friend_request', { target_email: email }, { headers: getE2EHeaders() } as any);
+    const { error } = await supabase.rpc('send_friend_request', { target_email: email }, { headers: getE2EHeaders() } as any);
     if (error) throw error;
   },
 
   async respondToFriendRequest(requesterId: string, accept: boolean) {
     const supabase = createClient();
-    const { error } = await supabase.rpc('public.respond_to_friend_request', { 
+    const { error } = await supabase.rpc('respond_to_friend_request', { 
       requester_id: requesterId, 
       accept: accept 
     }, { headers: getE2EHeaders() } as any);
@@ -49,13 +49,13 @@ export const SocialService = {
 
   async removeFriend(friendId: string) {
     const supabase = createClient();
-    const { error } = await supabase.rpc('public.remove_friend', { target_friend_id: friendId }, { headers: getE2EHeaders() } as any);
+    const { error } = await supabase.rpc('remove_friend', { target_friend_id: friendId }, { headers: getE2EHeaders() } as any);
     if (error) throw error;
   },
 
   async getFriendProfile(friendId: string) {
     const supabase = createClient();
-    const { data, error } = await supabase.rpc('public.get_friend_profile_with_visits', { 
+    const { data, error } = await supabase.rpc('get_friend_profile_with_visits', { 
       friend_id_param: friendId 
     }, { headers: getE2EHeaders() } as any);
     if (error) throw error;
@@ -65,8 +65,8 @@ export const SocialService = {
   async getFriendDataForWinery(wineryId: WineryDbId) {
     const supabase = createClient();
     const [ratingsResult, activityResult] = await Promise.all([
-      supabase.rpc('public.get_friends_ratings_for_winery', { winery_id_param: wineryId }, { headers: getE2EHeaders() } as any),
-      supabase.rpc('public.get_friends_activity_for_winery', { winery_id_param: wineryId }, { headers: getE2EHeaders() } as any)
+      supabase.rpc('get_friends_ratings_for_winery', { winery_id_param: wineryId }, { headers: getE2EHeaders() } as any),
+      supabase.rpc('get_friends_activity_for_winery', { winery_id_param: wineryId }, { headers: getE2EHeaders() } as any)
     ]);
 
     if (ratingsResult.error) throw ratingsResult.error;

@@ -40,7 +40,7 @@ export class ProfileService {
    */
   static async updatePrivacyLevel(level: 'public' | 'friends_only' | 'private'): Promise<void> {
     const supabase = createClient();
-    const { error } = await supabase.rpc('public.update_profile_privacy', {
+    const { error } = await supabase.rpc('update_profile_privacy', {
       p_privacy_level: level
     });
 

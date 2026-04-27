@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
         const limit = parseInt(searchParams.get("limit") || "20", 10);
 
         try {
-            const { data, error } = await supabase.rpc('public.get_paginated_wineries', { 
+            const { data, error } = await supabase.rpc('get_paginated_wineries', { 
                 p_page: page, 
                 p_limit: limit 
             });

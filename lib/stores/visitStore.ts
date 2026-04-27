@@ -60,7 +60,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         set({ isLoading: true });
         const supabase = createClient();
         try {
-          const { data, error, count } = await supabase.rpc('public.get_paginated_visits_with_winery_and_friends', {
+          const { data, error, count } = await supabase.rpc('get_paginated_visits_with_winery_and_friends', {
             page_number: pageNumber,
             page_size: VISITS_PER_PAGE
           });
@@ -227,7 +227,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             is_private: visitData.is_private || false,
           };
 
-          const { data: rpcResult, error: rpcError } = await supabase.rpc('public.log_visit', {
+          const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
             p_winery_data: rpcWineryData,
             p_visit_data: rpcVisitData,
           }, { headers: getE2EHeaders() } as any);
@@ -335,7 +335,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           }
 
           const finalPhotoPaths = [...newOptimisticPhotos, ...newPhotoPaths];
-          const { data: updatedVisit, error } = await supabase.rpc('public.update_visit', {
+          const { data: updatedVisit, error } = await supabase.rpc('update_visit', {
               p_visit_id: parseInt(visitId),
               p_visit_data: { 
                 ...visitData, 
@@ -410,7 +410,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         }
 
         try {
-            const { error } = await supabase.rpc('public.delete_visit', { p_visit_id: parseInt(visitId) }, { headers: getE2EHeaders() } as any);
+            const { error } = await supabase.rpc('delete_visit', { p_visit_id: parseInt(visitId) }, { headers: getE2EHeaders() } as any);
             if (error) throw error;
             
             confirmOptimisticUpdate();
