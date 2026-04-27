@@ -7,7 +7,8 @@ import { useWineryStore } from './wineryStore';
 import { useWineryDataStore } from './wineryDataStore';
 import { WineryService } from '@/lib/services/wineryService';
 import { useSyncStore } from './syncStore';
-import { stabilizePhotos } from '@/lib/utils/sync-helpers';
+import { stabilizePhotos, Base64Photo, isBase64Photo, base64ToFile } from '@/lib/utils/sync-helpers';
+import { fileToBase64 } from '@/lib/utils/binary';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
 import { isE2E, getE2EHeaders, shouldSkipRealSync } from './e2e-utils';
 
@@ -26,12 +27,12 @@ interface VisitState {
   fetchVisits: (page?: number, refresh?: boolean) => Promise<void>;
   subscribeToVisitUpdates: () => void;
   unsubscribeFromVisitUpdates: () => void;
-  saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: File[]; is_private?: boolean }) => Promise<void>;
-  updateVisit: (visitId: string, visitData: Partial<Visit> & { is_private?: boolean }, newPhotos: File[], photosToDelete: string[]) => Promise<void>;
+  saveVisit: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: (File | Base64Photo)[]; is_private?: boolean }) => Promise<void>;
+  updateVisit: (visitId: string, visitData: Partial<Visit> & { is_private?: boolean }, newPhotos: (File | Base64Photo)[], photosToDelete: string[]) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
   reset: () => void;
   // E2E Helper
-  injectVisitWithPhotos?: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: (File | { base64: string; type: string; name: string })[] }) => Promise<void>;
+  injectVisitWithPhotos?: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: (File | Base64Photo)[] }) => Promise<void>;
 }
 
 const VISITS_PER_PAGE = 10;
@@ -160,7 +161,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             rating: visitData.rating,
             user_review: visitData.user_review,
             is_private: visitData.is_private || false,
-            photos: visitData.photos.map(file => URL.createObjectURL(file)),
+            photos: visitData.photos.map(p => isBase64Photo(p) ? `data:${p.type};base64,${p.base64}` : URL.createObjectURL(p as File)),
             wineryName: winery.name,
             wineryId: winery.id,
             syncStatus: 'pending',
@@ -202,11 +203,12 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
 
         try {
           if (visitData.photos.length > 0) {
-            const uploadPromises = visitData.photos.map(async (photoFile) => {
-              const fileName = `${Date.now()}-${photoFile.name}`;
+            const uploadPromises = visitData.photos.map(async (photo) => {
+              const file = isBase64Photo(photo) ? base64ToFile(photo.base64, photo.type, photo.name) : (photo as File);
+              const fileName = `${Date.now()}-${file.name}`;
               const filePath = `${user.id}/${folderUuid}/${fileName}`;
               
-              const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile, { upsert: true });
+              const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file, { upsert: true });
               if (uploadError) throw uploadError;
               return filePath;
             });
@@ -320,11 +322,12 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         try {
           let newPhotoPaths: string[] = [];
           if (newPhotos.length > 0) {
-            const uploadPromises = newPhotos.map(async (photoFile) => {
-              const fileName = `${Date.now()}-${photoFile.name}`;
+            const uploadPromises = newPhotos.map(async (photo) => {
+              const file = isBase64Photo(photo) ? base64ToFile(photo.base64, photo.type, photo.name) : (photo as File);
+              const fileName = `${Date.now()}-${file.name}`;
               const filePath = `${user.id}/${visitId}/${fileName}`;
               
-              const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, photoFile, { upsert: true });
+              const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file, { upsert: true });
               if (uploadError) throw uploadError;
               return filePath;
             });
@@ -438,31 +441,22 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         
         const tempId = `temp-inject-${Date.now()}`;
 
-        // Helper to convert base64 to Blob for the optimistic UI preview
-        const b64ToBlob = (base64: string, type: string) => {
-            const bin = atob(base64);
-            const len = bin.length;
-            const arr = new Uint8Array(len);
-            for (let i = 0; i < len; i++) arr[i] = bin.charCodeAt(i);
-            return new Blob([arr], { type });
-        };
-
         const previewUrls: string[] = [];
-        const queuePhotos: any[] = [];
+        const queuePhotos: Base64Photo[] = [];
 
         for (const p of visitData.photos) {
-            if (p instanceof File) {
-                previewUrls.push(URL.createObjectURL(p));
+            if (isBase64Photo(p)) {
+                previewUrls.push(`data:${p.type};base64,${p.base64}`);
                 queuePhotos.push(p);
             } else {
-                const blob = b64ToBlob(p.base64, p.type);
-                previewUrls.push(URL.createObjectURL(blob));
-                // We store the base64 object directly in the queue!
+                const file = p as File;
+                previewUrls.push(URL.createObjectURL(file));
+                const base64DataUrl = await fileToBase64(file);
                 queuePhotos.push({
                     __isBase64: true,
-                    base64: p.base64,
-                    name: p.name,
-                    type: p.type
+                    base64: base64DataUrl.split(',')[1],
+                    name: file.name,
+                    type: file.type
                 });
             }
         }

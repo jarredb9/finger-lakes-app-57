@@ -7,11 +7,13 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Upload, X } from "lucide-react";
 import PhotoCard from "./photo-card";
+import { fileToBase64 } from "@/lib/utils/binary";
+import { Base64Photo, isBase64Photo } from "@/lib/utils/sync-helpers";
 
 interface PhotoUploaderProps {
   editingVisit: Visit | null;
-  photos: File[];
-  setPhotos: Dispatch<SetStateAction<File[]>>;
+  photos: (File | Base64Photo)[];
+  setPhotos: Dispatch<SetStateAction<(File | Base64Photo)[]>>;
   photosToDelete: string[];
   togglePhotoForDeletion: (photoPath: string) => void;
 }
@@ -21,33 +23,58 @@ export default function PhotoUploader({ editingVisit, photos, setPhotos, photosT
     if (e.target.files) {
       const filesArray = Array.from(e.target.files);
       
-      // Immediately convert to stable blobs to prevent NotReadableError in WebKit
-      // when the input handle is invalidated.
-      const stableBlobs = await Promise.all(filesArray.map(async (file) => {
+      // Immediately convert to stable Base64 to prevent NotReadableError in WebKit
+      // when the input handle is invalidated. This implements "The Reconstitution Rule".
+      const stablePhotos = await Promise.all(filesArray.map(async (file) => {
         try {
           // If the "file" is actually a string data URL (injected by test)
           if (typeof file === 'string' && (file as string).startsWith('data:')) {
              const res = await fetch(file);
              const blob = await res.blob();
-             return new File([blob], "photo.png", { type: blob.type });
+             const base64 = await fileToBase64(blob);
+             return {
+                __isBase64: true,
+                base64: base64.split(',')[1],
+                name: "photo.png",
+                type: blob.type
+             } as Base64Photo;
           }
 
           // Check if file is readable before attempting conversion
           if (file.size === 0) return file; 
-          const ab = await file.arrayBuffer();
-          return new File([ab], file.name, { type: file.type });
+          
+          const base64DataUrl = await fileToBase64(file);
+          return {
+            __isBase64: true,
+            base64: base64DataUrl.split(',')[1],
+            name: file.name,
+            type: file.type
+          } as Base64Photo;
         } catch (err) {
           console.warn('[PhotoUploader] Failed to stabilize file:', file.name, err);
           return file; 
         }
       }));
 
-      setPhotos((prevPhotos) => [...prevPhotos, ...stableBlobs]);
+      setPhotos((prevPhotos) => [...prevPhotos, ...stablePhotos]);
     }
   };
 
   const handleRemovePhoto = (index: number) => {
     setPhotos((prevPhotos) => prevPhotos.filter((_, i) => i !== index));
+  };
+
+  const getPreviewUrl = (photo: File | Base64Photo) => {
+    if (isBase64Photo(photo)) {
+      return `data:${photo.type};base64,${photo.base64}`;
+    }
+    return URL.createObjectURL(photo);
+  };
+
+  const handlePreviewLoad = (e: React.SyntheticEvent<HTMLImageElement, Event>, photo: File | Base64Photo) => {
+    if (!isBase64Photo(photo)) {
+      URL.revokeObjectURL((e.target as HTMLImageElement).src);
+    }
   };
 
   return (
@@ -62,16 +89,16 @@ export default function PhotoUploader({ editingVisit, photos, setPhotos, photosT
       )}
       {photos.length > 0 && (
         <div className="flex gap-2 mb-2 flex-wrap">
-          {photos.map((file, index) => (
+          {photos.map((photo, index) => (
             <div key={index} className="relative">
               <Image 
-                src={URL.createObjectURL(file)} 
+                src={getPreviewUrl(photo)} 
                 alt={`Preview ${index + 1}`} 
                 width={96}
                 height={96}
                 className="rounded-md object-cover" 
                 unoptimized
-                onLoad={(e) => URL.revokeObjectURL((e.target as HTMLImageElement).src)} 
+                onLoad={(e) => handlePreviewLoad(e, photo)} 
               />
               <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => handleRemovePhoto(index)}>
                 <X className="h-4 w-4" />
@@ -103,3 +130,4 @@ export default function PhotoUploader({ editingVisit, photos, setPhotos, photosT
     </div>
   );
 }
+

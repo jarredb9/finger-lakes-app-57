@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Star, Plus, Edit, Loader2, Lock } from "lucide-react";
 import PhotoUploader from "./PhotoUploader";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Base64Photo } from "@/lib/utils/sync-helpers";
 
 interface VisitFormProps {
   editingVisit: Visit | null;
@@ -15,7 +16,7 @@ interface VisitFormProps {
     visit_date: string; 
     user_review: string; 
     rating: number; 
-    photos: File[]; 
+    photos: (File | Base64Photo)[]; 
     is_private?: boolean 
   }, photosToDelete: string[]) => Promise<void>;
   isSubmitting: boolean;
@@ -37,7 +38,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(5);
   const [isPrivate, setIsPrivate] = useState(false);
-  const [photos, setPhotos] = useState<File[]>([]);
+  const [photos, setPhotos] = useState<(File | Base64Photo)[]>([]);
   const [isInternalSubmitting, setIsInternalSubmitting] = useState(false);
   const submissionGuard = useRef(false);
 
