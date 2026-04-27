@@ -70,3 +70,4 @@
 - [x] Task: Trigger SyncService on initialization if online f7862e8
     - [x] Implemented in app-shell.tsx to trigger on mount and when online event fires.
 - [x] Task: Apply Phase 3 review suggestions (TypeScript & E2E fixes) 8f0b864
+- [x] Task: Apply Phase 3 review suggestions (RPC search_path safety) f71d5df
