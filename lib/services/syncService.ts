@@ -42,9 +42,17 @@ export const SyncService = {
     const supabase = createClient();
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      let { data: { user } } = await supabase.auth.getUser();
+      
+      // Retry user fetch once after a short delay if not found, to handle hydration race
       if (!user) {
-        console.warn('[SyncService] User not authenticated, cannot sync.');
+        await new Promise(r => setTimeout(r, 1000));
+        const retry = await supabase.auth.getUser();
+        user = retry.data.user;
+      }
+
+      if (!user) {
+        console.warn('[SyncService] User not authenticated after retry, cannot sync.');
         return;
       }
 
@@ -325,6 +333,8 @@ export const SyncService = {
 };
 
 if (typeof window !== 'undefined') {
+  (window as any).SyncService = SyncService;
+  
   window.addEventListener('online', () => {
     console.log('[SyncService] Network online, triggering sync.');
     SyncService.sync();
