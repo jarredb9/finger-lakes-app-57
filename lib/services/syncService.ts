@@ -2,6 +2,9 @@ import { createClient } from '@/utils/supabase/client';
 import { useSyncStore } from '@/lib/stores/syncStore';
 import { WineryService } from './wineryService';
 import { base64ToFile, isBase64Photo, Base64Photo } from '@/lib/utils/sync-helpers';
+import { useVisitStore } from '@/lib/stores/visitStore';
+import { useTripStore } from '@/lib/stores/tripStore';
+import { useFriendStore } from '@/lib/stores/friendStore';
 
 interface LogVisitPayload {
   wineryId: string;
@@ -28,6 +31,11 @@ export const SyncService = {
   isSyncing: false,
 
   async sync() {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      console.log('[SyncService] Offline, skipping sync.');
+      return;
+    }
+
     if (this.isSyncing) {
       console.log('[SyncService] Sync already in progress, skipping.');
       return;
@@ -40,6 +48,7 @@ export const SyncService = {
     console.log(`[SyncService] Starting sync for ${queue.length} items.`);
 
     const supabase = createClient();
+    const syncedTypes = new Set<string>();
 
     try {
       let { data: { user } } = await supabase.auth.getUser();
@@ -53,6 +62,7 @@ export const SyncService = {
 
       if (!user) {
         console.warn('[SyncService] User not authenticated after retry, cannot sync.');
+        this.isSyncing = false;
         return;
       }
 
@@ -317,12 +327,33 @@ export const SyncService = {
             break;
           }
 
+          syncedTypes.add(item.type);
           await removeMutation(item.id);
           console.log(`[SyncService] Successfully synced item ${item.id}`);
 
         } catch (itemError) {
           console.error(`[SyncService] Unexpected error syncing item ${item.id}:`, itemError);
           break;
+        }
+      }
+
+      // Refresh stores if anything was synced
+      if (syncedTypes.size > 0) {
+        console.log(`[SyncService] Refreshing stores for synced types: ${Array.from(syncedTypes).join(', ')}`);
+        
+        if (syncedTypes.has('log_visit') || syncedTypes.has('update_visit') || syncedTypes.has('delete_visit')) {
+          useVisitStore.getState().fetchVisits(1, true);
+        }
+        
+        if (syncedTypes.has('create_trip') || syncedTypes.has('update_trip') || syncedTypes.has('delete_trip')) {
+          useTripStore.getState().fetchTrips(1, 'upcoming', true);
+          useTripStore.getState().fetchUpcomingTrips();
+        }
+        
+        if (syncedTypes.has('social_action')) {
+          useFriendStore.getState().fetchFriends();
+          useFriendStore.getState().fetchRequests();
+          useFriendStore.getState().fetchFriendActivityFeed();
         }
       }
     } finally {

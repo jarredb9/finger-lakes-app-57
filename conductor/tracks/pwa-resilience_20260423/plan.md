@@ -59,6 +59,8 @@
     - [x] Create `e2e/pwa-resilience.spec.ts` covering offline visit creation, photo reconstitution, and queue persistence.
     - [x] **MANDATORY**: Merge logic from `e2e/pwa-sync-deep.spec.ts` (multiple photos + reconstitution) into this final spec.
     - [x] **FIX**: Resolved hydration mismatch in `AppShell` and `OfflineIndicator` using `useMounted` and `useOnlineStatus` hooks.
+- [x] Task: Implement Sync-Refresh Loop
+    - [x] Add store refreshes (visitStore, tripStore, friendStore) to `SyncService` after successful sync.
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Final Verification' 
 
 ## Phase: Review Fixes
