@@ -134,10 +134,10 @@ test.describe('PWA Assets & Sync', () => {
     console.log('[Test] Waiting for network to settle (5s)...');
     await page.waitForTimeout(5000);
     
-    console.log('[Test] Triggering manual syncOfflineVisits...');
-    await page.evaluate(() => {
+    console.log('[Test] Triggering manual sync...');
+    await page.evaluate(async () => {
         // @ts-ignore
-        window.useVisitStore.getState().syncOfflineVisits();
+        await window.SyncService.sync();
     });
 
     // 6. Wait for Sync

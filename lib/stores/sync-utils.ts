@@ -1,12 +1,14 @@
 import { useSyncStore } from './syncStore';
+import { SyncItem } from '@/lib/types';
 
-export const isNetworkError = (error: any) => {
+export const isNetworkError = (error: unknown) => {
+  const err = error as { message?: string; status?: number };
   return (
-    error?.message?.includes("Failed to fetch") ||
-    error?.message?.includes("Network request failed") ||
-    error?.message?.includes("timeout") ||
-    error?.status === 503 ||
-    error?.status === 504
+    err?.message?.includes("Failed to fetch") ||
+    err?.message?.includes("Network request failed") ||
+    err?.message?.includes("timeout") ||
+    err?.status === 503 ||
+    err?.status === 504
   );
 };
 
@@ -15,9 +17,9 @@ export const isNetworkError = (error: any) => {
  * Returns true if the mutation was enqueued.
  */
 export async function enqueueIfOffline(
-    type: string, 
+    type: SyncItem['type'], 
     userId: string | undefined, 
-    payload: any
+    payload: unknown
 ): Promise<boolean> {
     if (!userId) return false;
 
@@ -25,7 +27,7 @@ export async function enqueueIfOffline(
     
     if (isOffline) {
         await useSyncStore.getState().addMutation({
-            type: type as any,
+            type,
             userId,
             payload
         });
@@ -40,14 +42,14 @@ export async function enqueueIfOffline(
  * Returns true if the error was handled by enqueuing.
  */
 export async function handleSyncError(
-    error: any,
-    type: string,
+    error: unknown,
+    type: SyncItem['type'],
     userId: string | undefined,
-    payload: any
+    payload: unknown
 ): Promise<boolean> {
     if (isNetworkError(error) && userId) {
         await useSyncStore.getState().addMutation({
-            type: type as any,
+            type,
             userId,
             payload
         });

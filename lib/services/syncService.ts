@@ -1,7 +1,28 @@
 import { createClient } from '@/utils/supabase/client';
 import { useSyncStore } from '@/lib/stores/syncStore';
 import { WineryService } from './wineryService';
-import { base64ToFile, isBase64Photo } from '@/lib/utils/sync-helpers';
+import { base64ToFile, isBase64Photo, Base64Photo } from '@/lib/utils/sync-helpers';
+
+interface LogVisitPayload {
+  wineryId: string;
+  wineryDbId: number;
+  wineryName: string;
+  wineryAddress: string;
+  lat: number;
+  lng: number;
+  visit_date: string;
+  user_review: string;
+  rating: number;
+  photos: (string | Base64Photo)[];
+  is_private?: boolean;
+}
+
+interface UpdateVisitPayload {
+  visitId: string;
+  newPhotos: (string | Base64Photo)[];
+  photosToDelete: string[];
+  visitData: Record<string, unknown>;
+}
 
 export const SyncService = {
   isSyncing: false,
@@ -29,22 +50,23 @@ export const SyncService = {
 
       for (const item of queue) {
         try {
-          const payload = await getDecryptedPayload(item, user.id);
+          const payload = await getDecryptedPayload<any>(item, user.id);
           let error = null;
 
           switch (item.type) {
             case 'log_visit': {
+              const p = payload as LogVisitPayload;
               let uploadedPaths: string[] = [];
-              const photos = payload.photos || [];
+              const photos = p.photos || [];
               
               if (photos.length > 0) {
                 const folderUuid = crypto.randomUUID();
-                const uploadPromises = photos.map(async (p: any) => {
+                const uploadPromises = photos.map(async (photo) => {
                   let file: File;
-                  if (isBase64Photo(p)) {
-                    file = base64ToFile(p.base64, p.type, p.name);
+                  if (isBase64Photo(photo)) {
+                    file = base64ToFile(photo.base64, photo.type, photo.name);
                   } else {
-                    return p; // Already a path?
+                    return photo; // Already a path
                   }
                   
                   const fileName = `${Date.now()}-${file.name}`;
@@ -58,19 +80,19 @@ export const SyncService = {
 
               const { error: visitError } = await supabase.rpc('log_visit', {
                 p_winery_data: WineryService.getRpcData({
-                  id: payload.wineryId,
-                  dbId: payload.wineryDbId,
-                  name: payload.wineryName,
-                  address: payload.wineryAddress,
-                  lat: payload.lat,
-                  lng: payload.lng,
-                } as any),
+                  id: p.wineryId as any,
+                  dbId: p.wineryDbId as any,
+                  name: p.wineryName,
+                  address: p.wineryAddress,
+                  lat: p.lat,
+                  lng: p.lng,
+                }),
                 p_visit_data: {
-                  visit_date: payload.visit_date,
-                  user_review: payload.user_review,
-                  rating: payload.rating,
+                  visit_date: p.visit_date,
+                  user_review: p.user_review,
+                  rating: p.rating,
                   photos: uploadedPaths,
-                  is_private: payload.is_private || false,
+                  is_private: p.is_private || false,
                 },
               });
               error = visitError;
@@ -78,20 +100,21 @@ export const SyncService = {
             }
 
             case 'update_visit': {
+              const p = payload as UpdateVisitPayload;
               let newPhotoPaths: string[] = [];
-              const newPhotos = payload.newPhotos || [];
+              const newPhotos = p.newPhotos || [];
               
               if (newPhotos.length > 0) {
-                const uploadPromises = newPhotos.map(async (p: any) => {
-                   if (isBase64Photo(p)) {
-                     const file = base64ToFile(p.base64, p.type, p.name);
+                const uploadPromises = newPhotos.map(async (photo) => {
+                   if (isBase64Photo(photo)) {
+                     const file = base64ToFile(photo.base64, photo.type, photo.name);
                      const fileName = `${Date.now()}-${file.name}`;
-                     const filePath = `${user.id}/${payload.visitId}/${fileName}`;
+                     const filePath = `${user.id}/${p.visitId}/${fileName}`;
                      const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file);
                      if (uploadError) throw uploadError;
                      return filePath;
                    }
-                   return p;
+                   return photo as string;
                 });
                 newPhotoPaths = await Promise.all(uploadPromises);
               }
@@ -99,17 +122,17 @@ export const SyncService = {
               const { data: currentVisit } = await supabase
                 .from('visits')
                 .select('photos')
-                .eq('id', payload.visitId)
+                .eq('id', p.visitId)
                 .single();
 
               const existingServerPhotos = (currentVisit?.photos as string[]) || [];
-              const photosToDelete = payload.photosToDelete || [];
-              const preservedPhotos = existingServerPhotos.filter(p => !photosToDelete.includes(p));
+              const photosToDelete = p.photosToDelete || [];
+              const preservedPhotos = existingServerPhotos.filter(photo => !photosToDelete.includes(photo));
               const finalPhotoPaths = [...preservedPhotos, ...newPhotoPaths];
 
               const { error: updateError } = await supabase.rpc('update_visit', {
-                p_visit_id: parseInt(payload.visitId),
-                p_visit_data: { ...payload.visitData, photos: finalPhotoPaths }
+                p_visit_id: parseInt(p.visitId),
+                p_visit_data: { ...p.visitData, photos: finalPhotoPaths }
               });
               
               if (!updateError && photosToDelete.length > 0) {
@@ -179,7 +202,8 @@ export const SyncService = {
                         })
                     );
                     const results = await Promise.all(promises);
-                    error = results.find(r => r.error)?.error;
+                    const firstErrorResult = results.find(r => !!r.error);
+                    error = firstErrorResult ? firstErrorResult.error : null;
                 }
               } else if (uUpdates.addWinery) {
                   const { winery, notes: aNotes } = uUpdates.addWinery;
@@ -236,27 +260,29 @@ export const SyncService = {
 
             case 'winery_action':
               if (payload.action === 'toggle_favorite') {
+                const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; lat: number; lng: number };
                 const { error: fError } = await supabase.rpc('toggle_favorite', {
                   p_winery_data: WineryService.getRpcData({
-                    id: payload.wineryId,
-                    dbId: payload.wineryDbId,
-                    name: payload.wineryName,
-                    address: payload.wineryAddress,
-                    lat: payload.lat,
-                    lng: payload.lng,
-                  } as any)
+                    id: pW.wineryId as any,
+                    dbId: pW.wineryDbId as any,
+                    name: pW.wineryName,
+                    address: pW.wineryAddress,
+                    lat: pW.lat,
+                    lng: pW.lng,
+                  })
                 });
                 error = fError;
               } else if (payload.action === 'toggle_wishlist') {
+                const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; lat: number; lng: number };
                 const { error: wError } = await supabase.rpc('toggle_wishlist', {
                   p_winery_data: WineryService.getRpcData({
-                    id: payload.wineryId,
-                    dbId: payload.wineryDbId,
-                    name: payload.wineryName,
-                    address: payload.wineryAddress,
-                    lat: payload.lat,
-                    lng: payload.lng,
-                  } as any)
+                    id: pW.wineryId as any,
+                    dbId: pW.wineryDbId as any,
+                    name: pW.wineryName,
+                    address: pW.wineryAddress,
+                    lat: pW.lat,
+                    lng: pW.lng,
+                  })
                 });
                 error = wError;
               } else if (payload.action === 'toggle_favorite_privacy') {

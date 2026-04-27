@@ -192,8 +192,8 @@ test.describe('Deep PWA Offline Sync (Photos)', () => {
     await page.waitForTimeout(5000);
 
     await page.evaluate(async () => {
-        const store = (window as any).useVisitStore.getState();
-        if (!store.isSyncing) await store.syncOfflineVisits();
+        // @ts-ignore
+        await window.SyncService.sync();
     });
 
     // 6. Verify sync results

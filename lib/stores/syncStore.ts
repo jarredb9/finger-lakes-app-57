@@ -11,9 +11,9 @@ interface SyncState {
 
   // Actions
   initialize: () => Promise<void>;
-  addMutation: (params: { type: SyncItem['type']; payload: any; userId: string }) => Promise<void>;
+  addMutation: (params: { type: SyncItem['type']; payload: unknown; userId: string }) => Promise<void>;
   removeMutation: (id: string) => Promise<void>;
-  getDecryptedPayload: (item: SyncItem, userId: string) => Promise<any>;
+  getDecryptedPayload: <T = unknown>(item: SyncItem, userId: string) => Promise<T>;
   reset: () => Promise<void>;
 }
 
@@ -62,8 +62,8 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     await idbSet(IDB_KEY, newQueue);
   },
 
-  getDecryptedPayload: async (item: SyncItem, userId: string) => {
-    return await decrypt(item.encryptedPayload, userId);
+  getDecryptedPayload: async <T = unknown>(item: SyncItem, userId: string): Promise<T> => {
+    return await decrypt(item.encryptedPayload, userId) as T;
   },
 
   reset: async () => {
