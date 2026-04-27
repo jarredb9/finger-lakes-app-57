@@ -25,7 +25,7 @@ import { InteractiveBottomSheet, SheetMode } from "@/components/ui/interactive-b
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { VisitHistoryModal } from "@/components/visit-history-modal";
 import { OfflineIndicator } from "@/components/offline-indicator";
-import { useVisitStore } from "@/lib/stores/visitStore";
+import { SyncService } from "@/lib/services/syncService";
 import { Download, RefreshCw } from "lucide-react";
 import { usePwa } from "@/hooks/use-pwa";
 import { useToast } from "@/hooks/use-toast";
@@ -58,9 +58,9 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
         setHydrated(true);
     }, [setHydrated]);
 
-    // Sync offline visits on mount and when coming back online
+    // Sync offline data on mount and when coming back online
     useEffect(() => {
-        const sync = () => useVisitStore.getState().syncOfflineVisits();
+        const sync = () => SyncService.sync();
 
         // Try to sync immediately on load
         sync();

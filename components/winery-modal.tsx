@@ -44,7 +44,7 @@ export default function WineryModal() {
   const handleWishlistToggle = async () => {
     if (!activeWinery) return;
     try {
-      await toggleWishlist(activeWinery, activeWinery.onWishlist || false);
+      await toggleWishlist(activeWinery);
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to update wishlist." });
     }
@@ -53,7 +53,7 @@ export default function WineryModal() {
   const handleFavoriteToggle = async () => {
     if (!activeWinery) return;
     try {
-      await toggleFavorite(activeWinery, activeWinery.isFavorite || false);
+      await toggleFavorite(activeWinery);
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to update favorites." });
     }

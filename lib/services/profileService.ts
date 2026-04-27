@@ -20,7 +20,7 @@ export class ProfileService {
       if (!error && data) {
         return {
           id: data.id,
-          name: data.name || 'User',
+          full_name: data.name || 'User',
           email: data.email || '',
           privacy_level: data.privacy_level
         };

@@ -4,27 +4,24 @@ import { createMockWinery } from '@/lib/test-utils/fixtures';
 describe('VisitStore Offline Logic', () => {
   const originalOnLine = navigator.onLine;
   let useVisitStore: any;
-  let offlineQueueMock: any;
   let mockRpc: jest.Mock;
+  let syncStoreMock: any;
 
   beforeEach(() => {
     jest.resetModules();
     Object.defineProperty(navigator, 'onLine', { value: true, writable: true });
 
-    // Mock idb-keyval to prevent global scope errors
-    jest.doMock('idb-keyval', () => ({
-      get: jest.fn(),
-      set: jest.fn(),
-      del: jest.fn(),
-    }));
-
-    // Mock Offline Queue
-    offlineQueueMock = {
-      addOfflineMutation: jest.fn(),
-      getOfflineMutations: jest.fn(),
-      removeOfflineMutation: jest.fn(),
+    // Mock SyncStore
+    syncStoreMock = {
+      getState: jest.fn().mockReturnValue({
+        addMutation: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        getDecryptedPayload: jest.fn(),
+      }),
     };
-    jest.doMock('@/lib/utils/offline-queue', () => offlineQueueMock);
+    jest.doMock('@/lib/stores/syncStore', () => ({
+      useSyncStore: syncStoreMock,
+    }));
 
     // Mock Supabase
     mockRpc = jest.fn().mockResolvedValue({ data: { visit_id: 999 }, error: null });
@@ -58,13 +55,13 @@ describe('VisitStore Offline Logic', () => {
           optimisticallyUpdateVisit: jest.fn(),
           confirmOptimisticUpdate: jest.fn(),
           revertOptimisticUpdate: jest.fn(),
+          getWineries: jest.fn().mockReturnValue([]),
         }),
       },
     }));
 
     // Re-require store after mocks
     useVisitStore = require('../visitStore').useVisitStore;
-    // Reset store state if needed, though resetModules should handle it
     useVisitStore.getState().reset();
   });
 
@@ -87,10 +84,14 @@ describe('VisitStore Offline Logic', () => {
       await useVisitStore.getState().saveVisit(winery, visitData);
     });
 
-    expect(offlineQueueMock.addOfflineMutation).toHaveBeenCalledWith(expect.objectContaining({
-      type: 'create',
-      winery: expect.objectContaining({ id: winery.id }),
-      visitData: expect.objectContaining({ user_review: 'Offline review' })
+    // Check if SyncStore.addMutation was called
+    expect(syncStoreMock.getState().addMutation).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'log_visit',
+      userId: 'user-123',
+      payload: expect.objectContaining({
+        user_review: 'Offline review',
+        wineryId: winery.id
+      })
     }));
 
     const visits = useVisitStore.getState().visits;
@@ -120,26 +121,29 @@ describe('VisitStore Offline Logic', () => {
     }), expect.any(Object));
   });
 
-  it('should sync offline visits when online', async () => {
-    const mockOfflineMutation = {
-      id: 'temp-123',
-      type: 'create' as const,
-      timestamp: 123456789,
-      winery: createMockWinery(),
-      visitData: {
-        visit_date: '2023-01-01',
-        user_review: 'Synced review',
-        rating: 5,
-        photos: []
-      }
+  it('should handle offline errors by enqueuing', async () => {
+    // Online but with a network-like error
+    Object.defineProperty(navigator, 'onLine', { value: true, writable: true });
+    
+    mockRpc.mockRejectedValue(new Error('Failed to fetch'));
+
+    const winery = createMockWinery();
+    const visitData = {
+      visit_date: '2023-01-01',
+      user_review: 'Error review',
+      rating: 5,
+      photos: []
     };
 
-    offlineQueueMock.getOfflineMutations.mockResolvedValue([mockOfflineMutation]);
-
     await act(async () => {
-      await useVisitStore.getState().syncOfflineVisits();
+      await useVisitStore.getState().saveVisit(winery, visitData);
     });
 
-    expect(offlineQueueMock.removeOfflineMutation).toHaveBeenCalledWith('temp-123');
+    expect(syncStoreMock.getState().addMutation).toHaveBeenCalledWith(expect.objectContaining({
+      type: 'log_visit',
+      payload: expect.objectContaining({
+        user_review: 'Error review'
+      })
+    }));
   });
 });
