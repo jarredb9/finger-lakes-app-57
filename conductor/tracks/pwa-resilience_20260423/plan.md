@@ -45,11 +45,12 @@
     - [x] Refactor stores to utilize `SyncService` for all mutations.
     - [x] Resolve build and type errors in entity stores and tests.
     - [x] Verify encryption and decryption in e2e/sync-infrastructure.spec.ts.
-- [ ] Task: Implement Photo Reconstitution in Uploader
-    - [ ] Update `PhotoUploader.tsx` to use `binary.ts` (Base64 storage) for offline photos.
-- [ ] Task: Visual Sync Indicators
-    - [ ] Update cards to show `opacity-50` and "Pending" badges for items with `syncStatus === 'pending'`.
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Store Integration' f7862e8
+- [x] Task: Implement Photo Reconstitution in Uploader 640a59a
+    - [x] Update `PhotoUploader.tsx` to use `binary.ts` (Base64 storage) for offline photos.
+- [x] Task: Visual Sync Indicators 1d76a80
+    - [x] Update cards to show `opacity-50` and "Pending" badges for items with `syncStatus === 'pending'`.
+
 
 ### Phase 4: Quota Management & Verification (TDD)
 - [ ] Task: Implement Proactive Quota Cleanup (The Quota Resilience Rule)
