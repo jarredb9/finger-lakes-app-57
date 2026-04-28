@@ -27,7 +27,10 @@ Enhance the application's PWA capabilities by implementing a robust offline muta
     *   **Proactive Cleanup**: Silently purge `google-maps-tiles` and `static-assets` if browser usage exceeds 80%.
 6.  **Offline Data Availability (Read-Only Mode):**
     *   **Mandate**: The application MUST NOT be blank when opened offline.
-    *   **Logic**: Essential data (Visits, Trips) must be selectively persisted to allow users to view their history and plans without a network connection.
+    *   **Logic**: Essential data (Visits, Trips, Favorite Wineries, and Friend Activity) must be selectively persisted to allow users to view their history and plans without a network connection.
+    *   **Scope Expansion**:
+        *   **wineryDataStore**: Persist the first 50 wineries in `persistentWineries` (Master Cache).
+        *   **friendStore**: Persist the first page of `friendActivity` and the user's `friends` list.
 
 ## Technical Standards
 1.  **Storage**: Use `idb-keyval` for the mutation queue and offline data cache.

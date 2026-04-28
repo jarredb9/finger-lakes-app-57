@@ -1,6 +1,6 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { shallow } from 'zustand/shallow';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Winery, Visit, VisitWithWinery, GooglePlaceId, WineryDbId } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { useWineryStore } from './wineryStore';
@@ -11,6 +11,7 @@ import { stabilizePhotos, Base64Photo, isBase64Photo, base64ToFile } from '@/lib
 import { fileToBase64 } from '@/lib/utils/binary';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
 import { isE2E, getE2EHeaders, shouldSkipRealSync } from './e2e-utils';
+import { idbStorage } from './idb-persist-storage';
 
 import { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -576,9 +577,11 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'visit-storage-e2e' : 'visit-storage',
-      partialize: (state) => {
+      storage: createJSONStorage(() => idbStorage),
+      partialize: (state): Partial<VisitState> => {
         if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
         return { 
+          visits: state.visits.slice(0, 20),
           page: state.page, 
           totalPages: state.totalPages, 
           hasMore: state.hasMore,

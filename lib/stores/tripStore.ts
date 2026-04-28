@@ -1,5 +1,5 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Trip, Winery, WineryDbId } from '@/lib/types';
 import { useWineryStore } from './wineryStore';
 import { useWineryDataStore } from './wineryDataStore';
@@ -11,6 +11,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 import { formatDateLocal, getTodayLocal } from '@/lib/utils';
 import { isE2E, getE2EHeaders, shouldSkipRealSync } from './e2e-utils';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
+import { idbStorage } from './idb-persist-storage';
 
 interface TripState {
   trips: Trip[];
@@ -1104,9 +1105,11 @@ export const useTripStore = createWithEqualityFn<TripState>()(
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'trip-storage-e2e' : 'trip-storage',
-      partialize: (state) => {
+      storage: createJSONStorage(() => idbStorage),
+      partialize: (state): Partial<TripState> => {
         if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
         return { 
+          trips: state.trips.slice(0, 20),
           page: state.page,
           count: state.count,
           hasMore: state.hasMore

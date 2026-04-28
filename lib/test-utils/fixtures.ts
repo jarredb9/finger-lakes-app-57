@@ -79,6 +79,26 @@ export const createMockUser = (overrides: Partial<AuthenticatedUser> = {}): Auth
   ...overrides,
 });
 
+export const createMockFriend = (overrides: any = {}) => ({
+  id: 'friend-123',
+  name: 'Mock Friend',
+  email: 'friend@example.com',
+  avatar_url: null,
+  status: 'accepted',
+  ...overrides,
+});
+
+export const createMockFriendActivity = (overrides: any = {}) => ({
+  id: 1,
+  user_id: 'friend-123',
+  user_name: 'Mock Friend',
+  action_type: 'favorite',
+  winery_name: 'Mock Winery',
+  winery_id: 'w1',
+  created_at: new Date().toISOString(),
+  ...overrides,
+});
+
 /**
  * RPC Specific Mocks
  * Standardizes the shape of data returned by Supabase functions

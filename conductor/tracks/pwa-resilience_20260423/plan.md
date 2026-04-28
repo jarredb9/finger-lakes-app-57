@@ -65,10 +65,13 @@
 ### Phase 5: Hardening & Data Availability (TDD)
 - [x] Task: SW Hostname Normalization 369a180
     - [x] Update `sw.ts` to normalize `localhost` and `127.0.0.1` for local development interception.
-- [ ] Task: Implement Selective Data Persistence (Fix Read-Only Blindness)
-    - [ ] Refactor `visitStore` and `tripStore` to persist the first page (or last 20 items) to IndexedDB.
-    - [ ] Ensure hydration logic displays these cached items immediately while the network fetch is pending.
-- [ ] Task: Harden Sync Loop (Non-Blocking Error Handling)
+- [x] Task: Implement Selective Data Persistence (Fix Read-Only Blindness) 6a3f8ee
+    - [x] Refactor `visitStore` and `tripStore` to persist the first page (or last 20 items) to IndexedDB.
+    - [x] Ensure hydration logic displays these cached items immediately while the network fetch is pending.
+- [x] Task: Extend Selective Persistence to wineryDataStore and friendStore 6a3f8ee
+    - [x] Refactor `wineryDataStore` to persist the first 50 cached wineries.
+    - [x] Refactor `friendStore` to persist the first page of activity and the friends list.
+- [~] Task: Harden Sync Loop (Non-Blocking Error Handling)
     - [ ] Update `SyncService.ts` to continue processing the queue if an individual mutation fails.
     - [ ] Implement `syncStatus: 'error'` state to mark blocked items without stopping the service.
 - [ ] Task: Auth Hydration Stability in SyncService

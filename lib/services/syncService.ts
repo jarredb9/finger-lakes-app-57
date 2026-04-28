@@ -53,15 +53,15 @@ export const SyncService = {
     try {
       let { data: { user } } = await supabase.auth.getUser();
       
-      // Retry user fetch once after a short delay if not found, to handle hydration race
+      // Better wait for session hydration
       if (!user) {
-        await new Promise(r => setTimeout(r, 1000));
-        const retry = await supabase.auth.getUser();
-        user = retry.data.user;
+        console.log('[SyncService] User not found, waiting for auth state...');
+        const { data: { session } } = await supabase.auth.getSession();
+        user = session?.user || null;
       }
 
       if (!user) {
-        console.warn('[SyncService] User not authenticated after retry, cannot sync.');
+        console.warn('[SyncService] User not authenticated, cannot sync.');
         this.isSyncing = false;
         return;
       }

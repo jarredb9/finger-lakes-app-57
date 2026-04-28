@@ -1,10 +1,11 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Winery, Visit, WineryDbId } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { standardizeWineryData, GoogleWinery } from '@/lib/utils/winery';
 import { WineryService } from '@/lib/services/wineryService';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
+import { idbStorage } from './idb-persist-storage';
 
 interface WineryDataState {
   persistentWineries: Winery[]; // The Master Cache
@@ -297,10 +298,11 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'winery-data-storage-e2e' : 'winery-data-storage',
-      partialize: (_state) => {
+      storage: createJSONStorage(() => idbStorage),
+      partialize: (state): Partial<WineryDataState> => {
           if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
           return { 
-              // We don't persist persistentWineries anymore to avoid hydration lag
+              persistentWineries: state.persistentWineries.slice(0, 50)
           };
       },
     }
