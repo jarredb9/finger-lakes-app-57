@@ -15,6 +15,9 @@ const SW_VERSION = "2.8.2-stable-" + Date.now();
 console.log(`[SW] Initializing Version: ${SW_VERSION}`);
 
 const isSupabaseUrl = (url: URL) => {
+  // If it's the same origin as the app, it's not a Supabase API call
+  if (url.origin === self.location.origin) return false;
+
   const host = url.hostname;
   return host.includes("supabase.co") || 
          host.includes("127.0.0.1") || 
