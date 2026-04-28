@@ -2,6 +2,7 @@ import { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate, NetworkFirst } from "serwist";
 import { ExpirationPlugin } from "serwist";
 import { checkAndCleanupQuota } from "../lib/utils/quota";
+import { isSupabaseUrl as checkIsSupabaseUrl } from "../lib/utils/sw-utils";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -11,18 +12,41 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
-const SW_VERSION = "2.8.2-stable-" + Date.now();
+const SW_VERSION = "2.8.3-stable"; // Static version to prevent dev loops. Increment manually or via build script.
 console.log(`[SW] Initializing Version: ${SW_VERSION}`);
 
-const isSupabaseUrl = (url: URL) => {
-  // If it's the same origin as the app, it's not a Supabase API call
-  if (url.origin === self.location.origin) return false;
+// ... (rest of imports and helpers)
 
-  const host = url.hostname;
-  return host.includes("supabase.co") || 
-         host.includes("127.0.0.1") || 
-         host.includes("localhost");
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "";
+
+const isSupabaseUrl = (url: URL) => {
+  return checkIsSupabaseUrl(
+    url,
+    SUPABASE_URL,
+    BASE_URL,
+    typeof self !== "undefined" && self.location ? self.location.origin : undefined
+  );
 };
+
+// ...
+
+self.addEventListener("activate", (event) => {
+  // Clear old auth caches on version change to prevent local/live poisoning
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((cacheName) => cacheName.includes("supabase-auth"))
+          .map((cacheName) => {
+            console.log("[SW] Version change: Purging auth cache", cacheName);
+            return caches.delete(cacheName);
+          })
+      );
+    })
+  );
+  event.waitUntil(self.clients.claim());
+});
 
 const googleMapsStrategy = new CacheFirst({
   cacheName: "google-maps-tiles",
