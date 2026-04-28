@@ -61,11 +61,10 @@
     - [x] **FIX**: Resolved hydration mismatch in `AppShell` and `OfflineIndicator` using `useMounted` and `useOnlineStatus` hooks.
 - [x] Task: Implement Sync-Refresh Loop
     - [x] Add store refreshes (visitStore, tripStore, friendStore) to `SyncService` after successful sync.
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Final Verification' 
 
 ### Phase 5: Hardening & Data Availability (TDD)
-- [ ] Task: SW Hostname Normalization
-    - [ ] Update `sw.ts` to normalize `localhost` and `127.0.0.1` for local development interception.
+- [x] Task: SW Hostname Normalization 369a180
+    - [x] Update `sw.ts` to normalize `localhost` and `127.0.0.1` for local development interception.
 - [ ] Task: Implement Selective Data Persistence (Fix Read-Only Blindness)
     - [ ] Refactor `visitStore` and `tripStore` to persist the first page (or last 20 items) to IndexedDB.
     - [ ] Ensure hydration logic displays these cached items immediately while the network fetch is pending.
@@ -74,6 +73,7 @@
     - [ ] Implement `syncStatus: 'error'` state to mark blocked items without stopping the service.
 - [ ] Task: Auth Hydration Stability in SyncService
     - [ ] Implement an explicit wait for session/user hydration in `SyncService.sync()` before attempting decryption.
+- [ ] Task: Conductor - User Manual Verification 'Phase 5: Final Verification' 
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions 6ac8f57
