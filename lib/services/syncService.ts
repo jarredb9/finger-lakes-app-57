@@ -324,7 +324,8 @@ export const SyncService = {
 
           if (error) {
             console.error(`[SyncService] Failed to sync item ${item.id}:`, error);
-            break;
+            // Non-blocking: continue to next item instead of breaking the loop
+            continue; 
           }
 
           syncedTypes.add(item.type);
@@ -333,7 +334,8 @@ export const SyncService = {
 
         } catch (itemError) {
           console.error(`[SyncService] Unexpected error syncing item ${item.id}:`, itemError);
-          break;
+          // Non-blocking: continue to next item
+          continue;
         }
       }
 

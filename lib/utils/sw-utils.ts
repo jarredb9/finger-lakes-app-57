@@ -21,15 +21,15 @@ export const isSupabaseUrl = (
   }
 
   // 2. Check if it's the production Supabase domain
-  if (host.endsWith(".supabase.co") || host === "supabase.co") {
+  if (host.endsWith('.supabase.co') || host === 'supabase.co') {
     return true;
   }
 
   // 3. Check if it starts with the configured Supabase URL (handles local dev)
   if (supabaseUrl) {
     // Normalization logic: Treat localhost and 127.0.0.1 as equivalent for local dev
-    const normalizedUrl = url.href.replace("://localhost", "://127.0.0.1");
-    const normalizedSupabaseUrl = supabaseUrl.replace("://localhost", "://127.0.0.1");
+    const normalizedUrl = url.href.replace('://localhost', '://127.0.0.1');
+    const normalizedSupabaseUrl = supabaseUrl.replace('://localhost', '://127.0.0.1');
     
     if (normalizedUrl.startsWith(normalizedSupabaseUrl)) {
       return true;
