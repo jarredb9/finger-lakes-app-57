@@ -63,6 +63,18 @@
     - [x] Add store refreshes (visitStore, tripStore, friendStore) to `SyncService` after successful sync.
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Final Verification' 
 
+### Phase 5: Hardening & Data Availability (TDD)
+- [ ] Task: SW Hostname Normalization
+    - [ ] Update `sw.ts` to normalize `localhost` and `127.0.0.1` for local development interception.
+- [ ] Task: Implement Selective Data Persistence (Fix Read-Only Blindness)
+    - [ ] Refactor `visitStore` and `tripStore` to persist the first page (or last 20 items) to IndexedDB.
+    - [ ] Ensure hydration logic displays these cached items immediately while the network fetch is pending.
+- [ ] Task: Harden Sync Loop (Non-Blocking Error Handling)
+    - [ ] Update `SyncService.ts` to continue processing the queue if an individual mutation fails.
+    - [ ] Implement `syncStatus: 'error'` state to mark blocked items without stopping the service.
+- [ ] Task: Auth Hydration Stability in SyncService
+    - [ ] Implement an explicit wait for session/user hydration in `SyncService.sync()` before attempting decryption.
+
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions 6ac8f57
 - [x] Task: Normalize string quotes in usePWAUpdate 683eed0
@@ -75,3 +87,5 @@
 - [x] Task: Apply Phase 3 review suggestions (TypeScript & E2E fixes) 8f0b864
 - [x] Task: Apply Phase 3 review suggestions (RPC search_path safety) f71d5df
 - [x] Task: Consolidate binary utilities (Review Suggestion) 6634220
+
+

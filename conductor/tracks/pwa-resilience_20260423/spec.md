@@ -25,15 +25,21 @@ Enhance the application's PWA capabilities by implementing a robust offline muta
 5.  **Quota Management & Resilience:**
     *   **Strategy**: Maintain the aggressive `unhandledrejection` recovery logic in `sw.ts`.
     *   **Proactive Cleanup**: Silently purge `google-maps-tiles` and `static-assets` if browser usage exceeds 80%.
+6.  **Offline Data Availability (Read-Only Mode):**
+    *   **Mandate**: The application MUST NOT be blank when opened offline.
+    *   **Logic**: Essential data (Visits, Trips) must be selectively persisted to allow users to view their history and plans without a network connection.
 
 ## Technical Standards
-1.  **Storage**: Use `idb-keyval` for the mutation queue.
-2.  **State Management**: Implement **`useSyncStore`** (Zustand) for reactive sync status.
-3.  **ID Normalization**: Strictly enforce `Number()` conversion for all `WineryDbId` values during store hydration.
+1.  **Storage**: Use `idb-keyval` for the mutation queue and offline data cache.
+2.  **Sync Hardening**: 
+    *   **Hostname Normalization**: Service Worker interception MUST treat `localhost` and `127.0.0.1` as equivalent.
+    *   **Non-Blocking Loop**: The sync process MUST NOT halt on individual mutation errors; failing items must be marked and the queue must proceed.
+3.  **State Management**: Implement **`useSyncStore`** (Zustand) for reactive sync status.
+4.  **ID Normalization**: Strictly enforce `Number()` conversion for all `WineryDbId` values during store hydration.
 
 ## Acceptance Criteria
 *   New SW version shows a toast instead of a force-reload.
 *   Updating a visit while offline stores an encrypted record in the `SyncStore`.
+*   **Offline Visibility**: Refreshing the app while offline preserves visibility of recently fetched visits and trips.
+*   **Queue Resilience**: A single failing mutation (e.g., 400/500 from server) does not block subsequent mutations in the queue from syncing.
 *   Photos taken offline are stored as Base64 and successfully uploaded as `File` objects.
-*   Reconnecting triggers an "Upload First" sequence that clears the queue before fetching new data.
-*   `selectedTrip` is removed from `mapStore.ts` and managed solely by `tripStore`.
