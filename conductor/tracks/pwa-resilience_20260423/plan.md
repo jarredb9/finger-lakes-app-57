@@ -71,10 +71,10 @@
 - [x] Task: Extend Selective Persistence to wineryDataStore and friendStore c472289
     - [x] Refactor `wineryDataStore` to persist the first 50 cached wineries.
     - [x] Refactor `friendStore` to persist the first page of activity and the friends list.
-- [~] Task: Harden Sync Loop (Non-Blocking Error Handling)
-    - [ ] Update `SyncService.ts` to continue processing the queue if an individual mutation fails.
-    - [ ] Implement `syncStatus: 'error'` state to mark blocked items without stopping the service.
-- [ ] Task: Auth Hydration Stability in SyncService
+- [x] Task: Harden Sync Loop (Non-Blocking Error Handling) e6fbc3e
+    - [x] Update `SyncService.ts` to continue processing the queue if an individual mutation fails.
+    - [x] Implement `syncStatus: 'error'` state to mark blocked items without stopping the service.
+- [~] Task: Auth Hydration Stability in SyncService
     - [ ] Implement an explicit wait for session/user hydration in `SyncService.sync()` before attempting decryption.
 - [ ] Task: Conductor - User Manual Verification 'Phase 5: Final Verification' 
 
