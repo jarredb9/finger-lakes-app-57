@@ -9,19 +9,19 @@
     "loadFromIncludeDirectories": true
   },
   "mcpServers": {
-    "google-maps-platform-code-assist": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@googlemaps/code-assist-mcp@latest"
-      ]
-    },
-    "a11y-mcp": {
-      "command": "npx",
-      "args": [
-        "a11y-mcp@latest"
-      ]
-    },
+    // "google-maps-platform-code-assist": {
+    //   "command": "npx",
+    //   "args": [
+    //     "-y",
+    //     "@googlemaps/code-assist-mcp@latest"
+    //   ]
+    // },
+    // "a11y-mcp": {
+    //   "command": "npx",
+    //   "args": [
+    //     "a11y-mcp@latest"
+    //   ]
+    // },
     "next-devtools": {
       "command": "npx",
       "args": [
@@ -36,10 +36,10 @@
     },
     "supabase": {
       "httpUrl": "https://mcp.supabase.com/mcp"
-    },
-    "pg-aiguide": {
-      "url": "https://mcp.tigerdata.com/docs"
-    },
+    }
+    // "pg-aiguide": {
+    //   "url": "https://mcp.tigerdata.com/docs"
+    // },
     // "vercel": {
     //   "command": "npx",
     //   "args": [
@@ -47,31 +47,31 @@
     //     "https://mcp.vercel.com"
     //   ]
     // },
-    "firecrawl-mcp": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "firecrawl-mcp"
-      ],
-      "env": {
-        "FIRECRAWL_API_KEY": "$FIRECRAWL_API_KEY"
-      }
-    },
-    "tailwindcss-server": {
-      "command": "tailwindcss-server"
-    },
-    "CodeGraphContext": {
-      "command": "cgc",
-      "args": [
-        "mcp",
-        "start"
-      ],
-      "env": {
-        "NEO4J_URI": "$NEO4J_URI",
-        "NEO4J_USERNAME": "$NEO4J_USERNAME",
-        "NEO4J_PASSWORD": "$NEO4J_PASSWORD"
-      }
-    }
+    // "firecrawl-mcp": {
+    //   "command": "npx",
+    //   "args": [
+    //     "-y",
+    //     "firecrawl-mcp"
+    //   ],
+    //   "env": {
+    //     "FIRECRAWL_API_KEY": "$FIRECRAWL_API_KEY"
+    //   }
+    // },
+    // "tailwindcss-server": {
+    //   "command": "tailwindcss-server"
+    // },
+    // "CodeGraphContext": {
+    //   "command": "cgc",
+    //   "args": [
+    //     "mcp",
+    //     "start"
+    //   ],
+    //   "env": {
+    //     "NEO4J_URI": "$NEO4J_URI",
+    //     "NEO4J_USERNAME": "$NEO4J_USERNAME",
+    //     "NEO4J_PASSWORD": "$NEO4J_PASSWORD"
+    //   }
+    // }
   },
   "skills": {
     "disabled": [

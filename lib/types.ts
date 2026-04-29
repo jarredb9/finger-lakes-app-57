@@ -77,6 +77,7 @@ export interface SyncItem {
   encryptedPayload: string; // AES-GCM encrypted JSON
   createdAt: string;
   userId: string; // To ensure multi-user isolation on the same device
+  status?: SyncStatus;
 }
 
 // Derived Interfaces (Frontend Models)

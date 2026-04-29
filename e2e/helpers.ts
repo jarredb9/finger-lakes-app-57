@@ -83,16 +83,23 @@ export async function dismissCookieConsent(page: Page) {
  * Clears service workers and related caches for a fresh test state.
  */
 export async function clearServiceWorkers(page: Page) {
-    // Proactively set flags that MUST survive across the cleanup navigations
+    // 1. Navigate to about:blank first to ensure all app-level IndexedDB connections are closed.
+    // This prevents deleteDatabase calls from being 'blocked' by open connections.
+    await page.goto('about:blank').catch(() => {});
+
+    // 2. Proactively set flags that MUST survive across the cleanup navigations
+    // We add them as init script for the NEXT navigation (to /)
     await page.addInitScript(() => {
         (window as any)._E2E_ENABLE_REAL_SYNC = true;
         window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
         window.localStorage.setItem('cookie-consent', 'true');
     });
 
-    // Navigate to / first to ensure we have a valid origin for SW/IndexedDB access
-    // This is CRITICAL for WebKit/Safari to allow cross-origin storage cleanup
+    // 3. Clear storage on about:blank origin first (though usually blank has no storage)
+    // Then navigate to / to clear the actual app origin storage
     await page.goto('/').catch(() => {});
+    await page.waitForLoadState('load');
+    await page.waitForLoadState('networkidle');
 
     await page.evaluate(async () => {
         try {
@@ -116,19 +123,22 @@ export async function clearServiceWorkers(page: Page) {
             if (window.indexedDB && window.indexedDB.databases) {
                 const dbs = await window.indexedDB.databases();
                 for (const db of dbs) {
-                    if (db.name) window.indexedDB.deleteDatabase(db.name);
+                    if (db.name) {
+                        window.indexedDB.deleteDatabase(db.name);
+                    }
                 }
             }
             // Standard LocalStorage/SessionStorage cleanup
-            window.localStorage.removeItem('winery-data-storage-e2e');
-            // We KEEP _E2E_ENABLE_REAL_SYNC as it's foundational for the test session
-            // window.localStorage.clear() below will hit it, so we re-set after clear
             window.localStorage.clear();
             window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
             window.localStorage.setItem('cookie-consent', 'true');
             window.sessionStorage.clear();
         } catch (e) {}
     });
+
+    // 4. Navigate back to about:blank to ENSURE all connections are closed after cleanup
+    // so the deletions can actually finish before the next test step starts.
+    await page.goto('about:blank').catch(() => {});
 }
 export async function refreshFriendsStore(page: Page) {
     await page.evaluate(async () => {

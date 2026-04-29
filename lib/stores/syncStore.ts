@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SyncItem } from '@/lib/types';
+import { SyncItem, SyncStatus } from '@/lib/types';
 import { encrypt, decrypt } from '@/lib/utils/crypto';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 
@@ -12,10 +12,30 @@ interface SyncState {
   // Actions
   initialize: () => Promise<void>;
   addMutation: (params: { type: SyncItem['type']; payload: unknown; userId: string }) => Promise<void>;
+  updateMutationStatus: (id: string, status: SyncStatus) => Promise<void>;
   removeMutation: (id: string) => Promise<void>;
   getDecryptedPayload: <T = unknown>(item: SyncItem, userId: string) => Promise<T>;
   reset: () => Promise<void>;
 }
+
+let initPromise: Promise<void> | null = null;
+let idbPromise = Promise.resolve();
+
+const persistToIdb = async (queue: SyncItem[]) => {
+  const length = queue.length;
+  console.log(`[SyncStore] Persisting queue of length ${length} to IDB...`);
+  idbPromise = idbPromise.then(async () => {
+    try {
+      await idbSet(IDB_KEY, queue);
+      console.log(`[SyncStore] Successfully wrote queue of length ${length} to IDB.`);
+    } catch (err) {
+      console.error(`[SyncStore] Failed to write queue of length ${length} to IDB:`, err);
+    }
+  }).catch(err => {
+    console.error('[SyncStore] Critical error in idbPromise chain:', err);
+  });
+  return idbPromise;
+};
 
 export const useSyncStore = create<SyncState>((set, get) => ({
   queue: [],
@@ -23,24 +43,41 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
   initialize: async () => {
     if (get().isInitialized) return;
-    
-    try {
-      const persistedQueue = await idbGet(IDB_KEY);
-      if (persistedQueue && Array.isArray(persistedQueue)) {
-        set({ queue: persistedQueue, isInitialized: true });
-      } else {
+    if (initPromise) return initPromise;
+
+    initPromise = (async () => {
+      try {
+        console.log('[SyncStore] Initializing from IDB...');
+        
+        let persistedQueue: any;
+        for (let i = 0; i < 3; i++) {
+          persistedQueue = await idbGet(IDB_KEY);
+          if (Array.isArray(persistedQueue)) break;
+          console.log(`[SyncStore] IDB attempt ${i + 1} got ${typeof persistedQueue}. Retrying in 500ms...`);
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+
+        if (Array.isArray(persistedQueue)) {
+          console.log(`[SyncStore] Hydrated queue with ${persistedQueue.length} items from IDB.`);
+          set({ queue: persistedQueue, isInitialized: true });
+        } else {
+          console.log(`[SyncStore] No persisted queue found in IDB (got: ${typeof persistedQueue}).`);
+          set({ isInitialized: true });
+        }
+      } catch (err) {
+        console.error('[SyncStore] Initialization failed:', err);
         set({ isInitialized: true });
+      } finally {
+        initPromise = null;
       }
-    } catch (err) {
-      console.error('[SyncStore] Initialization failed:', err);
-      set({ isInitialized: true }); // Still mark as initialized to avoid loops
-    }
+    })();
+
+    return initPromise;
   },
 
   addMutation: async ({ type, payload, userId }) => {
-    // Reload from IDB first to ensure we don't overwrite other tabs or recent reloads
-    const currentPersisted = await idbGet(IDB_KEY);
-    const existingQueue = Array.isArray(currentPersisted) ? currentPersisted : get().queue;
+    console.log(`[SyncStore] addMutation: type=${type}, userId=${userId}`);
+    await get().initialize();
 
     // 1. Encrypt payload
     const encryptedPayload = await encrypt(payload, userId);
@@ -52,22 +89,48 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       encryptedPayload,
       createdAt: new Date().toISOString(),
       userId,
+      status: 'pending',
     };
 
     // 3. Update state and persist
-    const newQueue = [...existingQueue, newItem];
-    set({ queue: newQueue });
-    await idbSet(IDB_KEY, newQueue);
+    set((state) => {
+      const newQueue = [...state.queue, newItem];
+      console.log(`[SyncStore] Setting new queue length ${newQueue.length}. New item: ${newItem.id}`);
+      return { queue: newQueue };
+    });
+
+    await persistToIdb(get().queue);
+    console.log('[SyncStore] Persisted new queue to IDB.');
+  },
+
+  updateMutationStatus: async (id: string, status: SyncStatus) => {
+    console.log(`[SyncStore] updateMutationStatus: id=${id}, status=${status}`);
+    await get().initialize();
+
+    set((state) => {
+      const newQueue = state.queue.map((item) => 
+        item.id === id ? { ...item, status } : item
+      );
+      console.log(`[SyncStore] Setting updated queue length ${newQueue.length} for ${id}`);
+      return { queue: newQueue };
+    });
+    
+    await persistToIdb(get().queue);
+    console.log('[SyncStore] Persisted updated queue to IDB.');
   },
 
   removeMutation: async (id: string) => {
-    // Reload from IDB first
-    const currentPersisted = await idbGet(IDB_KEY);
-    const existingQueue = Array.isArray(currentPersisted) ? currentPersisted : get().queue;
+    console.log(`[SyncStore] removeMutation: id=${id}`);
+    await get().initialize();
 
-    const newQueue = existingQueue.filter((item) => item.id !== id);
-    set({ queue: newQueue });
-    await idbSet(IDB_KEY, newQueue);
+    set((state) => {
+      const newQueue = state.queue.filter((item) => item.id !== id);
+      console.log(`[SyncStore] Setting new queue length ${newQueue.length} (after removal of ${id})`);
+      return { queue: newQueue };
+    });
+
+    await persistToIdb(get().queue);
+    console.log('[SyncStore] Persisted filtered queue to IDB.');
   },
 
   getDecryptedPayload: async <T = unknown>(item: SyncItem, userId: string): Promise<T> => {
@@ -75,6 +138,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   },
 
   reset: async () => {
+    console.log('[SyncStore] reset: Clearing queue and IDB');
     set({ queue: [] });
     await idbSet(IDB_KEY, []);
   },

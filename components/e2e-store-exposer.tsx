@@ -21,8 +21,6 @@ export function E2EStoreExposer() {
       const isDev = process.env.NODE_ENV === 'development';
       const isE2E = process.env.NEXT_PUBLIC_IS_E2E === 'true';
       
-      console.log(`[DIAGNOSTIC] E2EStoreExposer mounting. isDev=${isDev}, isE2E=${isE2E}`);
-
       if (isDev || isE2E) {
         (window as any).useWineryDataStore = useWineryDataStore;
         (window as any).useWineryStore = useWineryStore;

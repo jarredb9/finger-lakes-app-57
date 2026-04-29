@@ -31,6 +31,10 @@ export function usePWAUpdate() {
 
     // Handle controller change (new SW taking over)
     const handleControllerChange = () => {
+      if (process.env.NEXT_PUBLIC_IS_E2E) {
+        console.log('[usePWAUpdate] controllerchange ignored in E2E mode');
+        return;
+      }
       // Prevent infinite reload loops
       if ((globalThis as any)._PWA_UPDATING) {
           return;

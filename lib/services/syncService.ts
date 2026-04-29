@@ -41,16 +41,27 @@ export const SyncService = {
       return;
     }
 
-    const { queue, removeMutation, getDecryptedPayload } = useSyncStore.getState();
-    if (queue.length === 0) return;
+    // 1. Wait for store initialization
+    const syncStore = useSyncStore.getState();
+    if (!syncStore.isInitialized) {
+        console.log('[SyncService] Waiting for SyncStore initialization...');
+        await syncStore.initialize();
+    }
+
+    const { queue, removeMutation, updateMutationStatus, getDecryptedPayload } = useSyncStore.getState();
+    if (queue.length === 0) {
+        console.log('[SyncService] Queue is empty, nothing to sync.');
+        return;
+    }
 
     this.isSyncing = true;
     console.log(`[SyncService] Starting sync for ${queue.length} items.`);
 
     const supabase = createClient();
-    const syncedTypes = new Set<string>();
+    const processedTypes = new Set<string>();
 
     try {
+      console.log('[SyncService] Fetching user...');
       let { data: { user } } = await supabase.auth.getUser();
       
       // Better wait for session hydration
@@ -65,12 +76,34 @@ export const SyncService = {
         this.isSyncing = false;
         return;
       }
+      console.log(`[SyncService] Authenticated as ${user.id}. Processing queue...`);
 
-      for (const item of queue) {
+      // We use a copy of the queue for iteration, but we check each item's 
+      // current status from the store before processing.
+      for (const queueItem of queue) {
+        // Re-read item from store state to get current status
+        const item = useSyncStore.getState().queue.find(i => i.id === queueItem.id);
+        if (!item) {
+          console.log(`[SyncService] Skipping item ${queueItem.id} (no longer in queue).`);
+          continue;
+        }
+
+        console.log(`[SyncService] Processing item ${item.id} (type: ${item.type}, status: ${item.status || 'pending'})`);
+        
+        // Skip items that previously failed to avoid blocking new items
+        if (item.status === 'error') {
+          console.log(`[SyncService] Skipping item ${item.id} because it previously failed.`);
+          continue;
+        }
+
+        processedTypes.add(item.type);
+
         try {
+          console.log(`[SyncService] Decrypting payload for ${item.id}...`);
           const payload = await getDecryptedPayload<any>(item, user.id);
           let error = null;
 
+          console.log(`[SyncService] Executing RPC for ${item.type}...`);
           switch (item.type) {
             case 'log_visit': {
               const p = payload as LogVisitPayload;
@@ -323,36 +356,38 @@ export const SyncService = {
           }
 
           if (error) {
-            console.error(`[SyncService] Failed to sync item ${item.id}:`, error);
-            // Non-blocking: continue to next item instead of breaking the loop
+            console.warn(`[SyncService] Failed to sync item ${item.id} (${item.type}):`, error);
+            console.log(`[SyncService] Marking item ${item.id} as error in store.`);
+            await updateMutationStatus(item.id, 'error');
             continue; 
           }
 
-          syncedTypes.add(item.type);
+          console.log(`[SyncService] Successfully synced item ${item.id}. Removing from queue...`);
           await removeMutation(item.id);
-          console.log(`[SyncService] Successfully synced item ${item.id}`);
+          console.log(`[SyncService] Removed item ${item.id} from queue.`);
 
         } catch (itemError) {
-          console.error(`[SyncService] Unexpected error syncing item ${item.id}:`, itemError);
-          // Non-blocking: continue to next item
+          console.warn(`[SyncService] Unexpected error syncing item ${item.id}:`, itemError);
+          console.log(`[SyncService] Marking item ${item.id} as error (caught).`);
+          await updateMutationStatus(item.id, 'error');
           continue;
         }
       }
 
-      // Refresh stores if anything was synced
-      if (syncedTypes.size > 0) {
-        console.log(`[SyncService] Refreshing stores for synced types: ${Array.from(syncedTypes).join(', ')}`);
+      // Refresh stores if anything was processed
+      if (processedTypes.size > 0) {
+        console.log(`[SyncService] Refreshing stores for processed types: ${Array.from(processedTypes).join(', ')}`);
         
-        if (syncedTypes.has('log_visit') || syncedTypes.has('update_visit') || syncedTypes.has('delete_visit')) {
+        if (processedTypes.has('log_visit') || processedTypes.has('update_visit') || processedTypes.has('delete_visit')) {
           useVisitStore.getState().fetchVisits(1, true);
         }
         
-        if (syncedTypes.has('create_trip') || syncedTypes.has('update_trip') || syncedTypes.has('delete_trip')) {
+        if (processedTypes.has('create_trip') || processedTypes.has('update_trip') || processedTypes.has('delete_trip')) {
           useTripStore.getState().fetchTrips(1, 'upcoming', true);
           useTripStore.getState().fetchUpcomingTrips();
         }
         
-        if (syncedTypes.has('social_action')) {
+        if (processedTypes.has('social_action')) {
           useFriendStore.getState().fetchFriends();
           useFriendStore.getState().fetchRequests();
           useFriendStore.getState().fetchFriendActivityFeed();

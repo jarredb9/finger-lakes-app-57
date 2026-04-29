@@ -62,7 +62,9 @@ export default function RootLayout({
               <VisitFormModal />
               <WineryNoteModal />
             </main>
-            {(process.env.NODE_ENV !== 'production' || process.env.IS_E2E === 'true') && <E2EStoreExposer />}
+            {(process.env.NODE_ENV !== 'production' || process.env.IS_E2E === 'true') && (
+              <E2EStoreExposer />
+            )}
             <CookieConsent />
           </div>
         </TooltipProvider>

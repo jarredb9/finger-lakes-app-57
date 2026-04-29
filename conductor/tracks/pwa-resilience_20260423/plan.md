@@ -91,5 +91,6 @@
 - [x] Task: Apply Phase 3 review suggestions (RPC search_path safety) f71d5df
 - [x] Task: Consolidate binary utilities (Review Suggestion) 6634220
 - [x] Task: Apply Phase 5 review suggestions (Non-blocking sync & style) e0fcca2
+- [x] Task: Fix IndexedDB race condition and harden sync resilience (Review Fix)
 
 
