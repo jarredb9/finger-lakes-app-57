@@ -15,11 +15,13 @@ describe('SyncService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    (SyncService as any).isSyncing = false;
 
     mockSupabase = {
       auth: {
         getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user-id' } }, error: null }),
         getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'test-user-id' } } }, error: null }),
+        onAuthStateChange: jest.fn().mockReturnValue({ data: { subscription: { unsubscribe: jest.fn() } } }),
       },
       rpc: jest.fn().mockResolvedValue({ data: {}, error: null }),
       storage: {
@@ -29,6 +31,16 @@ describe('SyncService', () => {
     };
 
     (createClient as jest.Mock).mockReturnValue(mockSupabase);
+    
+    // Mock useSyncStore.getState()
+    (useSyncStore.getState as jest.Mock).mockReturnValue({
+      queue: [],
+      isInitialized: true,
+      initialize: jest.fn().mockResolvedValue(undefined),
+      removeMutation: jest.fn(),
+      updateMutationStatus: jest.fn(),
+      getDecryptedPayload: jest.fn(),
+    });
   });
 
   it('should not sync if already syncing', async () => {
@@ -36,7 +48,10 @@ describe('SyncService', () => {
     // We'll mock useSyncStore.getState() to return an empty queue
     (useSyncStore.getState as jest.Mock).mockReturnValue({
       queue: [],
+      isInitialized: true,
+      initialize: jest.fn().mockResolvedValue(undefined),
       removeMutation: jest.fn(),
+      updateMutationStatus: jest.fn(),
       getDecryptedPayload: jest.fn(),
     });
 
@@ -44,10 +59,6 @@ describe('SyncService', () => {
     const syncPromise2 = SyncService.sync();
 
     await Promise.all([syncPromise1, syncPromise2]);
-
-    // If it was already syncing, useSyncStore.getState should have been called twice (once for each sync call)
-    // but the actual sync logic (checking queue) should only happen if not already syncing.
-    // We'll refine this test once we have implementation details.
   });
 
   it('should replay mutations in the queue (Upload First)', async () => {
@@ -61,7 +72,10 @@ describe('SyncService', () => {
 
     const mockSyncStore = {
       queue: [mockMutation],
+      isInitialized: true,
+      initialize: jest.fn().mockResolvedValue(undefined),
       removeMutation: jest.fn().mockResolvedValue(undefined),
+      updateMutationStatus: jest.fn(),
       getDecryptedPayload: jest.fn().mockResolvedValue({
         visit_date: '2023-01-01',
         user_review: 'Great',
@@ -96,7 +110,10 @@ describe('SyncService', () => {
 
     const mockSyncStore = {
       queue: [mockMutation],
+      isInitialized: true,
+      initialize: jest.fn().mockResolvedValue(undefined),
       removeMutation: jest.fn().mockResolvedValue(undefined),
+      updateMutationStatus: jest.fn(),
       getDecryptedPayload: jest.fn().mockResolvedValue({
         tripId: '456',
         updates: { name: 'Updated Trip' }
@@ -131,7 +148,10 @@ describe('SyncService', () => {
 
     const mockSyncStore = {
       queue: [mockMutation],
+      isInitialized: true,
+      initialize: jest.fn().mockResolvedValue(undefined),
       removeMutation: jest.fn().mockResolvedValue(undefined),
+      updateMutationStatus: jest.fn(),
       getDecryptedPayload: jest.fn().mockResolvedValue({ tripId: '456' }),
     };
 
@@ -153,7 +173,10 @@ describe('SyncService', () => {
 
     const mockSyncStore = {
       queue: [mockMutation],
+      isInitialized: true,
+      initialize: jest.fn().mockResolvedValue(undefined),
       removeMutation: jest.fn().mockResolvedValue(undefined),
+      updateMutationStatus: jest.fn(),
       getDecryptedPayload: jest.fn().mockResolvedValue({ type: 'privacy', level: 'friends_only' }),
     };
 
@@ -175,7 +198,10 @@ describe('SyncService', () => {
 
     const mockSyncStore = {
       queue: [mockMutation],
+      isInitialized: true,
+      initialize: jest.fn().mockResolvedValue(undefined),
       removeMutation: jest.fn().mockResolvedValue(undefined),
+      updateMutationStatus: jest.fn(),
       getDecryptedPayload: jest.fn().mockResolvedValue({ action: 'send_request', email: 'friend@example.com' }),
     };
 
@@ -187,13 +213,16 @@ describe('SyncService', () => {
     expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-social');
   });
 
-  it('should stop replaying if a mutation fails (atomic-ish)', async () => {
-    const mockMutation1 = { id: 'sync-1', type: 'log_visit', userId: 'test-user-id' };
-    const mockMutation2 = { id: 'sync-2', type: 'log_visit', userId: 'test-user-id' };
+  it('should continue replaying if a mutation fails', async () => {
+    const mockMutation1 = { id: 'sync-1', type: 'log_visit', userId: 'test-user-id', status: 'pending' };
+    const mockMutation2 = { id: 'sync-2', type: 'log_visit', userId: 'test-user-id', status: 'pending' };
 
     const mockSyncStore = {
       queue: [mockMutation1, mockMutation2],
+      isInitialized: true,
+      initialize: jest.fn().mockResolvedValue(undefined),
       removeMutation: jest.fn().mockResolvedValue(undefined),
+      updateMutationStatus: jest.fn(),
       getDecryptedPayload: jest.fn().mockResolvedValue({}),
     };
 
@@ -204,11 +233,13 @@ describe('SyncService', () => {
 
     await SyncService.sync();
 
-    // Verify first RPC was called
-    expect(mockSupabase.rpc).toHaveBeenCalledTimes(1);
+    // Verify both RPCs were called (non-blocking)
+    expect(mockSupabase.rpc).toHaveBeenCalledTimes(2);
 
-    // Verify first mutation was NOT removed
-    expect(mockSyncStore.removeMutation).not.toHaveBeenCalled();
+    // Verify first mutation was NOT removed but marked as error
+    expect(mockSyncStore.removeMutation).toHaveBeenCalledTimes(1);
+    expect(mockSyncStore.removeMutation).not.toHaveBeenCalledWith('sync-1');
+    expect(mockSyncStore.updateMutationStatus).toHaveBeenCalledWith('sync-1', 'error');
   });
 
   it('should trigger sync when the window online event fires', async () => {

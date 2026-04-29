@@ -30,6 +30,34 @@ interface UpdateVisitPayload {
 export const SyncService = {
   isSyncing: false,
 
+  async waitForAuth(supabase: any) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) return user;
+
+    console.log('[SyncService] User not found, waiting for auth hydration...');
+
+    return new Promise<any>((resolve) => {
+      const timeout = setTimeout(() => {
+        console.log('[SyncService] Auth hydration timed out.');
+        subscription.unsubscribe();
+        resolve(null);
+      }, 3000);
+
+      const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
+        console.log(`[SyncService] Auth state changed: ${event}`);
+        if (session?.user) {
+          clearTimeout(timeout);
+          subscription.unsubscribe();
+          resolve(session.user);
+        } else if (event === 'SIGNED_OUT') {
+          clearTimeout(timeout);
+          subscription.unsubscribe();
+          resolve(null);
+        }
+      });
+    });
+  },
+
   async sync() {
     if (typeof window !== 'undefined' && !navigator.onLine) {
       console.log('[SyncService] Offline, skipping sync.');
@@ -62,14 +90,7 @@ export const SyncService = {
 
     try {
       console.log('[SyncService] Fetching user...');
-      let { data: { user } } = await supabase.auth.getUser();
-      
-      // Better wait for session hydration
-      if (!user) {
-        console.log('[SyncService] User not found, waiting for auth state...');
-        const { data: { session } } = await supabase.auth.getSession();
-        user = session?.user || null;
-      }
+      const user = await this.waitForAuth(supabase);
 
       if (!user) {
         console.warn('[SyncService] User not authenticated, cannot sync.');
@@ -408,7 +429,7 @@ if (typeof window !== 'undefined') {
     SyncService.sync();
   });
 
-  if (navigator.onLine) {
+  if (navigator.onLine && process.env.NODE_ENV !== 'test') {
     SyncService.sync();
   }
 }

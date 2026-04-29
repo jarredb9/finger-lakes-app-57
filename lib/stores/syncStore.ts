@@ -145,7 +145,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 }));
 
 // Initialize store on load if in browser
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
   useSyncStore.getState().initialize();
   (window as any).useSyncStore = useSyncStore;
 }
