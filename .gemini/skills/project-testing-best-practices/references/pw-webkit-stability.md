@@ -34,9 +34,11 @@ await route.fulfill({
 To ensure high performance in containerized environments, avoid expensive `**/*` catch-all proxies.
 - **Standard:** Use targeted regex/glob patterns for Supabase and Google Maps interception. This reduces CPU overhead and eliminates network race conditions in multi-worker scenarios.
 
-### 4. The Storage Origin Rule
-`window.indexedDB`, `localStorage`, and `caches` in WebKit often throw `SecurityError` or silently fail if accessed before a valid origin is established.
-- **Rule:** Automated cleanup helpers (like `clearServiceWorkers`) MUST navigate to the application's domain (e.g., `await page.goto('/')`) BEFORE attempting to clear storage or unregister workers.
+### 4. The Storage Origin Rule (IDB Deletion)
+`window.indexedDB`, `localStorage`, and `caches` in WebKit often throw `SecurityError` or silently fail if accessed before a valid origin is established. Furthermore, IndexedDB deletion can be **blocked indefinitely** if the application still has open connections.
+- **Rule:** Automated cleanup helpers (like `clearServiceWorkers`) MUST navigate to `about:blank` BEFORE and AFTER attempting to clear storage. 
+- **Rationale:** Navigating to `about:blank` forces the browser to close all active connections to the application's origin, allowing the `deleteDatabase` request to proceed immediately instead of being queued/blocked.
+
 
 ### 5. The SSR Safety Rule (E2E Utilities)
 Diagnostic components like `E2EStoreExposer` must be strictly gated to the browser.
