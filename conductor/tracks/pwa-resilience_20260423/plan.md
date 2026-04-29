@@ -74,8 +74,8 @@
 - [x] Task: Harden Sync Loop (Non-Blocking Error Handling) e6fbc3e
     - [x] Update `SyncService.ts` to continue processing the queue if an individual mutation fails.
     - [x] Implement `syncStatus: 'error'` state to mark blocked items without stopping the service.
-- [~] Task: Auth Hydration Stability in SyncService
-    - [ ] Implement an explicit wait for session/user hydration in `SyncService.sync()` before attempting decryption.
+- [x] Task: Auth Hydration Stability in SyncService cb03457
+    - [x] Implement an explicit wait for session/user hydration in `SyncService.sync()` before attempting decryption.
 - [ ] Task: Conductor - User Manual Verification 'Phase 5: Final Verification' 
 
 ## Phase: Review Fixes
