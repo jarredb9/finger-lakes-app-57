@@ -20,7 +20,7 @@ test.describe('DatePicker UX', () => {
     });
 
     await test.step('Open DatePicker Popover', async () => {
-        const datePickerBtn = page.getByRole('button', { name: 'Pick a date' });
+        const datePickerBtn = page.getByTestId('datepicker-trigger');
         await datePickerBtn.click();
         // Desktop uses Popover - DayPicker v9 uses role="grid"
         await expect(page.getByRole('grid')).toBeVisible();
@@ -63,7 +63,7 @@ test.describe('DatePicker UX', () => {
     });
 
     await test.step('Open DatePicker Drawer', async () => {
-        const datePickerBtn = page.getByRole('button', { name: 'Pick a date' });
+        const datePickerBtn = page.getByTestId('datepicker-trigger');
         await datePickerBtn.click();
         
         // Mobile uses Drawer which has a title
@@ -79,8 +79,40 @@ test.describe('DatePicker UX', () => {
         await expect(page.getByText('Select a date')).not.toBeVisible();
         
         // Button should show selected date
-        const datePickerBtn = page.getByRole('button', { name: /2026/ });
+        const datePickerBtn = page.getByTestId('datepicker-trigger');
         await expect(datePickerBtn).toBeVisible();
     });
+  });
+
+  test('Desktop: should navigate months in the calendar', async ({ page, user }) => {
+    await login(page, user.email, user.password);
+    await navigateToTab(page, 'Trips');
+    
+    // Open New Trip modal to access DatePicker
+    await page.getByRole('button', { name: /new trip/i }).click();
+    const tripForm = page.getByTestId('trip-form-card');
+    await expect(tripForm).toBeVisible();
+    await expect(tripForm).toHaveAttribute('data-state', 'ready');
+
+    await tripForm.getByTestId('datepicker-trigger').click();
+    const calendar = page.locator('.rdp').or(page.locator('[role="grid"]').locator('xpath=..')).first();
+    await expect(calendar).toBeVisible();
+
+    const monthLabel = calendar.locator('[aria-live="polite"]').first();
+    const initialMonth = await monthLabel.innerText();
+
+    // Navigate to next month
+    const nextBtn = page.locator('.absolute.right-1.top-1').first();
+    await nextBtn.click();
+
+    await expect(async () => {
+        const currentMonth = await monthLabel.innerText();
+        if (!currentMonth || currentMonth === initialMonth) {
+            throw new Error('Month did not change');
+        }
+    }).toPass();
+
+    const finalMonth = await monthLabel.innerText();
+    expect(finalMonth).not.toBe(initialMonth);
   });
 });

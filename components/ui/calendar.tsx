@@ -20,17 +20,17 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
       className={cn("p-2", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 md:justify-center",
-        month: "space-y-4 flex flex-col",
-        month_caption: "flex justify-center pt-1 relative items-center w-full",
+        month: "space-y-4 flex flex-col relative",
+        month_caption: "flex justify-center pt-1 items-center w-full",
         caption_label: "text-sm font-medium",
-        nav: "absolute top-1 left-0 right-0 flex justify-between px-1 pointer-events-none",
+        nav: "flex items-center",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 pointer-events-auto"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1 top-1 z-30"
         ),
         button_next: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 pointer-events-auto"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1 top-1 z-30"
         ),
 
         month_grid: "w-full border-collapse space-y-1",

@@ -22,6 +22,7 @@ interface TripState {
   error: string | null;
   selectedTrip: Trip | null;
   lastActionTimestamp: number | null;
+  lastActionTimestamps: Record<string, number>;
   subscription: RealtimeChannel | null;
   page: number;
   count: number;
@@ -46,7 +47,7 @@ interface TripState {
   addWineryToTrips: (winery: Winery, tripDate: Date, selectedTrips: Set<string>, newTripName: string, addTripNotes: string) => Promise<void>;
   toggleWineryOnTrip: (winery: Winery, trip: Trip) => Promise<void>;
   setPage: (page: number) => void;
-  setLastActionTimestamp: (timestamp: number | null) => void;
+  setLastActionTimestamp: (tripId: string, timestamp: number | null) => void;
   reset: () => void;
   initialize: () => Promise<void>;
 }
@@ -62,6 +63,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       error: null,
       selectedTrip: null,
       lastActionTimestamp: null,
+      lastActionTimestamps: {},
       subscription: null,
       page: 1,
       count: 0,
@@ -69,7 +71,15 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
       setPage: (page: number) => set({ page }),
 
-      setLastActionTimestamp: (timestamp: number | null) => set({ lastActionTimestamp: timestamp }),
+      setLastActionTimestamp: (tripId: string, timestamp: number | null) => set(state => {
+        const next = { ...state.lastActionTimestamps };
+        if (timestamp === null) {
+          delete next[tripId];
+        } else {
+          next[tripId] = timestamp;
+        }
+        return { lastActionTimestamps: next };
+      }),
 
       subscribeToTripUpdates: () => {
         const { subscription: existingSub } = get();
@@ -82,28 +92,27 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trips' },
             async (payload) => {
-              const { lastActionTimestamp } = get();
+              const { lastActionTimestamps } = get();
               const newData = payload.new as any;
+              const changedTripId = (newData?.id || (payload.old as any)?.id)?.toString();
               const updatedAt = newData?.updated_at;
               
-              // Sync Lock: Ignore if the update is older than our last local action
-              if (lastActionTimestamp && updatedAt) {
+              // Sync Lock: Ignore if the update is older than our last local action for THIS trip
+              if (changedTripId && lastActionTimestamps[changedTripId] && updatedAt) {
                 const payloadTime = new Date(updatedAt).getTime();
-                if (payloadTime < lastActionTimestamp - 1000) {
-                  console.log('[Sync] Ignoring stale trips update', { payloadTime, lastActionTimestamp });
+                if (payloadTime < lastActionTimestamps[changedTripId] - 1000) {
+                  console.log(`[Sync] Ignoring stale update for trip ${changedTripId}`, { payloadTime, lastActionTimestamp: lastActionTimestamps[changedTripId] });
                   return;
                 }
               }
 
-              const changedTripId = newData?.id || (payload.old as any)?.id;
-              
               // Always refresh lists
               await get().fetchTrips(get().page, 'upcoming', true);
               await get().fetchUpcomingTrips();
               
               const { selectedTrip } = get();
-              if (selectedTrip?.id === changedTripId) {
-                await get().fetchTripById(changedTripId.toString());
+              if (selectedTrip?.id?.toString() === changedTripId) {
+                await get().fetchTripById(changedTripId);
               }
             }
           )
@@ -111,23 +120,22 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trip_wineries' },
             async (payload) => {
-              const { lastActionTimestamp } = get();
+              const { lastActionTimestamps } = get();
               const newData = payload.new as any;
+              const changedTripId = (newData?.trip_id || (payload.old as any)?.trip_id)?.toString();
               const updatedAt = newData?.updated_at;
 
-              if (lastActionTimestamp && updatedAt) {
+              if (changedTripId && lastActionTimestamps[changedTripId] && updatedAt) {
                 const payloadTime = new Date(updatedAt).getTime();
-                if (payloadTime < lastActionTimestamp - 1000) {
-                  console.log('[Sync] Ignoring stale trip_wineries update');
+                if (payloadTime < lastActionTimestamps[changedTripId] - 1000) {
+                  console.log(`[Sync] Ignoring stale wineries update for trip ${changedTripId}`);
                   return;
                 }
               }
 
-              const changedTripId = newData?.trip_id || (payload.old as any)?.trip_id;
               const { selectedTrip } = get();
-              
-              if (selectedTrip?.id === changedTripId) {
-                await get().fetchTripById(changedTripId.toString());
+              if (selectedTrip?.id?.toString() === changedTripId) {
+                await get().fetchTripById(changedTripId);
               }
             }
           )
