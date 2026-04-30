@@ -29,7 +29,7 @@ export default function FriendsManager() {
     friends = [], 
     friendRequests = [], 
     sentRequests = [], 
-    fetchFriends, 
+    fetchSocialData, 
     addFriend, 
     acceptFriend, 
     rejectFriend, 
@@ -38,14 +38,14 @@ export default function FriendsManager() {
     error,
     subscribeToSocialUpdates,
     unsubscribeFromSocialUpdates
-  } = useFriendStore();
-  const [email, setEmail] = useState("");
+    } = useFriendStore();
+    const [email, setEmail] = useState("");
 
-  useEffect(() => {
-    fetchFriends();
+    useEffect(() => {
+    fetchSocialData();
     subscribeToSocialUpdates();
     return () => unsubscribeFromSocialUpdates();
-  }, [fetchFriends, subscribeToSocialUpdates, unsubscribeFromSocialUpdates]);
+    }, [fetchSocialData, subscribeToSocialUpdates, unsubscribeFromSocialUpdates]);
 
   const handleAddFriend = async () => {
     if (!email) return;

@@ -3,7 +3,6 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { createClient } from '@/utils/supabase/client';
 import { SocialService } from '@/lib/services/socialService';
 import { Friend, FriendActivity, WineryDbId } from '@/lib/types';
-import { isE2E, shouldSkipRealSync } from './e2e-utils';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
 import { idbStorage } from './idb-persist-storage';
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -20,6 +19,7 @@ interface FriendState {
   error: string | null;
   subscription: RealtimeChannel | null;
   
+  fetchSocialData: () => Promise<void>;
   fetchFriends: () => Promise<void>;
   fetchRequests: () => Promise<void>;
   fetchFriendActivityFeed: () => Promise<void>;
@@ -48,30 +48,30 @@ export const useFriendStore = createWithEqualityFn<FriendState>()(
       error: null,
       subscription: null,
 
-      fetchFriends: async () => {
-        if (isE2E() && shouldSkipRealSync()) return;
+      fetchSocialData: async () => {
         set({ isLoading: true });
         try {
-          const friends = await SocialService.getFriends();
-          set({ friends, isLoading: false });
+          const { friends, incoming, outgoing } = await SocialService.getSocialData();
+          set({ 
+            friends, 
+            friendRequests: incoming, 
+            sentRequests: outgoing, 
+            isLoading: false 
+          });
         } catch (error: any) {
           set({ error: error.message, isLoading: false });
         }
+      },
+
+      fetchFriends: async () => {
+        await get().fetchSocialData();
       },
 
       fetchRequests: async () => {
-        if (isE2E() && shouldSkipRealSync()) return;
-        set({ isLoading: true });
-        try {
-          const { incoming, outgoing } = await SocialService.getFriendRequests();
-          set({ friendRequests: incoming, sentRequests: outgoing, isLoading: false });
-        } catch (error: any) {
-          set({ error: error.message, isLoading: false });
-        }
+        await get().fetchSocialData();
       },
 
       fetchFriendActivityFeed: async () => {
-        if (isE2E() && shouldSkipRealSync()) return;
         set({ isLoading: true });
         try {
           const activity = await SocialService.getFriendActivity();
@@ -82,7 +82,6 @@ export const useFriendStore = createWithEqualityFn<FriendState>()(
       },
 
       fetchFriendProfile: async (friendId) => {
-        if (isE2E() && shouldSkipRealSync()) return;
         set({ isLoading: true, error: null });
         try {
           const profile = await SocialService.getFriendProfile(friendId);
@@ -93,7 +92,6 @@ export const useFriendStore = createWithEqualityFn<FriendState>()(
       },
 
       fetchFriendDataForWinery: async (wineryId) => {
-        if (isE2E() && shouldSkipRealSync()) return;
         try {
           const { ratings, activity } = await SocialService.getFriendDataForWinery(wineryId);
           set({ friendsRatings: ratings, friendsActivity: activity });

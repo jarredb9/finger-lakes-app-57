@@ -9,7 +9,7 @@ import { WineryService } from '@/lib/services/wineryService';
 import { createClient } from '@/utils/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { formatDateLocal, getTodayLocal } from '@/lib/utils';
-import { isE2E, getE2EHeaders, shouldSkipRealSync } from './e2e-utils';
+import { getE2EHeaders } from './e2e-utils';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
 import { idbStorage } from './idb-persist-storage';
 
@@ -157,10 +157,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       fetchTrips: async (page: number, type: 'upcoming' | 'past', refresh = false) => {
-        if (isE2E() && shouldSkipRealSync()) {
-          set({ isLoading: false });
-          return;
-        }
         set({ isLoading: true, error: null });
         try {
           const { trips: rawTrips, count } = await TripService.getTrips(page, type);
@@ -275,10 +271,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       fetchUpcomingTrips: async () => {
-        if (isE2E() && shouldSkipRealSync()) {
-          set({ isLoading: false });
-          return;
-        }
         set({ isLoading: true });
         try {
           const rawTrips = await TripService.getUpcomingTrips();
@@ -309,10 +301,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       fetchTripsForDate: async (dateString: string) => {
-        if (isE2E() && shouldSkipRealSync()) {
-          set({ isLoading: false });
-          return;
-        }
         set({ isLoading: true });
         try {
           const rawTrips = await TripService.getTripsForDate(dateString);

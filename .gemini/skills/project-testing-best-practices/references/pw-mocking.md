@@ -47,6 +47,11 @@ To prevent silent integration failures, the `MockMapsManager` implements a "Stri
 - **Standard:** If the application calls an RPC or REST endpoint that is NOT explicitly handled by the mock registry, the interceptor MUST fulfill with a `501 Not Implemented` status.
 - **Why:** This forces E2E tests to fail immediately when new network dependencies are introduced, rather than falling back to slow timeouts or confusing "Empty State" UI.
 
+### 6. The Force-Mock Pivot
+Multi-user coordination tests (e.g., Social Feed, Trip Invites) often rely on the `MockMapsManager` shared memory state to bridge data between different browser contexts.
+- **Standard:** Tests requiring multi-context shared state MUST use `initDefaultMocks({ forceMocks: true })`.
+- **Rationale:** This prevents environment-level flags (like `E2E_REAL_DATA=true` in container environments) from bypassing the mock layer. Bypassing the mock layer for one user but not the other leads to a "split-brain" failure where data is committed to the real DB but read from an empty mock.
+
 ### 4. Why this is Senior-Level:
 1.  **Zero Drift:** You catch backend changes in your frontend tests immediately.
 2.  **Predictability:** You eliminate 90% of "400 Bad Request" errors in E2E tests.

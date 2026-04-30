@@ -617,12 +617,14 @@ export class MockMapsManager {
     this.mocksRegistered = true;
   }
 
-  async initDefaultMocks(options: { currentUserId?: string } = {}) {
-    const isRealData = process.env.E2E_REAL_DATA === 'true';
+  async initDefaultMocks(options: { currentUserId?: string, forceMocks?: boolean } = {}) {
+    const isRealData = process.env.E2E_REAL_DATA === 'true' && !options.forceMocks;
+    console.log(`[DIAGNOSTIC] initDefaultMocks: isRealData=${isRealData}, options=${JSON.stringify(options)}`);
     
     if (options.currentUserId) {
         const oldId = this.currentUserId;
         this.currentUserId = options.currentUserId;
+        console.log(`[DIAGNOSTIC] MockMapsManager: currentUserId set to ${this.currentUserId} (was ${oldId})`);
         
         if (this.state.visits) {
             this.state.visits.forEach(v => { if (v.user_id === oldId) v.user_id = this.currentUserId; });
@@ -640,6 +642,7 @@ export class MockMapsManager {
 
     // Only register full network interception if NOT in real data mode
     if (!isRealData) {
+        console.log('[DIAGNOSTIC] MockMapsManager: Registering mock routes');
         await this.registerMockRoutes();
     }
 

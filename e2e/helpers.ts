@@ -198,34 +198,27 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
 
   const tab = getTabTrigger(page, tabName);
   await expect(tab).toBeVisible({ timeout: 15000 });
-  await tab.click({ force: true });
-
-  if (isMobile) {
-    // Wait for state transition to be stable on mobile
-    const sheet = page.locator('[data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"]').first();
-    await expect(sheet).toBeVisible({ timeout: 15000 });
-    
-    // If it's still not stable, we can retry the click ONCE outside of toPass if needed,
-    // but usually Playwright's auto-retries on click are enough if the element is visible.
-    // For extreme flakiness, we use a controlled retry.
-    const isStable = await sheet.getAttribute('data-state').then(s => s === 'stable').catch(() => false);
-    if (!isStable) {
-        await dismissCookieConsent(page);
-        await tab.click({ force: true }).catch(() => {});
-    }
-
-    await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 15000 });
-  }
-
-  // Wait for the specific tab container signal
-  const containerIdMap = {
-      'Explore': 'map-container',
-      'Trips': 'trip-list-container',
-      'Friends': 'friend-activity-feed',
-      'History': 'visit-history-container'
-  };
   
-  await waitForSignal(page, containerIdMap[tabName], 'ready').catch(() => null);
+  // Use toPass for the click and initial signal to handle hydration race conditions
+  await expect(async () => {
+      await tab.click({ force: true });
+      
+      const containerIdMap = {
+          'Explore': 'map-container',
+          'Trips': 'trip-list-container',
+          'Friends': 'friend-activity-feed',
+          'History': 'visit-history-container'
+      };
+      
+      // On mobile, wait for sheet to be visible first
+      if (isMobile) {
+          const sheet = page.locator('[data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"]').first();
+          await expect(sheet).toBeVisible({ timeout: 5000 });
+          await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 5000 });
+      }
+
+      await waitForSignal(page, containerIdMap[tabName], 'ready', 5000);
+  }).toPass({ timeout: 15000, intervals: [2000] });
 
   // WebKit/Safari needs more time for global mocks to settle 
   // before the first search trigger happens during navigation to Explore
@@ -408,7 +401,7 @@ export async function ensureProfileReady(page: Page) {
         
         if (isLoading) throw new Error('UserStore is still loading');
         if (!user) throw new Error('User not found in store');
-        if (user.name === 'User' && process.env.NEXT_PUBLIC_IS_E2E !== 'true') {
+        if (user.full_name === 'User' && process.env.NEXT_PUBLIC_IS_E2E !== 'true') {
             throw new Error('Profile not yet fully initialized');
         }
         return true;

@@ -33,6 +33,7 @@ describe('usePWAUpdate', () => {
 
     // @ts-ignore
     delete globalThis._PWA_UPDATING;
+    process.env.NEXT_PUBLIC_IS_E2E = '';
   });
 
   it('should detect update if SW is waiting on init', async () => {

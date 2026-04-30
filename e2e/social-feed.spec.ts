@@ -25,9 +25,13 @@ test.describe('Social Activity Feed Flow', () => {
       const managerA = new MockMapsManager(pageA, sharedState);
       const managerB = new MockMapsManager(pageB, sharedState);
 
+      // Add logging
+      managerA.setupLogging();
+      managerB.setupLogging();
+
       // We use MOCKS for this test to ensure stability in the container
-      await managerA.initDefaultMocks({ currentUserId: userA.id });
-      await managerB.initDefaultMocks({ currentUserId: userB.id });
+      await managerA.initDefaultMocks({ currentUserId: userA.id, forceMocks: true });
+      await managerB.initDefaultMocks({ currentUserId: userB.id, forceMocks: true });
 
       await login(pageA, userA.email, userA.password, { skipMapReady: true });
       await ensureProfileReady(pageA);
@@ -35,7 +39,9 @@ test.describe('Social Activity Feed Flow', () => {
       await login(pageB, userB.email, userB.password, { skipMapReady: true });
       await ensureProfileReady(pageB);
 
-      const user1Name = await pageA.evaluate(() => (window as any).useUserStore.getState().user.name);
+      const user1Name = await pageA.evaluate(() => (window as any).useUserStore.getState().user.full_name);
+      console.log(`[DIAGNOSTIC] User A Name: ${user1Name}, ID: ${userA.id}`);
+      console.log(`[DIAGNOSTIC] User B ID: ${userB.id}`);
 
       // 2. Establish Friendship via ATOMIC INJECTION (Bypasses UI flakiness)
       await test.step('Establish Friendship via Injection', async () => {
@@ -56,6 +62,7 @@ test.describe('Social Activity Feed Flow', () => {
               pending_incoming: [],
               pending_outgoing: []
           };
+          console.log('[DIAGNOSTIC] Friendship established via injection');
       });
 
       // 3. User A logs a visit via UI (updates sharedMockActivityFeed in MockMapsManager)
@@ -71,22 +78,37 @@ test.describe('Social Activity Feed Flow', () => {
 
         await logVisit(pageA, { review: reviewText, rating: 5 });
         await closeWineryModal(pageA);
+        
+        const activityCount = sharedState.activityFeed?.length || 0;
+        console.log(`[DIAGNOSTIC] User A logged visit. Activity feed count: ${activityCount}`);
       });
 
       // 4. User B verifies the feed
       await test.step('User B verifies feed', async () => {
-        await navigateToTab(pageB, 'Friends');
         const sidebarB = getSidebarContainer(pageB);
         const feedItem = sidebarB.locator('[data-testid="friend-activity-item"]', { hasText: reviewText }).first();
         
         await expect(async () => {
+            console.log('[DIAGNOSTIC] User B checking feed...');
+            await navigateToTab(pageB, 'Friends');
+            
             // Proactive store sync
             await pageB.evaluate(async () => {
                 const store = (window as any).useFriendStore?.getState();
                 if (store) {
+                    console.log('[DIAGNOSTIC] [BROWSER] Triggering fetchFriendActivityFeed for User B');
                     await store.fetchFriendActivityFeed();
                 }
             });
+
+            const browserFeed = await pageB.evaluate(() => {
+                return (window as any).useFriendStore?.getState().friendActivityFeed;
+            });
+            console.log(`[DIAGNOSTIC] User B Store Activity Feed Count: ${browserFeed?.length || 0}`);
+            if (browserFeed?.length > 0) {
+                console.log(`[DIAGNOSTIC] First item in User B feed: ${JSON.stringify(browserFeed[0])}`);
+            }
+
             await expect(feedItem).toBeVisible({ timeout: 5000 });
         }).toPass({ timeout: 20000, intervals: [3000] });
 

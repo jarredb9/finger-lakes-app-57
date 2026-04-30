@@ -43,6 +43,16 @@
     *   **Stop:** `export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase stop`
     *   **Status:** `export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase status`
 *   **Supabase CLI & Podman:** To run Supabase CLI commands (like `db diff`) in this environment, you MUST point to the Podman socket as shown above.
+*   **Edge Functions & SELinux (RHEL 8):** This environment requires the `supabase/functions` directory to have a persistent SELinux policy (`svirt_sandbox_file_t`) to prevent `503 Service Unavailable` or `failed to bootstrap runtime` errors.
+    *   **Solution Reference:** The established setup uses `semanage` for persistence. If the project is moved or relabeled, the following commands restore access:
+        ```bash
+        sudo semanage fcontext -a -t svirt_sandbox_file_t "$(pwd)/supabase/functions(/.*)?"
+        sudo restorecon -Rv "$(pwd)/supabase/functions"
+        ```
+    *   **Fallback:** If `semanage` is unavailable, a sidecar container can be used for manual relabeling:
+        ```bash
+        podman run --rm -v "$(pwd)/supabase/functions:/mnt:z" public.ecr.aws/supabase/postgres:17.4.1.064 true
+        ```
 *   **Playwright Container:** **MANDATORY:** Local testing MUST use rootless Podman via the provided script: `./scripts/run-e2e-container.sh [project] [test_file]`. DO NOT run `npx playwright test` directly on the host.
     *   **Local Usage:** `./scripts/run-e2e-container.sh chromium e2e/smoke.spec.ts`
     *   **Live Database Usage:** Use the `--live` (or `-l`) flag to run tests against the live Supabase instance (loads `.env.local.production`):

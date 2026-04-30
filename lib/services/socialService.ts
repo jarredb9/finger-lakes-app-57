@@ -3,23 +3,28 @@ import { WineryDbId } from '@/lib/types';
 import { getE2EHeaders } from '@/lib/stores/e2e-utils';
 
 export const SocialService = {
-  async getFriends() {
-    const supabase = createClient();
-    const { data, error } = await supabase.rpc('get_friends_and_requests', {}, { headers: getE2EHeaders() } as any);
-    if (error) throw error;
-    
-    // Structure: { friends, pending_incoming, pending_outgoing }
-    return (data as any).friends || [];
-  },
-
-  async getFriendRequests() {
+  async getSocialData() {
     const supabase = createClient();
     const { data, error } = await supabase.rpc('get_friends_and_requests', {}, { headers: getE2EHeaders() } as any);
     if (error) throw error;
     
     return {
+      friends: (data as any).friends || [],
       incoming: (data as any).pending_incoming || [],
       outgoing: (data as any).pending_outgoing || []
+    };
+  },
+
+  async getFriends() {
+    const data = await this.getSocialData();
+    return data.friends;
+  },
+
+  async getFriendRequests() {
+    const data = await this.getSocialData();
+    return {
+      incoming: data.incoming,
+      outgoing: data.outgoing
     };
   },
 

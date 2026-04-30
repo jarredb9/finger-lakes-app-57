@@ -10,7 +10,7 @@ import { useSyncStore } from './syncStore';
 import { stabilizePhotos, Base64Photo, isBase64Photo, base64ToFile } from '@/lib/utils/sync-helpers';
 import { fileToBase64 } from '@/lib/utils/binary';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
-import { isE2E, getE2EHeaders, shouldSkipRealSync } from './e2e-utils';
+import { getE2EHeaders } from './e2e-utils';
 import { idbStorage } from './idb-persist-storage';
 
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -55,10 +55,6 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       hasMore: false,
 
       fetchVisits: async (pageNumber = 1, refresh = false) => {
-        if (isE2E() && shouldSkipRealSync()) {
-            set({ isLoading: false });
-            return;
-        }
         set({ isLoading: true });
         const supabase = createClient();
         try {
