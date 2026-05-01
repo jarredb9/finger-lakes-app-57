@@ -78,9 +78,9 @@
     - [x] Implement an explicit wait for session/user hydration in `SyncService.sync()` before attempting decryption.
 
 ### Phase 6: E2E Stabilization & Regression Fixes
-- [~] Task: Fix Sync Lock Race Condition (Global -> Per-Entity)
-    - [ ] Update `tripStore` and `visitStore` to use a Map for `lastActionTimestamp` (key: entityId).
-    - [ ] Update real-time listeners and fetch logic to use per-entity timestamps.
+- [x] Task: Fix Sync Lock Race Condition (Global -> Per-Entity) 4657cb1
+    - [x] Update `tripStore` and `visitStore` to use a Map for `lastActionTimestamp` (key: entityId).
+    - [x] Update real-time listeners and fetch logic to use per-entity timestamps.
 - [ ] Task: Fix Map Search Error Handling & Alerts
     - [ ] Update `use-winery-search.ts` to set store error when both cache and Google search fail.
 - [ ] Task: Normalize Trip IDs in Service Layer
@@ -106,7 +106,4 @@
 - [x] Task: Apply Phase 5 review suggestions (Non-blocking sync & style) e0fcca2
 - [x] Task: Fix IndexedDB race condition and harden sync resilience (Review Fix)
 - [X] Task: Resolve errors in E2E social tests and friendStore social data fetching 9496838
-
-
-
-
+- [X] Task: Resolve issues on mobile date picker component causing the chevrons to overlap the exit button f0a434c
