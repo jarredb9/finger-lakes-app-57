@@ -423,13 +423,4 @@ export const SyncService = {
 
 if (typeof window !== 'undefined') {
   (window as any).SyncService = SyncService;
-  
-  window.addEventListener('online', () => {
-    console.log('[SyncService] Network online, triggering sync.');
-    SyncService.sync();
-  });
-
-  if (navigator.onLine && process.env.NODE_ENV !== 'test') {
-    SyncService.sync();
-  }
 }

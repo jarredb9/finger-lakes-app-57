@@ -14,20 +14,22 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
     await page.waitForFunction(() => {
         const uStore = (window as any).useUserStore;
         const sStore = (window as any).useSyncStore;
+        const idb = (window as any).idbKeyVal;
         const uState = uStore?.getState?.();
         const sState = sStore?.getState?.();
         
         const hasUStore = !!uStore;
         const hasSStore = !!sStore;
+        const hasIdb = !!idb;
         const hasUser = !!uState?.user;
         const isSInit = !!sState?.isInitialized;
 
-        if (!hasUStore || !hasSStore || !hasUser || !isSInit) {
+        if (!hasUStore || !hasSStore || !hasUser || !isSInit || !hasIdb) {
             // @ts-ignore
-            if (window._lastLog !== `${hasUStore}-${hasSStore}-${hasUser}-${isSInit}`) {
-                console.log(`[DIAGNOSTIC] Waiting for hydration: uStore=${hasUStore}, sStore=${hasSStore}, user=${hasUser}, sInit=${isSInit}`);
+            if (window._lastLog !== `${hasUStore}-${hasSStore}-${hasUser}-${isSInit}-${hasIdb}`) {
+                console.log(`[DIAGNOSTIC] Waiting for hydration: uStore=${hasUStore}, sStore=${hasSStore}, user=${hasUser}, sInit=${isSInit}, idb=${hasIdb}`);
                 // @ts-ignore
-                window._lastLog = `${hasUStore}-${hasSStore}-${hasUser}-${isSInit}`;
+                window._lastLog = `${hasUStore}-${hasSStore}-${hasUser}-${isSInit}-${hasIdb}`;
             }
             return false;
         }

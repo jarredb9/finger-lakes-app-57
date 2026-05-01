@@ -144,8 +144,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
   },
 }));
 
-// Initialize store on load if in browser
-if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'test') {
-  useSyncStore.getState().initialize();
+// Expose store for E2E if in browser
+if (typeof window !== 'undefined') {
   (window as any).useSyncStore = useSyncStore;
 }
