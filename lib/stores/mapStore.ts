@@ -14,6 +14,7 @@ interface MapState {
   filter: string[];
   autoSearch: boolean;
   searchLocation: string;
+  error: string | null;
   setMap: (map: google.maps.Map | null) => void;
   setCenter: (center: { lat: number; lng: number }) => void;
   setZoom: (zoom: number) => void;
@@ -26,6 +27,7 @@ interface MapState {
   setFilter: (filter: string[]) => void;
   setAutoSearch: (autoSearch: boolean) => void;
   setSearchLocation: (searchLocation: string) => void;
+  setError: (error: string | null) => void;
   reset: () => void;
 }
 
@@ -42,6 +44,7 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   filter: ['all'],
   autoSearch: false,
   searchLocation: "",
+  error: null,
   setMap: (map) => set({ map }),
   setCenter: (center) => set({ center }),
   setZoom: (zoom) => set({ zoom }),
@@ -54,6 +57,7 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   setFilter: (filter) => set({ filter }),
   setAutoSearch: (autoSearch) => set({ autoSearch }),
   setSearchLocation: (searchLocation) => set({ searchLocation }),
+  setError: (error) => set({ error }),
   reset: () => set({
     map: null,
     center: { lat: 40, lng: -98 },
@@ -67,6 +71,7 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
     filter: ['all'],
     autoSearch: false,
     searchLocation: "",
+    error: null,
   }),
 }));
 

@@ -17,6 +17,7 @@ export function useWinerySearch() {
     setHitApiLimit,
     setLastSearchedBounds,
     setLastSearchedZoom,
+    setError,
   } = useMapStore();
   const { bulkUpsertWineries } = useWineryDataStore();
   const { toast } = useToast();
@@ -64,6 +65,7 @@ export function useWinerySearch() {
       if (useMapStore.getState().isSearching) return;
 
       setIsSearching(true);
+      setError(null);
       
       if (locationText) {
         setSearchResults([]);
@@ -183,6 +185,8 @@ export function useWinerySearch() {
         // Fallback: If Google search fails, at least show what we have in cache
         if (preloadedWineries.length > 0) {
             setSearchResults(preloadedWineries);
+        } else {
+            setError("Failed to find wineries in this area. Please check your connection and try again.");
         }
       } finally {
         setIsSearching(false);
@@ -199,6 +203,7 @@ export function useWinerySearch() {
       setHitApiLimit,
       setLastSearchedBounds,
       setLastSearchedZoom,
+      setError,
     ]
   );
 
