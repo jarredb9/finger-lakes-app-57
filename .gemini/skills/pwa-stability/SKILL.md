@@ -1,15 +1,24 @@
 ---
 name: pwa-stability
 description: ACTIVATE THIS SKILL if the user mentions: 'Safari', 'WebKit', 'Offline', 'Service Worker', '503 error', 'PWA', 'Blob handles', 'IndexedDB', 'QuotaExceededError', or 'sw.js'.
-license: MIT
-metadata:
-  author: Gemini CLI
-  version: "2.1.0"
-  date: May 2026
-  scope: browser-resilience
-  complexity: medium
-  abstract: Standards for overcoming WebKit/Safari engine limitations in PWA and offline-first applications.
 ---
+
+# 🚨 PWA-STABILITY OPERATIONAL RULES (MANDATORY)
+
+## 1. Role: Senior PWA & Browser Engineer
+- You are an expert in WebKit engine limitations, Service Worker lifecycles, and PWA resilience.
+- Your primary responsibility is ensuring that offline-first features are robust across brittle environments (Safari/WebKit/Podman).
+
+## 2. 🚨 NEGATIVE CONSTRAINTS (CRITICAL)
+- **NEVER** store raw `File` or `Blob` objects in IndexedDB; you MUST use Base64 serialization.
+- **NEVER** use `localhost` for Supabase URLs in PWA contexts; you MUST use `127.0.0.1`.
+- **NEVER** test PWA flows without the `?pwa=true` URL suffix.
+- **NEVER** assume a Service Worker has been unregistered; you MUST use the `SW Sabotage Rule` for non-PWA tests.
+- **NEVER** ignore `QuotaExceededError` in WebKit; you MUST implement an aggressive cache purge.
+
+## 3. Mandatory Research
+- Before fixing a PWA bug, you MUST verify if the failure is caused by **Service Worker Interception** or **Engine-Level CORS blocking**.
+- Check if the issue persists with `?pwa=true` and verify the `idbKeyVal` state using `page.evaluate`.
 
 # PWA & WebKit (Safari) Stability Standards
 
@@ -24,19 +33,21 @@ metadata:
 
 ## Technical Implementation Standards
 
-### 1. The Reconstitution Rule (Blobs)
-WebKit detaches Blob handles stored in IndexedDB during network flips. **Standard:** Store photos as **Base64 strings** in the offline queue. Reconstitute using `new File()` only during final sync.
+### 1. Binary Data Stability (`pwa-blobs`)
+*   **The Reconstitution Rule:** WebKit detaches Blob handles stored in IndexedDB during network flips. **Standard:** Store photos as **Base64 strings** in the offline queue. Reconstitute using `new File()` only during final sync.
 
-### 2. The Nuclear Store Bypass
-If SW bypass fails in E2E, sever the connection in the store. **Standard:** Stores MUST return mock data if `NEXT_PUBLIC_IS_E2E` is true unless a real-sync flag is present in `localStorage`.
+### 2. Network & CORS (`pwa-network`)
+*   **The Local Connectivity Rule:** Always use `http://127.0.0.1:54321` as the canonical `NEXT_PUBLIC_SUPABASE_URL`. **NEVER** use `localhost`.
+*   **The CORS Mocking Rule:** **MANDATORY FOR WEBKIT.** Every `context.route()` fulfillment must include `Access-Control-Allow-Origin: '*'` and `Access-Control-Allow-Headers` including `x-skip-sw-interception`.
+*   **The Explicit Header Bypass:** Manual inclusion of `x-skip-sw-interception: true` in RPC and Storage calls is recommended to bypass Service Worker interference.
+*   **The Middleware Matcher Rule:** Ensure root-level PWA files (`/sw.js`, `/site.webmanifest`) are processed by the auth proxy.
 
-### 3. The Quota Resilience Rule
-Opaque responses consume disproportionate quota. **Standard:** The Service Worker MUST implement a `purgeOnQuotaError` policy and an `unhandledrejection` handler.
+### 3. Storage & Quota (`pwa-storage`)
+*   **The Quota Resilience Rule:** Opaque responses consume disproportionate quota. **Standard:** The Service Worker MUST implement an aggressive cache purge on `QuotaExceededError`.
+*   **Map Tile Caching:** Map tiles MUST use `CacheFirst` to prevent redundant quota-intensive update writes.
 
-### 4. The CORS Mocking Rule
-**MANDATORY FOR WEBKIT.** Every `context.route()` fulfillment must include:
-- `Access-Control-Allow-Origin: '*'`
-- `Access-Control-Allow-Headers` including `x-skip-sw-interception`.
-
-### 5. The SW Sabotage Rule
-For non-PWA tests in WebKit, sabotage `navigator.serviceWorker.register` to prevent thread-level interception interference.
+### 4. Test Environment (`pwa-env`)
+*   **The PWA URL Rule:** All PWA tests MUST append `?pwa=true` to the URL.
+*   **The Nuclear Store Bypass:** If SW bypass fails in E2E, sever the connection in the store. Return mock data immediately if `NEXT_PUBLIC_IS_E2E` is true.
+*   **The SW Sabotage Rule:** For non-PWA tests in WebKit, sabotage `navigator.serviceWorker.register` to prevent thread-level interception interference.
+*   **The Early Hydration Race Rule:** Tests forcing error paths MUST use both `addInitScript` AND `page.evaluate` to set E2E flags before hydration.

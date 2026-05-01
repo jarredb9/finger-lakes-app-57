@@ -1,16 +1,24 @@
 ---
 name: project-testing-best-practices
 description: ACTIVATE THIS SKILL if the user mentions: 'Testing', 'E2E', 'Playwright', 'Jest', 'Mock', 'Toast', 'Modal', 'Handoff', 'Bug', 'Regression', 'Axe', or 'A11y'.
-license: MIT
-metadata:
-  author: Gemini CLI
-  version: "2.1.0"
-  date: May 2026
-  scope: testing-verification
-  complexity: high
-  dependencies: [handoff-protocol, chrome-devtools-mcp, playwright-mcp]
-  abstract: Defines the "Atomic Verification" standard. This skill prioritizes State-Injection to bypass fragile navigation, enforces Portal-based modal encapsulation, and mandates the Mandatory Diagnostic Protocol for 5x faster root-cause analysis.
 ---
+
+# 🚨 PROJECT-TESTING-BEST-PRACTICES OPERATIONAL RULES (MANDATORY)
+
+## 1. Role: Senior SDET & Architect
+- You are a Senior Architect specializing in Atomic Verification.
+- Your primary responsibility is enforcing the "Atomic Verification" standard across the entire codebase, ensuring that all feature flows are verifiable via **Store State Injection**.
+
+## 2. 🚨 NEGATIVE CONSTRAINTS (CRITICAL)
+- **NEVER** use `robustClick()`, manual event dispatching, or synthetic pointer events for interactions.
+- **NEVER** write a "Long-Chain" E2E test (Login -> Navigate -> Click) for a local feature; use `page.evaluate` to inject state.
+- **NEVER** use raw JSON for RPC mocks; you MUST use types from `lib/database.types.ts`.
+- **NEVER** proceed to a new task until the **Smoke Test** (`e2e/smoke.spec.ts`) passes against WebKit.
+- **NEVER** close a modal in E2E without a `toPass` retry loop checking the store state.
+
+## 3. Mandatory Research
+- Before writing a test, you MUST identify the minimum **Store State** required to render the feature.
+- **Check the Brief:** Ask: **'Can I bypass navigation for this test using state injection?'**
 
 # Project Testing Best Practices (v2.1.1 - Senior Standard)
 
@@ -46,3 +54,6 @@ These standards move the project from "Defensive Survivability" to "Architectura
 12. **Handoff Protocol:** Implementation agents MUST activate `handoff-protocol` before concluding. Use `scripts/validate-brief.py` for verification.
 13. **Security Compliance:** `npm run db:lint` MUST pass before merging migrations. `window.matchMedia` MUST be polyfilled in `jest.setup.ts`.
 14. **Mutation Settlement:** ALWAYS verify the appearance of the success toast using `waitForToast` before proceeding to the next interaction.
+
+## MCP Integration
+- If a Playwright test fails, you MUST immediately use the `Chrome Dev-Tools MCP` to inspect the **Zustand Store state** before looking at the DOM.

@@ -3,26 +3,69 @@ name: architecture-standards
 description: ACTIVATE THIS SKILL if the user mentions: 'Zustand', 'Store', 'Hydration', 'Next.js 16', 'Database', 'ID', 'UUID', 'RPC', 'RLS', 'Supabase', 'Social', 'Privacy', or 'Realtime'.
 ---
 
+# 🚨 ARCHITECTURE-STANDARDS OPERATIONAL RULES (MANDATORY)
+
+## 1. Role: Senior Software Architect
+- You are the primary guardian of the project's architectural integrity and database security.
+- Your goal is to ensure that all changes adhere to the "Supabase-Native" and "Next.js 16" patterns.
+
+## 2. 🚨 NEGATIVE CONSTRAINTS (CRITICAL)
+- **NEVER** create new Next.js API routes for CRUD logic; you MUST prioritize direct client-to-Supabase logic (RPCs/SDK).
+- **NEVER** reference a `members` column on the `trips` table; you MUST use the `trip_members` join table.
+- **NEVER** use `toISOString().split('T')[0]` for user-facing dates; you MUST use `formatDateLocal`.
+- **NEVER** persist large data arrays in `localStorage`; you MUST only persist minimal metadata.
+- **NEVER** use legacy string arrays for trip members; you MUST use the structured `TripMember` type.
+- **NEVER** skip the `SET search_path = public, auth` directive in Postgres functions.
+- **NEVER** call getter functions for reactive state; you MUST subscribe directly to state in `useMemo` dependencies.
+
+## 3. Mandatory Research
+- Before modifying a database schema, you MUST review the existing migrations in `supabase/migrations/` as the **Single Source of Truth**.
+- Before adding a new UI component, you MUST check if it can be implemented as a "Presentational" component.
+
 # Core Architectural & Database Standards
 
-## 1. Next.js 16 Hydration & Synchronization
-*   **Avoid Hard Reloads:** NEVER use `page.reload()` inside retry loops. It kills hydration.
-*   **Proactive Sync:** Trigger store refreshes (e.g., `store.fetchFriends()`) via `page.evaluate` inside retry loops instead.
-*   **The DnD Hydration Rule:** Wrap `DragDropContext` in a `mounted` state check for SSR safety in Next.js 16.
+## Rule Categories by Priority
 
-## 2. ID System & Database
-*   **Dual-ID System:** Distinguish between `GooglePlaceId` (string) and `WineryDbId` (number).
-*   **The Numeric ID Normalization Rule:** Zustand stores MUST normalize all relational IDs (Winery, Trip, Visit) to `Number()` upon retrieval.
-*   **The Local Date Stability Rule:** **MANDATORY:** Always use `formatDateLocal(date)` and `getTodayLocal()` from `lib/utils.ts`. **NEVER** use `toISOString().split('T')[0]`.
-*   **RPC Schema Parity:** Reflect all DB changes in `lib/database.types.ts`.
+| Priority | Category | Impact | Prefix |
+|----------|----------|--------|--------|
+| 1 | Database & Security | CRITICAL | `arch-db` |
+| 2 | State & Hydration | CRITICAL | `arch-state` |
+| 3 | UI Patterns & Styling | HIGH | `arch-ui` |
+| 4 | Social & Privacy | HIGH | `arch-social` |
+
+## Technical Implementation Standards
+
+### 1. Database & Security (`arch-db`)
+*   **Supabase Native:** Prioritize direct client-to-Supabase logic. **NEVER** create new Next.js API routes for CRUD logic.
+*   **RPC Search Paths:** All Postgres functions **MUST** set `SET search_path = public, auth` and use explicit `public.` prefixes.
+*   **The Join-Table Rule:** Always use the `trip_members` table and `public.is_trip_member()` helper. **NEVER** reference a `members` column on the `trips` table.
 *   **RLS Visibility Rule:** All `SELECT` policies MUST include a direct ownership check (`auth.uid() = user_id`) BEFORE complex function calls.
+*   **Migrations SSOT:** `supabase/migrations/` files are the **SINGLE SOURCE OF TRUTH**.
+*   **RPC Schema Parity:** Reflect all DB changes in `lib/database.types.ts`.
+*   **API Nuclear Bypass:** Token-exchange routes MUST implement a bypass for `'mock-code'` BEFORE initializing the Supabase client.
 
-## 3. State Management (Zustand)
+### 2. ID System & Local Stability (`arch-db`)
+*   **Dual-ID System:** Distinguish between `GooglePlaceId` (string) and `WineryDbId` (number).
+*   **The Numeric ID Normalization Rule:** Normalize all relational IDs to `Number()` upon retrieval.
+*   **The Local Date Stability Rule:** Always use `formatDateLocal(date)` and `getTodayLocal()`.
+
+### 3. State Management & Hydration (`arch-state`)
+*   **Next.js 16 Hydration:** **Avoid Hard Reloads.** Trigger refreshes via `page.evaluate` inside retry loops.
 *   **Store Split:** Distinguish between `wineryDataStore` (Persisted Cache) and `wineryStore` (UI State).
 *   **Merge on Hydrate:** `hydrateWineries` MUST merge markers with detailed data.
 *   **The Ghost Status Rule:** Clear local `visits` if the server reports `user_visited: false`.
-*   **The Revision Lock Rule:** Track `lastActionTimestamp` to prevent "Flicker" race conditions in Realtime sync.
+*   **Hydration Optimization:** **NEVER** persist large data arrays in `localStorage`.
+*   **Reactivity Rule:** SUBSCRIBE DIRECTLY to state (e.g., `useStore((s) => s.data)`). Getter functions will NOT trigger re-evaluations.
+*   **Store Exposure:** Every major store and the `supabase` client MUST be exposed to `window` for E2E.
+*   **The Revision Lock Rule:** Track `lastActionTimestamp` to prevent "Flicker" race conditions in Realtime.
+*   **The Modal Reset Rule:** Any "close" action in `useUIStore` (e.g., `closeModal`, `closeVisitForm`) MUST explicitly reset all feature-specific state (e.g., `activeVisitWinery`, `editingVisit`, `activeNoteWineryDbId`) to `null` to prevent stale UI flashes in subsequent renders.
 
-## 4. Social & Privacy Logic
+### 4. UI Patterns & Styling (`arch-ui`)
+*   **Container/Presentational:** UI components MUST be "Presentational" (no store calls). Container/Page components handle store connections.
+*   **The Tailwind Mandate:** Use **Tailwind CSS v4** utility classes. Prioritize `shadcn/ui`.
+*   **The DnD Hydration Rule:** Wrap `DragDropContext` in a `mounted` state check.
+
+### 5. Social & Privacy Logic (`arch-social`)
+*   **Collaborative Trips:** Use the structured `TripMember` type. Legacy string arrays are deprecated.
 *   **Normalization:** All social relations use `trip_members`, `follows`, and `activity_ledger`.
 *   **Visibility:** Use the `is_visible_to_viewer` RPC for Public/Friends/Private tiers.
