@@ -83,10 +83,11 @@
     - [x] Update real-time listeners and fetch logic to use per-entity timestamps.
 - [x] Task: Fix Map Search Error Handling & Alerts 36dabf3
     - [x] Update `use-winery-search.ts` to set store error when both cache and Google search fail.
-- [ ] Task: Normalize Trip IDs in Service Layer
-    - [ ] Ensure `TripService.getTrips` and `getUpcomingTrips` explicitly convert IDs to `Number`.
-- [ ] Task: Fix Deep Linking & Redirection Race
-    - [ ] Ensure `SyncService` doesn't block initial page redirection.
+- [x] Task: Normalize Trip IDs in Service Layer a8840d9
+    - [x] Ensure `TripService.getTrips` and `getUpcomingTrips` explicitly convert IDs to `Number`.
+- [x] Task: Fix Deep Linking & Redirection Race 2e9c18b
+    - [x] Ensure `SyncService` doesn't block initial page redirection by moving trigger to `AuthProvider` with delay.
+    - [x] Update `proxy.ts` to allow navigation redirects in E2E mode for `redirectTo` preservation.
 - [ ] Task: Layout & Visual Reconciliation
     - [ ] Resolve `pwa-install-layout.spec.ts` and `visual.spec.ts` failures.
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Stabilization and Final Verification'
