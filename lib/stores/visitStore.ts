@@ -21,6 +21,7 @@ interface VisitState {
   isSavingVisit: boolean;
   isSyncing: boolean;
   lastActionTimestamp: number | null;
+  lastActionTimestamps: Record<string, number>;
   subscription: RealtimeChannel | null;
   page: number;
   totalPages: number;
@@ -32,6 +33,7 @@ interface VisitState {
   updateVisit: (visitId: string, visitData: Partial<Visit> & { is_private?: boolean }, newPhotos: (File | Base64Photo)[], photosToDelete: string[]) => Promise<void>;
   deleteVisit: (visitId: string) => Promise<void>;
   reset: () => void;
+  setLastActionTimestamp: (visitId: string, timestamp: number | null) => void;
   initialize: () => Promise<void>;
   // E2E Helper
   injectVisitWithPhotos?: (winery: Winery, visitData: { visit_date: string; user_review: string; rating: number; photos: (File | Base64Photo)[] }) => Promise<void>;
@@ -49,6 +51,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       isSavingVisit: false,
       isSyncing: false,
       lastActionTimestamp: null,
+      lastActionTimestamps: {},
       subscription: null,
       page: 1,
       totalPages: 1,
@@ -112,15 +115,25 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'visits' },
             async (payload) => {
-              const { lastActionTimestamp } = get();
+              const { lastActionTimestamp, lastActionTimestamps } = get();
               const newData = payload.new as any;
+              const visitId = (newData?.id || (payload.old as any)?.id)?.toString();
               const updatedAt = newData?.updated_at;
               
-              // Sync Lock: Ignore if the update is older than our last local action
-              if (lastActionTimestamp && updatedAt) {
+              // Sync Lock: Ignore if the update is older than our last local action for THIS visit
+              if (visitId && lastActionTimestamps[visitId] && updatedAt) {
+                const payloadTime = new Date(updatedAt).getTime();
+                if (payloadTime < lastActionTimestamps[visitId] - 1000) {
+                  console.log(`[Sync] Ignoring stale update for visit ${visitId}`, { payloadTime, lastActionTimestamp: lastActionTimestamps[visitId] });
+                  return;
+                }
+              }
+
+              // Fallback to global lock if no visitId is available (rare for postgres_changes)
+              if (lastActionTimestamp && updatedAt && !visitId) {
                 const payloadTime = new Date(updatedAt).getTime();
                 if (payloadTime < lastActionTimestamp - 1000) {
-                  console.log('[Sync] Ignoring stale visits update', { payloadTime, lastActionTimestamp });
+                  console.log('[Sync] Ignoring stale visits update (global)', { payloadTime, lastActionTimestamp });
                   return;
                 }
               }
@@ -174,7 +187,9 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         };
 
         addVisitToWinery(winery.id, tempVisit);
-        set(state => ({ visits: [tempVisit, ...state.visits], lastActionTimestamp: Date.now() }));
+        const now = Date.now();
+        set(state => ({ visits: [tempVisit, ...state.visits], lastActionTimestamp: now }));
+        get().setLastActionTimestamp(tempId, now);
 
         const syncPayload = {
             wineryId: winery.id,
@@ -237,6 +252,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           
           const visitId = rpcResult.visit_id;
           const wineryDbId = rpcResult.winery_id;
+          const finishedNow = Date.now();
+          get().setLastActionTimestamp(String(visitId), finishedNow);
           
           // Update wineryDataStore with the new dbId if we didn't have it
           if (wineryDbId && wineryDbId !== winery.dbId) {
@@ -257,7 +274,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           replaceVisit(winery.id, tempId, finalVisit);
           set(state => ({
               visits: state.visits.map(v => String(v.id) === tempId ? finalVisit : v),
-              lastActionTimestamp: Date.now()
+              lastActionTimestamp: finishedNow
           }));
 
         } catch (error) {
@@ -296,10 +313,12 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         const newOptimisticPhotos = existingPhotos.filter(p => !photosToDelete.includes(p));
         
         optimisticallyUpdateVisit(visitId, { ...visitData, photos: newOptimisticPhotos });
+        const now = Date.now();
         set(state => ({
             visits: state.visits.map(v => String(v.id) === String(visitId) ? { ...v, ...visitData, photos: newOptimisticPhotos, syncStatus: 'pending' as const } : v),
-            lastActionTimestamp: Date.now()
+            lastActionTimestamp: now
         }));
+        get().setLastActionTimestamp(String(visitId), now);
 
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.user) throw new Error("User not authenticated.");
@@ -363,10 +382,12 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           };
 
           confirmOptimisticUpdate(finalVisit);
+          const finishedNow = Date.now();
           set(state => ({
               visits: state.visits.map(v => String(v.id) === String(visitId) ? finalVisit : v),
-              lastActionTimestamp: Date.now()
+              lastActionTimestamp: finishedNow
           }));
+          get().setLastActionTimestamp(String(visitId), finishedNow);
 
         } catch (error) {
           if (await handleSyncError(error, 'update_visit', user.id, syncPayload)) {
@@ -392,10 +413,12 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         
         optimisticallyDeleteVisit(visitId);
         const originalVisits = get().visits;
+        const now = Date.now();
         set(state => ({
             visits: state.visits.filter(v => String(v.id) !== String(visitId)),
-            lastActionTimestamp: Date.now()
+            lastActionTimestamp: now
         }));
+        get().setLastActionTimestamp(String(visitId), now);
 
         const { data: { session } } = await supabase.auth.getSession();
         const user = session?.user;
@@ -508,9 +531,20 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         isSavingVisit: false,
         isSyncing: false,
         lastActionTimestamp: null,
+        lastActionTimestamps: {},
         page: 1,
         totalPages: 1,
         hasMore: false,
+      }),
+
+      setLastActionTimestamp: (visitId: string, timestamp: number | null) => set(state => {
+        const next = { ...state.lastActionTimestamps };
+        if (timestamp === null) {
+          delete next[visitId];
+        } else {
+          next[visitId] = timestamp;
+        }
+        return { lastActionTimestamps: next };
       }),
 
       initialize: async () => {
@@ -581,7 +615,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           page: state.page, 
           totalPages: state.totalPages, 
           hasMore: state.hasMore,
-          lastActionTimestamp: state.lastActionTimestamp
+          lastActionTimestamp: state.lastActionTimestamp,
+          lastActionTimestamps: state.lastActionTimestamps
         };
       },
     }

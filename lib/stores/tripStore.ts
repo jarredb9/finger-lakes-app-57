@@ -92,7 +92,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trips' },
             async (payload) => {
-              const { lastActionTimestamps } = get();
+              const { lastActionTimestamp, lastActionTimestamps } = get();
               const newData = payload.new as any;
               const changedTripId = (newData?.id || (payload.old as any)?.id)?.toString();
               const updatedAt = newData?.updated_at;
@@ -102,6 +102,15 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                 const payloadTime = new Date(updatedAt).getTime();
                 if (payloadTime < lastActionTimestamps[changedTripId] - 1000) {
                   console.log(`[Sync] Ignoring stale update for trip ${changedTripId}`, { payloadTime, lastActionTimestamp: lastActionTimestamps[changedTripId] });
+                  return;
+                }
+              }
+
+              // Fallback to global lock if no trip ID is available
+              if (lastActionTimestamp && updatedAt && !changedTripId) {
+                const payloadTime = new Date(updatedAt).getTime();
+                if (payloadTime < lastActionTimestamp - 1000) {
+                  console.log('[Sync] Ignoring stale trip update (global)', { payloadTime, lastActionTimestamp });
                   return;
                 }
               }
@@ -120,7 +129,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trip_wineries' },
             async (payload) => {
-              const { lastActionTimestamps } = get();
+              const { lastActionTimestamp, lastActionTimestamps } = get();
               const newData = payload.new as any;
               const changedTripId = (newData?.trip_id || (payload.old as any)?.trip_id)?.toString();
               const updatedAt = newData?.updated_at;
@@ -129,6 +138,15 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                 const payloadTime = new Date(updatedAt).getTime();
                 if (payloadTime < lastActionTimestamps[changedTripId] - 1000) {
                   console.log(`[Sync] Ignoring stale wineries update for trip ${changedTripId}`);
+                  return;
+                }
+              }
+
+              // Fallback to global lock
+              if (lastActionTimestamp && updatedAt && !changedTripId) {
+                const payloadTime = new Date(updatedAt).getTime();
+                if (payloadTime < lastActionTimestamp - 1000) {
+                  console.log('[Sync] Ignoring stale trip wineries update (global)');
                   return;
                 }
               }
@@ -143,11 +161,32 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             'postgres_changes',
             { event: '*', schema: 'public', table: 'trip_members' },
             async (payload) => {
-              const changedTripId = (payload.new as any)?.trip_id || (payload.old as any)?.trip_id;
+              const { lastActionTimestamp, lastActionTimestamps } = get();
+              const newData = payload.new as any;
+              const changedTripId = (newData?.trip_id || (payload.old as any)?.trip_id)?.toString();
+              const updatedAt = newData?.updated_at;
+
+              if (changedTripId && lastActionTimestamps[changedTripId] && updatedAt) {
+                const payloadTime = new Date(updatedAt).getTime();
+                if (payloadTime < lastActionTimestamps[changedTripId] - 1000) {
+                  console.log(`[Sync] Ignoring stale members update for trip ${changedTripId}`);
+                  return;
+                }
+              }
+
+              // Fallback to global lock
+              if (lastActionTimestamp && updatedAt && !changedTripId) {
+                const payloadTime = new Date(updatedAt).getTime();
+                if (payloadTime < lastActionTimestamp - 1000) {
+                  console.log('[Sync] Ignoring stale trip members update (global)');
+                  return;
+                }
+              }
+
               const { selectedTrip } = get();
               
-              if (selectedTrip?.id === changedTripId) {
-                await get().fetchTripById(changedTripId.toString());
+              if (selectedTrip?.id?.toString() === changedTripId) {
+                await get().fetchTripById(changedTripId);
               }
             }
           )
@@ -169,12 +208,13 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         try {
           const { trips: rawTrips, count } = await TripService.getTrips(page, type);
           const newTrips = rawTrips.map(t => ({ ...t, syncStatus: 'synced' as const }));
-          const { lastActionTimestamp } = get();
+          const { lastActionTimestamp, lastActionTimestamps } = get();
 
           if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
             console.log('[DIAGNOSTIC] fetchTrips incoming:', { 
               type, 
               lastActionTimestamp, 
+              lastActionTimestamps,
               incomingCount: newTrips.length,
               incomingNames: newTrips.map(t => t.name)
             });
@@ -183,13 +223,25 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           set(state => {
             // Sync Lock for fetchTrips
             const filteredNewTrips = newTrips.filter((newTrip: Trip) => {
-              if (!lastActionTimestamp || !newTrip.updated_at) return true;
-              const payloadTime = new Date(newTrip.updated_at).getTime();
-              const isOk = payloadTime >= lastActionTimestamp - 1000;
-              if (!isOk && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
-                console.log(`[DIAGNOSTIC] fetchTrips FILTERED OUT stale trip: ${newTrip.name}`, { payloadTime, lastActionTimestamp });
+              const tripId = newTrip.id.toString();
+              
+              // Per-entity lock: Use if we have a local action for THIS trip
+              if (lastActionTimestamps[tripId] && newTrip.updated_at) {
+                const payloadTime = new Date(newTrip.updated_at).getTime();
+                const isOk = payloadTime >= lastActionTimestamps[tripId] - 1000;
+                if (!isOk && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+                  console.log(`[Sync] fetchTrips FILTERED OUT stale trip (per-entity): ${newTrip.name}`, { payloadTime, lastActionTimestamp: lastActionTimestamps[tripId] });
+                }
+                return isOk;
               }
-              return isOk;
+
+              // Fallback to global lock only if NO trip ID is available (rare here)
+              if (!tripId && lastActionTimestamp && newTrip.updated_at) {
+                const payloadTime = new Date(newTrip.updated_at).getTime();
+                return payloadTime >= lastActionTimestamp - 1000;
+              }
+
+              return true;
             });
 
             let updatedTrips;
@@ -231,9 +283,19 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         try {
           const rawTrip = await TripService.getTripById(tripId);
           const trip = { ...rawTrip, syncStatus: 'synced' as const };
-          const { lastActionTimestamp } = get();
+          const { lastActionTimestamp, lastActionTimestamps } = get();
 
-          if (lastActionTimestamp && trip.updated_at) {
+          // Per-entity lock
+          if (lastActionTimestamps[tripId] && trip.updated_at) {
+            const payloadTime = new Date(trip.updated_at).getTime();
+            if (payloadTime < lastActionTimestamps[tripId] - 1000) {
+              set({ isLoading: false });
+              return;
+            }
+          }
+
+          // Fallback to global lock only if NO tripId is available (not the case here)
+          if (!tripId && lastActionTimestamp && trip.updated_at) {
             const payloadTime = new Date(trip.updated_at).getTime();
             if (payloadTime < lastActionTimestamp - 1000) {
               set({ isLoading: false });
@@ -283,13 +345,16 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         try {
           const rawTrips = await TripService.getUpcomingTrips();
           const trips = rawTrips.map(t => ({ ...t, syncStatus: 'synced' as const }));
-          const { lastActionTimestamp } = get();
+          const { lastActionTimestamps } = get();
 
           set(state => {
             const filteredTrips = trips.filter((t: Trip) => {
-              if (!lastActionTimestamp || !t.updated_at) return true;
-              const payloadTime = new Date(t.updated_at).getTime();
-              return payloadTime >= lastActionTimestamp - 1000;
+              const tripId = t.id.toString();
+              if (lastActionTimestamps[tripId] && t.updated_at) {
+                const payloadTime = new Date(t.updated_at).getTime();
+                return payloadTime >= lastActionTimestamps[tripId] - 1000;
+              }
+              return true;
             });
 
             const staleIds = new Set(trips.filter((t: Trip) => !filteredTrips.includes(t)).map((t: Trip) => t.id));
@@ -313,13 +378,16 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         try {
           const rawTrips = await TripService.getTripsForDate(dateString);
           const tripsForDate = rawTrips.map((t: Trip) => ({ ...t, syncStatus: 'synced' as const }));
-          const { lastActionTimestamp } = get();
+          const { lastActionTimestamps } = get();
 
           set(state => {
             const filteredTrips = tripsForDate.filter((t: Trip) => {
-              if (!lastActionTimestamp || !t.updated_at) return true;
-              const payloadTime = new Date(t.updated_at).getTime();
-              return payloadTime >= lastActionTimestamp - 1000;
+              const tripId = t.id.toString();
+              if (lastActionTimestamps[tripId] && t.updated_at) {
+                const payloadTime = new Date(t.updated_at).getTime();
+                return payloadTime >= lastActionTimestamps[tripId] - 1000;
+              }
+              return true;
             });
 
             const staleIds = new Set(tripsForDate.filter((t: Trip) => !filteredTrips.includes(t)).map((t: Trip) => t.id));
@@ -354,6 +422,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
         const isFuture = new Date(tempTrip.trip_date + 'T00:00:00') >= new Date(new Date().setHours(0, 0, 0, 0));
 
+        const now = Date.now();
         set(state => {
           const newUpcoming = isFuture ? [...state.upcomingTrips, tempTrip] : state.upcomingTrips;
           const newTrips = [tempTrip, ...state.trips];
@@ -364,9 +433,10 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             tripsForDate: shouldAddToPlanner ? [...state.tripsForDate, tempTrip] : state.tripsForDate,
             upcomingTrips: newUpcoming,
             trips: newTrips,
-            lastActionTimestamp: Date.now()
+            lastActionTimestamp: now
           };
         });
+        get().setLastActionTimestamp(tempId.toString(), now);
 
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
@@ -379,13 +449,17 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
         try {
           const createdTrip = await TripService.createTrip(trip);
+          const finishedNow = Date.now();
+          if (createdTrip?.id) {
+            get().setLastActionTimestamp(createdTrip.id.toString(), finishedNow);
+          }
           set(state => {
             const syncedTrip = createdTrip ? { ...createdTrip, syncStatus: 'synced' as const } : null;
             return {
               tripsForDate: state.tripsForDate.map(t => Number(t.id) === tempId ? syncedTrip! : t),
               upcomingTrips: state.upcomingTrips.map(t => Number(t.id) === tempId ? syncedTrip! : t),
               trips: state.trips.map(t => Number(t.id) === tempId ? syncedTrip! : t),
-              lastActionTimestamp: Date.now()
+              lastActionTimestamp: finishedNow
             };
           });
 
@@ -411,11 +485,13 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         const originalTrips = get().trips;
         const originalTripsForDate = get().tripsForDate;
 
+        const now = Date.now();
         set(state => ({ 
           trips: state.trips.filter(t => Number(t.id) !== tripIdAsNumber),
           tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tripIdAsNumber),
-          lastActionTimestamp: Date.now()
+          lastActionTimestamp: now
         }));
+        get().setLastActionTimestamp(tripId.toString(), now);
 
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
@@ -1108,7 +1184,9 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           trips: state.trips.slice(0, 20),
           page: state.page,
           count: state.count,
-          hasMore: state.hasMore
+          hasMore: state.hasMore,
+          lastActionTimestamp: state.lastActionTimestamp,
+          lastActionTimestamps: state.lastActionTimestamps
         };
       },
     }
