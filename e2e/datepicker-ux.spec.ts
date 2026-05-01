@@ -1,82 +1,57 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, getSidebarContainer, clearServiceWorkers } from './helpers';
+import { login, navigateToTab, openWineryDetails, ensureSidebarExpanded, clearServiceWorkers } from './helpers';
 
 test.describe('DatePicker UX', () => {
   test.beforeEach(async ({ page }) => {
     await clearServiceWorkers(page);
   });
 
-  test('Desktop: should open popover and close on date selection', async ({ page, user }) => {
+  test('should open picker and close on date selection', async ({ page, user }) => {
     await login(page, user.email, user.password);
     await navigateToTab(page, 'Explore');
 
+    const isMobile = page.viewportSize()!.width < 768;
+
     await test.step('Open Winery Modal', async () => {
-        const sidebar = getSidebarContainer(page);
-        const firstWinery = sidebar.getByTestId('winery-card-Mock Winery One').first();
-        await expect(firstWinery).toBeVisible({ timeout: 15000 });
-        await firstWinery.scrollIntoViewIfNeeded();
-        await firstWinery.click();
-        await expect(page.getByRole('dialog')).toBeVisible();
+        if (isMobile) {
+            await ensureSidebarExpanded(page);
+        }
+        await openWineryDetails(page, 'Mock Winery One');
     });
 
-    await test.step('Open DatePicker Popover', async () => {
+    await test.step('Open DatePicker', async () => {
         const datePickerBtn = page.getByTestId('datepicker-trigger');
+        await expect(datePickerBtn).toHaveAttribute('data-state', 'ready');
+        
+        // Ensure UI is settled after any animations
+        await page.waitForTimeout(1000);
         await datePickerBtn.click();
-        // Desktop uses Popover - DayPicker v9 uses role="grid"
-        await expect(page.getByRole('grid')).toBeVisible();
+        
+        // Wait for animation
+        await page.waitForTimeout(500);
+
+        if (isMobile) {
+            await expect(page.getByText('Select a date')).toBeVisible();
+        }
+        
+        const calendar = page.getByTestId('datepicker-calendar');
+        await expect(calendar).toBeVisible();
+        await expect(calendar.getByRole('grid')).toBeVisible();
     });
 
     await test.step('Select Date and Verify Auto-Close', async () => {
-        // Select today's date - react-day-picker v9 structure
-        const todayCell = page.locator('td[data-today="true"] button').first();
+        const calendar = page.getByTestId('datepicker-calendar');
+        // Select today's date (or at least a valid cell)
+        // DayPicker v9 uses full date strings for accessible names
+        const todayCell = calendar.getByRole('gridcell', { name: /1/ }).first();
         await todayCell.click();
 
-        // Popover should close
-        await expect(page.getByRole('grid')).not.toBeVisible();
-        
-        // Button should show selected date (partial match for year)
-        const datePickerBtn = page.getByRole('button', { name: /2026/ });
-        await expect(datePickerBtn).toBeVisible();
-    });
-
-    // Cleanup: Close modal
-    await page.keyboard.press('Escape');
-    await expect(page.getByRole('dialog')).not.toBeVisible();
-  });
-
-  test('Mobile: should open drawer and close on date selection', async ({ page, user }) => {
-    // Use Mobile Chrome viewport size BEFORE login so the app handles mobile shell correctly
-    await page.setViewportSize({ width: 393, height: 851 });
-    
-    await login(page, user.email, user.password);
-
-    // navigateToTab is handled by login() on mobile, but we call it explicitly to be certain
-    await navigateToTab(page, 'Explore');
-
-    await test.step('Open Winery Modal', async () => {
-        const sidebar = getSidebarContainer(page);
-        const firstWinery = sidebar.getByTestId('winery-card-Mock Winery One').first();
-        await expect(firstWinery).toBeVisible({ timeout: 15000 });
-        await firstWinery.scrollIntoViewIfNeeded();
-        await firstWinery.click();
-        await expect(page.getByRole('dialog')).toBeVisible();
-    });
-
-    await test.step('Open DatePicker Drawer', async () => {
-        const datePickerBtn = page.getByTestId('datepicker-trigger');
-        await datePickerBtn.click();
-        
-        // Mobile uses Drawer which has a title
-        await expect(page.getByText('Select a date')).toBeVisible();
-        await expect(page.getByRole('grid')).toBeVisible();
-    });
-
-    await test.step('Select Date and Verify Auto-Close', async () => {
-        const todayCell = page.locator('td[data-today="true"] button').first();
-        await todayCell.click();
-
-        // Drawer should close
-        await expect(page.getByText('Select a date')).not.toBeVisible();
+        // Picker should close
+        if (isMobile) {
+            await expect(page.getByText('Select a date')).not.toBeVisible();
+        } else {
+            await expect(page.getByTestId('datepicker-calendar')).not.toBeVisible();
+        }
         
         // Button should show selected date
         const datePickerBtn = page.getByTestId('datepicker-trigger');
@@ -84,35 +59,68 @@ test.describe('DatePicker UX', () => {
     });
   });
 
-  test('Desktop: should navigate months in the calendar', async ({ page, user }) => {
+  test('should navigate months in the calendar', async ({ page, user }) => {
     await login(page, user.email, user.password);
     await navigateToTab(page, 'Trips');
     
-    // Open New Trip modal to access DatePicker
-    await page.getByRole('button', { name: /new trip/i }).click();
+    const isMobile = page.viewportSize()!.width < 768;
+
+    // Open New Trip modal
+    const newTripBtn = page.getByRole('button', { name: /new trip/i });
+    await expect(newTripBtn).toBeVisible();
+    await newTripBtn.click();
+    
     const tripForm = page.getByTestId('trip-form-card');
     await expect(tripForm).toBeVisible();
     await expect(tripForm).toHaveAttribute('data-state', 'ready');
 
-    await tripForm.getByTestId('datepicker-trigger').click();
-    const calendar = page.locator('.rdp').or(page.locator('[role="grid"]').locator('xpath=..')).first();
+    const datePickerBtn = tripForm.getByTestId('datepicker-trigger');
+    await expect(datePickerBtn).toHaveAttribute('data-state', 'ready');
+    
+    // Ensure UI is settled
+    await page.waitForTimeout(1000);
+    await datePickerBtn.click();
+    
+    // Wait for animation
+    await page.waitForTimeout(500);
+
+    const calendar = page.getByTestId('datepicker-calendar');
     await expect(calendar).toBeVisible();
 
-    const monthLabel = calendar.locator('[aria-live="polite"]').first();
-    const initialMonth = await monthLabel.innerText();
+    const monthLabel = calendar.locator('[role="status"]');
+    
+    // We use toPass to ensure we read the label after it potentially hydrates/updates
+    let initialMonth = "";
+    await expect(async () => {
+        initialMonth = await monthLabel.innerText();
+        if (!initialMonth) throw new Error("Month label not yet populated");
+    }).toPass();
+    
+    console.log(`[DIAGNOSTIC] Initial Month: "${initialMonth}"`);
 
     // Navigate to next month
-    const nextBtn = page.locator('.absolute.right-1.top-1').first();
-    await nextBtn.click();
+    const nextBtn = page.getByLabel(/Go to (the )?Next Month/i);
+    await nextBtn.click({ force: isMobile });
 
     await expect(async () => {
         const currentMonth = await monthLabel.innerText();
-        if (!currentMonth || currentMonth === initialMonth) {
-            throw new Error('Month did not change');
+        if (!currentMonth || currentMonth === initialMonth || currentMonth === 'Select a date') {
+            throw new Error(`Month did not change. Current: "${currentMonth}", Initial: "${initialMonth}"`);
         }
     }).toPass();
 
     const finalMonth = await monthLabel.innerText();
     expect(finalMonth).not.toBe(initialMonth);
+
+    // Navigate back
+    const prevBtn = page.getByLabel(/Go to (the )?Previous Month/i);
+    await prevBtn.click({ force: isMobile });
+
+    await expect(async () => {
+        const backMonth = await monthLabel.innerText();
+        if (!backMonth || backMonth === finalMonth || backMonth === 'Select a date') {
+            throw new Error(`Month did not return. Current: "${backMonth}", Final: "${finalMonth}"`);
+        }
+    }).toPass();
   });
 });

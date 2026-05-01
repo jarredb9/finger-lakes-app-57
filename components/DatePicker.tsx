@@ -1,6 +1,6 @@
 
 // components/DatePicker.tsx
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
@@ -9,7 +9,6 @@ import { SelectSingleEventHandler } from "react-day-picker";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Drawer,
-  DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerHeader,
@@ -25,32 +24,27 @@ interface DatePickerProps {
 export function DatePicker({ date, onSelect }: DatePickerProps) {
     const [open, setOpen] = useState(false);
     const isMobile = useIsMobile();
-    const closeButtonRef = useRef<HTMLButtonElement>(null);
 
     const handleDateSelect: SelectSingleEventHandler = (selectedDate) => {
         onSelect(selectedDate);
-        if (isMobile) {
-            closeButtonRef.current?.click();
-        } else {
-            setOpen(false);
-        }
+        setOpen(false);
     };
     
     if (isMobile) {
         return (
-            <Drawer>
+            <Drawer open={open} onOpenChange={setOpen}>
                 <DrawerTrigger asChild>
-                    <Button variant="outline" className="w-full justify-start text-left font-normal" data-testid="datepicker-trigger">
+                    <Button variant="outline" className="w-full justify-start text-left font-normal" data-testid="datepicker-trigger" data-state="ready">
                         <CalendarIcon className="mr-2 h-4 w-4" />
                         {date ? date.toLocaleDateString() : <span>Pick a date</span>}
                     </Button>
                 </DrawerTrigger>
-                <DrawerContent>
-                    <DrawerHeader className="text-left">
+                <DrawerContent data-testid="datepicker-drawer-content">
+                    <DrawerHeader className="text-center sm:text-left">
                         <DrawerTitle>Select a date</DrawerTitle>
                         <DrawerDescription>Choose a date for your trip.</DrawerDescription>
                     </DrawerHeader>
-                    <div className="p-4">
+                    <div className="p-4 pt-8" data-state="ready" data-testid="datepicker-calendar">
                       <Calendar
                           mode="single"
                           selected={date}
@@ -58,7 +52,6 @@ export function DatePicker({ date, onSelect }: DatePickerProps) {
                           initialFocus
                       />
                     </div>
-                    <DrawerClose ref={closeButtonRef} className="sr-only">Close</DrawerClose>
                 </DrawerContent>
             </Drawer>
         );
@@ -67,12 +60,12 @@ export function DatePicker({ date, onSelect }: DatePickerProps) {
     return (
         <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal" data-testid="datepicker-trigger">
+                <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal" data-testid="datepicker-trigger" data-state="ready">
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {date ? date.toLocaleDateString() : <span>Pick a date</span>}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
+            <PopoverContent className="w-auto p-0" data-state="ready" data-testid="datepicker-calendar">
                 <Calendar
                     mode="single"
                     selected={date}

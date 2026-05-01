@@ -23,4 +23,4 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 - **Microscope Rule:** Use Podman for SDL-MCP (see `AGENT.md` for command).
 - **Python Version:** **MANDATORY:** Use `python3.11` for all scripts and skills.
 - **Local DB Stack:** Start with `export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase start`.
-- **Playwright Container:** **MANDATORY:** Local testing MUST use rootless Podman via `./scripts/run-e2e-container.sh`. DO NOT run `npx playwright test` directly on the host.
+- **Playwright Container:** **MANDATORY:** Local testing MUST use rootless Podman via `./scripts/run-e2e-container.sh`. DO NOT run `npx playwright test` directly on the host. Use the --build option after updating the application to ensure a fresh build. Example `./scripts/run-e2e-container.sh --build chromium e2e/smoke.spec.ts`
