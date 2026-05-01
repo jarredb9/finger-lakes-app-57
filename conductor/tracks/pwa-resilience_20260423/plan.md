@@ -81,8 +81,8 @@
 - [x] Task: Fix Sync Lock Race Condition (Global -> Per-Entity) 4657cb1
     - [x] Update `tripStore` and `visitStore` to use a Map for `lastActionTimestamp` (key: entityId).
     - [x] Update real-time listeners and fetch logic to use per-entity timestamps.
-- [ ] Task: Fix Map Search Error Handling & Alerts
-    - [ ] Update `use-winery-search.ts` to set store error when both cache and Google search fail.
+- [x] Task: Fix Map Search Error Handling & Alerts 36dabf3
+    - [x] Update `use-winery-search.ts` to set store error when both cache and Google search fail.
 - [ ] Task: Normalize Trip IDs in Service Layer
     - [ ] Ensure `TripService.getTrips` and `getUpcomingTrips` explicitly convert IDs to `Number`.
 - [ ] Task: Fix Deep Linking & Redirection Race
