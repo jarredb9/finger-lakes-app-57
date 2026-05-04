@@ -18,6 +18,7 @@ import { RealtimeChannel } from '@supabase/supabase-js';
 interface VisitState {
   visits: VisitWithWinery[];
   isLoading: boolean;
+  error: string | null;
   isSavingVisit: boolean;
   isSyncing: boolean;
   lastActionTimestamp: number | null;
@@ -48,6 +49,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
     (set, get) => ({
       visits: [],
       isLoading: false,
+      error: null,
       isSavingVisit: false,
       isSyncing: false,
       lastActionTimestamp: null,
@@ -58,7 +60,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       hasMore: false,
 
       fetchVisits: async (pageNumber = 1, refresh = false) => {
-        set({ isLoading: true });
+        set({ isLoading: true, error: null });
         const supabase = createClient();
         try {
           const { data, error, count } = await supabase.rpc('get_paginated_visits_with_winery_and_friends', {
@@ -95,12 +97,13 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             page: pageNumber,
             totalPages: Math.ceil((count || 0) / VISITS_PER_PAGE),
             hasMore: fetchedVisits.length === VISITS_PER_PAGE,
-            isLoading: false
+            isLoading: false,
+            error: null
           }));
 
-        } catch (error) {
+        } catch (error: any) {
           console.error("Failed to fetch visits:", error);
-          set({ isLoading: false });
+          set({ isLoading: false, error: error.message || "Failed to fetch visits" });
         }
       },
 
@@ -528,6 +531,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       reset: () => set({
         visits: [],
         isLoading: false,
+        error: null,
         isSavingVisit: false,
         isSyncing: false,
         lastActionTimestamp: null,

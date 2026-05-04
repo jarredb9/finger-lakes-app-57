@@ -8,7 +8,8 @@ import { columns } from "@/components/visits-table-columns"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Star, ArrowUp, ArrowDown } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { AlertCircle, Star, ArrowUp, ArrowDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext, PaginationLink } from "@/components/ui/pagination"
 
@@ -45,6 +46,7 @@ export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (
     const { 
         visits = [], 
         isLoading, 
+        error,
         page = 1, 
         totalPages = 1, 
         fetchVisits 
@@ -100,74 +102,88 @@ export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (
         }
     };
     
-    if (isLoading && visits.length === 0) {
-        return (
-            <div className="space-y-4">
-                <Skeleton className="h-10 w-1/3" />
-                <Skeleton className="h-64 w-full" />
-            </div>
-        );
-    }
+    const viewState = error ? "error" : isLoading && visits.length === 0 ? "loading" : "ready";
 
     return (
-        <div>
+        <div data-state={viewState} className="space-y-4">
             <h1 className="text-2xl font-bold mb-4">Your Visit History</h1>
             <p className="text-muted-foreground mb-6">
                 Here you can find all of your past winery visits. Click on a row to see more details.
             </p>
-            
-            <div className="md:hidden space-y-4 mb-4">
-                <Input
-                    placeholder="Filter by winery or review..."
-                    value={filter}
-                    onChange={(event) => setFilter(event.target.value)}
-                />
-                <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium">Sort by:</span>
-                    <Button variant={sortConfig.key === 'date' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'date', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                        Date <SortIcon sortKey="date" currentKey={sortConfig.key} direction={sortConfig.direction} />
-                    </Button>
-                    <Button variant={sortConfig.key === 'name' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'name', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                        Winery <SortIcon sortKey="name" currentKey={sortConfig.key} direction={sortConfig.direction} />
-                    </Button>
-                    <Button variant={sortConfig.key === 'rating' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'rating', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                        Rating <SortIcon sortKey="rating" currentKey={sortConfig.key} direction={sortConfig.direction} />
-                    </Button>
+
+            {viewState === "loading" && (
+                <div className="space-y-4">
+                    <Skeleton className="h-10 w-1/3" />
+                    <Skeleton className="h-64 w-full" />
                 </div>
-            </div>
+            )}
 
-            <div className="hidden md:block">
-                <DataTable columns={columns} data={visits} onRowClick={handleRowClick} />
-            </div>
+            {viewState === "error" && (
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>
+                        {error || "Failed to load visits. Please try again."}
+                    </AlertDescription>
+                </Alert>
+            )}
 
-            <div className="block md:hidden">
-                {sortedAndFilteredVisitsForMobile.length > 0 ? (
-                    sortedAndFilteredVisitsForMobile.map(visit => (
-                        <MobileVisitCard key={visit.id} visit={visit} onWinerySelect={handleRowClick} />
-                    ))
-                ) : (
-                     <p className="text-center text-muted-foreground py-12">No visits found.</p>
-                )}
-            </div>
+            {viewState === "ready" && (
+                <>
+                    <div className="md:hidden space-y-4 mb-4">
+                        <Input
+                            placeholder="Filter by winery or review..."
+                            value={filter}
+                            onChange={(event) => setFilter(event.target.value)}
+                        />
+                        <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-sm font-medium">Sort by:</span>
+                            <Button variant={sortConfig.key === 'date' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'date', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                Date <SortIcon sortKey="date" currentKey={sortConfig.key} direction={sortConfig.direction} />
+                            </Button>
+                            <Button variant={sortConfig.key === 'name' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'name', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                Winery <SortIcon sortKey="name" currentKey={sortConfig.key} direction={sortConfig.direction} />
+                            </Button>
+                            <Button variant={sortConfig.key === 'rating' ? 'secondary' : 'ghost'} onClick={() => setSortConfig({ key: 'rating', direction: sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                Rating <SortIcon sortKey="rating" currentKey={sortConfig.key} direction={sortConfig.direction} />
+                            </Button>
+                        </div>
+                    </div>
 
-            {totalPages > 1 && (
-                <Pagination className="mt-8">
-                    <PaginationContent>
-                        <PaginationItem>
-                            <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(page - 1); }} />
-                        </PaginationItem>
-                        {[...Array(totalPages)].map((_, i) => (
-                             <PaginationItem key={i}>
-                                <PaginationLink href="#" isActive={page === i + 1} onClick={(e) => { e.preventDefault(); handlePageChange(i + 1); }}>
-                                    {i + 1}
-                                </PaginationLink>
-                            </PaginationItem>
-                        ))}
-                        <PaginationItem>
-                            <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(page + 1); }} />
-                        </PaginationItem>
-                    </PaginationContent>
-                </Pagination>
+                    <div className="hidden md:block">
+                        <DataTable columns={columns} data={visits} onRowClick={handleRowClick} />
+                    </div>
+
+                    <div className="block md:hidden">
+                        {sortedAndFilteredVisitsForMobile.length > 0 ? (
+                            sortedAndFilteredVisitsForMobile.map(visit => (
+                                <MobileVisitCard key={visit.id} visit={visit} onWinerySelect={handleRowClick} />
+                            ))
+                        ) : (
+                            <p className="text-center text-muted-foreground py-12">No visits found.</p>
+                        )}
+                    </div>
+
+                    {totalPages > 1 && (
+                        <Pagination className="mt-8">
+                            <PaginationContent>
+                                <PaginationItem>
+                                    <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePageChange(page - 1); }} />
+                                </PaginationItem>
+                                {[...Array(totalPages)].map((_, i) => (
+                                    <PaginationItem key={i}>
+                                        <PaginationLink href="#" isActive={page === i + 1} onClick={(e) => { e.preventDefault(); handlePageChange(i + 1); }}>
+                                            {i + 1}
+                                        </PaginationLink>
+                                    </PaginationItem>
+                                ))}
+                                <PaginationItem>
+                                    <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handlePageChange(page + 1); }} />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
+                    )}
+                </>
             )}
         </div>
     )

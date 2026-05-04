@@ -20,6 +20,10 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 
 ### 2. Operational Override
 - **Conductor Lifecycle:** Write Failing Test -> Implement -> Pass Test -> Commit -> Update plan.md. Execute ONE task at a time.
+- **Context Efficiency (MANDATORY):** 
+    - **Hard Delegation Threshold:** Any research, audit, or batch task expected to take >3 tool calls MUST be delegated to a sub-agent (e.g., `codebase_investigator`). Never perform "discovery" or "sweeping audits" in the main session window.
+    - **Surgical Read Mandate:** Use `grep_search` with `context` OR `read_file` with `start_line`/`end_line`. Reading more than 50 lines of code at once into the main history is a protocol violation.
+    - **History Compression:** If a session history exceeds 15 turns, the agent MUST summarize the work and ask the user to start a fresh session to maintain performance.
 - **Verification Rule:** Always favor empirical evidence (running tests) over assumptions.
 - **Microscope Rule:** Use Podman for SDL-MCP (see `AGENT.md` for command).
 - **Python Version:** **MANDATORY:** Use `python3.11` for all scripts and skills.

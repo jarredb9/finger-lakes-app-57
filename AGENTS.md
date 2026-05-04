@@ -38,6 +38,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 
 ## 5. Workflows & Verification
 - **Conductor:** Write Failing Test -> Implement -> Pass Test -> Commit -> Update plan.md.
+- **Context Efficiency:** Prioritize `grep_search` and targeted `read_file` (line ranges). Delegate verbose/repetitive tasks to sub-agents to "compress" history.
 - **Testing:** Favor empirical evidence (running tests) over assumptions.
 - **Atomic Verification:** A task is NOT complete until its specific E2E test passes.
 - **Standard Click:** Use Playwright's native `.click()`. Use `{ force: true }` if needed.
