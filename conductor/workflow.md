@@ -11,6 +11,8 @@
 
 ## Task Workflow
 
+**EFFICIENCY MANDATE:** You MUST follow the **Context Efficiency Protocol** in `GEMINI.md` for ALL steps below. Any research taking >3 tool calls or any task touching >2 files MUST be delegated to a sub-agent.
+
 All tasks follow a strict lifecycle:
 
 ### Standard Task Workflow

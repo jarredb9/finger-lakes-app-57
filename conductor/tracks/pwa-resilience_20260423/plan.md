@@ -97,8 +97,8 @@
     - [x] Fix `auth-provider.tsx` early return to prevent full-page layout shifts during visit store hydration.
 - [ ] Task: Resolve errors identified in failing tests
     - [x] Resolve application/testing errors identified in test `e2e/error-handling.spec.ts` d0360ab
-    - [x] Resolve application/testing errors identified in test e2e/privacy-flow.spec.ts a142a41
-    - [ ] Resolve application/testing errors identified in test e2e/sync-lock.spec.ts
+    - [x] Resolve application/testing errors identified in test `e2e/privacy-flow.spec.ts` a142a41
+    - [ ] Resolve application/testing errors identified in test `e2e/sync-lock.spec.ts`
     - [ ] Resolve application/testing errors identified in test `e2e/trip-sharing.spec.ts`
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Stabilization and Final Verification'
 - [ ] Task: Conductor - Update CHANGELOG.md and bump package.json version

@@ -21,10 +21,11 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 ### 2. Operational Override
 - **Conductor Lifecycle:** Write Failing Test -> Implement -> Pass Test -> Commit -> Update plan.md. Execute ONE task at a time.
 - **Context Efficiency (MANDATORY):** 
-    - **Empirical Proof of Work:** Never provide an audit, summary, or "finding" based on internal memory. You MUST provide tool-based evidence (e.g., `grep_search` results or sub-agent reports) in the turn history.
-    - **Hard Delegation Threshold:** Any research, audit, or batch task expected to take >3 tool calls MUST be delegated to a sub-agent (e.g., `codebase_investigator`). Never perform "discovery" or "sweeping audits" in the main session window.
-    - **Surgical Read Mandate:** Use `grep_search` with `context` OR `read_file` with `start_line`/`end_line`. Reading more than 50 lines of code at once into the main history is a protocol violation.
-    - **Discovery Ritual:** Skipping the read of `AGENTS.md` and `conductor/index.md` at session start is a critical failure.
+    - **Directive Override:** This protocol applies to ALL tasks, including Conductor tracks and formal "System Directives." A large directive does NOT excuse history bloat.
+    - **Hard Delegation Threshold:** Any research, audit, or "Discovery Phase" (finding violations/files) MUST be delegated to a sub-agent if it exceeds 3 tool calls.
+    - **Batch Task Mandate:** Implementing a task that touches more than 2 files MUST start with a sub-agent audit to "compress" the required context.
+    - **Zero-Leakage Summarization:** NEVER copy-paste large blocks of code or verbose logs from sub-agents into the main session history. You MUST "digest" sub-agent findings into a high-signal, bulleted summary that contains ONLY architectural insights, required changes, and critical constants.
+    - **Surgical Read Mandate:** Never read more than 50 lines at once. Use line ranges.
 - **Verification Rule:** Always favor empirical evidence (running tests) over assumptions.
 - **Microscope Rule:** Use Podman for SDL-MCP (see `AGENT.md` for command).
 - **Python Version:** **MANDATORY:** Use `python3.11` for all scripts and skills.
