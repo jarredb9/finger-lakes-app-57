@@ -88,8 +88,8 @@
 - [x] Task: Fix Deep Linking & Redirection Race f6beb7c
     - [x] Ensure `SyncService` doesn't block initial page redirection by moving trigger to `AuthProvider` with delay.
     - [x] Update `proxy.ts` to allow navigation redirects in E2E mode for `redirectTo` preservation.
-- [ ] Task: Layout & Visual Reconciliation
-    - [ ] Resolve `pwa-install-layout.spec.ts` and `visual.spec.ts` failures.
+- [x] Task: Layout & Visual Reconciliation 1175d8f
+    - [x] Resolve `pwa-install-layout.spec.ts` and `visual.spec.ts` failures.
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Stabilization and Final Verification'
 
 ## Phase: Review Fixes
