@@ -25,7 +25,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
           ]
       });
 
-      await mockMaps.initDefaultMocks({ currentUserId: userA.id });
+      await mockMaps.initDefaultMocks({ currentUserId: userA.id, forceMocks: true });
       mockMaps.getState().trips = [mockTrip];
 
       await login(page, userA.email, userA.password, { skipMapReady: true });
@@ -107,8 +107,8 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       const managerB = new MockMapsManager(pageB, sharedState);
 
       // We use MOCKS for this test to ensure stability in the container
-      await managerA.initDefaultMocks({ currentUserId: userA.id });
-      await managerB.initDefaultMocks({ currentUserId: userB.id });
+      await managerA.initDefaultMocks({ currentUserId: userA.id, forceMocks: true });
+      await managerB.initDefaultMocks({ currentUserId: userB.id, forceMocks: true });
 
       await login(pageA, userA.email, userA.password, { skipMapReady: true });
       await login(pageB, userB.email, userB.password, { skipMapReady: true });
@@ -242,10 +242,18 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       const editBtn = pageA.getByRole('button', { name: 'Edit' });
       await expect(editBtn).toBeVisible({ timeout: 5000 });
-      await editBtn.click({ force: true });
+      // Wait for button to be enabled (handles user hydration/sync status)
+      await expect(editBtn).toBeEnabled({ timeout: 10000 });
+      await editBtn.click(); // No force needed if enabled
       
       const newName = `Renamed ${Date.now()}`;
-      await pageA.getByPlaceholder('Trip Name').fill(newName);
+      // Use toPass to ensure the input appears
+      await expect(async () => {
+          const nameInput = pageA.getByPlaceholder('Trip Name');
+          await expect(nameInput).toBeVisible({ timeout: 2000 });
+          await nameInput.fill(newName);
+      }).toPass({ timeout: 10000, intervals: [500, 1000] });
+      
       console.log(`[DIAGNOSTIC] User A filled new name: ${newName}`);
       
       const saveBtn = pageA.getByRole('button', { name: 'Save' });
@@ -292,7 +300,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     } as any;
 
     // 2. Initialize mocks and login
-    await mockMaps.initDefaultMocks({ currentUserId: user.id });
+    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     
     // IMPORTANT: Update mock trips so the RPC mock returns this specific trip
     // when fetchTripById is called by the component on mount.
@@ -349,7 +357,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
         logs.push(text);
     });
 
-    await mockMaps.initDefaultMocks({ currentUserId: user.id });
+    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     // We do NOT skip map ready here to ensure the full app shell (and window.supabase) is ready
     await login(page, user.email, user.password, { skipMapReady: false });
     

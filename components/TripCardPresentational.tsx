@@ -24,6 +24,7 @@ interface TripCardProps {
   isOwner: boolean;
   canEdit: boolean;
   isUpdating?: boolean;
+  isUserLoading?: boolean;
   currentMembers: TripMember[];
   onUpdateTrip: (id: string, updates: { name?: string; trip_date?: string }) => Promise<void>;
   onDeleteTrip: (id: string) => void;
@@ -87,6 +88,7 @@ const TripCard = memo(({
   isOwner, 
   canEdit, 
   isUpdating,
+  isUserLoading,
   currentMembers,
   onUpdateTrip,
   onDeleteTrip,
@@ -119,6 +121,13 @@ const TripCard = memo(({
     }
   });
   const [addWineryPopoverOpen, setAddWineryPopoverOpen] = useState(false);
+
+  // Diagnostic logging for E2E
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_IS_E2E) {
+      console.log(`[TripCard DIAGNOSTIC] id: ${trip?.id}, canEdit: ${canEdit}, isUpdating: ${isUpdating}, isUserLoading: ${isUserLoading}, isPending: ${trip?.syncStatus === 'pending'}`);
+    }
+  }, [trip?.id, canEdit, isUpdating, isUserLoading, trip?.syncStatus]);
 
   if (!trip || !trip.trip_date) {
     return null;
@@ -170,10 +179,10 @@ const TripCard = memo(({
     <Card 
       className={cn(
         "w-full overflow-hidden transition-opacity", 
-        isPending && "opacity-50"
+        (isPending || isUserLoading) && "opacity-50"
       )} 
       data-testid="trip-details-card" 
-      data-state={isUpdating ? 'loading' : 'ready'}
+      data-state={isUpdating || isUserLoading ? 'loading' : 'ready'}
     >
       <CardHeader className="bg-gray-50 border-b">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -240,7 +249,7 @@ const TripCard = memo(({
                       size="icon" 
                       className="h-8 w-8 rounded-full border-dashed bg-gray-50 hover:bg-white"
                       onClick={() => onOpenShareDialog(trip.id.toString(), trip.name || "Trip")}
-                      disabled={trip.id < 0}
+                      disabled={trip.id < 0 || isUserLoading}
                       aria-label="Share Trip"
                     >
                       <UserPlus className="h-4 w-4 text-gray-500" />
@@ -257,14 +266,14 @@ const TripCard = memo(({
 
             <div className="flex items-center gap-2">
               {isEditing ? (
-                <Button size="sm" onClick={handleSave} className="h-9" disabled={isPending}><Save className="w-4 h-4 mr-2"/>Save</Button>
+                <Button size="sm" onClick={handleSave} className="h-9" disabled={isPending || isUserLoading}><Save className="w-4 h-4 mr-2"/>Save</Button>
               ) : (
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => setIsEditing(true)} 
                   className="h-9"
-                  disabled={trip.id < 0 || !canEdit || isPending}
+                  disabled={trip.id < 0 || !canEdit || isPending || isUserLoading}
                   aria-label="Edit Trip"
                 >
                   {trip.id < 0 ? "Creating..." : <><Edit className="w-4 h-4 mr-2"/>Edit</>}
@@ -276,7 +285,7 @@ const TripCard = memo(({
                   size="icon" 
                   className="h-9 w-9" 
                   data-testid="delete-trip-btn" 
-                  disabled={trip.id < 0 || isPending} 
+                  disabled={trip.id < 0 || isPending || isUserLoading} 
                   aria-label="Delete Trip"
                   onClick={() => onDeleteTrip(trip.id.toString())}
                 >
