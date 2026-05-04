@@ -90,11 +90,11 @@
     - [x] Update `proxy.ts` to allow navigation redirects in E2E mode for `redirectTo` preservation.
 - [x] Task: Layout & Visual Reconciliation 1175d8f
     - [x] Resolve `pwa-install-layout.spec.ts` and `visual.spec.ts` failures.
-- [ ] Task: System-Wide DOM Stability & Error Propagation Alignment
-    - [ ] Refactor Friend System (`FriendActivityFeed.tsx`, `FriendProfile.tsx`) for container stability and store error consumption.
-    - [ ] Refactor Trip Management (`TripListPresentational.tsx`) to eliminate early returns and move Skeletons inside the stable container.
-    - [ ] Refactor Global Components (`global-visit-history.tsx`, `visit-history-modal.tsx`) to adhere to the `data-state` and stable parent patterns.
-    - [ ] Fix `auth-provider.tsx` early return to prevent full-page layout shifts during visit store hydration.
+- [x] Task: System-Wide DOM Stability & Error Propagation Alignment 76c9b58
+    - [x] Refactor Friend System (`FriendActivityFeed.tsx`, `FriendProfile.tsx`) for container stability and store error consumption.
+    - [x] Refactor Trip Management (`TripListPresentational.tsx`) to eliminate early returns and move Skeletons inside the stable container.
+    - [x] Refactor Global Components (`global-visit-history.tsx`, `VisitHistoryView.tsx`) to adhere to the `data-state` and stable parent patterns.
+    - [x] Fix `auth-provider.tsx` early return to prevent full-page layout shifts during visit store hydration.
 - [ ] Task: Resolve errors identified in failing tests
     - [x] Resolve application/testing errors identified in test `e2e/error-handling.spec.ts` d0360ab
     - [ ] Resolve application/testing errors identified in test `e2e/privacy-flow.spec.ts`

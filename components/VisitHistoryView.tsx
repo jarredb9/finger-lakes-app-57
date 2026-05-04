@@ -38,8 +38,15 @@ type SortConfig = {
 };
 
 const SortIcon = ({ sortKey, currentKey, direction }: { sortKey: SortConfig['key'], currentKey: SortConfig['key'], direction: SortConfig['direction'] }) => {
-    if (currentKey !== sortKey) return null;
-    return direction === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />;
+    return (
+        <span className="inline-flex items-center" data-active={currentKey === sortKey}>
+            {currentKey === sortKey ? (
+                direction === 'asc' ? <ArrowUp className="h-4 w-4 ml-2" /> : <ArrowDown className="h-4 w-4 ml-2" />
+            ) : (
+                <span className="h-4 w-4 ml-2 invisible" aria-hidden="true" />
+            )}
+        </span>
+    );
 };
 
 export default function VisitHistoryView({ onWinerySelect }: { onWinerySelect: (wineryId: string) => void; }) {

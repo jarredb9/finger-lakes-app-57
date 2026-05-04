@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Trip, AuthenticatedUser } from '@/lib/types';
 import { Button } from './ui/button';
-import { Loader2, PlusCircle, AlertTriangle } from 'lucide-react';
+import { PlusCircle, AlertTriangle } from 'lucide-react';
 import { Pagination, PaginationContent, PaginationItem, PaginationPrevious, PaginationNext } from '@/components/ui/pagination';
 import TripCardSimple from './trip-card-simple';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -68,17 +68,25 @@ export default function TripList({
         ? trips.filter(t => t.trip_date > today) 
         : trips.filter(t => t.trip_date < today);
 
-    if (isLoading && trips.length === 0) {
-        return <div className="flex justify-center items-center h-48"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>;
-    }
-
     return (
-        <div className="space-y-8 pb-4" data-testid="trip-list-container" data-state={error ? 'error' : isLoading ? 'loading' : 'ready'}>
+        <div className="space-y-8 pb-4" data-testid="trip-list-container" data-state={error ? 'error' : isLoading && trips.length === 0 ? 'loading' : 'ready'}>
             {error ? (
                 <Alert variant="destructive" className="my-4">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>{error}</AlertDescription>
                 </Alert>
+            ) : isLoading && trips.length === 0 ? (
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                         <div className="h-8 w-48 bg-muted animate-pulse rounded" />
+                         <div className="h-9 w-24 bg-muted animate-pulse rounded" />
+                    </div>
+                    <div className="space-y-4">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="h-32 w-full bg-muted animate-pulse rounded-xl" />
+                        ))}
+                    </div>
+                </div>
             ) : (
                 <>
                     <div className="flex items-center justify-between gap-4">

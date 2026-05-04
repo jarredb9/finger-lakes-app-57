@@ -51,13 +51,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const isPublicPath = publicPaths.includes(pathname);
-  if (!isPublicPath && isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center" data-testid="auth-loading">
-        <p>Loading...</p>
-      </div>
-    );
-  }
-
-  return <>{children}</>;
+  
+  return (
+    <div 
+      className={!isPublicPath && isLoading ? "opacity-50 pointer-events-none transition-opacity duration-300" : "transition-opacity duration-300"} 
+      data-testid="auth-container" 
+      data-auth-loading={!isPublicPath && isLoading}
+    >
+      {children}
+    </div>
+  );
 }
