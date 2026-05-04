@@ -16,9 +16,13 @@ export function getSidebarContainer(page: Page): Locator {
 /**
  * Waits for a specific container to reach a signal state.
  */
-export async function waitForSignal(page: Page, testId: string, state: 'ready' | 'loading' | 'stable' = 'ready', timeout = 15000) {
+export async function waitForSignal(page: Page, testId: string, state: 'ready' | 'loading' | 'stable' | 'error' | RegExp = 'ready', timeout = 15000) {
     const container = page.locator(`[data-testid="${testId}"]`);
-    await expect(container).toHaveAttribute('data-state', state, { timeout });
+    if (state instanceof RegExp) {
+        await expect(container).toHaveAttribute('data-state', state, { timeout });
+    } else {
+        await expect(container).toHaveAttribute('data-state', state, { timeout });
+    }
 }
 
 /**
@@ -215,7 +219,7 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
           await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 5000 });
       }
 
-      await waitForSignal(page, containerIdMap[tabName], 'ready', 5000);
+      await waitForSignal(page, containerIdMap[tabName], /ready|error/, 5000);
   }).toPass({ timeout: 15000, intervals: [2000] });
 
   // WebKit/Safari needs more time for global mocks to settle 

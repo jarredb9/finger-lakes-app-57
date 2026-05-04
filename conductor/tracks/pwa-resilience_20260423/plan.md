@@ -90,7 +90,13 @@
     - [x] Update `proxy.ts` to allow navigation redirects in E2E mode for `redirectTo` preservation.
 - [x] Task: Layout & Visual Reconciliation 1175d8f
     - [x] Resolve `pwa-install-layout.spec.ts` and `visual.spec.ts` failures.
-- [x] Task: Conductor - User Manual Verification 'Phase 6: Stabilization and Final Verification'
+- [ ] Task: Resolve errors identified in failing tests
+    - [x] Resolve application/testing errors identified in test `e2e/error-handling.spec.ts`
+    - [ ] Resolve application/testing errors identified in test `e2e/privacy-flow.spec.ts`
+    - [ ] Resolve application/testing errors identified in test `e2e/sync-lock.spec.ts`
+    - [ ] Resolve application/testing errors identified in test `e2e/trip-sharing.spec.ts`
+- [ ] Task: Conductor - User Manual Verification 'Phase 6: Stabilization and Final Verification'
+- [ ] Task: Conductor - Update CHANGELOG.md and bump package.json version
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions 6ac8f57

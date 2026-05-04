@@ -14,7 +14,8 @@ test.describe('Error Handling (Unhappy Path)', () => {
     await login(page, user.email, user.password, { skipMapReady: true });
 
     // 3. Verify Error Alert is visible on the map area
-    const errorAlert = page.getByRole('alert').filter({ hasText: 'Failed to load data' });
+    const mapContainer = page.getByTestId('map-container');
+    const errorAlert = mapContainer.getByRole('alert').filter({ hasText: 'Failed to load data' });
     await expect(errorAlert).toBeVisible({ timeout: 15000 });
   });
 
@@ -29,7 +30,8 @@ test.describe('Error Handling (Unhappy Path)', () => {
     await navigateToTab(page, 'Trips');
 
     // 4. Verify Error Alert is visible in the sidebar
-    const errorAlert = page.getByRole('alert').filter({ hasText: 'Database Connection Failed' });
+    const tripContainer = page.getByTestId('trip-list-container');
+    const errorAlert = tripContainer.getByRole('alert').filter({ hasText: 'Database Connection Failed' });
     await expect(errorAlert).toBeVisible({ timeout: 15000 });
   });
 

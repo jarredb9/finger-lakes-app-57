@@ -23,12 +23,14 @@ export function useWineryMap(userId: string) {
     autoSearch,
     setAutoSearch,
     setBounds,
+    error: mapError,
   } = useMapStore();
 
-  const { error, isLoading } = useWineryDataStore();
+  const { error: dataError, isLoading } = useWineryDataStore();
+  const { error: tripError, fetchUpcomingTrips, selectedTrip } = useTripStore();
+  const error = dataError || mapError || tripError;
   const { fetchWineryData, ensureWineryDetails, getWineries } = useWineryStore();
   const { openWineryModal } = useUIStore();
-  const { fetchUpcomingTrips, selectedTrip } = useTripStore();
   const { executeSearch } = useWinerySearch();
   const { mapWineries, listResultsInView, filter, handleFilterChange } = useWineryFilter();
 
@@ -73,13 +75,17 @@ export function useWineryMap(userId: string) {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       
       debounceTimeoutRef.current = setTimeout(() => {
-        if (!useMapStore.getState().autoSearch) return;
+        const state = useMapStore.getState();
+        const hasSearched = !!state.lastSearchedBounds;
+
+        // Trigger search if autoSearch is on OR if this is the first search (initial load)
+        if (!state.autoSearch && hasSearched) return;
         
         if (!currentBounds) return;
 
-        const lastSearched = useMapStore.getState().lastSearchedBounds;
-        const lastSearchedZoom = useMapStore.getState().lastSearchedZoom;
-        const hitApiLimit = useMapStore.getState().hitApiLimit;
+        const lastSearched = state.lastSearchedBounds;
+        const lastSearchedZoom = state.lastSearchedZoom;
+        const hitApiLimit = state.hitApiLimit;
         const currentZoom = map.getZoom();
 
         if (lastSearched) {
