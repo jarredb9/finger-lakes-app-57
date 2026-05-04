@@ -77,6 +77,12 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           delete next[tripId];
         } else {
           next[tripId] = timestamp;
+          // Cleanup: Keep the record size manageable
+          const keys = Object.keys(next);
+          if (keys.length > 50) {
+            const oldestKey = keys.reduce((a, b) => next[a] < next[b] ? a : b);
+            delete next[oldestKey];
+          }
         }
         return { lastActionTimestamps: next };
       }),

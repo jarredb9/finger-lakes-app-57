@@ -90,7 +90,7 @@
     - [x] Update `proxy.ts` to allow navigation redirects in E2E mode for `redirectTo` preservation.
 - [x] Task: Layout & Visual Reconciliation 1175d8f
     - [x] Resolve `pwa-install-layout.spec.ts` and `visual.spec.ts` failures.
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: Stabilization and Final Verification'
+- [x] Task: Conductor - User Manual Verification 'Phase 6: Stabilization and Final Verification'
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions 6ac8f57
