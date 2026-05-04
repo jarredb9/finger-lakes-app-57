@@ -85,7 +85,11 @@ export const useFriendStore = createWithEqualityFn<FriendState>()(
         set({ isLoading: true, error: null });
         try {
           const profile = await SocialService.getFriendProfile(friendId);
-          set({ selectedFriendProfile: profile, isLoading: false });
+          if (profile && (profile as any).error) {
+            set({ error: (profile as any).error, selectedFriendProfile: null, isLoading: false });
+          } else {
+            set({ selectedFriendProfile: profile, isLoading: false });
+          }
         } catch (error: any) {
           set({ error: error.message, isLoading: false });
         }
