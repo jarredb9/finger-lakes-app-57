@@ -898,9 +898,9 @@ export { createMockTrip, createMockVisitWithWinery, createMockMapMarkerRpc } fro
 
 // --- LEGACY EXPORTS (Restored for visual.spec.ts and others) ---
 /** @deprecated Use mockMaps fixture */
-export async function mockGoogleMapsApi(page: Page, userId?: string) {
+export async function mockGoogleMapsApi(page: Page, userId?: string, forceMocks: boolean = false) {
   const manager = new MockMapsManager(page);
-  await manager.initDefaultMocks({ currentUserId: userId });
+  await manager.initDefaultMocks({ currentUserId: userId, forceMocks });
 }
 
 /** @deprecated Use user fixture */
