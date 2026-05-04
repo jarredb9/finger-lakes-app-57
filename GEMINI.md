@@ -12,7 +12,8 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 
 # 🚨 SYSTEM OVERRIDE INSTRUCTIONS (PRIORITY 1)
 
-### 1. Mandatory Global Skills
+### 1. Mandatory Global Skills & Discovery
+*   **Discovery:** You MUST read `AGENTS.md` and `conductor/index.md` at the start of every session.
 *   **Analysis:** `codebase-analysis`, `problem-analysis` for investigation.
 *   **Verification:** `project-testing-best-practices` MUST be active BEFORE writing any tests.
 *   **Handoff:** `handoff-protocol` MUST be active AFTER completing feature logic.

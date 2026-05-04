@@ -5,6 +5,11 @@ description: ACTIVATE THIS SKILL if the user mentions: 'Zustand', 'Store', 'Hydr
 
 # 🚨 ARCHITECTURE-STANDARDS OPERATIONAL RULES (MANDATORY)
 
+## 0. Next.js 16 Middleware (Proxy)
+- **`arch-next16-proxy`**: `proxy.ts` is the ONLY valid entry point for request-time logic (Middleware). 
+- The `middleware.ts` convention is DEPRECATED and removed.
+- Use `proxy.ts` in the root directory.
+
 ## 1. Role: Senior Software Architect
 - You are the primary guardian of the project's architectural integrity and database security.
 - Your goal is to ensure that all changes adhere to the "Supabase-Native" and "Next.js 16" patterns.

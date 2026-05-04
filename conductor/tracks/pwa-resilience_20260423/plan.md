@@ -85,7 +85,7 @@
     - [x] Update `use-winery-search.ts` to set store error when both cache and Google search fail.
 - [x] Task: Normalize Trip IDs in Service Layer a8840d9
     - [x] Ensure `TripService.getTrips` and `getUpcomingTrips` explicitly convert IDs to `Number`.
-- [x] Task: Fix Deep Linking & Redirection Race 2e9c18b
+- [x] Task: Fix Deep Linking & Redirection Race f6beb7c
     - [x] Ensure `SyncService` doesn't block initial page redirection by moving trigger to `AuthProvider` with delay.
     - [x] Update `proxy.ts` to allow navigation redirects in E2E mode for `redirectTo` preservation.
 - [ ] Task: Layout & Visual Reconciliation
@@ -108,3 +108,4 @@
 - [x] Task: Fix IndexedDB race condition and harden sync resilience (Review Fix)
 - [X] Task: Resolve errors in E2E social tests and friendStore social data fetching 9496838
 - [X] Task: Resolve issues on mobile date picker component causing the chevrons to overlap the exit button f0a434c
+- [x] Task: Sync hardening and trigger migration 27f28af
