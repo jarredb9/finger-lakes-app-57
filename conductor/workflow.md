@@ -11,30 +11,33 @@
 
 ## Task Workflow
 
-**EFFICIENCY MANDATE:** You MUST follow the **Context Efficiency Protocol** in `GEMINI.md` for ALL steps below. Any research taking >3 tool calls, any task touching >2 files, or any command with high-volume output (E2E tests, builds, coverage) MUST be delegated to a sub-agent.
+**EFFICIENCY MANDATE:** You MUST follow the **Context Efficiency Protocol** in `GEMINI.md` for ALL steps below. Any research taking >2 tool calls, any task touching >2 files, or any command with high-volume output (E2E tests, builds, coverage) MUST be delegated to a sub-agent.
 
 All tasks follow a strict lifecycle:
 
 ### Standard Task Workflow
 
-0. **Efficiency Audit (MANDATORY):** Before performing any research or selecting a task, you MUST invoke a sub-agent (e.g., `codebase_investigator`) to audit the current state of the tracks, the implementation plan, and the relevant codebase files. You MUST NOT read more than 2 files in the main session.
+0. **Delegated Discovery (MANDATORY):** Before performing any research or selecting a task, you MUST invoke a sub-agent (e.g., `codebase_investigator`) to audit the current state. The sub-agent provides the "Zero-Leakage Summary" and code proposals.
 
-1. **Select Task:** Choose the next available task from `plan.md` in sequential order
+1. **Select Task:** Choose the next available task from `plan.md` in sequential order.
 
-2. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`
+2. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`.
 
 3. **Write Failing Tests (Red Phase):**
-   - Create a new test file for the feature or bug fix.
-   - Write one or more unit tests that clearly define the expected behavior and acceptance criteria for the task.
-   - **CRITICAL:** Run the tests and confirm that they fail as expected. This is the "Red" phase of TDD. Do not proceed until you have failing tests.
+   - Create a new test file or add cases to an existing one.
+   - **Verification:** Delegate test execution to a sub-agent. **FORBIDDEN:** Do NOT run `./scripts/run-e2e-container.sh` in the main session.
+   - **CRITICAL:** Confirm that the tests fail as expected. This is the "Red" phase of TDD. Do not proceed until you have documented the failure.
+   - **Implementation:** Write the test code in the main session (if <3 files).
 
 4. **Implement to Pass Tests (Green Phase):**
    - Write the minimum amount of application code necessary to make the failing tests pass.
-   - Run the test suite again and confirm that all tests now pass. This is the "Green" phase.
+   - **Action:** Apply the code fix in the main session using the sub-agent's proposal.
+   - **Verification:** Delegate the re-run of tests to a sub-agent.
+   - **CRITICAL:** Confirm that all tests now pass. This is the "Green" phase.
 
 5. **Refactor (Optional but Recommended):**
    - With the safety of passing tests, refactor the implementation code and the test code to improve clarity, remove duplication, and enhance performance without changing the external behavior.
-   - Rerun tests to ensure they still pass after refactoring.
+   - **Verification:** Delegate re-running tests to a sub-agent to ensure they still pass after refactoring.
 
 6. **Verify Coverage:** Run coverage reports using the project's chosen tools. For example, in a Python project, this might look like:
    ```bash
@@ -325,6 +328,17 @@ A task is complete when:
 ### Post-Deployment
 1. Monitor analytics
 2. Check error logs
+3. Gather user feedback
+4. Plan next iteration
+
+## Continuous Improvement
+
+- Review workflow weekly
+- Update based on pain points
+- Document lessons learned
+- Optimize for user happiness
+- Keep things simple and maintainable
+ror logs
 3. Gather user feedback
 4. Plan next iteration
 

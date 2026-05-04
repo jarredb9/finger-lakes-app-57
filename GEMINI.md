@@ -21,12 +21,12 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 ### 2. Operational Override
 - **Conductor Lifecycle:** Write Failing Test -> Implement -> Pass Test -> Commit -> Update plan.md. Execute ONE task at a time.
 - **Context Efficiency (MANDATORY):** 
-    - **Directive Override:** This protocol applies to ALL tasks, including Conductor tracks and formal "System Directives." A large directive does NOT excuse history bloat.
-    - **Hard Delegation Threshold:** Any research, audit, or "Discovery Phase" (finding violations/files) MUST be delegated to a sub-agent if it exceeds 2 tool calls in the main session.
-    - **Batch Task Mandate:** Implementing a task that touches more than 2 files MUST start with a sub-agent audit to "compress" the required context.
-    - **Zero-Leakage Summarization:** NEVER copy-paste large blocks of code or verbose logs from sub-agents into the main session history. You MUST "digest" sub-agent findings into a high-signal, bulleted summary that contains ONLY architectural insights, required changes, and critical constants.
-    - **High-Volume Output Mandate:** Commands expected to generate >100 lines of output (e.g., containerized E2E tests, verbose builds, exhaustive audits) MUST be delegated to a sub-agent. The sub-agent will run the command and provide a "Zero-Leakage Summary" of the results (pass/fail status, critical errors, and line numbers).
-    - **Surgical Read Mandate:** Never read more than 50 lines at once. Use line ranges.
+    - **Directive Override:** This protocol applies to ALL tasks, including Conductor tracks.
+    - **Delegated Discovery & Verification:** Any research/audit (>2 calls) OR high-volume output (>100 lines, e.g., tests/builds) MUST be delegated. The sub-agent must return a "Zero-Leakage Summary" with proposals, NOT implement them. **FORBIDDEN:** NEVER run `./scripts/run-e2e-container.sh` in the main session history.
+    - **Turn 5 Context Audit:** At Turn 5 of any session, the agent MUST evaluate its context usage. If it has not delegated research/audits yet, it MUST halt and delegate immediately to prevent history bloat.
+    - **Orchestrator-Led Implementation:** For surgical fixes (<3 files), the Orchestrator MUST apply the code changes using `replace` or `write_file` in the main session based on sub-agent proposals. This ensures code review visibility.
+    - **Delegated Batch Implementation:** ONLY tasks touching >=3 files or repetitive "grunt work" may be fully implemented by a sub-agent. In these cases, the Orchestrator MUST review the `git diff` before committing.
+    - **Zero-Leakage Summarization:** NEVER copy-paste large blocks of code from sub-agents. Digest findings into architectural insights, required changes, and critical constants.
 - **Verification Rule:** Always favor empirical evidence (running tests) over assumptions.
 - **Microscope Rule:** Use Podman for SDL-MCP (see `AGENT.md` for command).
 - **Python Version:** **MANDATORY:** Use `python3.11` for all scripts and skills.
