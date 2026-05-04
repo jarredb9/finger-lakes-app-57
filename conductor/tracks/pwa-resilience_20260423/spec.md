@@ -39,6 +39,7 @@ Enhance the application's PWA capabilities by implementing a robust offline muta
     *   **Non-Blocking Loop**: The sync process MUST NOT halt on individual mutation errors; failing items must be marked and the queue must proceed.
 3.  **State Management**: Implement **`useSyncStore`** (Zustand) for reactive sync status.
 4.  **ID Normalization**: Strictly enforce `Number()` conversion for all `WineryDbId` and Trip IDs during data retrieval (Service Layer) or store hydration.
+5.  **UI Stability (The DOM Stability Pattern)**: All primary UI containers MUST remain in the DOM during loading/error states. Components MUST use `data-state="loading|error|ready"` and render indicators (Skeletons/Alerts) inside the stable container rather than using early returns.
 
 ## Acceptance Criteria
 *   New SW version shows a toast instead of a force-reload.
