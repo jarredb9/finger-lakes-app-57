@@ -90,7 +90,7 @@
     - [x] Update `proxy.ts` to allow navigation redirects in E2E mode for `redirectTo` preservation.
 - [x] Task: Layout & Visual Reconciliation 1175d8f
     - [x] Resolve `pwa-install-layout.spec.ts` and `visual.spec.ts` failures.
-- [x] Task: System-Wide DOM Stability & Error Propagation Alignment 76c9b58
+- [x] Task: System-Wide DOM Stability & Error Propagation Alignment 2879dfe
     - [x] Refactor Friend System (`FriendActivityFeed.tsx`, `FriendProfile.tsx`) for container stability and store error consumption.
     - [x] Refactor Trip Management (`TripListPresentational.tsx`) to eliminate early returns and move Skeletons inside the stable container.
     - [x] Refactor Global Components (`global-visit-history.tsx`, `VisitHistoryView.tsx`) to adhere to the `data-state` and stable parent patterns.
