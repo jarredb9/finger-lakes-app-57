@@ -529,6 +529,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
       updateTrip: async (tripId, updates) => {
         const tripIdAsNumber = Number(tripId);
+        const now = Date.now();
         
         set(state => ({
           trips: state.trips.map(trip =>
@@ -537,8 +538,12 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           tripsForDate: state.tripsForDate.map(trip =>
             Number(trip.id) === tripIdAsNumber ? { ...trip, ...updates, syncStatus: 'pending' as const } : trip
           ),
-          lastActionTimestamp: Date.now()
+          upcomingTrips: state.upcomingTrips.map(trip =>
+            Number(trip.id) === tripIdAsNumber ? { ...trip, ...updates, syncStatus: 'pending' as const } : trip
+          ),
+          lastActionTimestamp: now
         }));
+        get().setLastActionTimestamp(tripId.toString(), now);
 
         const supabase = createClient();
         const { data: { session } } = await supabase.auth.getSession();
@@ -558,6 +563,9 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             tripsForDate: state.tripsForDate.map(trip =>
                 Number(trip.id) === tripIdAsNumber ? { ...trip, syncStatus: 'synced' as const } : trip
             ),
+            upcomingTrips: state.upcomingTrips.map(trip =>
+                Number(trip.id) === tripIdAsNumber ? { ...trip, syncStatus: 'synced' as const } : trip
+            ),
             lastActionTimestamp: Date.now()
           }));
         } catch (error) {
@@ -570,6 +578,9 @@ export const useTripStore = createWithEqualityFn<TripState>()(
               Number(trip.id) === tripIdAsNumber ? { ...trip, syncStatus: 'error' as const } : trip
             ),
             tripsForDate: state.tripsForDate.map(trip =>
+                Number(trip.id) === tripIdAsNumber ? { ...trip, syncStatus: 'error' as const } : trip
+            ),
+            upcomingTrips: state.upcomingTrips.map(trip =>
                 Number(trip.id) === tripIdAsNumber ? { ...trip, syncStatus: 'error' as const } : trip
             ),
             lastActionTimestamp: Date.now()

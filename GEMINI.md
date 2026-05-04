@@ -22,9 +22,10 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 - **Conductor Lifecycle:** Write Failing Test -> Implement -> Pass Test -> Commit -> Update plan.md. Execute ONE task at a time.
 - **Context Efficiency (MANDATORY):** 
     - **Directive Override:** This protocol applies to ALL tasks, including Conductor tracks and formal "System Directives." A large directive does NOT excuse history bloat.
-    - **Hard Delegation Threshold:** Any research, audit, or "Discovery Phase" (finding violations/files) MUST be delegated to a sub-agent if it exceeds 3 tool calls.
+    - **Hard Delegation Threshold:** Any research, audit, or "Discovery Phase" (finding violations/files) MUST be delegated to a sub-agent if it exceeds 2 tool calls in the main session.
     - **Batch Task Mandate:** Implementing a task that touches more than 2 files MUST start with a sub-agent audit to "compress" the required context.
     - **Zero-Leakage Summarization:** NEVER copy-paste large blocks of code or verbose logs from sub-agents into the main session history. You MUST "digest" sub-agent findings into a high-signal, bulleted summary that contains ONLY architectural insights, required changes, and critical constants.
+    - **High-Volume Output Mandate:** Commands expected to generate >100 lines of output (e.g., containerized E2E tests, verbose builds, exhaustive audits) MUST be delegated to a sub-agent. The sub-agent will run the command and provide a "Zero-Leakage Summary" of the results (pass/fail status, critical errors, and line numbers).
     - **Surgical Read Mandate:** Never read more than 50 lines at once. Use line ranges.
 - **Verification Rule:** Always favor empirical evidence (running tests) over assumptions.
 - **Microscope Rule:** Use Podman for SDL-MCP (see `AGENT.md` for command).

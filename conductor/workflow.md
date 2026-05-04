@@ -11,11 +11,13 @@
 
 ## Task Workflow
 
-**EFFICIENCY MANDATE:** You MUST follow the **Context Efficiency Protocol** in `GEMINI.md` for ALL steps below. Any research taking >3 tool calls or any task touching >2 files MUST be delegated to a sub-agent.
+**EFFICIENCY MANDATE:** You MUST follow the **Context Efficiency Protocol** in `GEMINI.md` for ALL steps below. Any research taking >3 tool calls, any task touching >2 files, or any command with high-volume output (E2E tests, builds, coverage) MUST be delegated to a sub-agent.
 
 All tasks follow a strict lifecycle:
 
 ### Standard Task Workflow
+
+0. **Efficiency Audit (MANDATORY):** Before performing any research or selecting a task, you MUST invoke a sub-agent (e.g., `codebase_investigator`) to audit the current state of the tracks, the implementation plan, and the relevant codebase files. You MUST NOT read more than 2 files in the main session.
 
 1. **Select Task:** Choose the next available task from `plan.md` in sequential order
 

@@ -73,14 +73,18 @@ test.describe('Sync Lock (Revision Control)', () => {
         }
     });
 
-    // 3. Ensure the trip is visible initially
+    // 3. Navigate to trips page
+    await page.goto('/trips');
+    await expect(page).toHaveURL(/.*\/trips/);
+
+    // Ensure the trip is visible initially
     await expect(sidebar.getByText(originalName)).toBeVisible();
 
     // 4. Trigger rename (Optimistic Update)
     console.log('[DIAGNOSTIC] Triggering optimistic rename...');
     await page.evaluate(({ originalName, newName }) => {
         const store = (window as any).useTripStore.getState();
-        const trip = store.trips.find((t: any) => t.name === originalName);
+        const trip = store.upcomingTrips.find((t: any) => t.name === originalName);
         if (trip) {
             store.updateTrip(trip.id.toString(), { name: newName });
         }
