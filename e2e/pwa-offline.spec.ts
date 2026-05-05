@@ -42,6 +42,10 @@ test.describe('PWA Offline Functionality', () => {
         const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
         
         if (mockWinery) {
+            // Clear search and trip to ensure useWineryFilter falls back to persistentWineries
+            (window as any).useMapStore.setState({ searchResults: [] });
+            (window as any).useTripStore.setState({ selectedTrip: null });
+
             const mockBounds = {
                 contains: () => true,
                 getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
@@ -51,7 +55,6 @@ test.describe('PWA Offline Functionality', () => {
                 bounds: mockBounds,
                 filter: ['all'] 
             });
-        } else {
         }
     });
 

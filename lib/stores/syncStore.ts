@@ -49,13 +49,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       try {
         console.log('[SyncStore] Initializing from IDB...');
         
-        let persistedQueue: any;
-        for (let i = 0; i < 3; i++) {
-          persistedQueue = await idbGet(IDB_KEY);
-          if (Array.isArray(persistedQueue)) break;
-          console.log(`[SyncStore] IDB attempt ${i + 1} got ${typeof persistedQueue}. Retrying in 500ms...`);
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
+        const persistedQueue = await idbGet(IDB_KEY);
 
         if (Array.isArray(persistedQueue)) {
           console.log(`[SyncStore] Hydrated queue with ${persistedQueue.length} items from IDB.`);

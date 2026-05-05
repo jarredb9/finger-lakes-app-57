@@ -5,6 +5,7 @@ import { base64ToFile, isBase64Photo, Base64Photo } from '@/lib/utils/sync-helpe
 import { useVisitStore } from '@/lib/stores/visitStore';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
+import { isNetworkError } from '../stores/sync-utils';
 
 interface LogVisitPayload {
   wineryId: string;
@@ -111,12 +112,6 @@ export const SyncService = {
 
         console.log(`[SyncService] Processing item ${item.id} (type: ${item.type}, status: ${item.status || 'pending'})`);
         
-        // Skip items that previously failed to avoid blocking new items
-        if (item.status === 'error') {
-          console.log(`[SyncService] Skipping item ${item.id} because it previously failed.`);
-          continue;
-        }
-
         processedTypes.add(item.type);
 
         try {
@@ -378,8 +373,13 @@ export const SyncService = {
 
           if (error) {
             console.warn(`[SyncService] Failed to sync item ${item.id} (${item.type}):`, error);
-            console.log(`[SyncService] Marking item ${item.id} as error in store.`);
-            await updateMutationStatus(item.id, 'error');
+            
+            if (isNetworkError(error)) {
+              console.log(`[SyncService] Network error detected for ${item.id}. Keeping it pending for retry.`);
+            } else {
+              console.log(`[SyncService] Permanent error detected for ${item.id}. Marking as error.`);
+              await updateMutationStatus(item.id, 'error');
+            }
             continue; 
           }
 
@@ -389,8 +389,13 @@ export const SyncService = {
 
         } catch (itemError) {
           console.warn(`[SyncService] Unexpected error syncing item ${item.id}:`, itemError);
-          console.log(`[SyncService] Marking item ${item.id} as error (caught).`);
-          await updateMutationStatus(item.id, 'error');
+          
+          if (isNetworkError(itemError)) {
+            console.log(`[SyncService] Network error (caught) for ${item.id}. Keeping it pending.`);
+          } else {
+            console.log(`[SyncService] Marking item ${item.id} as error (caught).`);
+            await updateMutationStatus(item.id, 'error');
+          }
           continue;
         }
       }

@@ -95,11 +95,14 @@
     - [x] Refactor Trip Management (`TripListPresentational.tsx`) to eliminate early returns and move Skeletons inside the stable container.
     - [x] Refactor Global Components (`global-visit-history.tsx`, `VisitHistoryView.tsx`) to adhere to the `data-state` and stable parent patterns.
     - [x] Fix `auth-provider.tsx` early return to prevent full-page layout shifts during visit store hydration.
-- [ ] Task: Resolve errors identified in failing tests
+- [~] Task: Resolve errors identified in failing tests
     - [x] Resolve application/testing errors identified in test `e2e/error-handling.spec.ts` d0360ab
     - [x] Resolve application/testing errors identified in test `e2e/privacy-flow.spec.ts` a142a41
     - [x] Resolve application/testing errors identified in test `e2e/sync-lock.spec.ts` 53b3f62
-    - [x] Task: Resolve application/testing errors identified in test e2e/trip-sharing.spec.ts d0360ab
+    - [x] Task: Resolve application/testing errors identified in test `e2e/trip-sharing.spec.ts` 84472ed
+    - [x] Task: Resolve application/testing errors identified in test `e2e/sync-infrastructure.spec.ts` f1e23fb
+    - [ ] Task: Resolve application/testing errors identified in test `e2e/pwa-offline.spec.ts`
+    - [ ] Task: Resolve application/testing errors identified in test `e2e/pwa-assets.spec.ts`
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Stabilization and Final Verification'
 - [ ] Task: Conductor - Update CHANGELOG.md and bump package.json version
 
