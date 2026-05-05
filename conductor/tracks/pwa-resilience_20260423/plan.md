@@ -100,9 +100,9 @@
     - [x] Resolve application/testing errors identified in test `e2e/privacy-flow.spec.ts` a142a41
     - [x] Resolve application/testing errors identified in test `e2e/sync-lock.spec.ts` 53b3f62
     - [x] Task: Resolve application/testing errors identified in test `e2e/trip-sharing.spec.ts` 84472ed
-    - [x] Task: Resolve application/testing errors identified in test `e2e/sync-infrastructure.spec.ts` f1e23fb
-    - [ ] Task: Resolve application/testing errors identified in test `e2e/pwa-offline.spec.ts`
-    - [ ] Task: Resolve application/testing errors identified in test `e2e/pwa-assets.spec.ts`
+    - [x] Task: Resolve application/testing errors identified in test `e2e/sync-infrastructure.spec.ts`73d3cb9
+    - [X] Task: Resolve application/testing errors identified in test `e2e/pwa-offline.spec.ts` 73d3cb9
+    - [x] Task: Resolve application/testing errors identified in test `e2e/pwa-assets.spec.ts` c5aafa0
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Stabilization and Final Verification'
 - [ ] Task: Conductor - Update CHANGELOG.md and bump package.json version
 

@@ -16,27 +16,22 @@ import * as idbKeyVal from "idb-keyval";
 
 export function E2EStoreExposer() {
   useEffect(() => {
-    // Expose stores in development or E2E mode
+    // Expose stores - we assume gating happens at the component rendering level in layout.tsx
     if (typeof window !== 'undefined') {
-      const isDev = process.env.NODE_ENV === 'development';
-      const isE2E = process.env.NEXT_PUBLIC_IS_E2E === 'true';
-      
-      if (isDev || isE2E) {
-        (window as any).useWineryDataStore = useWineryDataStore;
-        (window as any).useWineryStore = useWineryStore;
-        (window as any).useUIStore = useUIStore;
-        (window as any).useVisitStore = useVisitStore;
-        (window as any).useTripStore = useTripStore;
-        (window as any).useUserStore = useUserStore;
-        (window as any).useFriendStore = useFriendStore;
-        (window as any).useMapStore = useMapStore;
-        (window as any).useSyncStore = useSyncStore;
-        (window as any).SyncService = SyncService;
-        (window as any).idbKeyVal = idbKeyVal;
-        (window as any).supabase = createClient();
-        // eslint-disable-next-line no-console
-        console.log('[E2EStoreExposer] Stores, SyncService, idbKeyVal and Supabase client exposed to window.');
-      }
+      (window as any).useWineryDataStore = useWineryDataStore;
+      (window as any).useWineryStore = useWineryStore;
+      (window as any).useUIStore = useUIStore;
+      (window as any).useVisitStore = useVisitStore;
+      (window as any).useTripStore = useTripStore;
+      (window as any).useUserStore = useUserStore;
+      (window as any).useFriendStore = useFriendStore;
+      (window as any).useMapStore = useMapStore;
+      (window as any).useSyncStore = useSyncStore;
+      (window as any).SyncService = SyncService;
+      (window as any).idbKeyVal = idbKeyVal;
+      (window as any).supabase = createClient();
+      // eslint-disable-next-line no-console
+      console.log('[E2EStoreExposer] Stores, SyncService, idbKeyVal and Supabase client exposed to window.');
     }
   }, []);
 
