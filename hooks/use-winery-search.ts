@@ -127,7 +127,7 @@ export function useWinerySearch() {
 
       if (rpcError) {
         console.error("RPC Error fetching wineries in bounds:", rpcError);
-        setError("Failed to load data");
+        setError("Failed to find wineries in this area. Please check your connection and try again.");
         setIsSearching(false);
         return;
       }
@@ -193,7 +193,7 @@ export function useWinerySearch() {
         if (preloadedWineries.length > 0) {
             setSearchResults(preloadedWineries);
         } else {
-            setError("Failed to load data");
+            setError("Failed to find wineries in this area. Please check your connection and try again.");
         }
       } finally {
         setIsSearching(false);

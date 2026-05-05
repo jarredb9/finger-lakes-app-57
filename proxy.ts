@@ -25,7 +25,10 @@ export async function proxy(request: NextRequest) {
     
     // In E2E mode, avoid aggressive redirects to prevent test instability during network flips,
     // BUT we must allow the initial redirect to login to preserve the redirectTo parameter.
-    if (process.env.IS_E2E === 'true' && pathname !== '/' && !pathname.startsWith('/trips/')) {
+    const deepLinkRoutes = ['/', '/trips/', '/friends/', '/settings/'];
+    const isDeepLink = deepLinkRoutes.some(r => pathname === r || pathname.startsWith(r));
+    
+    if (process.env.IS_E2E === 'true' && !isDeepLink) {
         console.log(`[PROXY] No user found for ${pathname} but skipping redirect due to E2E mode`);
         return response;
     }

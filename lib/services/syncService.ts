@@ -103,18 +103,25 @@ export const SyncService = {
 
       // We use a copy of the queue for iteration, but we check each item's 
       // current status from the store before processing.
+      const isDiagnostic = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_IS_E2E === 'true';
+
       for (const queueItem of queue) {
         // Re-read item from store state to get current status
         const item = useSyncStore.getState().queue.find(i => i.id === queueItem.id);
         if (!item) {
-          console.log(`[SyncService] Skipping item ${queueItem.id} (no longer in queue).`);
+          if (isDiagnostic) console.log(`[SyncService] Skipping item ${queueItem.id} (no longer in queue).`);
           continue;
         }
 
-        console.log(`[SyncService] Processing item ${item.id} (type: ${item.type}, status: ${item.status || 'pending'})`);
-        
-        processedTypes.add(item.type);
+        // Skip items that previously failed with permanent errors to avoid blocking new items
+        if (item.status === 'error') {
+          if (isDiagnostic) console.log(`[SyncService] Skipping item ${item.id} because it previously failed.`);
+          continue;
+        }
 
+        if (isDiagnostic) console.log(`[SyncService] Processing item ${item.id} (type: ${item.type}, status: ${item.status || 'pending'})`);
+
+        processedTypes.add(item.type);
         try {
           console.log(`[SyncService] Decrypting payload for ${item.id}...`);
           const payload = await getDecryptedPayload<any>(item, user.id);
