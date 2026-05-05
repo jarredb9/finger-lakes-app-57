@@ -5,6 +5,14 @@ description: ACTIVATE THIS SKILL if the user mentions: 'Zustand', 'Store', 'Hydr
 
 # 🚨 ARCHITECTURE-STANDARDS OPERATIONAL RULES (MANDATORY)
 
+## 0. Efficiency Mandate (PRIORITY 0)
+- **Parallel Discovery:** You MUST use parallel tool calls for file reads/searches.
+- **Verification Sandbox:** You are permitted to use `write_file` ONLY for temporary files (e.g., `temp_fix.ts`) to verify hypotheses. You are FORBIDDEN from modifying source files.
+- **Turn 10 Checkpoint:** If you reach Turn 10 without a final proposal, you MUST save findings to a temporary markdown file and return the path.
+- **Build Limit:** Never use the `--build` flag if a build has already occurred in the parent session.
+- **Zero-Waste Grep:** Use `grep_search` with `context` parameters to eliminate redundant `read_file` calls.
+- **Acknowledge:** Your first turn MUST state: "I have read and will obey the Efficiency Mandate."
+
 ## 0. Next.js 16 Middleware (Proxy)
 - **`arch-next16-proxy`**: `proxy.ts` is the ONLY valid entry point for request-time logic (Middleware). 
 - The `middleware.ts` convention is DEPRECATED and removed.

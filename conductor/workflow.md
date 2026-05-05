@@ -17,7 +17,7 @@ All tasks follow a strict lifecycle:
 
 ### Standard Task Workflow
 
-0. **Delegated Discovery (MANDATORY):** Before performing any research or selecting a task, you MUST invoke a sub-agent (e.g., `codebase_investigator`) to audit the current state. The sub-agent provides the "Zero-Leakage Summary" and code proposals.
+0. **Delegated Discovery (MANDATORY):** Before performing any research, selecting a task, or **investigating a test failure**, you MUST invoke a sub-agent (e.g., `codebase_investigator`) to audit the current state. The sub-agent provides the "Zero-Leakage Summary" and code proposals.
 
 1. **Select Task:** Choose the next available task from `plan.md` in sequential order.
 
