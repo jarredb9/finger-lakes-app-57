@@ -15,7 +15,7 @@ test.describe('Error Handling (Unhappy Path)', () => {
 
     // 3. Verify Error Alert is visible on the map area
     const mapContainer = page.getByTestId('map-container');
-    const errorAlert = mapContainer.getByRole('alert').filter({ hasText: 'Failed to load data' });
+    const errorAlert = mapContainer.getByRole('alert').filter({ hasText: 'Failed to find wineries in this area' });
     await expect(errorAlert).toBeVisible({ timeout: 15000 });
   });
 
