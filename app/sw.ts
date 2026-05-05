@@ -77,9 +77,16 @@ const serwist = new Serwist({
   runtimeCaching: [
     {
       // Special handling for Auth endpoints to allow offline session checks
-      matcher: ({ url }) => 
-        isSupabaseUrl(url) && 
-        (url.pathname.includes("/auth/v1/user") || url.pathname.includes("/auth/v1/session")),
+      matcher: ({ url, request }) => {
+        const isE2EEnv = process.env.NEXT_PUBLIC_IS_E2E === 'true';
+        const skipHeader = request?.headers.get('x-skip-sw-interception') === 'true';
+        const isE2E = isE2EEnv || skipHeader;
+
+        if (isE2E) return false;
+
+        return isSupabaseUrl(url) && 
+          (url.pathname.includes("/auth/v1/user") || url.pathname.includes("/auth/v1/session"));
+      },
       handler: new StaleWhileRevalidate({
         cacheName: "supabase-auth",
         plugins: [
@@ -91,9 +98,16 @@ const serwist = new Serwist({
       }),
     },
     {
-      matcher: ({ url }) => 
-        isSupabaseUrl(url) && 
-        url.pathname.includes("/storage/v1/object/public"),
+      matcher: ({ url, request }) => {
+        const isE2EEnv = process.env.NEXT_PUBLIC_IS_E2E === 'true';
+        const skipHeader = request?.headers.get('x-skip-sw-interception') === 'true';
+        const isE2E = isE2EEnv || skipHeader;
+
+        if (isE2E) return false;
+
+        return isSupabaseUrl(url) && 
+          url.pathname.includes("/storage/v1/object/public");
+      },
       handler: new StaleWhileRevalidate({
         cacheName: "supabase-storage",
         plugins: [

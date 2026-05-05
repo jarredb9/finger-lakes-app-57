@@ -6,6 +6,7 @@ import { useVisitStore } from '@/lib/stores/visitStore';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
 import { isNetworkError } from '../stores/sync-utils';
+import { isWebKitFallback, signalSyncIntercepted } from '@/lib/stores/e2e-utils';
 
 interface LogVisitPayload {
   wineryId: string;
@@ -383,7 +384,11 @@ export const SyncService = {
             continue; 
           }
 
-          console.log(`[SyncService] Successfully synced item ${item.id}. Removing from queue...`);
+          console.log(`[SyncService] synced successfully`);
+          if (isWebKitFallback()) {
+            console.log('[SyncService] WebKit Fallback: Signalling intercepted sync.');
+            signalSyncIntercepted();
+          }
           await removeMutation(item.id);
           console.log(`[SyncService] Removed item ${item.id} from queue.`);
 

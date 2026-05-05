@@ -5,6 +5,7 @@ test.describe('PWA Assets & Sync', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
     await clearServiceWorkers(page);
     mockMaps.enableServiceWorker();
+    await mockMaps.initDefaultMocks({ forceMocks: true });
     await login(page, user.email, user.password, { isPwa: true });
   });
 
@@ -41,12 +42,6 @@ test.describe('PWA Assets & Sync', () => {
             (window as any).useMapStore.setState({ 
                 bounds: mockBounds,
                 filter: ['all'] 
-            });
-            // Ensure consistency with the new deterministic mocking rule
-            (window as any).useWineryDataStore.setState({
-                persistentWineries: dataStore.persistentWineries.map((w: any) => 
-                    w.name === 'Vineyard of Illusion' ? { ...w, openingHours: null, reviews: [] } : w
-                )
             });
         }
     });
