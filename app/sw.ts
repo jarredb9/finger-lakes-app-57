@@ -205,7 +205,7 @@ self.addEventListener("message", (event) => {
 // following "The Quota Resilience Rule" in GEMINI.md
 self.addEventListener("fetch", (event: any) => {
   if (event.request.mode === "navigate") {
-    event.waitUntil(checkAndCleanupQuota(0.8));
+    event.waitUntil(checkAndCleanupQuota(0.85));
   }
 });
 

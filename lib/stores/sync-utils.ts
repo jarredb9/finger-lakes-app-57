@@ -6,6 +6,7 @@ export const isNetworkError = (error: unknown) => {
   return (
     err?.message?.includes("Failed to fetch") ||
     err?.message?.includes("Network request failed") ||
+    err?.message?.includes("Load failed") ||
     err?.message?.includes("timeout") ||
     err?.status === 503 ||
     err?.status === 504

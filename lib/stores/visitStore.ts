@@ -558,68 +558,80 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       }),
 
       initialize: async () => {
-        // Wait for SyncStore to initialize from IDB
-        const syncStore = useSyncStore.getState();
-        if (!syncStore.isInitialized) {
-            await syncStore.initialize();
-        }
+        // @ts-ignore
+        if (get()._initialized) return;
+        // @ts-ignore
+        if (get()._initPromise) return get()._initPromise;
 
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        const initPromise = (async () => {
+          // Wait for SyncStore to initialize from IDB
+          const syncStore = useSyncStore.getState();
+          if (!syncStore.isInitialized) {
+              await syncStore.initialize();
+          }
 
-        const queue = useSyncStore.getState().queue;
-        const pendingVisits: VisitWithWinery[] = [];
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
 
-        for (const item of queue) {
-            if (item.type === 'log_visit') {
-                try {
-                    const payload = await syncStore.getDecryptedPayload<any>(item, user.id);
-                    pendingVisits.push({
-                        id: payload.tempId || item.id,
-                        user_id: user.id,
-                        visit_date: payload.visit_date,
-                        rating: payload.rating,
-                        user_review: payload.user_review,
-                        is_private: payload.is_private || false,
-                        photos: (payload.photos || []).map((p: any) => isBase64Photo(p) ? `data:${p.type};base64,${p.base64}` : p),
-                        wineryName: payload.wineryName,
-                        wineryId: payload.wineryId,
-                        syncStatus: 'pending',
-                        wineries: {
-                            id: Number(payload.wineryDbId || 0) as WineryDbId,
-                            google_place_id: payload.wineryId,
-                            name: payload.wineryName,
-                            address: payload.wineryAddress,
-                            latitude: payload.lat?.toString() || '0',
-                            longitude: payload.lng?.toString() || '0',
-                        }
-                    });
-                } catch (e) {
-                    console.error('[VisitStore] Failed to decrypt pending visit:', e);
-                }
-            }
-        }
+          const queue = useSyncStore.getState().queue;
+          const pendingVisits: VisitWithWinery[] = [];
 
-        if (pendingVisits.length > 0) {
-            set(state => {
-                // Filter out any that might already be in state (though unlikely)
-                const newVisits = [...state.visits];
-                for (const pv of pendingVisits) {
-                    if (!newVisits.find(v => v.id === pv.id)) {
-                        newVisits.unshift(pv);
-                    }
-                }
-                return { visits: newVisits };
-            });
-        }
+          for (const item of queue) {
+              if (item.type === 'log_visit') {
+                  try {
+                      const payload = await syncStore.getDecryptedPayload<any>(item, user.id);
+                      pendingVisits.push({
+                          id: payload.tempId || item.id,
+                          user_id: user.id,
+                          visit_date: payload.visit_date,
+                          rating: payload.rating,
+                          user_review: payload.user_review,
+                          is_private: payload.is_private || false,
+                          photos: (payload.photos || []).map((p: any) => isBase64Photo(p) ? `data:${p.type};base64,${p.base64}` : p),
+                          wineryName: payload.wineryName,
+                          wineryId: payload.wineryId,
+                          syncStatus: 'pending',
+                          wineries: {
+                              id: Number(payload.wineryDbId || 0) as WineryDbId,
+                              google_place_id: payload.wineryId,
+                              name: payload.wineryName,
+                              address: payload.wineryAddress,
+                              latitude: payload.lat?.toString() || '0',
+                              longitude: payload.lng?.toString() || '0',
+                          }
+                      });
+                  } catch (e) {
+                      console.error('[VisitStore] Failed to decrypt pending visit:', e);
+                  }
+              }
+          }
+
+          if (pendingVisits.length > 0) {
+              set(state => {
+                  // Filter out any that might already be in state (though unlikely)
+                  const newVisits = [...state.visits];
+                  for (const pv of pendingVisits) {
+                      if (!newVisits.find(v => v.id === pv.id)) {
+                          newVisits.unshift(pv);
+                      }
+                  }
+                  return { visits: newVisits, _initialized: true } as any;
+              });
+          } else {
+              set({ _initialized: true } as any);
+          }
+        })();
+
+        set({ _initPromise: initPromise } as any);
+        return initPromise;
       },
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'visit-storage-e2e' : 'visit-storage',
       storage: createJSONStorage(() => idbStorage),
       partialize: (state): Partial<VisitState> => {
-        if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
+        // Support state persistence in E2E for reload-based tests
         return { 
           visits: state.visits.slice(0, 20),
           page: state.page, 

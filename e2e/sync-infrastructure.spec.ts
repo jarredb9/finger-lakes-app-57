@@ -105,7 +105,11 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
       });
     });
 
-    await page.reload();
+    // Give a small buffer for the 'online' event to trigger sync and let it settle
+    await page.waitForTimeout(500);
+    await page.waitForFunction(() => !(window as any).SyncService?.isSyncing);
+
+    await page.reload({ waitUntil: 'load' });
     // Wait for hydration
     await page.waitForFunction(() => (window as any).useSyncStore?.getState().isInitialized);
     

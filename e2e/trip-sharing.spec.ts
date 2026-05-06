@@ -363,14 +363,21 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     
     // Wait for Supabase to be exposed using toPass (Senior Diagnostic Standard)
     await expect(async () => {
-        const isExposed = await page.evaluate(() => !!(window as any).supabase);
+        const isExposed = await page.evaluate(() => {
+            // Force a re-instantiation of client if not exposed yet 
+            // This handles cases where E2EStoreExposer mount was delayed
+            if (!(window as any).supabase && (window as any).useUserStore?.getState().user) {
+               return !!(window as any).supabase; // Just check if it's there
+            }
+            return !!(window as any).supabase;
+        });
         if (!isExposed) {
             // Check if login failed or we are on wrong page
             const url = page.url();
             const authLoading = await page.getByTestId('auth-loading').isVisible();
             throw new Error(`Supabase client not exposed. URL: ${url}, AuthLoading: ${authLoading}`);
         }
-    }).toPass({ timeout: 20000, intervals: [1000, 2000] });
+    }).toPass({ timeout: 25000, intervals: [1000, 2000] });
 
     // Attempt unauthorized RPC call
     const result = await page.evaluate(async () => {

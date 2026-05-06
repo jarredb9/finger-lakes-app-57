@@ -49,6 +49,11 @@ export async function decrypt(encryptedData: string, userId: string): Promise<an
   // 1. Decode base64 and extract salt, IV, and ciphertext
   const combined = base64ToArrayBuffer(encryptedData);
   
+  // Validation: Ensure the buffer is at least long enough for salt and IV
+  if (combined.byteLength < SALT_LENGTH + IV_LENGTH) {
+    throw new Error('Invalid encrypted data: buffer too short');
+  }
+
   const salt = combined.slice(0, SALT_LENGTH);
   const iv = combined.slice(SALT_LENGTH, SALT_LENGTH + IV_LENGTH);
   const ciphertext = combined.slice(SALT_LENGTH + IV_LENGTH);

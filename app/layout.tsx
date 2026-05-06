@@ -54,6 +54,9 @@ export default function RootLayout({
               <ModalHost />
               <AuthProvider>
                 {children}
+                {(process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_IS_E2E === 'true') && (
+                  <E2EStoreExposer />
+                )}
               </AuthProvider>
               <Toaster />
               <PwaHandler />
@@ -62,9 +65,6 @@ export default function RootLayout({
               <VisitFormModal />
               <WineryNoteModal />
             </main>
-            {(process.env.NODE_ENV !== 'production' || process.env.IS_E2E === 'true') && (
-              <E2EStoreExposer />
-            )}
             <CookieConsent />
           </div>
         </TooltipProvider>

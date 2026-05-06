@@ -11,13 +11,14 @@ import { useMapStore } from "@/lib/stores/mapStore";
 import { useSyncStore } from "@/lib/stores/syncStore";
 import { SyncService } from "@/lib/services/syncService";
 import { useEffect } from "react";
-import { createClient } from "@/utils/supabase/client";
-import * as idbKeyVal from "idb-keyval";
 
 export function E2EStoreExposer() {
   useEffect(() => {
     // Expose stores - we assume gating happens at the component rendering level in layout.tsx
     if (typeof window !== 'undefined') {
+      // @ts-ignore
+      if (window._STORES_EXPOSED) return;
+
       (window as any).useWineryDataStore = useWineryDataStore;
       (window as any).useWineryStore = useWineryStore;
       (window as any).useUIStore = useUIStore;
@@ -28,10 +29,12 @@ export function E2EStoreExposer() {
       (window as any).useMapStore = useMapStore;
       (window as any).useSyncStore = useSyncStore;
       (window as any).SyncService = SyncService;
-      (window as any).idbKeyVal = idbKeyVal;
-      (window as any).supabase = createClient();
+      
+      // @ts-ignore
+      window._STORES_EXPOSED = true;
+
       // eslint-disable-next-line no-console
-      console.log('[E2EStoreExposer] Stores, SyncService, idbKeyVal and Supabase client exposed to window.');
+      console.log('[E2EStoreExposer] Stores and SyncService exposed to window.');
     }
   }, []);
 
