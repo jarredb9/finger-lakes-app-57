@@ -16,6 +16,7 @@ export function createClient() {
   // Expose to window for E2E testing
   if (typeof window !== 'undefined' && (process.env.NEXT_PUBLIC_IS_E2E === 'true' || process.env.NODE_ENV !== 'production')) {
     (window as any).supabase = client;
+    (window as any).createSupabaseClient = createClient;
   }
 
   return client;

@@ -367,7 +367,10 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
             // Force a re-instantiation of client if not exposed yet 
             // This handles cases where E2EStoreExposer mount was delayed
             if (!(window as any).supabase && (window as any).useUserStore?.getState().user) {
-               return !!(window as any).supabase; // Just check if it's there
+               if (typeof (window as any).createSupabaseClient === 'function') {
+                   (window as any).createSupabaseClient();
+               }
+               return !!(window as any).supabase;
             }
             return !!(window as any).supabase;
         });

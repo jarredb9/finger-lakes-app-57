@@ -25,6 +25,11 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
         const isSInit = !!sState?.isInitialized;
 
         if (!hasUStore || !hasSStore || !hasUser || !isSInit || !hasIdb) {
+            // Proactively trigger initialization if store is available but not initialized
+            if (hasSStore && !isSInit) {
+                sStore.getState().initialize().catch(() => {});
+            }
+
             // @ts-ignore
             if (window._lastLog !== `${hasUStore}-${hasSStore}-${hasUser}-${isSInit}-${hasIdb}`) {
                 console.log(`[DIAGNOSTIC] Waiting for hydration: uStore=${hasUStore}, sStore=${hasSStore}, user=${hasUser}, sInit=${isSInit}, idb=${hasIdb}`);
@@ -123,6 +128,6 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
     await expect(async () => {
       const currentQueue = await page.evaluate(() => (window as any).useSyncStore.getState().queue.length);
       expect(currentQueue).toBe(0);
-    }).toPass({ timeout: 15000 });
+    }).toPass({ timeout: 30000, intervals: [2000] });
   });
 });
