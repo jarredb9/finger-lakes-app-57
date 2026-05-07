@@ -810,8 +810,8 @@ export type Database = {
           id: number
           is_favorite: boolean
           is_favorite_private: boolean
-          lat: number
-          lng: number
+          latitude: number
+          longitude: number
           name: string
           on_wishlist: boolean
           on_wishlist_private: boolean

@@ -8,7 +8,7 @@ jest.mock('@/lib/stores/friendStore', () => ({
     friendRequests: [],
     sentRequests: [],
     friendActivityFeed: [],
-    fetchFriends: jest.fn(),
+    fetchSocialData: jest.fn(),
     fetchFriendActivityFeed: jest.fn(),
     subscribeToSocialUpdates: jest.fn(),
     unsubscribeFromSocialUpdates: jest.fn(),

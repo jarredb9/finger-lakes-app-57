@@ -435,4 +435,10 @@ export const SyncService = {
 
 if (typeof window !== 'undefined') {
   (window as any).SyncService = SyncService;
+
+  // Global listener for online event to trigger sync automatically
+  window.addEventListener('online', () => {
+    console.log('[SyncService] Network back online, triggering sync...');
+    SyncService.sync();
+  });
 }

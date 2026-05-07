@@ -1,11 +1,12 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { persist, createJSONStorage } from 'zustand/middleware';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/utils/supabase/client';
 import { SocialService } from '@/lib/services/socialService';
 import { Friend, FriendActivity, WineryDbId } from '@/lib/types';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
 import { idbStorage } from './idb-persist-storage';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import { isE2E, shouldSkipRealSync } from './e2e-utils';
 
 interface FriendState {
   friends: Friend[];
@@ -49,6 +50,11 @@ export const useFriendStore = createWithEqualityFn<FriendState>()(
       subscription: null,
 
       fetchSocialData: async () => {
+        if (isE2E() && shouldSkipRealSync()) {
+          set({ isLoading: false });
+          return;
+        }
+
         set({ isLoading: true });
         try {
           const { friends, incoming, outgoing } = await SocialService.getSocialData();
@@ -72,6 +78,11 @@ export const useFriendStore = createWithEqualityFn<FriendState>()(
       },
 
       fetchFriendActivityFeed: async () => {
+        if (isE2E() && shouldSkipRealSync()) {
+          set({ isLoading: false });
+          return;
+        }
+
         set({ isLoading: true });
         try {
           const activity = await SocialService.getFriendActivity();
@@ -82,6 +93,11 @@ export const useFriendStore = createWithEqualityFn<FriendState>()(
       },
 
       fetchFriendProfile: async (friendId) => {
+        if (isE2E() && shouldSkipRealSync()) {
+          set({ isLoading: false });
+          return;
+        }
+
         set({ isLoading: true, error: null });
         try {
           const profile = await SocialService.getFriendProfile(friendId);
@@ -96,6 +112,10 @@ export const useFriendStore = createWithEqualityFn<FriendState>()(
       },
 
       fetchFriendDataForWinery: async (wineryId) => {
+        if (isE2E() && shouldSkipRealSync()) {
+          return;
+        }
+
         try {
           const { ratings, activity } = await SocialService.getFriendDataForWinery(wineryId);
           set({ friendsRatings: ratings, friendsActivity: activity });
