@@ -127,3 +127,4 @@
 - [x] Task: Implement error states in visitStore and refactor VisitHistoryView for DOM stability 404891b
 - [x] Task: Implement Crypto validation and Quota threshold adjustment 887fb6f
 - [x] Task: Refactor E2E Infrastructure for Architectural Purity & Strict Type Safety a68a5fb
+- [x] Task: Resolve friendStore type errors and standardize coordinate naming in tests 86932e0
