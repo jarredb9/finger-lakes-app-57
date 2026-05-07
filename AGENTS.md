@@ -69,21 +69,34 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **NEVER** use `robustClick` or manual event dispatching in tests.
 
 ## 9. Operational & Context Efficiency
-- **Turn 5 Context Audit:** At Turn 5 of any session, you MUST evaluate context usage. If you have not delegated research/audits yet, you MUST halt and delegate immediately to prevent history bloat.
-- **Zero-Leakage Summarization:** NEVER copy-paste large blocks of code or verbose logs from sub-agents. Digest findings into high-signal summaries of architectural insights, required changes, and critical constants.
-- **Build Limit:** NEVER use `--build` for containerized tests if a build has already occurred in the current session.
+
+### Agent Session Taxonomy
+- **Orchestrator (Main Session):** The primary agent. Goal: Probabilistic state management. It MUST delegate heavy tasks and manage the "Global Plan."
+- **Delegate (Sub-Agent):** The execution environment. Goal: Task completion. It MUST be terminal (no further delegation).
+
+### Rules for Orchestrators
+- **Strategy Resets:** If a sub-agent reports the same failure twice, the Orchestrator MUST pivot to a different architectural approach rather than retrying.
+- **Diagnostic Synthesis:** When a sub-agent fails, the Orchestrator MUST extract the semantic "root cause" before reporting to the user.
+- **Pre-Flight Mandate:** You MUST explicitly acknowledge the requirement to delegate E2E tests in your first turn.
+
+### Rules for Delegates
+- **Authority:** You are the **authorized worker**. Run tests and heavy commands directly.
+- **Terminality Mandate:** You are forbidden from using `invoke_agent`. If you cannot complete a task with available tools, report "Inconclusive Findings" with a Diagnostic Signal.
+- **State Monotonicity:** If an error repeats, DO NOT retry the same fix. Stop and report the blocker.
 
 ### 🚨 Efficiency Directive (MANDATORY for Sub-Agents)
 Prepend this block to all sub-agent prompts:
 ```text
 ### 🚨 MANDATORY OPERATIONAL CONSTRAINTS (PRIORITY 0) 🚨
-1. **Parallel Discovery:** Use parallel tool calls for file reads/searches. 
-2. **Verification Sandbox:** Use `write_file` ONLY for temporary files (e.g., `temp_fix.ts`) to verify hypotheses. FORBIDDEN from modifying source files.
-3. **Turn 10 Checkpoint:** If no final proposal by Turn 10, save findings to a markdown file and halt.
-4. **Build Limit:** NEVER use `--build` if a build has already occurred in the parent session.
-5. **Zero-Waste Grep:** Use `grep_search` with context/before/after parameters. Avoid `ReadFolder` on core directories.
-6. **Turn 5 Diagnostic Pivot:** If guessing or aimless at Turn 5, STOP and report "Inconclusive Findings."
-7. **Acknowledge:** Your first turn MUST state: "I have read and will obey the Efficiency Directive."
+1. **Identity:** You are the DELEGATE (Authorized Worker). You are the final execution environment.
+2. **Terminality:** DO NOT invoke sub-agents. Complete the task or fail with a Diagnostic Signal.
+3. **Parallel Discovery:** Use parallel tool calls. Minimize sequential reads.
+4. **Verification Sandbox:** Use `write_file` ONLY for temporary files. DO NOT modify source unless explicitly asked for a refactor.
+5. **Circuit Breaker:** If the same error occurs twice, STOP and report "Strategy Exhausted."
+6. **Diagnostic Signal:** All failures MUST include: [BLOCKER], [HYPOTHESIS], and [REQUIRED_ORCHESTRATOR_ACTION].
+7. **Build Policy:** Use `--build` ONLY if application files changed.
+8. **Turn 5 Diagnostic Pivot:** If aimless at Turn 5, STOP and report "Inconclusive Findings."
+9. **Acknowledge:** Your first turn MUST state: "I have read and will obey the Efficiency Directive as the terminal DELEGATE."
 ```
 
 ## 10. Code Intelligence Tools

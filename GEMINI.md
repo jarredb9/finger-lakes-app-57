@@ -17,18 +17,19 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 *   **Analysis:** `codebase-analysis`, `problem-analysis` for investigation.
 *   **Verification:** `project-testing-best-practices` MUST be active BEFORE writing any tests.
 *   **Handoff:** `handoff-protocol` MUST be active AFTER completing feature logic.
-*   **Pre-Flight Protocol Verification (MANDATORY):** In your FIRST turn of EVERY session, you MUST include a "Protocol Verification" block in your `update_topic` call (or as a brief text preamble) that explicitly confirms:
+*   **Pre-Flight Protocol Verification (MANDATORY - Orchestrator):** In your FIRST turn of EVERY session, the **Orchestrator** MUST include a "Protocol Verification" block in your `update_topic` call (or as a brief text preamble) that explicitly confirms:
     1. "I will delegate all investigations and E2E test runs to a sub-agent."
     2. "I am aware that running `./scripts/run-e2e-container.sh` in the main session is FORBIDDEN."
     3. "I have scanned for relevant skills and will activate them before implementation."
 
-### 2. Delegation & Context Mandate (MANDATORY)
-- **Hard Thresholds:** You MUST delegate any investigation (>2 calls), test failure analysis, or high-volume output task (>100 lines).
+### 2. Delegation & Context Mandate (MANDATORY - Orchestrator)
+- **Hard Thresholds:** The Orchestrator MUST delegate any investigation (>2 calls), test failure analysis, or high-volume output task (>100 lines).
 - **FORBIDDEN:** NEVER run `./scripts/run-e2e-container.sh` in the main session history.
 - **Orchestrator Role:** When invoking a sub-agent, you MUST:
     1. Prepend the **Efficiency Directive** (from `AGENTS.md`) to the prompt.
     2. If the task is part of a Conductor Track, include the `plan.md` and `spec.md` of that track.
-- **Operational Efficiency:** You MUST follow the **Turn 5 Context Audit** and **Zero-Leakage Summarization** rules defined in `AGENTS.md`.
+- **Strategic Recovery:** If a sub-agent reports "Strategy Exhausted" or "Inconclusive Findings," the Orchestrator MUST pivot the plan and provide a new, distinct strategy to the next sub-agent. DO NOT simply retry the same request.
+- **Zero-Leakage Summarization:** You MUST extract the **Diagnostic Signal** ([BLOCKER], [HYPOTHESIS], [ACTION]) from sub-agent outputs and present only the architectural synthesis to the user.
 
 ### 3. Execution Standard
 - **Execution Split:** Orchestrator handles surgical fixes (<3 files); sub-agents handle batch work (>=3 files).
