@@ -49,13 +49,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
       try {
         console.log('[SyncStore] Initializing from IDB...');
         
-        // Add a safety timeout for IDB access in containers
-        const idbPromise = idbGet(IDB_KEY);
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('IDB Timeout')), 5000)
-        );
-
-        const persistedQueue = await Promise.race([idbPromise, timeoutPromise]) as SyncItem[] | undefined;
+        const persistedQueue = await idbGet(IDB_KEY) as SyncItem[] | undefined;
 
         if (Array.isArray(persistedQueue)) {
           console.log(`[SyncStore] Hydrated queue with ${persistedQueue.length} items from IDB.`);

@@ -20,19 +20,3 @@ export const shouldSkipRealSync = () => {
     
     return true;
 };
-
-export const isWebKitFallback = () => {
-    if (typeof window !== 'undefined' && localStorage.getItem('_E2E_WEBKIT_SYNC_FALLBACK') === 'true') {
-        return true;
-    }
-    // @ts-ignore
-    return typeof window !== 'undefined' && globalThis._E2E_WEBKIT_SYNC_FALLBACK === true;
-};
-
-export const signalSyncIntercepted = () => {
-    if (typeof window !== 'undefined') {
-        // @ts-ignore
-        globalThis._E2E_SYNC_REQUEST_INTERCEPTED = true;
-        localStorage.setItem('_E2E_SYNC_REQUEST_INTERCEPTED', 'true');
-    }
-};

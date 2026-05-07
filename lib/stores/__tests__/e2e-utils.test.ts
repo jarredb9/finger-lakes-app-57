@@ -1,4 +1,4 @@
-import { shouldSkipRealSync, isWebKitFallback } from '../e2e-utils';
+import { shouldSkipRealSync } from '../e2e-utils';
 
 describe('e2e-utils', () => {
   beforeEach(() => {
@@ -6,8 +6,6 @@ describe('e2e-utils', () => {
     localStorage.clear();
     // @ts-ignore
     delete globalThis._E2E_ENABLE_REAL_SYNC;
-    // @ts-ignore
-    delete globalThis._E2E_WEBKIT_SYNC_FALLBACK;
   });
 
   describe('shouldSkipRealSync', () => {
@@ -29,23 +27,6 @@ describe('e2e-utils', () => {
       // @ts-ignore
       globalThis._E2E_ENABLE_REAL_SYNC = true;
       expect(shouldSkipRealSync()).toBe(false);
-    });
-  });
-
-  describe('isWebKitFallback', () => {
-    it('should return true if enabled in localStorage', () => {
-      localStorage.setItem('_E2E_WEBKIT_SYNC_FALLBACK', 'true');
-      expect(isWebKitFallback()).toBe(true);
-    });
-
-    it('should return true if enabled in globalThis', () => {
-      // @ts-ignore
-      globalThis._E2E_WEBKIT_SYNC_FALLBACK = true;
-      expect(isWebKitFallback()).toBe(true);
-    });
-
-    it('should return false/undefined if not enabled', () => {
-      expect(isWebKitFallback()).toBeFalsy();
     });
   });
 });

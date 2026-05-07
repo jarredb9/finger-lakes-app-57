@@ -6,49 +6,47 @@ import fs from 'fs';
 import path from 'path';
 import { Page, test as base } from '@playwright/test';
 import { createMockMapMarkerRpc, createMockVisitWithWinery, createMockTrip } from '@/lib/test-utils/fixtures';
+import { Database } from '@/lib/database.types';
 import { 
   Trip, 
   VisitWithWinery, 
   MapMarkerRpc, 
-  TripMember,
   WineryDbId,
   GooglePlaceId
 } from '@/lib/types';
 
-export interface FriendActivityFeedItem {
-  activity_type: string;
+/**
+ * Derived Types from Database Schema (Senior Standard)
+ * These ensure 100% alignment with the Supabase schema and RPC definitions.
+ */
+export type RpcVisitWithWinery = Database['public']['Functions']['get_paginated_visits_with_winery_and_friends']['Returns'][number] & {
+  user_id: string;
+  updated_at: string;
+};
+
+export type FriendActivityFeedItem = {
+  activity_type: Database['public']['Tables']['activity_ledger']['Row']['activity_type'];
   created_at: string;
-  activity_user_id: string;
-  user_name: string;
-  user_email: string;
-  winery_id: number;
-  winery_name: string;
-  visit_rating: number | null;
-  visit_review: string | null;
-  visit_photos: string[] | null;
-}
+  activity_user_id: Database['public']['Tables']['profiles']['Row']['id'];
+  user_name: string | null;
+  user_email: string | null;
+  winery_id: Database['public']['Tables']['wineries']['Row']['id'];
+  winery_name: Database['public']['Tables']['wineries']['Row']['name'];
+  visit_rating: Database['public']['Tables']['visits']['Row']['rating'];
+  visit_review: Database['public']['Tables']['visits']['Row']['user_review'];
+  visit_photos: Database['public']['Tables']['visits']['Row']['photos'];
+};
+
+export type TripMember = Database['public']['Tables']['trip_members']['Row'] & {
+  name: string | null;
+  email: string | null;
+};
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 export type MapMarker = MapMarkerRpc;
 export type TripDetails = Trip;
 export type VisitItem = VisitWithWinery;
-
-/**
- * Specifically matches the return type of get_paginated_visits_with_winery_and_friends RPC
- */
-export interface RpcVisitWithWinery {
-  visit_id: number;
-  user_id: string;
-  visit_date: string;
-  user_review: string | null;
-  rating: number | null;
-  photos: string[] | null;
-  winery_id: number;
-  winery_name: string;
-  google_place_id: string;
-  winery_address: string;
-  friend_visits: any[];
-  updated_at: string;
-}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -75,14 +73,14 @@ export interface MockMapsState {
     visits: RpcVisitWithWinery[] | null;
     activityFeed: FriendActivityFeedItem[] | null;
     social: {
-        friends: any[],
-        pending_incoming: any[],
-        pending_outgoing: any[]
+        friends: Profile[],
+        pending_incoming: Profile[],
+        pending_outgoing: Profile[]
     } | null;
     socialMap: Map<string, {
-        friends: any[],
-        pending_incoming: any[],
-        pending_outgoing: any[]
+        friends: Profile[],
+        pending_incoming: Profile[],
+        pending_outgoing: Profile[]
     }>;
     tripMembersMap: Map<number, TripMember[]>;
     favoritesMap: Map<string, Set<string>>;
@@ -262,7 +260,7 @@ export class MockMapsManager {
         const idMatch = req.url().match(/id=eq\.([^&]+)/);
         const requestedId = idMatch ? idMatch[1] : this.currentUserId;
         
-        const profile = { id: requestedId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' };
+        const profile: Profile = { id: requestedId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' };
         const body = req.headers()['accept']?.includes('application/vnd.pgrst.object+json') 
             ? JSON.stringify(profile) 
             : JSON.stringify([profile]);
@@ -306,12 +304,12 @@ export class MockMapsManager {
             
             if (!this.state.visits) this.state.visits = [];
             
-            const newVisit = {
+            const newVisit: RpcVisitWithWinery = {
                 visit_id: newId,
                 user_id: this.currentUserId,
                 visit_date: visitData.visit_date || todayCA,
-                user_review: visitData.user_review || null,
-                rating: visitData.rating || null,
+                user_review: visitData.user_review || '',
+                rating: visitData.rating || 0,
                 photos: visitData.photos || [],
                 winery_id: winery?.id || 123,
                 winery_name: winery?.name || wineryData.name || 'Unknown Winery',
@@ -442,8 +440,8 @@ export class MockMapsManager {
             const postData = JSON.parse(req.postData() || '{}');
             const targetEmail = postData.target_email || postData.p_friend_email;
             if (!this.state.social) this.state.social = { friends: [], pending_incoming: [], pending_outgoing: [] };
-            this.state.social.pending_outgoing.push({ id: 'mock-target-id', name: (targetEmail || 'unknown').split('@')[0], email: targetEmail || 'unknown@example.com' });
-            this.state.social.pending_incoming.push({ id: this.currentUserId, name: 'Test User', email: 'test@example.com' });
+            this.state.social.pending_outgoing.push({ id: 'mock-target-id', name: (targetEmail || 'unknown').split('@')[0], email: targetEmail || 'unknown@example.com', privacy_level: 'public' });
+            this.state.social.pending_incoming.push({ id: this.currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' });
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
         }
         
@@ -480,8 +478,14 @@ export class MockMapsManager {
                 const trip = this.state.trips.find(t => Number(t.id) === Number(tripId));
                 if (trip) {
                     if (!trip.members) trip.members = [];
-                    if (!trip.members.some(m => m.email.toLowerCase() === email.toLowerCase())) {
-                        trip.members.push({ id: `mock-invited-${Math.floor(Math.random() * 10000)}`, email: email, name: email.split('@')[0], role: 'member', status: 'invited' });
+                    if (!trip.members.some(m => m.email?.toLowerCase() === email.toLowerCase())) {
+                        trip.members.push({ 
+                            id: `mock-member-${Math.floor(Math.random() * 10000)}`, 
+                            email: email, 
+                            name: email.split('@')[0], 
+                            role: 'member', 
+                            status: 'invited'
+                        });
                         trip.updated_at = new Date().toISOString();
                     }
                 }
@@ -507,12 +511,13 @@ export class MockMapsManager {
             const postData = JSON.parse(req.postData() || '{}');
             const friendId = postData.friend_id_param;
             const visits = (this.state.visits || []).filter(v => v.user_id === friendId);
+            const profile: Profile = { id: friendId, name: 'Mock Friend', email: 'friend@example.com', privacy_level: 'public' };
             return route.fulfill({ 
                 status: 200, 
                 contentType: 'application/json', 
                 headers: commonHeaders, 
                 body: JSON.stringify({
-                    profile: { id: friendId, name: 'Mock Friend', email: 'friend@example.com', privacy_level: 'public' },
+                    profile: profile,
                     visits: visits,
                     stats: { total_visits: visits.length, favorite_count: 0, wishlist_count: 0 }
                 }) 
@@ -665,14 +670,13 @@ export class MockMapsManager {
             user_review: 'A classic mock visit from the past.'
         });
         this.state.visits = [{
-            visit_id: 12345, 
-            user_id: mockVisit.user_id || this.currentUserId, 
-            visit_date: mockVisit.visit_date, 
-            user_review: mockVisit.user_review || null,
-            rating: mockVisit.rating || null, 
-            photos: mockVisit.photos || null, 
-            winery_id: mockVisit.winery_id || 2 as WineryDbId, 
-            winery_name: mockVisit.wineryName || 'Vineyard of Illusion',
+            visit_id: 12345,
+            user_id: mockVisit.user_id || this.currentUserId,
+            visit_date: mockVisit.visit_date,
+            user_review: mockVisit.user_review || '',
+            rating: mockVisit.rating || 0,
+            photos: mockVisit.photos || [],
+            winery_id: mockVisit.winery_id || 2 as WineryDbId,            winery_name: mockVisit.wineryName || 'Vineyard of Illusion',
             google_place_id: mockVisit.wineryId || 'ch-67890-mock-winery-2' as GooglePlaceId, 
             winery_address: mockVisit.wineries.address, 
             friend_visits: [],

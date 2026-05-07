@@ -138,19 +138,13 @@ test.describe('PWA Assets & Sync', () => {
     // 6. Wait for Sync
     console.log('[Test] Waiting for sync results...');
     await expect(async () => {
-        // If Playwright intercepted it, great. 
-        // If not, check if our store-level fallback caught it or if it logged success.
-        const storeIntercepted = await page.evaluate(() => {
-            const ls = localStorage.getItem('_E2E_SYNC_REQUEST_INTERCEPTED') === 'true';
-            const gt = (globalThis as any)._E2E_SYNC_REQUEST_INTERCEPTED === true;
-            if (ls || gt) console.log(`[DIAGNOSTIC] test poll check: SUCCESS (localStorage=${ls}, globalThis=${gt})`);
-            return ls || gt;
-        });
+        // Verify via store state (Senior Standard)
+        const queueLength = await page.evaluate(() => (window as any).useSyncStore.getState().queue.length);
         
-        if (!syncRequestMade && !storeIntercepted && !syncSuccessLogged) {
-            console.log(`[DIAGNOSTIC] Sync not confirmed: syncRequestMade=${syncRequestMade}, storeIntercepted=${storeIntercepted}, syncSuccessLogged=${syncSuccessLogged}`);
+        if (!syncRequestMade && queueLength > 0 && !syncSuccessLogged) {
+            console.log(`[DIAGNOSTIC] Sync not confirmed: syncRequestMade=${syncRequestMade}, queueLength=${queueLength}, syncSuccessLogged=${syncSuccessLogged}`);
         }
-        expect(syncRequestMade || storeIntercepted || syncSuccessLogged).toBe(true);
+        expect(syncRequestMade || queueLength === 0 || syncSuccessLogged).toBe(true);
     }).toPass({ timeout: 20000 });
   });
 

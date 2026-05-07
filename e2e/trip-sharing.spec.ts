@@ -33,7 +33,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       // 2. ATOMIC INJECTION: Establish friendship and inject trip
       await test.step('Atomic state injection', async () => {
-          const friend = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted' };
+          const friend = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const };
           
           await page.evaluate(({ f, t }) => {
               (window as any).useFriendStore.setState({ friends: [f] });
@@ -129,8 +129,8 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       // 1. Establish friendship and inject trip via ATOMIC INJECTION
       await test.step('Atomic state injection', async () => {
-          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted' };
-          const friendForB = { id: userA.id, name: 'User A', email: userA.email, status: 'accepted' };
+          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const };
+          const friendForB = { id: userA.id, name: 'User A', email: userA.email, status: 'accepted', privacy_level: 'public' as const };
 
           await pageA.evaluate(({ f, t }) => {
               (window as any).useFriendStore.setState({ friends: [f] });
@@ -195,12 +195,6 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
               await pageA.keyboard.press('Escape');
           }
           
-          // Final fallback for stubborn mobile browsers: direct store reset
-          const isOpen = await shareDialog.isVisible();
-          if (isOpen) {
-              await pageA.evaluate(() => (window as any).useUIStore.getState().closeShareDialog());
-          }
-
           await expect(shareDialog).not.toBeVisible({ timeout: 3000 });
       }).toPass({ timeout: 15000, intervals: [1000, 2000] });
       
