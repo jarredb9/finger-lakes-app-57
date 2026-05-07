@@ -184,8 +184,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 google_place_id: winery.id,
                 name: winery.name,
                 address: winery.address,
-                latitude: winery.lat.toString(),
-                longitude: winery.lng.toString(),
+                latitude: winery.latitude.toString(),
+                longitude: winery.longitude.toString(),
             }
         };
 
@@ -199,8 +199,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             wineryDbId: winery.dbId,
             wineryName: winery.name,
             wineryAddress: winery.address,
-            lat: winery.lat,
-            lng: winery.lng,
+            latitude: winery.latitude,
+            longitude: winery.longitude,
             visit_date: visitData.visit_date,
             user_review: visitData.user_review,
             rating: visitData.rating,
@@ -499,8 +499,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 google_place_id: winery.id,
                 name: winery.name,
                 address: winery.address,
-                latitude: winery.lat.toString(),
-                longitude: winery.lng.toString(),
+                latitude: winery.latitude.toString(),
+                longitude: winery.longitude.toString(),
             }
         };
 
@@ -515,8 +515,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 wineryDbId: winery.dbId,
                 wineryName: winery.name,
                 wineryAddress: winery.address,
-                lat: winery.lat,
-                lng: winery.lng,
+                latitude: winery.latitude,
+                longitude: winery.longitude,
                 visit_date: visitData.visit_date,
                 user_review: visitData.user_review,
                 rating: visitData.rating,

@@ -70,8 +70,8 @@ describe('Privacy Refactor Integration Tests', () => {
         google_place_id: `privacy-test-winery-${crypto.randomUUID()}`,
         name: mockWinery.name,
         address: mockWinery.address,
-        latitude: mockWinery.lat,
-        longitude: mockWinery.lng
+        latitude: mockWinery.latitude,
+        longitude: mockWinery.longitude
       }).select().single();
       wineryId = winery.id;
 

@@ -57,7 +57,7 @@ export function useWineryMap(userId: string) {
     if (map && selectedTrip?.wineries?.length) {
       const bounds = new google.maps.LatLngBounds();
       selectedTrip.wineries.forEach((winery) => {
-        bounds.extend({ lat: winery.lat, lng: winery.lng });
+        bounds.extend({ lat: winery.latitude, lng: winery.longitude });
       });
       map.fitBounds(bounds);
     }
@@ -132,8 +132,8 @@ export function useWineryMap(userId: string) {
         id: e.placeId as GooglePlaceId,
         name: placeDetails.displayName || "Unnamed Location",
         address: placeDetails.formattedAddress || "N/A",
-        lat: placeDetails.location.lat(),
-        lng: placeDetails.location.lng(),
+        latitude: placeDetails.location.lat(),
+        longitude: placeDetails.location.lng(),
       };
       setProposedWinery(newWinery);
     } catch (err) {

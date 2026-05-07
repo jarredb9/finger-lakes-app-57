@@ -19,8 +19,8 @@ export interface MapMarkerRpc {
   google_place_id: GooglePlaceId;
   name: string;
   address: string;
-  lat: number;
-  lng: number;
+  latitude: number;
+  longitude: number;
   is_favorite: boolean;
   on_wishlist: boolean;
   user_visited: boolean;
@@ -139,8 +139,8 @@ export interface Winery {
   
   name: string;
   address: string;
-  lat: number;
-  lng: number;
+  latitude: number;
+  longitude: number;
   
   phone?: string | null;
   website?: string | null;

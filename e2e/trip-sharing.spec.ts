@@ -5,7 +5,8 @@ import {
     injectTripState,
     navigateToTab,
     getSidebarContainer,
-    login
+    login,
+    closeShareDialog
 } from './helpers';
 
 test.describe('Trip Sharing and Collaboration Flow', () => {
@@ -187,16 +188,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       await expect(pageA.getByText(/Invitation sent/i).first()).toBeVisible();
       console.log('[DIAGNOSTIC] Invitation sent successfully. Closing dialog...');
       
-      await expect(async () => {
-          const closeBtn = shareDialog.getByRole('button', { name: 'Close' });
-          if (await closeBtn.isVisible()) {
-              await closeBtn.click({ force: true });
-          } else {
-              await pageA.keyboard.press('Escape');
-          }
-          
-          await expect(shareDialog).not.toBeVisible({ timeout: 3000 });
-      }).toPass({ timeout: 15000, intervals: [1000, 2000] });
+      await closeShareDialog(pageA);
       
       console.log('[DIAGNOSTIC] Share dialog closed.');
 

@@ -12,8 +12,8 @@ interface LogVisitPayload {
   wineryDbId: number;
   wineryName: string;
   wineryAddress: string;
-  lat: number;
-  lng: number;
+  latitude: number;
+  longitude: number;
   visit_date: string;
   user_review: string;
   rating: number;
@@ -158,8 +158,8 @@ export const SyncService = {
                   dbId: p.wineryDbId as any,
                   name: p.wineryName,
                   address: p.wineryAddress,
-                  lat: p.lat,
-                  lng: p.lng,
+                  latitude: p.latitude,
+                  longitude: p.longitude,
                 }),
                 p_visit_data: {
                   visit_date: p.visit_date,
@@ -334,28 +334,28 @@ export const SyncService = {
 
             case 'winery_action':
               if (payload.action === 'toggle_favorite') {
-                const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; lat: number; lng: number };
+                const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; latitude: number; longitude: number };
                 const { error: fError } = await supabase.rpc('toggle_favorite', {
                   p_winery_data: WineryService.getRpcData({
                     id: pW.wineryId as any,
                     dbId: pW.wineryDbId as any,
                     name: pW.wineryName,
                     address: pW.wineryAddress,
-                    lat: pW.lat,
-                    lng: pW.lng,
+                    latitude: pW.latitude,
+                    longitude: pW.longitude,
                   })
                 });
                 error = fError;
               } else if (payload.action === 'toggle_wishlist') {
-                const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; lat: number; lng: number };
+                const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; latitude: number; longitude: number };
                 const { error: wError } = await supabase.rpc('toggle_wishlist', {
                   p_winery_data: WineryService.getRpcData({
                     id: pW.wineryId as any,
                     dbId: pW.wineryDbId as any,
                     name: pW.wineryName,
                     address: pW.wineryAddress,
-                    lat: pW.lat,
-                    lng: pW.lng,
+                    latitude: pW.latitude,
+                    longitude: pW.longitude,
                   })
                 });
                 error = wError;

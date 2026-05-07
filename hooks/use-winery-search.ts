@@ -51,7 +51,7 @@ export function useWinerySearch() {
           const { persistentWineries } = useWineryDataStore.getState();
           
           const localResults = persistentWineries.filter(w => 
-            bounds.contains({ lat: w.lat, lng: w.lng })
+            bounds.contains({ lat: w.latitude, lng: w.longitude })
           );
 
           setSearchResults(localResults);
@@ -159,8 +159,8 @@ export function useWinerySearch() {
               place_id: place.id! as GooglePlaceId,
               name: place.displayName || '',
               address: place.formattedAddress || '',
-              lat: place.location?.lat() || 0,
-              lng: place.location?.lng() || 0,
+              latitude: place.location?.lat() || 0,
+              longitude: place.location?.lng() || 0,
               rating: place.rating ?? undefined,
         }));
 

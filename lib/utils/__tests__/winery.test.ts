@@ -43,7 +43,7 @@ describe('standardizeWineryData', () => {
     const googleUpdate = {
       place_id: existingWinery.id,
       name: existingWinery.name,
-      geometry: { location: { lat: existingWinery.lat, lng: existingWinery.lng } },
+      geometry: { location: { lat: existingWinery.latitude, lng: existingWinery.longitude } },
       // No user_visited field
     };
 

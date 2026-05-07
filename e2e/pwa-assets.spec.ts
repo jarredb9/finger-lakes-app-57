@@ -26,9 +26,7 @@ test.describe('PWA Assets & Sync', () => {
     
     await page.evaluate(() => {
         // Initialize signal in localStorage to survive reloads/redirects
-        localStorage.removeItem('_E2E_SYNC_REQUEST_INTERCEPTED');
         localStorage.removeItem('_E2E_ENABLE_REAL_SYNC');
-        localStorage.removeItem('_E2E_WEBKIT_SYNC_FALLBACK');
 
         const dataStore = (window as any).useWineryDataStore.getState();
         const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
@@ -110,16 +108,6 @@ test.describe('PWA Assets & Sync', () => {
 
     await context.route(logVisitPattern, logVisitHandler);
     await page.route(logVisitPattern, logVisitHandler);
-
-    // WebKit Fallback Strategy: We enable a store-level bypass for ALL browsers
-    // because network stacks in the RHEL container often fail to hit Playwright's proxy 
-    // during offline/online transitions (TypeError: Load failed).
-    console.log('[Test] Enabling store-level fallback for reliability.');
-    await page.evaluate(() => {
-        localStorage.setItem('_E2E_WEBKIT_SYNC_FALLBACK', 'true');
-        // @ts-ignore
-        globalThis._E2E_WEBKIT_SYNC_FALLBACK = true;
-    });
 
     // 5. Go Online
     console.log('[Test] Going online...');

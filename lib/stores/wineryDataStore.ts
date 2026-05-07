@@ -113,8 +113,8 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
               wineryDbId: winery.dbId,
               wineryName: winery.name,
               wineryAddress: winery.address,
-              lat: winery.lat,
-              lng: winery.lng
+              latitude: winery.latitude,
+              longitude: winery.longitude
           };
 
           if (await enqueueIfOffline('winery_action', user?.id, syncPayload)) {
@@ -160,8 +160,8 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
             wineryDbId: winery.dbId,
             wineryName: winery.name,
             wineryAddress: winery.address,
-            lat: winery.lat,
-            lng: winery.lng
+            latitude: winery.latitude,
+            longitude: winery.longitude
         };
 
         if (await enqueueIfOffline('winery_action', user?.id, syncPayload)) {

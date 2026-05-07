@@ -478,6 +478,39 @@ export async function closeWineryModal(page: Page) {
     await expect(modal).not.toBeVisible({ timeout: 5000 });
 }
 
+export async function closeShareDialog(page: Page) {
+    const dialog = page.getByTestId('trip-share-dialog');
+    
+    const isOpen = await page.evaluate(() => {
+        // @ts-ignore
+        return !!(window.useUIStore?.getState().isShareDialogOpen);
+    });
+
+    if (isOpen) {
+        const closeBtn = dialog.getByRole('button', { name: /Close/i });
+        if (await closeBtn.isVisible({ timeout: 2000 })) {
+            await closeBtn.click({ force: true });
+        } else {
+            await page.keyboard.press('Escape');
+        }
+    }
+
+    // Wait for the store to update and the dialog to hide
+    await expect(async () => {
+        const isOpen = await page.evaluate(() => {
+            // @ts-ignore
+            return !!(window.useUIStore?.getState().isShareDialogOpen);
+        });
+        if (isOpen) {
+            // If it's still open, try hitting Escape one more time as a fallback
+            await page.keyboard.press('Escape').catch(() => {});
+            throw new Error('Share dialog still open in store');
+        }
+    }).toPass({ timeout: 10000, intervals: [1000] });
+
+    await expect(dialog).not.toBeVisible({ timeout: 5000 });
+}
+
 export async function logVisit(page: Page, data: { review: string, rating?: number, isPrivate?: boolean, date?: string }) {
     const visitModal = page.getByTestId('visit-modal');
     

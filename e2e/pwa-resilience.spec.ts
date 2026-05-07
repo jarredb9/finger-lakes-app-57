@@ -46,10 +46,7 @@ test.describe('PWA Resilience & Offline Integrity', () => {
             });
         }
         
-        localStorage.removeItem('_E2E_SYNC_REQUEST_INTERCEPTED');
         localStorage.removeItem('_E2E_ENABLE_REAL_SYNC');
-        localStorage.removeItem('_E2E_WEBKIT_SYNC_FALLBACK');
-        (globalThis as any)._E2E_SYNC_REQUEST_INTERCEPTED = false;
     });
 
     await openWineryDetails(page, 'Mock Winery One');
@@ -88,8 +85,8 @@ test.describe('PWA Resilience & Offline Integrity', () => {
                     wineryDbId: winery.dbId,
                     wineryName: winery.name,
                     wineryAddress: winery.address,
-                    lat: winery.lat,
-                    lng: winery.lng,
+                    latitude: winery.latitude,
+                    longitude: winery.longitude,
                     visit_date: date,
                     user_review: review,
                     rating: 5,
@@ -179,12 +176,6 @@ test.describe('PWA Resilience & Offline Integrity', () => {
     await page.route(storagePattern, storageHandler);
     await page.route(rpcPattern, rpcHandler);
 
-    // Enable WebKit Sync Fallback (Airtight Proxy Rule)
-    await page.evaluate(() => {
-        localStorage.setItem('_E2E_WEBKIT_SYNC_FALLBACK', 'true');
-        (globalThis as any)._E2E_WEBKIT_SYNC_FALLBACK = true;
-    });
-
     await context.setOffline(false);
     
     // Settlement wait
@@ -201,13 +192,8 @@ test.describe('PWA Resilience & Offline Integrity', () => {
 
     // 7. Verify sync results
     await expect(async () => {
-        const storeIntercepted = await page.evaluate(() => {
-            return localStorage.getItem('_E2E_SYNC_REQUEST_INTERCEPTED') === 'true' || 
-                   (globalThis as any)._E2E_SYNC_REQUEST_INTERCEPTED === true;
-        });
-
-        const uploaded = uploadCount >= 2 || storeIntercepted;
-        const rpcCalled = rpcCount >= 1 || storeIntercepted;
+        const uploaded = uploadCount >= 2;
+        const rpcCalled = rpcCount >= 1;
         
         expect(uploaded).toBe(true);
         expect(rpcCalled).toBe(true);

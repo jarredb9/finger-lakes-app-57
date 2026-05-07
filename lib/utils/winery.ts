@@ -173,8 +173,8 @@ export const standardizeWineryData = (
     dbId: dbId,
     name: name,
     address: address || existing?.address || '',
-    lat,
-    lng,
+    latitude: lat,
+    longitude: lng,
     phone: phone || existing?.phone,
     website: website || existing?.website,
     rating: rating || existing?.rating,
@@ -201,7 +201,7 @@ export const standardizeWineryData = (
   };
 
   // Final Validation
-  if (!standardized.name || isNaN(standardized.lat) || isNaN(standardized.lng)) {
+  if (!standardized.name || isNaN(standardized.latitude) || isNaN(standardized.longitude)) {
     console.warn('[Validation] Invalid winery data:', standardized);
     return null;
   }

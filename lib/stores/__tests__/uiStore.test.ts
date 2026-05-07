@@ -11,8 +11,8 @@ describe('uiStore', () => {
     dbId: 101 as WineryDbId,
     name: 'Test Winery',
     address: '123 Test St',
-    lat: 40,
-    lng: -70
+    latitude: 40,
+    longitude: -70,
   };
 
   const mockVisit: Visit = {

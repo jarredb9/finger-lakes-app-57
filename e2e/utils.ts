@@ -19,9 +19,11 @@ import {
  * Derived Types from Database Schema (Senior Standard)
  * These ensure 100% alignment with the Supabase schema and RPC definitions.
  */
-export type RpcVisitWithWinery = Database['public']['Functions']['get_paginated_visits_with_winery_and_friends']['Returns'][number] & {
+export type RpcVisitWithWinery = Omit<Database['public']['Functions']['get_paginated_visits_with_winery_and_friends']['Returns'][number], 'user_review' | 'rating'> & {
   user_id: string;
   updated_at: string;
+  user_review: string | null;
+  rating: number | null;
 };
 
 export type FriendActivityFeedItem = {
@@ -308,8 +310,8 @@ export class MockMapsManager {
                 visit_id: newId,
                 user_id: this.currentUserId,
                 visit_date: visitData.visit_date || todayCA,
-                user_review: visitData.user_review || '',
-                rating: visitData.rating || 0,
+                user_review: visitData.user_review || null,
+                rating: visitData.rating || null,
                 photos: visitData.photos || [],
                 winery_id: winery?.id || 123,
                 winery_name: winery?.name || wineryData.name || 'Unknown Winery',
@@ -673,10 +675,11 @@ export class MockMapsManager {
             visit_id: 12345,
             user_id: mockVisit.user_id || this.currentUserId,
             visit_date: mockVisit.visit_date,
-            user_review: mockVisit.user_review || '',
-            rating: mockVisit.rating || 0,
+            user_review: mockVisit.user_review || null,
+            rating: mockVisit.rating || null,
             photos: mockVisit.photos || [],
-            winery_id: mockVisit.winery_id || 2 as WineryDbId,            winery_name: mockVisit.wineryName || 'Vineyard of Illusion',
+            winery_id: mockVisit.winery_id || 2 as WineryDbId,
+            winery_name: mockVisit.wineryName || 'Vineyard of Illusion',
             google_place_id: mockVisit.wineryId || 'ch-67890-mock-winery-2' as GooglePlaceId, 
             winery_address: mockVisit.wineries.address, 
             friend_visits: [],
@@ -756,8 +759,8 @@ export class MockMapsManager {
                         dbId: Number(m.id),
                         name: m.name,
                         address: m.address || 'Mock Address',
-                        lat: Number(m.lat),
-                        lng: Number(m.lng),
+                        latitude: Number(m.latitude),
+                        longitude: Number(m.longitude),
                         rating: Number(m.google_rating) || 4.5,
                         userVisited: false,
                         onWishlist: false,

@@ -320,15 +320,15 @@ const TripCard = memo(({
                 <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y" data-testid="winery-list">
                   {(tripWineries || []).map((winery, index) => {
                     const nextWinery = tripWineries[index + 1];
-                    const hasCoordinates = winery.lat !== undefined && winery.lng !== undefined && winery.lat !== null && winery.lng !== null;
-                    const nextHasCoordinates = nextWinery?.lat !== undefined && nextWinery?.lng !== undefined && nextWinery?.lat !== null && nextWinery?.lng !== null;
+                    const hasCoordinates = winery.latitude !== undefined && winery.longitude !== undefined && winery.latitude !== null && winery.longitude !== null;
+                    const nextHasCoordinates = nextWinery?.latitude !== undefined && nextWinery?.longitude !== undefined && nextWinery?.latitude !== null && nextWinery?.longitude !== null;
                     
                     let distanceText = "";
                     if (hasCoordinates && nextHasCoordinates) {
                       try {
                         const dist = calculateDistance(
-                          { lat: Number(winery.lat), lng: Number(winery.lng) },
-                          { lat: Number(nextWinery.lat), lng: Number(nextWinery.lng) }
+                          { lat: Number(winery.latitude), lng: Number(winery.longitude) },
+                          { lat: Number(nextWinery.latitude), lng: Number(nextWinery.longitude) }
                         );
                         distanceText = formatDistance(dist);
                       } catch (e) {
