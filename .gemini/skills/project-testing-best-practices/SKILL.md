@@ -11,7 +11,9 @@ description: ACTIVATE THIS SKILL if the user mentions: 'Testing', 'E2E', 'Playwr
 - **Parallel Discovery:** You MUST use parallel tool calls for file reads/searches.
 - **Verification Sandbox:** You are permitted to use `write_file` ONLY for temporary files (e.g., `temp_fix.ts`).
 - **Circuit Breaker:** If the same error occurs twice, STOP and report "Strategy Exhausted."
-- **Diagnostic Signal:** All failures MUST include: [BLOCKER], [HYPOTHESIS], and [ACTION].
+- **Diagnostic Signal:** All failures MUST include: [BLOCKER], [HYPOTHESIS], and [ACTION]. Failures MUST also provide:
+    - **Zustand Store Dump:** (via `page.evaluate(() => useStore.getState())`)
+    - **Network Trace:** (Summary of failed RPCs/APIs from logs)
 - **Build Limit:** Never use the `--build` flag if a build has already occurred in the parent session.
 - **Acknowledge:** Your first turn MUST state: "I have read and will obey the Efficiency Directive as the terminal DELEGATE."
 

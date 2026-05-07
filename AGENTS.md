@@ -25,7 +25,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **Python:** **MANDATORY:** Use `python3.11` for all scripts and skills.
 - **Local Database:** http://127.0.0.1:54321.
     - Start: `export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase start`
-- **Playwright:** MUST use Podman: `./scripts/run-e2e-container.sh [project] [test_file]`. Use `--build` if logic changed.
+- **Playwright:** MUST use Podman: `./scripts/run-e2e-container.sh [project] [test_file]`. Use `--build` if logic changed. **Note:** Orchestrator may run surgical tests (single file) directly in main session.
 - **Microscope (SDL-MCP):** `podman run --rm -v "$(pwd):/app:Z" -w /app -e SDL_CONFIG_HOME=/app node:20-bookworm npx sdl-mcp [command]`
 
 ## 4. Coding Standards & Truths
@@ -39,7 +39,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 
 ## 5. Workflows & Verification
 - **Protocol:** Follow the **Conductor Lifecycle**, **Context Efficiency Mandate**, and **Pre-Flight Protocol Verification** defined in `GEMINI.md`.
-- **Pre-Flight Mandate:** You MUST explicitly acknowledge the prohibition of main-session E2E tests and the requirement for delegation in your first turn.
+- **Pre-Flight Mandate:** You MUST explicitly acknowledge the delegation requirement for batch E2E tests and investigations in your first turn.
 - **Testing:** Favor empirical evidence (running tests) over assumptions.
 - **Atomic Verification:** A task is NOT complete until its E2E test passes. **PRIORITIZE** bypassing navigation via `page.evaluate` store state injection to keep tests under 15s.
 - **Standard Click:** Use Playwright's native `.click()`. Use `{ force: true }` if needed.
@@ -77,7 +77,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 ### Rules for Orchestrators
 - **Strategy Resets:** If a sub-agent reports the same failure twice, the Orchestrator MUST pivot to a different architectural approach rather than retrying.
 - **Diagnostic Synthesis:** When a sub-agent fails, the Orchestrator MUST extract the semantic "root cause" before reporting to the user.
-- **Pre-Flight Mandate:** You MUST explicitly acknowledge the requirement to delegate E2E tests in your first turn.
+- **Pre-Flight Mandate:** You MUST explicitly acknowledge the delegation requirement for batch E2E tests and investigations in your first turn.
 
 ### Rules for Delegates
 - **Authority:** You are the **authorized worker**. Run tests and heavy commands directly.
@@ -93,10 +93,16 @@ Prepend this block to all sub-agent prompts:
 3. **Parallel Discovery:** Use parallel tool calls. Minimize sequential reads.
 4. **Verification Sandbox:** Use `write_file` ONLY for temporary files. DO NOT modify source unless explicitly asked for a refactor.
 5. **Circuit Breaker:** If the same error occurs twice, STOP and report "Strategy Exhausted."
-6. **Diagnostic Signal:** All failures MUST include: [BLOCKER], [HYPOTHESIS], and [REQUIRED_ORCHESTRATOR_ACTION].
-7. **Build Policy:** Use `--build` ONLY if application files changed.
-8. **Turn 5 Diagnostic Pivot:** If aimless at Turn 5, STOP and report "Inconclusive Findings."
-9. **Acknowledge:** Your first turn MUST state: "I have read and will obey the Efficiency Directive as the terminal DELEGATE."
+6. **Diagnostic Signal:** All failures MUST include: [BLOCKER], [HYPOTHESIS], and [REQUIRED_ORCHESTRATOR_ACTION]. Failures MUST also provide:
+    - **Zustand Store Dump:** (via `page.evaluate(() => useStore.getState())`)
+    - **Network Trace:** (Summary of failed RPCs/APIs from logs)
+7. **CLI Cheat Sheet:** 
+    - Correct: `./scripts/run-e2e-container.sh --build webkit e2e/my-test.spec.ts`
+    - Incorrect: `./scripts/run-e2e-container.sh webkit e2e/my-test.spec.ts --build`
+    - Valid Projects: `chromium`, `webkit`, `mobile-safari`, `mobile-chrome`.
+8. **Build Policy:** Use `--build` ONLY if application files changed.
+9. **Turn 5 Diagnostic Pivot:** If aimless at Turn 5, STOP and report "Inconclusive Findings."
+10. **Acknowledge:** Your first turn MUST state: "I have read and will obey the Efficiency Directive as the terminal DELEGATE."
 ```
 
 ## 10. Code Intelligence Tools
