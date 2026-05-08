@@ -2,8 +2,9 @@ import { test, expect } from './utils';
 import { login, navigateToTab, openWineryDetails, ensureSidebarExpanded, clearServiceWorkers } from './helpers';
 
 test.describe('DatePicker UX', () => {
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, mockMaps }) => {
     await clearServiceWorkers(page);
+    await mockMaps.initDefaultMocks({ forceMocks: true });
   });
 
   test('should open picker and close on date selection', async ({ page, user }) => {

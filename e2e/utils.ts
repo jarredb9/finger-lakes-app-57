@@ -532,6 +532,39 @@ export class MockMapsManager {
             });
         }
 
+        if (url.includes('get_winery_details_by_id')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const wineryId = postData.winery_id_param;
+            const marker = markers.find(m => m.id === wineryId);
+            const detail = {
+                address: marker?.address || '123 Mock St',
+                google_place_id: marker?.google_place_id || 'mock-id',
+                google_rating: 4.5,
+                id: wineryId,
+                is_favorite: false,
+                is_favorite_private: false,
+                latitude: marker?.latitude || 42.7,
+                longitude: marker?.longitude || -76.9,
+                name: marker?.name || 'Mock Winery',
+                on_wishlist: false,
+                on_wishlist_private: false,
+                opening_hours: null,
+                phone: '555-0123',
+                reservable: false,
+                reviews: [],
+                trip_info: [],
+                user_visited: false,
+                visits: [],
+                website: 'https://example.com'
+            };
+            return route.fulfill({ 
+                status: 200, 
+                contentType: 'application/json', 
+                headers: commonHeaders, 
+                body: JSON.stringify([detail]) 
+            });
+        }
+
         if (isSocialRpc) {
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([]) });
         }
@@ -830,26 +863,29 @@ export class MockMapsManager {
                 // Only inject if store is truly empty AND we haven't already injected in this context
                 // @ts-ignore
                 if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0 && !window._E2E_INJECTED) {
-                    // We manually standardize for the store since the utility isn't easily accessible here
-                    const standardized = mockMarkers.map((m: any) => ({
+                    // Use the official standardizer exposed on window
+                    // @ts-ignore
+                    const standardizer = window.standardizeWineryData || ((m) => ({
                         id: m.google_place_id,
                         dbId: Number(m.id),
                         name: m.name,
                         address: m.address || 'Mock Address',
-                        latitude: Number(m.latitude || m.lat),
-                        longitude: Number(m.longitude || m.lng),
+                        latitude: Number(m.latitude || m.lat || 0),
+                        longitude: Number(m.longitude || m.lng || 0),
                         rating: Number(m.google_rating) || 4.5,
                         userVisited: false,
                         onWishlist: false,
                         isFavorite: false,
                         visits: [],
-                        openingHours: null, // PREVENT LAZY LOAD
+                        openingHours: null,
                         reviews: []
                     }));
+
+                    const standardized = mockMarkers.map((m: any) => standardizer(m)).filter((w: any) => w !== null);
                     wineryStore.setState({ persistentWineries: standardized });
                     // @ts-ignore
                     window._E2E_INJECTED = true;
-                    console.log('[DIAGNOSTIC] Mock wineries injected into store');
+                    console.log(`[DIAGNOSTIC] Mock wineries injected into store: ${standardized.length} items`);
                 }
             }
 

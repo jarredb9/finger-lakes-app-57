@@ -213,3 +213,8 @@ export const standardizeWineryData = (
 
   return standardized;
 };
+
+// Expose for E2E testing
+if (typeof window !== 'undefined') {
+    (window as any).standardizeWineryData = standardizeWineryData;
+}

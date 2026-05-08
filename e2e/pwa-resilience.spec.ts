@@ -7,6 +7,7 @@ test.describe('PWA Resilience & Offline Integrity', () => {
     await clearServiceWorkers(page);
     mockMaps.enableServiceWorker();
     mockMaps.useRealVisits();
+    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     
     // Login with PWA flag to set ?pwa=true
     await login(page, user.email, user.password, { isPwa: true });
