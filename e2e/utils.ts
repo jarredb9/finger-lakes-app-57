@@ -596,7 +596,7 @@ export class MockMapsManager {
             status: 200, 
             contentType: 'application/javascript', 
             headers: { 'Access-Control-Allow-Origin': '*' }, 
-            body: 'window.google = { maps: { _isMocked: true, importLibrary: () => Promise.resolve({}), LatLngBounds: function() { this.contains = () => true; this.extend = () => {}; this.getCenter = () => ({lat:()=>42.7,lng:()=>-76.9}); this.getNorthEast=()=>({lat:()=>43,lng:()=>-76}); this.getSouthWest=()=>({lat:()=>42,lng:()=>-77}); }, Geocoder: function() { this.geocode = () => Promise.resolve({results:[]}); }, places: { Place: { searchByText: () => Promise.resolve({places:[]}) } } } };' 
+            body: 'window.google = { maps: { _isMocked: true, importLibrary: () => Promise.resolve({}), LatLngBounds: function() { this.contains = () => true; this.extend = () => {}; this.getCenter = () => ({latitude:42.7,longitude:-76.9,lat:()=>42.7,lng:()=>-76.9}); this.getNorthEast=()=>({latitude:43,longitude:-76,lat:()=>43,lng:()=>-76}); this.getSouthWest=()=>({latitude:42,longitude:-77,lat:()=>42,lng:()=>-77}); }, Geocoder: function() { this.geocode = () => Promise.resolve({results:[]}); }, places: { Place: { searchByText: () => Promise.resolve({places:[]}) } } } };' 
         });
     });
 
@@ -781,9 +781,9 @@ export class MockMapsManager {
                 if (!state.bounds) {
                     mapStore.setState({ 
                         bounds: { 
-                            getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
-                            getSouthWest: () => ({ lat: () => 42, lng: () => -77 }),
-                            getCenter: () => ({ lat: () => 42.5, lng: () => -76.5 }),
+                            getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
+                            getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 }),
+                            getCenter: () => ({ latitude: 42.5, longitude: -76.5, lat: () => 42.5, lng: () => -76.5 }),
                             contains: () => true,
                             extend: () => {}
                         } 

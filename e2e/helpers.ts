@@ -164,8 +164,8 @@ export async function waitForMapReady(page: Page) {
         if (window.useMapStore && !window.useMapStore.getState().bounds) {
             // @ts-ignore
             window.useMapStore.getState().setBounds({
-                getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
-                getSouthWest: () => ({ lat: () => 42, lng: () => -77 }),
+                getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
+                getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 }),
                 contains: () => true
             });
         }

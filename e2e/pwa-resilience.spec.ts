@@ -37,8 +37,8 @@ test.describe('PWA Resilience & Offline Integrity', () => {
         if (mockWinery) {
             const mockBounds = {
                 contains: () => true,
-                getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
-                getSouthWest: () => ({ lat: () => 42, lng: () => -77 })
+                getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
+                getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 })
             };
             (window as any).useMapStore.setState({ 
                 bounds: mockBounds,

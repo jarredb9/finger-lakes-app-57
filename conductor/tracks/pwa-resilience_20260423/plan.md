@@ -128,3 +128,7 @@
 - [x] Task: Implement Crypto validation and Quota threshold adjustment 887fb6f
 - [x] Task: Refactor E2E Infrastructure for Architectural Purity & Strict Type Safety a68a5fb
 - [x] Task: Resolve friendStore type errors and standardize coordinate naming in tests 86932e0
+- [x] Task: Refactor coordinate standardization and enforce mapper rules 51b27ec
+- [x] Task: Resolve coordinate mismatch in E2E injection logic (lat/lng vs latitude/longitude)
+- [ ] Task: Update `lib/database.types.ts` with missing coordinate fields for visit RPC
+- [ ] Task: Resolve regressions in Visit Flow and Accessibility E2E tests
