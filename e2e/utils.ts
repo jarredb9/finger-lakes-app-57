@@ -597,25 +597,94 @@ export class MockMapsManager {
     // 7. Google Maps JS Handler
     await this.page.route(/(maps\.googleapis\.com|google\.com).*js(\?|&)key=/, async (route) => {
         const req = route.request();
+        console.log(`[DIAGNOSTIC] Intercepting Google Maps JS Loader: ${req.url()}`);
         if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+        
+        const mockMarkersData = markers.map(m => ({
+            id: m.google_place_id,
+            displayName: { text: m.name }, // Wrap in object to match REST/SDK expectations
+            formattedAddress: m.address,
+            location: {
+                lat: `__LAT__${m.latitude}__`,
+                lng: `__LNG__${m.longitude}__`,
+                latitude: m.latitude,
+                longitude: m.longitude
+            },
+            rating: 4.8
+        }));
+
+        const mockBody = `
+            console.log('[DIAGNOSTIC] Google Maps Mock Body Executing');
+            window.google = {
+                maps: {
+                    _isMocked: true,
+                    importLibrary: (name) => {
+                        console.log('[DIAGNOSTIC] Google Maps importLibrary:', name);
+                        if (name === 'places') return Promise.resolve(window.google.maps.places);
+                        if (name === 'geocoding') return Promise.resolve(window.google.maps.geocoding);
+                        return Promise.resolve({});
+                    },
+                    LatLng: function(lat, lng) {
+                        return { lat: () => lat, lng: () => lng, latitude: lat, longitude: lng };
+                    },
+                    LatLngBounds: function() {
+                        this.contains = () => true;
+                        this.extend = () => {};
+                        this.getCenter = () => ({ latitude: 42.7, longitude: -76.9, lat: () => 42.7, lng: () => -76.9 });
+                        this.getNorthEast = () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 });
+                        this.getSouthWest = () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 });
+                    },
+                    Geocoder: function() {
+                        this.geocode = () => Promise.resolve({ results: [] });
+                    },
+                    places: {
+                        Place: {
+                            searchByText: (request) => {
+                                console.log('[DIAGNOSTIC] Google Maps Place.searchByText called:', request);
+                                return Promise.resolve({ 
+                                    places: ${JSON.stringify(mockMarkersData)}.map(p => ({
+                                        ...p,
+                                        location: {
+                                            lat: p.location.lat,
+                                            lng: p.location.lng,
+                                            latitude: p.location.latitude,
+                                            longitude: p.location.longitude
+                                        }
+                                    }))
+                                });
+                            }
+                        }
+                    }
+                }
+            };
+        `.replace(/"__LAT__([\d.-]+)__"/g, '() => $1').replace(/"__LNG__([\d.-]+)__"/g, '() => $1');
+
         return route.fulfill({ 
             status: 200, 
             contentType: 'application/javascript', 
             headers: { 'Access-Control-Allow-Origin': '*' }, 
-            body: 'window.google = { maps: { _isMocked: true, importLibrary: () => Promise.resolve({}), LatLngBounds: function() { this.contains = () => true; this.extend = () => {}; this.getCenter = () => ({latitude:42.7,longitude:-76.9,lat:()=>42.7,lng:()=>-76.9}); this.getNorthEast=()=>({latitude:43,longitude:-76,lat:()=>43,lng:()=>-76}); this.getSouthWest=()=>({latitude:42,longitude:-77,lat:()=>42,lng:()=>-77}); }, Geocoder: function() { this.geocode = () => Promise.resolve({results:[]}); }, places: { Place: { searchByText: () => Promise.resolve({places:[]}) } } } };' 
+            body: mockBody
         });
     });
 
-    // 8. Google Places Search Handler
-    await this.page.route(/places\.googleapis\.com\/v1\/places:searchText/, async (route) => {
+    // 8. Google Places Search Handler - Fixed to catch gRPC-web ($rpc) and broadened
+    await this.page.route(/(places\.googleapis\.com\/.*SearchText|places\.googleapis\.com\/v1\/places:searchText)/i, async (route) => {
         const req = route.request();
+        console.log(`[DIAGNOSTIC] Intercepting SearchText: ${req.url()}`);
         if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
         return route.fulfill({ 
             status: 200, 
             contentType: 'application/json', 
             headers: commonHeaders, 
             body: JSON.stringify({ 
-                places: markers.map(m => ({ id: m.google_place_id, name: m.name, displayName: { text: m.name }, formattedAddress: 'Mock NY', location: { latitude: 42.7, longitude: -76.9 }, rating: 4.8 })) 
+                places: markers.map(m => ({ 
+                    id: m.google_place_id, 
+                    name: m.name, 
+                    displayName: { text: m.name }, 
+                    formattedAddress: m.address || 'Mock NY', 
+                    location: { latitude: m.latitude, longitude: m.longitude }, 
+                    rating: 4.8 
+                })) 
             }) 
         });
     });
@@ -655,11 +724,11 @@ export class MockMapsManager {
         }
     }
 
-    if (this.mocksRegistered) return;
+    if (this.mocksRegistered && !options.forceMocks) return;
     const todayCA = new Date().toLocaleDateString('en-CA');
 
-    // Only register full network interception if NOT in real data mode
-    if (!isRealData) {
+    // Only register full network interception if NOT in real data mode OR if forced
+    if (!isRealData || options.forceMocks) {
         console.log('[DIAGNOSTIC] MockMapsManager: Registering mock routes');
         await this.registerMockRoutes();
     }

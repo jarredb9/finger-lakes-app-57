@@ -39,15 +39,12 @@ Enhance the application's PWA capabilities by implementing a robust offline muta
     *   **Non-Blocking Loop**: The sync process MUST NOT halt on individual mutation errors; failing items must be marked and the queue must proceed.
 3.  **State Management**: Implement **`useSyncStore`** (Zustand) for reactive sync status.
 4.  **ID Normalization**: Strictly enforce `Number()` conversion for all `WineryDbId` and Trip IDs during data retrieval (Service Layer) or store hydration.
-5.  **UI Stability (The DOM Stability Pattern)**: All primary UI containers MUST remain in the DOM during loading/error states. Components MUST use `data-state="loading|error|ready"` and render indicators (Skeletons/Alerts) inside the stable container rather than using early returns.
+5.  **Coordinate Standardization**: Strictly enforce the use of `latitude` and `longitude` for all geographic coordinates across RPCs, Stores, and UI components. All coordinate retrieval MUST utilize the `standardizeWineryData` utility to ensure consistent number conversion and prevent `NaN` errors.
+6.  **UI Stability (The DOM Stability Pattern)**: All primary UI containers MUST remain in the DOM during loading/error states. Components MUST use `data-state="loading|error|ready"` and render indicators (Skeletons/Alerts) inside the stable container rather than using early returns.
 
 ## Acceptance Criteria
 *   New SW version shows a toast instead of a force-reload.
 *   Updating a visit while offline stores an encrypted record in the `SyncStore`.
-*   **Offline Visibility**: Refreshing the app while offline preserves visibility of recently fetched visits and trips.
-*   **Queue Resilience**: A single failing mutation (e.g., 400/500 from server) does not block subsequent mutations in the queue from syncing.
-*   Photos taken offline are stored as Base64 and successfully uploaded as `File` objects.
-fline stores an encrypted record in the `SyncStore`.
-*   **Offline Visibility**: Refreshing the app while offline preserves visibility of recently fetched visits and trips.
+*   **Offline Visibility**: Refreshing the app while offline preserves visibility of recently fetched visits and trips. Coordinates MUST be included in visit history to allow map rendering in offline mode.
 *   **Queue Resilience**: A single failing mutation (e.g., 400/500 from server) does not block subsequent mutations in the queue from syncing.
 *   Photos taken offline are stored as Base64 and successfully uploaded as `File` objects.

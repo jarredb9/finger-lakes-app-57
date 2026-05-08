@@ -132,10 +132,10 @@ export const standardizeWineryData = (
   } else if ('latitude' in source && 'longitude' in source && (source.latitude !== null && source.longitude !== null)) {
     lat = Number(source.latitude);
     lng = Number(source.longitude);
-  } else if ('lat' in source && 'lng' in source && (source.lat !== null && source.lng !== null)) { 
+  } else if ('lat' in source && ('lng' in source || 'long' in source)) { 
     // Legacy support for older RPCs or mocks
     lat = Number(source.lat);
-    lng = Number(source.lng);
+    lng = Number(source.lng || source.long);
   } else {
     console.warn('[Validation] No valid coordinates found for source:', source);
     return null; 

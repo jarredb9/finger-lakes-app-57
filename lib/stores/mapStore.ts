@@ -33,8 +33,8 @@ interface MapState {
 
 export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   map: null,
-  center: { lat: 40, lng: -98 },
-  zoom: 4,
+  center: { lat: 42.7, lng: -76.9 },
+  zoom: 9,
   bounds: null,
   lastSearchedBounds: null,
   lastSearchedZoom: null,
@@ -60,8 +60,8 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   setError: (error) => set({ error }),
   reset: () => set({
     map: null,
-    center: { lat: 40, lng: -98 },
-    zoom: 4,
+    center: { lat: 42.7, lng: -76.9 },
+    zoom: 9,
     bounds: null,
     lastSearchedBounds: null,
     lastSearchedZoom: null,

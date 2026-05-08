@@ -131,4 +131,4 @@
 - [x] Task: Refactor coordinate standardization and enforce mapper rules 51b27ec
 - [x] Task: Resolve coordinate mismatch in E2E injection logic (lat/lng vs latitude/longitude)
 - [x] Task: Update `lib/database.types.ts` with missing coordinate fields for visit RPC dda50a9
-- [ ] Task: Resolve regressions in Visit Flow and Accessibility E2E tests
+- [x] Task: Resolve regressions in Visit Flow and Accessibility E2E tests 039a7b5
