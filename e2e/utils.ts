@@ -34,6 +34,8 @@ export type FriendActivityFeedItem = {
   user_email: string | null;
   winery_id: Database['public']['Tables']['wineries']['Row']['id'];
   winery_name: Database['public']['Tables']['wineries']['Row']['name'];
+  latitude: number;
+  longitude: number;
   visit_rating: Database['public']['Tables']['visits']['Row']['rating'];
   visit_review: Database['public']['Tables']['visits']['Row']['user_review'];
   visit_photos: Database['public']['Tables']['visits']['Row']['photos'];
@@ -317,6 +319,8 @@ export class MockMapsManager {
                 winery_name: winery?.name || wineryData.name || 'Unknown Winery',
                 google_place_id: winery?.google_place_id || wineryId,
                 winery_address: winery?.address || wineryData.address || 'Unknown Address',
+                latitude: winery?.latitude || wineryData.latitude || 42.7,
+                longitude: winery?.longitude || wineryData.longitude || -76.9,
                 friend_visits: [],
                 updated_at: new Date(Date.now() + 5000).toISOString()
             };
@@ -331,6 +335,8 @@ export class MockMapsManager {
                 user_email: 'test@example.com',
                 winery_id: newVisit.winery_id,
                 winery_name: newVisit.winery_name,
+                latitude: newVisit.latitude,
+                longitude: newVisit.longitude,
                 visit_rating: newVisit.rating,
                 visit_review: newVisit.user_review,
                 visit_photos: newVisit.photos
@@ -682,6 +688,8 @@ export class MockMapsManager {
             winery_name: mockVisit.wineryName || 'Vineyard of Illusion',
             google_place_id: mockVisit.wineryId || 'ch-67890-mock-winery-2' as GooglePlaceId, 
             winery_address: mockVisit.wineries.address, 
+            latitude: mockVisit.wineries.latitude,
+            longitude: mockVisit.wineries.longitude,
             friend_visits: [],
             updated_at: new Date().toISOString()
         }];

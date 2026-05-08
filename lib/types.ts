@@ -237,6 +237,8 @@ export interface FriendActivity {
   user_email: string;
   winery_id: number;
   winery_name: string;
+  latitude: number;
+  longitude: number;
   visit_rating: number | null;
   visit_review: string | null;
   visit_photos: string[] | null;

@@ -587,8 +587,8 @@ export type Database = {
         Returns: {
           google_place_id: string
           id: number
-          lat: number
-          lng: number
+          latitude: number
+          longitude: number
           photos: string[]
           rating: number
           user_review: string
@@ -674,6 +674,8 @@ export type Database = {
         Returns: {
           friend_visits: Json
           google_place_id: string
+          latitude: number
+          longitude: number
           photos: string[]
           rating: number
           user_review: string
@@ -756,10 +758,10 @@ export type Database = {
       }
       get_wineries_in_bounds: {
         Args: {
-          max_lat: number
-          max_lng: number
-          min_lat: number
-          min_lng: number
+          max_latitude: number
+          max_longitude: number
+          min_latitude: number
+          min_longitude: number
         }
         Returns: {
           address: string
@@ -852,7 +854,11 @@ export type Database = {
         Returns: undefined
       }
       search_wineries_by_name_and_location: {
-        Args: { search_query: string; user_lat: number; user_lng: number }
+        Args: {
+          search_query: string
+          user_latitude: number
+          user_longitude: number
+        }
         Returns: {
           address: string
           distance_meters: number
