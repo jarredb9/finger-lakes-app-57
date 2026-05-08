@@ -87,8 +87,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
               google_place_id: v.google_place_id as GooglePlaceId,
               name: v.winery_name,
               address: v.winery_address,
-              latitude: '0',
-              longitude: '0',
+              latitude: Number(v.latitude),
+              longitude: Number(v.longitude),
             }
           }));
 
@@ -184,8 +184,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 google_place_id: winery.id,
                 name: winery.name,
                 address: winery.address,
-                latitude: winery.latitude.toString(),
-                longitude: winery.longitude.toString(),
+                latitude: winery.latitude,
+                longitude: winery.longitude,
             }
         };
 
@@ -499,8 +499,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 google_place_id: winery.id,
                 name: winery.name,
                 address: winery.address,
-                latitude: winery.latitude.toString(),
-                longitude: winery.longitude.toString(),
+                latitude: winery.latitude,
+                longitude: winery.longitude,
             }
         };
 
@@ -597,8 +597,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                               google_place_id: payload.wineryId,
                               name: payload.wineryName,
                               address: payload.wineryAddress,
-                              latitude: payload.lat?.toString() || '0',
-                              longitude: payload.lng?.toString() || '0',
+                              latitude: payload.latitude || 0,
+                              longitude: payload.longitude || 0,
                           }
                       });
                   } catch (e) {

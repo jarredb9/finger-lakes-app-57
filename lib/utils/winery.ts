@@ -34,10 +34,14 @@ function isGoogleWinery(source: any): source is GoogleWinery {
 
 // Helper to check if a source is MapMarkerRpc
 function isMapMarkerRpc(source: any): source is MapMarkerRpc {
-  // MapMarkerRpc always has lat/lng and google_place_id
+  // MapMarkerRpc always has latitude/longitude (standardized) or lat/lng (legacy)
+  // and some form of google id (google_place_id OR id as string)
+  const hasGoogleId = 'google_place_id' in source || (typeof source.id === 'string');
+  const hasCoords = 'latitude' in source || 'lat' in source;
+  
   return (
-    'google_place_id' in source &&
-    ('lat' in source || 'latitude' in source) &&
+    hasGoogleId &&
+    hasCoords &&
     !('visits' in source)
   );
 }
@@ -45,7 +49,8 @@ function isMapMarkerRpc(source: any): source is MapMarkerRpc {
 // Helper to check if a source is WineryDetailsRpc
 function isWineryDetailsRpc(source: any): source is WineryDetailsRpc {
     // WineryDetailsRpc is the ONLY one with 'visits'
-    return 'google_place_id' in source && 'visits' in source; 
+    const hasGoogleId = 'google_place_id' in source || (typeof source.id === 'string');
+    return hasGoogleId && 'visits' in source; 
 }
 
 // Helper to check if a source has raw DbWinery properties (without extended user data from RPC)
@@ -84,6 +89,7 @@ export const standardizeWineryData = (
   if (!source) return null;
 
   // 1. Resolve ID (Google Place ID)
+  // RPCs are inconsistent: some return 'google_place_id', some return 'google_place_id as id'
   const googleId = (
     (isGoogleWinery(source) && source.place_id) ||
     source.google_place_id ||
@@ -101,12 +107,10 @@ export const standardizeWineryData = (
   
   if (typeof source.dbId === 'number') {
       resolvedDbId = source.dbId;
-  } else if (!isGoogleWinery(source) && !isMapMarkerRpc(source) && !isWineryDetailsRpc(source) && typeof (source as DbWinery).id === 'number') {
+  } else if (typeof source.id === 'number') {
+      resolvedDbId = source.id;
+  } else if (isRawDbWinery(source) && typeof (source as DbWinery).id === 'number') {
       resolvedDbId = (source as DbWinery).id;
-  } else if (isMapMarkerRpc(source)) {
-      resolvedDbId = typeof source.id === 'number' ? source.id : (source.id ? Number(source.id) : undefined);
-  } else if (isWineryDetailsRpc(source)) {
-      resolvedDbId = typeof source.id === 'number' ? source.id : (source.id ? Number(source.id) : undefined);
   } else {
       resolvedDbId = typeof existing?.dbId === 'number' ? existing.dbId : undefined;
   }
@@ -125,10 +129,11 @@ export const standardizeWineryData = (
   if (isGoogleWinery(source) && source.geometry?.location) {
     lat = typeof source.geometry.location.lat === 'function' ? source.geometry.location.lat() : source.geometry.location.lat;
     lng = typeof source.geometry.location.lng === 'function' ? source.geometry.location.lng() : source.geometry.location.lng;
-  } else if ('latitude' in source && 'longitude' in source && (typeof source.latitude === 'number' || typeof source.latitude === 'string')) {
+  } else if ('latitude' in source && 'longitude' in source && (source.latitude !== null && source.longitude !== null)) {
     lat = Number(source.latitude);
     lng = Number(source.longitude);
-  } else if ('lat' in source && 'lng' in source && (typeof source.lat === 'number' || typeof source.lat === 'string')) { // For MapMarkerRpc
+  } else if ('lat' in source && 'lng' in source && (source.lat !== null && source.lng !== null)) { 
+    // Legacy support for older RPCs or mocks
     lat = Number(source.lat);
     lng = Number(source.lng);
   } else {
@@ -147,9 +152,9 @@ export const standardizeWineryData = (
   const reviews = (isGoogleWinery(source) ? source.reviews : (isWineryDetailsRpc(source) ? (source as any).reviews : parseReviewsJson(isRawDbWinery(source) ? source.reviews : null))) as PlaceReview[] | null;
   const reservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? (source as any).reservable : (isRawDbWinery(source) ? source.reservable : null));
 
-  const userVisited = source.user_visited !== undefined ? source.user_visited : (existing?.userVisited ?? false);
-  const onWishlist = source.on_wishlist !== undefined ? source.on_wishlist : (existing?.onWishlist ?? false);
-  const isFavorite = source.is_favorite !== undefined ? source.is_favorite : (existing?.isFavorite ?? false);
+  const userVisited = source.user_visited !== undefined ? source.user_visited : (source.userVisited !== undefined ? source.userVisited : (existing?.userVisited ?? false));
+  const onWishlist = source.on_wishlist !== undefined ? source.on_wishlist : (source.onWishlist !== undefined ? source.onWishlist : (existing?.onWishlist ?? false));
+  const isFavorite = source.is_favorite !== undefined ? source.is_favorite : (source.isFavorite !== undefined ? source.isFavorite : (existing?.isFavorite ?? false));
   
   const favoriteIsPrivate = source.is_favorite_private !== undefined ? source.is_favorite_private : (source.favorite_is_private !== undefined ? source.favorite_is_private : (source.favoriteIsPrivate !== undefined ? source.favoriteIsPrivate : (existing?.favoriteIsPrivate ?? false)));
   const wishlistIsPrivate = source.on_wishlist_private !== undefined ? source.on_wishlist_private : (source.wishlist_is_private !== undefined ? source.wishlist_is_private : (source.wishlistIsPrivate !== undefined ? source.wishlistIsPrivate : (existing?.wishlistIsPrivate ?? false)));

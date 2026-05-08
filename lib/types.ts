@@ -99,8 +99,8 @@ export interface Visit {
     google_place_id: GooglePlaceId; // Use new distinct type
     name: string;
     address: string;
-    latitude: string; // Numeric in DB but often string in API/RPC responses
-    longitude: string;
+    latitude: number; // Numeric in DB
+    longitude: number;
   };
   profiles?: {
     name: string;
@@ -203,8 +203,8 @@ export interface VisitWithWinery extends Visit {
     google_place_id: GooglePlaceId;
     name: string;
     address: string;
-    latitude: string;
-    longitude: string;
+    latitude: number;
+    longitude: number;
   };
 }
 

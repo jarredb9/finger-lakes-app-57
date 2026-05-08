@@ -66,8 +66,8 @@ export const createMockVisitWithWinery = (overrides: Partial<VisitWithWinery> = 
       google_place_id: winery.id,
       name: winery.name,
       address: winery.address,
-      latitude: winery.latitude.toString(),
-      longitude: winery.longitude.toString(),
+      latitude: winery.latitude,
+      longitude: winery.longitude,
     },
     ...overrides,
   };
