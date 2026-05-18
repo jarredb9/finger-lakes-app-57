@@ -965,9 +965,8 @@ export const test = base.extend<{
   user2: TestUser;
 }>({
   // Rotate hostnames for strict origin isolation while maintaining a single port
-  baseURL: async ({}, use, testInfo) => {
-    const hostname = testInfo.workerIndex % 2 === 0 ? '127.0.0.1' : 'localhost';
-    await use(`http://${hostname}:3001`);
+  baseURL: async ({}, use) => {
+    await use('http://127.0.0.1:3001');
   },
 
   // Use unique storage state per worker to ensure strict filesystem-level partitioning

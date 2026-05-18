@@ -6,7 +6,7 @@
 set -e
 
 # 1. Configuration
-PLAYWRIGHT_VERSION="v1.58.0-noble"
+PLAYWRIGHT_VERSION="v1.58.2-noble"
 IMAGE="mcr.microsoft.com/playwright:$PLAYWRIGHT_VERSION"
 
 # Parse optional flags
