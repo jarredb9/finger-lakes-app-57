@@ -85,14 +85,14 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests */
-  webServer: [0, 1].map(i => ({
+  webServer: {
     command: process.env.IS_E2E === 'true' 
-      ? `npm run start -- -p ${3001 + i}` 
-      : `npm run dev -- -p ${3001 + i}`,
-    url: `http://localhost:${3001 + i}`,
-    reuseExistingServer: true,
+      ? 'npm run start -- -p 3001' 
+      : 'npm run dev -- -p 3001',
+    url: 'http://localhost:3001',
+    reuseExistingServer: !process.env.CI,
     stdout: 'ignore',
     stderr: 'pipe',
     timeout: 120 * 1000,
-  })),
+  },
 });
