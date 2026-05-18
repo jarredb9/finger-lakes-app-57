@@ -24,7 +24,11 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **Dev Server:** `npm run dev` (http://localhost:3000).
 - **Python:** **MANDATORY:** Use `python3.11` for all scripts and skills.
 - **Local Database:** http://127.0.0.1:54321.
-    - Start: `export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase start`
+    - Start: `npm run db:start`
+    - Stop: `npm run db:stop`
+    - Status: `npm run db:status`
+    - Check Types: `npm run db:check-types:local`
+    - Update Types: `npm run db:gen-types`
 - **Playwright:** MUST use Podman: `./scripts/run-e2e-container.sh [project] [test_file]`. Use `--build` if logic changed. **Note:** Orchestrator may run surgical tests (single file) directly in main session.
 - **Microscope (SDL-MCP):** `podman run --rm -v "$(pwd):/app:Z" -w /app -e SDL_CONFIG_HOME=/app node:20-bookworm npx sdl-mcp [command]`
 

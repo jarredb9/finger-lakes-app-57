@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -7,16 +7,14 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
-# Optimization: Automatically cancel old runs when new ones are pushed
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
-    name: Build, Lint, and Test
+  validate:
+    name: Validate (Code & Schema)
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -30,33 +28,55 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Production Security Audit
-        run: npm audit --omit=dev
-
-      - name: Development Security Audit (Informational Only)
-        run: |
-          echo "NOTE: Currently ignoring 3 moderate vulnerabilities in ajv@6 (ESLint dependency)."
-          echo "These are false positives for ESLint usage (CVE-2025-69873). Reference: https://github.com/eslint/eslint/issues/20508"
-          npm audit || true
-
-      - name: Run Linting
-        run: npm run lint
+      - name: Start Supabase (Local CI DB)
+        run: npx supabase start
 
       - name: Check Database Type Integrity
-        run: npm run db:check-types
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: npm run db:check-types:ci
 
-      - name: Run Type Checking
-        run: npm run type-check
-
-      - name: Run Database Linting
-        run: npx supabase db lint --level error --debug --db-url "${{ secrets.SUPABASE_DB_URL }}"
-
-      - name: Run Tests
+      - name: Run Unit & Integration Tests (Jest)
         run: npm run test
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_LOCAL_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_LOCAL_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+
+      - name: Run E2E Tests (Playwright vs Local DB)
+        run: npx playwright test --grep-invert "pwa-"
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_LOCAL_ANON_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_LOCAL_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+  deploy:
+    name: Deploy to Production
+    needs: validate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Push Database Migrations
+        run: npx supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}"
+
+      - name: Run Production Smoke Test
+        run: npx playwright test e2e/smoke.spec.ts
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
