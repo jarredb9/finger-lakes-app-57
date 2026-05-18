@@ -96,7 +96,7 @@
     - [x] Refactor Global Components (`global-visit-history.tsx`, `VisitHistoryView.tsx`) to adhere to the `data-state` and stable parent patterns.
     - [x] Fix `auth-provider.tsx` early return to prevent full-page layout shifts during visit store hydration.
 - [x] Task: Resolve errors identified in failing tests
-    - [x] Resolve application/testing errors identified in test `e2e/error-handling.spec.ts` d0360ab
+    - [x] Resolve application/testing errors identified in test `e2e/error-handling.spec.ts` 0560054
     - [x] Resolve application/testing errors identified in test `e2e/privacy-flow.spec.ts` a142a41
     - [x] Resolve application/testing errors identified in test `e2e/sync-lock.spec.ts` 53b3f62
     - [x] Task: Resolve application/testing errors identified in test `e2e/trip-sharing.spec.ts` 887fb6f
@@ -138,13 +138,13 @@
     - Fix `e2e/utils.ts` and `playwright.config.ts` to ensure all workers can reach the dev server.
 - [x] Task: Stabilize Friend Flow Cleanup & Async Races 0f76604
     - Resolve `removeFriend` visibility failures in `e2e/friends-flow.spec.ts`.
-- [x] Task: Fix Sync Lock Overwrite Regression 7564bcc/88923a4
+- [x] Task: Fix Sync Lock Overwrite Regression 7564bcc/0560054
     - Resolve selector mismatch and enforce per-entity `lastActionTimestamps` in `tripStore.ts`.
-- [ ] Task: Handle WebKit Executable Mismatch in CI
-    - Ensure `playwright install` correctly downloads all engines in the CI environment.
 - [x] Task: Visual Baseline Reconciliation (Winery Modal) 2c1926c
     - Resolve `winery-modal.png` screenshot mismatch on Chromium.
-- [ ] Task: CI Connection Resilience & Port Unification
+- [x] Task: Handle WebKit Executable Mismatch in CI c0b3481
+    - Ensure `playwright install` correctly downloads all engines in the CI environment.
+- [x] Task: CI Connection Resilience & Port Unification c0b3481
     - Increase web server timeout and ensure consistent use of `127.0.0.1` vs `localhost`.
 
 - [ ] Task: Conductor - User Manual Verification 'Phase 6 & 7: Stabilization and Final Verification'
