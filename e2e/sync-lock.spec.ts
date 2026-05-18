@@ -84,7 +84,7 @@ test.describe('Sync Lock (Revision Control)', () => {
     console.log('[DIAGNOSTIC] Triggering optimistic rename...');
     await page.evaluate(({ originalName, newName }) => {
         const store = (window as any).useTripStore.getState();
-        const trip = store.upcomingTrips.find((t: any) => t.name === originalName);
+        const trip = store.trips.find((t: any) => t.name === originalName);
         if (trip) {
             store.updateTrip(trip.id.toString(), { name: newName });
         }

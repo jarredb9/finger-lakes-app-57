@@ -136,13 +136,13 @@
 - [x] Task: Update Spec with Verification & Sync-Lock Standards
 - [x] Task: Resolve Port Sharding Mismatch 7564bcc
     - Fix `e2e/utils.ts` and `playwright.config.ts` to ensure all workers can reach the dev server.
-- [x] Task: Fix Sync Lock Overwrite Regression 7564bcc
-    - Investigate why `e2e/sync-lock.spec.ts` is failing despite Phase 6 fixes.
 - [x] Task: Stabilize Friend Flow Cleanup & Async Races 0f76604
     - Resolve `removeFriend` visibility failures in `e2e/friends-flow.spec.ts`.
+- [x] Task: Fix Sync Lock Overwrite Regression 7564bcc/88923a4
+    - Resolve selector mismatch and enforce per-entity `lastActionTimestamps` in `tripStore.ts`.
 - [ ] Task: Handle WebKit Executable Mismatch in CI
     - Ensure `playwright install` correctly downloads all engines in the CI environment.
-- [ ] Task: Visual Baseline Reconciliation (Winery Modal)
+- [x] Task: Visual Baseline Reconciliation (Winery Modal) 2c1926c
     - Resolve `winery-modal.png` screenshot mismatch on Chromium.
 - [ ] Task: CI Connection Resilience & Port Unification
     - Increase web server timeout and ensure consistent use of `127.0.0.1` vs `localhost`.

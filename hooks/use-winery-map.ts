@@ -26,8 +26,9 @@ export function useWineryMap(userId: string) {
     error: mapError,
   } = useMapStore();
 
-  const { error: dataError, isLoading } = useWineryDataStore();
-  const { error: tripError, fetchUpcomingTrips, selectedTrip } = useTripStore();
+  const { error: dataError, isLoading: dataLoading } = useWineryDataStore();
+  const { error: tripError, fetchUpcomingTrips, selectedTrip, isLoading: tripLoading } = useTripStore();
+  const isLoading = dataLoading || isSearching || tripLoading;
   const error = dataError || mapError || tripError;
   const { fetchWineryData, ensureWineryDetails, getWineries } = useWineryStore();
   const { openWineryModal } = useUIStore();

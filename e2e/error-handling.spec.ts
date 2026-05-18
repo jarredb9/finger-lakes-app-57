@@ -15,8 +15,12 @@ test.describe('Error Handling (Unhappy Path)', () => {
 
     // 3. Verify Error Alert is visible on the map area
     const mapContainer = page.getByTestId('map-container');
+    
+    // Wait for the map to reach error state (handles the 750ms idle debounce)
+    await expect(mapContainer).toHaveAttribute('data-state', 'error', { timeout: 15000 });
+    
     const errorAlert = mapContainer.getByRole('alert').filter({ hasText: 'Failed to find wineries in this area' });
-    await expect(errorAlert).toBeVisible({ timeout: 15000 });
+    await expect(errorAlert).toBeVisible();
   });
 
   test('should show error alert when trips fail to load', async ({ page, mockMaps, user }) => {
