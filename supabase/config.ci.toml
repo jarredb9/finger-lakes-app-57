@@ -30,6 +30,9 @@ enabled = true
 enabled = true
 site_url = "http://127.0.0.1:3000"
 enable_signup = true
+
+[auth.email]
+enable_signup = true
 enable_confirmations = false
 
 [edge_runtime]
