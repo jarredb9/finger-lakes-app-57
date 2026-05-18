@@ -195,8 +195,15 @@ export const useFriendStore = createWithEqualityFn<FriendState>()(
 
       removeFriend: async (friendId) => {
         const originalFriends = get().friends;
+        const originalSent = get().sentRequests;
+        const originalReceived = get().friendRequests;
+
+        const compareId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
         set(state => ({
-          friends: state.friends.filter(f => f.id !== friendId)
+          friends: state.friends.filter(f => !compareId(f.id, friendId)),
+          sentRequests: state.sentRequests.filter(r => !compareId(r.id, friendId)),
+          friendRequests: state.friendRequests.filter(r => !compareId(r.id, friendId))
         }));
 
         const supabase = createClient();
@@ -210,11 +217,19 @@ export const useFriendStore = createWithEqualityFn<FriendState>()(
 
         try {
           await SocialService.removeFriend(friendId);
+          // Force refresh after online mutation to ensure consistency
+          if (!isE2E()) {
+            await Promise.all([get().fetchFriends(), get().fetchRequests()]);
+          }
         } catch (error: any) {
           if (await handleSyncError(error, 'social_action', user?.id, syncPayload)) {
               return;
           }
-          set({ friends: originalFriends });
+          set({ 
+            friends: originalFriends,
+            sentRequests: originalSent,
+            friendRequests: originalReceived
+          });
           throw error;
         }
       },

@@ -911,7 +911,8 @@ export async function removeFriend(page: Page, email: string) {
             // Handle AlertDialog only if it was an accepted friend
             if (isFriend) {
                 const confirmBtn = page.locator('button:has-text("Remove"), [data-testid="confirm-remove-btn"]').filter({ visible: true }).first();
-                if (await confirmBtn.isVisible({ timeout: 2000 })) {
+                await confirmBtn.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+                if (await confirmBtn.isVisible()) {
                     await confirmBtn.click({ force: true });
                 }
             }

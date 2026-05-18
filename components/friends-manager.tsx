@@ -86,7 +86,7 @@ export default function FriendsManager() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" data-state={isLoading ? "loading" : "ready"}>
       <Card data-testid="add-friend-card">
         <CardHeader>
           <CardTitle>Add a Friend</CardTitle>
