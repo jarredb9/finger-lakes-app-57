@@ -151,7 +151,8 @@ export class MockMapsManager {
                                          text.includes('WebKit encountered an internal error');
 
             const isThirdPartyNoise = text.includes('Cookie “__cf_bm” has been rejected') ||
-                                     text.includes('Google Maps JavaScript API: Unable to fetch configuration');
+                                     text.includes('Google Maps JavaScript API: Unable to fetch configuration') ||
+                                     text.includes('Attempted to load a Vector Map, but failed');
             
             if (!isInfrastructure && !isExpectedOfflineError && !isThirdPartyNoise) {
                 console.log(`[DIAGNOSTIC] Would have failed due to console error: ${text}`);
@@ -963,10 +964,10 @@ export const test = base.extend<{
   user: TestUser;
   user2: TestUser;
 }>({
-  // Dynamically set baseURL based on worker index for strict port isolation
+  // Rotate hostnames for strict origin isolation while maintaining a single port
   baseURL: async ({}, use, testInfo) => {
-    const port = 3001 + (testInfo.workerIndex % 2);
-    await use(`http://localhost:${port}`);
+    const hostname = testInfo.workerIndex % 2 === 0 ? '127.0.0.1' : 'localhost';
+    await use(`http://${hostname}:3001`);
   },
 
   // Use unique storage state per worker to ensure strict filesystem-level partitioning
