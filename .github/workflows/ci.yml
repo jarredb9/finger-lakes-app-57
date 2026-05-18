@@ -118,7 +118,6 @@ jobs:
         with:
           name: next-build-artifact
           path: .
-          include-hidden-files: true
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
