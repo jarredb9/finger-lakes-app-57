@@ -77,6 +77,7 @@ jobs:
           path: |
             .next
             public
+          include-hidden-files: true
           retention-days: 1
 
   unit-tests:
