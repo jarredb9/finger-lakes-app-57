@@ -33,8 +33,27 @@ jobs:
         with:
           version: latest
 
-      - name: Start Supabase (Local CI DB)
-        run: supabase start
+      - name: Cache Supabase Docker Images
+        id: supabase-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/supabase-docker-cache
+          key: ${{ runner.os }}-supabase-${{ hashFiles('supabase/config.ci.toml') }}
+
+      - name: Load Supabase Docker Images
+        if: steps.supabase-cache.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/supabase-docker-cache/supabase-images.tar
+
+      - name: Start Supabase (Lean CI DB)
+        run: |
+          cp supabase/config.ci.toml supabase/config.toml
+          supabase start
+
+      - name: Save Supabase Docker Images
+        if: steps.supabase-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /tmp/supabase-docker-cache
+          docker save $(docker images --format "{{.Repository}}:{{.Tag}}" | grep supabase) -o /tmp/supabase-docker-cache/supabase-images.tar
 
       - name: Check Database Type Integrity
         run: npm run db:check-types:ci
@@ -80,8 +99,21 @@ jobs:
         with:
           version: latest
 
-      - name: Start Supabase (Local CI DB)
-        run: supabase start
+      - name: Cache Supabase Docker Images
+        id: supabase-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/supabase-docker-cache
+          key: ${{ runner.os }}-supabase-${{ hashFiles('supabase/config.ci.toml') }}
+
+      - name: Load Supabase Docker Images
+        if: steps.supabase-cache.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/supabase-docker-cache/supabase-images.tar
+
+      - name: Start Supabase (Lean CI DB)
+        run: |
+          cp supabase/config.ci.toml supabase/config.toml
+          supabase start
 
       - name: Run Jest tests
         run: npm run test
@@ -118,14 +150,28 @@ jobs:
         with:
           name: next-build-artifact
           path: .
+          include-hidden-files: true
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      - name: Start Supabase (Local CI DB)
-        run: supabase start
+      - name: Cache Supabase Docker Images
+        id: supabase-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/supabase-docker-cache
+          key: ${{ runner.os }}-supabase-${{ hashFiles('supabase/config.ci.toml') }}
+
+      - name: Load Supabase Docker Images
+        if: steps.supabase-cache.outputs.cache-hit == 'true'
+        run: docker load -i /tmp/supabase-docker-cache/supabase-images.tar
+
+      - name: Start Supabase (Lean CI DB)
+        run: |
+          cp supabase/config.ci.toml supabase/config.toml
+          supabase start
 
       - name: Run Playwright tests
         run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --grep-invert "pwa-"
