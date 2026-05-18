@@ -13,7 +13,7 @@
 
 ---
 
-## 1. [~] PWA Resilience & Offline Integrity
+## 1. [x] PWA Resilience & Offline Integrity
 Improve PWA resilience, offline data integrity, and update UX.
 *Link: [./tracks/pwa-resilience_20260423/](./tracks/pwa-resilience_20260423/)*
 
