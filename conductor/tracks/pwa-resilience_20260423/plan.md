@@ -103,8 +103,6 @@
     - [x] Task: Resolve application/testing errors identified in test `e2e/sync-infrastructure.spec.ts` 887fb6f
     - [x] Task: Resolve application/testing errors identified in test `e2e/pwa-offline.spec.ts` 73d3cb9
     - [x] Task: Resolve application/testing errors identified in test `e2e/pwa-assets.spec.ts` c5aafa0
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: Stabilization and Final Verification'
-- [ ] Task: Conductor - Update CHANGELOG.md and bump package.json version
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions a50f795
@@ -133,3 +131,21 @@
 - [x] Task: Update `lib/database.types.ts` with missing coordinate fields for visit RPC dda50a9
 - [x] Task: Resolve regressions in Visit Flow and Accessibility E2E tests 039a7b5
 - [x] Task: Quantify the testing fixes (Verified 52/52 E2E pass rate in container) 6d375ec
+
+### Phase 7: CI/CD Reliability & Regression Stabilization
+- [x] Task: Update Spec with Verification & Sync-Lock Standards
+- [ ] Task: Resolve Port Sharding Mismatch
+    - Fix `e2e/utils.ts` and `playwright.config.ts` to ensure all workers can reach the dev server.
+- [ ] Task: Fix Sync Lock Overwrite Regression
+    - Investigate why `e2e/sync-lock.spec.ts` is failing despite Phase 6 fixes.
+- [ ] Task: Stabilize Friend Flow Cleanup & Async Races
+    - Resolve `removeFriend` visibility failures in `e2e/friends-flow.spec.ts`.
+- [ ] Task: Handle WebKit Executable Mismatch in CI
+    - Ensure `playwright install` correctly downloads all engines in the CI environment.
+- [ ] Task: Visual Baseline Reconciliation (Winery Modal)
+    - Resolve `winery-modal.png` screenshot mismatch on Chromium.
+- [ ] Task: CI Connection Resilience & Port Unification
+    - Increase web server timeout and ensure consistent use of `127.0.0.1` vs `localhost`.
+
+- [ ] Task: Conductor - User Manual Verification 'Phase 6 & 7: Stabilization and Final Verification'
+- [ ] Task: Conductor - Update CHANGELOG.md and bump package.json version

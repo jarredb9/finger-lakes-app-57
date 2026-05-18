@@ -41,6 +41,12 @@ Enhance the application's PWA capabilities by implementing a robust offline muta
 4.  **ID Normalization**: Strictly enforce `Number()` conversion for all `WineryDbId` and Trip IDs during data retrieval (Service Layer) or store hydration.
 5.  **Coordinate Standardization**: Strictly enforce the use of `latitude` and `longitude` for all geographic coordinates across RPCs, Stores, and UI components. All coordinate retrieval MUST utilize the `standardizeWineryData` utility to ensure consistent number conversion and prevent `NaN` errors.
 6.  **UI Stability (The DOM Stability Pattern)**: All primary UI containers MUST remain in the DOM during loading/error states. Components MUST use `data-state="loading|error|ready"` and render indicators (Skeletons/Alerts) inside the stable container rather than using early returns.
+7.  **Verification Infrastructure & Port Isolation**: 
+    *   **Port Sharding**: E2E test utilities MUST support parallel execution across multiple workers. The `baseURL` and `webServer` configuration MUST be synchronized to allow any worker index to reach the application.
+    *   **Engine Parity**: All features MUST be verified against **Chromium**, **Firefox**, and **WebKit** (Safari). CI pipelines MUST ensure that all browser executables are correctly installed and cached.
+8.  **Sync-Lock Integrity (Revision Control)**: 
+    *   **Logic**: All optimistic updates in entity stores MUST be protected by a `lastActionTimestamp` or `revisionId`.
+    *   **Conflict Resolution**: Background refreshes (e.g., Realtime events or manual fetches) MUST NOT overwrite local state if the incoming data's timestamp is older than the last local optimistic mutation.
 
 ## Acceptance Criteria
 *   New SW version shows a toast instead of a force-reload.
@@ -48,3 +54,4 @@ Enhance the application's PWA capabilities by implementing a robust offline muta
 *   **Offline Visibility**: Refreshing the app while offline preserves visibility of recently fetched visits and trips. Coordinates MUST be included in visit history to allow map rendering in offline mode.
 *   **Queue Resilience**: A single failing mutation (e.g., 400/500 from server) does not block subsequent mutations in the queue from syncing.
 *   Photos taken offline are stored as Base64 and successfully uploaded as `File` objects.
+*   **CI Stability**: 100% pass rate in the GitHub Actions sharded environment (4 shards) across all browser engines.
