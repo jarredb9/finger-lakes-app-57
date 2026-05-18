@@ -134,9 +134,9 @@
 
 ### Phase 7: CI/CD Reliability & Regression Stabilization
 - [x] Task: Update Spec with Verification & Sync-Lock Standards
-- [ ] Task: Resolve Port Sharding Mismatch
+- [x] Task: Resolve Port Sharding Mismatch 7564bcc
     - Fix `e2e/utils.ts` and `playwright.config.ts` to ensure all workers can reach the dev server.
-- [ ] Task: Fix Sync Lock Overwrite Regression
+- [x] Task: Fix Sync Lock Overwrite Regression 7564bcc
     - Investigate why `e2e/sync-lock.spec.ts` is failing despite Phase 6 fixes.
 - [ ] Task: Stabilize Friend Flow Cleanup & Async Races
     - Resolve `removeFriend` visibility failures in `e2e/friends-flow.spec.ts`.
