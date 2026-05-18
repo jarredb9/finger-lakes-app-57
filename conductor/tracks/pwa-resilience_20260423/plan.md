@@ -138,7 +138,7 @@
     - Fix `e2e/utils.ts` and `playwright.config.ts` to ensure all workers can reach the dev server.
 - [x] Task: Fix Sync Lock Overwrite Regression 7564bcc
     - Investigate why `e2e/sync-lock.spec.ts` is failing despite Phase 6 fixes.
-- [ ] Task: Stabilize Friend Flow Cleanup & Async Races
+- [x] Task: Stabilize Friend Flow Cleanup & Async Races 0f76604
     - Resolve `removeFriend` visibility failures in `e2e/friends-flow.spec.ts`.
 - [ ] Task: Handle WebKit Executable Mismatch in CI
     - Ensure `playwright install` correctly downloads all engines in the CI environment.
