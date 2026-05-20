@@ -671,6 +671,11 @@ export class MockMapsManager {
                     Geocoder: function() {
                         this.geocode = () => Promise.resolve({ results: [] });
                     },
+                    geocoding: {
+                        Geocoder: function() {
+                            this.geocode = () => Promise.resolve({ results: [] });
+                        }
+                    },
                     places: {
                         Place: {
                             searchByText: (request) => {
