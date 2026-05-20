@@ -30,7 +30,7 @@ export default function TripCard({ trip }: { trip: Trip }) {
     saveWineryNote,
     isSaving
   } = useTripStore();
-  const { user } = useUserStore();
+  const { user, isLoading: isUserLoading } = useUserStore();
   const { openShareDialog, openWineryNoteEditor } = useUIStore();
   
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -134,6 +134,7 @@ export default function TripCard({ trip }: { trip: Trip }) {
         isOwner={!!isOwner}
         canEdit={!!canEdit}
         isUpdating={isSaving}
+        isUserLoading={isUserLoading}
         currentMembers={currentMembers}
         onUpdateTrip={handleUpdateTrip}
         onDeleteTrip={handleDeleteTrip}

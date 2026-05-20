@@ -2,7 +2,7 @@
 
 | ID | Name | Status | Link |
 | :--- | :--- | :--- | :--- |
-| **pwa-resilience_20260423** | PWA Resilience & Offline Integrity | ⚪ Priority 1 | [Plan](./tracks/pwa-resilience_20260423/plan.md) |
+| **pwa-resilience_20260423** | PWA Resilience & Offline Integrity | [~] In Progress | [Plan](./tracks/pwa-resilience_20260423/plan.md) |
 | **places-api-migration_20260420** | Places API (New) Migration | ⚪ Priority 2 | [Plan](./tracks/places-api-migration_20260420/plan.md) |
 | **advanced-markers-region-guides_20260421** | Global Advanced Markers & Region Guides | ⚪ Priority 3 | [Plan](./tracks/advanced-markers-region-guides_20260421/plan.md) |
 | **search-upgrade_20260423** | Search Function Upgrade & Mobile UX | ⚪ Priority 4 | [Plan](./tracks/search-upgrade_20260423/plan.md) |
@@ -13,7 +13,7 @@
 
 ---
 
-## 1. [Priority 1] PWA Resilience & Offline Integrity
+## 1. [~] PWA Resilience & Offline Integrity
 Improve PWA resilience, offline data integrity, and update UX.
 *Link: [./tracks/pwa-resilience_20260423/](./tracks/pwa-resilience_20260423/)*
 

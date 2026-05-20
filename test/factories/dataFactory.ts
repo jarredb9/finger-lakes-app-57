@@ -49,9 +49,8 @@ export const createMockWinery = (overrides?: Partial<Winery>): Winery => ({
   dbId: asWineryId(101),
   name: 'Winery One',
   address: '123 Wine St',
-  lat: 42.44,
-  lng: -76.50,
-  openingHours: {
+  latitude: 42.44,
+  longitude: -76.50,  openingHours: {
     open_now: true,
     weekday_text: ['Monday: 9:00 AM – 5:00 PM'],
     periods: []

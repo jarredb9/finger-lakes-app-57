@@ -91,9 +91,27 @@ export const useUIStore = createWithEqualityFn<UIState>()(
       closeWineryModal: () => set((state) => {
         // If the flag is set, open the history modal when closing the winery modal
         if (state.returnToVisitHistory) {
-          return { isWineryModalOpen: false, activeWineryId: null, returnToVisitHistory: false, isVisitHistoryModalOpen: true };
+          return { 
+            isWineryModalOpen: false, 
+            activeWineryId: null, 
+            returnToVisitHistory: false, 
+            isVisitHistoryModalOpen: true,
+            activeVisitWinery: null,
+            editingVisit: null,
+            activeNoteWineryDbId: null,
+            activeNoteInitialValue: '',
+            onNoteSave: null
+          };
         }
-        return { isWineryModalOpen: false, activeWineryId: null };
+        return { 
+          isWineryModalOpen: false, 
+          activeWineryId: null,
+          activeVisitWinery: null,
+          editingVisit: null,
+          activeNoteWineryDbId: null,
+          activeNoteInitialValue: '',
+          onNoteSave: null
+        };
       }),
       setTheme: (theme) => set({ theme }),
       addNotification: (message, type) =>
@@ -161,11 +179,16 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         shareTripId: tripId, 
         shareTripName: tripName 
       }),
-      closeShareDialog: () => set({ 
-        isShareDialogOpen: false, 
-        shareTripId: null, 
-        shareTripName: null 
-      }),
+      closeShareDialog: () => {
+        if (typeof window !== 'undefined' && (window as any).useTripStore) {
+          (window as any).useTripStore.getState().setSelectedTrip(null);
+        }
+        set({ 
+          isShareDialogOpen: false, 
+          shareTripId: null, 
+          shareTripName: null 
+        });
+      },
       setHydrated: (isHydrated) => set({ isHydrated }),
       reset: () => set({
         isSidebarOpen: false,

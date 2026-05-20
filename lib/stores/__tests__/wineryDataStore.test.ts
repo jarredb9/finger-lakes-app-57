@@ -77,8 +77,8 @@ describe('WineryDataStore', () => {
     });
 
     // 3. Trigger Hydration
-    await act(async () => {
-      await useWineryDataStore.getState().hydrateWineries('user-123');
+    act(() => {
+      useWineryDataStore.getState().hydrateWineries([freshMarker]);
     });
 
     // 4. Assertions

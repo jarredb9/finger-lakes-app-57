@@ -9,12 +9,11 @@ export function TripShareDialogWrapper() {
     const shareTripName = useUIStore(state => state.shareTripName);
     const closeShareDialog = useUIStore(state => state.closeShareDialog);
     
-    if (!isShareDialogOpen || !shareTripId) return null;
     return (
         <TripShareDialog 
             isOpen={isShareDialogOpen} 
             onClose={closeShareDialog} 
-            tripId={shareTripId} 
+            tripId={shareTripId || ""} 
             tripName={shareTripName || ""} 
         />
     );

@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
                 id: place.place_id,
                 name: place.name,
                 address: place.formatted_address,
-                lat: place.geometry.location.lat,
-                lng: place.geometry.location.lng,
+                latitude: place.geometry.location.lat,
+                longitude: place.geometry.location.lng,
                 rating: place.rating,
             }));
 

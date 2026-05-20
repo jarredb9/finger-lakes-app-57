@@ -27,8 +27,8 @@ const MapView = memo(
     return (
       <div className="h-full w-full bg-muted">
         <Map
-          defaultCenter={{ lat: 40, lng: -98 }}
-          defaultZoom={4}
+          defaultCenter={{ lat: 42.7, lng: -76.9 }}
+          defaultZoom={9}
           gestureHandling={"greedy"}
           disableDefaultUI={true}
           mapId={process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID}

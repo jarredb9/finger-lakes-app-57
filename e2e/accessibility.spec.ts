@@ -11,8 +11,9 @@ test.describe('Accessibility (A11y)', () => {
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
-  test('app dashboard should be accessible', async ({ page, user }) => {
+  test('app dashboard should be accessible', async ({ page, user, mockMaps }) => {
     // mockMaps is auto-initialized by the fixture
+    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     await login(page, user.email, user.password);
 
     // Scan the main app shell
@@ -29,7 +30,7 @@ test.describe('Accessibility (A11y)', () => {
     expect(accessibilityScanResults.violations).toEqual([]);
   });
 
-  test('winery details modal should be accessible', async ({ page, user }) => {
+  test('winery details modal should be accessible', async ({ page, user, mockMaps }) => {
     const viewport = page.viewportSize();
     const isMobile = viewport && viewport.width < 768;
     
@@ -38,6 +39,7 @@ test.describe('Accessibility (A11y)', () => {
     }
 
     // mockMaps is auto-initialized by the fixture
+    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     await login(page, user.email, user.password);
 
     // Use helper to ensure sidebar is visible/expanded

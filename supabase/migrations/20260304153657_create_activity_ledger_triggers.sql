@@ -79,26 +79,28 @@ BEGIN
 
     ELSIF TG_OP = 'UPDATE' THEN
         -- Update existing ledger entry
-        UPDATE public.activity_ledger
-        SET 
-            privacy_level = v_privacy_level,
-            metadata = CASE 
-                WHEN TG_TABLE_NAME = 'visits' THEN 
-                    jsonb_build_object(
-                        'winery_id', v_winery_id,
-                        'winery_name', v_winery_name,
-                        'rating', NEW.rating,
-                        'user_review', NEW.user_review,
-                        'photos', COALESCE(to_jsonb(NEW.photos), '[]'::jsonb)
-                    )
-                ELSE metadata -- For favorites/wishlist, winery info rarely changes
-            END
-        WHERE activity_type = CASE 
-                WHEN TG_TABLE_NAME = 'visits' THEN 'visit'
-                WHEN TG_TABLE_NAME = 'favorites' THEN 'favorite'
-                WHEN TG_TABLE_NAME = 'wishlist' THEN 'wishlist'
-            END
-          AND object_id = OLD.id::text;
+        IF TG_TABLE_NAME = 'visits' THEN
+            UPDATE public.activity_ledger
+            SET 
+                privacy_level = v_privacy_level,
+                metadata = jsonb_build_object(
+                    'winery_id', v_winery_id,
+                    'winery_name', v_winery_name,
+                    'rating', NEW.rating,
+                    'user_review', NEW.user_review,
+                    'photos', COALESCE(to_jsonb(NEW.photos), '[]'::jsonb)
+                )
+            WHERE activity_type = 'visit'
+              AND object_id = OLD.id::text;
+        ELSE
+            UPDATE public.activity_ledger
+            SET privacy_level = v_privacy_level
+            WHERE activity_type = CASE 
+                    WHEN TG_TABLE_NAME = 'favorites' THEN 'favorite'
+                    WHEN TG_TABLE_NAME = 'wishlist' THEN 'wishlist'
+                END
+              AND object_id = OLD.id::text;
+        END IF;
         RETURN NEW;
 
     ELSIF TG_OP = 'DELETE' THEN

@@ -1,30 +1,13 @@
 ---
 name: supabase-postgres-best-practices
 description: Postgres performance optimization and best practices from Supabase. Use this skill when writing, reviewing, or optimizing Postgres queries, schema designs, or database configurations.
-license: MIT
-metadata:
-  author: supabase
-  version: "1.1.0"
-  organization: Supabase
-  date: January 2026
-  abstract: Comprehensive Postgres performance optimization guide for developers using Supabase and Postgres. Contains performance rules across 8 categories, prioritized by impact from critical (query performance, connection management) to incremental (advanced features). Each rule includes detailed explanations, incorrect vs. correct SQL examples, query plan analysis, and specific performance metrics to guide automated optimization and code generation.
 ---
 
 # Supabase Postgres Best Practices
 
 Comprehensive performance optimization guide for Postgres, maintained by Supabase. Contains rules across 8 categories, prioritized by impact to guide automated query optimization and schema design.
 
-## When to Apply
-
-Reference these guidelines when:
-- Writing SQL queries or designing schemas
-- Implementing indexes or query optimization
-- Reviewing database performance issues
-- Configuring connection pooling or scaling
-- Optimizing for Postgres-specific features
-- Working with Row-Level Security (RLS)
-
-## Rule Categories by Priority
+## Reference Categories
 
 | Priority | Category | Impact | Prefix |
 |----------|----------|--------|--------|
@@ -37,28 +20,22 @@ Reference these guidelines when:
 | 7 | Monitoring & Diagnostics | LOW-MEDIUM | `monitor-` |
 | 8 | Advanced Features | LOW | `advanced-` |
 
-## How to Use
+## Available References
 
-Read individual rule files for detailed explanations and SQL examples:
+Reference files are named `{prefix}-{topic}.md` (e.g., `query-missing-indexes.md`). Browse `references/` for detailed documentation:
 
-```
-references/query-missing-indexes.md
-references/schema-partial-indexes.md
-references/_sections.md
-```
+- **Query Performance**: `references/query-missing-indexes.md`, `references/query-partial-indexes.md`, `references/query-composite-indexes.md`, etc.
+- **Security & RLS**: `references/security-rls-performance.md`, `references/security-rls-basics.md`, etc.
+- **Connection Management**: `references/conn-pooling.md`, `references/conn-limits.md`, etc.
 
-Each rule file contains:
-- Brief explanation of why it matters
-- Incorrect SQL example with explanation
-- Correct SQL example with explanation
-- Optional EXPLAIN output or metrics
-- Additional context and references
-- Supabase-specific notes (when applicable)
+*30 reference files across 8 categories*
 
-## References
+## Usage
 
-- https://www.postgresql.org/docs/current/
-- https://supabase.com/docs
-- https://wiki.postgresql.org/wiki/Performance_Optimization
-- https://supabase.com/docs/guides/database/overview
-- https://supabase.com/docs/guides/auth/row-level-security
+1. Read individual rule files for detailed explanations and SQL examples.
+2. Each rule file contains:
+   - Brief explanation of why it matters
+   - Incorrect SQL example with explanation
+   - Correct SQL example with explanation
+   - Optional EXPLAIN output or metrics
+   - Supabase-specific notes (when applicable)

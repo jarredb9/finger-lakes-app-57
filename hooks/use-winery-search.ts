@@ -17,6 +17,7 @@ export function useWinerySearch() {
     setHitApiLimit,
     setLastSearchedBounds,
     setLastSearchedZoom,
+    setError,
   } = useMapStore();
   const { bulkUpsertWineries } = useWineryDataStore();
   const { toast } = useToast();
@@ -50,7 +51,7 @@ export function useWinerySearch() {
           const { persistentWineries } = useWineryDataStore.getState();
           
           const localResults = persistentWineries.filter(w => 
-            bounds.contains({ lat: w.lat, lng: w.lng })
+            bounds.contains({ lat: w.latitude, lng: w.longitude })
           );
 
           setSearchResults(localResults);
@@ -64,6 +65,7 @@ export function useWinerySearch() {
       if (useMapStore.getState().isSearching) return;
 
       setIsSearching(true);
+      setError(null);
       
       if (locationText) {
         setSearchResults([]);
@@ -116,12 +118,19 @@ export function useWinerySearch() {
 
       const bounds = new google.maps.LatLngBounds(finalSearchBounds);
       const supabase = createClient();
-      const { data: cachedWineries } = await supabase.rpc('get_wineries_in_bounds', {
-        min_lat: bounds.getSouthWest().lat(),
-        min_lng: bounds.getSouthWest().lng(),
-        max_lat: bounds.getNorthEast().lat(),
-        max_lng: bounds.getNorthEast().lng(),
+      const { data: cachedWineries, error: rpcError } = await supabase.rpc('get_wineries_in_bounds', {
+        min_latitude: bounds.getSouthWest().lat(),
+        min_longitude: bounds.getSouthWest().lng(),
+        max_latitude: bounds.getNorthEast().lat(),
+        max_longitude: bounds.getNorthEast().lng(),
       });
+
+      if (rpcError) {
+        console.error("RPC Error fetching wineries in bounds:", rpcError);
+        setError("Failed to find wineries in this area. Please check your connection and try again.");
+        setIsSearching(false);
+        return;
+      }
 
       const { persistentWineries } = useWineryDataStore.getState();
       let preloadedWineries: Winery[] = [];
@@ -150,8 +159,8 @@ export function useWinerySearch() {
               place_id: place.id! as GooglePlaceId,
               name: place.displayName || '',
               address: place.formattedAddress || '',
-              lat: place.location?.lat() || 0,
-              lng: place.location?.lng() || 0,
+              latitude: place.location?.lat() || 0,
+              longitude: place.location?.lng() || 0,
               rating: place.rating ?? undefined,
         }));
 
@@ -183,6 +192,8 @@ export function useWinerySearch() {
         // Fallback: If Google search fails, at least show what we have in cache
         if (preloadedWineries.length > 0) {
             setSearchResults(preloadedWineries);
+        } else {
+            setError("Failed to find wineries in this area. Please check your connection and try again.");
         }
       } finally {
         setIsSearching(false);
@@ -199,6 +210,7 @@ export function useWinerySearch() {
       setHitApiLimit,
       setLastSearchedBounds,
       setLastSearchedZoom,
+      setError,
     ]
   );
 

@@ -120,8 +120,8 @@ describe('Supabase RPC Integration Tests', () => {
           id: `mock-winery-visit-${crypto.randomUUID()}`,
           name: mockWinery.name,
           address: mockWinery.address,
-          lat: mockWinery.lat,
-          lng: mockWinery.lng,
+          latitude: mockWinery.latitude,
+          longitude: mockWinery.longitude,
           rating: mockWinery.rating
         };
         createdWineryIds.push(wineryData.id);

@@ -40,6 +40,7 @@ export const TripService = {
     // Transform to match expected UI structure
     const formattedTrips = trips?.map((t: any) => ({
       ...t,
+      id: Number(t.id),
       wineries_count: t.trip_wineries?.[0]?.count || 0,
       wineries: [], // List view doesn't need full winery details
       members: [] // List view usually doesn't need full member details either
@@ -60,6 +61,10 @@ export const TripService = {
       throw new Error(error.message || "Trip not found");
     }
 
+    if (data) {
+      data.id = Number(data.id);
+    }
+
     return data as Trip;
   },
 
@@ -75,7 +80,13 @@ export const TripService = {
     const { data, error } = await supabase.rpc('get_trips_for_date', { target_date: formattedDate });
 
     if (error) throw new Error(error.message);
-    return data || [];
+
+    const formattedData = (data || []).map((t: any) => ({
+      ...t,
+      id: Number(t.id)
+    }));
+
+    return formattedData;
   },
 
   async createTrip(trip: Partial<Trip>) {

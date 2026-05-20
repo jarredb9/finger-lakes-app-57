@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.11.0] - 2026-05-18
+
+**PWA Resilience, Offline Integrity & Cryptographic Hardening**
+
+Version 2.11.0 is a landmark release for mobile reliability, introducing a robust **Offline Mutation Queue** and a **WebKit-compliant Binary Reconstitution** engine. This release ensures the application remains fully functional and data-consistent even in zero-connectivity environments, with hardened security for offline data.
+
+### 🚀 Features
+*   **Encrypted Offline Mutation Queue:**
+    *   **AES-GCM Encryption:** Implemented an encrypted queue using IndexedDB (`idb-keyval`) to store offline actions (Visits, Trips, Social).
+    *   **Cryptographic Hardening:** Payloads are encrypted at rest using keys derived via **PBKDF2** from the `user.id`, ensuring offline data is protected.
+    *   **Upload-First Sync:** Introduced a centralized `SyncService` that prioritizes replaying local mutations before refreshing server state.
+*   **The Reconstitution Rule (WebKit Compatibility):**
+    *   **Binary Stabilization:** Solved the "Detached Blob" issue in Safari/WebKit by storing offline photos as **Base64 strings**.
+    *   **Automatic Reconstitution:** Implemented `stabilizePhotos` and `base64ToFile` utilities to reconstitute binary assets into standard `File` objects immediately before network transmission.
+*   **Proactive Quota Resilience:**
+    *   Implemented the **Quota Resilience Rule**, which monitors browser storage and automatically purges non-essential caches (Map tiles, static assets) if usage exceeds 80% to protect the database.
+*   **Offline Data Availability (Read-Only Mode):**
+    *   **Master Cache:** Persists the user's recent visits, trips, favorite wineries, and friend activity to IndexedDB.
+    *   **Zero-Flash Hydration:** The application now displays cached data immediately during offline starts, eliminating the "white screen" and ensuring history is always browseable.
+*   **Refined Update UX:**
+    *   **Non-Intrusive Updates:** Replaced forced page reloads with a non-intrusive toast notification for new Service Worker versions.
+    *   **Update Loop Protection:** Implemented `globalThis._PWA_UPDATING` guards and `controllerchange` validation to prevent infinite reload loops.
+
+### ⚙ Infrastructure & Testing
+*   **Coordinate Standardization:** Enforced a system-wide move to `latitude` and `longitude` naming conventions across all DB types, RPCs, and UI mappers, eliminating `NaN` errors on map pins.
+*   **DOM Stability Pattern:** Refactored core UI containers (`TripList`, `FriendActivity`, `VisitHistory`) to ensure primary containers remain in the DOM during loading/error states, preventing layout shifts.
+*   **Sync Infrastructure E2E:** Introduced a high-fidelity sync testing suite that verifies encrypted persistence, photo reconstitution, and non-blocking queue recovery.
+
+### 🛡 Security & Type Safety
+*   **DB Type Alignment:** Synchronized `database.types.ts` with new RPC signatures for standardized coordinate retrieval.
+*   **ID Normalization:** Enforced strict `Number()` conversion for all Entity IDs in the service layer to prevent type mismatches during offline hydration.
+
 ## [2.10.0] - 2026-04-20
 
 **Pattern Isolation, Sync Lock & Zero-Mock Testing**

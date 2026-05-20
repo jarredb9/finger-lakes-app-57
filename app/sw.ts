@@ -1,6 +1,8 @@
 import { PrecacheEntry, SerwistGlobalConfig } from "serwist";
 import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate, NetworkFirst } from "serwist";
 import { ExpirationPlugin } from "serwist";
+import { checkAndCleanupQuota } from "../lib/utils/quota";
+import { isSupabaseUrl as checkIsSupabaseUrl } from "../lib/utils/sw-utils";
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -10,18 +12,41 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
-const SW_VERSION = "2.8.2-stable-" + Date.now();
+const SW_VERSION = "2.8.3-stable"; // Static version to prevent dev loops. Increment manually or via build script.
 console.log(`[SW] Initializing Version: ${SW_VERSION}`);
 
+// ... (rest of imports and helpers)
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-let SUPABASE_DOMAIN = "supabase.co";
-try {
-  if (SUPABASE_URL) {
-    SUPABASE_DOMAIN = new URL(SUPABASE_URL).hostname;
-  }
-} catch (e) {
-  console.error("[SW] Invalid SUPABASE_URL:", SUPABASE_URL);
-}
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "";
+
+const isSupabaseUrl = (url: URL) => {
+  return checkIsSupabaseUrl(
+    url,
+    SUPABASE_URL,
+    BASE_URL,
+    typeof self !== "undefined" && self.location ? self.location.origin : undefined
+  );
+};
+
+// ...
+
+self.addEventListener("activate", (event) => {
+  // Clear old auth caches on version change to prevent local/live poisoning
+  event.waitUntil(
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((cacheName) => cacheName.includes("supabase-auth"))
+          .map((cacheName) => {
+            console.log("[SW] Version change: Purging auth cache", cacheName);
+            return caches.delete(cacheName);
+          })
+      );
+    })
+  );
+  event.waitUntil(self.clients.claim());
+});
 
 const googleMapsStrategy = new CacheFirst({
   cacheName: "google-maps-tiles",
@@ -36,7 +61,7 @@ const googleMapsStrategy = new CacheFirst({
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST || [],
-  skipWaiting: true,
+  skipWaiting: false,
   clientsClaim: true,
   navigationPreload: true,
   fallbacks: {
@@ -51,9 +76,38 @@ const serwist = new Serwist({
   },
   runtimeCaching: [
     {
-      matcher: ({ url }) => 
-        url.hostname.includes(SUPABASE_DOMAIN) && 
-        url.pathname.includes("/storage/v1/object/public"),
+      // Special handling for Auth endpoints to allow offline session checks
+      matcher: ({ url, request }) => {
+        const isE2EEnv = process.env.NEXT_PUBLIC_IS_E2E === 'true';
+        const skipHeader = request?.headers.get('x-skip-sw-interception') === 'true';
+        const isE2E = isE2EEnv || skipHeader;
+
+        if (isE2E) return false;
+
+        return isSupabaseUrl(url) && 
+          (url.pathname.includes("/auth/v1/user") || url.pathname.includes("/auth/v1/session"));
+      },
+      handler: new StaleWhileRevalidate({
+        cacheName: "supabase-auth",
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 5,
+            maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
+          }),
+        ],
+      }),
+    },
+    {
+      matcher: ({ url, request }) => {
+        const isE2EEnv = process.env.NEXT_PUBLIC_IS_E2E === 'true';
+        const skipHeader = request?.headers.get('x-skip-sw-interception') === 'true';
+        const isE2E = isE2EEnv || skipHeader;
+
+        if (isE2E) return false;
+
+        return isSupabaseUrl(url) && 
+          url.pathname.includes("/storage/v1/object/public");
+      },
       handler: new StaleWhileRevalidate({
         cacheName: "supabase-storage",
         plugins: [
@@ -71,13 +125,19 @@ const serwist = new Serwist({
         const skipHeader = request?.headers.get('x-skip-sw-interception') === 'true';
         const isE2E = isE2EEnv || skipHeader;
         
-        const isSupabaseApi = url.hostname.includes(SUPABASE_DOMAIN) && !url.pathname.includes("/storage/v1/object/public");
+        const isSupabase = isSupabaseUrl(url);
         
-        if (isSupabaseApi && isE2E) {
+        // Don't intercept if it's E2E or already handled by the auth/storage matchers above
+        if (isSupabase && (
+            isE2E || 
+            url.pathname.includes("/auth/v1/user") || 
+            url.pathname.includes("/auth/v1/session") ||
+            url.pathname.includes("/storage/v1/object/public")
+        )) {
             return false;
         }
         
-        return isSupabaseApi;
+        return isSupabase;
       },
       handler: new NetworkOnly(),
     },
@@ -106,7 +166,7 @@ const serwist = new Serwist({
         (request.destination === "font" || request.destination === "image") &&
         !url.hostname.includes("google") && 
         !url.hostname.includes("gstatic") &&
-        !url.hostname.includes(SUPABASE_DOMAIN),
+        !isSupabaseUrl(url),
       handler: new CacheFirst({
         cacheName: "static-assets",
         plugins: [
@@ -138,6 +198,14 @@ const serwist = new Serwist({
 self.addEventListener("message", (event) => {
   if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
+  }
+});
+
+// Proactively check quota on navigation to prevent QuotaExceededError
+// following "The Quota Resilience Rule" in GEMINI.md
+self.addEventListener("fetch", (event: any) => {
+  if (event.request.mode === "navigate") {
+    event.waitUntil(checkAndCleanupQuota(0.85));
   }
 });
 

@@ -10,7 +10,7 @@ import {
 test.describe('Wishlist Flow', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
     // Re-initialize mocks with correct user ID to avoid profile mismatch
-    await mockMaps.initDefaultMocks({ currentUserId: user.id });
+    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     await login(page, user.email, user.password);
   });
 

@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Skeleton } from "@/components/ui/skeleton";
 import TripForm from "./trip-form";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { formatDateLocal } from "@/lib/utils";
 
 export default function TripPlanner({ initialDate, user, hideCalendar = false, hideTrips = false }: { initialDate: Date, user: AuthenticatedUser, hideCalendar?: boolean, hideTrips?: boolean }) {
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
@@ -28,7 +29,7 @@ export default function TripPlanner({ initialDate, user, hideCalendar = false, h
 
     useEffect(() => {
         if (selectedDate) {
-            fetchTripsForDate(selectedDate.toISOString().split('T')[0]);
+            fetchTripsForDate(formatDateLocal(selectedDate));
         }
     }, [selectedDate, fetchTripsForDate]);
 
@@ -60,9 +61,9 @@ export default function TripPlanner({ initialDate, user, hideCalendar = false, h
                     </h2>
                     <div className="flex gap-2 w-full sm:w-auto">
                         {tripsForDate.length > 0 && (
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
+                            <Button
+                                variant="outline"
+                                size="sm"
                                 className="flex-1 sm:flex-none"
                                 onClick={() => openShareDialog(tripsForDate[0].id.toString(), `Itinerary for ${selectedDate?.toLocaleDateString()}`)}
                                 data-testid="share-day-btn"
@@ -86,29 +87,29 @@ export default function TripPlanner({ initialDate, user, hideCalendar = false, h
 
                 {isLoading ? (
                     <div className="space-y-4">
-                        <Card>
-                            <CardContent className="p-4 flex flex-col space-y-2">
-                                <Skeleton className="h-8 w-3/4" />
-                                <Skeleton className="h-4 w-full" />
-                                <Skeleton className="h-4 w-1/2" />
-                            </CardContent>
-                        </Card>
+                        <Skeleton className="h-48 w-full" />
+                        <Skeleton className="h-48 w-full" />
                     </div>
                 ) : tripsForDate.length > 0 ? (
-                    tripsForDate.map(trip => (
-                        <TripCard 
-                            key={trip.id} 
-                            trip={trip}
-                        />
-                    ))
+                    <div className="grid grid-cols-1 gap-4">
+                        {tripsForDate.map((trip) => (
+                            <TripCard 
+                                key={trip.id} 
+                                trip={trip} 
+                            />
+                        ))}
+                    </div>
                 ) : (
                     <Card className="bg-muted/50 border-dashed">
-                        <CardContent className="text-center py-8">
-                            <p className="text-muted-foreground text-sm">No trips planned for this day.</p>
+                        <CardContent className="flex flex-col items-center justify-center py-10 text-center">
+                            <p className="text-muted-foreground mb-4">No trips planned for this date.</p>
+                            <Button variant="outline" size="sm" onClick={() => setCreateTripModalOpen(true)}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Plan First Stop
+                            </Button>
                         </CardContent>
                     </Card>
                 )}
-            </div>
+                </div>
             )}
         </div>
     );

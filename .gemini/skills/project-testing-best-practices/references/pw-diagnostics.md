@@ -80,4 +80,14 @@ When moving from mocks (Tier 2) to Real Data verification (Tier 3), you MUST use
     - **GitHub CI:** Targets Live Database (`supabase.co`) using secrets.
 - **Action:** If a Tier 3 test fails locally but logic seems correct, verify the local database schema matches `lib/database.types.ts` using Supabase MCP tools.
 
+### 12. The IDB Stall Rule
+Raw `window.indexedDB.open()` calls inside `page.evaluate` can hang indefinitely in containerized Chromium instances due to connection lock contention with the main application thread.
+- **Standard:** Always expose the application's persistence library (e.g., `idbKeyVal`) to `window` and use its methods for inspection.
+- **Example:** `await page.evaluate(() => window.idbKeyVal.get('my-key'))` instead of manual IDB request handlers.
+
+### 14. Blocked IDB Deletion Detection
+If a test fails with "Queue is empty" or "Store not initialized" after a supposedly clean setup, the `deleteDatabase` call may have been blocked.
+- **Diagnostic:** Wrap `window.indexedDB.deleteDatabase` in a proxy (via `addInitScript`) that logs when it is called and when it succeeds/fails.
+- **Symptom:** If you see the delete request but no completion log, the application likely has an open connection (check for leaked tabs or Service Workers).
+
 Reference: [Playwright Debugging](https://playwright.dev/docs/debug)

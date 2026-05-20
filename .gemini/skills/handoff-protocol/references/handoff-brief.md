@@ -33,7 +33,7 @@ You MUST present your handoff in this structured format to the user. This is the
 
 **5. Reproduction & Environment:**
 - **Log in as:** `test@example.com`, navigate to `Settings -> Features`.
-- **Container Command:** `./scripts/run-e2e-container.sh chromium e2e/[test_file].spec.ts`.
-- **Diagnostic Rule:** Prefix all debug logs with `[DIAGNOSTIC]`.
+- **Container Command:** `./scripts/run-e2e-container.sh [project] e2e/[test_file].spec.ts`. (Use --build flag BEFORE project if logic changed).
+- **Diagnostic Rule:** All failures MUST provide a Zustand Store Dump and Network Trace. Prefix all debug logs with `[DIAGNOSTIC]`.
 
 **Success Rule:** The brief is successful if a fresh agent can write tests without ever having to `read_file` the original implementation logic.

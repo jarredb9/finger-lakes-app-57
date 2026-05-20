@@ -52,7 +52,7 @@ export function useWineryFilter() {
     // that are within the current map bounds.
     if (searchResults.length > 0) {
         return searchResults.filter(
-            (w) => w && w.lat && w.lng && bounds.contains({ lat: w.lat, lng: w.lng })
+            (w) => w && w.latitude && w.longitude && bounds.contains({ lat: w.latitude, lng: w.longitude })
         );
     }
 
@@ -81,7 +81,7 @@ export function useWineryFilter() {
     );
 
     return uniqueWineries.filter(
-      (w) => w && w.lat && w.lng && bounds.contains({ lat: w.lat, lng: w.lng })
+      (w) => w && w.latitude && w.longitude && bounds.contains({ lat: w.latitude, lng: w.longitude })
     );
   }, [filter, mapWineries, bounds, selectedTrip, searchResults]);
 

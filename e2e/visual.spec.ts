@@ -3,10 +3,10 @@ import { getSidebarContainer, login, navigateToTab } from './helpers';
 
 test.describe('Visual Regression Testing', () => {
 
-  test.beforeEach(({ browserName }) => {
-    // Only run visual tests on chromium to avoid maintaining multiple sets of snapshots
-    // and because different engines render slightly differently.
-    test.skip(browserName !== 'chromium', 'Visual tests are chromium-only');
+  test.beforeEach(({}, testInfo) => {
+    // Only run visual tests on the desktop chromium project to avoid maintaining multiple sets of snapshots
+    // and because different devices render slightly differently.
+    test.skip(testInfo.project.name !== 'chromium', 'Visual tests are chromium-only');
   });
 
   test('login page visual baseline', async ({ page }) => {
@@ -22,7 +22,7 @@ test.describe('Visual Regression Testing', () => {
   });
 
   test('main dashboard visual baseline', async ({ page, user }) => {
-    await mockGoogleMapsApi(page);
+    await mockGoogleMapsApi(page, user.id, true);
     await login(page, user.email, user.password);
 
     // Ensure we are on Explore and the sidebar/sheet is active
@@ -49,7 +49,7 @@ test.describe('Visual Regression Testing', () => {
         test.skip(true, 'Skipping modal visual scan on mobile due to visibility constraints in the interactive sheet');
     }
 
-    await mockGoogleMapsApi(page);
+    await mockGoogleMapsApi(page, user.id, true);
     await login(page, user.email, user.password);
 
     await navigateToTab(page, 'Explore');

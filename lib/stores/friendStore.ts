@@ -1,374 +1,300 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { shallow } from 'zustand/shallow';
-import { FriendRating, WineryDbId } from '@/lib/types'; // Import WineryDbId
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { RealtimeChannel } from '@supabase/supabase-js';
 import { createClient } from '@/utils/supabase/client';
-
-interface Friend {
-  id: string;
-  name: string;
-  email: string;
-  status?: 'pending' | 'accepted';
-  requester_id?: string;
-  privacy_level?: 'public' | 'friends_only' | 'private';
-}
-
-interface FriendActivityData {
-  favoritedBy: Friend[];
-  wishlistedBy: Friend[];
-}
-
-export interface FriendActivityItem {
-  activity_type: string;
-  created_at: string;
-  activity_user_id: string;
-  user_name: string;
-  user_email: string;
-  winery_id: number;
-  winery_name: string;
-  visit_rating: number | null;
-  visit_review: string | null;
-  visit_photos: string[] | null;
-}
+import { SocialService } from '@/lib/services/socialService';
+import { Friend, FriendActivity, WineryDbId } from '@/lib/types';
+import { enqueueIfOffline, handleSyncError } from './sync-utils';
+import { idbStorage } from './idb-persist-storage';
+import { isE2E, shouldSkipRealSync } from './e2e-utils';
 
 interface FriendState {
   friends: Friend[];
   friendRequests: Friend[];
   sentRequests: Friend[];
-  friendActivityFeed: FriendActivityItem[];
+  friendActivityFeed: FriendActivity[];
+  friendsActivity: { favoritedBy: any[]; wishlistedBy: any[] };
+  friendsRatings: any[];
+  selectedFriendProfile: any | null;
   isLoading: boolean;
   error: string | null;
-  friendsRatings: FriendRating[];
-  friendsActivity: FriendActivityData;
-  subscription: any;
-  selectedFriendProfile: any | null;
+  subscription: RealtimeChannel | null;
+  
+  fetchSocialData: () => Promise<void>;
   fetchFriends: () => Promise<void>;
+  fetchRequests: () => Promise<void>;
   fetchFriendActivityFeed: () => Promise<void>;
+  fetchFriendDataForWinery: (wineryId: WineryDbId) => Promise<void>;
   fetchFriendProfile: (friendId: string) => Promise<void>;
   addFriend: (email: string) => Promise<void>;
   acceptFriend: (requesterId: string) => Promise<void>;
   rejectFriend: (requesterId: string) => Promise<void>;
   removeFriend: (friendId: string) => Promise<void>;
-  respondToRequest: (requesterId: string, accept: boolean) => Promise<void>;
-  fetchFriendDataForWinery: (wineryId: WineryDbId) => Promise<void>;
   subscribeToSocialUpdates: () => void;
   unsubscribeFromSocialUpdates: () => void;
   reset: () => void;
 }
 
-export const useFriendStore = createWithEqualityFn<FriendState>((set, get) => ({
-  friends: [],
-  friendRequests: [],
-  sentRequests: [],
-  friendActivityFeed: [],
-  isLoading: false,
-  error: null,
-  friendsRatings: [],
-  friendsActivity: { favoritedBy: [], wishlistedBy: [] },
-  subscription: null as any,
-  selectedFriendProfile: null,
+export const useFriendStore = createWithEqualityFn<FriendState>()(
+  persist(
+    (set, get) => ({
+      friends: [],
+      friendRequests: [],
+      sentRequests: [],
+      friendActivityFeed: [],
+      friendsActivity: { favoritedBy: [], wishlistedBy: [] },
+      friendsRatings: [],
+      selectedFriendProfile: null,
+      isLoading: false,
+      error: null,
+      subscription: null,
 
-  subscribeToSocialUpdates: () => {
-    if (get().subscription) return;
-
-    const supabase = createClient();
-
-    const subscription = supabase
-      .channel('social-updates')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'visits' },
-        async (_payload) => {
-          await get().fetchFriendActivityFeed();
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'friends' },
-        async (_payload) => {
-          await get().fetchFriends();
-          await get().fetchFriendActivityFeed();
-        }
-      )
-      .subscribe((_status) => {
-      });
-
-    set({ subscription });
-  },
-
-  unsubscribeFromSocialUpdates: () => {
-    const { subscription } = get();
-    if (subscription) {
-      subscription.unsubscribe();
-      set({ subscription: null });
-    }
-  },
-
-  fetchFriends: async () => {
-    set({ isLoading: true });
-    const supabase = createClient();
-    try {
-      const { data, error } = await supabase.rpc('get_friends_and_requests');
-      
-      if (error) throw error;
-
-      // RPC returns a combined object, destructure it
-      // Based on actual structure of get_friends_and_requests: { friends, pending_incoming, pending_outgoing }
-      const { friends, pending_incoming, pending_outgoing } = data as any; 
-
-      set({ 
-          friends: friends || [], 
-          friendRequests: pending_incoming || [], 
-          sentRequests: pending_outgoing || [],
-          isLoading: false 
-      });
-    } catch (error: any) {
-      set({ isLoading: false, error: error.message });
-    }
-  },
-
-  fetchFriendActivityFeed: async () => {
-    // Only set loading if not already loading friends (to avoid double spinner)
-    if (!get().isLoading) set({ isLoading: true });
-    
-    const supabase = createClient();
-    try {
-      const { data, error } = await supabase.rpc('get_friend_activity_feed', { 
-          limit_val: 20
-      });
-      
-      if (error) throw error;
-
-      let feedItems: FriendActivityItem[] = data || [];
-
-      // Collect all photo paths
-      const allPhotos = feedItems.flatMap((item) => item.visit_photos || []);
-      
-      if (allPhotos.length > 0) {
-        const { data: signedUrlsData, error: signedError } = await supabase.storage
-          .from('visit-photos')
-          .createSignedUrls(allPhotos, 3600);
-        
-        if (!signedError && signedUrlsData) {
-          const urlMap = new Map(signedUrlsData.map(u => [u.path, u.signedUrl]));
-          feedItems = feedItems.map(item => ({
-            ...item,
-            visit_photos: item.visit_photos?.map(p => urlMap.get(p) || p) || []
-          }));
-        }
-      }
-
-      set({ friendActivityFeed: feedItems });
-    } catch (error: any) {
-      console.error('Error fetching friend activity feed:', error);
-      // Don't set global error state here to avoid blocking other UI
-    } finally {
-      set({ isLoading: false });
-    }
-  },
-
-  fetchFriendProfile: async (friendId: string) => {
-    set({ isLoading: true, selectedFriendProfile: null });
-    const supabase = createClient();
-    try {
-        const { data, error } = await supabase.rpc('get_friend_profile_with_visits', {
-            friend_id_param: friendId
-        });
-
-        if (error) throw error;
-        
-        // Handle explicit error from RPC (access denied)
-        if (data && (data as any).error) {
-            throw new Error((data as any).error);
+      fetchSocialData: async () => {
+        if (isE2E() && shouldSkipRealSync()) {
+          set({ isLoading: false });
+          return;
         }
 
-        let profileData = data as any;
-
-        // Sign photos for the friend's visits
-        const visits = profileData?.visits || [];
-        const allPhotos = visits.flatMap((v: any) => v.photos || []);
-        if (allPhotos.length > 0) {
-            const { data: signedUrlsData, error: signedError } = await supabase.storage
-                .from('visit-photos')
-                .createSignedUrls(allPhotos, 3600);
-
-            if (!signedError && signedUrlsData) {
-                const urlMap = new Map(signedUrlsData.map(u => [u.path, u.signedUrl]));
-                profileData.visits = visits.map((v: any) => ({
-                    ...v,
-                    photos: v.photos?.map((p: string) => urlMap.get(p) || p) || []
-                }));
-            }
-        }
-
-        set({ selectedFriendProfile: profileData });
-    } catch (error: any) {
-        console.error('Error fetching friend profile:', error);
-        set({ error: error.message });
-    } finally {
-        set({ isLoading: false });
-    }
-  },
-
-  addFriend: async (email: string) => {
-    const supabase = createClient();
-    const { error } = await supabase.rpc('send_friend_request', { target_email: email });
-
-    if (error) {
-      throw new Error(error.message || "Failed to send friend request.");
-    }
-    await get().fetchFriends(); // Refetch to show pending request in "Sent Requests"
-  },
-
-  acceptFriend: async (requesterId: string) => {
-    await get().respondToRequest(requesterId, true);
-  },
-
-  rejectFriend: async (requesterId: string) => {
-    await get().respondToRequest(requesterId, false);
-  },
-
-  removeFriend: async (friendId: string) => {
-    // Optimistic Update
-    const originalFriends = get().friends;
-    const originalSentRequests = get().sentRequests;
-    
-    // Check if it's a friend or a sent request
-    const isFriend = originalFriends.some(f => f.id === friendId);
-    const isSentRequest = originalSentRequests.some(f => f.id === friendId);
-
-    if (isFriend) {
-        set({ friends: originalFriends.filter(f => f.id !== friendId) });
-    } else if (isSentRequest) {
-        set({ sentRequests: originalSentRequests.filter(f => f.id !== friendId) });
-    }
-
-    const supabase = createClient();
-    try {
-      const { error } = await supabase.rpc('remove_friend', { target_friend_id: friendId });
-
-      if (error) throw error;
-    } catch (error) {
-      // Revert state
-      if (isFriend) set({ friends: originalFriends });
-      if (isSentRequest) set({ sentRequests: originalSentRequests });
-      throw error;
-    }
-  },
-
-  respondToRequest: async (requesterId: string, accept: boolean) => {
-    // Optimistic Update
-    const originalFriends = get().friends;
-    const originalRequests = get().friendRequests;
-    
-    const request = originalRequests.find(r => r.id === requesterId);
-    
-    if (request) {
-        const newRequests = originalRequests.filter(r => r.id !== requesterId);
-        let newFriends = originalFriends;
-        
-        if (accept) {
-            newFriends = [...originalFriends, { ...request, status: 'accepted' }];
-        }
-        
-        set({ friends: newFriends, friendRequests: newRequests });
-    }
-
-    const supabase = createClient();
-    try {
-      const { error } = await supabase.rpc('respond_to_friend_request', { 
-        requester_id: requesterId, 
-        accept: accept 
-      });
-      
-      if (error) {
-          throw new Error(error.message || "Failed to update friend request.");
-      }
-      
-      await get().fetchFriends(); 
-    } catch (error) {
-      set({ friends: originalFriends, friendRequests: originalRequests });
-      throw error;
-    }
-  },
-
-  fetchFriendDataForWinery: async (wineryId: WineryDbId) => {
-    // Runtime guard: Ensure wineryId is a number
-    if (typeof wineryId !== 'number') {
-        return;
-    }
-
-    set({ isLoading: true });
-    const supabase = createClient();
-    try {
-      // Parallel RPC calls
-      const [ratingsResult, activityResult] = await Promise.all([
-        supabase.rpc('get_friends_ratings_for_winery', { winery_id_param: wineryId }),
-        supabase.rpc('get_friends_activity_for_winery', { winery_id_param: wineryId })
-      ]);
-
-      if (ratingsResult.error) {
-          set({ friendsRatings: [] });
-      } else {
-          // Transform signed URLs if needed, but RPC returns public URLs or paths?
-          // The RPC returns { photos: string[] }. Assuming they are paths, we might need to sign them.
-          // However, previous API route signed them. 
-          // For now, let's assume the RPC returns accessible paths or the component handles it.
-          // If photos are private, we need a separate step to sign them.
-          // Let's implement signing here to match previous behavior if needed.
-          
-          let ratings = ratingsResult.data || [];
-          // Sign photos logic
-          // Collect all photos
-          const allPhotos = ratings.flatMap((r: any) => r.photos || []);
-          if (allPhotos.length > 0) {
-              const { data: signedUrlsData } = await supabase.storage
-                  .from('visit-photos')
-                  .createSignedUrls(allPhotos, 3600);
-              
-              if (signedUrlsData) {
-                  const urlMap = new Map(signedUrlsData.map(u => [u.path, u.signedUrl]));
-                  ratings = ratings.map((r: any) => ({
-                      ...r,
-                      photos: r.photos?.map((p: string) => urlMap.get(p) || p) || []
-                  }));
-              }
-          }
-
-          set({ friendsRatings: ratings });
-      }
-
-      if (activityResult.error) {
-          set({ friendsActivity: { favoritedBy: [], wishlistedBy: [] } });
-      } else {
-          // Cast the JSON result to the expected type
-          const activity = activityResult.data as any; // RPC returns Json
+        set({ isLoading: true });
+        try {
+          const { friends, incoming, outgoing } = await SocialService.getSocialData();
           set({ 
-              friendsActivity: { 
-                  favoritedBy: activity?.favoritedBy || [], 
-                  wishlistedBy: activity?.wishlistedBy || [] 
-              } 
+            friends, 
+            friendRequests: incoming, 
+            sentRequests: outgoing, 
+            isLoading: false 
           });
-      }
-    } catch (error) {
-      set({ friendsRatings: [], friendsActivity: { favoritedBy: [], wishlistedBy: [] } });
-    } finally {
-      set({ isLoading: false });
-    }
-  },
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
 
-  reset: () => set({
-    friends: [],
-    friendRequests: [],
-    sentRequests: [],
-    friendActivityFeed: [],
-    isLoading: false,
-    error: null,
-    friendsRatings: [],
-    friendsActivity: { favoritedBy: [], wishlistedBy: [] },
-    selectedFriendProfile: null,
-  }),
-}), shallow);
-// Expose store for E2E testing
+      fetchFriends: async () => {
+        await get().fetchSocialData();
+      },
+
+      fetchRequests: async () => {
+        await get().fetchSocialData();
+      },
+
+      fetchFriendActivityFeed: async () => {
+        if (isE2E() && shouldSkipRealSync()) {
+          set({ isLoading: false });
+          return;
+        }
+
+        set({ isLoading: true });
+        try {
+          const activity = await SocialService.getFriendActivity();
+          set({ friendActivityFeed: activity, isLoading: false });
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      fetchFriendProfile: async (friendId) => {
+        if (isE2E() && shouldSkipRealSync()) {
+          set({ isLoading: false });
+          return;
+        }
+
+        set({ isLoading: true, error: null });
+        try {
+          const profile = await SocialService.getFriendProfile(friendId);
+          if (profile && (profile as any).error) {
+            set({ error: (profile as any).error, selectedFriendProfile: null, isLoading: false });
+          } else {
+            set({ selectedFriendProfile: profile, isLoading: false });
+          }
+        } catch (error: any) {
+          set({ error: error.message, isLoading: false });
+        }
+      },
+
+      fetchFriendDataForWinery: async (wineryId) => {
+        if (isE2E() && shouldSkipRealSync()) {
+          return;
+        }
+
+        try {
+          const { ratings, activity } = await SocialService.getFriendDataForWinery(wineryId);
+          set({ friendsRatings: ratings, friendsActivity: activity });
+        } catch (error: any) {
+          console.error('Failed to fetch friend data for winery', error);
+        }
+      },
+
+      addFriend: async (email) => {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        const syncPayload = { action: 'send_request', email };
+
+        if (await enqueueIfOffline('social_action', user?.id, syncPayload)) {
+            return;
+        }
+
+        try {
+          await SocialService.sendFriendRequest(email);
+          await get().fetchRequests();
+        } catch (error: any) {
+          if (await handleSyncError(error, 'social_action', user?.id, syncPayload)) {
+              return;
+          }
+          throw error;
+        }
+      },
+
+      acceptFriend: async (requesterId) => {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        const syncPayload = { action: 'respond', requesterId, accept: true };
+
+        if (await enqueueIfOffline('social_action', user?.id, syncPayload)) {
+            set(state => ({
+                friendRequests: state.friendRequests.filter(r => r.id !== requesterId)
+            }));
+            return;
+        }
+
+        try {
+          await SocialService.respondToFriendRequest(requesterId, true);
+          await Promise.all([get().fetchRequests(), get().fetchFriends()]);
+        } catch (error: any) {
+          if (await handleSyncError(error, 'social_action', user?.id, syncPayload)) {
+              return;
+          }
+          throw error;
+        }
+      },
+
+      rejectFriend: async (requesterId) => {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        const syncPayload = { action: 'respond', requesterId, accept: false };
+
+        if (await enqueueIfOffline('social_action', user?.id, syncPayload)) {
+            set(state => ({
+                friendRequests: state.friendRequests.filter(r => r.id !== requesterId)
+            }));
+            return;
+        }
+
+        try {
+          await SocialService.respondToFriendRequest(requesterId, false);
+          await get().fetchRequests();
+        } catch (error: any) {
+          if (await handleSyncError(error, 'social_action', user?.id, syncPayload)) {
+              return;
+          }
+          throw error;
+        }
+      },
+
+      removeFriend: async (friendId) => {
+        const originalFriends = get().friends;
+        const originalSent = get().sentRequests;
+        const originalReceived = get().friendRequests;
+
+        const compareId = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+        set(state => ({
+          friends: state.friends.filter(f => !compareId(f.id, friendId)),
+          sentRequests: state.sentRequests.filter(r => !compareId(r.id, friendId)),
+          friendRequests: state.friendRequests.filter(r => !compareId(r.id, friendId))
+        }));
+
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        const syncPayload = { action: 'remove', friendId };
+
+        if (await enqueueIfOffline('social_action', user?.id, syncPayload)) {
+            return;
+        }
+
+        try {
+          await SocialService.removeFriend(friendId);
+          // Force refresh after online mutation to ensure consistency
+          if (!isE2E()) {
+            await Promise.all([get().fetchFriends(), get().fetchRequests()]);
+          }
+        } catch (error: any) {
+          if (await handleSyncError(error, 'social_action', user?.id, syncPayload)) {
+              return;
+          }
+          set({ 
+            friends: originalFriends,
+            sentRequests: originalSent,
+            friendRequests: originalReceived
+          });
+          throw error;
+        }
+      },
+
+      subscribeToSocialUpdates: () => {
+        const { subscription: existingSub } = get();
+        if (existingSub) return;
+
+        const supabase = createClient();
+        const subscription = supabase
+          .channel('social-updates')
+          .on(
+            'postgres_changes',
+            { event: '*', schema: 'public', table: 'friends' },
+            async () => {
+              await Promise.all([
+                get().fetchFriends(),
+                get().fetchRequests(),
+                get().fetchFriendActivityFeed()
+              ]);
+            }
+          )
+          .subscribe();
+
+        set({ subscription });
+      },
+
+      unsubscribeFromSocialUpdates: () => {
+        const { subscription } = get();
+        if (subscription) {
+          subscription.unsubscribe();
+          set({ subscription: null });
+        }
+      },
+
+      reset: () => {
+        get().unsubscribeFromSocialUpdates();
+        set({
+          friends: [],
+          friendRequests: [],
+          sentRequests: [],
+          friendActivityFeed: [],
+          friendsActivity: { favoritedBy: [], wishlistedBy: [] },
+          friendsRatings: [],
+          selectedFriendProfile: null,
+          isLoading: false,
+          error: null,
+          subscription: null,
+        });
+      },
+    }),
+    {
+      name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'friend-storage-e2e' : 'friend-storage',
+      storage: createJSONStorage(() => idbStorage),
+      partialize: (state): Partial<FriendState> => {
+        if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
+        return {
+          friends: state.friends,
+          friendActivityFeed: state.friendActivityFeed.slice(0, 20),
+        };
+      },
+    }
+  )
+);
+
 if (typeof window !== 'undefined') {
   (window as any).useFriendStore = useFriendStore;
 }

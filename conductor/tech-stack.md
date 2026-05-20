@@ -19,4 +19,6 @@
 - **Testing (Unit):** Jest + React Testing Library
 - **Testing (E2E):** Playwright (cross-browser coverage)
 - **Migrations:** Supabase Migration-First workflow
+- **Middleware:** `proxy.ts` (Next.js 16 pattern) for request-time logic and session management
 - **PWA:** @serwist/next for offline support and service workers
+- **Offline Storage:** idb-keyval with Web Crypto API (AES-GCM) for secure mutation queuing

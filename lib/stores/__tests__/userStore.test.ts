@@ -49,7 +49,7 @@ describe('UserStore Logic', () => {
     expect(user).toBeDefined();
     expect(user.id).toBe('user-123');
     expect(user.privacy_level).toBe('friends_only');
-    expect(useUserStore.getState().isAuthenticated).toBe(true);
+    expect(useUserStore.getState().user).not.toBeNull();
   });
 
   it('should update privacy level optimistically', async () => {
@@ -78,6 +78,5 @@ describe('UserStore Logic', () => {
     });
 
     expect(useUserStore.getState().user).toBeNull();
-    expect(useUserStore.getState().isAuthenticated).toBe(false);
   });
 });

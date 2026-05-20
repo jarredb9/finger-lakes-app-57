@@ -73,7 +73,11 @@ test.describe('Sync Lock (Revision Control)', () => {
         }
     });
 
-    // 3. Ensure the trip is visible initially
+    // 3. Navigate to trips page
+    await page.goto('/trips');
+    await expect(page).toHaveURL(/.*\/trips/);
+
+    // Ensure the trip is visible initially
     await expect(sidebar.getByText(originalName)).toBeVisible();
 
     // 4. Trigger rename (Optimistic Update)
