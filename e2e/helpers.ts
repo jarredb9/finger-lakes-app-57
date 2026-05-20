@@ -47,11 +47,11 @@ export async function waitForAppReady(page: Page) {
 
     // Then wait for the primary feature container to be ready if we're on a main page
     if (page.url().endsWith('/') || page.url().includes('?')) {
-        await waitForSignal(page, 'map-container', 'ready').catch(() => null);
+        await waitForSignal(page, 'map-container', /ready|error/).catch(() => null);
     } else if (page.url().includes('/trips/')) {
-        await waitForSignal(page, 'trip-details-card', 'ready').catch(() => null);
+        await waitForSignal(page, 'trip-details-card', /ready|error/).catch(() => null);
     } else if (page.url().includes('/trips')) {
-        await waitForSignal(page, 'trip-list-container', 'ready').catch(() => null);
+        await waitForSignal(page, 'trip-list-container', /ready|error/).catch(() => null);
     }
 }
 
