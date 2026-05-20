@@ -633,9 +633,6 @@ export class MockMapsManager {
         const req = route.request();
         console.log(`[DIAGNOSTIC] Intercepting Google Maps JS Loader: ${req.url()}`);
         if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
-
-        const urlObj = new URL(req.url());
-        const callbackName = urlObj.searchParams.get('callback') || '__googleMapsCallback__';
         
         const mockMarkersData = markers.map(m => ({
             id: m.google_place_id,
@@ -659,7 +656,6 @@ export class MockMapsManager {
                         console.log('[DIAGNOSTIC] Google Maps importLibrary:', name);
                         if (name === 'places') return Promise.resolve(window.google.maps.places);
                         if (name === 'geocoding') return Promise.resolve(window.google.maps.geocoding);
-                        if (name === 'maps') return Promise.resolve(window.google.maps);
                         return Promise.resolve({});
                     },
                     LatLng: function(lat, lng) {
@@ -672,44 +668,6 @@ export class MockMapsManager {
                         this.getNorthEast = () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 });
                         this.getSouthWest = () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 });
                     },
-                    Map: function(el, options) {
-                        console.log('[DIAGNOSTIC] google.maps.Map instantiated');
-                        this.addListener = (event, cb) => {
-                            console.log('[DIAGNOSTIC] google.maps.Map.addListener:', event);
-                            if (event === 'idle') {
-                                setTimeout(cb, 100);
-                            }
-                            return { remove: () => {} };
-                        };
-                        this.getBounds = () => new window.google.maps.LatLngBounds();
-                        this.fitBounds = () => {};
-                        this.panTo = () => {};
-                        this.setZoom = () => {};
-                        this.setOptions = () => {};
-                    },
-                    Marker: function(opts) {
-                        console.log('[DIAGNOSTIC] google.maps.Marker instantiated');
-                        this.setMap = (m) => {};
-                        this.setPosition = (p) => {};
-                        this.setIcon = (i) => {};
-                        this.setZIndex = (z) => {};
-                        this.addListener = (event, cb) => ({ remove: () => {} });
-                    },
-                    Size: function(w, h) {
-                        this.width = w;
-                        this.height = h;
-                    },
-                    Point: function(x, y) {
-                        this.x = x;
-                        this.y = y;
-                    },
-                    SymbolPath: {
-                        CIRCLE: 0,
-                        FORWARD_CLOSED_ARROW: 1,
-                        FORWARD_OPEN_ARROW: 2,
-                        BACKWARD_CLOSED_ARROW: 3,
-                        BACKWARD_OPEN_ARROW: 4
-                    },
                     Geocoder: function() {
                         this.geocode = () => Promise.resolve({ results: [] });
                     },
@@ -718,21 +676,6 @@ export class MockMapsManager {
                             this.geocode = () => Promise.resolve({ results: [] });
                         }
                     },
-                    marker: {
-                        AdvancedMarkerElement: function() {
-                            console.log('[DIAGNOSTIC] AdvancedMarkerElement instantiated');
-                            this.addListener = () => ({ remove: () => {} });
-                            this.setMap = () => {};
-                            this.position = {};
-                            this.title = '';
-                            this.element = document.createElement('div');
-                        },
-                        PinElement: function() {
-                            console.log('[DIAGNOSTIC] PinElement instantiated');
-                            this.element = document.createElement('div');
-                        }
-                    },
-                    core: {},
                     places: {
                         Place: {
                             searchByText: (request) => {
@@ -753,11 +696,6 @@ export class MockMapsManager {
                     }
                 }
             };
-            setTimeout(() => {
-                if (window['${callbackName}']) {
-                    window['${callbackName}']();
-                }
-            }, 50);
         `.replace(/"__LAT__([\d.-]+)__"/g, '() => $1').replace(/"__LNG__([\d.-]+)__"/g, '() => $1');
 
         return route.fulfill({ 
