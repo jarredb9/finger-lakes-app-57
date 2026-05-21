@@ -1,8 +1,9 @@
-import { PrecacheEntry, SerwistGlobalConfig } from "serwist";
-import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate, NetworkFirst } from "serwist";
-import { ExpirationPlugin } from "serwist";
-import { checkAndCleanupQuota } from "../lib/utils/quota";
-import { isSupabaseUrl as checkIsSupabaseUrl } from "../lib/utils/sw-utils";
+import { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
+import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate, NetworkFirst } from 'serwist';
+import { ExpirationPlugin } from 'serwist';
+import { checkAndCleanupQuota } from '../lib/utils/quota';
+import { isSupabaseUrl as checkIsSupabaseUrl } from '../lib/utils/sw-utils';
+
 
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
@@ -17,29 +18,29 @@ console.log(`[SW] Initializing Version: ${SW_VERSION}`);
 
 // ... (rest of imports and helpers)
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "";
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || '';
 
 const isSupabaseUrl = (url: URL) => {
   return checkIsSupabaseUrl(
     url,
     SUPABASE_URL,
     BASE_URL,
-    typeof self !== "undefined" && self.location ? self.location.origin : undefined
+    typeof self !== 'undefined' && self.location ? self.location.origin : undefined
   );
 };
 
 // ...
 
-self.addEventListener("activate", (event) => {
+self.addEventListener('activate', (event) => {
   // Clear old auth caches on version change to prevent local/live poisoning
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames
-          .filter((cacheName) => cacheName.includes("supabase-auth"))
+          .filter((cacheName) => cacheName.includes('supabase-auth'))
           .map((cacheName) => {
-            console.log("[SW] Version change: Purging auth cache", cacheName);
+            console.log('[SW] Version change: Purging auth cache', cacheName);
             return caches.delete(cacheName);
           })
       );
@@ -49,7 +50,7 @@ self.addEventListener("activate", (event) => {
 });
 
 const googleMapsStrategy = new CacheFirst({
-  cacheName: "google-maps-tiles",
+  cacheName: 'google-maps-tiles',
   plugins: [
     new ExpirationPlugin({
       maxEntries: 40,
@@ -67,9 +68,9 @@ const serwist = new Serwist({
   fallbacks: {
     entries: [
       {
-        url: "/~offline",
+        url: '/~offline',
         matcher({ request }) {
-          return request.destination === "document";
+          return request.destination === 'document';
         },
       },
     ],
@@ -85,10 +86,10 @@ const serwist = new Serwist({
         if (isE2E) return false;
 
         return isSupabaseUrl(url) && 
-          (url.pathname.includes("/auth/v1/user") || url.pathname.includes("/auth/v1/session"));
+          (url.pathname.includes('/auth/v1/user') || url.pathname.includes('/auth/v1/session'));
       },
       handler: new StaleWhileRevalidate({
-        cacheName: "supabase-auth",
+        cacheName: 'supabase-auth',
         plugins: [
           new ExpirationPlugin({
             maxEntries: 5,
@@ -106,10 +107,10 @@ const serwist = new Serwist({
         if (isE2E) return false;
 
         return isSupabaseUrl(url) && 
-          url.pathname.includes("/storage/v1/object/public");
+          url.pathname.includes('/storage/v1/object/public');
       },
       handler: new StaleWhileRevalidate({
-        cacheName: "supabase-storage",
+        cacheName: 'supabase-storage',
         plugins: [
           new ExpirationPlugin({
             maxEntries: 40,
@@ -130,9 +131,9 @@ const serwist = new Serwist({
         // Don't intercept if it's E2E or already handled by the auth/storage matchers above
         if (isSupabase && (
             isE2E || 
-            url.pathname.includes("/auth/v1/user") || 
-            url.pathname.includes("/auth/v1/session") ||
-            url.pathname.includes("/storage/v1/object/public")
+            url.pathname.includes('/auth/v1/user') || 
+            url.pathname.includes('/auth/v1/session') ||
+            url.pathname.includes('/storage/v1/object/public')
         )) {
             return false;
         }
@@ -143,13 +144,13 @@ const serwist = new Serwist({
     },
     {
       matcher: ({ url, request }) => 
-        (url.hostname.includes("google") || url.hostname.includes("gstatic")) && 
-        request.destination === "image",
+        (url.hostname.includes('google') || url.hostname.includes('gstatic')) && 
+        request.destination === 'image',
       handler: async ({ request, event, params }) => {
         try {
           const response = await googleMapsStrategy.handle({ request, event, params: params as any });
           if (response) return response;
-          throw new Error("No imagery response");
+          throw new Error('No imagery response');
         } catch (error) {
           return new Response(
             new Blob([
@@ -163,12 +164,12 @@ const serwist = new Serwist({
     },
     {
       matcher: ({ url, request }) =>
-        (request.destination === "font" || request.destination === "image") &&
-        !url.hostname.includes("google") && 
-        !url.hostname.includes("gstatic") &&
+        (request.destination === 'font' || request.destination === 'image') &&
+        !url.hostname.includes('google') && 
+        !url.hostname.includes('gstatic') &&
         !isSupabaseUrl(url),
       handler: new CacheFirst({
-        cacheName: "static-assets",
+        cacheName: 'static-assets',
         plugins: [
           new ExpirationPlugin({
             maxEntries: 50,
@@ -179,9 +180,9 @@ const serwist = new Serwist({
       }),
     },
     {
-      matcher: ({ request }) => request.destination === "document",
+      matcher: ({ request }) => request.destination === 'document',
       handler: new NetworkFirst({
-        cacheName: "pages",
+        cacheName: 'pages',
         networkTimeoutSeconds: 3,
         plugins: [
           new ExpirationPlugin({
@@ -195,42 +196,43 @@ const serwist = new Serwist({
   ],
 });
 
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
   }
 });
 
 // Proactively check quota on navigation to prevent QuotaExceededError
 // following "The Quota Resilience Rule" in GEMINI.md
-self.addEventListener("fetch", (event: any) => {
-  if (event.request.mode === "navigate") {
+self.addEventListener('fetch', (event: any) => {
+  if (event.request.mode === 'navigate') {
     event.waitUntil(checkAndCleanupQuota(0.85));
   }
 });
 
 function handleUnhandledRejection(event: PromiseRejectionEvent) {
   const reason = event.reason;
-  if (reason && (reason.name === "QuotaExceededError" || (reason.message && reason.message.includes("Quota")))) {
-    console.error("[SW] Storage quota exceeded. Clearing caches.");
+  if (reason && (reason.name === 'QuotaExceededError' || (reason.message && reason.message.includes('Quota')))) {
+    console.error('[SW] Storage quota exceeded. Clearing caches.');
     event.preventDefault();
     
-    const cachesToClear = ["google-maps-tiles", "pages", "supabase-storage"];
+    const cachesToClear = ['google-maps-tiles', 'pages', 'supabase-storage'];
     caches.keys().then((keys) => {
       return Promise.all(
         keys.filter((key) => {
           return cachesToClear.some((c) => key.includes(c));
         }).map((key) => {
-          console.log("[SW] Deleting cache: " + key);
+          console.log('[SW] Deleting cache: ' + key);
           return caches.delete(key);
         })
       );
     }).catch((err) => {
-      console.error("[SW] Quota recovery failed:", err);
+      console.error('[SW] Quota recovery failed:', err);
     });
   }
 }
 
-self.addEventListener("unhandledrejection", handleUnhandledRejection);
+self.addEventListener('unhandledrejection', handleUnhandledRejection);
 
 serwist.addEventListeners();
+
