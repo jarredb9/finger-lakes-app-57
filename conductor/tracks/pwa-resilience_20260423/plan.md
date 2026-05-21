@@ -132,6 +132,9 @@
 - [x] Task: Resolve regressions in Visit Flow and Accessibility E2E tests 039a7b5
 - [x] Task: Quantify the testing fixes (Verified 52/52 E2E pass rate in container) 6d375ec
 - [x] Task: Resolve failing E2E tests in CI (error-handling and visual specs) 607ee8d
+- [x] Task: Resolve cascading delays in E2E helpers for unhappy path tests e7cde9b
+
+
 
 
 ### Phase 7: CI/CD Reliability & Regression Stabilization

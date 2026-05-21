@@ -64,6 +64,9 @@ test.describe('Visual Regression Testing', () => {
     // Wait for logical loading to finish
     await expect(modal.locator('svg.animate-spin')).not.toBeVisible();
 
+    // Hide trip badge if present to ensure consistent modal height across environments
+    await page.addStyleTag({ content: '[data-testid="trip-badge"] { display: none !important; }' });
+
     await expect(modal).toHaveScreenshot('winery-modal.png', {
         mask: [
             modal.locator('.text-muted-foreground') // Mask potentially dynamic distance/text

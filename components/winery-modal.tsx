@@ -234,6 +234,7 @@ export default function WineryModal() {
                             <DialogTitle className="text-2xl pr-4">{activeWinery.name}</DialogTitle>
                             {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
                                 <div
+                                    data-testid="trip-badge"
                                     className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-[#f17e3a] hover:bg-[#f17e3a]/90 cursor-pointer"
                                     onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
                                 >
