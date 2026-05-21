@@ -95,10 +95,9 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
     expect(decryptedPayload.rating).toBe(5);
 
     // 4. Reload and verify persistence (Hydration)
-    // We must be online to reload since Service Worker is blocked in this test
-    await context.setOffline(false);
     
-    // We mock the RPC to ensure it doesn't clear too fast if sync triggers
+    // We mock the RPC to ensure it doesn't clear too fast if sync triggers.
+    // We register it BEFORE going online to avoid race conditions.
     await context.route(/.*\/rpc\/log_visit.*/, async (route) => {
       // Delay response to allow us to see the rehydrated state if sync starts
       await new Promise(r => setTimeout(r, 1000));
@@ -110,8 +109,12 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
       });
     });
 
+    // We must be online to reload since Service Worker is blocked in this test
+    await context.setOffline(false);
+    
     // Give a small buffer for the 'online' event to trigger sync and let it settle
     await page.waitForTimeout(500);
+    // Wait for any active sync to finish
     await page.waitForFunction(() => !(window as any).SyncService?.isSyncing);
 
     await page.reload({ waitUntil: 'load' });

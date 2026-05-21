@@ -12,7 +12,7 @@ declare global {
 
 declare const self: ServiceWorkerGlobalScope;
 
-const SW_VERSION = "2.8.3-stable"; // Static version to prevent dev loops. Increment manually or via build script.
+const SW_VERSION = process.env.NEXT_PUBLIC_SW_VERSION || `v${Date.now()}`;
 console.log(`[SW] Initializing Version: ${SW_VERSION}`);
 
 // ... (rest of imports and helpers)

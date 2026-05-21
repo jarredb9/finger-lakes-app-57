@@ -35,17 +35,18 @@ export const SyncService = {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) return user;
 
-    console.log('[SyncService] User not found, waiting for auth hydration...');
+    const isDiagnostic = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_IS_E2E === 'true';
+    if (isDiagnostic) console.log('[SyncService] User not found, waiting for auth hydration...');
 
     return new Promise<any>((resolve) => {
       const timeout = setTimeout(() => {
-        console.log('[SyncService] Auth hydration timed out.');
+        if (isDiagnostic) console.log('[SyncService] Auth hydration timed out.');
         subscription.unsubscribe();
         resolve(null);
       }, 3000);
 
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
-        console.log(`[SyncService] Auth state changed: ${event}`);
+        if (isDiagnostic) console.log(`[SyncService] Auth state changed: ${event}`);
         if (session?.user) {
           clearTimeout(timeout);
           subscription.unsubscribe();
@@ -61,48 +62,43 @@ export const SyncService = {
 
   async sync() {
     if (typeof window !== 'undefined' && !navigator.onLine) {
-      console.log('[SyncService] Offline, skipping sync.');
       return;
     }
 
     if (this.isSyncing) {
-      console.log('[SyncService] Sync already in progress, skipping.');
       return;
     }
 
-    // 1. Wait for store initialization
-    const syncStore = useSyncStore.getState();
-    if (!syncStore.isInitialized) {
-        console.log('[SyncService] Waiting for SyncStore initialization...');
-        await syncStore.initialize();
-    }
-
-    const { queue, removeMutation, updateMutationStatus, getDecryptedPayload } = useSyncStore.getState();
-    if (queue.length === 0) {
-        console.log('[SyncService] Queue is empty, nothing to sync.');
-        return;
-    }
-
     this.isSyncing = true;
-    console.log(`[SyncService] Starting sync for ${queue.length} items.`);
-
-    const supabase = createClient();
-    const processedTypes = new Set<string>();
+    const isDiagnostic = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_IS_E2E === 'true';
 
     try {
-      console.log('[SyncService] Fetching user...');
+      // 1. Wait for store initialization
+      const syncStore = useSyncStore.getState();
+      if (!syncStore.isInitialized) {
+          if (isDiagnostic) console.log('[SyncService] Waiting for SyncStore initialization...');
+          await syncStore.initialize();
+      }
+
+      const { queue, removeMutation, updateMutationStatus, getDecryptedPayload } = useSyncStore.getState();
+      if (queue.length === 0) {
+          if (isDiagnostic) console.log('[SyncService] Queue is empty, nothing to sync.');
+          return;
+      }
+
+      if (isDiagnostic) console.log(`[SyncService] Starting sync for ${queue.length} items.`);
+
+      const supabase = createClient();
+      const processedTypes = new Set<string>();
+
+      if (isDiagnostic) console.log('[SyncService] Fetching user...');
       const user = await this.waitForAuth(supabase);
 
       if (!user) {
-        console.warn('[SyncService] User not authenticated, cannot sync.');
-        this.isSyncing = false;
+        if (isDiagnostic) console.warn('[SyncService] User not authenticated, cannot sync.');
         return;
       }
-      console.log(`[SyncService] Authenticated as ${user.id}. Processing queue...`);
-
-      // We use a copy of the queue for iteration, but we check each item's 
-      // current status from the store before processing.
-      const isDiagnostic = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_IS_E2E === 'true';
+      if (isDiagnostic) console.log(`[SyncService] Authenticated as ${user.id}. Processing queue...`);
 
       for (const queueItem of queue) {
         // Re-read item from store state to get current status
@@ -122,11 +118,11 @@ export const SyncService = {
 
         processedTypes.add(item.type);
         try {
-          console.log(`[SyncService] Decrypting payload for ${item.id}...`);
+          if (isDiagnostic) console.log(`[SyncService] Decrypting payload for ${item.id}...`);
           const payload = await getDecryptedPayload<any>(item, user.id);
           let error = null;
 
-          console.log(`[SyncService] Executing RPC for ${item.type}...`);
+          if (isDiagnostic) console.log(`[SyncService] Executing RPC for ${item.type}...`);
           switch (item.type) {
             case 'log_visit': {
               const p = payload as LogVisitPayload;
@@ -379,28 +375,28 @@ export const SyncService = {
           }
 
           if (error) {
-            console.warn(`[SyncService] Failed to sync item ${item.id} (${item.type}):`, error);
+            if (isDiagnostic) console.warn(`[SyncService] Failed to sync item ${item.id} (${item.type}):`, error);
             
             if (isNetworkError(error)) {
-              console.log(`[SyncService] Network error detected for ${item.id}. Keeping it pending for retry.`);
+              if (isDiagnostic) console.log(`[SyncService] Network error detected for ${item.id}. Keeping it pending for retry.`);
             } else {
-              console.log(`[SyncService] Permanent error detected for ${item.id}. Marking as error.`);
+              if (isDiagnostic) console.log(`[SyncService] Permanent error detected for ${item.id}. Marking as error.`);
               await updateMutationStatus(item.id, 'error');
             }
             continue; 
           }
 
-          console.log(`[SyncService] synced successfully`);
+          if (isDiagnostic) console.log(`[SyncService] synced successfully`);
           await removeMutation(item.id);
-          console.log(`[SyncService] Removed item ${item.id} from queue.`);
+          if (isDiagnostic) console.log(`[SyncService] Removed item ${item.id} from queue.`);
 
         } catch (itemError) {
-          console.warn(`[SyncService] Unexpected error syncing item ${item.id}:`, itemError);
+          if (isDiagnostic) console.warn(`[SyncService] Unexpected error syncing item ${item.id}:`, itemError);
           
           if (isNetworkError(itemError)) {
-            console.log(`[SyncService] Network error (caught) for ${item.id}. Keeping it pending.`);
+            if (isDiagnostic) console.log(`[SyncService] Network error (caught) for ${item.id}. Keeping it pending.`);
           } else {
-            console.log(`[SyncService] Marking item ${item.id} as error (caught).`);
+            if (isDiagnostic) console.log(`[SyncService] Marking item ${item.id} as error (caught).`);
             await updateMutationStatus(item.id, 'error');
           }
           continue;
@@ -409,7 +405,7 @@ export const SyncService = {
 
       // Refresh stores if anything was processed
       if (processedTypes.size > 0) {
-        console.log(`[SyncService] Refreshing stores for processed types: ${Array.from(processedTypes).join(', ')}`);
+        if (isDiagnostic) console.log(`[SyncService] Refreshing stores for processed types: ${Array.from(processedTypes).join(', ')}`);
         
         if (processedTypes.has('log_visit') || processedTypes.has('update_visit') || processedTypes.has('delete_visit')) {
           useVisitStore.getState().fetchVisits(1, true);
@@ -428,7 +424,7 @@ export const SyncService = {
       }
     } finally {
       this.isSyncing = false;
-      console.log('[SyncService] Sync process finished.');
+      if (isDiagnostic) console.log('[SyncService] Sync process finished.');
     }
   }
 };
@@ -438,7 +434,8 @@ if (typeof window !== 'undefined') {
 
   // Global listener for online event to trigger sync automatically
   window.addEventListener('online', () => {
-    console.log('[SyncService] Network back online, triggering sync...');
+    const isDiagnostic = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_IS_E2E === 'true';
+    if (isDiagnostic) console.log('[SyncService] Network back online, triggering sync...');
     SyncService.sync();
   });
 }
