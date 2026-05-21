@@ -132,7 +132,7 @@ export default function TripCardSimple({
                     <div className="flex items-center space-x-2 mt-2">
                         <Users size={16} className="text-muted-foreground" />
                         <span className="text-sm text-muted-foreground">Collaborators:</span>
-                        <div className="flex items-center -space-x-2">
+                        <div className="flex items-center -space-x-2" data-testid="collaborator-avatars">
                             <TooltipProvider>
                                  {currentMembers.map((member) => (
                                       <Tooltip key={member.id}>

@@ -273,17 +273,20 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
   test('Collaborator can see and edit shared trip', async ({ page, user, mockMaps }) => {
     // 1. Prepare data for injection
     const tripId = 777;
-    const mockTrip = {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 5);
+    const tripDate = futureDate.toISOString().split('T')[0];
+
+    const mockTrip = createMockTrip({
       id: tripId,
       user_id: 'other-user-id',
-      trip_date: '2026-05-20',
+      trip_date: tripDate,
       name: 'Shared Adventure',
-      wineries: [],
       members: [
         { id: 'other-user-id', role: 'owner', status: 'joined', name: 'Other User', email: 'other@example.com' },
         { id: user.id, role: 'member', status: 'joined', name: 'Test User', email: user.email }
       ]
-    } as any;
+    });
 
     // 2. Initialize mocks and login
     await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
@@ -311,7 +314,8 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     await expect(tripCard).toBeVisible({ timeout: 5000 });
     
     // Verify collaborator avatars (indicates multi-user trip)
-    await expect(tripCard.locator('.rounded-full').first()).toBeVisible();
+    await expect(tripCard.getByTestId('collaborator-avatars')).toBeVisible();
+    await expect(tripCard.getByTestId('collaborator-avatars').locator('.rounded-full').first()).toBeVisible();
     
     // Verify user can view details (this will trigger get_trip_details RPC)
     await expect(async () => {
