@@ -23,4 +23,4 @@ jobs:
       - name: Build
         run: npm run build
       - name: Run WebKit PWA Sync Test
-        run: npx playwright test e2e/pwa-sync-deep.spec.ts --project=webkit
+        run: npx playwright test e2e/pwa-resilience.spec.ts --project=webkit

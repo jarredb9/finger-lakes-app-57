@@ -42,6 +42,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **Styling:** Use **Tailwind CSS v4**. Avoid custom CSS.
 - **DOM Stability:** Critical UI containers (e.g., `map-container`, `trip-list-container`) MUST remain in the DOM during error/loading states. Use `data-state="error|loading|ready"` and render `Alert` or `Loader` components *inside* the container instead of early returns.
 - **Error Propagation:** Hooks managing major views (e.g., `useWineryMap`) MUST combine errors from all relevant stores (Map, WineryData, Trips) to ensure global load failures are visible in the primary viewport.
+- **Backwards-Compatible Schema Changes**: All database migrations (`supabase/migrations/*`) MUST be strictly backwards-compatible (using the expand-and-contract pattern) so that the currently running app does not crash when migrations are pushed prior to code build completion.
 
 ## 5. Workflows & Verification
 - **Protocol:** Follow the **Conductor Lifecycle**, **Context Efficiency Mandate**, and **Pre-Flight Protocol Verification** defined in `GEMINI.md`.

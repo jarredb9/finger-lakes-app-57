@@ -30,7 +30,7 @@ export default defineConfig({
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
-    baseURL: 'http://127.0.0.1:3001',
+    baseURL: process.env.BASE_URL || 'http://127.0.0.1:3001',
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on-first-retry',
@@ -84,8 +84,8 @@ export default defineConfig({
     // },
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: {
+  /* Run your local dev server before starting the tests (disabled if running against a live URL) */
+  webServer: process.env.BASE_URL ? undefined : {
     command: process.env.IS_E2E === 'true' 
       ? 'npm run start -- -p 3001' 
       : 'npm run dev -- -p 3001',

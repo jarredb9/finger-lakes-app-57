@@ -1,4 +1,4 @@
-import { test, expect } from './utils';
+import { test, expect } from '@playwright/test';
 import { login, waitForAppReady } from './helpers';
 
 test('unauthenticated user is redirected to login', async ({ page }) => {
@@ -11,10 +11,17 @@ test('unauthenticated user is redirected to login', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Sign in to your account' })).toBeVisible();
 });
 
-test('authenticated user can reach the app', async ({ page, user }) => {
-  // We use a test user from the fixture.
+test('authenticated user can reach the app', async ({ page }) => {
+  const email = process.env.TEST_USER_EMAIL;
+  const password = process.env.TEST_USER_PASSWORD;
+  
+  if (!email || !password) {
+    throw new Error('TEST_USER_EMAIL and TEST_USER_PASSWORD environment variables are required for the smoke test');
+  }
+
+  // We use a static test user.
   // The login helper handles hydration guards and wait logic.
-  await login(page, user.email, user.password);
+  await login(page, email, password);
   
   await waitForAppReady(page);
   
