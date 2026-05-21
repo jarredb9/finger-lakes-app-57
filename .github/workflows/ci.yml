@@ -240,7 +240,8 @@ jobs:
   deploy:
     name: Deploy to Production
     needs: [unit-tests, merge-reports]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    environment: production
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
