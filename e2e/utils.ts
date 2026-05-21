@@ -606,7 +606,15 @@ export class MockMapsManager {
         const transformed = trips.map(t => ({
             ...t,
             trip_wineries: [{ count: t.wineries?.length || 0 }],
-            trip_members: (t.members || []).map(m => ({ user_id: m.id }))
+            trip_members: (t.members || []).map(m => ({ 
+                user_id: m.id,
+                role: m.role,
+                status: m.status,
+                profiles: {
+                    name: m.name,
+                    email: m.email
+                }
+            }))
         }));
 
         return route.fulfill({ 

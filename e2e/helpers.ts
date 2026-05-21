@@ -796,12 +796,20 @@ export async function injectTripState(page: Page, trips: Trip[]) {
     // @ts-ignore
     const store = window.useTripStore;
     if (store && store.setState) {
+      const now = Date.now();
+      const lastActionTimestamps: Record<string, number> = {};
+      tripsToInject.forEach(t => {
+          lastActionTimestamps[t.id.toString()] = now;
+      });
+
       store.setState({ 
         trips: tripsToInject, 
         upcomingTrips: tripsToInject,
         isLoading: false,
         hasMore: false,
-        count: tripsToInject.length
+        count: tripsToInject.length,
+        lastActionTimestamp: now,
+        lastActionTimestamps: { ...store.getState().lastActionTimestamps, ...lastActionTimestamps }
       });
     }
   }, trips);

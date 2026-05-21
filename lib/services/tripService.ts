@@ -23,7 +23,15 @@ export const TripService = {
           trip_date,
           updated_at,
           trip_wineries (count),
-          trip_members!inner (user_id)
+          trip_members!inner (
+              user_id,
+              role,
+              status,
+              profiles (
+                  name,
+                  email
+              )
+          )
       `, { count: 'exact' })
       .eq('trip_members.user_id', user.id);
 
@@ -43,7 +51,13 @@ export const TripService = {
       id: Number(t.id),
       wineries_count: t.trip_wineries?.[0]?.count || 0,
       wineries: [], // List view doesn't need full winery details
-      members: [] // List view usually doesn't need full member details either
+      members: t.trip_members?.map((m: any) => ({
+        id: m.user_id,
+        role: m.role,
+        status: m.status,
+        name: m.profiles?.name || 'User',
+        email: m.profiles?.email || ''
+      })) || []
     }));
 
     return { trips: formattedTrips || [], count: count || 0 };
