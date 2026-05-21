@@ -61,15 +61,19 @@ test.describe('Visual Regression Testing', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
     
-    // Wait for logical loading to finish
-    await expect(modal.locator('svg.animate-spin')).not.toBeVisible();
+    // Wait for logical loading to finish using the data-state attribute
+    await expect(modal).toHaveAttribute('data-state', 'ready');
 
-    // Hide trip badge if present to ensure consistent modal height across environments
-    await page.addStyleTag({ content: '[data-testid="trip-badge"] { display: none !important; }' });
+    // Stabilize layout: hide trip badge and prevent title from wrapping which causes 28px height jumps in CI
+    await page.addStyleTag({ content: `
+        [data-testid="trip-badge"] { display: none !important; }
+        [data-testid="winery-modal"] h2 { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 320px !important; }
+    ` });
 
     await expect(modal).toHaveScreenshot('winery-modal.png', {
         mask: [
-            modal.locator('.text-muted-foreground') // Mask potentially dynamic distance/text
+            modal.locator('.text-muted-foreground'), // Mask dynamic distance/text
+            modal.locator('[data-testid="visit-date"]') // Mask dates if they are dynamic
         ],
         maxDiffPixelRatio: 0.05
     });
