@@ -43,32 +43,19 @@ jobs:
         with:
           version: 2.93.0
 
-      - name: Cache Supabase Docker Images
-        id: supabase-cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/supabase-docker-cache
-          key: ${{ runner.os }}-supabase-images-${{ hashFiles('supabase/config.ci.toml') }}
-
-      - name: Load Supabase Docker Images
-        if: steps.supabase-cache.outputs.cache-hit == 'true'
-        run: docker load -i /tmp/supabase-docker-cache/supabase-images.tar
-
       - name: Start Supabase (Lean CI DB)
         run: |
           cp supabase/config.ci.toml supabase/config.toml
           supabase start
 
-      - name: Save Supabase Docker Images
-        if: steps.supabase-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p /tmp/supabase-docker-cache
-          docker save $(docker images --format "{{.Repository}}:{{.Tag}}" | grep supabase) -o /tmp/supabase-docker-cache/supabase-images.tar
-
       - name: Check Database Integrity (Types & Lint)
         run: |
           npm run db:lint
           npm run db:check-types:ci
+
+      - name: Migration Safety Check (Remote Drift)
+        run: supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}" --dry-run
+        if: github.event_name == 'pull_request'
 
       - name: Run Jest tests
         run: npm run test
@@ -87,15 +74,14 @@ jobs:
           retention-days: 1
 
   e2e-tests:
-    name: Sharded E2E Tests (${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
+    name: Sharded E2E Tests (${{ matrix.shard }}/12)
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        shardIndex: [1, 2, 3, 4, 5, 6, 7, 8]
-        shardTotal: [8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -116,12 +102,11 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
-      - name: Install Playwright Browsers
+      - name: Install Playwright Browsers (if cache miss)
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps
 
-      - name: Install Playwright Dependencies (if cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
+      - name: Install Playwright OS Dependencies (Mandatory)
         run: npx playwright install-deps
 
       - name: Download Build Artifact
@@ -135,24 +120,13 @@ jobs:
         with:
           version: 2.93.0
 
-      - name: Cache Supabase Docker Images
-        id: supabase-cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/supabase-docker-cache
-          key: ${{ runner.os }}-supabase-images-${{ hashFiles('supabase/config.ci.toml') }}
-
-      - name: Load Supabase Docker Images
-        if: steps.supabase-cache.outputs.cache-hit == 'true'
-        run: docker load -i /tmp/supabase-docker-cache/supabase-images.tar
-
       - name: Start Supabase (Lean CI DB)
         run: |
           cp supabase/config.ci.toml supabase/config.toml
           supabase start
 
       - name: Run Playwright tests
-        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --reporter=blob
+        run: npx playwright test --shard=${{ matrix.shard }}/12 --reporter=blob
         env:
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
@@ -161,7 +135,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: all-blob-reports-${{ matrix.shardIndex }}
+          name: all-blob-reports-${{ matrix.shard }}
           path: blob-report
           retention-days: 1
 
