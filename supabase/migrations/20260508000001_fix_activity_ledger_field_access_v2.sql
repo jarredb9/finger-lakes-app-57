@@ -49,6 +49,8 @@ BEGIN
                     'winery_name', v_winery_name,
                     'latitude', v_winery_latitude,
                     'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude,
                     'rating', NEW.rating,
                     'user_review', NEW.user_review,
                     'photos', COALESCE(to_jsonb(NEW.photos), '[]'::jsonb)
@@ -66,7 +68,9 @@ BEGIN
                     'winery_id', v_winery_id,
                     'winery_name', v_winery_name,
                     'latitude', v_winery_latitude,
-                    'longitude', v_winery_longitude
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude
                 ),
                 NEW.created_at
             );
@@ -81,7 +85,9 @@ BEGIN
                     'winery_id', v_winery_id,
                     'winery_name', v_winery_name,
                     'latitude', v_winery_latitude,
-                    'longitude', v_winery_longitude
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude
                 ),
                 NEW.created_at
             );
@@ -99,6 +105,8 @@ BEGIN
                     'winery_name', v_winery_name,
                     'latitude', v_winery_latitude,
                     'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude,
                     'rating', NEW.rating,
                     'user_review', NEW.user_review,
                     'photos', COALESCE(to_jsonb(NEW.photos), '[]'::jsonb)
@@ -112,7 +120,9 @@ BEGIN
                     'winery_id', v_winery_id,
                     'winery_name', v_winery_name,
                     'latitude', v_winery_latitude,
-                    'longitude', v_winery_longitude
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude
                 )
             WHERE activity_type = 'favorite' AND object_id = OLD.id::text;
         ELSIF TG_TABLE_NAME = 'wishlist' THEN
@@ -123,7 +133,9 @@ BEGIN
                     'winery_id', v_winery_id,
                     'winery_name', v_winery_name,
                     'latitude', v_winery_latitude,
-                    'longitude', v_winery_longitude
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude
                 )
             WHERE activity_type = 'wishlist' AND object_id = OLD.id::text;
         END IF;

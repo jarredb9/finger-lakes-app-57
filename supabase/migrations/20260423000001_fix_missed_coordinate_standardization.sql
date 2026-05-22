@@ -14,8 +14,10 @@ RETURNS TABLE (
     winery_name text,
     winery_address text,
     google_place_id text,
-    latitude numeric, -- Renamed from 'lat'
-    longitude numeric -- Renamed from 'lng'
+    latitude numeric,
+    longitude numeric,
+    lat numeric,
+    lng numeric
 ) 
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -34,7 +36,9 @@ BEGIN
         w.address,
         w.google_place_id,
         w.latitude,
-        w.longitude
+        w.longitude,
+        w.latitude as lat,
+        w.longitude as lng
     FROM
         visits v
     JOIN
@@ -103,8 +107,10 @@ BEGIN
                     w.google_place_id as id,
                     w.name,
                     w.address,
-                    w.latitude, -- Renamed from 'lat'
-                    w.longitude, -- Renamed from 'lng'
+                    w.latitude,
+                    w.longitude,
+                    w.latitude as lat,
+                    w.longitude as lng,
                     tw.visit_order,
                     tw.notes,
                     tw.updated_at,
@@ -144,11 +150,16 @@ $$;
 
 -- 3. Update get_wineries_in_bounds (Standardize argument names)
 DROP FUNCTION IF EXISTS public.get_wineries_in_bounds(double precision, double precision, double precision, double precision);
+DROP FUNCTION IF EXISTS public.get_wineries_in_bounds(double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision);
 CREATE OR REPLACE FUNCTION public.get_wineries_in_bounds(
-  min_latitude double precision,
-  min_longitude double precision,
-  max_latitude double precision,
-  max_longitude double precision
+  min_latitude double precision DEFAULT NULL,
+  min_longitude double precision DEFAULT NULL,
+  max_latitude double precision DEFAULT NULL,
+  max_longitude double precision DEFAULT NULL,
+  min_lat double precision DEFAULT NULL,
+  min_lng double precision DEFAULT NULL,
+  max_lat double precision DEFAULT NULL,
+  max_lng double precision DEFAULT NULL
 )
 RETURNS SETOF public.wineries
 LANGUAGE sql
@@ -158,23 +169,29 @@ AS $$
   SELECT *
   FROM wineries
   WHERE
-    latitude >= min_latitude AND
-    latitude <= max_latitude AND
-    longitude >= min_longitude AND
-    longitude <= max_longitude;
+    latitude >= COALESCE(min_latitude, min_lat) AND
+    latitude <= COALESCE(max_latitude, max_lat) AND
+    longitude >= COALESCE(min_longitude, min_lng) AND
+    longitude <= COALESCE(max_longitude, max_lng);
 $$;
 
 -- 4. Update search_wineries_by_name_and_location (Standardize argument names)
 DROP FUNCTION IF EXISTS public.search_wineries_by_name_and_location(text, double precision, double precision);
+DROP FUNCTION IF EXISTS public.search_wineries_by_name_and_location(text, double precision, double precision, double precision, double precision);
 CREATE OR REPLACE FUNCTION public.search_wineries_by_name_and_location(
     search_query text, 
-    user_latitude double precision, 
-    user_longitude double precision
+    user_latitude double precision DEFAULT NULL, 
+    user_longitude double precision DEFAULT NULL,
+    user_lat double precision DEFAULT NULL,
+    user_lng double precision DEFAULT NULL
 )
- RETURNS TABLE(id integer, google_place_id text, name character varying, address text, latitude numeric, longitude numeric, phone character varying, website character varying, google_rating numeric, is_favorite boolean, on_wishlist boolean, user_visited boolean, distance_meters double precision)
+ RETURNS TABLE(id integer, google_place_id text, name character varying, address text, latitude numeric, longitude numeric, lat numeric, lng numeric, phone character varying, website character varying, google_rating numeric, is_favorite boolean, on_wishlist boolean, user_visited boolean, distance_meters double precision)
  LANGUAGE plpgsql
  SET search_path TO 'public', 'extensions'
 AS $function$
+DECLARE
+    final_user_lat double precision := COALESCE(user_latitude, user_lat);
+    final_user_lng double precision := COALESCE(user_longitude, user_lng);
 BEGIN
     RETURN QUERY
     WITH winery_matches AS (
@@ -205,6 +222,8 @@ BEGIN
         wm.address,
         wm.latitude,
         wm.longitude,
+        wm.latitude as lat,
+        wm.longitude as lng,
         wm.phone,
         wm.website,
         wm.google_rating,
@@ -213,7 +232,7 @@ BEGIN
         wm.user_visited,
         extensions.ST_Distance(
             extensions.ST_MakePoint(wm.longitude::double precision, wm.latitude::double precision)::extensions.geography,
-            extensions.ST_MakePoint(user_longitude, user_latitude)::extensions.geography
+            extensions.ST_MakePoint(final_user_lng, final_user_lat)::extensions.geography
         ) as distance_meters
     FROM winery_matches wm
     ORDER BY distance_meters;
@@ -222,5 +241,5 @@ $function$;
 
 GRANT EXECUTE ON FUNCTION public.get_all_user_visits_list() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_trip_details(integer) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_wineries_in_bounds(double precision, double precision, double precision, double precision) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.search_wineries_by_name_and_location(text, double precision, double precision) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_wineries_in_bounds(double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.search_wineries_by_name_and_location(text, double precision, double precision, double precision, double precision) TO authenticated;

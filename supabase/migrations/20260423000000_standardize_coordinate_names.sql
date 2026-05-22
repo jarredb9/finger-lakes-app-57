@@ -40,8 +40,10 @@ BEGIN
                     'dbId', w.id,
                     'name', w.name,
                     'address', w.address,
-                    'latitude', w.latitude, -- Renamed from 'lat'
-                    'longitude', w.longitude, -- Renamed from 'lng'
+                    'latitude', w.latitude,
+                    'longitude', w.longitude,
+                    'lat', w.latitude,
+                    'lng', w.longitude,
                     'phone', w.phone,
                     'website', w.website,
                     'rating', w.google_rating,
@@ -90,8 +92,10 @@ BEGIN
                     'dbId', w.id,
                     'name', w.name,
                     'address', w.address,
-                    'latitude', w.latitude, -- Renamed from 'lat'
-                    'longitude', w.longitude, -- Renamed from 'lng'
+                    'latitude', w.latitude,
+                    'longitude', w.longitude,
+                    'lat', w.latitude,
+                    'lng', w.longitude,
                     'phone', w.phone,
                     'website', w.website,
                     'rating', w.google_rating,
@@ -116,8 +120,10 @@ CREATE OR REPLACE FUNCTION public.get_winery_details_by_id(winery_id_param integ
     google_place_id text, 
     name text, 
     address text, 
-    latitude numeric, -- Renamed from 'lat'
-    longitude numeric, -- Renamed from 'lng'
+    latitude numeric,
+    longitude numeric,
+    lat numeric,
+    lng numeric,
     phone text, 
     website text, 
     google_rating numeric, 
@@ -147,6 +153,8 @@ BEGIN
         w.address,
         w.latitude,
         w.longitude,
+        w.latitude as lat,
+        w.longitude as lng,
         w.phone::text,
         w.website::text,
         w.google_rating,
@@ -216,8 +224,10 @@ RETURNS TABLE (
     winery_name character varying(255),
     winery_address text,
     google_place_id character varying(255),
-    latitude numeric, -- Added
-    longitude numeric, -- Added
+    latitude numeric,
+    longitude numeric,
+    lat numeric,
+    lng numeric,
     friend_visits jsonb
 ) AS $$
 BEGIN
@@ -233,8 +243,10 @@ BEGIN
             w.name as winery_name,
             w.address as winery_address,
             w.google_place_id::character varying(255),
-            w.latitude, -- Added
-            w.longitude, -- Added
+            w.latitude,
+            w.longitude,
+            w.latitude as lat,
+            w.longitude as lng,
             v.user_id
         FROM visits v
         JOIN wineries w ON v.winery_id = w.id
@@ -265,8 +277,10 @@ BEGIN
         uv.winery_name,
         uv.winery_address,
         uv.google_place_id,
-        uv.latitude, -- Added
-        uv.longitude, -- Added
+        uv.latitude,
+        uv.longitude,
+        uv.latitude as lat,
+        uv.longitude as lng,
         afv.friend_visits
     FROM user_and_friends_visits uv
     LEFT JOIN aggregated_friend_visits afv ON uv.winery_id = afv.winery_id AND uv.visit_date = afv.visit_date
@@ -309,8 +323,8 @@ BEGIN
     p_winery_data->>'id',
     p_winery_data->>'name',
     p_winery_data->>'address',
-    (p_winery_data->>'latitude')::numeric, -- Standardized from 'lat'
-    (p_winery_data->>'longitude')::numeric, -- Standardized from 'lng'
+    (COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat'))::numeric,
+    (COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng'))::numeric,
     p_winery_data->>'phone',
     p_winery_data->>'website',
     (p_winery_data->>'rating')::numeric
@@ -383,8 +397,8 @@ BEGIN
     p_winery_data->>'id',
     p_winery_data->>'name',
     p_winery_data->>'address',
-    (p_winery_data->>'latitude')::numeric, -- Standardized from 'lat'
-    (p_winery_data->>'longitude')::numeric, -- Standardized from 'lng'
+    (COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat'))::numeric,
+    (COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng'))::numeric,
     p_winery_data->>'phone',
     p_winery_data->>'website',
     (p_winery_data->>'rating')::numeric
@@ -439,8 +453,8 @@ BEGIN
     p_winery_data->>'id',
     p_winery_data->>'name',
     p_winery_data->>'address',
-    (p_winery_data->>'latitude')::numeric, -- Standardized from 'lat'
-    (p_winery_data->>'longitude')::numeric, -- Standardized from 'lng'
+    (COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat'))::numeric,
+    (COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng'))::numeric,
     p_winery_data->>'phone',
     p_winery_data->>'website',
     (p_winery_data->>'rating')::numeric
@@ -476,8 +490,8 @@ BEGIN
     p_winery_data->>'id',
     p_winery_data->>'name',
     p_winery_data->>'address',
-    (p_winery_data->>'latitude')::numeric, -- Standardized from 'lat'
-    (p_winery_data->>'longitude')::numeric, -- Standardized from 'lng'
+    (COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat'))::numeric,
+    (COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng'))::numeric,
     p_winery_data->>'phone',
     p_winery_data->>'website',
     (p_winery_data->>'rating')::numeric

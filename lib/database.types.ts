@@ -587,7 +587,9 @@ export type Database = {
         Returns: {
           google_place_id: string
           id: number
+          lat: number
           latitude: number
+          lng: number
           longitude: number
           photos: string[]
           rating: number
@@ -674,7 +676,9 @@ export type Database = {
         Returns: {
           friend_visits: Json
           google_place_id: string
+          lat: number
           latitude: number
+          lng: number
           longitude: number
           photos: string[]
           rating: number
@@ -758,10 +762,14 @@ export type Database = {
       }
       get_wineries_in_bounds: {
         Args: {
-          max_latitude: number
-          max_longitude: number
-          min_latitude: number
-          min_longitude: number
+          max_lat?: number
+          max_latitude?: number
+          max_lng?: number
+          max_longitude?: number
+          min_lat?: number
+          min_latitude?: number
+          min_lng?: number
+          min_longitude?: number
         }
         Returns: {
           address: string
@@ -812,7 +820,9 @@ export type Database = {
           id: number
           is_favorite: boolean
           is_favorite_private: boolean
+          lat: number
           latitude: number
+          lng: number
           longitude: number
           name: string
           on_wishlist: boolean
@@ -856,8 +866,10 @@ export type Database = {
       search_wineries_by_name_and_location: {
         Args: {
           search_query: string
-          user_latitude: number
-          user_longitude: number
+          user_lat?: number
+          user_latitude?: number
+          user_lng?: number
+          user_longitude?: number
         }
         Returns: {
           address: string
@@ -866,7 +878,9 @@ export type Database = {
           google_rating: number
           id: number
           is_favorite: boolean
+          lat: number
           latitude: number
+          lng: number
           longitude: number
           name: string
           on_wishlist: boolean

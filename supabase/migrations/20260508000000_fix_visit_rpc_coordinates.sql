@@ -44,7 +44,9 @@ BEGIN
             'winery_address', w.address,
             'google_place_id', w.google_place_id,
             'latitude', w.latitude,
-            'longitude', w.longitude
+            'longitude', w.longitude,
+            'lat', w.latitude,
+            'lng', w.longitude
         )
         FROM public.visits v
         JOIN public.wineries w ON v.winery_id = w.id
@@ -92,7 +94,9 @@ BEGIN
                         'name', w.name,
                         'address', w.address,
                         'latitude', w.latitude,
-                        'longitude', w.longitude
+                        'longitude', w.longitude,
+                        'lat', w.latitude,
+                        'lng', w.longitude
                     )
                 ) ORDER BY v.visit_date DESC
             ), '[]'::jsonb)
@@ -201,7 +205,9 @@ BEGIN
                     'user_review', v.user_review,
                     'photos', v.photos,
                     'latitude', w.latitude,
-                    'longitude', w.longitude
+                    'longitude', w.longitude,
+                    'lat', w.latitude,
+                    'lng', w.longitude
                 )
             ORDER BY v.visit_date DESC), '[]'::jsonb)
             FROM visits v
@@ -229,8 +235,10 @@ BEGIN
                 'dbId', w.id,
                 'name', w.name,
                 'address', w.address,
-                'latitude', w.latitude, -- Standardized from 'lat'
-                'longitude', w.longitude, -- Standardized from 'lng'
+                'latitude', w.latitude,
+                'longitude', w.longitude,
+                'lat', w.latitude,
+                'lng', w.longitude,
                 'phone', w.phone,
                 'website', w.website,
                 'rating', w.google_rating,
@@ -342,6 +350,8 @@ BEGIN
                     'winery_name', v_winery_name,
                     'latitude', v_winery_latitude,
                     'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude,
                     'rating', NEW.rating,
                     'user_review', NEW.user_review,
                     'photos', COALESCE(to_jsonb(NEW.photos), '[]'::jsonb)
@@ -359,7 +369,9 @@ BEGIN
                     'winery_id', v_winery_id,
                     'winery_name', v_winery_name,
                     'latitude', v_winery_latitude,
-                    'longitude', v_winery_longitude
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude
                 ),
                 NEW.created_at
             );
@@ -374,7 +386,9 @@ BEGIN
                     'winery_id', v_winery_id,
                     'winery_name', v_winery_name,
                     'latitude', v_winery_latitude,
-                    'longitude', v_winery_longitude
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude
                 ),
                 NEW.created_at
             );
@@ -393,6 +407,8 @@ BEGIN
                         'winery_name', v_winery_name,
                         'latitude', v_winery_latitude,
                         'longitude', v_winery_longitude,
+                        'lat', v_winery_latitude,
+                        'lng', v_winery_longitude,
                         'rating', NEW.rating,
                         'user_review', NEW.user_review,
                         'photos', COALESCE(to_jsonb(NEW.photos), '[]'::jsonb)
@@ -402,7 +418,9 @@ BEGIN
                         'winery_id', v_winery_id,
                         'winery_name', v_winery_name,
                         'latitude', v_winery_latitude,
-                        'longitude', v_winery_longitude
+                        'longitude', v_winery_longitude,
+                        'lat', v_winery_latitude,
+                        'lng', v_winery_longitude
                     )
             END
         WHERE activity_type = CASE 
