@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION public.send_follow_request(p_target_id UUID)
 RETURNS JSON
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE

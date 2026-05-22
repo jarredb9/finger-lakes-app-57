@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION public.log_visit(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -76,7 +76,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.add_to_wishlist(p_winery_data jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
- SECURITY DEFINER;
+ SECURITY DEFINER
  SET search_path TO 'public'
 AS $$
 DECLARE

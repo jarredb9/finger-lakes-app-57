@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION remove_friend(target_friend_id UUID)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, extensions
 AS $$
 DECLARE

@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION public.get_wineries_in_bounds(
 )
 RETURNS SETOF public.wineries
 LANGUAGE sql
-STABLE;
+STABLE
 SET search_path = public
 AS $$
   SELECT *
@@ -25,7 +25,7 @@ CREATE OR REPLACE FUNCTION public.upsert_wineries_from_search(
 )
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE

@@ -19,7 +19,7 @@ CREATE OR REPLACE FUNCTION public.get_map_markers(user_id_param uuid DEFAULT aut
     phone text
  )
  LANGUAGE plpgsql
- SECURITY DEFINER;
+ SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
 BEGIN

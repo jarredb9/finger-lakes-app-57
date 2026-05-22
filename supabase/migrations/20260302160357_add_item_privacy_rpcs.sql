@@ -5,7 +5,7 @@
 CREATE OR REPLACE FUNCTION public.toggle_favorite_privacy(p_winery_id integer)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -32,7 +32,7 @@ GRANT EXECUTE ON FUNCTION public.toggle_favorite_privacy(integer) TO authenticat
 CREATE OR REPLACE FUNCTION public.toggle_wishlist_privacy(p_winery_id integer)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE

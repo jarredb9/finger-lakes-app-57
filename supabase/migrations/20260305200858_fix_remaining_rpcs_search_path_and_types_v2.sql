@@ -12,7 +12,7 @@ DROP FUNCTION IF EXISTS public.log_visit(jsonb, date, text, integer, text[], boo
 CREATE OR REPLACE FUNCTION public.get_trips_for_date(target_date date)
 RETURNS TABLE(id integer, user_id uuid, trip_date date, name text, wineries jsonb)
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 BEGIN
@@ -57,7 +57,7 @@ RETURNS TABLE(
     user_visited boolean
 )
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 BEGIN
@@ -79,7 +79,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.get_friends_and_requests()
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -140,7 +140,7 @@ CREATE OR REPLACE FUNCTION public.log_visit(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE

@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION public.update_visit(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -59,7 +59,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.get_friend_profile_with_visits(friend_id_param uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -139,7 +139,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.get_user_dashboard()
  RETURNS jsonb
  LANGUAGE plpgsql
- SECURITY DEFINER;
+ SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
 DECLARE
@@ -306,7 +306,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION public.handle_activity_ledger_entry()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE

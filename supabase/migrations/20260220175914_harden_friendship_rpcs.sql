@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION send_friend_request(target_email text)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
@@ -66,7 +66,7 @@ $$;
 CREATE OR REPLACE FUNCTION respond_to_friend_request(requester_id uuid, accept boolean)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
@@ -98,7 +98,7 @@ $$;
 CREATE OR REPLACE FUNCTION remove_friend(target_friend_id uuid)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE

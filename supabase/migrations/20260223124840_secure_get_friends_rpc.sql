@@ -1,7 +1,7 @@
 CREATE OR REPLACE FUNCTION get_friends_and_requests()
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE

@@ -4,7 +4,7 @@
 CREATE OR REPLACE FUNCTION delete_trip(p_trip_id integer)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE

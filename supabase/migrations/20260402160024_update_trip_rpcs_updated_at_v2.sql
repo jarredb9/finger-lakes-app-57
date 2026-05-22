@@ -6,7 +6,7 @@ DROP FUNCTION IF EXISTS public.get_trips_for_date(date);
 CREATE OR REPLACE FUNCTION public.get_trip_details(trip_id_param integer)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -104,7 +104,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.get_trips_for_date(target_date date)
 RETURNS TABLE(id integer, user_id uuid, trip_date date, name text, updated_at timestamp with time zone, wineries jsonb)
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 BEGIN

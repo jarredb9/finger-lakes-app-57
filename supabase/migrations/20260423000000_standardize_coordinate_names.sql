@@ -139,7 +139,7 @@ CREATE OR REPLACE FUNCTION public.get_winery_details_by_id(winery_id_param integ
     trip_info jsonb
 )
  LANGUAGE plpgsql
- SECURITY DEFINER;
+ SECURITY DEFINER
  SET search_path = public, auth
 AS $$
 DECLARE
@@ -301,7 +301,7 @@ CREATE OR REPLACE FUNCTION public.create_trip_with_winery(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -370,7 +370,7 @@ CREATE OR REPLACE FUNCTION public.log_visit(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -439,7 +439,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.ensure_winery(p_winery_data jsonb)
  RETURNS integer
  LANGUAGE plpgsql
- SECURITY DEFINER;
+ SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
 DECLARE
@@ -472,7 +472,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.add_to_wishlist(p_winery_data jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
- SECURITY DEFINER;
+ SECURITY DEFINER
  SET search_path TO 'public'
 AS $$
 DECLARE

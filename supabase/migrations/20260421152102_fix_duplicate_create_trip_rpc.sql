@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION public.create_trip(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE

@@ -27,7 +27,7 @@ RETURNS TABLE (
   visit_photos text[]
 )
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE

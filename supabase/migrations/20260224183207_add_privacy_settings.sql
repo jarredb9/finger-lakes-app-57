@@ -103,7 +103,7 @@ ALTER FUNCTION public.get_friends_and_requests() SET search_path = public;
 CREATE OR REPLACE FUNCTION public.get_friend_activity_feed(limit_val int DEFAULT 20)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -156,7 +156,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.get_friend_profile_with_visits(friend_id_param uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -236,7 +236,7 @@ CREATE OR REPLACE FUNCTION public.log_visit(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -305,7 +305,7 @@ CREATE OR REPLACE FUNCTION public.update_visit(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -352,7 +352,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.update_profile_privacy(p_privacy_level public.privacy_level)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -372,7 +372,7 @@ GRANT EXECUTE ON FUNCTION public.update_profile_privacy(public.privacy_level) TO
 CREATE OR REPLACE FUNCTION public.get_friends_activity_for_winery(winery_id_param integer)
 RETURNS json
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -439,7 +439,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.get_friends_ratings_for_winery(winery_id_param integer)
 RETURNS TABLE(user_id uuid, name text, email text, rating integer, user_review text, photos text[])
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE

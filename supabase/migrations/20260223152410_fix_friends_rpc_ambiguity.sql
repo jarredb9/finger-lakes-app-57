@@ -6,7 +6,7 @@ DROP FUNCTION IF EXISTS public.get_friends_and_requests(uuid);
 CREATE OR REPLACE FUNCTION public.get_friends_and_requests()
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE

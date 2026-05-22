@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION public.get_friend_profile_with_visits(friend_id_param uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE

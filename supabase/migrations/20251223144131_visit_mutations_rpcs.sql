@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION update_visit(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
@@ -55,7 +55,7 @@ GRANT EXECUTE ON FUNCTION update_visit(integer, jsonb) TO authenticated;
 CREATE OR REPLACE FUNCTION delete_visit(p_visit_id integer)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE

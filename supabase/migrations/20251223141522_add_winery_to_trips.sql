@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION add_winery_to_trips(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE

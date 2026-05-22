@@ -5,7 +5,7 @@ CREATE OR REPLACE FUNCTION log_visit(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
@@ -72,7 +72,7 @@ RETURNS TABLE (
   visit_photos text[]
 )
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN

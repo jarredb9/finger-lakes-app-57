@@ -21,7 +21,7 @@ RETURNS TABLE (
     total_count bigint
 ) 
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE

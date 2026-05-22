@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS "public"."favorites" (
+CREATE TABLE IF NOT EXISTS "public"."friends" (
+CREATE TABLE IF NOT EXISTS "public"."profiles" (
+CREATE TABLE IF NOT EXISTS "public"."trips" (
+CREATE TABLE IF NOT EXISTS "public"."trip_wineries" (
+CREATE TABLE IF NOT EXISTS "public"."visits" (
+CREATE TABLE IF NOT EXISTS "public"."wineries" (
+CREATE TABLE IF NOT EXISTS "public"."wishlist" (

@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION add_trip_member_by_email(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
@@ -59,7 +59,7 @@ CREATE OR REPLACE FUNCTION update_trip_winery_notes(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE

@@ -4,7 +4,7 @@
 CREATE OR REPLACE FUNCTION public.is_trip_member(trip_id_to_check integer)
  RETURNS boolean
  LANGUAGE plpgsql
- SECURITY DEFINER;
+ SECURITY DEFINER
  SET search_path TO 'public', 'auth'
 AS $function$
 DECLARE
@@ -34,7 +34,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.get_trip_details(trip_id_param integer)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public, auth
 AS $$
 DECLARE

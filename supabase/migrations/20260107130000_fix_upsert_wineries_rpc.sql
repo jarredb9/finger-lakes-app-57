@@ -1,7 +1,7 @@
 CREATE OR REPLACE FUNCTION public.upsert_wineries_from_search(wineries_data jsonb[])
  RETURNS void
  LANGUAGE plpgsql
- SECURITY DEFINER;
+ SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
 DECLARE

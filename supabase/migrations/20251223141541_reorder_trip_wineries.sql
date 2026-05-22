@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION reorder_trip_wineries(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER;
+SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
