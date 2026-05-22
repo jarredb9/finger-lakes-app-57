@@ -13,11 +13,18 @@ concurrency:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true' # 2026 Mandate
+  # Local CI Environment Defaults (for Build & E2E)
+  NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_LOCAL_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_LOCAL_SERVICE_ROLE_KEY }}
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+  IS_E2E: 'true'
 
 jobs:
   build:
-    name: Build & Type Check
+    name: Build, Check & Unit Test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -58,19 +65,18 @@ jobs:
           mkdir -p /tmp/supabase-docker-cache
           docker save $(docker images --format "{{.Repository}}:{{.Tag}}" | grep supabase) -o /tmp/supabase-docker-cache/supabase-images.tar
 
-      - name: Check Database Type Integrity
-        run: npm run db:check-types:ci
+      - name: Check Database Integrity (Types & Lint)
+        run: |
+          npm run db:lint
+          npm run db:check-types:ci
+
+      - name: Run Jest tests
+        run: npm run test
 
       - name: Build Next.js App
         run: npm run build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_LOCAL_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_LOCAL_SERVICE_ROLE_KEY }}
-          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
-          IS_E2E: 'true'
 
-      - name: Upload Build Artifact
+      - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: next-build-artifact
@@ -80,61 +86,16 @@ jobs:
           include-hidden-files: true
           retention-days: 1
 
-  unit-tests:
-    name: Unit & Integration Tests (Jest)
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: 2.93.0
-
-      - name: Cache Supabase Docker Images
-        id: supabase-cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/supabase-docker-cache
-          key: ${{ runner.os }}-supabase-images-${{ hashFiles('supabase/config.ci.toml') }}
-
-      - name: Load Supabase Docker Images
-        if: steps.supabase-cache.outputs.cache-hit == 'true'
-        run: docker load -i /tmp/supabase-docker-cache/supabase-images.tar
-
-      - name: Start Supabase (Lean CI DB)
-        run: |
-          cp supabase/config.ci.toml supabase/config.toml
-          supabase start
-
-      - name: Run Jest tests
-        run: npm run test
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_LOCAL_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_LOCAL_SERVICE_ROLE_KEY }}
-          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
-
   e2e-tests:
     name: Sharded E2E Tests (${{ matrix.shardIndex }}/${{ matrix.shardTotal }})
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        shardIndex: [1, 2, 3, 4]
-        shardTotal: [4]
+        shardIndex: [1, 2, 3, 4, 5, 6, 7, 8]
+        shardTotal: [8]
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -191,17 +152,12 @@ jobs:
           supabase start
 
       - name: Run Playwright tests
-        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --reporter=blob --grep-invert "pwa-"
+        run: npx playwright test --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }} --reporter=blob
         env:
-          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_LOCAL_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_LOCAL_SERVICE_ROLE_KEY }}
-          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
-          IS_E2E: 'true'
 
-      - name: Upload blob report to GitHub Actions Artifacts
+      - name: Upload blob report
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -209,89 +165,12 @@ jobs:
           path: blob-report
           retention-days: 1
 
-  pwa-tests:
-    name: PWA Resilience Tests
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Cache Playwright Browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright Browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps
-
-      - name: Install Playwright Dependencies (if cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps
-
-      - name: Download Build Artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: next-build-artifact
-          path: .
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: 2.93.0
-
-      - name: Cache Supabase Docker Images
-        id: supabase-cache
-        uses: actions/cache@v4
-        with:
-          path: /tmp/supabase-docker-cache
-          key: ${{ runner.os }}-supabase-images-${{ hashFiles('supabase/config.ci.toml') }}
-
-      - name: Load Supabase Docker Images
-        if: steps.supabase-cache.outputs.cache-hit == 'true'
-        run: docker load -i /tmp/supabase-docker-cache/supabase-images.tar
-
-      - name: Start Supabase (Lean CI DB)
-        run: |
-          cp supabase/config.ci.toml supabase/config.toml
-          supabase start
-
-      - name: Run Playwright PWA tests
-        run: npx playwright test --grep "pwa-" --reporter=blob
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_LOCAL_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_LOCAL_SERVICE_ROLE_KEY }}
-          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
-          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
-          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
-          IS_E2E: 'true'
-
-      - name: Upload blob report to GitHub Actions Artifacts
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: all-blob-reports-pwa
-          path: blob-report
-          retention-days: 1
-
   merge-reports:
     name: Merge E2E Reports
     if: always()
-    needs: [e2e-tests, pwa-tests]
+    needs: [e2e-tests]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -317,10 +196,11 @@ jobs:
 
   deploy:
     name: Deploy to Production
-    needs: [unit-tests, merge-reports]
+    needs: [build, e2e-tests]
     if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
     environment: production
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -334,21 +214,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Cache Playwright Browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright Browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps
-
-      - name: Install Playwright Dependencies (if cache hit)
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: npx playwright install-deps
-
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -360,20 +225,8 @@ jobs:
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
-      - name: Pull Vercel Environment Information
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Build Project Artifacts (Vercel)
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
-        env:
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-
-      - name: Deploy Project Artifacts to Vercel
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+      - name: Deploy to Vercel
+        run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
