@@ -59,6 +59,5 @@ BEGIN
     WHERE (t.user_id = auth.uid() OR auth.uid() = ANY(t.members))
       AND t.trip_date = target_date;
 END;
-$$ LANGUAGE plpgsql;
-
-GRANT EXECUTE ON FUNCTION get_trips_for_date(date) TO authenticated;
+$$ LANGUAGE plpgsql
+GRANT EXECUTE ON FUNCTION get_trips_for_date(date) TO authenticated

@@ -45,4 +45,4 @@ BEGIN
   ORDER BY v.created_at DESC
   LIMIT limit_val;
 END;
-$$;
+$$

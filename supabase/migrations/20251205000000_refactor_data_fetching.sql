@@ -29,10 +29,8 @@ BEGIN
     FROM
         wineries w;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-GRANT EXECUTE ON FUNCTION get_map_markers() TO authenticated;
-
+$$ LANGUAGE plpgsql SECURITY DEFINER
+GRANT EXECUTE ON FUNCTION get_map_markers() TO authenticated
 -- RPC for fetching a single winery's full details
 -- Includes current user's visits, trip info, etc.
 CREATE OR REPLACE FUNCTION get_winery_details_by_id(winery_id_param integer)
@@ -100,14 +98,7 @@ BEGIN
             ), '[]'::jsonb)
             FROM trip_wineries tw
             JOIN trips t ON tw.trip_id = t.id
-            WHERE tw.winery_id = w.id 
-            AND (
-                t.user_id = user_uuid 
-                OR EXISTS (
-                    SELECT 1 FROM trip_members tm 
-                    WHERE tm.trip_id = t.id AND tm.user_id = user_uuid
-                )
-            )
+            WHERE tw.winery_id = w.id AND (t.user_id = user_uuid OR user_uuid = ANY(t.members))
             AND t.trip_date >= CURRENT_DATE
         ) as trip_info
     FROM
@@ -115,10 +106,8 @@ BEGIN
     WHERE
         w.id = winery_id_param;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-GRANT EXECUTE ON FUNCTION get_winery_details_by_id(integer) TO authenticated;
-
+$$ LANGUAGE plpgsql SECURITY DEFINER
+GRANT EXECUTE ON FUNCTION get_winery_details_by_id(integer) TO authenticated
 -- RPC for fetching all user visits for the global history list
 -- Replacing the client-side aggregation
 CREATE OR REPLACE FUNCTION get_all_user_visits_list()
@@ -158,6 +147,5 @@ BEGIN
     ORDER BY
         v.visit_date DESC;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-GRANT EXECUTE ON FUNCTION get_all_user_visits_list() TO authenticated;
+$$ LANGUAGE plpgsql SECURITY DEFINER
+GRANT EXECUTE ON FUNCTION get_all_user_visits_list() TO authenticated

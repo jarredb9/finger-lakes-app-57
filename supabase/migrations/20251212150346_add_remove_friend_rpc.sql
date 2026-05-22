@@ -12,6 +12,5 @@ BEGIN
     WHERE (user1_id = current_user_id AND user2_id = target_friend_id)
        OR (user1_id = target_friend_id AND user2_id = current_user_id);
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION remove_friend(UUID) TO authenticated;
+$$
+GRANT EXECUTE ON FUNCTION remove_friend(UUID) TO authenticated

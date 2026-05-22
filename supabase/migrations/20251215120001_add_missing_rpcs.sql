@@ -40,11 +40,8 @@ BEGIN
         'wishlistedBy', wishlisted_by_list
     );
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION get_friends_activity_for_winery(integer) TO authenticated;
-
-
+$$
+GRANT EXECUTE ON FUNCTION get_friends_activity_for_winery(integer) TO authenticated
 -- Add missing function get_paginated_visits_with_winery_and_friends (Error 404)
 CREATE OR REPLACE FUNCTION get_paginated_visits_with_winery_and_friends(
     page_number int,
@@ -110,6 +107,5 @@ BEGIN
     LIMIT page_size
     OFFSET (page_number - 1) * page_size;
 END;
-$$ LANGUAGE plpgsql;
-
-GRANT EXECUTE ON FUNCTION get_paginated_visits_with_winery_and_friends(int, int) TO authenticated;
+$$ LANGUAGE plpgsql
+GRANT EXECUTE ON FUNCTION get_paginated_visits_with_winery_and_friends(int, int) TO authenticated

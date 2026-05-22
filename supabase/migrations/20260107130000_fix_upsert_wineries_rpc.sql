@@ -35,4 +35,4 @@ BEGIN
         longitude = COALESCE(EXCLUDED.longitude, wineries.longitude);
   END LOOP;
 END;
-$function$;
+$function$

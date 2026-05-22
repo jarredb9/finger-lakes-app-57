@@ -31,6 +31,5 @@ BEGIN
 
   RETURN v_winery_id;
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION ensure_winery(jsonb) TO authenticated;
+$$
+GRANT EXECUTE ON FUNCTION ensure_winery(jsonb) TO authenticated

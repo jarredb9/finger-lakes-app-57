@@ -28,6 +28,5 @@ BEGIN
 
     RETURN jsonb_build_object('success', true);
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION delete_trip(integer) TO authenticated;
+$$
+GRANT EXECUTE ON FUNCTION delete_trip(integer) TO authenticated

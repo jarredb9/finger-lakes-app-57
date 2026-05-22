@@ -56,10 +56,8 @@ BEGIN
 
   RETURN jsonb_build_object('visit_id', v_visit_id, 'winery_id', v_winery_id);
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION log_visit(jsonb, jsonb) TO authenticated;
-
+$$
+GRANT EXECUTE ON FUNCTION log_visit(jsonb, jsonb) TO authenticated
 -- 2. add_to_wishlist
 CREATE OR REPLACE FUNCTION add_to_wishlist(
   p_winery_data jsonb
@@ -98,10 +96,8 @@ BEGIN
 
   RETURN jsonb_build_object('success', true, 'winery_id', v_winery_id);
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION add_to_wishlist(jsonb) TO authenticated;
-
+$$
+GRANT EXECUTE ON FUNCTION add_to_wishlist(jsonb) TO authenticated
 -- 3. add_winery_to_trip
 CREATE OR REPLACE FUNCTION add_winery_to_trip(
   p_trip_id integer,
@@ -159,6 +155,5 @@ BEGIN
 
   RETURN jsonb_build_object('success', true, 'winery_id', v_winery_id);
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION add_winery_to_trip(integer, jsonb, text) TO authenticated;
+$$
+GRANT EXECUTE ON FUNCTION add_winery_to_trip(integer, jsonb, text) TO authenticated

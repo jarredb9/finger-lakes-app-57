@@ -39,6 +39,5 @@ BEGIN
   END IF;
 
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION toggle_wishlist(jsonb) TO authenticated;
+$$
+GRANT EXECUTE ON FUNCTION toggle_wishlist(jsonb) TO authenticated

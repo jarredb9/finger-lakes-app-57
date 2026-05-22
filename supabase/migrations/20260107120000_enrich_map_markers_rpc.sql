@@ -1,7 +1,6 @@
 -- 1. Drop existing functions to allow signature change (returning more columns)
-DROP FUNCTION IF EXISTS public.get_map_markers();
-DROP FUNCTION IF EXISTS public.get_map_markers(uuid);
-
+DROP FUNCTION IF EXISTS public.get_map_markers()
+DROP FUNCTION IF EXISTS public.get_map_markers(uuid)
 -- 2. Create updated get_map_markers with param
 CREATE OR REPLACE FUNCTION public.get_map_markers(user_id_param uuid DEFAULT auth.uid())
  RETURNS TABLE(
@@ -40,8 +39,7 @@ BEGIN
     FROM
         public.wineries w;
 END;
-$function$;
-
+$function$
 -- 3. Restore the no-param version if needed (proxies to the param version)
 CREATE OR REPLACE FUNCTION public.get_map_markers()
  RETURNS TABLE(
@@ -65,4 +63,4 @@ AS $function$
 BEGIN
     RETURN QUERY SELECT * FROM public.get_map_markers(auth.uid());
 END;
-$function$;
+$function$

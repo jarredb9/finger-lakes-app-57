@@ -62,6 +62,5 @@ BEGIN
 
   RETURN jsonb_build_object('visit_id', v_visit_id, 'winery_id', v_winery_id);
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.log_visit(jsonb, jsonb) TO authenticated;
+$$
+GRANT EXECUTE ON FUNCTION public.log_visit(jsonb, jsonb) TO authenticated

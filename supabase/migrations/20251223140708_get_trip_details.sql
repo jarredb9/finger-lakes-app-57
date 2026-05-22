@@ -73,6 +73,5 @@ BEGIN
 
     RETURN v_result;
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION get_trip_details(integer) TO authenticated;
+$$
+GRANT EXECUTE ON FUNCTION get_trip_details(integer) TO authenticated

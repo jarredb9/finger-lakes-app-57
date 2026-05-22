@@ -49,10 +49,8 @@ BEGIN
         WHERE v.id = v_updated_record.id
     );
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION update_visit(integer, jsonb) TO authenticated;
-
+$$
+GRANT EXECUTE ON FUNCTION update_visit(integer, jsonb) TO authenticated
 -- 2. delete_visit
 CREATE OR REPLACE FUNCTION delete_visit(p_visit_id integer)
 RETURNS jsonb
@@ -72,6 +70,5 @@ BEGIN
 
     RETURN jsonb_build_object('success', true);
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION delete_visit(integer) TO authenticated;
+$$
+GRANT EXECUTE ON FUNCTION delete_visit(integer) TO authenticated

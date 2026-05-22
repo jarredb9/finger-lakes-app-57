@@ -1,7 +1,6 @@
 -- 1. Drop ALL existing variations to resolve ambiguity from previous migrations
-DROP FUNCTION IF EXISTS public.get_map_markers();
-DROP FUNCTION IF EXISTS public.get_map_markers(uuid);
-
+DROP FUNCTION IF EXISTS public.get_map_markers()
+DROP FUNCTION IF EXISTS public.get_map_markers(uuid)
 -- 2. Create Single Unified Function
 -- This handles both get_map_markers() (using default) and get_map_markers(userId)
 CREATE OR REPLACE FUNCTION public.get_map_markers(user_id_param uuid DEFAULT auth.uid())
@@ -41,4 +40,4 @@ BEGIN
     FROM
         public.wineries w;
 END;
-$function$;
+$function$

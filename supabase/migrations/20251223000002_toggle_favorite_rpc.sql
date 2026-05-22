@@ -38,6 +38,5 @@ BEGIN
   END IF;
 
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION toggle_favorite(jsonb) TO authenticated;
+$$
+GRANT EXECUTE ON FUNCTION toggle_favorite(jsonb) TO authenticated

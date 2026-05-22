@@ -37,6 +37,5 @@ BEGIN
 
     RETURN jsonb_build_object('success', true);
 END;
-$$;
-
-GRANT EXECUTE ON FUNCTION reorder_trip_wineries(integer, integer[]) TO authenticated;
+$$
+GRANT EXECUTE ON FUNCTION reorder_trip_wineries(integer, integer[]) TO authenticated

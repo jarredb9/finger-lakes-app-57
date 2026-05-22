@@ -171,4 +171,4 @@ BEGIN
         RAISE NOTICE 'Function get_friends_ratings_for_winery(integer) not found, skipping.';
     END;
 
-END $$;
+END $$

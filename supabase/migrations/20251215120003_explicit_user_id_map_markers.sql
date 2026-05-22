@@ -29,6 +29,5 @@ BEGIN
     FROM
         wineries w;
 END;
-$$ LANGUAGE plpgsql;
-
-GRANT EXECUTE ON FUNCTION get_map_markers(uuid) TO authenticated;
+$$ LANGUAGE plpgsql
+GRANT EXECUTE ON FUNCTION get_map_markers(uuid) TO authenticated
