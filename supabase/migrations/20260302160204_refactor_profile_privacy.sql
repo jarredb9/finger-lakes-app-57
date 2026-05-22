@@ -2,11 +2,11 @@
 -- Sequential timestamp: 20260302160009
 
 -- 1. Update profiles.privacy_level default to 'public'
-ALTER TABLE public.profiles 
+ALTER TABLE public.profiles; 
 ALTER COLUMN privacy_level SET DEFAULT 'public';
 
 -- 2. Update existing 'friends_only' profiles to 'public' to maintain current behavior (as per spec)
-UPDATE public.profiles 
+UPDATE public.profiles; 
 SET privacy_level = 'public' 
 WHERE privacy_level = 'friends_only';
 
@@ -25,7 +25,7 @@ CREATE INDEX IF NOT EXISTS wishlist_is_private_idx ON public.wishlist (is_privat
 CREATE OR REPLACE FUNCTION public.is_visible_to_viewer(p_target_user_id uuid, p_is_item_private boolean DEFAULT FALSE)
 RETURNS boolean
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -110,7 +110,7 @@ FOR SELECT USING (
 CREATE OR REPLACE FUNCTION public.get_friend_activity_feed(limit_val int DEFAULT 20)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -160,7 +160,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.get_friend_profile_with_visits(friend_id_param uuid)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 DECLARE

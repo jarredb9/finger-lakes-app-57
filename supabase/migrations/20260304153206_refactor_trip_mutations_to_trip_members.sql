@@ -29,7 +29,7 @@ CREATE OR REPLACE FUNCTION public.create_trip_with_winery(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -93,7 +93,7 @@ CREATE OR REPLACE FUNCTION public.remove_winery_from_trip(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 BEGIN
@@ -116,7 +116,7 @@ CREATE OR REPLACE FUNCTION public.add_winery_to_trips(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -151,7 +151,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.delete_trip(p_trip_id integer)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 BEGIN
@@ -177,7 +177,7 @@ CREATE OR REPLACE FUNCTION public.add_trip_member_by_email(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -232,7 +232,7 @@ CREATE OR REPLACE FUNCTION public.update_trip_winery_notes(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 BEGIN
@@ -258,7 +258,7 @@ CREATE OR REPLACE FUNCTION public.add_winery_to_trip(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -312,7 +312,7 @@ CREATE OR REPLACE FUNCTION public.add_winery_to_trip(
 )
 RETURNS boolean
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -348,7 +348,7 @@ CREATE OR REPLACE FUNCTION public.reorder_trip_wineries(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE

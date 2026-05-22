@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION add_winery_to_trips(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -40,5 +40,5 @@ BEGIN
 
     RETURN jsonb_build_object('success', true, 'trips_processed', array_length(p_trip_ids, 1), 'added_to', v_added_count);
 END;
-$$
-GRANT EXECUTE ON FUNCTION add_winery_to_trips(integer, integer[]) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION add_winery_to_trips(integer, integer[]) TO authenticated;

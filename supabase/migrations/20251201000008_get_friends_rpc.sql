@@ -36,5 +36,5 @@ BEGIN
 
     RETURN result;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER
-GRANT EXECUTE ON FUNCTION get_friends_and_requests() TO authenticated
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+GRANT EXECUTE ON FUNCTION get_friends_and_requests() TO authenticated;

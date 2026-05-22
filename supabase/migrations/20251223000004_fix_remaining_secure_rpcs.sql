@@ -18,4 +18,4 @@ BEGIN
         RAISE NOTICE 'Function add_winery_to_trip(integer, integer, text) not found, skipping.';
     END;
 
-END $$
+END $$;

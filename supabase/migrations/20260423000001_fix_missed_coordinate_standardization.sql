@@ -20,7 +20,7 @@ RETURNS TABLE (
     lng numeric
 ) 
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 BEGIN
@@ -55,7 +55,7 @@ DROP FUNCTION IF EXISTS public.get_trip_details(integer);
 CREATE OR REPLACE FUNCTION public.get_trip_details(trip_id_param integer)
  RETURNS jsonb
  LANGUAGE plpgsql
- SECURITY DEFINER
+ SECURITY DEFINER;
  SET search_path = public, auth
 AS $$
 DECLARE
@@ -163,7 +163,7 @@ CREATE OR REPLACE FUNCTION public.get_wineries_in_bounds(
 )
 RETURNS SETOF public.wineries
 LANGUAGE sql
-STABLE
+STABLE;
 SET search_path = public
 AS $$
   SELECT *
@@ -193,7 +193,7 @@ DECLARE
     final_user_lat double precision := COALESCE(user_latitude, user_lat);
     final_user_lng double precision := COALESCE(user_longitude, user_lng);
 BEGIN
-    RETURN QUERY
+    RETURN QUERY;
     WITH winery_matches AS (
         SELECT
             w.id,

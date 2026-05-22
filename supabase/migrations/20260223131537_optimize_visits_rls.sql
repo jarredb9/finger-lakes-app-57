@@ -4,7 +4,7 @@ CREATE POLICY "Users can view their own and their friends' visits" ON public.vis
 FOR SELECT USING (
     auth.uid() = user_id
     OR
-    EXISTS (
+    EXISTS (;
         SELECT 1 FROM public.friends
         WHERE status = 'accepted'
           AND (

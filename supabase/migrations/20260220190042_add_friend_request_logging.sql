@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION send_friend_request(target_email text)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE

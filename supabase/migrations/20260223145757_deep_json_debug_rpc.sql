@@ -1,7 +1,7 @@
 CREATE OR REPLACE FUNCTION public.get_friends_and_requests()
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -60,7 +60,7 @@ DROP FUNCTION IF EXISTS public.get_friend_activity_feed(integer);
 CREATE OR REPLACE FUNCTION public.get_friend_activity_feed(limit_val int DEFAULT 20)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 DECLARE

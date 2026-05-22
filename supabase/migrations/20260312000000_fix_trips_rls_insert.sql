@@ -5,7 +5,7 @@
 -- 1. Update trips INSERT policy to use direct auth.uid() check without subquery
 DROP POLICY IF EXISTS "Users can insert their own trips" ON public.trips;
 CREATE POLICY "Users can insert their own trips" 
-ON public.trips FOR INSERT 
+ON public.trips FOR INSERT; 
 WITH CHECK (auth.uid() = user_id);
 
 -- 2. Update trips SELECT policy to allow owners directly

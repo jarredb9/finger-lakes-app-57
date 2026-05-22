@@ -5,7 +5,7 @@
 CREATE OR REPLACE FUNCTION public.handle_activity_ledger_entry()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE

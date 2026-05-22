@@ -4,7 +4,7 @@
 CREATE OR REPLACE FUNCTION delete_trip(p_trip_id integer)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -28,5 +28,5 @@ BEGIN
 
     RETURN jsonb_build_object('success', true);
 END;
-$$
-GRANT EXECUTE ON FUNCTION delete_trip(integer) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION delete_trip(integer) TO authenticated;

@@ -7,7 +7,7 @@ CREATE OR REPLACE FUNCTION public.get_wineries_in_bounds(
 )
 RETURNS SETOF public.wineries
 LANGUAGE sql
-STABLE
+STABLE;
 SET search_path = public
 AS $$
   SELECT *
@@ -17,15 +17,15 @@ AS $$
     latitude <= max_lat AND
     longitude >= min_lng AND
     longitude <= max_lng;
-$$
-GRANT EXECUTE ON FUNCTION public.get_wineries_in_bounds(double precision, double precision, double precision, double precision) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION public.get_wineries_in_bounds(double precision, double precision, double precision, double precision) TO authenticated;
 -- Secure upsert_wineries_from_search by explicitly setting search_path
 CREATE OR REPLACE FUNCTION public.upsert_wineries_from_search(
   wineries_data jsonb[]
 )
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -52,5 +52,5 @@ BEGIN
     ON CONFLICT (google_place_id) DO NOTHING;
   END LOOP;
 END;
-$$
-GRANT EXECUTE ON FUNCTION public.upsert_wineries_from_search(jsonb[]) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION public.upsert_wineries_from_search(jsonb[]) TO authenticated;

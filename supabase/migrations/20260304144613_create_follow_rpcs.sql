@@ -20,7 +20,7 @@ USING (follower_id = auth.uid() OR following_id = auth.uid());
 CREATE OR REPLACE FUNCTION public.send_follow_request(p_target_id UUID)
 RETURNS JSON
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -68,7 +68,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.respond_to_follow_request(p_follower_id UUID, p_accept BOOLEAN)
 RETURNS JSON
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE

@@ -4,7 +4,7 @@
 CREATE OR REPLACE FUNCTION get_trip_details(trip_id_param integer)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -73,5 +73,5 @@ BEGIN
 
     RETURN v_result;
 END;
-$$
-GRANT EXECUTE ON FUNCTION get_trip_details(integer) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION get_trip_details(integer) TO authenticated;

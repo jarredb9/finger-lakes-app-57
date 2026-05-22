@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION public.is_visible_to_viewer(p_target_user_id uuid, p_is_item_private boolean DEFAULT false)
  RETURNS boolean
  LANGUAGE plpgsql
- SECURITY DEFINER
+ SECURITY DEFINER;
  SET search_path TO 'public', 'auth'
 AS $$
 DECLARE

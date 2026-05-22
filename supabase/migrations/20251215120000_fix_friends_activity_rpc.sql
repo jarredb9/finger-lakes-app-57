@@ -38,5 +38,5 @@ BEGIN
         'wishlistedBy', wishlisted_by_list
     );
 END;
-$$
-GRANT EXECUTE ON FUNCTION get_friends_activity_for_winery(integer) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION get_friends_activity_for_winery(integer) TO authenticated;

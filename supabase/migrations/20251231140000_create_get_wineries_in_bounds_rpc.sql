@@ -17,5 +17,5 @@ AS $$
     latitude <= max_lat AND
     longitude >= min_lng AND
     longitude <= max_lng;
-$$
-GRANT EXECUTE ON FUNCTION get_wineries_in_bounds(double precision, double precision, double precision, double precision) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION get_wineries_in_bounds(double precision, double precision, double precision, double precision) TO authenticated;

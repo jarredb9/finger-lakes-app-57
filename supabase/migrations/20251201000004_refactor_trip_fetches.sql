@@ -73,8 +73,8 @@ BEGIN
     OFFSET (page_number - 1) * page_size
     LIMIT page_size;
 END;
-$$ LANGUAGE plpgsql
-GRANT EXECUTE ON FUNCTION get_paginated_trips_with_wineries(text, int, int) TO authenticated
+$$ LANGUAGE plpgsql;
+GRANT EXECUTE ON FUNCTION get_paginated_trips_with_wineries(text, int, int) TO authenticated;
 -- RPC to get a single trip by ID with its wineries
 CREATE OR REPLACE FUNCTION get_trip_by_id_with_wineries(trip_id_param integer)
 RETURNS TABLE (
@@ -119,5 +119,5 @@ BEGIN
     WHERE t.id = trip_id_param
       AND (t.user_id = auth.uid() OR auth.uid() = ANY(t.members));
 END;
-$$ LANGUAGE plpgsql
-GRANT EXECUTE ON FUNCTION get_trip_by_id_with_wineries(integer) TO authenticated
+$$ LANGUAGE plpgsql;
+GRANT EXECUTE ON FUNCTION get_trip_by_id_with_wineries(integer) TO authenticated;

@@ -19,7 +19,7 @@ RETURNS TABLE(
     on_wishlist_private boolean
 )
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 BEGIN
@@ -65,7 +65,7 @@ CREATE OR REPLACE FUNCTION public.get_winery_details_by_id(winery_id_param integ
     trip_info jsonb
 )
  LANGUAGE plpgsql
- SECURITY DEFINER
+ SECURITY DEFINER;
  SET search_path = public, auth
 AS $$
 DECLARE

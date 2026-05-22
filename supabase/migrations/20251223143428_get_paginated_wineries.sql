@@ -21,7 +21,7 @@ RETURNS TABLE (
     total_count bigint
 ) 
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -54,5 +54,5 @@ BEGIN
     LIMIT p_limit
     OFFSET (p_page - 1) * p_limit;
 END;
-$$
-GRANT EXECUTE ON FUNCTION get_paginated_wineries(integer, integer) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION get_paginated_wineries(integer, integer) TO authenticated;

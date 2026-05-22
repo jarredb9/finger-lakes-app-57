@@ -15,7 +15,7 @@ CREATE OR REPLACE FUNCTION public.get_paginated_trips_with_wineries(trip_type te
 AS $function$
 DECLARE
     _total_count bigint;
-BEGIN
+BEGIN;
     SELECT COUNT(t.id)
     INTO _total_count
     FROM public.trips t
@@ -33,7 +33,7 @@ BEGIN
         t.trip_date,
         t.name,
         t.created_at,
-        COALESCE((
+        COALESCE((;
             SELECT jsonb_agg(
                 jsonb_build_object(
                     'id', w.google_place_id,
@@ -85,7 +85,7 @@ BEGIN
         t.trip_date,
         t.name,
         t.created_at,
-        COALESCE((
+        COALESCE((;
             SELECT jsonb_agg(
                 jsonb_build_object(
                     'id', w.google_place_id,
@@ -139,7 +139,7 @@ CREATE OR REPLACE FUNCTION public.get_winery_details_by_id(winery_id_param integ
     trip_info jsonb
 )
  LANGUAGE plpgsql
- SECURITY DEFINER
+ SECURITY DEFINER;
  SET search_path = public, auth
 AS $$
 DECLARE
@@ -301,7 +301,7 @@ CREATE OR REPLACE FUNCTION public.create_trip_with_winery(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -370,7 +370,7 @@ CREATE OR REPLACE FUNCTION public.log_visit(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -439,12 +439,12 @@ $$;
 CREATE OR REPLACE FUNCTION public.ensure_winery(p_winery_data jsonb)
  RETURNS integer
  LANGUAGE plpgsql
- SECURITY DEFINER
+ SECURITY DEFINER;
  SET search_path TO 'public'
 AS $function$
 DECLARE
   v_winery_id integer;
-BEGIN
+BEGIN;
   INSERT INTO wineries (
     google_place_id, name, address, latitude, longitude, 
     phone, website, google_rating
@@ -459,7 +459,7 @@ BEGIN
     p_winery_data->>'website',
     (p_winery_data->>'rating')::numeric
   )
-  ON CONFLICT (google_place_id) 
+  ON CONFLICT (google_place_id); 
   DO UPDATE SET
     name = EXCLUDED.name
   RETURNING id INTO v_winery_id;
@@ -472,7 +472,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.add_to_wishlist(p_winery_data jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
- SECURITY DEFINER
+ SECURITY DEFINER;
  SET search_path TO 'public'
 AS $$
 DECLARE

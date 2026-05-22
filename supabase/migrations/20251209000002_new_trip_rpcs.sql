@@ -47,8 +47,8 @@ BEGIN
 
   RETURN jsonb_build_object('trip_id', v_trip_id, 'winery_id', v_winery_id);
 END;
-$$
-GRANT EXECUTE ON FUNCTION create_trip_with_winery(character varying, date, jsonb, text, uuid[]) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION create_trip_with_winery(character varying, date, jsonb, text, uuid[]) TO authenticated;
 -- 2. remove_winery_from_trip
 CREATE OR REPLACE FUNCTION remove_winery_from_trip(
   p_trip_id integer,
@@ -76,5 +76,5 @@ BEGIN
 
   RETURN jsonb_build_object('success', true);
 END;
-$$
-GRANT EXECUTE ON FUNCTION remove_winery_from_trip(integer, integer) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION remove_winery_from_trip(integer, integer) TO authenticated;

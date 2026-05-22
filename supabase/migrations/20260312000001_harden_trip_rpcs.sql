@@ -4,7 +4,7 @@
 CREATE OR REPLACE FUNCTION public.is_trip_member(trip_id_to_check integer)
  RETURNS boolean
  LANGUAGE plpgsql
- SECURITY DEFINER
+ SECURITY DEFINER;
  SET search_path TO 'public', 'auth'
 AS $function$
 DECLARE
@@ -17,12 +17,12 @@ BEGIN
     END IF;
 
     -- Using explicit schema and aliases to prevent ambiguity
-    RETURN EXISTS (
+    RETURN EXISTS (;
         SELECT 1
         FROM public.trips t
         WHERE t.id = trip_id_to_check
           AND t.user_id = v_user_id
-    ) OR EXISTS (
+    ) OR EXISTS (;
         SELECT 1
         FROM public.trip_members tm
         WHERE tm.trip_id = trip_id_to_check
@@ -34,7 +34,7 @@ $function$;
 CREATE OR REPLACE FUNCTION public.get_trip_details(trip_id_param integer)
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 DECLARE

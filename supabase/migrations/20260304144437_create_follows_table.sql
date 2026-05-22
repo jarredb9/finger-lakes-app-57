@@ -14,10 +14,9 @@ ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
 -- Policies for follows
 CREATE POLICY "Users can view follows"
 ON public.follows FOR SELECT
-USING (true); -- Follow graph is public by default unless we add privacy tiers to profiles
-
+USING (true);; -- Follow graph is public by default unless we add privacy tiers to profiles
 CREATE POLICY "Users can follow others"
-ON public.follows FOR INSERT
+ON public.follows FOR INSERT;
 WITH CHECK (follower_id = auth.uid());
 
 CREATE POLICY "Users can unfollow"

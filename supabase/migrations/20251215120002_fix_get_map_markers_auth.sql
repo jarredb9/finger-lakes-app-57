@@ -29,7 +29,7 @@ BEGIN
     FROM
         wineries w;
 END;
-$$ LANGUAGE plpgsql
+$$ LANGUAGE plpgsql;
 -- Removed SECURITY DEFINER
 
-GRANT EXECUTE ON FUNCTION get_map_markers() TO authenticated
+GRANT EXECUTE ON FUNCTION get_map_markers() TO authenticated;

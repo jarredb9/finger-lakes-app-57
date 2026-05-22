@@ -17,16 +17,16 @@ ON public.visit_participants FOR SELECT
 USING (
     user_id = auth.uid()
     OR
-    EXISTS (
+    EXISTS (;
         SELECT 1 FROM public.visits
         WHERE id = visit_id AND user_id = auth.uid()
     )
 );
 
 CREATE POLICY "Visit owners can tag participants"
-ON public.visit_participants FOR INSERT
+ON public.visit_participants FOR INSERT;
 WITH CHECK (
-    EXISTS (
+    EXISTS (;
         SELECT 1 FROM public.visits
         WHERE id = visit_id AND user_id = auth.uid()
     )
@@ -34,13 +34,13 @@ WITH CHECK (
 
 CREATE POLICY "Participants can update their own status"
 ON public.visit_participants FOR UPDATE
-USING (user_id = auth.uid())
+USING (user_id = auth.uid());
 WITH CHECK (user_id = auth.uid());
 
 CREATE POLICY "Visit owners can remove participants"
 ON public.visit_participants FOR DELETE
 USING (
-    EXISTS (
+    EXISTS (;
         SELECT 1 FROM public.visits
         WHERE id = visit_id AND user_id = auth.uid()
     )

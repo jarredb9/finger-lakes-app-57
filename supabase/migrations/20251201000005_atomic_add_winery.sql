@@ -34,5 +34,5 @@ BEGIN
 
     RETURN true;
 END;
-$$ LANGUAGE plpgsql
-GRANT EXECUTE ON FUNCTION add_winery_to_trip(integer, integer, text) TO authenticated
+$$ LANGUAGE plpgsql;
+GRANT EXECUTE ON FUNCTION add_winery_to_trip(integer, integer, text) TO authenticated;

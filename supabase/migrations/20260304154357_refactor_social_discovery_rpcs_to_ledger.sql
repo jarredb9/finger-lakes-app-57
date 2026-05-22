@@ -5,7 +5,7 @@
 CREATE OR REPLACE FUNCTION public.get_friends_activity_for_winery(winery_id_param integer)
 RETURNS json
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 DECLARE
@@ -82,7 +82,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.get_friends_ratings_for_winery(winery_id_param integer)
 RETURNS TABLE(user_id uuid, name text, email text, rating integer, user_review text, photos text[])
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public, auth
 AS $$
 DECLARE

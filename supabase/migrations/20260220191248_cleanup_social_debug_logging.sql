@@ -5,7 +5,7 @@ DROP TABLE IF EXISTS public.feed_debug_logs;
 CREATE OR REPLACE FUNCTION send_friend_request(target_email text)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -72,7 +72,7 @@ RETURNS TABLE (
   visit_photos text[]
 )
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE

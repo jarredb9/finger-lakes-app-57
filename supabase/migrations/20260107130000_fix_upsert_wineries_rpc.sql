@@ -1,14 +1,14 @@
 CREATE OR REPLACE FUNCTION public.upsert_wineries_from_search(wineries_data jsonb[])
  RETURNS void
  LANGUAGE plpgsql
- SECURITY DEFINER
+ SECURITY DEFINER;
  SET search_path TO 'public'
 AS $function$
 DECLARE
   winery_record jsonb;
 BEGIN
   FOREACH winery_record IN ARRAY wineries_data
-  LOOP
+  LOOP;
     INSERT INTO wineries (
       google_place_id,
       name,
@@ -25,7 +25,7 @@ BEGIN
       (winery_record->>'longitude')::double precision,
       (winery_record->>'google_rating')::double precision
     )
-    ON CONFLICT (google_place_id) 
+    ON CONFLICT (google_place_id); 
     DO UPDATE SET
         google_rating = COALESCE(EXCLUDED.google_rating, wineries.google_rating),
         -- Also update basic info in case it changed/improved
@@ -35,4 +35,4 @@ BEGIN
         longitude = COALESCE(EXCLUDED.longitude, wineries.longitude);
   END LOOP;
 END;
-$function$
+$function$;

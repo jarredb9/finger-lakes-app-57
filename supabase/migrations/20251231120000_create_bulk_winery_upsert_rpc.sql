@@ -35,5 +35,5 @@ BEGIN
     ON CONFLICT (google_place_id) DO NOTHING;
   END LOOP;
 END;
-$$
-GRANT EXECUTE ON FUNCTION upsert_wineries_from_search(jsonb[]) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION upsert_wineries_from_search(jsonb[]) TO authenticated;

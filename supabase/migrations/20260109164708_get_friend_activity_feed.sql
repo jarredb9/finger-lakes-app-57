@@ -12,7 +12,7 @@ RETURNS TABLE (
   visit_photos text[]
 )
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 BEGIN
@@ -45,4 +45,4 @@ BEGIN
   ORDER BY v.created_at DESC
   LIMIT limit_val;
 END;
-$$
+$$;

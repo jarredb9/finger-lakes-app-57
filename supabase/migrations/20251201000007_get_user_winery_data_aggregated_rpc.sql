@@ -62,5 +62,5 @@ BEGIN
         OR EXISTS(SELECT 1 FROM trip_wineries tw JOIN trips t ON tw.trip_id = t.id
                   WHERE tw.winery_id = w.id AND (t.user_id = user_uuid OR user_uuid = ANY(t.members)) AND t.trip_date >= CURRENT_DATE);
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER
-GRANT EXECUTE ON FUNCTION get_user_winery_data_aggregated() TO authenticated
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+GRANT EXECUTE ON FUNCTION get_user_winery_data_aggregated() TO authenticated;

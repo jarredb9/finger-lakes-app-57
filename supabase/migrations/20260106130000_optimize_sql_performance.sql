@@ -3,7 +3,7 @@
 
 -- 1. Optimize public.profiles "Users can view their own and their friends' profiles" policy
 ALTER POLICY "Users can view their own and their friends' profiles" ON public.profiles
-USING ((SELECT auth.uid()) = id OR id IN (SELECT friend_id FROM public.get_friends_ids()))
+USING ((SELECT auth.uid()) = id OR id IN (SELECT friend_id FROM public.get_friends_ids()));
 -- 2. Optimize is_trip_member function
 CREATE OR REPLACE FUNCTION public.is_trip_member(trip_id_to_check int)
 RETURNS boolean AS $$
@@ -15,7 +15,7 @@ BEGIN
           AND ((SELECT auth.uid()) = user_id OR (SELECT auth.uid()) = ANY(members))
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 -- 3. Optimize get_map_markers function signature (default value)
 CREATE OR REPLACE FUNCTION public.get_map_markers(user_id_param uuid DEFAULT auth.uid())
 RETURNS TABLE (
@@ -44,7 +44,7 @@ BEGIN
     FROM
         public.wineries w;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 -- 4. Cleanup redundant indexes (covered by unique constraints on user_id + winery_id)
-DROP INDEX IF EXISTS public.idx_favorites_user_id
-DROP INDEX IF EXISTS public.idx_wishlist_user_id
+DROP INDEX IF EXISTS public.idx_favorites_user_id;
+DROP INDEX IF EXISTS public.idx_wishlist_user_id;

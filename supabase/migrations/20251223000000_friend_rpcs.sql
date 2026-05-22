@@ -61,7 +61,7 @@ BEGIN
   VALUES (current_user_id, target_user_id, 'pending');
 
 END;
-$$
+$$;
 -- respond_to_friend_request
 CREATE OR REPLACE FUNCTION respond_to_friend_request(requester_id uuid, accept boolean)
 RETURNS void
@@ -91,4 +91,4 @@ BEGIN
     AND status = 'pending';
 
 END;
-$$
+$$;

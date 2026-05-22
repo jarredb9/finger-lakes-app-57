@@ -1,7 +1,7 @@
 -- fix_get_paginated_visits_return_fields.sql
 -- Update get_paginated_visits_with_winery_and_friends to return google_place_id
 
-DROP FUNCTION IF EXISTS get_paginated_visits_with_winery_and_friends(int, int)
+DROP FUNCTION IF EXISTS get_paginated_visits_with_winery_and_friends(int, int);
 CREATE OR REPLACE FUNCTION get_paginated_visits_with_winery_and_friends(
     page_number int,
     page_size int
@@ -69,5 +69,5 @@ BEGIN
     LIMIT page_size
     OFFSET (page_number - 1) * page_size;
 END;
-$$ LANGUAGE plpgsql
-GRANT EXECUTE ON FUNCTION get_paginated_visits_with_winery_and_friends(int, int) TO authenticated
+$$ LANGUAGE plpgsql;
+GRANT EXECUTE ON FUNCTION get_paginated_visits_with_winery_and_friends(int, int) TO authenticated;

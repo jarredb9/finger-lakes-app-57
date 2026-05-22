@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION add_trip_member_by_email(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -49,8 +49,8 @@ BEGIN
 
     RETURN jsonb_build_object('success', true, 'user_id', v_target_user_id);
 END;
-$$
-GRANT EXECUTE ON FUNCTION add_trip_member_by_email(integer, text) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION add_trip_member_by_email(integer, text) TO authenticated;
 -- 2. update_trip_winery_notes
 CREATE OR REPLACE FUNCTION update_trip_winery_notes(
     p_trip_id integer,
@@ -59,7 +59,7 @@ CREATE OR REPLACE FUNCTION update_trip_winery_notes(
 )
 RETURNS jsonb
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY DEFINER;
 SET search_path = public
 AS $$
 DECLARE
@@ -83,5 +83,5 @@ BEGIN
 
     RETURN jsonb_build_object('success', true);
 END;
-$$
-GRANT EXECUTE ON FUNCTION update_trip_winery_notes(integer, integer, text) TO authenticated
+$$;
+GRANT EXECUTE ON FUNCTION update_trip_winery_notes(integer, integer, text) TO authenticated;
