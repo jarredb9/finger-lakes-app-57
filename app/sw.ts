@@ -29,8 +29,15 @@ const isSupabaseUrl = (url: URL) => {
     typeof self !== 'undefined' && self.location ? self.location.origin : undefined
   );
 };
-
-// ...
+// Early fetch intercept to allow Playwright route interception to work under WebKit
+self.addEventListener('fetch', (event) => {
+  const skipHeader = event.request?.headers?.get?.('x-skip-sw-interception') === 'true';
+  const isE2E = process.env.NEXT_PUBLIC_IS_E2E === 'true' || skipHeader;
+  if (isE2E && skipHeader) {
+    event.stopImmediatePropagation();
+    // Do not call event.respondWith, letting browser context handle the network request
+  }
+});
 
 self.addEventListener('activate', (event) => {
   // Clear old auth caches on version change to prevent local/live poisoning

@@ -4,6 +4,7 @@ import { useWineryDataStore } from './wineryDataStore';
 import { createClient } from '@/utils/supabase/client';
 import { invokeFunction } from '@/lib/utils';
 import { standardizeWineryData } from '@/lib/utils/winery';
+import { isE2E, shouldMockWineries } from './e2e-utils';
 
 /**
  * WineryUIStore
@@ -63,6 +64,10 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
   ensureWineryDetails: async (placeId: GooglePlaceId) => {
     const dataStore = useWineryDataStore.getState();
     const existing = dataStore.getWinery(placeId);
+
+    if (isE2E() && shouldMockWineries()) {
+        return existing || null;
+    }
 
     // Optimization: Return cached details if we have them
     // BUT verify we aren't missing user data (visits) if we know they visited

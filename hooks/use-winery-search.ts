@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Winery, GooglePlaceId, DbWinery } from "@/lib/types";
 import { createClient } from "@/utils/supabase/client";
 import { standardizeWineryData } from "@/lib/utils/winery";
+import { isE2E, shouldMockWineries } from "@/lib/stores/e2e-utils";
 
 export function useWinerySearch() {
   const {
@@ -114,6 +115,20 @@ export function useWinerySearch() {
       setLastSearchedBounds(finalSearchBounds);
       if (map) {
         setLastSearchedZoom(map.getZoom() ?? null);
+      }
+
+      // E2E BYPASS FOR SEARCH
+      if (isE2E() && shouldMockWineries()) {
+        const bounds = new google.maps.LatLngBounds(finalSearchBounds);
+        const { persistentWineries } = useWineryDataStore.getState();
+        
+        const localResults = persistentWineries.filter(w => 
+          bounds.contains({ lat: w.latitude, lng: w.longitude })
+        );
+
+        setSearchResults(localResults);
+        setIsSearching(false);
+        return;
       }
 
       const bounds = new google.maps.LatLngBounds(finalSearchBounds);

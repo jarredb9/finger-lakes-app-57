@@ -223,12 +223,12 @@ export class MockMapsManager {
         }
     }).catch(() => {});
 
-    await this.page.route(/.*rpc\/get_map_markers/, async (route) => {
+    await this.page.context().route(/.*rpc\/get_map_markers/, async (route) => {
       console.log(`[DIAGNOSTIC] Intercepting get_map_markers with 500 error`);
       await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
     });
 
-    await this.page.route(/.*rpc\/get_wineries_in_bounds/, async (route) => {
+    await this.page.context().route(/.*rpc\/get_wineries_in_bounds/, async (route) => {
       console.log(`[DIAGNOSTIC] Intercepting get_wineries_in_bounds with 500 error`);
       await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
     });
@@ -257,7 +257,7 @@ export class MockMapsManager {
     const supabaseHost = supabaseUrlObj.host.replace(/\./g, '\\.');
 
     // 1. Supabase Profiles Handler
-    await this.page.route(new RegExp(`${supabaseHost}/rest/v1/profiles`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/rest/v1/profiles`), async (route) => {
         const req = route.request();
         if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
         if (this.realSocialEnabled) return route.fallback();
@@ -274,7 +274,7 @@ export class MockMapsManager {
     });
 
     // 2. Supabase RPC Handler
-    await this.page.route(new RegExp(`${supabaseHost}/.*rpc/`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/.*rpc/`), async (route) => {
         const req = route.request();
         const url = req.url();
         const method = req.method();
@@ -583,12 +583,12 @@ export class MockMapsManager {
     });
 
     // 3. Supabase Auth Handler
-    await this.page.route(new RegExp(`${supabaseHost}/auth/v1/`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/auth/v1/`), async (route) => {
         return route.fallback();
     });
 
     // 4. Supabase Trips REST Handler
-    await this.page.route(new RegExp(`${supabaseHost}/rest/v1/trips`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/rest/v1/trips`), async (route) => {
         const req = route.request();
         if (this.realTripsEnabled) return route.fallback();
         
@@ -630,18 +630,18 @@ export class MockMapsManager {
     });
 
     // 5. Supabase Favorites REST Handler
-    await this.page.route(new RegExp(`${supabaseHost}/rest/v1/favorites`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/rest/v1/favorites`), async (route) => {
         if (this.realFavoritesEnabled) return route.fallback();
         return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([]) });
     });
 
     // 6. Supabase Functions Handler
-    await this.page.route(new RegExp(`${supabaseHost}/functions/v1/`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/functions/v1/`), async (route) => {
         return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, data: {} }) });
     });
 
     // 7. Google Maps JS Handler
-    await this.page.route(/(maps\.googleapis\.com|google\.com).*js(\?|&)key=/, async (route) => {
+    await this.page.context().route(/(maps\.googleapis\.com|google\.com).*js(\?|&)key=/, async (route) => {
         const req = route.request();
         console.log(`[DIAGNOSTIC] Intercepting Google Maps JS Loader: ${req.url()}`);
         if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
@@ -719,7 +719,7 @@ export class MockMapsManager {
     });
 
     // 8. Google Places Search Handler - Fixed to catch gRPC-web ($rpc) and broadened
-    await this.page.route(/(places\.googleapis\.com\/.*SearchText|places\.googleapis\.com\/v1\/places:searchText)/i, async (route) => {
+    await this.page.context().route(/(places\.googleapis\.com\/.*SearchText|places\.googleapis\.com\/v1\/places:searchText)/i, async (route) => {
         const req = route.request();
         console.log(`[DIAGNOSTIC] Intercepting SearchText: ${req.url()}`);
         if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
@@ -741,12 +741,12 @@ export class MockMapsManager {
     });
 
     // 9. Google Maps Tiles Handler
-    await this.page.route(/google\.com\/maps\/vt\/tile|google\.com\/vt\/tile/, async (route) => {
+    await this.page.context().route(/google\.com\/maps\/vt\/tile|google\.com\/vt\/tile/, async (route) => {
         return route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANghjYAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') });
     });
 
     // 10. Google Fonts Handler
-    await this.page.route(/fonts\.(googleapis|gstatic)\.com/, async (route) => {
+    await this.page.context().route(/fonts\.(googleapis|gstatic)\.com/, async (route) => {
         const type = route.request().resourceType();
         if (type === 'font' || type === 'stylesheet') return route.fulfill({ status: 200, contentType: type === 'font' ? 'font/woff2' : 'text/css', body: '' });
         return route.fallback();
@@ -880,9 +880,9 @@ export class MockMapsManager {
 
             if (wineryStore && wineryStore.getState) {
                 const state = wineryStore.getState();
-                // Only inject if store is truly empty AND we haven't already injected in this context
+                // Only inject if store is truly empty
                 // @ts-ignore
-                if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0 && !window._E2E_INJECTED) {
+                if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0) {
                     // Use the official standardizer exposed on window
                     // @ts-ignore
                     const standardizer = window.standardizeWineryData || ((m) => ({
@@ -955,13 +955,13 @@ export class MockMapsManager {
   // }
 
   async failTrips() {
-    await this.page.route(/\/rest\/v1\/trips/, async (route) => {
+    await this.page.context().route(/\/rest\/v1\/trips/, async (route) => {
       await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Database Connection Failed' }) });
     });
   }
 
   async failLogin() {
-    await this.page.route('**/auth/v1/token**', async (route) => {
+    await this.page.context().route('**/auth/v1/token**', async (route) => {
       await route.fulfill({ status: 400, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'invalid_grant', error_description: 'Invalid login credentials' }) });
     });
   }

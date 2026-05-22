@@ -5,7 +5,7 @@
 
 export const isE2E = () => typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true';
 
-export const getE2EHeaders = () => isE2E() ? { 'x-skip-sw-interception': 'true' } : {};
+export const getE2EHeaders = (): Record<string, string> => isE2E() ? { 'x-skip-sw-interception': 'true' } : {};
 
 export const shouldSkipRealSync = () => {
     if (!isE2E()) return false;
@@ -20,3 +20,18 @@ export const shouldSkipRealSync = () => {
     
     return true;
 };
+
+export const shouldMockWineries = () => {
+    if (!isE2E()) return false;
+    
+    const skipInjection = typeof window !== 'undefined' && (
+        (window as any)._E2E_SKIP_WINERY_INJECTION ||
+        localStorage.getItem('_E2E_SKIP_WINERY_INJECTION') === 'true'
+    );
+    if (skipInjection) {
+        return false;
+    }
+    
+    return true;
+};
+
