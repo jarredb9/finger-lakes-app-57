@@ -24,7 +24,7 @@ USING (
 );
 
 CREATE POLICY "Visit owners can tag participants"
-ON public.visit_participants FOR INSERT;
+ON public.visit_participants FOR INSERT
 WITH CHECK (
     EXISTS (;
         SELECT 1 FROM public.visits
@@ -34,7 +34,7 @@ WITH CHECK (
 
 CREATE POLICY "Participants can update their own status"
 ON public.visit_participants FOR UPDATE
-USING (user_id = auth.uid());
+USING (user_id = auth.uid())
 WITH CHECK (user_id = auth.uid());
 
 CREATE POLICY "Visit owners can remove participants"

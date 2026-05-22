@@ -29,7 +29,7 @@ USING (
 );
 
 CREATE POLICY "Trip owners can add members"
-ON public.trip_members FOR INSERT;
+ON public.trip_members FOR INSERT
 WITH CHECK (
     EXISTS (;
         SELECT 1 FROM public.trips

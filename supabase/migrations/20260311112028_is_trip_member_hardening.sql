@@ -21,7 +21,7 @@ USING (public.is_trip_member(trip_id));
 
 DROP POLICY IF EXISTS "Members can add wineries to a trip" ON public.trip_wineries;
 CREATE POLICY "Members can add wineries to a trip" 
-ON public.trip_wineries FOR INSERT; 
+ON public.trip_wineries FOR INSERT 
 WITH CHECK (public.is_trip_member(trip_id));
 
 DROP POLICY IF EXISTS "Members can update wineries on a trip" ON public.trip_wineries;

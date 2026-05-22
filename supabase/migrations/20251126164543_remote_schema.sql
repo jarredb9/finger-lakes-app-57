@@ -614,7 +614,7 @@ create policy "User can upload a photo to a visit"
   on "storage"."objects"
   as permissive
   for insert
-  to authenticated;
+  to authenticated
 with check (((bucket_id = 'visit-photos'::text) AND ((storage.foldername(name))[1] = (auth.uid())::text)));
 create policy "Users can view their own and friends photos"
   on "storage"."objects"

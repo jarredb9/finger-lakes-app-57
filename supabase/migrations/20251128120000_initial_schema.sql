@@ -149,7 +149,7 @@ CREATE POLICY "Users can insert their own wishlist items" ON public.wishlist FOR
 
 CREATE POLICY "User can upload a photo to a visit"
 ON storage.objects FOR INSERT
-TO authenticated;
+TO authenticated
 WITH CHECK (
   bucket_id = 'visit-photos' AND
   (storage.foldername(name))[1] = auth.uid()::text
