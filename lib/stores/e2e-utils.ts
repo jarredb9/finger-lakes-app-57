@@ -5,8 +5,6 @@
 
 export const isE2E = () => typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true';
 
-export const getE2EHeaders = (): Record<string, string> => isE2E() ? { 'x-skip-sw-interception': 'true' } : {};
-
 export const shouldSkipRealSync = () => {
     if (!isE2E()) return false;
     

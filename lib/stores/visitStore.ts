@@ -10,7 +10,6 @@ import { useSyncStore } from './syncStore';
 import { stabilizePhotos, Base64Photo, isBase64Photo, base64ToFile } from '@/lib/utils/sync-helpers';
 import { fileToBase64 } from '@/lib/utils/binary';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
-import { getE2EHeaders } from './e2e-utils';
 import { idbStorage } from './idb-persist-storage';
 
 import { RealtimeChannel } from '@supabase/supabase-js';
@@ -246,7 +245,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
             p_winery_data: rpcWineryData,
             p_visit_data: rpcVisitData,
-          }, { headers: getE2EHeaders() } as any);
+          });
 
           if (rpcError) {
               console.error('Failed to save visit:', rpcError);
@@ -363,7 +362,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 photos: finalPhotoPaths, 
                 is_private: visitData.is_private 
               }
-          }, { headers: getE2EHeaders() } as any);
+          });
 
           if (error) {
               console.error('Failed to update visit:', error);

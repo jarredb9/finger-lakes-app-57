@@ -118,7 +118,7 @@ describe('VisitStore Offline Logic', () => {
       p_visit_data: expect.objectContaining({
         is_private: true
       })
-    }), expect.any(Object));
+    }));
   });
 
   it('should handle offline errors by enqueuing', async () => {

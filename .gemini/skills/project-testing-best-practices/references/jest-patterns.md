@@ -82,16 +82,15 @@ const mockRpc = jest.fn((name, params) => {
 });
 ```
 
-### 2. RPC Signature Resilience
-Store methods now frequently append a 3rd argument for E2E headers (`{ headers: getE2EHeaders() }`).
-- **Rule:** Tests using `toHaveBeenCalledWith` will fail if they only specify two arguments.
-- **Standard:** Use `expect.any(Object)` for the 3rd argument to ensure tests remain stable even if header logic changes.
+### 2. RPC Signature Resilience (Global Standard)
+Manual header injection via the 3rd argument (`{ headers: getE2EHeaders() }`) is deprecated. The Supabase client now automatically handles E2E headers globally via `utils/supabase/client.ts`.
+
+- **Standard:** Tests using `toHaveBeenCalledWith` should now only specify two arguments (method name and params).
 
 ```typescript
 expect(mockRpc).toHaveBeenCalledWith(
   'toggle_favorite_privacy', 
-  { p_winery_id: 101 }, 
-  expect.any(Object)
+  { p_winery_id: 101 }
 );
 ```
 
