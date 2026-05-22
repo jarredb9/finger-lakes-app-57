@@ -6,7 +6,6 @@ import { useVisitStore } from '@/lib/stores/visitStore';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
 import { isNetworkError } from '../stores/sync-utils';
-import { getE2EHeaders } from '@/lib/stores/e2e-utils';
 
 interface LogVisitPayload {
   wineryId: string;
@@ -142,7 +141,7 @@ export const SyncService = {
                   
                   const fileName = `${Date.now()}-${file.name}`;
                   const filePath = `${user.id}/${folderUuid}/${fileName}`;
-                  const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file, { headers: getE2EHeaders() });
+                  const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file);
                   if (uploadError) throw uploadError;
                   return filePath;
                 });
@@ -165,7 +164,7 @@ export const SyncService = {
                   photos: uploadedPaths,
                   is_private: p.is_private || false,
                 },
-              }, { headers: getE2EHeaders() } as any);
+              });
               error = visitError;
               break;
             }

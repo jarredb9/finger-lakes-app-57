@@ -434,7 +434,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         }
 
         try {
-            const { error } = await supabase.rpc('delete_visit', { p_visit_id: parseInt(visitId) }, { headers: getE2EHeaders() } as any);
+            const { error } = await supabase.rpc('delete_visit', { p_visit_id: parseInt(visitId) });
             if (error) throw error;
             
             confirmOptimisticUpdate();

@@ -9,7 +9,6 @@ import { WineryService } from '@/lib/services/wineryService';
 import { createClient } from '@/utils/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { formatDateLocal, getTodayLocal } from '@/lib/utils';
-import { getE2EHeaders } from './e2e-utils';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
 import { idbStorage } from './idb-persist-storage';
 
@@ -666,7 +665,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
           const { error } = await supabase.rpc('remove_winery_from_trip', { 
             p_trip_id: tripIdAsNumber, 
             p_winery_id: wineryId 
-          }, { headers: getE2EHeaders() } as any);
+          });
 
           if (error) {
             if (await handleSyncError(error, 'update_trip', user?.id, syncPayload)) {
@@ -891,7 +890,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                         p_trip_date: dateString,
                         p_winery_data: rpcWineryData,
                         p_notes: addTripNotes || null
-                    }, { headers: getE2EHeaders() } as any);
+                    });
                     if (error) throw error;
                     return { tripId: data.trip_id, wineryId: data.winery_id, isNew: true };
                 } else {
@@ -900,7 +899,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                         p_trip_id: numericTripId,
                         p_winery_data: rpcWineryData,
                         p_notes: addTripNotes || null
-                    }, { headers: getE2EHeaders() } as any);
+                    });
                     if (error) throw error;
                     return { tripId: numericTripId, wineryId: (data as any)?.winery_id, isNew: false };
                 }
@@ -1065,7 +1064,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                  const { error } = await supabase.rpc('remove_winery_from_trip', {
                     p_trip_id: trip.id,
                     p_winery_id: removeId
-                 }, { headers: getE2EHeaders() } as any);
+                 });
                  if (error) {
                     if (await handleSyncError(error, 'update_trip', user?.id, syncPayload)) {
                         return;
@@ -1078,7 +1077,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                      p_trip_id: trip.id,
                      p_winery_data: rpcWineryData,
                      p_notes: null
-                 }, { headers: getE2EHeaders() } as any);
+                 });
 
                  if (error) {
                     if (await handleSyncError(error, 'update_trip', user?.id, syncPayload)) {
