@@ -46,6 +46,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 
 ## 5. Workflows & Verification
 - **Protocol:** Follow the **Conductor Lifecycle**, **Context Efficiency Mandate**, and **Pre-Flight Protocol Verification** defined in `GEMINI.md`.
+- **Supabase Squash:** If remote migrations are missing locally, refer to [SUPABASE_SQUASH.md](./docs/architecture/SUPABASE_SQUASH.md).
 - **Pre-Flight Mandate:** You MUST explicitly acknowledge the delegation requirement for batch E2E tests and investigations in your first turn.
 - **Testing:** Favor empirical evidence (running tests) over assumptions.
 - **Atomic Verification:** A task is NOT complete until its E2E test passes. **PRIORITIZE** bypassing navigation via `page.evaluate` store state injection to keep tests under 15s.
