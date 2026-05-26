@@ -1925,55 +1925,6 @@ $$;
 ALTER FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_data" "jsonb") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_date" "date", "p_user_review" "text", "p_rating" integer, "p_photos" "text"[] DEFAULT ARRAY[]::"text"[], "p_is_private" boolean DEFAULT false) RETURNS "jsonb"
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'auth'
-    AS $$
-DECLARE
-    v_winery_id integer;
-    v_visit_id integer;
-    v_user_id uuid := auth.uid();
-BEGIN
-    IF v_user_id IS NULL THEN
-        RAISE EXCEPTION 'Not authenticated';
-    END IF;
-
-    -- 1. Ensure Winery exists
-    INSERT INTO public.wineries (
-        google_place_id, name, address, latitude, longitude, 
-        phone, website, google_rating
-    )
-    VALUES (
-        p_winery_data->>'id',
-        p_winery_data->>'name',
-        p_winery_data->>'address',
-        (p_winery_data->>'lat')::numeric,
-        (p_winery_data->>'lng')::numeric,
-        p_winery_data->>'phone',
-        p_winery_data->>'website',
-        (p_winery_data->>'rating')::numeric
-    )
-    ON CONFLICT (google_place_id) 
-    DO UPDATE SET name = EXCLUDED.name
-    RETURNING id INTO v_winery_id;
-
-    -- 2. Insert Visit
-    INSERT INTO public.visits (
-        user_id, winery_id, visit_date, user_review, rating, photos, is_private
-    )
-    VALUES (
-        v_user_id, v_winery_id, p_visit_date, p_user_review, p_rating, p_photos, p_is_private
-    )
-    RETURNING id INTO v_visit_id;
-
-    RETURN jsonb_build_object('visit_id', v_visit_id, 'winery_id', v_winery_id);
-END;
-$$;
-
-
-ALTER FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_date" "date", "p_user_review" "text", "p_rating" integer, "p_photos" "text"[], "p_is_private" boolean) OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."remove_friend"("target_friend_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -6006,12 +5957,6 @@ GRANT ALL ON FUNCTION "public"."is_visible_to_viewer"("p_target_user_id" "uuid",
 GRANT ALL ON FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_data" "jsonb") TO "anon";
 GRANT ALL ON FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_data" "jsonb") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_data" "jsonb") TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_date" "date", "p_user_review" "text", "p_rating" integer, "p_photos" "text"[], "p_is_private" boolean) TO "anon";
-GRANT ALL ON FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_date" "date", "p_user_review" "text", "p_rating" integer, "p_photos" "text"[], "p_is_private" boolean) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_date" "date", "p_user_review" "text", "p_rating" integer, "p_photos" "text"[], "p_is_private" boolean) TO "service_role";
 
 
 
