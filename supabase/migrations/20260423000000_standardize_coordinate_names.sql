@@ -364,6 +364,7 @@ END;
 $$;
 
 -- 6. Update log_visit
+DROP FUNCTION IF EXISTS public.log_visit(jsonb, date, text, integer, text[], boolean);
 CREATE OR REPLACE FUNCTION public.log_visit(
   p_winery_data jsonb,
   p_visit_data jsonb
