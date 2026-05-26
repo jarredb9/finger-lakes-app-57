@@ -1,1 +1,0 @@
--- Redundant local base schema, replaced by 20251126164543_remote_schema.sql
