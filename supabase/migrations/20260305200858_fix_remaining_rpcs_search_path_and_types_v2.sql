@@ -145,7 +145,7 @@ SET search_path = public, auth
 AS $$
 DECLARE
     v_winery_id integer;
-    v_visit_id uuid;
+    v_visit_id integer;
     v_user_id uuid := auth.uid();
 BEGIN
     IF v_user_id IS NULL THEN

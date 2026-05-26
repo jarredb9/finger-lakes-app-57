@@ -440,12 +440,12 @@ CREATE OR REPLACE FUNCTION public.ensure_winery(p_winery_data jsonb)
  RETURNS integer
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public'
+ SET search_path = public, auth
 AS $function$
 DECLARE
   v_winery_id integer;
 BEGIN
-  INSERT INTO wineries (
+  INSERT INTO public.wineries (
     google_place_id, name, address, latitude, longitude, 
     phone, website, google_rating
   )

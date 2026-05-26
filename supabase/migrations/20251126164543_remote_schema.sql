@@ -12,10 +12,12 @@ COMMENT ON SCHEMA "public" IS 'standard public schema';
 CREATE EXTENSION IF NOT EXISTS "pg_graphql" WITH SCHEMA "graphql";
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements" WITH SCHEMA "extensions";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
+CREATE EXTENSION IF NOT EXISTS "postgis" WITH SCHEMA "extensions";
 CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 CREATE OR REPLACE FUNCTION "public"."get_all_wineries_with_user_data"() RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean)
     LANGUAGE "plpgsql"
+    SET search_path = public, auth
     AS $$
 BEGIN
     RETURN QUERY
@@ -26,22 +28,23 @@ BEGIN
         w.address,
         w.latitude,
         w.longitude,
-        w.phone,
-        w.website,
+        w.phone::character varying as phone,
+        w.website::character varying as website,
         w.google_rating,
         bool_or(f.user_id IS NOT NULL) as is_favorite,
         bool_or(wl.user_id IS NOT NULL) as on_wishlist,
         bool_or(v.user_id IS NOT NULL) as user_visited
-    FROM wineries w
-    LEFT JOIN favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
-    LEFT JOIN wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
-    LEFT JOIN visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
+    FROM public.wineries w
+    LEFT JOIN public.favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
+    LEFT JOIN public.wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
+    LEFT JOIN public.visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
     GROUP BY w.id;
 END;
 $$;
 ALTER FUNCTION "public"."get_all_wineries_with_user_data"() OWNER TO "postgres";
 CREATE OR REPLACE FUNCTION "public"."get_friends_activity_for_winery"("winery_id_param" integer) RETURNS json
     LANGUAGE "plpgsql"
+    SET search_path = public, auth
     AS $$
 DECLARE
     friends_list UUID[];
@@ -55,22 +58,22 @@ BEGIN
                 WHEN f.user1_id = auth.uid() THEN f.user2_id
                 ELSE f.user1_id
             END
-        FROM friends f
+        FROM public.friends f
         WHERE (f.user1_id = auth.uid() OR f.user2_id = auth.uid()) AND f.status = 'accepted'
     ) INTO friends_list;
 
     -- Get friends who favorited the winery
     SELECT COALESCE(json_agg(json_build_object('id', p.id, 'name', p.name, 'email', p.email)), '[]')
     INTO favorited_by_list
-    FROM profiles p
-    JOIN favorites f ON p.id = f.user_id
+    FROM public.profiles p
+    JOIN public.favorites f ON p.id = f.user_id
     WHERE f.winery_id = winery_id_param AND p.id = ANY(friends_list);
 
     -- Get friends who have the winery on their wishlist
     SELECT COALESCE(json_agg(json_build_object('id', p.id, 'name', p.name, 'email', p.email)), '[]')
     INTO wishlisted_by_list
-    FROM profiles p
-    JOIN wishlist w ON p.id = w.user_id
+    FROM public.profiles p
+    JOIN public.wishlist w ON p.id = w.user_id
     WHERE w.winery_id = winery_id_param AND p.id = ANY(friends_list);
 
     -- Return the result as JSON
@@ -83,6 +86,7 @@ $$;
 ALTER FUNCTION "public"."get_friends_activity_for_winery"("winery_id_param" integer) OWNER TO "postgres";
 CREATE OR REPLACE FUNCTION "public"."get_friends_ids"() RETURNS TABLE("friend_id" "uuid")
     LANGUAGE "plpgsql"
+    SET search_path = public, auth
     AS $$
 BEGIN
     RETURN QUERY
@@ -100,6 +104,7 @@ $$;
 ALTER FUNCTION "public"."get_friends_ids"() OWNER TO "postgres";
 CREATE OR REPLACE FUNCTION "public"."get_friends_ratings_for_winery"("winery_id_param" integer) RETURNS TABLE("user_id" "uuid", "name" "text", "email" "text", "rating" integer, "user_review" "text", "photos" "text"[])
     LANGUAGE "plpgsql"
+    SET search_path = public, auth
     AS $$
 BEGIN
     RETURN QUERY
@@ -111,24 +116,25 @@ BEGIN
         v.user_review,
         v.photos
     FROM
-        visits v
+        public.visits v
     JOIN
-        profiles p ON v.user_id = p.id
+        public.profiles p ON v.user_id = p.id
     WHERE
         v.winery_id = winery_id_param
-        AND v.user_id IN (SELECT friend_id FROM get_friends_ids())
+        AND v.user_id IN (SELECT friend_id FROM public.get_friends_ids())
         AND (v.rating IS NOT NULL OR v.user_review IS NOT NULL);
 END;
 $$;
 ALTER FUNCTION "public"."get_friends_ratings_for_winery"("winery_id_param" integer) OWNER TO "postgres";
 CREATE OR REPLACE FUNCTION "public"."get_wineries_for_trip_planner"("trip_date_param" "date") RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "trip_id" integer, "trip_name" character varying, "trip_date" "date", "visit_order" integer, "notes" "text")
     LANGUAGE "plpgsql"
+    SET search_path = public, auth
     AS $$
 BEGIN
     RETURN QUERY
     WITH user_trips AS (
         SELECT t.id, t.name, t.trip_date
-        FROM trips t
+        FROM public.trips t
         WHERE t.user_id = auth.uid() AND t.trip_date = trip_date_param
     ),
     wineries_in_trips AS (
@@ -139,7 +145,7 @@ BEGIN
             ut.trip_date,
             tw.visit_order,
             tw.notes
-        FROM trip_wineries tw
+        FROM public.trip_wineries tw
         JOIN user_trips ut ON tw.trip_id = ut.id
     )
     SELECT
@@ -149,8 +155,8 @@ BEGIN
         w.address,
         w.latitude,
         w.longitude,
-        w.phone,
-        w.website,
+        w.phone::character varying as phone,
+        w.website::character varying as website,
         w.google_rating,
         bool_or(f.user_id IS NOT NULL) as is_favorite,
         bool_or(wl.user_id IS NOT NULL) as on_wishlist,
@@ -160,17 +166,18 @@ BEGIN
         wit.trip_date,
         wit.visit_order,
         wit.notes
-    FROM wineries w
+    FROM public.wineries w
     JOIN wineries_in_trips wit ON w.id = wit.winery_id
-    LEFT JOIN favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
-    LEFT JOIN wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
-    LEFT JOIN visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
+    LEFT JOIN public.favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
+    LEFT JOIN public.wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
+    LEFT JOIN public.visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
     GROUP BY w.id, wit.trip_id, wit.trip_name, wit.trip_date, wit.visit_order, wit.notes;
 END;
 $$;
 ALTER FUNCTION "public"."get_wineries_for_trip_planner"("trip_date_param" "date") OWNER TO "postgres";
 CREATE OR REPLACE FUNCTION "public"."get_winery_details"("winery_id_param" integer) RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "visits" "jsonb")
     LANGUAGE "plpgsql"
+    SET search_path = public, auth
     AS $$
 DECLARE
     v_visits jsonb;
@@ -179,7 +186,7 @@ BEGIN
     INTO v_visits
     FROM (
         SELECT v.id, v.visit_date, v.user_review, v.rating, v.photos
-        FROM visits v
+        FROM public.visits v
         WHERE v.winery_id = winery_id_param AND v.user_id = auth.uid()
         ORDER BY v.visit_date DESC
     ) AS v_agg;
@@ -192,22 +199,23 @@ BEGIN
         w.address,
         w.latitude,
         w.longitude,
-        w.phone,
-        w.website,
+        w.phone::character varying as phone,
+        w.website::character varying as website,
         w.google_rating,
         f.user_id IS NOT NULL AS is_favorite,
         wl.user_id IS NOT NULL AS on_wishlist,
         v_visits IS NOT NULL AND jsonb_array_length(v_visits) > 0 AS user_visited,
         v_visits AS visits
-    FROM wineries w
-    LEFT JOIN favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
-    LEFT JOIN wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
+    FROM public.wineries w
+    LEFT JOIN public.favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
+    LEFT JOIN public.wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
     WHERE w.id = winery_id_param;
-END;
-$$;
+    END;
+    $$;
 ALTER FUNCTION "public"."get_winery_details"("winery_id_param" integer) OWNER TO "postgres";
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
+    SET search_path = public, auth
     AS $$
 BEGIN
     INSERT INTO public.profiles (id, name, email)
@@ -218,6 +226,7 @@ $$;
 ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
 CREATE OR REPLACE FUNCTION "public"."is_trip_member"("trip_id_to_check" integer) RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
+    SET search_path = public, auth
     AS $$
 BEGIN
     RETURN EXISTS (
@@ -231,6 +240,7 @@ $$;
 ALTER FUNCTION "public"."is_trip_member"("trip_id_to_check" integer) OWNER TO "postgres";
 CREATE OR REPLACE FUNCTION "public"."search_wineries_by_name_and_location"("search_query" "text", "user_lat" double precision, "user_lng" double precision) RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "distance_meters" double precision)
     LANGUAGE "plpgsql"
+    SET search_path = public, auth
     AS $$
 BEGIN
     RETURN QUERY
@@ -248,18 +258,18 @@ BEGIN
             bool_or(f.user_id IS NOT NULL) as is_favorite,
             bool_or(wl.user_id IS NOT NULL) as on_wishlist,
             bool_or(v.user_id IS NOT NULL) as user_visited
-        FROM wineries w
-        LEFT JOIN favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
-        LEFT JOIN wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
-        LEFT JOIN visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
+        FROM public.wineries w
+        LEFT JOIN public.favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
+        LEFT JOIN public.wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
+        LEFT JOIN public.visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
         WHERE w.name ILIKE '%' || search_query || '%'
         GROUP BY w.id
     )
     SELECT
         wm.*,
-        ST_Distance(
-            ST_MakePoint(wm.longitude::double precision, wm.latitude::double precision)::geography,
-            ST_MakePoint(user_lng, user_lat)::geography
+        extensions.ST_Distance(
+            extensions.ST_MakePoint(wm.longitude::double precision, wm.latitude::double precision)::extensions.geography,
+            extensions.ST_MakePoint(user_lng, user_lat)::extensions.geography
         ) as distance_meters
     FROM winery_matches wm
     ORDER BY distance_meters;

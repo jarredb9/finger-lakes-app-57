@@ -349,11 +349,10 @@ CREATE OR REPLACE FUNCTION public.reorder_trip_wineries(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, auth
 AS $$
 DECLARE
   v_winery_id integer;
-  v_index integer;
 BEGIN
   -- Check permission
   IF NOT public.is_trip_member(p_trip_id) THEN

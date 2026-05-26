@@ -61,7 +61,6 @@ AS $$
 DECLARE
     v_trip_record record;
     v_result jsonb;
-    v_user_uuid uuid := auth.uid();
 BEGIN
     -- 1. Get basic trip info and verify membership
     SELECT t.* INTO v_trip_record
@@ -164,10 +163,10 @@ CREATE OR REPLACE FUNCTION public.get_wineries_in_bounds(
 RETURNS SETOF public.wineries
 LANGUAGE sql
 STABLE
-SET search_path = public
+SET search_path = public, auth
 AS $$
   SELECT *
-  FROM wineries
+  FROM public.wineries
   WHERE
     latitude >= COALESCE(min_latitude, min_lat) AND
     latitude <= COALESCE(max_latitude, max_lat) AND
@@ -187,7 +186,7 @@ CREATE OR REPLACE FUNCTION public.search_wineries_by_name_and_location(
 )
  RETURNS TABLE(id integer, google_place_id text, name character varying, address text, latitude numeric, longitude numeric, lat numeric, lng numeric, phone character varying, website character varying, google_rating numeric, is_favorite boolean, on_wishlist boolean, user_visited boolean, distance_meters double precision)
  LANGUAGE plpgsql
- SET search_path TO 'public', 'extensions'
+ SET search_path = public, auth
 AS $function$
 DECLARE
     final_user_lat double precision := COALESCE(user_latitude, user_lat);
@@ -208,10 +207,10 @@ BEGIN
             bool_or(f.user_id IS NOT NULL) as is_favorite,
             bool_or(wl.user_id IS NOT NULL) as on_wishlist,
             bool_or(v.user_id IS NOT NULL) as user_visited
-        FROM wineries w
-        LEFT JOIN favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
-        LEFT JOIN wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
-        LEFT JOIN visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
+        FROM public.wineries w
+        LEFT JOIN public.favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
+        LEFT JOIN public.wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
+        LEFT JOIN public.visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
         WHERE w.name ILIKE '%' || search_query || '%'
         GROUP BY w.id
     )
@@ -243,3 +242,4 @@ GRANT EXECUTE ON FUNCTION public.get_all_user_visits_list() TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_trip_details(integer) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_wineries_in_bounds(double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.search_wineries_by_name_and_location(text, double precision, double precision, double precision, double precision) TO authenticated;
+
