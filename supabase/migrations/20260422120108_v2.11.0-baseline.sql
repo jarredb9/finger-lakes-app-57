@@ -159,40 +159,6 @@ $$;
 ALTER FUNCTION "public"."add_trip_member_by_email"("p_trip_id" integer, "p_email" "text") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."add_winery_to_trip"("trip_id_param" integer, "winery_id_param" integer, "notes_param" "text" DEFAULT NULL::"text") RETURNS boolean
-    LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public', 'auth'
-    AS $$
-DECLARE
-    next_order integer;
-BEGIN
-    -- Check if user is a member of the trip
-    IF NOT public.is_trip_member(trip_id_param) THEN
-        RAISE EXCEPTION 'Not authorized to modify this trip';
-    END IF;
-
-    -- Lock the trip rows to prevent concurrent updates to order
-    PERFORM 1 FROM public.trip_wineries WHERE trip_id = trip_id_param FOR UPDATE;
-
-    -- Calculate the next visit order safely
-    SELECT COALESCE(MAX(visit_order), -1) + 1
-    INTO next_order
-    FROM public.trip_wineries
-    WHERE trip_id = trip_id_param;
-
-    -- Insert the new winery
-    INSERT INTO public.trip_wineries (trip_id, winery_id, visit_order, notes)
-    VALUES (trip_id_param, winery_id_param, next_order, notes_param)
-    ON CONFLICT (trip_id, winery_id) DO NOTHING;
-
-    RETURN true;
-END;
-$$;
-
-
-ALTER FUNCTION "public"."add_winery_to_trip"("trip_id_param" integer, "winery_id_param" integer, "notes_param" "text") OWNER TO "postgres";
-
-
 CREATE OR REPLACE FUNCTION "public"."add_winery_to_trip"("p_trip_id" integer, "p_winery_data" "jsonb", "p_notes" "text" DEFAULT NULL::"text") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -5747,12 +5713,6 @@ GRANT ALL ON FUNCTION "public"."add_to_wishlist"("p_winery_data" "jsonb") TO "se
 GRANT ALL ON FUNCTION "public"."add_trip_member_by_email"("p_trip_id" integer, "p_email" "text") TO "anon";
 GRANT ALL ON FUNCTION "public"."add_trip_member_by_email"("p_trip_id" integer, "p_email" "text") TO "authenticated";
 GRANT ALL ON FUNCTION "public"."add_trip_member_by_email"("p_trip_id" integer, "p_email" "text") TO "service_role";
-
-
-
-GRANT ALL ON FUNCTION "public"."add_winery_to_trip"("trip_id_param" integer, "winery_id_param" integer, "notes_param" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."add_winery_to_trip"("trip_id_param" integer, "winery_id_param" integer, "notes_param" "text") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."add_winery_to_trip"("trip_id_param" integer, "winery_id_param" integer, "notes_param" "text") TO "service_role";
 
 
 
