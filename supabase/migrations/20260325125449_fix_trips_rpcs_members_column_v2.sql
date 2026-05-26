@@ -10,7 +10,7 @@ CREATE OR REPLACE FUNCTION public.get_paginated_trips_with_wineries(trip_type te
 AS $function$
 DECLARE
     _total_count bigint;
-BEGIN;
+BEGIN
     -- Calculate total count first
     SELECT COUNT(t.id)
     INTO _total_count
@@ -29,7 +29,7 @@ BEGIN;
         t.trip_date,
         t.name,
         t.created_at,
-        COALESCE((;
+        COALESCE((
             SELECT jsonb_agg(
                 jsonb_build_object(
                     'id', w.google_place_id,
@@ -79,7 +79,7 @@ BEGIN
         t.trip_date,
         t.name,
         t.created_at,
-        COALESCE((;
+        COALESCE((
             SELECT jsonb_agg(
                 jsonb_build_object(
                     'id', w.google_place_id,

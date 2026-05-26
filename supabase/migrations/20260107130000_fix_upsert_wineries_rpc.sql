@@ -8,7 +8,7 @@ DECLARE
   winery_record jsonb;
 BEGIN
   FOREACH winery_record IN ARRAY wineries_data
-  LOOP;
+  LOOP
     INSERT INTO wineries (
       google_place_id,
       name,
@@ -25,7 +25,7 @@ BEGIN
       (winery_record->>'longitude')::double precision,
       (winery_record->>'google_rating')::double precision
     )
-    ON CONFLICT (google_place_id); 
+    ON CONFLICT (google_place_id) 
     DO UPDATE SET
         google_rating = COALESCE(EXCLUDED.google_rating, wineries.google_rating),
         -- Also update basic info in case it changed/improved

@@ -1,1 +1,1 @@
-None;
+-- Empty migration

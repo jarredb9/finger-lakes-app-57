@@ -193,7 +193,7 @@ DECLARE
     final_user_lat double precision := COALESCE(user_latitude, user_lat);
     final_user_lng double precision := COALESCE(user_longitude, user_lng);
 BEGIN
-    RETURN QUERY;
+    RETURN QUERY
     WITH winery_matches AS (
         SELECT
             w.id,

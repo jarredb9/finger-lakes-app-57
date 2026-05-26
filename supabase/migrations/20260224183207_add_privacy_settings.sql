@@ -34,7 +34,7 @@ FOR SELECT USING (
         NOT is_private
         AND
         -- Profile must not be private
-        EXISTS (;
+        EXISTS (
             SELECT 1 FROM public.profiles
             WHERE id = public.visits.user_id
             AND privacy_level != 'private'
@@ -46,7 +46,7 @@ FOR SELECT USING (
                 (
                     privacy_level = 'friends_only'
                     AND
-                    EXISTS (;
+                    EXISTS (
                         SELECT 1 FROM public.friends
                         WHERE status = 'accepted'
                           AND (
@@ -81,7 +81,7 @@ FOR SELECT USING (
             (
                 privacy_level = 'friends_only'
                 AND
-                EXISTS (;
+                EXISTS (
                     SELECT 1 FROM public.friends
                     WHERE status = 'accepted'
                       AND (

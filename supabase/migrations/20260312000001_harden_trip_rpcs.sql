@@ -17,12 +17,12 @@ BEGIN
     END IF;
 
     -- Using explicit schema and aliases to prevent ambiguity
-    RETURN EXISTS (;
+    RETURN EXISTS (
         SELECT 1
         FROM public.trips t
         WHERE t.id = trip_id_to_check
           AND t.user_id = v_user_id
-    ) OR EXISTS (;
+    ) OR EXISTS (
         SELECT 1
         FROM public.trip_members tm
         WHERE tm.trip_id = trip_id_to_check

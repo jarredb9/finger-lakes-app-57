@@ -145,12 +145,12 @@ AS $function$
 DECLARE
     v_user_id uuid := auth.uid();
     v_result jsonb;
-BEGIN;
+BEGIN
     SELECT jsonb_build_object(
-        'profile', (;
+        'profile', (
             SELECT to_jsonb(p) - 'email' FROM profiles p WHERE p.id = v_user_id
         ),
-        'friend_requests_received', (;
+        'friend_requests_received', (
             SELECT COALESCE(jsonb_agg(
                 jsonb_build_object(
                     'id', f.id,
@@ -163,7 +163,7 @@ BEGIN;
             JOIN profiles p ON f.user1_id = p.id
             WHERE f.user2_id = v_user_id AND f.status = 'pending'
         ),
-        'friend_requests_sent', (;
+        'friend_requests_sent', (
             SELECT COALESCE(jsonb_agg(
                 jsonb_build_object(
                     'id', f.id,
@@ -176,7 +176,7 @@ BEGIN;
             JOIN profiles p ON f.user2_id = p.id
             WHERE f.user1_id = v_user_id AND f.status = 'pending'
         ),
-        'upcoming_trips', (;
+        'upcoming_trips', (
             SELECT COALESCE(jsonb_agg(
                 jsonb_build_object(
                     'id', t.id,
@@ -187,14 +187,14 @@ BEGIN;
             FROM trips t
             WHERE (
                 t.user_id = v_user_id 
-                OR EXISTS (;
+                OR EXISTS (
                     SELECT 1 FROM trip_members tm 
                     WHERE tm.trip_id = t.id AND tm.user_id = v_user_id
                 )
             ) 
             AND t.trip_date >= CURRENT_DATE
         ),
-        'recent_visits', (;
+        'recent_visits', (
             SELECT COALESCE(jsonb_agg(
                 jsonb_build_object(
                     'id', v.id,

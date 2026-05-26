@@ -17,12 +17,12 @@ ALTER TABLE public.trip_members ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can view members of trips they belong to" 
 ON public.trip_members FOR SELECT 
 USING (
-    EXISTS (;
+    EXISTS (
         SELECT 1 FROM public.trip_members 
         WHERE trip_id = trip_members.trip_id AND user_id = auth.uid()
     )
     OR 
-    EXISTS (;
+    EXISTS (
         SELECT 1 FROM public.trips
         WHERE id = trip_members.trip_id AND user_id = auth.uid()
     )
@@ -31,7 +31,7 @@ USING (
 CREATE POLICY "Trip owners can add members"
 ON public.trip_members FOR INSERT
 WITH CHECK (
-    EXISTS (;
+    EXISTS (
         SELECT 1 FROM public.trips
         WHERE id = trip_id AND user_id = auth.uid()
     )
@@ -40,7 +40,7 @@ WITH CHECK (
 CREATE POLICY "Trip owners can update member roles"
 ON public.trip_members FOR UPDATE
 USING (
-    EXISTS (;
+    EXISTS (
         SELECT 1 FROM public.trips
         WHERE id = trip_id AND user_id = auth.uid()
     )
@@ -49,7 +49,7 @@ USING (
 CREATE POLICY "Trip owners can remove members"
 ON public.trip_members FOR DELETE
 USING (
-    EXISTS (;
+    EXISTS (
         SELECT 1 FROM public.trips
         WHERE id = trip_id AND user_id = auth.uid()
     )

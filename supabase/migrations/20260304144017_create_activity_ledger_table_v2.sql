@@ -25,7 +25,7 @@ CREATE POLICY "Users can view friends-only activities"
 ON public.activity_ledger FOR SELECT
 USING (
     privacy_level = 'friends_only'
-    AND EXISTS (;
+    AND EXISTS (
         SELECT 1 FROM public.friends
         WHERE status = 'accepted'
         AND (
