@@ -6199,33 +6199,14 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
 
+-- Storage Configuration
+INSERT INTO storage.buckets (id, name, public) 
+VALUES ('visit-photos', 'visit-photos', true)
+ON CONFLICT (id) DO NOTHING;
 
+CREATE POLICY "User can delete their own photos" ON "storage"."objects" FOR DELETE TO "authenticated" USING ((("bucket_id" = 'visit-photos'::"text") AND (("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text")));
 
+CREATE POLICY "User can upload a photo to a visit" ON "storage"."objects" FOR INSERT TO "authenticated" WITH CHECK ((("bucket_id" = 'visit-photos'::"text") AND (("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text")));
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+CREATE POLICY "Users can view their own and friends photos" ON "storage"."objects" FOR SELECT TO "authenticated" USING ((("bucket_id" = 'visit-photos'::"text") AND ((("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text") OR (("storage"."foldername"("name"))[1] IN ( SELECT ("get_friends_ids"."friend_id")::"text" AS "friend_id"
+   FROM "public"."get_friends_ids"() "get_friends_ids"("friend_id"))))));
