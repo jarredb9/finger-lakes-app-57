@@ -209,7 +209,7 @@ describe('SyncService', () => {
 
     await SyncService.sync();
 
-    expect(mockSupabase.rpc).toHaveBeenCalledWith('send_friend_request', { target_email: 'friend@example.com' });
+    expect(mockSupabase.rpc).toHaveBeenCalledWith('send_friend_request', { p_target_email: 'friend@example.com' });
     expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-social');
   });
 

@@ -30,7 +30,7 @@ export const SocialService = {
   async getFriendActivity() {
     const supabase = createClient();
     const { data, error } = await supabase.rpc('get_friend_activity_feed', { 
-        limit_val: 20
+        p_limit: 20
     });
     if (error) throw error;
     return data || [];
@@ -38,29 +38,29 @@ export const SocialService = {
 
   async sendFriendRequest(email: string) {
     const supabase = createClient();
-    const { error } = await supabase.rpc('send_friend_request', { target_email: email });
+    const { error } = await supabase.rpc('send_friend_request', { p_target_email: email });
     if (error) throw error;
   },
 
   async respondToFriendRequest(requesterId: string, accept: boolean) {
     const supabase = createClient();
     const { error } = await supabase.rpc('respond_to_friend_request', { 
-      requester_id: requesterId, 
-      accept: accept 
+      p_requester_id: requesterId, 
+      p_accept: accept 
     });
     if (error) throw error;
   },
 
   async removeFriend(friendId: string) {
     const supabase = createClient();
-    const { error } = await supabase.rpc('remove_friend', { target_friend_id: friendId });
+    const { error } = await supabase.rpc('remove_friend', { p_target_friend_id: friendId });
     if (error) throw error;
   },
 
   async getFriendProfile(friendId: string) {
     const supabase = createClient();
     const { data, error } = await supabase.rpc('get_friend_profile_with_visits', { 
-      friend_id: friendId 
+      p_friend_id: friendId 
     });
     if (error) throw error;
     return data;
@@ -69,8 +69,8 @@ export const SocialService = {
   async getFriendDataForWinery(wineryId: WineryDbId) {
     const supabase = createClient();
     const [ratingsResult, activityResult] = await Promise.all([
-      supabase.rpc('get_friends_ratings_for_winery', { winery_id: wineryId }),
-      supabase.rpc('get_friends_activity_for_winery', { winery_id: wineryId })
+      supabase.rpc('get_friends_ratings_for_winery', { p_winery_id: wineryId }),
+      supabase.rpc('get_friends_activity_for_winery', { p_winery_id: wineryId })
     ]);
 
     if (ratingsResult.error) throw ratingsResult.error;

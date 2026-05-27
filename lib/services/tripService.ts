@@ -67,7 +67,7 @@ export const TripService = {
     const supabase = createClient();
     
     const { data, error } = await supabase.rpc('get_trip_details', { 
-      trip_id_param: parseInt(tripId) 
+      p_trip_id: parseInt(tripId) 
     });
 
     if (error) {
@@ -91,7 +91,7 @@ export const TripService = {
     const supabase = createClient();
     // Standardize to local YYYY-MM-DD
     const formattedDate = formatDateLocal(new Date(dateString + 'T00:00:00'));
-    const { data, error } = await supabase.rpc('get_trips_for_date', { target_date: formattedDate });
+    const { data, error } = await supabase.rpc('get_trips_for_date', { p_target_date: formattedDate });
 
     if (error) throw new Error(error.message);
 

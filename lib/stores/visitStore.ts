@@ -63,8 +63,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         const supabase = createClient();
         try {
           const { data, error, count } = await supabase.rpc('get_paginated_visits_with_winery_and_friends', {
-            page_number: pageNumber,
-            page_size: VISITS_PER_PAGE
+            p_page_number: pageNumber,
+            p_page_size: VISITS_PER_PAGE
           });
 
           if (error) throw error;

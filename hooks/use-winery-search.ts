@@ -134,10 +134,10 @@ export function useWinerySearch() {
       const bounds = new google.maps.LatLngBounds(finalSearchBounds);
       const supabase = createClient();
       const { data: cachedWineries, error: rpcError } = await supabase.rpc('get_wineries_in_bounds', {
-        min_latitude: bounds.getSouthWest().lat(),
-        min_longitude: bounds.getSouthWest().lng(),
-        max_latitude: bounds.getNorthEast().lat(),
-        max_longitude: bounds.getNorthEast().lng(),
+        p_min_latitude: bounds.getSouthWest().lat(),
+        p_min_longitude: bounds.getSouthWest().lng(),
+        p_max_latitude: bounds.getNorthEast().lat(),
+        p_max_longitude: bounds.getNorthEast().lng(),
       });
 
       if (rpcError) {

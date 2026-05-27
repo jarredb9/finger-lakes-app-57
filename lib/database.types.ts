@@ -548,10 +548,15 @@ export type Database = {
         Args: { p_email: string; p_trip_id: number }
         Returns: Json
       }
-      add_winery_to_trip: {
-        Args: { p_notes?: string; p_trip_id: number; p_winery_data: Json }
-        Returns: Json
-      }
+      add_winery_to_trip:
+        | {
+            Args: { p_notes?: string; p_trip_id: number; p_winery_data: Json }
+            Returns: Json
+          }
+        | {
+            Args: { p_notes?: string; p_trip_id: number; p_winery_id: number }
+            Returns: Json
+          }
       add_winery_to_trips: {
         Args: { p_trip_ids: number[]; p_winery_id: number }
         Returns: Json
@@ -608,13 +613,13 @@ export type Database = {
           website: string
         }[]
       }
-      get_friend_activity_feed: { Args: { limit_val?: number }; Returns: Json }
+      get_friend_activity_feed: { Args: { p_limit?: number }; Returns: Json }
       get_friend_profile_with_visits: {
-        Args: { friend_id_param: string }
+        Args: { p_friend_id: string }
         Returns: Json
       }
       get_friends_activity_for_winery: {
-        Args: { winery_id_param: number }
+        Args: { p_winery_id: number }
         Returns: Json
       }
       get_friends_and_requests: { Args: never; Returns: Json }
@@ -625,7 +630,7 @@ export type Database = {
         }[]
       }
       get_friends_ratings_for_winery: {
-        Args: { winery_id_param: number }
+        Args: { p_winery_id: number }
         Returns: {
           email: string
           name: string
@@ -636,7 +641,7 @@ export type Database = {
         }[]
       }
       get_map_markers: {
-        Args: { user_id_param?: string }
+        Args: { p_user_id?: string }
         Returns: {
           google_place_id: string
           id: number
@@ -651,7 +656,11 @@ export type Database = {
         }[]
       }
       get_paginated_trips_with_wineries: {
-        Args: { page_number: number; page_size: number; trip_type: string }
+        Args: {
+          p_page_number: number
+          p_page_size: number
+          p_trip_type: string
+        }
         Returns: {
           created_at: string
           id: number
@@ -663,13 +672,11 @@ export type Database = {
         }[]
       }
       get_paginated_visits_with_winery_and_friends: {
-        Args: { page_number: number; page_size: number }
+        Args: { p_page_number: number; p_page_size: number }
         Returns: {
           friend_visits: Json
           google_place_id: string
-          lat: number
           latitude: number
-          lng: number
           longitude: number
           photos: string[]
           rating: number
@@ -700,7 +707,7 @@ export type Database = {
         }[]
       }
       get_trip_by_id_with_wineries: {
-        Args: { trip_id_param: number }
+        Args: { p_trip_id: number }
         Returns: {
           created_at: string
           id: number
@@ -710,9 +717,9 @@ export type Database = {
           wineries: Json
         }[]
       }
-      get_trip_details: { Args: { trip_id_param: number }; Returns: Json }
+      get_trip_details: { Args: { p_trip_id: number }; Returns: Json }
       get_trips_for_date: {
-        Args: { target_date: string }
+        Args: { p_target_date: string }
         Returns: {
           id: number
           name: string
@@ -730,7 +737,7 @@ export type Database = {
         }[]
       }
       get_wineries_for_trip_planner: {
-        Args: { trip_date_param: string }
+        Args: { p_trip_date: string }
         Returns: {
           address: string
           google_place_id: string
@@ -753,14 +760,10 @@ export type Database = {
       }
       get_wineries_in_bounds: {
         Args: {
-          max_lat?: number
-          max_latitude?: number
-          max_lng?: number
-          max_longitude?: number
-          min_lat?: number
-          min_latitude?: number
-          min_lng?: number
-          min_longitude?: number
+          p_max_latitude: number
+          p_max_longitude: number
+          p_min_latitude: number
+          p_min_longitude: number
         }
         Returns: {
           address: string
@@ -785,7 +788,7 @@ export type Database = {
         }
       }
       get_winery_details: {
-        Args: { winery_id_param: number }
+        Args: { p_winery_id: number }
         Returns: {
           address: string
           google_place_id: string
@@ -803,7 +806,7 @@ export type Database = {
         }[]
       }
       get_winery_details_by_id: {
-        Args: { winery_id_param: number }
+        Args: { p_winery_id: number }
         Returns: {
           address: string
           google_place_id: string
@@ -828,7 +831,7 @@ export type Database = {
           website: string
         }[]
       }
-      is_trip_member: { Args: { trip_id_to_check: number }; Returns: boolean }
+      is_trip_member: { Args: { p_trip_id: number }; Returns: boolean }
       is_visible_to_viewer: {
         Args: { p_is_item_private?: boolean; p_target_user_id: string }
         Returns: boolean
@@ -837,7 +840,10 @@ export type Database = {
         Args: { p_visit_data: Json; p_winery_data: Json }
         Returns: Json
       }
-      remove_friend: { Args: { target_friend_id: string }; Returns: undefined }
+      remove_friend: {
+        Args: { p_target_friend_id: string }
+        Returns: undefined
+      }
       remove_winery_from_trip: {
         Args: { p_trip_id: number; p_winery_id: number }
         Returns: Json
@@ -851,16 +857,14 @@ export type Database = {
         Returns: Json
       }
       respond_to_friend_request: {
-        Args: { accept: boolean; requester_id: string }
+        Args: { p_accept: boolean; p_requester_id: string }
         Returns: undefined
       }
       search_wineries_by_name_and_location: {
         Args: {
-          search_query: string
-          user_lat?: number
-          user_latitude?: number
-          user_lng?: number
-          user_longitude?: number
+          p_search_query: string
+          p_user_latitude: number
+          p_user_longitude: number
         }
         Returns: {
           address: string
@@ -869,9 +873,7 @@ export type Database = {
           google_rating: number
           id: number
           is_favorite: boolean
-          lat: number
           latitude: number
-          lng: number
           longitude: number
           name: string
           on_wishlist: boolean
@@ -882,7 +884,7 @@ export type Database = {
       }
       send_follow_request: { Args: { p_target_id: string }; Returns: Json }
       send_friend_request: {
-        Args: { target_email: string }
+        Args: { p_target_email: string }
         Returns: undefined
       }
       toggle_favorite: { Args: { p_winery_data: Json }; Returns: boolean }
@@ -902,7 +904,7 @@ export type Database = {
         Returns: Json
       }
       upsert_wineries_from_search: {
-        Args: { wineries_data: Json[] }
+        Args: { p_wineries_data: Json[] }
         Returns: undefined
       }
     }

@@ -311,18 +311,18 @@ export const SyncService = {
             case 'social_action':
               if (payload.action === 'send_request') {
                 const { error: sError } = await supabase.rpc('send_friend_request', {
-                  target_email: payload.email
+                  p_target_email: payload.email
                 });
                 error = sError;
               } else if (payload.action === 'respond') {
                 const { error: rError } = await supabase.rpc('respond_to_friend_request', {
-                  requester_id: payload.requesterId,
-                  accept: payload.accept
+                  p_requester_id: payload.requesterId,
+                  p_accept: payload.accept
                 });
                 error = rError;
               } else if (payload.action === 'remove') {
                 const { error: remError } = await supabase.rpc('remove_friend', {
-                  target_friend_id: payload.friendId
+                  p_target_friend_id: payload.friendId
                 });
                 error = remError;
               }

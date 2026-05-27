@@ -322,8 +322,6 @@ export class MockMapsManager {
                 winery_address: winery?.address || wineryData.address || 'Unknown Address',
                 latitude: winery?.latitude || wineryData.latitude || 42.7,
                 longitude: winery?.longitude || wineryData.longitude || -76.9,
-                lat: winery?.latitude || wineryData.latitude || 42.7,
-                lng: winery?.longitude || wineryData.longitude || -76.9,
                 friend_visits: [],
                 updated_at: new Date(Date.now() + 5000).toISOString()
             };
@@ -810,8 +808,6 @@ export class MockMapsManager {
             winery_address: mockVisit.wineries.address, 
             latitude: mockVisit.wineries.latitude,
             longitude: mockVisit.wineries.longitude,
-            lat: mockVisit.wineries.latitude,
-            lng: mockVisit.wineries.longitude,
             friend_visits: [],
             updated_at: new Date().toISOString()
         }];
