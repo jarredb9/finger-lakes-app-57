@@ -24,11 +24,13 @@ Version 2.11.0 is a landmark release for mobile reliability, introducing a robus
     *   **Update Loop Protection:** Implemented `globalThis._PWA_UPDATING` guards and `controllerchange` validation to prevent infinite reload loops.
 
 ### ⚙ Infrastructure & Testing
+*   **E2E & CI Optimization:** Re-architected Playwright configuration to run with sharding, resolved Safari/WebKit network bypass issues, and cleaned up Jest/E2E test suite headers.
 *   **Coordinate Standardization:** Enforced a system-wide move to `latitude` and `longitude` naming conventions across all DB types, RPCs, and UI mappers, eliminating `NaN` errors on map pins.
 *   **DOM Stability Pattern:** Refactored core UI containers (`TripList`, `FriendActivity`, `VisitHistory`) to ensure primary containers remain in the DOM during loading/error states, preventing layout shifts.
 *   **Sync Infrastructure E2E:** Introduced a high-fidelity sync testing suite that verifies encrypted persistence, photo reconstitution, and non-blocking queue recovery.
 
 ### 🛡 Security & Type Safety
+*   **Database Hardening & Zero-Anon Policy:** Revoked unauthenticated RPC access, standardized parameter naming conventions with a `p_` prefix, and resolved overloading conflicts to ensure schema stability.
 *   **DB Type Alignment:** Synchronized `database.types.ts` with new RPC signatures for standardized coordinate retrieval.
 *   **ID Normalization:** Enforced strict `Number()` conversion for all Entity IDs in the service layer to prevent type mismatches during offline hydration.
 
