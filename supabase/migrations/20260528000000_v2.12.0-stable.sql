@@ -13,6 +13,13 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 
+CREATE EXTENSION IF NOT EXISTS "pg_net" WITH SCHEMA "extensions";
+
+
+
+
+
+
 COMMENT ON SCHEMA "public" IS 'standard public schema';
 
 
@@ -71,14 +78,12 @@ ALTER TYPE "public"."privacy_level" OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."add_to_wishlist"("p_winery_data" "jsonb") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
   v_winery_id integer;
   v_is_private boolean;
 BEGIN
-  -- Extract is_private from p_winery_data or visit_data context if applicable
-  -- For wishlist, it might be in p_winery_data for now
   v_is_private := COALESCE((p_winery_data->>'is_private')::boolean, false);
 
   -- Upsert Winery
@@ -90,8 +95,8 @@ BEGIN
     p_winery_data->>'id',
     p_winery_data->>'name',
     p_winery_data->>'address',
-    (p_winery_data->>'lat')::numeric,
-    (p_winery_data->>'lng')::numeric,
+    (COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat'))::numeric,
+    (COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng'))::numeric,
     p_winery_data->>'phone',
     p_winery_data->>'website',
     (p_winery_data->>'rating')::numeric
@@ -157,6 +162,36 @@ $$;
 
 
 ALTER FUNCTION "public"."add_trip_member_by_email"("p_trip_id" integer, "p_email" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."add_winery_to_trip"("p_trip_id" integer, "p_winery_id" integer, "p_notes" "text" DEFAULT NULL::"text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" SECURITY DEFINER
+    SET "search_path" TO 'public', 'auth'
+    AS $$
+DECLARE
+  v_max_order integer;
+BEGIN
+  -- Check permission
+  IF NOT public.is_trip_member(p_trip_id) THEN
+    RAISE EXCEPTION 'Not authorized to modify this trip';
+  END IF;
+
+  -- Get max order
+  SELECT COALESCE(MAX(visit_order), -1) INTO v_max_order
+  FROM public.trip_wineries
+  WHERE trip_id = p_trip_id;
+
+  -- Insert into Trip Wineries
+  INSERT INTO public.trip_wineries (trip_id, winery_id, visit_order, notes)
+  VALUES (p_trip_id, p_winery_id, v_max_order + 1, p_notes)
+  ON CONFLICT (trip_id, winery_id) DO NOTHING;
+
+  RETURN jsonb_build_object('success', true, 'winery_id', p_winery_id);
+END;
+$$;
+
+
+ALTER FUNCTION "public"."add_winery_to_trip"("p_trip_id" integer, "p_winery_id" integer, "p_notes" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."add_winery_to_trip"("p_trip_id" integer, "p_winery_data" "jsonb", "p_notes" "text" DEFAULT NULL::"text") RETURNS "jsonb"
@@ -300,8 +335,8 @@ BEGIN
     p_winery_data->>'id',
     p_winery_data->>'name',
     p_winery_data->>'address',
-    (p_winery_data->>'lat')::numeric,
-    (p_winery_data->>'lng')::numeric,
+    (COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat'))::numeric,
+    (COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng'))::numeric,
     p_winery_data->>'phone',
     p_winery_data->>'website',
     (p_winery_data->>'rating')::numeric
@@ -373,7 +408,7 @@ ALTER FUNCTION "public"."delete_trip"("p_trip_id" integer) OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."delete_visit"("p_visit_id" integer) RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
     v_user_id uuid := auth.uid();
@@ -395,12 +430,12 @@ ALTER FUNCTION "public"."delete_visit"("p_visit_id" integer) OWNER TO "postgres"
 
 CREATE OR REPLACE FUNCTION "public"."ensure_winery"("p_winery_data" "jsonb") RETURNS integer
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
   v_winery_id integer;
 BEGIN
-  INSERT INTO wineries (
+  INSERT INTO public.wineries (
     google_place_id, name, address, latitude, longitude, 
     phone, website, google_rating
   )
@@ -408,8 +443,8 @@ BEGIN
     p_winery_data->>'id',
     p_winery_data->>'name',
     p_winery_data->>'address',
-    (p_winery_data->>'lat')::numeric,
-    (p_winery_data->>'lng')::numeric,
+    (COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat'))::numeric,
+    (COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng'))::numeric,
     p_winery_data->>'phone',
     p_winery_data->>'website',
     (p_winery_data->>'rating')::numeric
@@ -427,9 +462,9 @@ $$;
 ALTER FUNCTION "public"."ensure_winery"("p_winery_data" "jsonb") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_all_user_visits_list"() RETURNS TABLE("id" integer, "visit_date" "date", "rating" integer, "user_review" "text", "photos" "text"[], "winery_id" integer, "winery_name" "text", "winery_address" "text", "google_place_id" "text", "lat" numeric, "lng" numeric)
+CREATE OR REPLACE FUNCTION "public"."get_all_user_visits_list"() RETURNS TABLE("id" integer, "visit_date" "date", "rating" integer, "user_review" "text", "photos" "text"[], "winery_id" integer, "winery_name" "text", "winery_address" "text", "google_place_id" "text", "latitude" numeric, "longitude" numeric, "lat" numeric, "lng" numeric)
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 BEGIN
     RETURN QUERY
@@ -443,6 +478,8 @@ BEGIN
         w.name::text as winery_name,
         w.address,
         w.google_place_id,
+        w.latitude,
+        w.longitude,
         w.latitude as lat,
         w.longitude as lng
     FROM
@@ -462,7 +499,7 @@ ALTER FUNCTION "public"."get_all_user_visits_list"() OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."get_all_wineries_with_user_data"() RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean)
     LANGUAGE "plpgsql"
-    SET "search_path" TO 'public', 'extensions'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 BEGIN
     RETURN QUERY
@@ -491,7 +528,7 @@ $$;
 ALTER FUNCTION "public"."get_all_wineries_with_user_data"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_friend_activity_feed"("limit_val" integer DEFAULT 20) RETURNS "jsonb"
+CREATE OR REPLACE FUNCTION "public"."get_friend_activity_feed"("p_limit" integer DEFAULT 20) RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
@@ -520,13 +557,9 @@ BEGIN
         FROM public.activity_ledger al
         LEFT JOIN public.profiles p ON al.user_id = p.id
         WHERE 
-          -- activity_ledger RLS already filters for visibility, 
-          -- but we add an extra layer of safety with is_visible_to_viewer
-          -- We'll assume if it's in the ledger and the user can see it, it's fine.
-          -- RLS handles the heavy lifting here.
-          al.user_id != v_user_id -- Don't show self in friend activity feed
-          
-          -- Ensure they are friends or following (feed is for social activity)
+          al.user_id != v_user_id 
+          -- Privacy Check: Must be visible to viewer
+          AND public.is_visible_to_viewer(al.user_id, al.privacy_level = 'private')
           AND (
             EXISTS (
               SELECT 1 FROM public.friends f
@@ -544,7 +577,7 @@ BEGIN
             )
           )
         ORDER BY al.created_at DESC
-        LIMIT limit_val
+        LIMIT p_limit
     ) t;
 
     RETURN COALESCE(v_feed, '[]'::jsonb);
@@ -552,10 +585,10 @@ END;
 $$;
 
 
-ALTER FUNCTION "public"."get_friend_activity_feed"("limit_val" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."get_friend_activity_feed"("p_limit" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_friend_profile_with_visits"("friend_id_param" "uuid") RETURNS "jsonb"
+CREATE OR REPLACE FUNCTION "public"."get_friend_profile_with_visits"("p_friend_id" "uuid") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
@@ -564,7 +597,7 @@ DECLARE
     v_viewer_id uuid := auth.uid();
 BEGIN
     -- 1. Check if the viewer is allowed to see the profile at all
-    IF NOT public.is_visible_to_viewer(friend_id_param, false) THEN
+    IF NOT public.is_visible_to_viewer(p_friend_id, false) THEN
         RETURN jsonb_build_object('error', 'Access denied due to privacy settings');
     END IF;
 
@@ -589,13 +622,17 @@ BEGIN
                         'id', w.id,
                         'google_place_id', w.google_place_id,
                         'name', w.name,
-                        'address', w.address
+                        'address', w.address,
+                        'latitude', w.latitude,
+                        'longitude', w.longitude,
+                        'lat', w.latitude,
+                        'lng', w.longitude
                     )
                 ) ORDER BY v.visit_date DESC
             ), '[]'::jsonb)
             FROM public.visits v
             JOIN public.wineries w ON v.winery_id = w.id
-            WHERE v.user_id = friend_id_param 
+            WHERE v.user_id = p_friend_id 
               AND (v.user_id = v_viewer_id OR public.is_visible_to_viewer(v.user_id, v.is_private))
         ),
         'stats', (
@@ -603,36 +640,36 @@ BEGIN
                 'visit_count', (
                     SELECT count(*)::int 
                     FROM public.visits v 
-                    WHERE v.user_id = friend_id_param 
+                    WHERE v.user_id = p_friend_id 
                       AND (v.user_id = v_viewer_id OR public.is_visible_to_viewer(v.user_id, v.is_private))
                 ),
                 'wishlist_count', (
                     SELECT count(*)::int 
                     FROM public.wishlist wl 
-                    WHERE wl.user_id = friend_id_param 
+                    WHERE wl.user_id = p_friend_id 
                       AND (wl.user_id = v_viewer_id OR public.is_visible_to_viewer(wl.user_id, wl.is_private))
                 ),
                 'favorite_count', (
                     SELECT count(*)::int 
                     FROM public.favorites f 
-                    WHERE f.user_id = friend_id_param 
+                    WHERE f.user_id = p_friend_id 
                       AND (f.user_id = v_viewer_id OR public.is_visible_to_viewer(f.user_id, f.is_private))
                 )
             )
         )
     ) INTO v_profile
     FROM public.profiles p
-    WHERE p.id = friend_id_param;
+    WHERE p.id = p_friend_id;
 
     RETURN v_profile;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."get_friend_profile_with_visits"("friend_id_param" "uuid") OWNER TO "postgres";
+ALTER FUNCTION "public"."get_friend_profile_with_visits"("p_friend_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_friends_activity_for_winery"("winery_id_param" integer) RETURNS json
+CREATE OR REPLACE FUNCTION "public"."get_friends_activity_for_winery"("p_winery_id" integer) RETURNS json
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
@@ -649,10 +686,10 @@ BEGIN
         FROM public.activity_ledger al
         JOIN public.profiles p ON al.user_id = p.id
         WHERE al.activity_type = 'favorite'
-          AND (al.metadata->>'winery_id')::integer = winery_id_param
+          AND (al.metadata->>'winery_id')::integer = p_winery_id
           AND al.user_id != v_user_id
-          -- activity_ledger RLS already filters for general visibility,
-          -- but we specifically check for friends/following for this "social" RPC
+          -- Privacy Check
+          AND public.is_visible_to_viewer(al.user_id, al.privacy_level = 'private')
           AND (
             EXISTS (
                 SELECT 1 FROM public.friends fr
@@ -679,8 +716,10 @@ BEGIN
         FROM public.activity_ledger al
         JOIN public.profiles p ON al.user_id = p.id
         WHERE al.activity_type = 'wishlist'
-          AND (al.metadata->>'winery_id')::integer = winery_id_param
+          AND (al.metadata->>'winery_id')::integer = p_winery_id
           AND al.user_id != v_user_id
+          -- Privacy Check
+          AND public.is_visible_to_viewer(al.user_id, al.privacy_level = 'private')
           AND (
             EXISTS (
                 SELECT 1 FROM public.friends fr
@@ -707,7 +746,7 @@ END;
 $$;
 
 
-ALTER FUNCTION "public"."get_friends_activity_for_winery"("winery_id_param" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."get_friends_activity_for_winery"("p_winery_id" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."get_friends_and_requests"() RETURNS "jsonb"
@@ -767,7 +806,7 @@ ALTER FUNCTION "public"."get_friends_and_requests"() OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."get_friends_ids"() RETURNS TABLE("friend_id" "uuid")
     LANGUAGE "plpgsql"
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 BEGIN
     RETURN QUERY
@@ -787,7 +826,7 @@ $$;
 ALTER FUNCTION "public"."get_friends_ids"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_friends_ratings_for_winery"("winery_id_param" integer) RETURNS TABLE("user_id" "uuid", "name" "text", "email" "text", "rating" integer, "user_review" "text", "photos" "text"[])
+CREATE OR REPLACE FUNCTION "public"."get_friends_ratings_for_winery"("p_winery_id" integer) RETURNS TABLE("user_id" "uuid", "name" "text", "email" "text", "rating" integer, "user_review" "text", "photos" "text"[])
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
@@ -809,8 +848,10 @@ BEGIN
     FROM public.activity_ledger al
     JOIN public.profiles p ON al.user_id = p.id
     WHERE al.activity_type = 'visit'
-      AND (al.metadata->>'winery_id')::integer = winery_id_param
+      AND (al.metadata->>'winery_id')::integer = p_winery_id
       AND al.user_id != v_user_id
+      -- Privacy Check
+      AND public.is_visible_to_viewer(al.user_id, al.privacy_level = 'private')
       -- Social check
       AND (
         EXISTS (
@@ -833,14 +874,19 @@ END;
 $$;
 
 
-ALTER FUNCTION "public"."get_friends_ratings_for_winery"("winery_id_param" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."get_friends_ratings_for_winery"("p_winery_id" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_map_markers"("user_id_param" "uuid" DEFAULT "auth"."uid"()) RETURNS TABLE("id" integer, "google_place_id" "text", "name" "text", "latitude" numeric, "longitude" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "is_favorite_private" boolean, "on_wishlist_private" boolean)
+CREATE OR REPLACE FUNCTION "public"."get_map_markers"("p_user_id" "uuid" DEFAULT "auth"."uid"()) RETURNS TABLE("id" integer, "google_place_id" "text", "name" "text", "latitude" numeric, "longitude" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "is_favorite_private" boolean, "on_wishlist_private" boolean)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
 BEGIN
+    -- Security Enforcement: Only allow viewing own markers
+    IF p_user_id != auth.uid() THEN
+        RAISE EXCEPTION 'Unauthorized: You can only view your own map markers.';
+    END IF;
+
     RETURN QUERY
     SELECT 
         w.id,
@@ -848,22 +894,22 @@ BEGIN
         w.name::text,
         w.latitude,
         w.longitude,
-        EXISTS (SELECT 1 FROM favorites f WHERE f.winery_id = w.id AND f.user_id = user_id_param) as is_favorite,
-        EXISTS (SELECT 1 FROM wishlist wi WHERE wi.winery_id = w.id AND wi.user_id = user_id_param) as on_wishlist,
-        EXISTS (SELECT 1 FROM visits v WHERE v.winery_id = w.id AND v.user_id = user_id_param) as user_visited,
-        COALESCE((SELECT f.is_private FROM favorites f WHERE f.winery_id = w.id AND f.user_id = user_id_param), false) as is_favorite_private,
-        COALESCE((SELECT wi.is_private FROM wishlist wi WHERE wi.winery_id = w.id AND wi.user_id = user_id_param), false) as on_wishlist_private
-    FROM wineries w;
+        EXISTS (SELECT 1 FROM public.favorites f WHERE f.winery_id = w.id AND f.user_id = p_user_id) as is_favorite,
+        EXISTS (SELECT 1 FROM public.wishlist wi WHERE wi.winery_id = w.id AND wi.user_id = p_user_id) as on_wishlist,
+        EXISTS (SELECT 1 FROM public.visits v WHERE v.winery_id = w.id AND v.user_id = p_user_id) as user_visited,
+        COALESCE((SELECT f.is_private FROM public.favorites f WHERE f.winery_id = w.id AND f.user_id = p_user_id), false) as is_favorite_private,
+        COALESCE((SELECT wi.is_private FROM public.wishlist wi WHERE wi.winery_id = w.id AND wi.user_id = p_user_id), false) as on_wishlist_private
+    FROM public.wineries w;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."get_map_markers"("user_id_param" "uuid") OWNER TO "postgres";
+ALTER FUNCTION "public"."get_map_markers"("p_user_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_paginated_trips_with_wineries"("trip_type" "text", "page_number" integer, "page_size" integer) RETURNS TABLE("id" integer, "user_id" "uuid", "trip_date" "date", "name" character varying, "created_at" timestamp with time zone, "wineries" "jsonb", "total_count" bigint)
+CREATE OR REPLACE FUNCTION "public"."get_paginated_trips_with_wineries"("p_trip_type" "text", "p_page_number" integer, "p_page_size" integer) RETURNS TABLE("id" integer, "user_id" "uuid", "trip_date" "date", "name" character varying, "created_at" timestamp with time zone, "wineries" "jsonb", "total_count" bigint)
     LANGUAGE "plpgsql"
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
     _total_count bigint;
@@ -874,8 +920,8 @@ BEGIN
     FROM public.trips t
     WHERE public.is_trip_member(t.id)
       AND CASE
-            WHEN trip_type = 'upcoming' THEN t.trip_date >= CURRENT_DATE
-            WHEN trip_type = 'past' THEN t.trip_date < CURRENT_DATE
+            WHEN p_trip_type = 'upcoming' THEN t.trip_date >= CURRENT_DATE
+            WHEN p_trip_type = 'past' THEN t.trip_date < CURRENT_DATE
             ELSE TRUE 
           END;
 
@@ -895,6 +941,8 @@ BEGIN
                     'address', w.address,
                     'lat', w.latitude,
                     'lng', w.longitude,
+                    'latitude', w.latitude,
+                    'longitude', w.longitude,
                     'phone', w.phone,
                     'website', w.website,
                     'rating', w.google_rating,
@@ -910,25 +958,25 @@ BEGIN
     FROM trips t
     WHERE public.is_trip_member(t.id)
       AND CASE
-            WHEN trip_type = 'upcoming' THEN t.trip_date >= CURRENT_DATE
-            WHEN trip_type = 'past' THEN t.trip_date < CURRENT_DATE
+            WHEN p_trip_type = 'upcoming' THEN t.trip_date >= CURRENT_DATE
+            WHEN p_trip_type = 'past' THEN t.trip_date < CURRENT_DATE
             ELSE TRUE
           END
     ORDER BY
-        CASE WHEN trip_type = 'upcoming' THEN t.trip_date END ASC,
-        CASE WHEN trip_type = 'past' THEN t.trip_date END DESC
-    OFFSET (page_number - 1) * page_size
-    LIMIT page_size;
+        CASE WHEN p_trip_type = 'upcoming' THEN t.trip_date END ASC,
+        CASE WHEN p_trip_type = 'past' THEN t.trip_date END DESC
+    OFFSET (p_page_number - 1) * p_page_size
+    LIMIT p_page_size;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."get_paginated_trips_with_wineries"("trip_type" "text", "page_number" integer, "page_size" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."get_paginated_trips_with_wineries"("p_trip_type" "text", "p_page_number" integer, "p_page_size" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_paginated_visits_with_winery_and_friends"("page_number" integer, "page_size" integer) RETURNS TABLE("visit_id" integer, "visit_date" "date", "user_review" "text", "rating" integer, "photos" "text"[], "winery_id" integer, "winery_name" character varying, "winery_address" "text", "google_place_id" character varying, "friend_visits" "jsonb")
+CREATE OR REPLACE FUNCTION "public"."get_paginated_visits_with_winery_and_friends"("p_page_number" integer, "p_page_size" integer) RETURNS TABLE("visit_id" integer, "visit_date" "date", "user_review" "text", "rating" integer, "photos" "text"[], "winery_id" integer, "winery_name" character varying, "winery_address" "text", "google_place_id" "text", "friend_visits" "jsonb", "latitude" numeric, "longitude" numeric)
     LANGUAGE "plpgsql"
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 BEGIN
     RETURN QUERY
@@ -943,7 +991,9 @@ BEGIN
             w.name as winery_name,
             w.address as winery_address,
             w.google_place_id,
-            v.user_id
+            v.user_id,
+            w.latitude,
+            w.longitude
         FROM visits v
         JOIN wineries w ON v.winery_id = w.id
         WHERE v.user_id = auth.uid() OR v.user_id IN (SELECT friend_id FROM get_friends_ids())
@@ -973,23 +1023,25 @@ BEGIN
         uv.winery_name,
         uv.winery_address,
         uv.google_place_id,
-        afv.friend_visits
+        afv.friend_visits,
+        uv.latitude,
+        uv.longitude
     FROM user_and_friends_visits uv
     LEFT JOIN aggregated_friend_visits afv ON uv.winery_id = afv.winery_id AND uv.visit_date = afv.visit_date
     WHERE uv.user_id = auth.uid()
     ORDER BY uv.visit_date DESC, uv.visit_id DESC
-    LIMIT page_size
-    OFFSET (page_number - 1) * page_size;
+    LIMIT p_page_size
+    OFFSET (p_page_number - 1) * p_page_size;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."get_paginated_visits_with_winery_and_friends"("page_number" integer, "page_size" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."get_paginated_visits_with_winery_and_friends"("p_page_number" integer, "p_page_size" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."get_paginated_wineries"("p_page" integer DEFAULT 1, "p_limit" integer DEFAULT 20) RETURNS TABLE("id" integer, "google_place_id" "text", "name" "text", "address" "text", "latitude" numeric, "longitude" numeric, "phone" "text", "website" "text", "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "total_count" bigint)
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
     v_user_id uuid := auth.uid();
@@ -1027,9 +1079,9 @@ $$;
 ALTER FUNCTION "public"."get_paginated_wineries"("p_page" integer, "p_limit" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_trip_by_id_with_wineries"("trip_id_param" integer) RETURNS TABLE("id" integer, "user_id" "uuid", "trip_date" "date", "name" character varying, "created_at" timestamp with time zone, "wineries" "jsonb")
+CREATE OR REPLACE FUNCTION "public"."get_trip_by_id_with_wineries"("p_trip_id" integer) RETURNS TABLE("id" integer, "user_id" "uuid", "trip_date" "date", "name" character varying, "created_at" timestamp with time zone, "wineries" "jsonb")
     LANGUAGE "plpgsql"
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 BEGIN
     RETURN QUERY
@@ -1048,6 +1100,8 @@ BEGIN
                     'address', w.address,
                     'lat', w.latitude,
                     'lng', w.longitude,
+                    'latitude', w.latitude,
+                    'longitude', w.longitude,
                     'phone', w.phone,
                     'website', w.website,
                     'rating', w.google_rating,
@@ -1060,16 +1114,16 @@ BEGIN
             WHERE tw.trip_id = t.id
         ), '[]'::jsonb) as wineries
     FROM trips t
-    WHERE t.id = trip_id_param
+    WHERE t.id = p_trip_id
       AND public.is_trip_member(t.id);
 END;
 $$;
 
 
-ALTER FUNCTION "public"."get_trip_by_id_with_wineries"("trip_id_param" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."get_trip_by_id_with_wineries"("p_trip_id" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_trip_details"("trip_id_param" integer) RETURNS "jsonb"
+CREATE OR REPLACE FUNCTION "public"."get_trip_details"("p_trip_id" integer) RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
@@ -1084,17 +1138,17 @@ BEGIN
     -- 1. Fetch main trip record
     SELECT * INTO v_trip_record
     FROM public.trips
-    WHERE id = trip_id_param;
+    WHERE id = p_trip_id;
 
     IF NOT FOUND THEN
-        RAISE EXCEPTION 'Trip not found (ID: %)', trip_id_param;
+        RAISE EXCEPTION 'Trip not found (ID: %)', p_trip_id;
     END IF;
 
     -- 2. Verify access
-    v_is_member := public.is_trip_member(trip_id_param);
+    v_is_member := public.is_trip_member(p_trip_id);
     
     IF NOT v_is_member THEN
-        RAISE EXCEPTION 'Access denied for trip % (User: %)', trip_id_param, COALESCE(v_user_id::text, 'NULL');
+        RAISE EXCEPTION 'Access denied for trip % (User: %)', p_trip_id, COALESCE(v_user_id::text, 'NULL');
     END IF;
 
     -- 3. Assemble result
@@ -1115,7 +1169,7 @@ BEGIN
                     p.email
                 FROM public.trip_members tm
                 JOIN public.profiles p ON tm.user_id = p.id
-                WHERE tm.trip_id = trip_id_param
+                WHERE tm.trip_id = p_trip_id
             ) m_data
         ),
         'wineries', (
@@ -1128,6 +1182,8 @@ BEGIN
                     w.address,
                     w.latitude as lat,
                     w.longitude as lng,
+                    w.latitude,
+                    w.longitude,
                     tw.visit_order,
                     tw.notes,
                     tw.updated_at,
@@ -1148,14 +1204,14 @@ BEGIN
                               AND (
                                   v.user_id = v_trip_record.user_id 
                                   OR 
-                                  EXISTS (SELECT 1 FROM public.trip_members WHERE trip_id = trip_id_param AND user_id = v.user_id)
+                                  EXISTS (SELECT 1 FROM public.trip_members WHERE trip_id = p_trip_id AND user_id = v.user_id)
                               )
                               AND public.is_visible_to_viewer(v.user_id, v.is_private)
                         ) v_data
                     ) as visits
                 FROM public.trip_wineries tw
                 JOIN public.wineries w ON tw.winery_id = w.id
-                WHERE tw.trip_id = trip_id_param
+                WHERE tw.trip_id = p_trip_id
                 ORDER BY tw.visit_order ASC
             ) w_data
         )
@@ -1166,10 +1222,10 @@ END;
 $$;
 
 
-ALTER FUNCTION "public"."get_trip_details"("trip_id_param" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."get_trip_details"("p_trip_id" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_trips_for_date"("target_date" "date") RETURNS TABLE("id" integer, "user_id" "uuid", "trip_date" "date", "name" "text", "updated_at" timestamp with time zone, "wineries" "jsonb")
+CREATE OR REPLACE FUNCTION "public"."get_trips_for_date"("p_target_date" "date") RETURNS TABLE("id" integer, "user_id" "uuid", "trip_date" "date", "name" "text", "updated_at" timestamp with time zone, "wineries" "jsonb")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
@@ -1179,7 +1235,7 @@ BEGIN
         t.id, 
         t.user_id, 
         t.trip_date, 
-        t.name::text, -- Explicit cast to match RETURNS TABLE
+        t.name::text, 
         t.updated_at,
         COALESCE(jsonb_agg(row_to_json(w_data)) FILTER (WHERE w_data.id IS NOT NULL), '[]'::jsonb) as wineries
     FROM trips t
@@ -1198,27 +1254,27 @@ BEGIN
         FROM trip_wineries tw
         JOIN wineries w ON tw.winery_id = w.id
     ) w_data ON t.id = w_data.trip_id
-    WHERE t.trip_date = target_date
+    WHERE t.trip_date = p_target_date
       AND public.is_trip_member(t.id)
     GROUP BY t.id, t.user_id, t.trip_date, t.name, t.updated_at;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."get_trips_for_date"("target_date" "date") OWNER TO "postgres";
+ALTER FUNCTION "public"."get_trips_for_date"("p_target_date" "date") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."get_user_dashboard"() RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
-    user_id uuid := auth.uid();
-    result jsonb;
+    v_user_id uuid := auth.uid();
+    v_result jsonb;
 BEGIN
     SELECT jsonb_build_object(
         'profile', (
-            SELECT to_jsonb(p) - 'email' FROM profiles p WHERE p.id = user_id
+            SELECT to_jsonb(p) - 'email' FROM profiles p WHERE p.id = v_user_id
         ),
         'friend_requests_received', (
             SELECT COALESCE(jsonb_agg(
@@ -1231,7 +1287,7 @@ BEGIN
             ), '[]'::jsonb)
             FROM friends f
             JOIN profiles p ON f.user1_id = p.id
-            WHERE f.user2_id = user_id AND f.status = 'pending'
+            WHERE f.user2_id = v_user_id AND f.status = 'pending'
         ),
         'friend_requests_sent', (
             SELECT COALESCE(jsonb_agg(
@@ -1244,7 +1300,7 @@ BEGIN
             ), '[]'::jsonb)
             FROM friends f
             JOIN profiles p ON f.user2_id = p.id
-            WHERE f.user1_id = user_id AND f.status = 'pending'
+            WHERE f.user1_id = v_user_id AND f.status = 'pending'
         ),
         'upcoming_trips', (
             SELECT COALESCE(jsonb_agg(
@@ -1256,10 +1312,10 @@ BEGIN
             ORDER BY t.trip_date ASC), '[]'::jsonb)
             FROM trips t
             WHERE (
-                t.user_id = user_id 
+                t.user_id = v_user_id 
                 OR EXISTS (
                     SELECT 1 FROM trip_members tm 
-                    WHERE tm.trip_id = t.id AND tm.user_id = user_id
+                    WHERE tm.trip_id = t.id AND tm.user_id = v_user_id
                 )
             ) 
             AND t.trip_date >= CURRENT_DATE
@@ -1273,17 +1329,21 @@ BEGIN
                     'visit_date', v.visit_date,
                     'rating', v.rating,
                     'user_review', v.user_review,
-                    'photos', v.photos
+                    'photos', v.photos,
+                    'latitude', w.latitude,
+                    'longitude', w.longitude,
+                    'lat', w.latitude,
+                    'lng', w.longitude
                 )
             ORDER BY v.visit_date DESC), '[]'::jsonb)
             FROM visits v
             JOIN wineries w ON v.winery_id = w.id
-            WHERE v.user_id = user_id
+            WHERE v.user_id = v_user_id
             LIMIT 5 
         )
-    ) INTO result;
+    ) INTO v_result;
 
-    RETURN result;
+    RETURN v_result;
 END;
 $$;
 
@@ -1293,7 +1353,7 @@ ALTER FUNCTION "public"."get_user_dashboard"() OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."get_user_winery_data_aggregated"() RETURNS TABLE("wineries_data" "jsonb")
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
     user_uuid uuid := auth.uid();
@@ -1306,6 +1366,8 @@ BEGIN
                 'dbId', w.id,
                 'name', w.name,
                 'address', w.address,
+                'latitude', w.latitude,
+                'longitude', w.longitude,
                 'lat', w.latitude,
                 'lng', w.longitude,
                 'phone', w.phone,
@@ -1375,16 +1437,16 @@ $$;
 ALTER FUNCTION "public"."get_user_winery_data_aggregated"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_wineries_for_trip_planner"("trip_date_param" "date") RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "trip_id" integer, "trip_name" character varying, "trip_date" "date", "visit_order" integer, "notes" "text")
+CREATE OR REPLACE FUNCTION "public"."get_wineries_for_trip_planner"("p_trip_date" "date") RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "trip_id" integer, "trip_name" character varying, "trip_date" "date", "visit_order" integer, "notes" "text")
     LANGUAGE "plpgsql"
-    SET "search_path" TO 'public', 'extensions'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 BEGIN
     RETURN QUERY
     WITH user_trips AS (
         SELECT t.id, t.name, t.trip_date
         FROM public.trips t
-        WHERE t.user_id = auth.uid() AND t.trip_date = trip_date_param
+        WHERE t.user_id = auth.uid() AND t.trip_date = p_trip_date
     ),
     wineries_in_trips AS (
         SELECT
@@ -1425,7 +1487,7 @@ END;
 $$;
 
 
-ALTER FUNCTION "public"."get_wineries_for_trip_planner"("trip_date_param" "date") OWNER TO "postgres";
+ALTER FUNCTION "public"."get_wineries_for_trip_planner"("p_trip_date" "date") OWNER TO "postgres";
 
 SET default_tablespace = '';
 
@@ -1452,26 +1514,26 @@ CREATE TABLE IF NOT EXISTS "public"."wineries" (
 ALTER TABLE "public"."wineries" OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_wineries_in_bounds"("min_lat" double precision, "min_lng" double precision, "max_lat" double precision, "max_lng" double precision) RETURNS SETOF "public"."wineries"
+CREATE OR REPLACE FUNCTION "public"."get_wineries_in_bounds"("p_min_latitude" double precision, "p_min_longitude" double precision, "p_max_latitude" double precision, "p_max_longitude" double precision) RETURNS SETOF "public"."wineries"
     LANGUAGE "sql" STABLE
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
   SELECT *
   FROM wineries
   WHERE
-    latitude >= min_lat AND
-    latitude <= max_lat AND
-    longitude >= min_lng AND
-    longitude <= max_lng;
+    latitude >= p_min_latitude AND
+    latitude <= p_max_latitude AND
+    longitude >= p_min_longitude AND
+    longitude <= p_max_longitude;
 $$;
 
 
-ALTER FUNCTION "public"."get_wineries_in_bounds"("min_lat" double precision, "min_lng" double precision, "max_lat" double precision, "max_lng" double precision) OWNER TO "postgres";
+ALTER FUNCTION "public"."get_wineries_in_bounds"("p_min_latitude" double precision, "p_min_longitude" double precision, "p_max_latitude" double precision, "p_max_longitude" double precision) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_winery_details"("winery_id_param" integer) RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "visits" "jsonb")
+CREATE OR REPLACE FUNCTION "public"."get_winery_details"("p_winery_id" integer) RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "visits" "jsonb")
     LANGUAGE "plpgsql"
-    SET "search_path" TO 'public', 'extensions'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
     v_visits jsonb;
@@ -1481,7 +1543,7 @@ BEGIN
     FROM (
         SELECT v.id, v.visit_date, v.user_review, v.rating, v.photos
         FROM public.visits v
-        WHERE v.winery_id = winery_id_param AND v.user_id = auth.uid()
+        WHERE v.winery_id = p_winery_id AND v.user_id = auth.uid()
         ORDER BY v.visit_date DESC
     ) AS v_agg;
 
@@ -1503,15 +1565,15 @@ BEGIN
     FROM public.wineries w
     LEFT JOIN public.favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
     LEFT JOIN public.wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
-    WHERE w.id = winery_id_param;
-    END;
-    $$;
+    WHERE w.id = p_winery_id;
+END;
+$$;
 
 
-ALTER FUNCTION "public"."get_winery_details"("winery_id_param" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."get_winery_details"("p_winery_id" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."get_winery_details_by_id"("winery_id_param" integer) RETURNS TABLE("id" integer, "google_place_id" "text", "name" "text", "address" "text", "lat" numeric, "lng" numeric, "phone" "text", "website" "text", "google_rating" numeric, "opening_hours" "jsonb", "reviews" "jsonb", "reservable" boolean, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "is_favorite_private" boolean, "on_wishlist_private" boolean, "visits" "jsonb", "trip_info" "jsonb")
+CREATE OR REPLACE FUNCTION "public"."get_winery_details_by_id"("p_winery_id" integer) RETURNS TABLE("id" integer, "google_place_id" "text", "name" "text", "address" "text", "lat" numeric, "lng" numeric, "latitude" numeric, "longitude" numeric, "phone" "text", "website" "text", "google_rating" numeric, "opening_hours" "jsonb", "reviews" "jsonb", "reservable" boolean, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "is_favorite_private" boolean, "on_wishlist_private" boolean, "visits" "jsonb", "trip_info" "jsonb")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
@@ -1526,6 +1588,8 @@ BEGIN
         w.address,
         w.latitude as lat,
         w.longitude as lng,
+        w.latitude,
+        w.longitude,
         w.phone::text,
         w.website::text,
         w.google_rating,
@@ -1576,21 +1640,23 @@ BEGIN
     FROM
         wineries w
     WHERE
-        w.id = winery_id_param;
+        w.id = p_winery_id;
 END;
 $$;
 
 
-ALTER FUNCTION "public"."get_winery_details_by_id"("winery_id_param" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."get_winery_details_by_id"("p_winery_id" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."handle_activity_ledger_entry"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
     v_winery_name text;
     v_winery_id integer;
+    v_winery_latitude numeric;
+    v_winery_longitude numeric;
     v_privacy_level text;
     v_user_privacy text;
 BEGIN
@@ -1608,7 +1674,10 @@ BEGIN
         END IF;
 
         -- Get winery details for metadata
-        SELECT id, name INTO v_winery_id, v_winery_name FROM public.wineries WHERE id = NEW.winery_id;
+        SELECT id, name, latitude, longitude 
+        INTO v_winery_id, v_winery_name, v_winery_latitude, v_winery_longitude 
+        FROM public.wineries 
+        WHERE id = NEW.winery_id;
     END IF;
 
     IF TG_OP = 'INSERT' THEN
@@ -1622,6 +1691,10 @@ BEGIN
                 jsonb_build_object(
                     'winery_id', v_winery_id,
                     'winery_name', v_winery_name,
+                    'latitude', v_winery_latitude,
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude,
                     'rating', NEW.rating,
                     'user_review', NEW.user_review,
                     'photos', COALESCE(to_jsonb(NEW.photos), '[]'::jsonb)
@@ -1637,7 +1710,11 @@ BEGIN
                 v_privacy_level, 
                 jsonb_build_object(
                     'winery_id', v_winery_id,
-                    'winery_name', v_winery_name
+                    'winery_name', v_winery_name,
+                    'latitude', v_winery_latitude,
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude
                 ),
                 NEW.created_at
             );
@@ -1650,7 +1727,11 @@ BEGIN
                 v_privacy_level, 
                 jsonb_build_object(
                     'winery_id', v_winery_id,
-                    'winery_name', v_winery_name
+                    'winery_name', v_winery_name,
+                    'latitude', v_winery_latitude,
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude
                 ),
                 NEW.created_at
             );
@@ -1666,6 +1747,10 @@ BEGIN
                 metadata = jsonb_build_object(
                     'winery_id', v_winery_id,
                     'winery_name', v_winery_name,
+                    'latitude', v_winery_latitude,
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude,
                     'rating', NEW.rating,
                     'user_review', NEW.user_review,
                     'photos', COALESCE(to_jsonb(NEW.photos), '[]'::jsonb)
@@ -1677,7 +1762,11 @@ BEGIN
                 privacy_level = v_privacy_level,
                 metadata = jsonb_build_object(
                     'winery_id', v_winery_id,
-                    'winery_name', v_winery_name
+                    'winery_name', v_winery_name,
+                    'latitude', v_winery_latitude,
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude
                 )
             WHERE activity_type = 'favorite' AND object_id = OLD.id::text;
         ELSIF TG_TABLE_NAME = 'wishlist' THEN
@@ -1686,14 +1775,18 @@ BEGIN
                 privacy_level = v_privacy_level,
                 metadata = jsonb_build_object(
                     'winery_id', v_winery_id,
-                    'winery_name', v_winery_name
+                    'winery_name', v_winery_name,
+                    'latitude', v_winery_latitude,
+                    'longitude', v_winery_longitude,
+                    'lat', v_winery_latitude,
+                    'lng', v_winery_longitude
                 )
             WHERE activity_type = 'wishlist' AND object_id = OLD.id::text;
         END IF;
         RETURN NEW;
 
     ELSIF TG_OP = 'DELETE' THEN
-        -- Remove ledger entry
+        -- Remove ledger entry using table-specific logic
         IF TG_TABLE_NAME = 'visits' THEN
             DELETE FROM public.activity_ledger WHERE activity_type = 'visit' AND object_id = OLD.id::text;
         ELSIF TG_TABLE_NAME = 'favorites' THEN
@@ -1713,7 +1806,7 @@ ALTER FUNCTION "public"."handle_activity_ledger_entry"() OWNER TO "postgres";
 
 CREATE OR REPLACE FUNCTION "public"."handle_new_user"() RETURNS "trigger"
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 BEGIN
     INSERT INTO public.profiles (id, name, email)
@@ -1726,7 +1819,7 @@ $$;
 ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."is_trip_member"("trip_id_to_check" integer) RETURNS boolean
+CREATE OR REPLACE FUNCTION "public"."is_trip_member"("p_trip_id" integer) RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
@@ -1739,23 +1832,22 @@ BEGIN
         RETURN FALSE;
     END IF;
 
-    -- Using explicit schema and aliases to prevent ambiguity
     RETURN EXISTS (
         SELECT 1
         FROM public.trips t
-        WHERE t.id = trip_id_to_check
+        WHERE t.id = p_trip_id
           AND t.user_id = v_user_id
     ) OR EXISTS (
         SELECT 1
         FROM public.trip_members tm
-        WHERE tm.trip_id = trip_id_to_check
+        WHERE tm.trip_id = p_trip_id
           AND tm.user_id = v_user_id
     );
 END;
 $$;
 
 
-ALTER FUNCTION "public"."is_trip_member"("trip_id_to_check" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."is_trip_member"("p_trip_id" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."is_visible_to_viewer"("p_target_user_id" "uuid", "p_is_item_private" boolean DEFAULT false) RETURNS boolean
@@ -1849,8 +1941,8 @@ BEGIN
     p_winery_data->>'id',
     p_winery_data->>'name',
     p_winery_data->>'address',
-    (p_winery_data->>'lat')::numeric,
-    (p_winery_data->>'lng')::numeric,
+    (COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat'))::numeric,
+    (COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng'))::numeric,
     p_winery_data->>'phone',
     p_winery_data->>'website',
     (p_winery_data->>'rating')::numeric
@@ -1891,7 +1983,7 @@ $$;
 ALTER FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_data" "jsonb") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."remove_friend"("target_friend_id" "uuid") RETURNS "void"
+CREATE OR REPLACE FUNCTION "public"."remove_friend"("p_target_friend_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
@@ -1904,13 +1996,13 @@ BEGIN
   END IF;
 
   DELETE FROM friends
-  WHERE (user1_id = current_user_id AND user2_id = target_friend_id)
-     OR (user1_id = target_friend_id AND user2_id = current_user_id);
+  WHERE (user1_id = current_user_id AND user2_id = p_target_friend_id)
+     OR (user1_id = p_target_friend_id AND user2_id = current_user_id);
 END;
 $$;
 
 
-ALTER FUNCTION "public"."remove_friend"("target_friend_id" "uuid") OWNER TO "postgres";
+ALTER FUNCTION "public"."remove_friend"("p_target_friend_id" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."remove_winery_from_trip"("p_trip_id" integer, "p_winery_id" integer) RETURNS "jsonb"
@@ -1964,7 +2056,7 @@ ALTER FUNCTION "public"."reorder_trip_wineries"("p_trip_id" integer, "p_winery_i
 
 CREATE OR REPLACE FUNCTION "public"."respond_to_follow_request"("p_follower_id" "uuid", "p_accept" boolean) RETURNS json
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
     v_request_exists BOOLEAN;
@@ -2005,7 +2097,7 @@ $$;
 ALTER FUNCTION "public"."respond_to_follow_request"("p_follower_id" "uuid", "p_accept" boolean) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."respond_to_friend_request"("requester_id" "uuid", "accept" boolean) RETURNS "void"
+CREATE OR REPLACE FUNCTION "public"."respond_to_friend_request"("p_requester_id" "uuid", "p_accept" boolean) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
@@ -2018,7 +2110,7 @@ BEGIN
     RAISE EXCEPTION 'Unauthorized';
   END IF;
 
-  IF accept THEN
+  IF p_accept THEN
     new_status := 'accepted';
   ELSE
     new_status := 'declined';
@@ -2027,20 +2119,19 @@ BEGIN
   UPDATE friends
   SET status = new_status,
       updated_at = NOW()
-  WHERE user1_id = requester_id
+  WHERE user1_id = p_requester_id
     AND user2_id = current_user_id
     AND status = 'pending';
-
 END;
 $$;
 
 
-ALTER FUNCTION "public"."respond_to_friend_request"("requester_id" "uuid", "accept" boolean) OWNER TO "postgres";
+ALTER FUNCTION "public"."respond_to_friend_request"("p_requester_id" "uuid", "p_accept" boolean) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."search_wineries_by_name_and_location"("search_query" "text", "user_lat" double precision, "user_lng" double precision) RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "distance_meters" double precision)
+CREATE OR REPLACE FUNCTION "public"."search_wineries_by_name_and_location"("p_search_query" "text", "p_user_latitude" double precision, "p_user_longitude" double precision) RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "distance_meters" double precision)
     LANGUAGE "plpgsql"
-    SET "search_path" TO 'public', 'extensions'
+    SET "search_path" TO 'public', 'auth', 'extensions'
     AS $$
 BEGIN
     RETURN QUERY
@@ -2062,14 +2153,14 @@ BEGIN
         LEFT JOIN public.favorites f ON w.id = f.winery_id AND f.user_id = auth.uid()
         LEFT JOIN public.wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid()
         LEFT JOIN public.visits v ON w.id = v.winery_id AND v.user_id = auth.uid()
-        WHERE w.name ILIKE '%' || search_query || '%'
+        WHERE w.name ILIKE '%' || p_search_query || '%'
         GROUP BY w.id
     )
     SELECT
         wm.*,
         extensions.ST_Distance(
             extensions.ST_MakePoint(wm.longitude::double precision, wm.latitude::double precision)::extensions.geography,
-            extensions.ST_MakePoint(user_lng, user_lat)::extensions.geography
+            extensions.ST_MakePoint(p_user_longitude, p_user_latitude)::extensions.geography
         ) as distance_meters
     FROM winery_matches wm
     ORDER BY distance_meters;
@@ -2077,12 +2168,12 @@ END;
 $$;
 
 
-ALTER FUNCTION "public"."search_wineries_by_name_and_location"("search_query" "text", "user_lat" double precision, "user_lng" double precision) OWNER TO "postgres";
+ALTER FUNCTION "public"."search_wineries_by_name_and_location"("p_search_query" "text", "p_user_latitude" double precision, "p_user_longitude" double precision) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."send_follow_request"("p_target_id" "uuid") RETURNS json
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
     v_privacy_level privacy_level;
@@ -2128,13 +2219,13 @@ $$;
 ALTER FUNCTION "public"."send_follow_request"("p_target_id" "uuid") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."send_friend_request"("target_email" "text") RETURNS "void"
+CREATE OR REPLACE FUNCTION "public"."send_friend_request"("p_target_email" "text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
   current_user_id uuid;
-  target_user_id uuid;
+  v_target_user_id uuid;
   existing_request record;
 BEGIN
   current_user_id := auth.uid();
@@ -2142,22 +2233,22 @@ BEGIN
     RAISE EXCEPTION 'Unauthorized';
   END IF;
 
-  SELECT id INTO target_user_id
+  SELECT id INTO v_target_user_id
   FROM profiles
-  WHERE email ILIKE TRIM(target_email);
+  WHERE email ILIKE TRIM(p_target_email);
 
-  IF target_user_id IS NULL THEN
+  IF v_target_user_id IS NULL THEN
     RAISE EXCEPTION 'User not found.';
   END IF;
 
-  IF target_user_id = current_user_id THEN
+  IF v_target_user_id = current_user_id THEN
     RAISE EXCEPTION 'You cannot add yourself as a friend.';
   END IF;
 
   SELECT * INTO existing_request
   FROM friends
-  WHERE (user1_id = current_user_id AND user2_id = target_user_id)
-     OR (user1_id = target_user_id AND user2_id = current_user_id)
+  WHERE (user1_id = current_user_id AND user2_id = v_target_user_id)
+     OR (user1_id = v_target_user_id AND user2_id = current_user_id)
   LIMIT 1;
 
   IF existing_request.id IS NOT NULL THEN
@@ -2169,7 +2260,7 @@ BEGIN
       UPDATE friends
       SET status = 'pending',
           user1_id = current_user_id,
-          user2_id = target_user_id,
+          user2_id = v_target_user_id,
           updated_at = NOW()
       WHERE id = existing_request.id;
       RETURN;
@@ -2177,17 +2268,17 @@ BEGIN
   END IF;
 
   INSERT INTO friends (user1_id, user2_id, status)
-  VALUES (current_user_id, target_user_id, 'pending');
+  VALUES (current_user_id, v_target_user_id, 'pending');
 END;
 $$;
 
 
-ALTER FUNCTION "public"."send_friend_request"("target_email" "text") OWNER TO "postgres";
+ALTER FUNCTION "public"."send_friend_request"("p_target_email" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."toggle_favorite"("p_winery_data" "jsonb") RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
   v_user_id uuid;
@@ -2256,7 +2347,7 @@ ALTER FUNCTION "public"."toggle_favorite_privacy"("p_winery_id" integer) OWNER T
 
 CREATE OR REPLACE FUNCTION "public"."toggle_wishlist"("p_winery_data" "jsonb") RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
   v_user_id uuid;
@@ -2368,6 +2459,7 @@ ALTER FUNCTION "public"."update_trip_winery_notes"("p_trip_id" integer, "p_winer
 
 CREATE OR REPLACE FUNCTION "public"."update_updated_at_column"() RETURNS "trigger"
     LANGUAGE "plpgsql"
+    SET "search_path" TO 'public', 'auth'
     AS $$
 BEGIN
     NEW.updated_at = now();
@@ -2414,7 +2506,11 @@ BEGIN
             'winery_id', v.winery_id,
             'winery_name', w.name,
             'winery_address', w.address,
-            'google_place_id', w.google_place_id
+            'google_place_id', w.google_place_id,
+            'latitude', w.latitude,
+            'longitude', w.longitude,
+            'lat', w.latitude,
+            'lng', w.longitude
         )
         FROM public.visits v
         JOIN public.wineries w ON v.winery_id = w.id
@@ -2427,14 +2523,14 @@ $$;
 ALTER FUNCTION "public"."update_visit"("p_visit_id" integer, "p_visit_data" "jsonb") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."upsert_wineries_from_search"("wineries_data" "jsonb"[]) RETURNS "void"
+CREATE OR REPLACE FUNCTION "public"."upsert_wineries_from_search"("p_wineries_data" "jsonb"[]) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
-    SET "search_path" TO 'public'
+    SET "search_path" TO 'public', 'auth'
     AS $$
 DECLARE
   winery_record jsonb;
 BEGIN
-  FOREACH winery_record IN ARRAY wineries_data
+  FOREACH winery_record IN ARRAY p_wineries_data
   LOOP
     INSERT INTO wineries (
       google_place_id,
@@ -2455,7 +2551,6 @@ BEGIN
     ON CONFLICT (google_place_id) 
     DO UPDATE SET
         google_rating = COALESCE(EXCLUDED.google_rating, wineries.google_rating),
-        -- Also update basic info in case it changed/improved
         name = COALESCE(EXCLUDED.name, wineries.name),
         address = COALESCE(EXCLUDED.address, wineries.address),
         latitude = COALESCE(EXCLUDED.latitude, wineries.latitude),
@@ -2465,7 +2560,7 @@ END;
 $$;
 
 
-ALTER FUNCTION "public"."upsert_wineries_from_search"("wineries_data" "jsonb"[]) OWNER TO "postgres";
+ALTER FUNCTION "public"."upsert_wineries_from_search"("p_wineries_data" "jsonb"[]) OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."activity_ledger" (
@@ -2884,59 +2979,7 @@ ALTER TABLE ONLY "public"."wishlist"
 
 
 
-CREATE INDEX "favorites_is_private_idx" ON "public"."favorites" USING "btree" ("is_private");
-
-
-
-CREATE INDEX "idx_activity_ledger_activity_type" ON "public"."activity_ledger" USING "btree" ("activity_type");
-
-
-
-CREATE INDEX "idx_activity_ledger_created_at" ON "public"."activity_ledger" USING "btree" ("created_at" DESC);
-
-
-
-CREATE INDEX "idx_activity_ledger_metadata" ON "public"."activity_ledger" USING "gin" ("metadata");
-
-
-
-CREATE INDEX "idx_activity_ledger_privacy_level" ON "public"."activity_ledger" USING "btree" ("privacy_level");
-
-
-
-CREATE INDEX "idx_activity_ledger_user_id" ON "public"."activity_ledger" USING "btree" ("user_id");
-
-
-
-CREATE INDEX "idx_favorites_metadata" ON "public"."favorites" USING "gin" ("metadata");
-
-
-
-CREATE INDEX "idx_favorites_winery_id" ON "public"."favorites" USING "btree" ("winery_id");
-
-
-
-CREATE INDEX "idx_follow_requests_follower_id" ON "public"."follow_requests" USING "btree" ("follower_id");
-
-
-
-CREATE INDEX "idx_follow_requests_following_id" ON "public"."follow_requests" USING "btree" ("following_id");
-
-
-
-CREATE INDEX "idx_follows_follower_id" ON "public"."follows" USING "btree" ("follower_id");
-
-
-
-CREATE INDEX "idx_follows_following_id" ON "public"."follows" USING "btree" ("following_id");
-
-
-
 CREATE INDEX "idx_friends_user1_id" ON "public"."friends" USING "btree" ("user1_id");
-
-
-
-CREATE INDEX "idx_friends_user1_status" ON "public"."friends" USING "btree" ("user1_id", "status") WHERE ("status" = 'accepted'::"text");
 
 
 
@@ -2944,23 +2987,7 @@ CREATE INDEX "idx_friends_user2_id" ON "public"."friends" USING "btree" ("user2_
 
 
 
-CREATE INDEX "idx_friends_user2_status" ON "public"."friends" USING "btree" ("user2_id", "status") WHERE ("status" = 'accepted'::"text");
-
-
-
 CREATE INDEX "idx_trip_members_trip_id" ON "public"."trip_members" USING "btree" ("trip_id");
-
-
-
-CREATE INDEX "idx_trip_members_user_id" ON "public"."trip_members" USING "btree" ("user_id");
-
-
-
-CREATE INDEX "idx_trip_wineries_trip_id" ON "public"."trip_wineries" USING "btree" ("trip_id");
-
-
-
-CREATE INDEX "idx_trip_wineries_winery_id" ON "public"."trip_wineries" USING "btree" ("winery_id");
 
 
 
@@ -2968,51 +2995,7 @@ CREATE INDEX "idx_trips_user_id_trip_date" ON "public"."trips" USING "btree" ("u
 
 
 
-CREATE INDEX "idx_visit_participants_user_id" ON "public"."visit_participants" USING "btree" ("user_id");
-
-
-
-CREATE INDEX "idx_visit_participants_visit_id" ON "public"."visit_participants" USING "btree" ("visit_id");
-
-
-
-CREATE INDEX "idx_visits_metadata" ON "public"."visits" USING "gin" ("metadata");
-
-
-
-CREATE INDEX "idx_visits_user_id" ON "public"."visits" USING "btree" ("user_id");
-
-
-
-CREATE INDEX "idx_visits_user_id_created_at" ON "public"."visits" USING "btree" ("user_id", "created_at" DESC);
-
-
-
-CREATE INDEX "idx_visits_winery_id" ON "public"."visits" USING "btree" ("winery_id");
-
-
-
 CREATE INDEX "idx_wineries_google_place_id" ON "public"."wineries" USING "btree" ("google_place_id");
-
-
-
-CREATE INDEX "idx_wishlist_metadata" ON "public"."wishlist" USING "gin" ("metadata");
-
-
-
-CREATE INDEX "idx_wishlist_winery_id" ON "public"."wishlist" USING "btree" ("winery_id");
-
-
-
-CREATE INDEX "profiles_privacy_level_idx" ON "public"."profiles" USING "btree" ("privacy_level");
-
-
-
-CREATE INDEX "visits_is_private_idx" ON "public"."visits" USING "btree" ("is_private");
-
-
-
-CREATE INDEX "wishlist_is_private_idx" ON "public"."wishlist" USING "btree" ("is_private");
 
 
 
@@ -3149,7 +3132,7 @@ CREATE POLICY "Anyone can view wineries" ON "public"."wineries" FOR SELECT USING
 
 
 
-CREATE POLICY "Authenticated users can insert wineries" ON "public"."wineries" FOR INSERT TO "authenticated" WITH CHECK (true);
+CREATE POLICY "Authenticated users can insert wineries" ON "public"."wineries" FOR INSERT TO "authenticated" WITH CHECK ((("name" IS NOT NULL) AND ("google_place_id" IS NOT NULL)));
 
 
 
@@ -3169,15 +3152,15 @@ CREATE POLICY "Members can view trip wineries" ON "public"."trip_wineries" FOR S
 
 
 
-CREATE POLICY "Owners can delete their trips" ON "public"."trips" FOR DELETE USING (("auth"."uid"() = "user_id"));
+CREATE POLICY "Owners can delete their trips" ON "public"."trips" FOR DELETE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
-CREATE POLICY "Owners can update their trips" ON "public"."trips" FOR UPDATE USING (("auth"."uid"() = "user_id"));
+CREATE POLICY "Owners can update their trips" ON "public"."trips" FOR UPDATE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
-CREATE POLICY "Participants can update their own status" ON "public"."visit_participants" FOR UPDATE USING (("user_id" = "auth"."uid"())) WITH CHECK (("user_id" = "auth"."uid"()));
+CREATE POLICY "Participants can update their own status" ON "public"."visit_participants" FOR UPDATE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
@@ -3185,25 +3168,25 @@ CREATE POLICY "Profiles are viewable based on privacy settings" ON "public"."pro
 
 
 
-CREATE POLICY "System can manage activity_ledger" ON "public"."activity_ledger" USING ((("auth"."jwt"() ->> 'role'::"text") = 'service_role'::"text"));
+CREATE POLICY "System can manage activity_ledger" ON "public"."activity_ledger" USING ((( SELECT ("auth"."jwt"() ->> 'role'::"text")) = 'service_role'::"text"));
 
 
 
 CREATE POLICY "Trip owners can add members" ON "public"."trip_members" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."trips"
-  WHERE (("trips"."id" = "trip_members"."trip_id") AND ("trips"."user_id" = "auth"."uid"())))));
+  WHERE (("trips"."id" = "trip_members"."trip_id") AND ("trips"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
 CREATE POLICY "Trip owners can remove members" ON "public"."trip_members" FOR DELETE USING ((EXISTS ( SELECT 1
    FROM "public"."trips"
-  WHERE (("trips"."id" = "trip_members"."trip_id") AND ("trips"."user_id" = "auth"."uid"())))));
+  WHERE (("trips"."id" = "trip_members"."trip_id") AND ("trips"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
 CREATE POLICY "Trip owners can update member roles" ON "public"."trip_members" FOR UPDATE USING ((EXISTS ( SELECT 1
    FROM "public"."trips"
-  WHERE (("trips"."id" = "trip_members"."trip_id") AND ("trips"."user_id" = "auth"."uid"())))));
+  WHERE (("trips"."id" = "trip_members"."trip_id") AND ("trips"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
@@ -3227,7 +3210,7 @@ CREATE POLICY "Users can delete their own wishlist items" ON "public"."wishlist"
 
 
 
-CREATE POLICY "Users can follow others" ON "public"."follows" FOR INSERT WITH CHECK (("follower_id" = "auth"."uid"()));
+CREATE POLICY "Users can follow others" ON "public"."follows" FOR INSERT WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "follower_id"));
 
 
 
@@ -3239,7 +3222,7 @@ CREATE POLICY "Users can insert their own profile." ON "public"."profiles" FOR I
 
 
 
-CREATE POLICY "Users can insert their own trips" ON "public"."trips" FOR INSERT WITH CHECK (("auth"."uid"() = "user_id"));
+CREATE POLICY "Users can insert their own trips" ON "public"."trips" FOR INSERT WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
@@ -3255,7 +3238,7 @@ CREATE POLICY "Users can respond to friend requests" ON "public"."friends" FOR U
 
 
 
-CREATE POLICY "Users can unfollow" ON "public"."follows" FOR DELETE USING (("follower_id" = "auth"."uid"()));
+CREATE POLICY "Users can unfollow" ON "public"."follows" FOR DELETE USING ((( SELECT "auth"."uid"() AS "uid") = "follower_id"));
 
 
 
@@ -3275,26 +3258,21 @@ CREATE POLICY "Users can view favorites based on privacy settings" ON "public"."
 
 
 
-CREATE POLICY "Users can view follows" ON "public"."follows" FOR SELECT USING (true);
+CREATE POLICY "Users can view follows" ON "public"."follows" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "follower_id") OR (( SELECT "auth"."uid"() AS "uid") = "following_id")));
 
 
 
-CREATE POLICY "Users can view members of trips they belong to" ON "public"."trip_members" FOR SELECT USING ((("auth"."uid"() = "user_id") OR "public"."is_trip_member"("trip_id")));
+CREATE POLICY "Users can view members of trips they belong to" ON "public"."trip_members" FOR SELECT USING ("public"."is_trip_member"("trip_id"));
 
 
 
-CREATE POLICY "Users can view participants of visits they are part of" ON "public"."visit_participants" FOR SELECT USING ((("user_id" = "auth"."uid"()) OR (EXISTS ( SELECT 1
+CREATE POLICY "Users can view participants of visits they are part of" ON "public"."visit_participants" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "user_id") OR (EXISTS ( SELECT 1
    FROM "public"."visits"
-  WHERE (("visits"."id" = "visit_participants"."visit_id") AND ("visits"."user_id" = "auth"."uid"()))))));
+  WHERE (("visits"."id" = "visit_participants"."visit_id") AND ("visits"."user_id" = ( SELECT "auth"."uid"() AS "uid")))))));
 
 
 
-CREATE POLICY "Users can view requests they sent or received" ON "public"."follow_requests" FOR SELECT USING ((("follower_id" = "auth"."uid"()) OR ("following_id" = "auth"."uid"())));
-
-
-
-CREATE POLICY "Users can view their own and their friends' profiles" ON "public"."profiles" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "id") OR ("id" IN ( SELECT "get_friends_ids"."friend_id"
-   FROM "public"."get_friends_ids"() "get_friends_ids"("friend_id")))));
+CREATE POLICY "Users can view requests they sent or received" ON "public"."follow_requests" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "follower_id") OR (( SELECT "auth"."uid"() AS "uid") = "following_id")));
 
 
 
@@ -3302,7 +3280,9 @@ CREATE POLICY "Users can view their own friendships" ON "public"."friends" FOR S
 
 
 
-CREATE POLICY "Users can view trips they belong to" ON "public"."trips" FOR SELECT USING ((("auth"."uid"() = "user_id") OR "public"."is_trip_member"("id")));
+CREATE POLICY "Users can view trips they belong to" ON "public"."trips" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "user_id") OR (EXISTS ( SELECT 1
+   FROM "public"."trip_members"
+  WHERE (("trip_members"."trip_id" = "trips"."id") AND ("trip_members"."user_id" = ( SELECT "auth"."uid"() AS "uid")))))));
 
 
 
@@ -3316,7 +3296,7 @@ CREATE POLICY "Users can view wishlist items based on privacy settings" ON "publ
 
 CREATE POLICY "Visit owners can remove participants" ON "public"."visit_participants" FOR DELETE USING ((EXISTS ( SELECT 1
    FROM "public"."visits"
-  WHERE (("visits"."id" = "visit_participants"."visit_id") AND ("visits"."user_id" = "auth"."uid"())))));
+  WHERE (("visits"."id" = "visit_participants"."visit_id") AND ("visits"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
@@ -3370,11 +3350,18 @@ ALTER TABLE "public"."wishlist" ENABLE ROW LEVEL SECURITY;
 ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
 
 
+
+
+
+
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."friends";
 
 
 
 ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."visits";
+
+
+
 
 
 
@@ -5704,321 +5691,308 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."add_to_wishlist"("p_winery_data" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."add_to_wishlist"("p_winery_data" "jsonb") TO "authenticated";
+
+
+
+
+
+
+REVOKE ALL ON FUNCTION "public"."add_to_wishlist"("p_winery_data" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."add_to_wishlist"("p_winery_data" "jsonb") TO "service_role";
+GRANT ALL ON FUNCTION "public"."add_to_wishlist"("p_winery_data" "jsonb") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."add_trip_member_by_email"("p_trip_id" integer, "p_email" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."add_trip_member_by_email"("p_trip_id" integer, "p_email" "text") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."add_trip_member_by_email"("p_trip_id" integer, "p_email" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."add_trip_member_by_email"("p_trip_id" integer, "p_email" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."add_trip_member_by_email"("p_trip_id" integer, "p_email" "text") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."add_winery_to_trip"("p_trip_id" integer, "p_winery_data" "jsonb", "p_notes" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."add_winery_to_trip"("p_trip_id" integer, "p_winery_data" "jsonb", "p_notes" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."add_winery_to_trip"("p_trip_id" integer, "p_winery_id" integer, "p_notes" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."add_winery_to_trip"("p_trip_id" integer, "p_winery_id" integer, "p_notes" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."add_winery_to_trip"("p_trip_id" integer, "p_winery_data" "jsonb", "p_notes" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."add_winery_to_trip"("p_trip_id" integer, "p_winery_data" "jsonb", "p_notes" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."add_winery_to_trip"("p_trip_id" integer, "p_winery_data" "jsonb", "p_notes" "text") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."add_winery_to_trips"("p_winery_id" integer, "p_trip_ids" integer[]) TO "anon";
-GRANT ALL ON FUNCTION "public"."add_winery_to_trips"("p_winery_id" integer, "p_trip_ids" integer[]) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."add_winery_to_trips"("p_winery_id" integer, "p_trip_ids" integer[]) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."add_winery_to_trips"("p_winery_id" integer, "p_trip_ids" integer[]) TO "service_role";
+GRANT ALL ON FUNCTION "public"."add_winery_to_trips"("p_winery_id" integer, "p_trip_ids" integer[]) TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."create_trip"("p_name" "text", "p_trip_date" "date") TO "anon";
-GRANT ALL ON FUNCTION "public"."create_trip"("p_name" "text", "p_trip_date" "date") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."create_trip"("p_name" "text", "p_trip_date" "date") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."create_trip"("p_name" "text", "p_trip_date" "date") TO "service_role";
+GRANT ALL ON FUNCTION "public"."create_trip"("p_name" "text", "p_trip_date" "date") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."create_trip_with_winery"("p_trip_name" character varying, "p_trip_date" "date", "p_winery_data" "jsonb", "p_notes" "text", "p_members" "uuid"[]) TO "anon";
-GRANT ALL ON FUNCTION "public"."create_trip_with_winery"("p_trip_name" character varying, "p_trip_date" "date", "p_winery_data" "jsonb", "p_notes" "text", "p_members" "uuid"[]) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."create_trip_with_winery"("p_trip_name" character varying, "p_trip_date" "date", "p_winery_data" "jsonb", "p_notes" "text", "p_members" "uuid"[]) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."create_trip_with_winery"("p_trip_name" character varying, "p_trip_date" "date", "p_winery_data" "jsonb", "p_notes" "text", "p_members" "uuid"[]) TO "service_role";
+GRANT ALL ON FUNCTION "public"."create_trip_with_winery"("p_trip_name" character varying, "p_trip_date" "date", "p_winery_data" "jsonb", "p_notes" "text", "p_members" "uuid"[]) TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."delete_trip"("p_trip_id" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."delete_trip"("p_trip_id" integer) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."delete_trip"("p_trip_id" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."delete_trip"("p_trip_id" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."delete_trip"("p_trip_id" integer) TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."delete_visit"("p_visit_id" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."delete_visit"("p_visit_id" integer) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."delete_visit"("p_visit_id" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."delete_visit"("p_visit_id" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."delete_visit"("p_visit_id" integer) TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."ensure_winery"("p_winery_data" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."ensure_winery"("p_winery_data" "jsonb") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."ensure_winery"("p_winery_data" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."ensure_winery"("p_winery_data" "jsonb") TO "service_role";
+GRANT ALL ON FUNCTION "public"."ensure_winery"("p_winery_data" "jsonb") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_all_user_visits_list"() TO "anon";
-GRANT ALL ON FUNCTION "public"."get_all_user_visits_list"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."get_all_user_visits_list"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."get_all_user_visits_list"() TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_all_user_visits_list"() TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_all_wineries_with_user_data"() TO "anon";
-GRANT ALL ON FUNCTION "public"."get_all_wineries_with_user_data"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."get_all_wineries_with_user_data"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."get_all_wineries_with_user_data"() TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_all_wineries_with_user_data"() TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_friend_activity_feed"("limit_val" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_friend_activity_feed"("limit_val" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_friend_activity_feed"("limit_val" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_friend_activity_feed"("p_limit" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_friend_activity_feed"("p_limit" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_friend_profile_with_visits"("friend_id_param" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."get_friend_profile_with_visits"("friend_id_param" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_friend_profile_with_visits"("friend_id_param" "uuid") TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_friend_profile_with_visits"("p_friend_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_friend_profile_with_visits"("p_friend_id" "uuid") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_friends_activity_for_winery"("winery_id_param" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_friends_activity_for_winery"("winery_id_param" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_friends_activity_for_winery"("winery_id_param" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_friends_activity_for_winery"("p_winery_id" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_friends_activity_for_winery"("p_winery_id" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_friends_and_requests"() TO "anon";
-GRANT ALL ON FUNCTION "public"."get_friends_and_requests"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."get_friends_and_requests"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."get_friends_and_requests"() TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_friends_and_requests"() TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_friends_ids"() TO "anon";
-GRANT ALL ON FUNCTION "public"."get_friends_ids"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."get_friends_ids"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."get_friends_ids"() TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_friends_ids"() TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_friends_ratings_for_winery"("winery_id_param" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_friends_ratings_for_winery"("winery_id_param" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_friends_ratings_for_winery"("winery_id_param" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_friends_ratings_for_winery"("p_winery_id" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_friends_ratings_for_winery"("p_winery_id" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_map_markers"("user_id_param" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."get_map_markers"("user_id_param" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_map_markers"("user_id_param" "uuid") TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_map_markers"("p_user_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_map_markers"("p_user_id" "uuid") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_paginated_trips_with_wineries"("trip_type" "text", "page_number" integer, "page_size" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_paginated_trips_with_wineries"("trip_type" "text", "page_number" integer, "page_size" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_paginated_trips_with_wineries"("trip_type" "text", "page_number" integer, "page_size" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_paginated_trips_with_wineries"("p_trip_type" "text", "p_page_number" integer, "p_page_size" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_paginated_trips_with_wineries"("p_trip_type" "text", "p_page_number" integer, "p_page_size" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_paginated_visits_with_winery_and_friends"("page_number" integer, "page_size" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_paginated_visits_with_winery_and_friends"("page_number" integer, "page_size" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_paginated_visits_with_winery_and_friends"("page_number" integer, "page_size" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_paginated_visits_with_winery_and_friends"("p_page_number" integer, "p_page_size" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_paginated_visits_with_winery_and_friends"("p_page_number" integer, "p_page_size" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_paginated_wineries"("p_page" integer, "p_limit" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_paginated_wineries"("p_page" integer, "p_limit" integer) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."get_paginated_wineries"("p_page" integer, "p_limit" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."get_paginated_wineries"("p_page" integer, "p_limit" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_paginated_wineries"("p_page" integer, "p_limit" integer) TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_trip_by_id_with_wineries"("trip_id_param" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_trip_by_id_with_wineries"("trip_id_param" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_trip_by_id_with_wineries"("trip_id_param" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_trip_by_id_with_wineries"("p_trip_id" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_trip_by_id_with_wineries"("p_trip_id" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_trip_details"("trip_id_param" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_trip_details"("trip_id_param" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_trip_details"("trip_id_param" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_trip_details"("p_trip_id" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_trip_details"("p_trip_id" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_trips_for_date"("target_date" "date") TO "anon";
-GRANT ALL ON FUNCTION "public"."get_trips_for_date"("target_date" "date") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_trips_for_date"("target_date" "date") TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_trips_for_date"("p_target_date" "date") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_trips_for_date"("p_target_date" "date") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_user_dashboard"() TO "anon";
-GRANT ALL ON FUNCTION "public"."get_user_dashboard"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."get_user_dashboard"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."get_user_dashboard"() TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_user_dashboard"() TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_user_winery_data_aggregated"() TO "anon";
-GRANT ALL ON FUNCTION "public"."get_user_winery_data_aggregated"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."get_user_winery_data_aggregated"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."get_user_winery_data_aggregated"() TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_user_winery_data_aggregated"() TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_wineries_for_trip_planner"("trip_date_param" "date") TO "anon";
-GRANT ALL ON FUNCTION "public"."get_wineries_for_trip_planner"("trip_date_param" "date") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_wineries_for_trip_planner"("trip_date_param" "date") TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_wineries_for_trip_planner"("p_trip_date" "date") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_wineries_for_trip_planner"("p_trip_date" "date") TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."wineries" TO "anon";
 GRANT ALL ON TABLE "public"."wineries" TO "authenticated";
 GRANT ALL ON TABLE "public"."wineries" TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_wineries_in_bounds"("min_lat" double precision, "min_lng" double precision, "max_lat" double precision, "max_lng" double precision) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_wineries_in_bounds"("min_lat" double precision, "min_lng" double precision, "max_lat" double precision, "max_lng" double precision) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_wineries_in_bounds"("min_lat" double precision, "min_lng" double precision, "max_lat" double precision, "max_lng" double precision) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_wineries_in_bounds"("p_min_latitude" double precision, "p_min_longitude" double precision, "p_max_latitude" double precision, "p_max_longitude" double precision) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_wineries_in_bounds"("p_min_latitude" double precision, "p_min_longitude" double precision, "p_max_latitude" double precision, "p_max_longitude" double precision) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_winery_details"("winery_id_param" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_winery_details"("winery_id_param" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_winery_details"("winery_id_param" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_winery_details"("p_winery_id" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_winery_details"("p_winery_id" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."get_winery_details_by_id"("winery_id_param" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."get_winery_details_by_id"("winery_id_param" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."get_winery_details_by_id"("winery_id_param" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."get_winery_details_by_id"("p_winery_id" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."get_winery_details_by_id"("p_winery_id" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."handle_activity_ledger_entry"() TO "anon";
-GRANT ALL ON FUNCTION "public"."handle_activity_ledger_entry"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."handle_activity_ledger_entry"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."handle_activity_ledger_entry"() TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "anon";
-GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."handle_new_user"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."handle_new_user"() TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."is_trip_member"("trip_id_to_check" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."is_trip_member"("trip_id_to_check" integer) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."is_trip_member"("trip_id_to_check" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."is_trip_member"("p_trip_id" integer) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."is_trip_member"("p_trip_id" integer) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."is_visible_to_viewer"("p_target_user_id" "uuid", "p_is_item_private" boolean) TO "anon";
-GRANT ALL ON FUNCTION "public"."is_visible_to_viewer"("p_target_user_id" "uuid", "p_is_item_private" boolean) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."is_visible_to_viewer"("p_target_user_id" "uuid", "p_is_item_private" boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."is_visible_to_viewer"("p_target_user_id" "uuid", "p_is_item_private" boolean) TO "service_role";
+GRANT ALL ON FUNCTION "public"."is_visible_to_viewer"("p_target_user_id" "uuid", "p_is_item_private" boolean) TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_data" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_data" "jsonb") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_data" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_data" "jsonb") TO "service_role";
+GRANT ALL ON FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_data" "jsonb") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."remove_friend"("target_friend_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."remove_friend"("target_friend_id" "uuid") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."remove_friend"("target_friend_id" "uuid") TO "service_role";
+GRANT ALL ON FUNCTION "public"."remove_friend"("p_target_friend_id" "uuid") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."remove_friend"("p_target_friend_id" "uuid") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."remove_winery_from_trip"("p_trip_id" integer, "p_winery_id" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."remove_winery_from_trip"("p_trip_id" integer, "p_winery_id" integer) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."remove_winery_from_trip"("p_trip_id" integer, "p_winery_id" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."remove_winery_from_trip"("p_trip_id" integer, "p_winery_id" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."remove_winery_from_trip"("p_trip_id" integer, "p_winery_id" integer) TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."reorder_trip_wineries"("p_trip_id" integer, "p_winery_ids" integer[]) TO "anon";
-GRANT ALL ON FUNCTION "public"."reorder_trip_wineries"("p_trip_id" integer, "p_winery_ids" integer[]) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."reorder_trip_wineries"("p_trip_id" integer, "p_winery_ids" integer[]) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."reorder_trip_wineries"("p_trip_id" integer, "p_winery_ids" integer[]) TO "service_role";
+GRANT ALL ON FUNCTION "public"."reorder_trip_wineries"("p_trip_id" integer, "p_winery_ids" integer[]) TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."respond_to_follow_request"("p_follower_id" "uuid", "p_accept" boolean) TO "anon";
-GRANT ALL ON FUNCTION "public"."respond_to_follow_request"("p_follower_id" "uuid", "p_accept" boolean) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."respond_to_follow_request"("p_follower_id" "uuid", "p_accept" boolean) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."respond_to_follow_request"("p_follower_id" "uuid", "p_accept" boolean) TO "service_role";
+GRANT ALL ON FUNCTION "public"."respond_to_follow_request"("p_follower_id" "uuid", "p_accept" boolean) TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."respond_to_friend_request"("requester_id" "uuid", "accept" boolean) TO "anon";
-GRANT ALL ON FUNCTION "public"."respond_to_friend_request"("requester_id" "uuid", "accept" boolean) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."respond_to_friend_request"("requester_id" "uuid", "accept" boolean) TO "service_role";
+GRANT ALL ON FUNCTION "public"."respond_to_friend_request"("p_requester_id" "uuid", "p_accept" boolean) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."respond_to_friend_request"("p_requester_id" "uuid", "p_accept" boolean) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."search_wineries_by_name_and_location"("search_query" "text", "user_lat" double precision, "user_lng" double precision) TO "anon";
-GRANT ALL ON FUNCTION "public"."search_wineries_by_name_and_location"("search_query" "text", "user_lat" double precision, "user_lng" double precision) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."search_wineries_by_name_and_location"("search_query" "text", "user_lat" double precision, "user_lng" double precision) TO "service_role";
+GRANT ALL ON FUNCTION "public"."search_wineries_by_name_and_location"("p_search_query" "text", "p_user_latitude" double precision, "p_user_longitude" double precision) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."search_wineries_by_name_and_location"("p_search_query" "text", "p_user_latitude" double precision, "p_user_longitude" double precision) TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."send_follow_request"("p_target_id" "uuid") TO "anon";
-GRANT ALL ON FUNCTION "public"."send_follow_request"("p_target_id" "uuid") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."send_follow_request"("p_target_id" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."send_follow_request"("p_target_id" "uuid") TO "service_role";
+GRANT ALL ON FUNCTION "public"."send_follow_request"("p_target_id" "uuid") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."send_friend_request"("target_email" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."send_friend_request"("target_email" "text") TO "authenticated";
-GRANT ALL ON FUNCTION "public"."send_friend_request"("target_email" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."send_friend_request"("p_target_email" "text") TO "authenticated";
+GRANT ALL ON FUNCTION "public"."send_friend_request"("p_target_email" "text") TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."toggle_favorite"("p_winery_data" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."toggle_favorite"("p_winery_data" "jsonb") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."toggle_favorite"("p_winery_data" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."toggle_favorite"("p_winery_data" "jsonb") TO "service_role";
+GRANT ALL ON FUNCTION "public"."toggle_favorite"("p_winery_data" "jsonb") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."toggle_favorite_privacy"("p_winery_id" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."toggle_favorite_privacy"("p_winery_id" integer) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."toggle_favorite_privacy"("p_winery_id" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."toggle_favorite_privacy"("p_winery_id" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."toggle_favorite_privacy"("p_winery_id" integer) TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."toggle_wishlist"("p_winery_data" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."toggle_wishlist"("p_winery_data" "jsonb") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."toggle_wishlist"("p_winery_data" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."toggle_wishlist"("p_winery_data" "jsonb") TO "service_role";
+GRANT ALL ON FUNCTION "public"."toggle_wishlist"("p_winery_data" "jsonb") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."toggle_wishlist_privacy"("p_winery_id" integer) TO "anon";
-GRANT ALL ON FUNCTION "public"."toggle_wishlist_privacy"("p_winery_id" integer) TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."toggle_wishlist_privacy"("p_winery_id" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."toggle_wishlist_privacy"("p_winery_id" integer) TO "service_role";
+GRANT ALL ON FUNCTION "public"."toggle_wishlist_privacy"("p_winery_id" integer) TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."update_profile_privacy"("p_privacy_level" "public"."privacy_level") TO "anon";
-GRANT ALL ON FUNCTION "public"."update_profile_privacy"("p_privacy_level" "public"."privacy_level") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."update_profile_privacy"("p_privacy_level" "public"."privacy_level") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."update_profile_privacy"("p_privacy_level" "public"."privacy_level") TO "service_role";
+GRANT ALL ON FUNCTION "public"."update_profile_privacy"("p_privacy_level" "public"."privacy_level") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."update_trip_winery_notes"("p_trip_id" integer, "p_winery_id" integer, "p_notes" "text") TO "anon";
-GRANT ALL ON FUNCTION "public"."update_trip_winery_notes"("p_trip_id" integer, "p_winery_id" integer, "p_notes" "text") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."update_trip_winery_notes"("p_trip_id" integer, "p_winery_id" integer, "p_notes" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."update_trip_winery_notes"("p_trip_id" integer, "p_winery_id" integer, "p_notes" "text") TO "service_role";
+GRANT ALL ON FUNCTION "public"."update_trip_winery_notes"("p_trip_id" integer, "p_winery_id" integer, "p_notes" "text") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "anon";
 GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "authenticated";
 GRANT ALL ON FUNCTION "public"."update_updated_at_column"() TO "service_role";
 
 
 
-GRANT ALL ON FUNCTION "public"."update_visit"("p_visit_id" integer, "p_visit_data" "jsonb") TO "anon";
-GRANT ALL ON FUNCTION "public"."update_visit"("p_visit_id" integer, "p_visit_data" "jsonb") TO "authenticated";
+REVOKE ALL ON FUNCTION "public"."update_visit"("p_visit_id" integer, "p_visit_data" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."update_visit"("p_visit_id" integer, "p_visit_data" "jsonb") TO "service_role";
+GRANT ALL ON FUNCTION "public"."update_visit"("p_visit_id" integer, "p_visit_data" "jsonb") TO "authenticated";
 
 
 
-GRANT ALL ON FUNCTION "public"."upsert_wineries_from_search"("wineries_data" "jsonb"[]) TO "anon";
-GRANT ALL ON FUNCTION "public"."upsert_wineries_from_search"("wineries_data" "jsonb"[]) TO "authenticated";
-GRANT ALL ON FUNCTION "public"."upsert_wineries_from_search"("wineries_data" "jsonb"[]) TO "service_role";
+GRANT ALL ON FUNCTION "public"."upsert_wineries_from_search"("p_wineries_data" "jsonb"[]) TO "authenticated";
+GRANT ALL ON FUNCTION "public"."upsert_wineries_from_search"("p_wineries_data" "jsonb"[]) TO "service_role";
 
 
 
@@ -6100,115 +6074,96 @@ GRANT ALL ON FUNCTION "public"."upsert_wineries_from_search"("wineries_data" "js
 
 
 
-GRANT ALL ON TABLE "public"."activity_ledger" TO "anon";
 GRANT ALL ON TABLE "public"."activity_ledger" TO "authenticated";
 GRANT ALL ON TABLE "public"."activity_ledger" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."favorites" TO "anon";
 GRANT ALL ON TABLE "public"."favorites" TO "authenticated";
 GRANT ALL ON TABLE "public"."favorites" TO "service_role";
 
 
 
-GRANT ALL ON SEQUENCE "public"."favorites_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."favorites_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."favorites_id_seq" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."follow_requests" TO "anon";
 GRANT ALL ON TABLE "public"."follow_requests" TO "authenticated";
 GRANT ALL ON TABLE "public"."follow_requests" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."follows" TO "anon";
 GRANT ALL ON TABLE "public"."follows" TO "authenticated";
 GRANT ALL ON TABLE "public"."follows" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."friends" TO "anon";
 GRANT ALL ON TABLE "public"."friends" TO "authenticated";
 GRANT ALL ON TABLE "public"."friends" TO "service_role";
 
 
 
-GRANT ALL ON SEQUENCE "public"."friends_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."friends_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."friends_id_seq" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."profiles" TO "anon";
 GRANT ALL ON TABLE "public"."profiles" TO "authenticated";
 GRANT ALL ON TABLE "public"."profiles" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."trip_members" TO "anon";
 GRANT ALL ON TABLE "public"."trip_members" TO "authenticated";
 GRANT ALL ON TABLE "public"."trip_members" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."trip_wineries" TO "anon";
 GRANT ALL ON TABLE "public"."trip_wineries" TO "authenticated";
 GRANT ALL ON TABLE "public"."trip_wineries" TO "service_role";
 
 
 
-GRANT ALL ON SEQUENCE "public"."trip_wineries_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."trip_wineries_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."trip_wineries_id_seq" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."trips" TO "anon";
 GRANT ALL ON TABLE "public"."trips" TO "authenticated";
 GRANT ALL ON TABLE "public"."trips" TO "service_role";
 
 
 
-GRANT ALL ON SEQUENCE "public"."trips_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."trips_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."trips_id_seq" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."visit_participants" TO "anon";
 GRANT ALL ON TABLE "public"."visit_participants" TO "authenticated";
 GRANT ALL ON TABLE "public"."visit_participants" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."visits" TO "anon";
 GRANT ALL ON TABLE "public"."visits" TO "authenticated";
 GRANT ALL ON TABLE "public"."visits" TO "service_role";
 
 
 
-GRANT ALL ON SEQUENCE "public"."visits_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."visits_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."visits_id_seq" TO "service_role";
 
 
 
-GRANT ALL ON SEQUENCE "public"."wineries_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."wineries_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."wineries_id_seq" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."wishlist" TO "anon";
 GRANT ALL ON TABLE "public"."wishlist" TO "authenticated";
 GRANT ALL ON TABLE "public"."wishlist" TO "service_role";
 
 
 
-GRANT ALL ON SEQUENCE "public"."wishlist_id_seq" TO "anon";
 GRANT ALL ON SEQUENCE "public"."wishlist_id_seq" TO "authenticated";
 GRANT ALL ON SEQUENCE "public"."wishlist_id_seq" TO "service_role";
 
@@ -6221,7 +6176,6 @@ GRANT ALL ON SEQUENCE "public"."wishlist_id_seq" TO "service_role";
 
 
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQUENCES TO "service_role";
 
@@ -6231,7 +6185,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON SEQ
 
 
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUNCTIONS TO "service_role";
 
@@ -6241,7 +6194,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON FUN
 
 
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "postgres";
-ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "anon";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "authenticated";
 ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TABLES TO "service_role";
 
@@ -6272,28 +6224,6 @@ ALTER DEFAULT PRIVILEGES FOR ROLE "postgres" IN SCHEMA "public" GRANT ALL ON TAB
 
 
 
-
-
-
-
---
--- Dumped schema changes for auth and storage
---
-
-CREATE OR REPLACE TRIGGER "on_auth_user_created" AFTER INSERT ON "auth"."users" FOR EACH ROW EXECUTE FUNCTION "public"."handle_new_user"();
-
-
-
-CREATE POLICY "User can delete their own photos" ON "storage"."objects" FOR DELETE TO "authenticated" USING ((("bucket_id" = 'visit-photos'::"text") AND (("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text")));
-
-
-
-CREATE POLICY "User can upload a photo to a visit" ON "storage"."objects" FOR INSERT TO "authenticated" WITH CHECK ((("bucket_id" = 'visit-photos'::"text") AND (("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text")));
-
-
-
-CREATE POLICY "Users can view their own and friends photos" ON "storage"."objects" FOR SELECT TO "authenticated" USING ((("bucket_id" = 'visit-photos'::"text") AND ((("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text") OR (("storage"."foldername"("name"))[1] IN ( SELECT ("get_friends_ids"."friend_id")::"text" AS "friend_id"
-   FROM "public"."get_friends_ids"() "get_friends_ids"("friend_id"))))));
 
 
 

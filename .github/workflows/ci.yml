@@ -53,9 +53,9 @@ jobs:
           npm run db:lint
           npm run db:check-types:ci
 
-      # - name: Migration Safety Check (Remote Drift)
-      #   run: supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}" --dry-run
-      #   if: github.event_name == 'pull_request'
+      - name: Migration Safety Check (Remote Drift)
+        run: supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}" --dry-run
+        if: github.event_name == 'pull_request'
 
       - name: Run Jest tests
         run: npm run test
