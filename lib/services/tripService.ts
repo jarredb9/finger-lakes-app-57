@@ -278,9 +278,9 @@ export const TripService = {
         
         // We should use the simple ID one if we only have wineryId.
         const { error } = await supabase.rpc('add_winery_to_trip', {
-            trip_id_param: tripId,
-            winery_id_param: wineryId,
-            notes_param: notes
+            p_trip_id: tripId,
+            p_winery_id: wineryId,
+            p_notes: notes
         });
         if (error) throw error;
         return { success: true };

@@ -506,7 +506,7 @@ export class MockMapsManager {
 
         if (url.includes('get_trip_details')) {
             const postData = JSON.parse(req.postData() || '{}');
-            const requestedId = postData.trip_id_param;
+            const requestedId = postData.p_trip_id;
             const trips = this.state.trips || [];
             const found = trips.find(t => Number(t.id) === Number(requestedId));
             if (!found) return route.fulfill({ status: 404, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ error: `Trip ID ${requestedId} not found` }) });
@@ -520,7 +520,7 @@ export class MockMapsManager {
 
         if (url.includes('get_friend_profile_with_visits')) {
             const postData = JSON.parse(req.postData() || '{}');
-            const friendId = postData.friend_id_param;
+            const friendId = postData.friend_id;
             const visits = (this.state.visits || []).filter(v => v.user_id === friendId);
             const profile: Profile = { id: friendId, name: 'Mock Friend', email: 'friend@example.com', privacy_level: 'public' };
             return route.fulfill({ 
@@ -537,7 +537,7 @@ export class MockMapsManager {
 
         if (url.includes('get_winery_details_by_id')) {
             const postData = JSON.parse(req.postData() || '{}');
-            const wineryId = postData.winery_id_param;
+            const wineryId = postData.p_winery_id;
             const marker = markers.find(m => m.id === wineryId);
             const detail = {
                 address: marker?.address || '123 Mock St',

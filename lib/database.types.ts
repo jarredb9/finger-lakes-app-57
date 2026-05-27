@@ -548,19 +548,10 @@ export type Database = {
         Args: { p_email: string; p_trip_id: number }
         Returns: Json
       }
-      add_winery_to_trip:
-        | {
-            Args: { p_notes?: string; p_trip_id: number; p_winery_data: Json }
-            Returns: Json
-          }
-        | {
-            Args: {
-              notes_param?: string
-              trip_id_param: number
-              winery_id_param: number
-            }
-            Returns: boolean
-          }
+      add_winery_to_trip: {
+        Args: { p_notes?: string; p_trip_id: number; p_winery_data: Json }
+        Returns: Json
+      }
       add_winery_to_trips: {
         Args: { p_trip_ids: number[]; p_winery_id: number }
         Returns: Json

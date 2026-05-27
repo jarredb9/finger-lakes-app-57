@@ -28,7 +28,7 @@ test.describe('Deep Linking & Redirection', () => {
 
         // Determine which trip to return based on the request body or URL
         const payload = route.request().postDataJSON();
-        const tripId = payload?.trip_id_param || 123;
+        const tripId = payload?.p_trip_id || 123;
         const tripName = tripId === 999 ? 'Deep Link Trip' : 'Redirected Trip';
 
         console.log(`[DIAGNOSTIC] Intercepted get_trip_details for trip ${tripId} (${method})`);

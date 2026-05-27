@@ -60,7 +60,7 @@ export const SocialService = {
   async getFriendProfile(friendId: string) {
     const supabase = createClient();
     const { data, error } = await supabase.rpc('get_friend_profile_with_visits', { 
-      friend_id_param: friendId 
+      friend_id: friendId 
     });
     if (error) throw error;
     return data;
@@ -69,8 +69,8 @@ export const SocialService = {
   async getFriendDataForWinery(wineryId: WineryDbId) {
     const supabase = createClient();
     const [ratingsResult, activityResult] = await Promise.all([
-      supabase.rpc('get_friends_ratings_for_winery', { winery_id_param: wineryId }),
-      supabase.rpc('get_friends_activity_for_winery', { winery_id_param: wineryId })
+      supabase.rpc('get_friends_ratings_for_winery', { winery_id: wineryId }),
+      supabase.rpc('get_friends_activity_for_winery', { winery_id: wineryId })
     ]);
 
     if (ratingsResult.error) throw ratingsResult.error;

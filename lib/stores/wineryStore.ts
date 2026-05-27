@@ -85,7 +85,7 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
 
         // 1. Try DB details
         if (existing?.dbId) {
-            const { data } = await supabase.rpc('get_winery_details_by_id', { winery_id_param: existing.dbId });
+            const { data } = await supabase.rpc('get_winery_details_by_id', { p_winery_id: existing.dbId });
             if (data && data.length > 0) dbData = data[0];
         }
 
