@@ -5,7 +5,7 @@ import { useVisitStore } from "@/lib/stores/visitStore";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, MapPin, Loader2 } from "lucide-react";
+import { Calendar, MapPin } from "lucide-react";
 import { Pagination, PaginationContent, PaginationItem, PaginationNext } from "@/components/ui/pagination";
 
 interface GlobalVisitHistoryProps {
@@ -32,53 +32,59 @@ export default function GlobalVisitHistory({ isActive = true }: GlobalVisitHisto
     }
   }, [fetchVisits, lastActionTimestamp, isActive]);
 
-  if (visits.length === 0 && isLoading) {
-    return (
-      <div className="flex justify-center items-center h-48" data-testid="visit-history-container" data-state="loading">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
-
-  if (visits.length === 0 && !isLoading) {
-    return (
-      <div className="text-center py-10 text-muted-foreground" data-testid="visit-history-container" data-state="ready">
-        <Calendar className="mx-auto h-12 w-12 mb-4 opacity-50" />
-        <p>No visits recorded yet.</p>
-        <p className="text-sm">Visit a winery and log your experience!</p>
-      </div>
-    );
-  }
+  const isEmpty = visits.length === 0;
 
   return (
-    <div className="space-y-6" data-testid="visit-history-container" data-state={isLoading ? 'loading' : 'ready'}>
-       {visits.map((visit) => (
-           <div key={visit.id} className="relative">
-               <div className="flex items-center gap-2 mb-2 px-1">
-                   <MapPin className="w-4 h-4 text-muted-foreground" />
-                   <span className="text-sm font-medium text-muted-foreground">{visit.wineryName}</span>
+    <div className="space-y-6" data-testid="visit-history-container" data-state={isLoading && isEmpty ? 'loading' : 'ready'}>
+       {isLoading && isEmpty ? (
+         <div className="flex flex-col gap-6 py-4">
+           {[1, 2, 3].map(i => (
+             <div key={i} className="space-y-3">
+               <div className="flex items-center gap-2 px-1">
+                 <div className="h-4 w-4 bg-muted animate-pulse rounded" />
+                 <div className="h-4 w-32 bg-muted animate-pulse rounded" />
                </div>
-               <VisitCardHistory 
-                   visits={[visit]} 
-                   editingVisitId={null} 
-                   onEditClick={handleEditClick} 
-                   onDeleteVisit={handleDeleteVisit} 
-                   onTogglePhotoForDeletion={handleTogglePhotoForDeletion} 
-               />
-           </div>
-       ))}
-       {hasMore && (
-           <Pagination>
-               <PaginationContent>
-                   <PaginationItem>
-                       <PaginationNext 
-                           href="#" 
-                           onClick={(e) => { e.preventDefault(); fetchVisits(page + 1); }} 
-                           aria-label="Load more visits"
-                       />
-                   </PaginationItem>
-               </PaginationContent>
-           </Pagination>
+               <div className="h-32 w-full bg-muted animate-pulse rounded-xl" />
+             </div>
+           ))}
+         </div>
+       ) : isEmpty ? (
+         <div className="text-center py-10 text-muted-foreground">
+           <Calendar className="mx-auto h-12 w-12 mb-4 opacity-50" />
+           <p>No visits recorded yet.</p>
+           <p className="text-sm">Visit a winery and log your experience!</p>
+         </div>
+       ) : (
+         <>
+           {visits.map((visit) => (
+               <div key={visit.id} className="relative">
+                   <div className="flex items-center gap-2 mb-2 px-1">
+                       <MapPin className="w-4 h-4 text-muted-foreground" />
+                       <span className="text-sm font-medium text-muted-foreground">{visit.wineryName}</span>
+                   </div>
+                   <VisitCardHistory 
+                       visits={[visit]} 
+                       editingVisitId={null} 
+                       onEditClick={handleEditClick} 
+                       onDeleteVisit={handleDeleteVisit} 
+                       onTogglePhotoForDeletion={handleTogglePhotoForDeletion} 
+                   />
+               </div>
+           ))}
+           {hasMore && (
+               <Pagination>
+                   <PaginationContent>
+                       <PaginationItem>
+                           <PaginationNext 
+                               href="#" 
+                               onClick={(e) => { e.preventDefault(); fetchVisits(page + 1); }} 
+                               aria-label="Load more visits"
+                           />
+                       </PaginationItem>
+                   </PaginationContent>
+               </Pagination>
+           )}
+         </>
        )}
     </div>
   );

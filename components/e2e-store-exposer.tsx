@@ -8,13 +8,17 @@ import { useTripStore } from "@/lib/stores/tripStore";
 import { useUserStore } from "@/lib/stores/userStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { useMapStore } from "@/lib/stores/mapStore";
+import { useSyncStore } from "@/lib/stores/syncStore";
+import { SyncService } from "@/lib/services/syncService";
 import { useEffect } from "react";
-import { createClient } from "@/utils/supabase/client";
 
 export function E2EStoreExposer() {
   useEffect(() => {
-    // Only expose stores if explicitly enabled for E2E testing
-    if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+    // Expose stores - we assume gating happens at the component rendering level in layout.tsx
+    if (typeof window !== 'undefined') {
+      // @ts-ignore
+      if (window._STORES_EXPOSED) return;
+
       (window as any).useWineryDataStore = useWineryDataStore;
       (window as any).useWineryStore = useWineryStore;
       (window as any).useUIStore = useUIStore;
@@ -23,9 +27,14 @@ export function E2EStoreExposer() {
       (window as any).useUserStore = useUserStore;
       (window as any).useFriendStore = useFriendStore;
       (window as any).useMapStore = useMapStore;
-      (window as any).supabase = createClient();
+      (window as any).useSyncStore = useSyncStore;
+      (window as any).SyncService = SyncService;
+      
+      // @ts-ignore
+      window._STORES_EXPOSED = true;
+
       // eslint-disable-next-line no-console
-      console.log('[E2EStoreExposer] Stores and Supabase client exposed to window.');
+      console.log('[E2EStoreExposer] Stores and SyncService exposed to window.');
     }
   }, []);
 

@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -7,16 +7,24 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
-# Optimization: Automatically cancel old runs when new ones are pushed
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-jobs:
-  build-and-test:
-    name: Build, Lint, and Test
-    runs-on: ubuntu-latest
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true' # 2026 Mandate
+  # Local CI Environment Defaults (for Build & E2E)
+  NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_LOCAL_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_LOCAL_SERVICE_ROLE_KEY }}
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+  IS_E2E: 'true'
 
+jobs:
+  build:
+    name: Build, Check & Unit Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -24,39 +32,185 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24' # 2026 Standard
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Production Security Audit
-        run: npm audit --omit=dev
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.93.0
 
-      - name: Development Security Audit (Informational Only)
+      - name: Start Supabase (Lean CI DB)
         run: |
-          echo "NOTE: Currently ignoring 3 moderate vulnerabilities in ajv@6 (ESLint dependency)."
-          echo "These are false positives for ESLint usage (CVE-2025-69873). Reference: https://github.com/eslint/eslint/issues/20508"
-          npm audit || true
+          cp supabase/config.ci.toml supabase/config.toml
+          supabase start
 
-      - name: Run Linting
-        run: npm run lint
+      - name: Check Database Integrity (Types & Lint)
+        run: |
+          npm run db:lint
+          npm run db:check-types:ci
 
-      - name: Check Database Type Integrity
-        run: npm run db:check-types
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+      # - name: Migration Safety Check (Remote Drift)
+      #   run: supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}" --dry-run
+      #   if: github.event_name == 'pull_request'
 
-      - name: Run Type Checking
-        run: npm run type-check
-
-      - name: Run Database Linting
-        run: npx supabase db lint --level error --debug --db-url "${{ secrets.SUPABASE_DB_URL }}"
-
-      - name: Run Tests
+      - name: Run Jest tests
         run: npm run test
+
+      - name: Build Next.js App
+        run: npm run build
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build-artifact
+          path: |
+            .next
+            public
+          include-hidden-files: true
+          retention-days: 1
+
+  e2e-tests:
+    name: Sharded E2E Tests (${{ matrix.shard }}/12)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cache Playwright Browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright Browsers (if cache miss)
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps
+
+      - name: Install Playwright OS Dependencies (Mandatory)
+        run: npx playwright install-deps
+        timeout-minutes: 5
+
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: next-build-artifact
+          path: .
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.93.0
+
+      - name: Start Supabase (Lean CI DB)
+        run: |
+          cp supabase/config.ci.toml supabase/config.toml
+          supabase start
+
+      - name: Run Playwright tests
+        run: npx playwright test --shard=${{ matrix.shard }}/12 --reporter=blob
+        env:
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+
+      - name: Upload blob report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: all-blob-reports-${{ matrix.shard }}
+          path: blob-report
+          retention-days: 1
+
+  merge-reports:
+    name: Merge E2E Reports
+    if: always()
+    needs: [e2e-tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
+      - name: Download all blob reports
+        uses: actions/download-artifact@v4
+        with:
+          path: all-blob-reports
+          pattern: all-blob-reports-*
+          merge-multiple: true
+      - name: Merge into HTML Report
+        run: npx playwright merge-reports --reporter html ./all-blob-reports
+      - name: Upload HTML report
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report
+          retention-days: 14
+
+  deploy:
+    name: Deploy to Production
+    needs: [build, e2e-tests]
+    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: 2.93.0
+
+      - name: Push Database Migrations
+        run: supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}"
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      - name: Deploy to Vercel
+        run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Run Production Smoke Test
+        run: npx playwright test e2e/smoke.spec.ts
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
+          BASE_URL: ${{ secrets.PRODUCTION_APP_URL || 'https://v0-fingerlakes-winery-app.vercel.app' }}

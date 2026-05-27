@@ -3,10 +3,10 @@ import { getSidebarContainer, login, navigateToTab } from './helpers';
 
 test.describe('Visual Regression Testing', () => {
 
-  test.beforeEach(({ browserName }) => {
-    // Only run visual tests on chromium to avoid maintaining multiple sets of snapshots
-    // and because different engines render slightly differently.
-    test.skip(browserName !== 'chromium', 'Visual tests are chromium-only');
+  test.beforeEach(({}, testInfo) => {
+    // Only run visual tests on the desktop chromium project to avoid maintaining multiple sets of snapshots
+    // and because different devices render slightly differently.
+    test.skip(testInfo.project.name !== 'chromium', 'Visual tests are chromium-only');
   });
 
   test('login page visual baseline', async ({ page }) => {
@@ -22,7 +22,7 @@ test.describe('Visual Regression Testing', () => {
   });
 
   test('main dashboard visual baseline', async ({ page, user }) => {
-    await mockGoogleMapsApi(page);
+    await mockGoogleMapsApi(page, user.id, true);
     await login(page, user.email, user.password);
 
     // Ensure we are on Explore and the sidebar/sheet is active
@@ -49,7 +49,7 @@ test.describe('Visual Regression Testing', () => {
         test.skip(true, 'Skipping modal visual scan on mobile due to visibility constraints in the interactive sheet');
     }
 
-    await mockGoogleMapsApi(page);
+    await mockGoogleMapsApi(page, user.id, true);
     await login(page, user.email, user.password);
 
     await navigateToTab(page, 'Explore');
@@ -61,12 +61,19 @@ test.describe('Visual Regression Testing', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
     
-    // Wait for logical loading to finish
-    await expect(modal.locator('svg.animate-spin')).not.toBeVisible();
+    // Wait for logical loading to finish using the data-state attribute
+    await expect(modal).toHaveAttribute('data-state', 'ready');
+
+    // Stabilize layout: hide trip badge and prevent title from wrapping which causes 28px height jumps in CI
+    await page.addStyleTag({ content: `
+        [data-testid="trip-badge"] { display: none !important; }
+        [data-testid="winery-modal"] h2 { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 320px !important; }
+    ` });
 
     await expect(modal).toHaveScreenshot('winery-modal.png', {
         mask: [
-            modal.locator('.text-muted-foreground') // Mask potentially dynamic distance/text
+            modal.locator('.text-muted-foreground'), // Mask dynamic distance/text
+            modal.locator('[data-testid="visit-date"]') // Mask dates if they are dynamic
         ],
         maxDiffPixelRatio: 0.05
     });

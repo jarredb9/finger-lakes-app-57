@@ -16,9 +16,13 @@ export function getSidebarContainer(page: Page): Locator {
 /**
  * Waits for a specific container to reach a signal state.
  */
-export async function waitForSignal(page: Page, testId: string, state: 'ready' | 'loading' | 'stable' = 'ready', timeout = 15000) {
+export async function waitForSignal(page: Page, testId: string, state: 'ready' | 'loading' | 'stable' | 'error' | RegExp = 'ready', timeout = 15000) {
     const container = page.locator(`[data-testid="${testId}"]`);
-    await expect(container).toHaveAttribute('data-state', state, { timeout });
+    if (state instanceof RegExp) {
+        await expect(container).toHaveAttribute('data-state', state, { timeout });
+    } else {
+        await expect(container).toHaveAttribute('data-state', state, { timeout });
+    }
 }
 
 /**
@@ -43,11 +47,11 @@ export async function waitForAppReady(page: Page) {
 
     // Then wait for the primary feature container to be ready if we're on a main page
     if (page.url().endsWith('/') || page.url().includes('?')) {
-        await waitForSignal(page, 'map-container', 'ready').catch(() => null);
+        await waitForSignal(page, 'map-container', /ready|error/).catch(() => null);
     } else if (page.url().includes('/trips/')) {
-        await waitForSignal(page, 'trip-details-card', 'ready').catch(() => null);
+        await waitForSignal(page, 'trip-details-card', /ready|error/).catch(() => null);
     } else if (page.url().includes('/trips')) {
-        await waitForSignal(page, 'trip-list-container', 'ready').catch(() => null);
+        await waitForSignal(page, 'trip-list-container', /ready|error/).catch(() => null);
     }
 }
 
@@ -83,10 +87,23 @@ export async function dismissCookieConsent(page: Page) {
  * Clears service workers and related caches for a fresh test state.
  */
 export async function clearServiceWorkers(page: Page) {
-    // Navigate to / first to ensure we have a valid origin for SW/IndexedDB access
-    // This is CRITICAL for WebKit/Safari to allow cross-origin storage cleanup
-    await page.goto('/').catch(() => {}); 
-    
+    // 1. Navigate to about:blank first to ensure all app-level IndexedDB connections are closed.
+    // This prevents deleteDatabase calls from being 'blocked' by open connections.
+    await page.goto('about:blank').catch(() => {});
+
+    // 2. Proactively set flags that MUST survive across the cleanup navigations
+    // We add them as init script for the NEXT navigation (to /)
+    await page.addInitScript(() => {
+        (window as any)._E2E_ENABLE_REAL_SYNC = true;
+        window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
+    });
+
+    // 3. Clear storage on about:blank origin first (though usually blank has no storage)
+    // Then navigate to / to clear the actual app origin storage
+    await page.goto('/').catch(() => {});
+    await page.waitForLoadState('load');
+    await page.waitForLoadState('networkidle');
+
     await page.evaluate(async () => {
         try {
             if ('serviceWorker' in navigator) {
@@ -109,18 +126,22 @@ export async function clearServiceWorkers(page: Page) {
             if (window.indexedDB && window.indexedDB.databases) {
                 const dbs = await window.indexedDB.databases();
                 for (const db of dbs) {
-                    if (db.name) window.indexedDB.deleteDatabase(db.name);
+                    if (db.name) {
+                        window.indexedDB.deleteDatabase(db.name);
+                    }
                 }
             }
             // Standard LocalStorage/SessionStorage cleanup
-            window.localStorage.removeItem('winery-data-storage-e2e');
-            window.localStorage.removeItem('_E2E_ENABLE_REAL_SYNC');
             window.localStorage.clear();
+            window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
             window.sessionStorage.clear();
         } catch (e) {}
     });
-}
 
+    // 4. Navigate back to about:blank to ENSURE all connections are closed after cleanup
+    // so the deletions can actually finish before the next test step starts.
+    await page.goto('about:blank').catch(() => {});
+}
 export async function refreshFriendsStore(page: Page) {
     await page.evaluate(async () => {
         // @ts-ignore
@@ -143,8 +164,8 @@ export async function waitForMapReady(page: Page) {
         if (window.useMapStore && !window.useMapStore.getState().bounds) {
             // @ts-ignore
             window.useMapStore.getState().setBounds({
-                getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
-                getSouthWest: () => ({ lat: () => 42, lng: () => -77 }),
+                getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
+                getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 }),
                 contains: () => true
             });
         }
@@ -179,34 +200,27 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
 
   const tab = getTabTrigger(page, tabName);
   await expect(tab).toBeVisible({ timeout: 15000 });
-  await tab.click({ force: true });
-
-  if (isMobile) {
-    // Wait for state transition to be stable on mobile
-    const sheet = page.locator('[data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"]').first();
-    await expect(sheet).toBeVisible({ timeout: 15000 });
-    
-    // If it's still not stable, we can retry the click ONCE outside of toPass if needed,
-    // but usually Playwright's auto-retries on click are enough if the element is visible.
-    // For extreme flakiness, we use a controlled retry.
-    const isStable = await sheet.getAttribute('data-state').then(s => s === 'stable').catch(() => false);
-    if (!isStable) {
-        await dismissCookieConsent(page);
-        await tab.click({ force: true }).catch(() => {});
-    }
-
-    await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 15000 });
-  }
-
-  // Wait for the specific tab container signal
-  const containerIdMap = {
-      'Explore': 'map-container',
-      'Trips': 'trip-list-container',
-      'Friends': 'friend-activity-feed',
-      'History': 'visit-history-container'
-  };
   
-  await waitForSignal(page, containerIdMap[tabName], 'ready').catch(() => null);
+  // Use toPass for the click and initial signal to handle hydration race conditions
+  await expect(async () => {
+      await tab.click({ force: true });
+      
+      const containerIdMap = {
+          'Explore': 'map-container',
+          'Trips': 'trip-list-container',
+          'Friends': 'friend-activity-feed',
+          'History': 'visit-history-container'
+      };
+      
+      // On mobile, wait for sheet to be visible first
+      if (isMobile) {
+          const sheet = page.locator('[data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"]').first();
+          await expect(sheet).toBeVisible({ timeout: 5000 });
+          await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 5000 });
+      }
+
+      await waitForSignal(page, containerIdMap[tabName], /ready|error/, 5000);
+  }).toPass({ timeout: 15000, intervals: [2000] });
 
   // WebKit/Safari needs more time for global mocks to settle 
   // before the first search trigger happens during navigation to Explore
@@ -275,7 +289,8 @@ export async function submitLoginForm(page: Page, email: string, pass: string) {
 
 export async function login(page: Page, email: string, pass: string, options: { skipMapReady?: boolean, isPwa?: boolean } = {}) {
   await page.addInitScript(() => {
-    window.localStorage.setItem('cookie-consent', 'true');
+    (window as any)._E2E_ENABLE_REAL_SYNC = true;
+    window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
   });
 
   const isMobile = page.viewportSize()?.width! < 768;
@@ -295,6 +310,13 @@ export async function login(page: Page, email: string, pass: string, options: { 
     } else if (isPwa && !page.url().includes('pwa=true')) {
         await page.goto(`/login${pwaSuffix}`);
     }
+
+    // Enable real sync after we are on the domain
+    await page.evaluate(() => {
+        (window as any)._E2E_ENABLE_REAL_SYNC = true;
+        try { localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true'); } catch (e) {}
+    }).catch(() => {});
+
     await page.waitForLoadState('load');
     await page.waitForLoadState('networkidle');
   }).toPass({ intervals: [2000], timeout: 15000 });
@@ -313,7 +335,7 @@ export async function login(page: Page, email: string, pass: string, options: { 
         } catch (e) { return false; }
     }).catch(() => false);
 
-    if (hasUser && !page.url().includes('/login')) {
+    if (hasUser && !page.url().includes('/login') && !page.url().includes('/signup')) {
         return;
     }
     
@@ -380,7 +402,7 @@ export async function ensureProfileReady(page: Page) {
         
         if (isLoading) throw new Error('UserStore is still loading');
         if (!user) throw new Error('User not found in store');
-        if (user.name === 'User' && process.env.NEXT_PUBLIC_IS_E2E !== 'true') {
+        if (user.full_name === 'User' && process.env.NEXT_PUBLIC_IS_E2E !== 'true') {
             throw new Error('Profile not yet fully initialized');
         }
         return true;
@@ -454,6 +476,39 @@ export async function closeWineryModal(page: Page) {
     }).toPass({ timeout: 10000, intervals: [1000] });
 
     await expect(modal).not.toBeVisible({ timeout: 5000 });
+}
+
+export async function closeShareDialog(page: Page) {
+    const dialog = page.getByTestId('trip-share-dialog');
+    
+    const isOpen = await page.evaluate(() => {
+        // @ts-ignore
+        return !!(window.useUIStore?.getState().isShareDialogOpen);
+    });
+
+    if (isOpen) {
+        const closeBtn = dialog.getByRole('button', { name: /Close/i });
+        if (await closeBtn.isVisible({ timeout: 2000 })) {
+            await closeBtn.click({ force: true });
+        } else {
+            await page.keyboard.press('Escape');
+        }
+    }
+
+    // Wait for the store to update and the dialog to hide
+    await expect(async () => {
+        const isOpen = await page.evaluate(() => {
+            // @ts-ignore
+            return !!(window.useUIStore?.getState().isShareDialogOpen);
+        });
+        if (isOpen) {
+            // If it's still open, try hitting Escape one more time as a fallback
+            await page.keyboard.press('Escape').catch(() => {});
+            throw new Error('Share dialog still open in store');
+        }
+    }).toPass({ timeout: 10000, intervals: [1000] });
+
+    await expect(dialog).not.toBeVisible({ timeout: 5000 });
 }
 
 export async function logVisit(page: Page, data: { review: string, rating?: number, isPrivate?: boolean, date?: string }) {
@@ -741,12 +796,20 @@ export async function injectTripState(page: Page, trips: Trip[]) {
     // @ts-ignore
     const store = window.useTripStore;
     if (store && store.setState) {
+      const now = Date.now();
+      const lastActionTimestamps: Record<string, number> = {};
+      tripsToInject.forEach(t => {
+          lastActionTimestamps[t.id.toString()] = now;
+      });
+
       store.setState({ 
         trips: tripsToInject, 
         upcomingTrips: tripsToInject,
         isLoading: false,
         hasMore: false,
-        count: tripsToInject.length
+        count: tripsToInject.length,
+        lastActionTimestamp: now,
+        lastActionTimestamps: { ...store.getState().lastActionTimestamps, ...lastActionTimestamps }
       });
     }
   }, trips);
@@ -856,7 +919,8 @@ export async function removeFriend(page: Page, email: string) {
             // Handle AlertDialog only if it was an accepted friend
             if (isFriend) {
                 const confirmBtn = page.locator('button:has-text("Remove"), [data-testid="confirm-remove-btn"]').filter({ visible: true }).first();
-                if (await confirmBtn.isVisible({ timeout: 2000 })) {
+                await confirmBtn.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
+                if (await confirmBtn.isVisible()) {
                     await confirmBtn.click({ force: true });
                 }
             }

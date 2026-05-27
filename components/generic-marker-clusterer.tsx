@@ -72,7 +72,7 @@ export default function GenericMarkerClusterer({
     newWineriesMap.forEach((winery, id) => {
       if (!currentMarkersMap.has(id)) {
         let markerOptions: google.maps.MarkerOptions = {
-            position: { lat: winery.lat, lng: winery.lng },
+            position: { lat: winery.latitude, lng: winery.longitude },
             zIndex: zIndexBase,
             title: winery.name,
           };

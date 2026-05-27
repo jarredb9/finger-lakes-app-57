@@ -22,8 +22,8 @@ export const createMockWinery = (overrides: Partial<Winery> = {}): Winery => ({
   dbId: 1 as WineryDbId,
   name: 'Mock Winery One',
   address: '123 Mockingbird Lane, Fakeville, FK 12345',
-  lat: 42.7,
-  lng: -76.9,
+  latitude: 42.7,
+  longitude: -76.9,
   rating: 4.5,
   userVisited: false,
   onWishlist: false,
@@ -51,6 +51,7 @@ export const createMockVisit = (overrides: Partial<Visit> = {}): Visit => ({
   rating: 5,
   photos: [],
   syncStatus: 'synced',
+  is_private: false,
   ...overrides,
 });
 
@@ -65,8 +66,8 @@ export const createMockVisitWithWinery = (overrides: Partial<VisitWithWinery> = 
       google_place_id: winery.id,
       name: winery.name,
       address: winery.address,
-      latitude: winery.lat.toString(),
-      longitude: winery.lng.toString(),
+      latitude: winery.latitude,
+      longitude: winery.longitude,
     },
     ...overrides,
   };
@@ -79,6 +80,27 @@ export const createMockUser = (overrides: Partial<AuthenticatedUser> = {}): Auth
   ...overrides,
 });
 
+export const createMockFriend = (overrides: any = {}) => ({
+  id: 'friend-123',
+  name: 'Mock Friend',
+  email: 'friend@example.com',
+  avatar_url: null,
+  status: 'accepted',
+  privacy_level: 'public',
+  ...overrides,
+});
+
+export const createMockFriendActivity = (overrides: any = {}) => ({
+  id: 1,
+  user_id: 'friend-123',
+  user_name: 'Mock Friend',
+  action_type: 'visit',
+  winery_name: 'Mock Winery',
+  winery_id: 1,
+  created_at: new Date().toISOString(),
+  ...overrides,
+});
+
 /**
  * RPC Specific Mocks
  * Standardizes the shape of data returned by Supabase functions
@@ -88,10 +110,12 @@ export const createMockMapMarkerRpc = (overrides: Partial<MapMarkerRpc> = {}): M
   google_place_id: 'ch-mock-winery-1' as GooglePlaceId,
   name: 'Mock Winery One',
   address: '123 Mockingbird Lane, Fakeville, FK 12345',
-  lat: 42.7,
-  lng: -76.9,
+  latitude: 42.7,
+  longitude: -76.9,
   is_favorite: false,
   on_wishlist: false,
   user_visited: false,
+  is_favorite_private: false,
+  on_wishlist_private: false,
   ...overrides,
 });

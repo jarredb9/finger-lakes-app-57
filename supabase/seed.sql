@@ -1,3 +1,4 @@
+SET search_path = extensions, public, auth;
 -- Seed Test Users
 -- These users are required for local development and E2E testing
 

@@ -94,8 +94,8 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
             id: place.id! as GooglePlaceId,
             name: place.displayName!,
             address: place.formattedAddress!,
-            lat: place.location!.lat(),
-            lng: place.location!.lng(),
+            latitude: place.location!.lat(),
+            longitude: place.location!.lng(),
             rating: place.rating ?? undefined,
           }));
           setSearchResults(wineries);

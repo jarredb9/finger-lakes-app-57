@@ -102,9 +102,8 @@ describe('Supabase RPC Integration Tests', () => {
         expect(memberError).toBeNull();
 
         // 3. User 2 attempts to fetch trip details
-        // THIS IS EXPECTED TO FAIL until the RPC is refactored
         const { data: details, error: detailsError } = await user2.client.rpc('get_trip_details', {
-          trip_id_param: tripId
+          p_trip_id: tripId
         });
 
         expect(detailsError).toBeNull();
@@ -120,8 +119,8 @@ describe('Supabase RPC Integration Tests', () => {
           id: `mock-winery-visit-${crypto.randomUUID()}`,
           name: mockWinery.name,
           address: mockWinery.address,
-          lat: mockWinery.lat,
-          lng: mockWinery.lng,
+          latitude: mockWinery.latitude,
+          longitude: mockWinery.longitude,
           rating: mockWinery.rating
         };
         createdWineryIds.push(wineryData.id);

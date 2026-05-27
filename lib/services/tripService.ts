@@ -23,7 +23,15 @@ export const TripService = {
           trip_date,
           updated_at,
           trip_wineries (count),
-          trip_members!inner (user_id)
+          trip_members!inner (
+              user_id,
+              role,
+              status,
+              profiles (
+                  name,
+                  email
+              )
+          )
       `, { count: 'exact' })
       .eq('trip_members.user_id', user.id);
 
@@ -40,9 +48,16 @@ export const TripService = {
     // Transform to match expected UI structure
     const formattedTrips = trips?.map((t: any) => ({
       ...t,
+      id: Number(t.id),
       wineries_count: t.trip_wineries?.[0]?.count || 0,
       wineries: [], // List view doesn't need full winery details
-      members: [] // List view usually doesn't need full member details either
+      members: t.trip_members?.map((m: any) => ({
+        id: m.user_id,
+        role: m.role,
+        status: m.status,
+        name: m.profiles?.name || 'User',
+        email: m.profiles?.email || ''
+      })) || []
     }));
 
     return { trips: formattedTrips || [], count: count || 0 };
@@ -52,12 +67,16 @@ export const TripService = {
     const supabase = createClient();
     
     const { data, error } = await supabase.rpc('get_trip_details', { 
-      trip_id_param: parseInt(tripId) 
+      p_trip_id: parseInt(tripId) 
     });
 
     if (error) {
       console.error("Error fetching trip details:", error);
       throw new Error(error.message || "Trip not found");
+    }
+
+    if (data) {
+      data.id = Number(data.id);
     }
 
     return data as Trip;
@@ -72,10 +91,16 @@ export const TripService = {
     const supabase = createClient();
     // Standardize to local YYYY-MM-DD
     const formattedDate = formatDateLocal(new Date(dateString + 'T00:00:00'));
-    const { data, error } = await supabase.rpc('get_trips_for_date', { target_date: formattedDate });
+    const { data, error } = await supabase.rpc('get_trips_for_date', { p_target_date: formattedDate });
 
     if (error) throw new Error(error.message);
-    return data || [];
+
+    const formattedData = (data || []).map((t: any) => ({
+      ...t,
+      id: Number(t.id)
+    }));
+
+    return formattedData;
   },
 
   async createTrip(trip: Partial<Trip>) {
@@ -253,9 +278,9 @@ export const TripService = {
         
         // We should use the simple ID one if we only have wineryId.
         const { error } = await supabase.rpc('add_winery_to_trip', {
-            trip_id_param: tripId,
-            winery_id_param: wineryId,
-            notes_param: notes
+            p_trip_id: tripId,
+            p_winery_id: wineryId,
+            p_notes: notes
         });
         if (error) throw error;
         return { success: true };

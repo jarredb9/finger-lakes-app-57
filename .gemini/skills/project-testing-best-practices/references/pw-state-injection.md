@@ -67,9 +67,14 @@ await toPass(async () => {
   expect(trip).toBeDefined();
   expect(trip.syncStatus).toBe('synced');
 });
-```
-
 ### Why this is Senior-Level:
 1.  **Speed:** You eliminate 500-1000ms of "Toast Animation" time per test.
 2.  **Data Integrity:** You verify the *actual data* reached the store, not just that a message was shown.
 3.  **Atomic Verification:** In multi-user tests (Collaborative Trips), you can verify that the second user's store correctly received the Realtime update without ever looking at the UI.
+
+### 4. Property Name Divergence
+When verifying store state in `page.evaluate`, do NOT assume the property names match the database columns. 
+- **Standard:** Always verify against the Store's TypeScript interface (e.g. `User` or `Trip` types in `lib/stores/`).
+- **Pitfall:** Services often transform raw DB names (e.g. `name`) to store names (e.g. `full_name`). Accessing `user.name` in a test will return `undefined` even if the data was fetched correctly.
+
+### Requirements for Injection:

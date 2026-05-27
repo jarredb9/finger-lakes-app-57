@@ -25,11 +25,11 @@ import { InteractiveBottomSheet, SheetMode } from "@/components/ui/interactive-b
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { VisitHistoryModal } from "@/components/visit-history-modal";
 import { OfflineIndicator } from "@/components/offline-indicator";
-import { useVisitStore } from "@/lib/stores/visitStore";
 import { Download, RefreshCw } from "lucide-react";
 import { usePwa } from "@/hooks/use-pwa";
 import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useMounted } from "@/hooks/use-mounted";
 
 const WineryModal = dynamic(() => import("@/components/winery-modal"), {
     ssr: false,
@@ -49,25 +49,16 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
     const { friendRequests = [] } = useFriendStore();
     const { isInstallable, isStandalone, installApp, isUpdateAvailable, updateApp } = usePwa();
     const { toast } = useToast();
-    const isHydrated = useUIStore(state => state.isHydrated);
     const setHydrated = useUIStore(state => state.setHydrated);
+    const mounted = useMounted();
 
     const friendRequestCount = friendRequests?.length || 0;
 
     useEffect(() => {
-        setHydrated(true);
-    }, [setHydrated]);
-
-    // Sync offline visits on mount and when coming back online
-    useEffect(() => {
-        const sync = () => useVisitStore.getState().syncOfflineVisits();
-
-        // Try to sync immediately on load
-        sync();
-
-        window.addEventListener("online", sync);
-        return () => window.removeEventListener("online", sync);
-    }, []);
+        if (mounted) {
+            setHydrated(true);
+        }
+    }, [mounted, setHydrated]);
 
     // Handle mobile nav click
     const handleMobileNav = (tab: "explore" | "trips" | "friends" | "history") => {
@@ -107,7 +98,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
     return (
         <div 
             className="flex h-screen w-screen overflow-hidden flex-col md:flex-row relative"
-            data-hydrated={isHydrated}
+            data-hydrated={mounted}
         >
             <h1 className="sr-only">Winery Visit Planner and Tracker</h1>
             <OfflineIndicator />

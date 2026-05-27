@@ -4,16 +4,18 @@ import { memo, useState, useEffect } from "react";
 import { Trip, Winery, Visit, TripMember } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Share2, Star, Wine } from "lucide-react";
+import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Share2, Star, Wine, Loader2, Clock } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { DatePicker } from "./DatePicker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import DailyHours from "@/components/DailyHours";
 import { calculateDistance, formatDistance } from "@/lib/utils/geo";
+import { cn } from "@/lib/utils";
 
 import { formatDateLocal } from "@/lib/utils";
 
@@ -22,6 +24,7 @@ interface TripCardProps {
   isOwner: boolean;
   canEdit: boolean;
   isUpdating?: boolean;
+  isUserLoading?: boolean;
   currentMembers: TripMember[];
   onUpdateTrip: (id: string, updates: { name?: string; trip_date?: string }) => Promise<void>;
   onDeleteTrip: (id: string) => void;
@@ -85,6 +88,7 @@ const TripCard = memo(({
   isOwner, 
   canEdit, 
   isUpdating,
+  isUserLoading,
   currentMembers,
   onUpdateTrip,
   onDeleteTrip,
@@ -117,6 +121,13 @@ const TripCard = memo(({
     }
   });
   const [addWineryPopoverOpen, setAddWineryPopoverOpen] = useState(false);
+
+  // Diagnostic logging for E2E
+  useEffect(() => {
+    if (process.env.NEXT_PUBLIC_IS_E2E) {
+      console.log(`[TripCard DIAGNOSTIC] id: ${trip?.id}, canEdit: ${canEdit}, isUpdating: ${isUpdating}, isUserLoading: ${isUserLoading}, isPending: ${trip?.syncStatus === 'pending'}`);
+    }
+  }, [trip?.id, canEdit, isUpdating, isUserLoading, trip?.syncStatus]);
 
   if (!trip || !trip.trip_date) {
     return null;
@@ -162,23 +173,40 @@ const TripCard = memo(({
     }
   };
 
+  const isPending = trip.syncStatus === 'pending';
+
   return (
-    <Card className="w-full overflow-hidden" data-testid="trip-details-card" data-state={isUpdating ? 'loading' : 'ready'}>
+    <Card 
+      className={cn(
+        "w-full overflow-hidden transition-opacity", 
+        (isPending || isUserLoading) && "opacity-50"
+      )} 
+      data-testid="trip-details-card" 
+      data-state={isUpdating || isUserLoading ? 'loading' : 'ready'}
+    >
       <CardHeader className="bg-gray-50 border-b">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            {isEditing ? (
-              <Input 
-                value={editedName} 
-                onChange={(e) => setEditedName(e.target.value)} 
-                placeholder="Trip Name" 
-                className="text-xl font-bold h-9"
-              />
-            ) : (
-              <CardTitle className="text-xl md:text-2xl font-bold">
-                {trip.name || `Trip for ${getSafeDateString(trip.trip_date)}`}
-              </CardTitle>
-            )}
+            <div className="flex items-center gap-2">
+              {isEditing ? (
+                <Input 
+                  value={editedName} 
+                  onChange={(e) => setEditedName(e.target.value)} 
+                  placeholder="Trip Name" 
+                  className="text-xl font-bold h-9"
+                />
+              ) : (
+                <CardTitle className="text-xl md:text-2xl font-bold">
+                  {trip.name || `Trip for ${getSafeDateString(trip.trip_date)}`}
+                </CardTitle>
+              )}
+              {isPending && (
+                <Badge variant="secondary" className="bg-amber-100 text-amber-800 border-amber-200 animate-pulse flex items-center gap-1">
+                  <Clock className="w-3 h-3" />
+                  Syncing
+                </Badge>
+              )}
+            </div>
             <div className="flex items-center gap-4 text-sm text-gray-500">
               <span className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4" />
@@ -221,7 +249,7 @@ const TripCard = memo(({
                       size="icon" 
                       className="h-8 w-8 rounded-full border-dashed bg-gray-50 hover:bg-white"
                       onClick={() => onOpenShareDialog(trip.id.toString(), trip.name || "Trip")}
-                      disabled={trip.id < 0}
+                      disabled={trip.id < 0 || isUserLoading}
                       aria-label="Share Trip"
                     >
                       <UserPlus className="h-4 w-4 text-gray-500" />
@@ -238,14 +266,14 @@ const TripCard = memo(({
 
             <div className="flex items-center gap-2">
               {isEditing ? (
-                <Button size="sm" onClick={handleSave} className="h-9"><Save className="w-4 h-4 mr-2"/>Save</Button>
+                <Button size="sm" onClick={handleSave} className="h-9" disabled={isPending || isUserLoading}><Save className="w-4 h-4 mr-2"/>Save</Button>
               ) : (
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => setIsEditing(true)} 
                   className="h-9"
-                  disabled={trip.id < 0 || !canEdit}
+                  disabled={trip.id < 0 || !canEdit || isPending || isUserLoading}
                   aria-label="Edit Trip"
                 >
                   {trip.id < 0 ? "Creating..." : <><Edit className="w-4 h-4 mr-2"/>Edit</>}
@@ -257,7 +285,7 @@ const TripCard = memo(({
                   size="icon" 
                   className="h-9 w-9" 
                   data-testid="delete-trip-btn" 
-                  disabled={trip.id < 0} 
+                  disabled={trip.id < 0 || isPending || isUserLoading} 
                   aria-label="Delete Trip"
                   onClick={() => onDeleteTrip(trip.id.toString())}
                 >
@@ -285,22 +313,22 @@ const TripCard = memo(({
               </div>
             ))}
           </div>
-        ) : (
+        ) : mounted ? (
           <DragDropContext onDragEnd={handleDrop}>
             <Droppable droppableId={`trip-${trip.id}`}>
               {(provided) => (
                 <div {...provided.droppableProps} ref={provided.innerRef} className="divide-y" data-testid="winery-list">
                   {(tripWineries || []).map((winery, index) => {
                     const nextWinery = tripWineries[index + 1];
-                    const hasCoordinates = winery.lat !== undefined && winery.lng !== undefined && winery.lat !== null && winery.lng !== null;
-                    const nextHasCoordinates = nextWinery?.lat !== undefined && nextWinery?.lng !== undefined && nextWinery?.lat !== null && nextWinery?.lng !== null;
+                    const hasCoordinates = winery.latitude !== undefined && winery.longitude !== undefined && winery.latitude !== null && winery.longitude !== null;
+                    const nextHasCoordinates = nextWinery?.latitude !== undefined && nextWinery?.longitude !== undefined && nextWinery?.latitude !== null && nextWinery?.longitude !== null;
                     
                     let distanceText = "";
                     if (hasCoordinates && nextHasCoordinates) {
                       try {
                         const dist = calculateDistance(
-                          { lat: Number(winery.lat), lng: Number(winery.lng) },
-                          { lat: Number(nextWinery.lat), lng: Number(nextWinery.lng) }
+                          { lat: Number(winery.latitude), lng: Number(winery.longitude) },
+                          { lat: Number(nextWinery.latitude), lng: Number(nextWinery.longitude) }
                         );
                         distanceText = formatDistance(dist);
                       } catch (e) {
@@ -350,7 +378,7 @@ const TripCard = memo(({
                               <div className="relative h-8 flex items-center px-12 overflow-hidden">
                                 <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-dashed border-l-2 border-dashed border-gray-300 ml-px"></div>
                                 <div className="z-10 bg-white border border-gray-200 rounded-full px-2 py-0.5 text-[10px] font-medium text-gray-500 flex items-center gap-1 shadow-xs">
-                                  <MapPin className="w-2.5 h-2.5" />
+                                  <Clock className="w-2.5 h-2.5" />
                                   <span>{distanceText} to next stop</span>
                                 </div>
                               </div>
@@ -365,6 +393,11 @@ const TripCard = memo(({
               )}
             </Droppable>
           </DragDropContext>
+        ) : (
+          <div className="p-8 text-center text-muted-foreground flex flex-col items-center gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-primary/50" />
+            <p className="text-sm">Initializing Trip...</p>
+          </div>
         )}
         {isEditing && (
           <div className="p-4 border-t">

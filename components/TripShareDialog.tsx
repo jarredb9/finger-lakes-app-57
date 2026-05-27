@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState, useRef, useCallback } from "react"
-import { createPortal } from "react-dom"
 import {
   Dialog,
   DialogContent,
@@ -75,6 +74,8 @@ export function TripShareDialog({
 
   const handleInvite = async (email: string) => {
     const trimmedEmail = email.trim()
+    if (!trimmedEmail) return
+    
     setIsInviting(trimmedEmail)
     try {
       await TripService.addMemberByEmail(parseInt(tripId), trimmedEmail)
@@ -112,19 +113,14 @@ export function TripShareDialog({
     }
   }
 
-  if (!mounted) return null;
-
-  const modalRoot = document.getElementById("modal-root");
-  if (!modalRoot) return null;
-
   const isOwner = members.find(m => m.id === user?.id)?.role === 'owner'
 
-  return createPortal(
+  return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent 
         className="sm:max-w-md flex flex-col max-h-[90dvh]" 
         data-testid="trip-share-dialog"
-        data-state={isLoadingMembers || isStoreLoading ? "loading" : "ready"}
+        data-state={!mounted ? "loading" : isLoadingMembers || isStoreLoading ? "loading" : "ready"}
       >
         <DialogHeader>
           <DialogTitle>Collaborate on &quot;{tripName}&quot;</DialogTitle>
@@ -133,109 +129,114 @@ export function TripShareDialog({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="flex-1 overflow-y-auto px-1 py-2 space-y-6">
-          {/* Current Members Section */}
-          <div className="min-h-0">
-            {isLoadingMembers ? (
-              <div className="flex justify-center items-center py-4">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              </div>
-            ) : (
-              <TripMembersList 
-                members={members} 
-                isOwner={isOwner}
-                currentUserId={user?.id}
-                onRemove={handleRemoveMember}
-              />
-            )}
+        {!mounted ? (
+          <div className="flex-1 flex justify-center items-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-
-          {/* Friends Section */}
-          <div className="space-y-3 pt-2 border-t">
-            <h4 className="text-sm font-medium px-1">Your Friends</h4>
-            <div className="space-y-2">
-              {isStoreLoading && friends.length === 0 ? (
-                <div className="flex justify-center items-center py-4" data-testid="loading-friends">
+        ) : (
+          <div className="flex-1 overflow-y-auto px-1 py-2 space-y-6">
+            {/* Current Members Section */}
+            <div className="min-h-0">
+              {isLoadingMembers ? (
+                <div className="flex justify-center items-center py-4">
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                 </div>
-              ) : friends.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-2 text-center bg-muted/20 rounded-md italic" data-testid="no-friends-msg">No friends found.</p>
               ) : (
-                <div className="space-y-2">
-                  {friends
-                    .filter(f => !members.some(m => String(m.id).toLowerCase() === String(f.id).toLowerCase()))
-                    .map((friend) => (
-                    <div
-                      key={friend.id}
-                      className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-muted-foreground/10"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name || friend.email} />
-                          <AvatarFallback>
-                            {(friend.name || friend.email).substring(0, 2).toUpperCase()}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium">{friend.name || friend.email}</span>
-                          {friend.name && <span className="text-[10px] text-muted-foreground">{friend.email}</span>}
-                        </div>
-                      </div>
-                      <Button 
-                        size="sm" 
-                        variant="ghost" 
-                        className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                        onClick={() => handleInvite(friend.email)}
-                        disabled={!!isInviting}
-                        data-testid={`invite-friend-${friend.email}`}
-                      >
-                        {isInviting === friend.email ? (
-                          <Loader2 className="h-3 w-3 animate-spin" />
-                        ) : (
-                          "Invite"
-                        )}
-                      </Button>
-                    </div>
-                  ))}
-                  {friends.length > 0 && friends.every(f => members.some(m => String(m.id).toLowerCase() === String(f.id).toLowerCase())) && (
-                    <p className="text-xs text-muted-foreground py-2 text-center italic" data-testid="all-friends-invited-msg">All your friends are already in this trip.</p>
-                  )}
-                </div>
+                <TripMembersList 
+                  members={members} 
+                  isOwner={isOwner}
+                  currentUserId={user?.id}
+                  onRemove={handleRemoveMember}
+                />
               )}
             </div>
-          </div>
 
-          {/* Email Invite Section */}
-          <div className="space-y-3 pt-2 border-t">
-            <h4 className="text-sm font-medium px-1">Invite by Email</h4>
-            <div className="flex gap-2">
-              <Input
-                type="email"
-                placeholder="friend@example.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-                disabled={!!isInviting}
-                className="h-9 text-sm"
-                data-testid="invite-email-input"
-              />
-              <Button 
-                size="sm"
-                onClick={() => handleInvite(inviteEmail)} 
-                disabled={!inviteEmail.trim() || !!isInviting}
-                data-testid="invite-by-email-btn"
-                className="h-9 px-3 shrink-0"
-              >
-                {isInviting === inviteEmail && inviteEmail !== "" ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+            {/* Friends Section */}
+            <div className="space-y-3 pt-2 border-t">
+              <h4 className="text-sm font-medium px-1">Your Friends</h4>
+              <div className="space-y-2">
+                {isStoreLoading && friends.length === 0 ? (
+                  <div className="flex justify-center items-center py-4" data-testid="loading-friends">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : friends.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2 text-center bg-muted/20 rounded-md italic" data-testid="no-friends-msg">No friends found.</p>
                 ) : (
-                  "Invite"
+                  <div className="space-y-2">
+                    {friends
+                      .filter(f => !members.some(m => String(m.id).toLowerCase() === String(f.id).toLowerCase()))
+                      .map((friend) => (
+                      <div
+                        key={friend.id}
+                        className="flex items-center justify-between p-2 rounded-lg hover:bg-muted/50 transition-colors border border-transparent hover:border-muted-foreground/10"
+                      >
+                        <div className="flex items-center space-x-3">
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={`https://i.pravatar.cc/150?u=${friend.email}`} alt={friend.name || friend.email} />
+                            <AvatarFallback>
+                              {(friend.name || friend.email).substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium">{friend.name || friend.email}</span>
+                            {friend.name && <span className="text-[10px] text-muted-foreground">{friend.email}</span>}
+                          </div>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          variant="ghost" 
+                          className="h-8 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          onClick={() => handleInvite(friend.email)}
+                          disabled={!!isInviting}
+                          data-testid={`invite-friend-${friend.email}`}
+                        >
+                          {isInviting === friend.email ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            "Invite"
+                          )}
+                        </Button>
+                      </div>
+                    ))}
+                    {friends.length > 0 && friends.every(f => members.some(m => String(m.id).toLowerCase() === String(f.id).toLowerCase())) && (
+                      <p className="text-xs text-muted-foreground py-2 text-center italic" data-testid="all-friends-invited-msg">All your friends are already in this trip.</p>
+                    )}
+                  </div>
                 )}
-              </Button>
+              </div>
+            </div>
+
+            {/* Email Invite Section */}
+            <div className="space-y-3 pt-2 border-t">
+              <h4 className="text-sm font-medium px-1">Invite by Email</h4>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="friend@example.com"
+                  value={inviteEmail}
+                  onChange={(e) => setInviteEmail(e.target.value)}
+                  disabled={!!isInviting}
+                  className="h-9 text-sm"
+                  data-testid="invite-email-input"
+                />
+                <Button 
+                  size="sm"
+                  onClick={() => handleInvite(inviteEmail)} 
+                  disabled={!inviteEmail.trim() || !!isInviting}
+                  data-testid="invite-by-email-btn"
+                  className="h-9 px-3 shrink-0"
+                >
+                  {isInviting === inviteEmail && inviteEmail !== "" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Invite"
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </DialogContent>
-    </Dialog>,
-    modalRoot
+    </Dialog>
   )
 }

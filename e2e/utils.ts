@@ -6,49 +6,51 @@ import fs from 'fs';
 import path from 'path';
 import { Page, test as base } from '@playwright/test';
 import { createMockMapMarkerRpc, createMockVisitWithWinery, createMockTrip } from '@/lib/test-utils/fixtures';
+import { Database } from '@/lib/database.types';
 import { 
   Trip, 
   VisitWithWinery, 
   MapMarkerRpc, 
-  TripMember,
   WineryDbId,
   GooglePlaceId
 } from '@/lib/types';
 
-export interface FriendActivityFeedItem {
-  activity_type: string;
+/**
+ * Derived Types from Database Schema (Senior Standard)
+ * These ensure 100% alignment with the Supabase schema and RPC definitions.
+ */
+export type RpcVisitWithWinery = Omit<Database['public']['Functions']['get_paginated_visits_with_winery_and_friends']['Returns'][number], 'user_review' | 'rating'> & {
+  user_id: string;
+  updated_at: string;
+  user_review: string | null;
+  rating: number | null;
+};
+
+export type FriendActivityFeedItem = {
+  activity_type: Database['public']['Tables']['activity_ledger']['Row']['activity_type'];
   created_at: string;
-  activity_user_id: string;
-  user_name: string;
-  user_email: string;
-  winery_id: number;
-  winery_name: string;
-  visit_rating: number | null;
-  visit_review: string | null;
-  visit_photos: string[] | null;
-}
+  activity_user_id: Database['public']['Tables']['profiles']['Row']['id'];
+  user_name: string | null;
+  user_email: string | null;
+  winery_id: Database['public']['Tables']['wineries']['Row']['id'];
+  winery_name: Database['public']['Tables']['wineries']['Row']['name'];
+  latitude: number;
+  longitude: number;
+  visit_rating: Database['public']['Tables']['visits']['Row']['rating'];
+  visit_review: Database['public']['Tables']['visits']['Row']['user_review'];
+  visit_photos: Database['public']['Tables']['visits']['Row']['photos'];
+};
+
+export type TripMember = Database['public']['Tables']['trip_members']['Row'] & {
+  name: string | null;
+  email: string | null;
+};
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 export type MapMarker = MapMarkerRpc;
 export type TripDetails = Trip;
 export type VisitItem = VisitWithWinery;
-
-/**
- * Specifically matches the return type of get_paginated_visits_with_winery_and_friends RPC
- */
-export interface RpcVisitWithWinery {
-  visit_id: number;
-  user_id: string;
-  visit_date: string;
-  user_review: string | null;
-  rating: number | null;
-  photos: string[] | null;
-  winery_id: number;
-  winery_name: string;
-  google_place_id: string;
-  winery_address: string;
-  friend_visits: any[];
-  updated_at: string;
-}
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -75,14 +77,14 @@ export interface MockMapsState {
     visits: RpcVisitWithWinery[] | null;
     activityFeed: FriendActivityFeedItem[] | null;
     social: {
-        friends: any[],
-        pending_incoming: any[],
-        pending_outgoing: any[]
+        friends: Profile[],
+        pending_incoming: Profile[],
+        pending_outgoing: Profile[]
     } | null;
     socialMap: Map<string, {
-        friends: any[],
-        pending_incoming: any[],
-        pending_outgoing: any[]
+        friends: Profile[],
+        pending_incoming: Profile[],
+        pending_outgoing: Profile[]
     }>;
     tripMembersMap: Map<number, TripMember[]>;
     favoritesMap: Map<string, Set<string>>;
@@ -149,7 +151,8 @@ export class MockMapsManager {
                                          text.includes('WebKit encountered an internal error');
 
             const isThirdPartyNoise = text.includes('Cookie “__cf_bm” has been rejected') ||
-                                     text.includes('Google Maps JavaScript API: Unable to fetch configuration');
+                                     text.includes('Google Maps JavaScript API: Unable to fetch configuration') ||
+                                     text.includes('Attempted to load a Vector Map, but failed');
             
             if (!isInfrastructure && !isExpectedOfflineError && !isThirdPartyNoise) {
                 console.log(`[DIAGNOSTIC] Would have failed due to console error: ${text}`);
@@ -220,8 +223,13 @@ export class MockMapsManager {
         }
     }).catch(() => {});
 
-    await this.page.route(/.*rpc\/get_map_markers/, async (route) => {
+    await this.page.context().route(/.*rpc\/get_map_markers/, async (route) => {
       console.log(`[DIAGNOSTIC] Intercepting get_map_markers with 500 error`);
+      await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
+    });
+
+    await this.page.context().route(/.*rpc\/get_wineries_in_bounds/, async (route) => {
+      console.log(`[DIAGNOSTIC] Intercepting get_wineries_in_bounds with 500 error`);
       await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
     });
   }
@@ -249,7 +257,7 @@ export class MockMapsManager {
     const supabaseHost = supabaseUrlObj.host.replace(/\./g, '\\.');
 
     // 1. Supabase Profiles Handler
-    await this.page.route(new RegExp(`${supabaseHost}/rest/v1/profiles`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/rest/v1/profiles`), async (route) => {
         const req = route.request();
         if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
         if (this.realSocialEnabled) return route.fallback();
@@ -257,7 +265,7 @@ export class MockMapsManager {
         const idMatch = req.url().match(/id=eq\.([^&]+)/);
         const requestedId = idMatch ? idMatch[1] : this.currentUserId;
         
-        const profile = { id: requestedId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' };
+        const profile: Profile = { id: requestedId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' };
         const body = req.headers()['accept']?.includes('application/vnd.pgrst.object+json') 
             ? JSON.stringify(profile) 
             : JSON.stringify([profile]);
@@ -266,7 +274,7 @@ export class MockMapsManager {
     });
 
     // 2. Supabase RPC Handler
-    await this.page.route(new RegExp(`${supabaseHost}/.*rpc/`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/.*rpc/`), async (route) => {
         const req = route.request();
         const url = req.url();
         const method = req.method();
@@ -301,7 +309,7 @@ export class MockMapsManager {
             
             if (!this.state.visits) this.state.visits = [];
             
-            const newVisit = {
+            const newVisit: RpcVisitWithWinery = {
                 visit_id: newId,
                 user_id: this.currentUserId,
                 visit_date: visitData.visit_date || todayCA,
@@ -312,6 +320,8 @@ export class MockMapsManager {
                 winery_name: winery?.name || wineryData.name || 'Unknown Winery',
                 google_place_id: winery?.google_place_id || wineryId,
                 winery_address: winery?.address || wineryData.address || 'Unknown Address',
+                latitude: winery?.latitude || wineryData.latitude || 42.7,
+                longitude: winery?.longitude || wineryData.longitude || -76.9,
                 friend_visits: [],
                 updated_at: new Date(Date.now() + 5000).toISOString()
             };
@@ -326,6 +336,8 @@ export class MockMapsManager {
                 user_email: 'test@example.com',
                 winery_id: newVisit.winery_id,
                 winery_name: newVisit.winery_name,
+                latitude: newVisit.latitude,
+                longitude: newVisit.longitude,
                 visit_rating: newVisit.rating,
                 visit_review: newVisit.user_review,
                 visit_photos: newVisit.photos
@@ -437,8 +449,8 @@ export class MockMapsManager {
             const postData = JSON.parse(req.postData() || '{}');
             const targetEmail = postData.target_email || postData.p_friend_email;
             if (!this.state.social) this.state.social = { friends: [], pending_incoming: [], pending_outgoing: [] };
-            this.state.social.pending_outgoing.push({ id: 'mock-target-id', name: (targetEmail || 'unknown').split('@')[0], email: targetEmail || 'unknown@example.com' });
-            this.state.social.pending_incoming.push({ id: this.currentUserId, name: 'Test User', email: 'test@example.com' });
+            this.state.social.pending_outgoing.push({ id: 'mock-target-id', name: (targetEmail || 'unknown').split('@')[0], email: targetEmail || 'unknown@example.com', privacy_level: 'public' });
+            this.state.social.pending_incoming.push({ id: this.currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' });
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
         }
         
@@ -475,8 +487,14 @@ export class MockMapsManager {
                 const trip = this.state.trips.find(t => Number(t.id) === Number(tripId));
                 if (trip) {
                     if (!trip.members) trip.members = [];
-                    if (!trip.members.some(m => m.email.toLowerCase() === email.toLowerCase())) {
-                        trip.members.push({ id: `mock-invited-${Math.floor(Math.random() * 10000)}`, email: email, name: email.split('@')[0], role: 'member', status: 'invited' });
+                    if (!trip.members.some(m => m.email?.toLowerCase() === email.toLowerCase())) {
+                        trip.members.push({ 
+                            id: `mock-member-${Math.floor(Math.random() * 10000)}`, 
+                            email: email, 
+                            name: email.split('@')[0], 
+                            role: 'member', 
+                            status: 'invited'
+                        });
                         trip.updated_at = new Date().toISOString();
                     }
                 }
@@ -486,7 +504,7 @@ export class MockMapsManager {
 
         if (url.includes('get_trip_details')) {
             const postData = JSON.parse(req.postData() || '{}');
-            const requestedId = postData.trip_id_param;
+            const requestedId = postData.p_trip_id;
             const trips = this.state.trips || [];
             const found = trips.find(t => Number(t.id) === Number(requestedId));
             if (!found) return route.fulfill({ status: 404, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ error: `Trip ID ${requestedId} not found` }) });
@@ -500,17 +518,53 @@ export class MockMapsManager {
 
         if (url.includes('get_friend_profile_with_visits')) {
             const postData = JSON.parse(req.postData() || '{}');
-            const friendId = postData.friend_id_param;
+            const friendId = postData.friend_id;
             const visits = (this.state.visits || []).filter(v => v.user_id === friendId);
+            const profile: Profile = { id: friendId, name: 'Mock Friend', email: 'friend@example.com', privacy_level: 'public' };
             return route.fulfill({ 
                 status: 200, 
                 contentType: 'application/json', 
                 headers: commonHeaders, 
                 body: JSON.stringify({
-                    profile: { id: friendId, name: 'Mock Friend', email: 'friend@example.com', privacy_level: 'public' },
+                    profile: profile,
                     visits: visits,
                     stats: { total_visits: visits.length, favorite_count: 0, wishlist_count: 0 }
                 }) 
+            });
+        }
+
+        if (url.includes('get_winery_details_by_id')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const wineryId = postData.p_winery_id;
+            const marker = markers.find(m => m.id === wineryId);
+            const detail = {
+                address: marker?.address || '123 Mock St',
+                google_place_id: marker?.google_place_id || 'mock-id',
+                google_rating: 4.5,
+                id: wineryId,
+                is_favorite: false,
+                is_favorite_private: false,
+                latitude: marker?.latitude || 42.7,
+                longitude: marker?.longitude || -76.9,
+                lat: marker?.latitude || 42.7,
+                lng: marker?.longitude || -76.9,
+                name: marker?.name || 'Mock Winery',
+                on_wishlist: false,
+                on_wishlist_private: false,
+                opening_hours: null,
+                phone: '555-0123',
+                reservable: false,
+                reviews: [],
+                trip_info: [],
+                user_visited: false,
+                visits: [],
+                website: 'https://example.com'
+            };
+            return route.fulfill({ 
+                status: 200, 
+                contentType: 'application/json', 
+                headers: commonHeaders, 
+                body: JSON.stringify([detail]) 
             });
         }
 
@@ -527,12 +581,12 @@ export class MockMapsManager {
     });
 
     // 3. Supabase Auth Handler
-    await this.page.route(new RegExp(`${supabaseHost}/auth/v1/`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/auth/v1/`), async (route) => {
         return route.fallback();
     });
 
     // 4. Supabase Trips REST Handler
-    await this.page.route(new RegExp(`${supabaseHost}/rest/v1/trips`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/rest/v1/trips`), async (route) => {
         const req = route.request();
         if (this.realTripsEnabled) return route.fallback();
         
@@ -554,7 +608,15 @@ export class MockMapsManager {
         const transformed = trips.map(t => ({
             ...t,
             trip_wineries: [{ count: t.wineries?.length || 0 }],
-            trip_members: (t.members || []).map(m => ({ user_id: m.id }))
+            trip_members: (t.members || []).map(m => ({ 
+                user_id: m.id,
+                role: m.role,
+                status: m.status,
+                profiles: {
+                    name: m.name,
+                    email: m.email
+                }
+            }))
         }));
 
         return route.fulfill({ 
@@ -566,49 +628,123 @@ export class MockMapsManager {
     });
 
     // 5. Supabase Favorites REST Handler
-    await this.page.route(new RegExp(`${supabaseHost}/rest/v1/favorites`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/rest/v1/favorites`), async (route) => {
         if (this.realFavoritesEnabled) return route.fallback();
         return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify([]) });
     });
 
     // 6. Supabase Functions Handler
-    await this.page.route(new RegExp(`${supabaseHost}/functions/v1/`), async (route) => {
+    await this.page.context().route(new RegExp(`${supabaseHost}/functions/v1/`), async (route) => {
         return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, data: {} }) });
     });
 
     // 7. Google Maps JS Handler
-    await this.page.route(/(maps\.googleapis\.com|google\.com).*js(\?|&)key=/, async (route) => {
+    await this.page.context().route(/(maps\.googleapis\.com|google\.com).*js(\?|&)key=/, async (route) => {
         const req = route.request();
+        console.log(`[DIAGNOSTIC] Intercepting Google Maps JS Loader: ${req.url()}`);
         if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+        
+        const mockMarkersData = markers.map(m => ({
+            id: m.google_place_id,
+            displayName: { text: m.name }, // Wrap in object to match REST/SDK expectations
+            formattedAddress: m.address,
+            location: {
+                lat: `__LAT__${m.latitude}__`,
+                lng: `__LNG__${m.longitude}__`,
+                latitude: m.latitude,
+                longitude: m.longitude
+            },
+            rating: 4.8
+        }));
+
+        const mockBody = `
+            console.log('[DIAGNOSTIC] Google Maps Mock Body Executing');
+            window.google = {
+                maps: {
+                    _isMocked: true,
+                    importLibrary: (name) => {
+                        console.log('[DIAGNOSTIC] Google Maps importLibrary:', name);
+                        if (name === 'places') return Promise.resolve(window.google.maps.places);
+                        if (name === 'geocoding') return Promise.resolve(window.google.maps.geocoding);
+                        return Promise.resolve({});
+                    },
+                    LatLng: function(lat, lng) {
+                        return { lat: () => lat, lng: () => lng, latitude: lat, longitude: lng };
+                    },
+                    LatLngBounds: function() {
+                        this.contains = () => true;
+                        this.extend = () => {};
+                        this.getCenter = () => ({ latitude: 42.7, longitude: -76.9, lat: () => 42.7, lng: () => -76.9 });
+                        this.getNorthEast = () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 });
+                        this.getSouthWest = () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 });
+                    },
+                    Geocoder: function() {
+                        this.geocode = () => Promise.resolve({ results: [] });
+                    },
+                    geocoding: {
+                        Geocoder: function() {
+                            this.geocode = () => Promise.resolve({ results: [] });
+                        }
+                    },
+                    places: {
+                        Place: {
+                            searchByText: (request) => {
+                                console.log('[DIAGNOSTIC] Google Maps Place.searchByText called:', request);
+                                return Promise.resolve({ 
+                                    places: ${JSON.stringify(mockMarkersData)}.map(p => ({
+                                        ...p,
+                                        location: {
+                                            lat: p.location.lat,
+                                            lng: p.location.lng,
+                                            latitude: p.location.latitude,
+                                            longitude: p.location.longitude
+                                        }
+                                    }))
+                                });
+                            }
+                        }
+                    }
+                }
+            };
+        `.replace(/"__LAT__([\d.-]+)__"/g, '() => $1').replace(/"__LNG__([\d.-]+)__"/g, '() => $1');
+
         return route.fulfill({ 
             status: 200, 
             contentType: 'application/javascript', 
             headers: { 'Access-Control-Allow-Origin': '*' }, 
-            body: 'window.google = { maps: { _isMocked: true, importLibrary: () => Promise.resolve({}), LatLngBounds: function() { this.contains = () => true; this.extend = () => {}; this.getCenter = () => ({lat:()=>42.7,lng:()=>-76.9}); this.getNorthEast=()=>({lat:()=>43,lng:()=>-76}); this.getSouthWest=()=>({lat:()=>42,lng:()=>-77}); }, Geocoder: function() { this.geocode = () => Promise.resolve({results:[]}); }, places: { Place: { searchByText: () => Promise.resolve({places:[]}) } } } };' 
+            body: mockBody
         });
     });
 
-    // 8. Google Places Search Handler
-    await this.page.route(/places\.googleapis\.com\/v1\/places:searchText/, async (route) => {
+    // 8. Google Places Search Handler - Fixed to catch gRPC-web ($rpc) and broadened
+    await this.page.context().route(/(places\.googleapis\.com\/.*SearchText|places\.googleapis\.com\/v1\/places:searchText)/i, async (route) => {
         const req = route.request();
+        console.log(`[DIAGNOSTIC] Intercepting SearchText: ${req.url()}`);
         if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
         return route.fulfill({ 
             status: 200, 
             contentType: 'application/json', 
             headers: commonHeaders, 
             body: JSON.stringify({ 
-                places: markers.map(m => ({ id: m.google_place_id, name: m.name, displayName: { text: m.name }, formattedAddress: 'Mock NY', location: { latitude: 42.7, longitude: -76.9 }, rating: 4.8 })) 
+                places: markers.map(m => ({ 
+                    id: m.google_place_id, 
+                    name: m.name, 
+                    displayName: { text: m.name }, 
+                    formattedAddress: m.address || 'Mock NY', 
+                    location: { latitude: m.latitude, longitude: m.longitude }, 
+                    rating: 4.8 
+                })) 
             }) 
         });
     });
 
     // 9. Google Maps Tiles Handler
-    await this.page.route(/google\.com\/maps\/vt\/tile|google\.com\/vt\/tile/, async (route) => {
+    await this.page.context().route(/google\.com\/maps\/vt\/tile|google\.com\/vt\/tile/, async (route) => {
         return route.fulfill({ contentType: 'image/png', body: Buffer.from('iVBORw0KGgoAAAANghjYAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') });
     });
 
     // 10. Google Fonts Handler
-    await this.page.route(/fonts\.(googleapis|gstatic)\.com/, async (route) => {
+    await this.page.context().route(/fonts\.(googleapis|gstatic)\.com/, async (route) => {
         const type = route.request().resourceType();
         if (type === 'font' || type === 'stylesheet') return route.fulfill({ status: 200, contentType: type === 'font' ? 'font/woff2' : 'text/css', body: '' });
         return route.fallback();
@@ -617,12 +753,14 @@ export class MockMapsManager {
     this.mocksRegistered = true;
   }
 
-  async initDefaultMocks(options: { currentUserId?: string } = {}) {
-    const isRealData = process.env.E2E_REAL_DATA === 'true';
+  async initDefaultMocks(options: { currentUserId?: string, forceMocks?: boolean } = {}) {
+    const isRealData = process.env.E2E_REAL_DATA === 'true' && !options.forceMocks;
+    console.log(`[DIAGNOSTIC] initDefaultMocks: isRealData=${isRealData}, options=${JSON.stringify(options)}`);
     
     if (options.currentUserId) {
         const oldId = this.currentUserId;
         this.currentUserId = options.currentUserId;
+        console.log(`[DIAGNOSTIC] MockMapsManager: currentUserId set to ${this.currentUserId} (was ${oldId})`);
         
         if (this.state.visits) {
             this.state.visits.forEach(v => { if (v.user_id === oldId) v.user_id = this.currentUserId; });
@@ -635,11 +773,12 @@ export class MockMapsManager {
         }
     }
 
-    if (this.mocksRegistered) return;
+    if (this.mocksRegistered && !options.forceMocks) return;
     const todayCA = new Date().toLocaleDateString('en-CA');
 
-    // Only register full network interception if NOT in real data mode
-    if (!isRealData) {
+    // Only register full network interception if NOT in real data mode OR if forced
+    if (!isRealData || options.forceMocks) {
+        console.log('[DIAGNOSTIC] MockMapsManager: Registering mock routes');
         await this.registerMockRoutes();
     }
 
@@ -657,16 +796,18 @@ export class MockMapsManager {
             user_review: 'A classic mock visit from the past.'
         });
         this.state.visits = [{
-            visit_id: 12345, 
-            user_id: mockVisit.user_id || this.currentUserId, 
-            visit_date: mockVisit.visit_date, 
+            visit_id: 12345,
+            user_id: mockVisit.user_id || this.currentUserId,
+            visit_date: mockVisit.visit_date,
             user_review: mockVisit.user_review || null,
-            rating: mockVisit.rating || null, 
-            photos: mockVisit.photos || null, 
-            winery_id: mockVisit.winery_id || 2 as WineryDbId, 
+            rating: mockVisit.rating || null,
+            photos: mockVisit.photos || [],
+            winery_id: mockVisit.winery_id || 2 as WineryDbId,
             winery_name: mockVisit.wineryName || 'Vineyard of Illusion',
             google_place_id: mockVisit.wineryId || 'ch-67890-mock-winery-2' as GooglePlaceId, 
             winery_address: mockVisit.wineries.address, 
+            latitude: mockVisit.wineries.latitude,
+            longitude: mockVisit.wineries.longitude,
             friend_visits: [],
             updated_at: new Date().toISOString()
         }];
@@ -735,29 +876,32 @@ export class MockMapsManager {
 
             if (wineryStore && wineryStore.getState) {
                 const state = wineryStore.getState();
-                // Only inject if store is truly empty AND we haven't already injected in this context
+                // Only inject if store is truly empty
                 // @ts-ignore
-                if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0 && !window._E2E_INJECTED) {
-                    // We manually standardize for the store since the utility isn't easily accessible here
-                    const standardized = mockMarkers.map((m: any) => ({
+                if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0) {
+                    // Use the official standardizer exposed on window
+                    // @ts-ignore
+                    const standardizer = window.standardizeWineryData || ((m) => ({
                         id: m.google_place_id,
                         dbId: Number(m.id),
                         name: m.name,
                         address: m.address || 'Mock Address',
-                        lat: Number(m.lat),
-                        lng: Number(m.lng),
+                        latitude: Number(m.latitude || m.lat || 0),
+                        longitude: Number(m.longitude || m.lng || 0),
                         rating: Number(m.google_rating) || 4.5,
                         userVisited: false,
                         onWishlist: false,
                         isFavorite: false,
                         visits: [],
-                        openingHours: null, // PREVENT LAZY LOAD
+                        openingHours: null,
                         reviews: []
                     }));
+
+                    const standardized = mockMarkers.map((m: any) => standardizer(m)).filter((w: any) => w !== null);
                     wineryStore.setState({ persistentWineries: standardized });
                     // @ts-ignore
                     window._E2E_INJECTED = true;
-                    console.log('[DIAGNOSTIC] Mock wineries injected into store');
+                    console.log(`[DIAGNOSTIC] Mock wineries injected into store: ${standardized.length} items`);
                 }
             }
 
@@ -766,9 +910,9 @@ export class MockMapsManager {
                 if (!state.bounds) {
                     mapStore.setState({ 
                         bounds: { 
-                            getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
-                            getSouthWest: () => ({ lat: () => 42, lng: () => -77 }),
-                            getCenter: () => ({ lat: () => 42.5, lng: () => -76.5 }),
+                            getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
+                            getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 }),
+                            getCenter: () => ({ latitude: 42.5, longitude: -76.5, lat: () => 42.5, lng: () => -76.5 }),
                             contains: () => true,
                             extend: () => {}
                         } 
@@ -807,13 +951,13 @@ export class MockMapsManager {
   // }
 
   async failTrips() {
-    await this.page.route(/\/rest\/v1\/trips/, async (route) => {
+    await this.page.context().route(/\/rest\/v1\/trips/, async (route) => {
       await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Database Connection Failed' }) });
     });
   }
 
   async failLogin() {
-    await this.page.route('**/auth/v1/token**', async (route) => {
+    await this.page.context().route('**/auth/v1/token**', async (route) => {
       await route.fulfill({ status: 400, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'invalid_grant', error_description: 'Invalid login credentials' }) });
     });
   }
@@ -835,10 +979,9 @@ export const test = base.extend<{
   user: TestUser;
   user2: TestUser;
 }>({
-  // Dynamically set baseURL based on worker index for strict port isolation
-  baseURL: async ({}, use, testInfo) => {
-    const port = 3001 + (testInfo.workerIndex % 2);
-    await use(`http://localhost:${port}`);
+  // Rotate hostnames for strict origin isolation while maintaining a single port
+  baseURL: async ({}, use) => {
+    await use('http://127.0.0.1:3001');
   },
 
   // Use unique storage state per worker to ensure strict filesystem-level partitioning
@@ -895,9 +1038,9 @@ export { createMockTrip, createMockVisitWithWinery, createMockMapMarkerRpc } fro
 
 // --- LEGACY EXPORTS (Restored for visual.spec.ts and others) ---
 /** @deprecated Use mockMaps fixture */
-export async function mockGoogleMapsApi(page: Page, userId?: string) {
+export async function mockGoogleMapsApi(page: Page, userId?: string, forceMocks: boolean = false) {
   const manager = new MockMapsManager(page);
-  await manager.initDefaultMocks({ currentUserId: userId });
+  await manager.initDefaultMocks({ currentUserId: userId, forceMocks });
 }
 
 /** @deprecated Use user fixture */

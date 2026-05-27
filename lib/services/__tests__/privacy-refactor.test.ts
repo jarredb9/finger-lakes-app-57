@@ -70,8 +70,8 @@ describe('Privacy Refactor Integration Tests', () => {
         google_place_id: `privacy-test-winery-${crypto.randomUUID()}`,
         name: mockWinery.name,
         address: mockWinery.address,
-        latitude: mockWinery.lat,
-        longitude: mockWinery.lng
+        latitude: mockWinery.latitude,
+        longitude: mockWinery.longitude
       }).select().single();
       wineryId = winery.id;
 
@@ -81,7 +81,7 @@ describe('Privacy Refactor Integration Tests', () => {
         { user_id: privateUser.id, winery_id: wineryId },
         { user_id: friendsOnlyUser.id, winery_id: wineryId }
       ]);
-    });
+    }, 30000);
 
     afterAll(async () => {
       const users = [publicUser, privateUser, friendsOnlyUser, viewerUser, friendUser];

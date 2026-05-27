@@ -2,10 +2,9 @@ import { createClient } from '@/utils/supabase/client';
 import { WineryDbId, Winery } from '@/lib/types';
 
 // --- E2E Helpers ---
-const isE2E = () => typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true';
-const getE2EHeaders = () => isE2E() ? { 'x-skip-sw-interception': 'true' } : {};
 const shouldSkipRealSync = () => {
-    if (!isE2E()) return false;
+    const isE2E = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true';
+    if (!isE2E) return false;
     // @ts-ignore
     const globalVal = !!(globalThis as any)._E2E_ENABLE_REAL_SYNC;
     const localVal = typeof window !== 'undefined' && localStorage.getItem('_E2E_ENABLE_REAL_SYNC') === 'true';
@@ -16,12 +15,12 @@ export const WineryService = {
   /**
    * Standardizes winery data for Supabase RPCs.
    */
-  getRpcData: (winery: Winery) => ({
+  getRpcData: (winery: Partial<Winery>) => ({
       id: winery.id,
-      name: winery.name,
-      address: winery.address,
-      lat: winery.lat,
-      lng: winery.lng,
+      name: winery.name || '',
+      address: winery.address || '',
+      latitude: winery.latitude || 0,
+      longitude: winery.longitude || 0,
       phone: winery.phone || null,
       website: winery.website || null,
       rating: winery.rating || null,
@@ -40,7 +39,8 @@ export const WineryService = {
     }
 
     // Atomic State Injection / Mocking for E2E
-    if (isE2E() && shouldSkipRealSync()) {
+    const isE2E = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true';
+    if (isE2E && shouldSkipRealSync()) {
         const mockId = 999000 + Math.floor(Math.random() * 1000);
         return mockId as WineryDbId;
     }
@@ -54,7 +54,7 @@ export const WineryService = {
         // The 'ensure_winery' RPC handles the UPSERT and returns the integer ID
         const { data: dbId, error } = await supabase.rpc('ensure_winery', { 
             p_winery_data: rpcData 
-        }, { headers: getE2EHeaders() } as any);
+        });
 
         if (error || !dbId) {
             console.error("[WineryService] ensure_winery failed:", error);
@@ -79,7 +79,7 @@ export const WineryService = {
 
     const { data: isFavorite, error } = await supabase.rpc('toggle_favorite', { 
         p_winery_data: rpcWineryData 
-    }, { headers: getE2EHeaders() } as any);
+    });
 
     if (error) throw error;
 
@@ -100,7 +100,7 @@ export const WineryService = {
 
     const { data: onWishlist, error } = await supabase.rpc('toggle_wishlist', { 
         p_winery_data: rpcWineryData 
-    }, { headers: getE2EHeaders() } as any);
+    });
 
     if (error) throw error;
 
@@ -112,14 +112,14 @@ export const WineryService = {
   /**
    * Toggles favorite privacy for a winery. Requires a DB ID.
    */
-  toggleFavoritePrivacy: async (winery: Winery): Promise<{ success: boolean; isPrivate: boolean }> => {
+  toggleFavoritePrivacy: async (winery: Winery) => {
     const dbId = await WineryService.ensureInDb(winery);
     if (!dbId) throw new Error("No DB ID available for winery " + winery.id);
 
     const supabase = createClient();
     const { data, error } = await supabase.rpc('toggle_favorite_privacy', {
         p_winery_id: dbId
-    }, { headers: getE2EHeaders() } as any);
+    });
 
     if (error) {
         throw error;
@@ -133,14 +133,14 @@ export const WineryService = {
   /**
    * Toggles wishlist privacy for a winery. Requires a DB ID.
    */
-  toggleWishlistPrivacy: async (winery: Winery): Promise<{ success: boolean; isPrivate: boolean }> => {
+  toggleWishlistPrivacy: async (winery: Winery) => {
     const dbId = await WineryService.ensureInDb(winery);
     if (!dbId) throw new Error("No DB ID available for winery " + winery.id);
 
     const supabase = createClient();
     const { data, error } = await supabase.rpc('toggle_wishlist_privacy', { 
         p_winery_id: dbId 
-    }, { headers: getE2EHeaders() } as any);
+    });
 
     if (error) throw error;
 

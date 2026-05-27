@@ -5,6 +5,7 @@ test.describe('PWA Assets & Sync', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
     await clearServiceWorkers(page);
     mockMaps.enableServiceWorker();
+    await mockMaps.initDefaultMocks({ forceMocks: true });
     await login(page, user.email, user.password, { isPwa: true });
   });
 
@@ -25,9 +26,7 @@ test.describe('PWA Assets & Sync', () => {
     
     await page.evaluate(() => {
         // Initialize signal in localStorage to survive reloads/redirects
-        localStorage.removeItem('_E2E_SYNC_REQUEST_INTERCEPTED');
         localStorage.removeItem('_E2E_ENABLE_REAL_SYNC');
-        localStorage.removeItem('_E2E_WEBKIT_SYNC_FALLBACK');
 
         const dataStore = (window as any).useWineryDataStore.getState();
         const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
@@ -35,18 +34,12 @@ test.describe('PWA Assets & Sync', () => {
         if (mockWinery) {
             const mockBounds = {
                 contains: () => true,
-                getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
-                getSouthWest: () => ({ lat: () => 42, lng: () => -77 })
+                getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
+                getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 })
             };
             (window as any).useMapStore.setState({ 
                 bounds: mockBounds,
                 filter: ['all'] 
-            });
-            // Ensure consistency with the new deterministic mocking rule
-            (window as any).useWineryDataStore.setState({
-                persistentWineries: dataStore.persistentWineries.map((w: any) => 
-                    w.name === 'Vineyard of Illusion' ? { ...w, openingHours: null, reviews: [] } : w
-                )
             });
         }
     });
@@ -116,16 +109,6 @@ test.describe('PWA Assets & Sync', () => {
     await context.route(logVisitPattern, logVisitHandler);
     await page.route(logVisitPattern, logVisitHandler);
 
-    // WebKit Fallback Strategy: We enable a store-level bypass for ALL browsers
-    // because network stacks in the RHEL container often fail to hit Playwright's proxy 
-    // during offline/online transitions (TypeError: Load failed).
-    console.log('[Test] Enabling store-level fallback for reliability.');
-    await page.evaluate(() => {
-        localStorage.setItem('_E2E_WEBKIT_SYNC_FALLBACK', 'true');
-        // @ts-ignore
-        globalThis._E2E_WEBKIT_SYNC_FALLBACK = true;
-    });
-
     // 5. Go Online
     console.log('[Test] Going online...');
     await context.setOffline(false);
@@ -134,28 +117,22 @@ test.describe('PWA Assets & Sync', () => {
     console.log('[Test] Waiting for network to settle (5s)...');
     await page.waitForTimeout(5000);
     
-    console.log('[Test] Triggering manual syncOfflineVisits...');
-    await page.evaluate(() => {
+    console.log('[Test] Triggering manual sync...');
+    await page.evaluate(async () => {
         // @ts-ignore
-        window.useVisitStore.getState().syncOfflineVisits();
+        await window.SyncService.sync();
     });
 
     // 6. Wait for Sync
     console.log('[Test] Waiting for sync results...');
     await expect(async () => {
-        // If Playwright intercepted it, great. 
-        // If not, check if our store-level fallback caught it or if it logged success.
-        const storeIntercepted = await page.evaluate(() => {
-            const ls = localStorage.getItem('_E2E_SYNC_REQUEST_INTERCEPTED') === 'true';
-            const gt = (globalThis as any)._E2E_SYNC_REQUEST_INTERCEPTED === true;
-            if (ls || gt) console.log(`[DIAGNOSTIC] test poll check: SUCCESS (localStorage=${ls}, globalThis=${gt})`);
-            return ls || gt;
-        });
+        // Verify via store state (Senior Standard)
+        const queueLength = await page.evaluate(() => (window as any).useSyncStore.getState().queue.length);
         
-        if (!syncRequestMade && !storeIntercepted && !syncSuccessLogged) {
-            console.log(`[DIAGNOSTIC] Sync not confirmed: syncRequestMade=${syncRequestMade}, storeIntercepted=${storeIntercepted}, syncSuccessLogged=${syncSuccessLogged}`);
+        if (!syncRequestMade && queueLength > 0 && !syncSuccessLogged) {
+            console.log(`[DIAGNOSTIC] Sync not confirmed: syncRequestMade=${syncRequestMade}, queueLength=${queueLength}, syncSuccessLogged=${syncSuccessLogged}`);
         }
-        expect(syncRequestMade || storeIntercepted || syncSuccessLogged).toBe(true);
+        expect(syncRequestMade || queueLength === 0 || syncSuccessLogged).toBe(true);
     }).toPass({ timeout: 20000 });
   });
 

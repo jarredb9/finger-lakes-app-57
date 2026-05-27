@@ -14,17 +14,10 @@ test.describe('PWA Offline Functionality', () => {
     await expect(page.locator('h2:has-text("My Trips")').locator('visible=true')).toBeVisible();
 
     await context.setOffline(true);
-    // Primary offline indicator
-    await expect(page.getByText('You are offline. Showing cached data.')).toBeVisible({ timeout: 10000 });
-    
-    // Map-specific offline warning (might be hidden by sheet on mobile)
-    const mapWarning = page.locator('text=Offline: Map detail limited');
-    if (await mapWarning.isVisible()) {
-        await expect(mapWarning).toBeVisible();
-    }
+    // Primary offline indicator (Updated text)
+    await expect(page.getByText('Offline: Map detail limited')).toBeVisible({ timeout: 10000 });
 
     await navigateToTab(page, 'Explore');
-    
     if (page.viewportSize()?.width && page.viewportSize()!.width < 768) {
         await page.getByRole('button', { name: 'Map' }).click();
     }
@@ -49,16 +42,19 @@ test.describe('PWA Offline Functionality', () => {
         const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
         
         if (mockWinery) {
+            // Clear search and trip to ensure useWineryFilter falls back to persistentWineries
+            (window as any).useMapStore.setState({ searchResults: [] });
+            (window as any).useTripStore.setState({ selectedTrip: null });
+
             const mockBounds = {
                 contains: () => true,
-                getNorthEast: () => ({ lat: () => 43, lng: () => -76 }),
-                getSouthWest: () => ({ lat: () => 42, lng: () => -77 })
+                getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
+                getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 })
             };
             (window as any).useMapStore.setState({ 
                 bounds: mockBounds,
                 filter: ['all'] 
             });
-        } else {
         }
     });
 

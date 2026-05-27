@@ -24,9 +24,9 @@ This is a Next.js web application designed for planning and tracking visits to w
 - **Visit Records:** Rich logging of winery experiences, including history, photos, and notes.
 - **Granular Privacy Controls:** Dedicated settings to control profile and activity visibility (Public, Friends Only, Private).
 - **Social Features:** Collaboration with friends, sharing winery adventures, and personalized recommendations based on friend activity.
+- **Offline-First Resilience:** Robust offline data integrity with encrypted mutation queuing and binary reconstitution for reliable use in low-connectivity areas.
 
 ## Future Vision
 - **Mobile Apps:** Development of native iOS and Android applications for an optimized on-the-go experience.
-- **Offline-First:** Expansion of offline capabilities to ensure reliability in areas with poor network coverage.
 - **Personalization:** Implementation of tasting profiles and personalized winery recommendations.
 - **Social Expansion:** Further enhancement of social capabilities to deepen community engagement.

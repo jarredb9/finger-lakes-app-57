@@ -1,5 +1,5 @@
 import { createWithEqualityFn } from 'zustand/traditional';
-import { Winery, Trip } from '@/lib/types';
+import { Winery } from '@/lib/types';
 
 interface MapState {
   map: google.maps.Map | null;
@@ -13,8 +13,8 @@ interface MapState {
   searchResults: Winery[];
   filter: string[];
   autoSearch: boolean;
-  selectedTrip: Trip | null;
-  searchLocation: string; // Add searchLocation to the store
+  searchLocation: string;
+  error: string | null;
   setMap: (map: google.maps.Map | null) => void;
   setCenter: (center: { lat: number; lng: number }) => void;
   setZoom: (zoom: number) => void;
@@ -26,15 +26,15 @@ interface MapState {
   setSearchResults: (results: Winery[]) => void;
   setFilter: (filter: string[]) => void;
   setAutoSearch: (autoSearch: boolean) => void;
-  setSelectedTrip: (trip: Trip | null) => void;
-  setSearchLocation: (searchLocation: string) => void; // Add setter for searchLocation
+  setSearchLocation: (searchLocation: string) => void;
+  setError: (error: string | null) => void;
   reset: () => void;
 }
 
 export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   map: null,
-  center: { lat: 40, lng: -98 },
-  zoom: 4,
+  center: { lat: 42.7, lng: -76.9 },
+  zoom: 9,
   bounds: null,
   lastSearchedBounds: null,
   lastSearchedZoom: null,
@@ -43,8 +43,8 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   searchResults: [],
   filter: ['all'],
   autoSearch: false,
-  selectedTrip: null,
-  searchLocation: "", // Initialize searchLocation
+  searchLocation: "",
+  error: null,
   setMap: (map) => set({ map }),
   setCenter: (center) => set({ center }),
   setZoom: (zoom) => set({ zoom }),
@@ -56,12 +56,12 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   setSearchResults: (results) => set({ searchResults: results }),
   setFilter: (filter) => set({ filter }),
   setAutoSearch: (autoSearch) => set({ autoSearch }),
-  setSelectedTrip: (trip) => set({ selectedTrip: trip }),
-    setSearchLocation: (searchLocation) => set({ searchLocation }),
+  setSearchLocation: (searchLocation) => set({ searchLocation }),
+  setError: (error) => set({ error }),
   reset: () => set({
     map: null,
-    center: { lat: 40, lng: -98 },
-    zoom: 4,
+    center: { lat: 42.7, lng: -76.9 },
+    zoom: 9,
     bounds: null,
     lastSearchedBounds: null,
     lastSearchedZoom: null,
@@ -70,13 +70,12 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
     searchResults: [],
     filter: ['all'],
     autoSearch: false,
-    selectedTrip: null,
     searchLocation: "",
+    error: null,
   }),
-  }));
-  
-  // Expose store for E2E testing
-  if (typeof window !== 'undefined') {
-    (window as any).useMapStore = useMapStore;
-  }
-  
+}));
+
+// Expose store for E2E testing
+if (typeof window !== 'undefined') {
+  (window as any).useMapStore = useMapStore;
+}

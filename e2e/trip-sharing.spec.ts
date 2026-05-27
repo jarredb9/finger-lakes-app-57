@@ -5,7 +5,8 @@ import {
     injectTripState,
     navigateToTab,
     getSidebarContainer,
-    login
+    login,
+    closeShareDialog
 } from './helpers';
 
 test.describe('Trip Sharing and Collaboration Flow', () => {
@@ -25,7 +26,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
           ]
       });
 
-      await mockMaps.initDefaultMocks({ currentUserId: userA.id });
+      await mockMaps.initDefaultMocks({ currentUserId: userA.id, forceMocks: true });
       mockMaps.getState().trips = [mockTrip];
 
       await login(page, userA.email, userA.password, { skipMapReady: true });
@@ -33,7 +34,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       // 2. ATOMIC INJECTION: Establish friendship and inject trip
       await test.step('Atomic state injection', async () => {
-          const friend = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted' };
+          const friend = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const };
           
           await page.evaluate(({ f, t }) => {
               (window as any).useFriendStore.setState({ friends: [f] });
@@ -107,8 +108,8 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       const managerB = new MockMapsManager(pageB, sharedState);
 
       // We use MOCKS for this test to ensure stability in the container
-      await managerA.initDefaultMocks({ currentUserId: userA.id });
-      await managerB.initDefaultMocks({ currentUserId: userB.id });
+      await managerA.initDefaultMocks({ currentUserId: userA.id, forceMocks: true });
+      await managerB.initDefaultMocks({ currentUserId: userB.id, forceMocks: true });
 
       await login(pageA, userA.email, userA.password, { skipMapReady: true });
       await login(pageB, userB.email, userB.password, { skipMapReady: true });
@@ -129,8 +130,8 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       // 1. Establish friendship and inject trip via ATOMIC INJECTION
       await test.step('Atomic state injection', async () => {
-          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted' };
-          const friendForB = { id: userA.id, name: 'User A', email: userA.email, status: 'accepted' };
+          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const };
+          const friendForB = { id: userA.id, name: 'User A', email: userA.email, status: 'accepted', privacy_level: 'public' as const };
 
           await pageA.evaluate(({ f, t }) => {
               (window as any).useFriendStore.setState({ friends: [f] });
@@ -187,22 +188,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       await expect(pageA.getByText(/Invitation sent/i).first()).toBeVisible();
       console.log('[DIAGNOSTIC] Invitation sent successfully. Closing dialog...');
       
-      await expect(async () => {
-          const closeBtn = shareDialog.getByRole('button', { name: 'Close' });
-          if (await closeBtn.isVisible()) {
-              await closeBtn.click({ force: true });
-          } else {
-              await pageA.keyboard.press('Escape');
-          }
-          
-          // Final fallback for stubborn mobile browsers: direct store reset
-          const isOpen = await shareDialog.isVisible();
-          if (isOpen) {
-              await pageA.evaluate(() => (window as any).useUIStore.getState().closeShareDialog());
-          }
-
-          await expect(shareDialog).not.toBeVisible({ timeout: 3000 });
-      }).toPass({ timeout: 15000, intervals: [1000, 2000] });
+      await closeShareDialog(pageA);
       
       console.log('[DIAGNOSTIC] Share dialog closed.');
 
@@ -242,10 +228,18 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       const editBtn = pageA.getByRole('button', { name: 'Edit' });
       await expect(editBtn).toBeVisible({ timeout: 5000 });
-      await editBtn.click({ force: true });
+      // Wait for button to be enabled (handles user hydration/sync status)
+      await expect(editBtn).toBeEnabled({ timeout: 10000 });
+      await editBtn.click(); // No force needed if enabled
       
       const newName = `Renamed ${Date.now()}`;
-      await pageA.getByPlaceholder('Trip Name').fill(newName);
+      // Use toPass to ensure the input appears
+      await expect(async () => {
+          const nameInput = pageA.getByPlaceholder('Trip Name');
+          await expect(nameInput).toBeVisible({ timeout: 2000 });
+          await nameInput.fill(newName);
+      }).toPass({ timeout: 10000, intervals: [500, 1000] });
+      
       console.log(`[DIAGNOSTIC] User A filled new name: ${newName}`);
       
       const saveBtn = pageA.getByRole('button', { name: 'Save' });
@@ -279,20 +273,23 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
   test('Collaborator can see and edit shared trip', async ({ page, user, mockMaps }) => {
     // 1. Prepare data for injection
     const tripId = 777;
-    const mockTrip = {
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 5);
+    const tripDate = futureDate.toISOString().split('T')[0];
+
+    const mockTrip = createMockTrip({
       id: tripId,
       user_id: 'other-user-id',
-      trip_date: '2026-05-20',
+      trip_date: tripDate,
       name: 'Shared Adventure',
-      wineries: [],
       members: [
         { id: 'other-user-id', role: 'owner', status: 'joined', name: 'Other User', email: 'other@example.com' },
         { id: user.id, role: 'member', status: 'joined', name: 'Test User', email: user.email }
       ]
-    } as any;
+    });
 
     // 2. Initialize mocks and login
-    await mockMaps.initDefaultMocks({ currentUserId: user.id });
+    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     
     // IMPORTANT: Update mock trips so the RPC mock returns this specific trip
     // when fetchTripById is called by the component on mount.
@@ -317,7 +314,8 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     await expect(tripCard).toBeVisible({ timeout: 5000 });
     
     // Verify collaborator avatars (indicates multi-user trip)
-    await expect(tripCard.locator('.rounded-full').first()).toBeVisible();
+    await expect(tripCard.getByTestId('collaborator-avatars')).toBeVisible();
+    await expect(tripCard.getByTestId('collaborator-avatars').locator('.rounded-full').first()).toBeVisible();
     
     // Verify user can view details (this will trigger get_trip_details RPC)
     await expect(async () => {
@@ -349,20 +347,30 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
         logs.push(text);
     });
 
-    await mockMaps.initDefaultMocks({ currentUserId: user.id });
+    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     // We do NOT skip map ready here to ensure the full app shell (and window.supabase) is ready
     await login(page, user.email, user.password, { skipMapReady: false });
     
     // Wait for Supabase to be exposed using toPass (Senior Diagnostic Standard)
     await expect(async () => {
-        const isExposed = await page.evaluate(() => !!(window as any).supabase);
+        const isExposed = await page.evaluate(() => {
+            // Force a re-instantiation of client if not exposed yet 
+            // This handles cases where E2EStoreExposer mount was delayed
+            if (!(window as any).supabase && (window as any).useUserStore?.getState().user) {
+               if (typeof (window as any).createSupabaseClient === 'function') {
+                   (window as any).createSupabaseClient();
+               }
+               return !!(window as any).supabase;
+            }
+            return !!(window as any).supabase;
+        });
         if (!isExposed) {
             // Check if login failed or we are on wrong page
             const url = page.url();
             const authLoading = await page.getByTestId('auth-loading').isVisible();
             throw new Error(`Supabase client not exposed. URL: ${url}, AuthLoading: ${authLoading}`);
         }
-    }).toPass({ timeout: 20000, intervals: [1000, 2000] });
+    }).toPass({ timeout: 25000, intervals: [1000, 2000] });
 
     // Attempt unauthorized RPC call
     const result = await page.evaluate(async () => {

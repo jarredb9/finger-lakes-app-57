@@ -110,8 +110,8 @@ describe('TripCard', () => {
         dbId: 101, 
         name: 'Winery One', 
         address: '123 Wine St',
-        lat: 42.44,
-        lng: -76.50,
+        latitude: 42.44,
+        longitude: -76.50,
         visits: [
           { user_id: 'user-1', rating: 5, user_review: 'Great!', profiles: { name: 'You' } },
           { user_id: 'friend-1', rating: 4, user_review: 'Nice!', profiles: { name: 'Friend One' } }
@@ -160,7 +160,7 @@ describe('TripCard', () => {
       ...mockTrip,
       wineries: [
         ...mockTrip.wineries!,
-        { id: 'winery-2' as any, dbId: 102 as any, name: 'Winery Two', lat: 42.45, lng: -76.51 }
+        { id: 'winery-2' as any, dbId: 102 as any, name: 'Winery Two', latitude: 42.45, longitude: -76.51 }
       ]
     };
     render(<TripCard {...defaultProps} trip={tripWithTwo as any} />);

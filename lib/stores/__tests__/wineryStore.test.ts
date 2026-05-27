@@ -68,7 +68,7 @@ describe('WineryUIStore: ensureWineryDetails', () => {
 
     await useWineryStore.getState().ensureWineryDetails(ghostWinery.id);
 
-    expect(mockRpc).toHaveBeenCalledWith('get_winery_details_by_id', { winery_id_param: 123 });
+    expect(mockRpc).toHaveBeenCalledWith('get_winery_details_by_id', { p_winery_id: 123 });
   });
 
   it('FORCES fetch if userVisited is true but visits is undefined', async () => {
@@ -84,6 +84,6 @@ describe('WineryUIStore: ensureWineryDetails', () => {
 
     await useWineryStore.getState().ensureWineryDetails(ghostWinery.id);
 
-    expect(mockRpc).toHaveBeenCalledWith('get_winery_details_by_id', { winery_id_param: 123 });
+    expect(mockRpc).toHaveBeenCalledWith('get_winery_details_by_id', { p_winery_id: 123 });
   });
 });

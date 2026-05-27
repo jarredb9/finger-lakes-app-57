@@ -3,6 +3,8 @@ import { Winery, Visit, GooglePlaceId, WineryDbId } from '@/lib/types';
 import { useWineryDataStore } from './wineryDataStore';
 import { createClient } from '@/utils/supabase/client';
 import { invokeFunction } from '@/lib/utils';
+import { standardizeWineryData } from '@/lib/utils/winery';
+import { isE2E, shouldMockWineries } from './e2e-utils';
 
 /**
  * WineryUIStore
@@ -29,8 +31,8 @@ interface WineryUIState {
   ensureWineryDetails: (placeId: GooglePlaceId) => Promise<Winery | null>;
   
   // Proxy Actions (For convenience/compatibility)
-  toggleWishlist: (winery: Winery, isOn: boolean) => Promise<void>;
-  toggleFavorite: (winery: Winery, isFav: boolean) => Promise<void>;
+  toggleWishlist: (winery: Winery) => Promise<void>;
+  toggleFavorite: (winery: Winery) => Promise<void>;
   toggleFavoritePrivacy: (wineryId: GooglePlaceId) => Promise<void>;
   toggleWishlistPrivacy: (wineryId: GooglePlaceId) => Promise<void>;
   addVisitToWinery: (wineryId: GooglePlaceId, visit: Visit) => void;
@@ -54,13 +56,18 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
   // Proxy error correctly (Note: state.error might not be reactive if not used in a hook)
   get error() { return useWineryDataStore.getState().error; },
 
-  fetchWineryData: async (userId: string) => {
-      await useWineryDataStore.getState().hydrateWineries(userId);
+  fetchWineryData: async (_userId: string) => {
+      // In a real app, this might fetch from server and then hydrate
+      // For now, we assume markers come from map interaction and hydrate there
   },
 
   ensureWineryDetails: async (placeId: GooglePlaceId) => {
     const dataStore = useWineryDataStore.getState();
     const existing = dataStore.getWinery(placeId);
+
+    if (isE2E() && shouldMockWineries()) {
+        return existing || null;
+    }
 
     // Optimization: Return cached details if we have them
     // BUT verify we aren't missing user data (visits) if we know they visited
@@ -78,15 +85,18 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
 
         // 1. Try DB details
         if (existing?.dbId) {
-            const { data } = await supabase.rpc('get_winery_details_by_id', { winery_id_param: existing.dbId });
+            const { data } = await supabase.rpc('get_winery_details_by_id', { p_winery_id: existing.dbId });
             if (data && data.length > 0) dbData = data[0];
         }
 
         // 2. If valid DB data found, upsert to DataStore
         if (dbData && dbData.opening_hours) {
-            const updated = dataStore.upsertWinery({ ...dbData, id: dbData.google_place_id || dbData.id as number }); // id from Db is number
-            set({ loadingWineryId: null });
-            return updated;
+            const standardized = standardizeWineryData(dbData, existing || undefined);
+            if (standardized) {
+                dataStore.upsertWinery(standardized);
+                set({ loadingWineryId: null });
+                return standardized;
+            }
         }
 
         // 3. Fallback to Google API (if alphanumeric place ID)
@@ -100,9 +110,12 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
             });
 
             if (!functionError && googleData) {
-                const updated = dataStore.upsertWinery(googleData);
-                set({ loadingWineryId: null });
-                return updated;
+                const standardized = standardizeWineryData(googleData, existing || undefined);
+                if (standardized) {
+                    dataStore.upsertWinery(standardized);
+                    set({ loadingWineryId: null });
+                    return standardized;
+                }
             } else if (functionError) {
                 console.error("Edge Function failed:", functionError);
             }
@@ -116,12 +129,12 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
   },
 
   // Proxies to DataStore actions
-  toggleWishlist: async (winery, isOn) => {
-      await useWineryDataStore.getState().toggleWishlist(winery.id, isOn);
+  toggleWishlist: async (winery) => {
+      await useWineryDataStore.getState().toggleWishlist(winery.id);
   },
   
-  toggleFavorite: async (winery, isFav) => {
-      await useWineryDataStore.getState().toggleFavorite(winery.id, isFav);
+  toggleFavorite: async (winery) => {
+      await useWineryDataStore.getState().toggleFavorite(winery.id);
   },
 
   toggleFavoritePrivacy: async (wineryId: GooglePlaceId) => {
