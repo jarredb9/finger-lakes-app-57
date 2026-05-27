@@ -3021,6 +3021,8 @@ CREATE OR REPLACE TRIGGER "tr_visits_updated_at" BEFORE UPDATE ON "public"."visi
 
 CREATE OR REPLACE TRIGGER "tr_wishlist_activity_ledger" AFTER INSERT OR DELETE OR UPDATE ON "public"."wishlist" FOR EACH ROW EXECUTE FUNCTION "public"."handle_activity_ledger_entry"();
 
+CREATE OR REPLACE TRIGGER "on_auth_user_created" AFTER INSERT ON "auth"."users" FOR EACH ROW EXECUTE FUNCTION "public"."handle_new_user"();
+
 
 
 ALTER TABLE ONLY "public"."activity_ledger"
