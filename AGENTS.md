@@ -36,6 +36,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **Middleware:** `proxy.ts` IS the valid middleware. `middleware.ts` DOES NOT exist.
 - **Date Handling:** ALWAYS use `formatDateLocal(date)` and `getTodayLocal()` from `lib/utils.ts`.
 - **ID Normalization:** Zustand stores MUST normalize relational IDs to `Number()` upon retrieval.
+- **RPC Return Types:** Ensure that `RETURNS TABLE` types in Postgres functions match the actual data types of the returned columns (e.g., use `text` for `google_place_id` to match the `wineries` table) to avoid type mismatch errors (42804).
 - **Coordinate Standardization:** All winery data sources (Google API, DB RPCs, Mocks) MUST be passed through `standardizeWineryData` in `lib/utils/winery.ts` to ensure consistent mapping of IDs (`googleId`, `dbId`) and coordinates (`latitude`, `longitude`).
 - **Ghost Visit Prevention:** When processing winery data, if the source explicitly reports `user_visited` as `false`, the `visits` array MUST be explicitly cleared in the standardizer to prevent stale local cache data.
 - **UI Pattern:** Use **Container/Presentational** pattern. UI components are "Presentational".

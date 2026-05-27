@@ -391,7 +391,7 @@ $$;
 -- 8. get_paginated_visits_with_winery_and_friends (page_number, page_size -> p_page_number, p_page_size)
 DROP FUNCTION IF EXISTS public.get_paginated_visits_with_winery_and_friends(integer, integer);
 CREATE OR REPLACE FUNCTION public.get_paginated_visits_with_winery_and_friends(p_page_number integer, p_page_size integer)
-RETURNS TABLE(visit_id integer, visit_date date, user_review text, rating integer, photos text[], winery_id integer, winery_name character varying, winery_address text, google_place_id character varying, friend_visits jsonb, latitude numeric, longitude numeric)
+RETURNS TABLE(visit_id integer, visit_date date, user_review text, rating integer, photos text[], winery_id integer, winery_name character varying, winery_address text, google_place_id text, friend_visits jsonb, latitude numeric, longitude numeric)
 LANGUAGE plpgsql
 SET search_path = public, auth
 AS $$
