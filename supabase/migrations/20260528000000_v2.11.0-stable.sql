@@ -47,6 +47,37 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
 
 CREATE EXTENSION IF NOT EXISTS "postgis" WITH SCHEMA "extensions";
 
+-- RE-BASELINE: Drop legacy functions and policies to prevent RPC ambiguity
+DROP FUNCTION IF EXISTS public.get_friend_activity_feed(integer);
+DROP FUNCTION IF EXISTS public.get_friend_profile_with_visits(uuid);
+DROP FUNCTION IF EXISTS public.get_friends_activity_for_winery(integer);
+DROP FUNCTION IF EXISTS public.get_friends_ratings_for_winery(integer);
+DROP FUNCTION IF EXISTS public.get_map_markers(uuid);
+DROP FUNCTION IF EXISTS public.get_paginated_trips_with_wineries(text, integer, integer);
+DROP FUNCTION IF EXISTS public.get_paginated_visits_with_winery_and_friends(integer, integer);
+DROP FUNCTION IF EXISTS public.get_trip_by_id_with_wineries(integer);
+DROP FUNCTION IF EXISTS public.get_trip_details(integer);
+DROP FUNCTION IF EXISTS public.get_trips_for_date(date);
+DROP FUNCTION IF EXISTS public.get_wineries_for_trip_planner(date);
+DROP FUNCTION IF EXISTS public.get_wineries_in_bounds(double precision, double precision, double precision, double precision);
+DROP FUNCTION IF EXISTS public.get_wineries_in_bounds(double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision);
+DROP FUNCTION IF EXISTS public.get_winery_details(integer);
+DROP FUNCTION IF EXISTS public.get_winery_details_by_id(integer);
+
+DROP POLICY IF EXISTS "Members can add wineries to a trip" ON public.trip_wineries;
+DROP POLICY IF EXISTS "Members can remove wineries from a trip" ON public.trip_wineries;
+DROP POLICY IF EXISTS "Members can update wineries on a trip" ON public.trip_wineries;
+DROP POLICY IF EXISTS "Members can view trip wineries" ON public.trip_wineries;
+DROP POLICY IF EXISTS "Users can view members of trips they belong to" ON public.trip_members;
+DROP FUNCTION IF EXISTS public.is_trip_member(integer);
+
+DROP FUNCTION IF EXISTS public.remove_friend(uuid);
+DROP FUNCTION IF EXISTS public.respond_to_friend_request(uuid, boolean);
+DROP FUNCTION IF EXISTS public.search_wineries_by_name_and_location(text, double precision, double precision);
+DROP FUNCTION IF EXISTS public.search_wineries_by_name_and_location(text, double precision, double precision, double precision, double precision);
+DROP FUNCTION IF EXISTS public.send_friend_request(text);
+DROP FUNCTION IF EXISTS public.upsert_wineries_from_search(jsonb[]);
+
 
 
 
