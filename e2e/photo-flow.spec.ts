@@ -23,7 +23,7 @@ test.describe('Photo Management Workflow', () => {
   test.beforeEach(async ({ page, mockMaps, user }) => {
     // CRITICAL: Override mocks to use real Supabase interactions
     await mockMaps.useRealVisits();
-    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
   });
 

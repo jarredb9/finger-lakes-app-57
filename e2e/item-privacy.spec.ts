@@ -34,14 +34,14 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       await test.step('Initial Setup: Login & Friendship', async () => {
         await managerA.useRealSocial();
         await managerA.useRealFavorites();
-        await managerA.initDefaultMocks({ currentUserId: user1.id, forceMocks: true });
+        await managerA.initDefaultMocks({ currentUserId: user1.id });
         await login(pageA, user1.email, user1.password);
         await pageA.evaluate((email) => { (window as any)._E2E_USER_EMAIL = email; }, user1.email);
         await ensureProfileReady(pageA);
 
         await managerB.useRealSocial();
         await managerB.useRealFavorites();
-        await managerB.initDefaultMocks({ currentUserId: user2.id, forceMocks: true });
+        await managerB.initDefaultMocks({ currentUserId: user2.id });
         await login(pageB, user2.email, user2.password);
         await pageB.evaluate((email) => { (window as any)._E2E_USER_EMAIL = email; }, user2.email);
         await ensureProfileReady(pageB);

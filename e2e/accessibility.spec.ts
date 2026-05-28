@@ -13,7 +13,7 @@ test.describe('Accessibility (A11y)', () => {
 
   test('app dashboard should be accessible', async ({ page, user, mockMaps }) => {
     // mockMaps is auto-initialized by the fixture
-    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
 
     // Scan the main app shell
@@ -39,7 +39,7 @@ test.describe('Accessibility (A11y)', () => {
     }
 
     // mockMaps is auto-initialized by the fixture
-    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
 
     // Use helper to ensure sidebar is visible/expanded

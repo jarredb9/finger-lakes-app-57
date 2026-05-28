@@ -754,7 +754,7 @@ export class MockMapsManager {
   }
 
   async initDefaultMocks(options: { currentUserId?: string, forceMocks?: boolean } = {}) {
-    const isRealData = process.env.E2E_REAL_DATA === 'true' && !options.forceMocks;
+    const isRealData = process.env.E2E_REAL_DATA === 'true';
     console.log(`[DIAGNOSTIC] initDefaultMocks: isRealData=${isRealData}, options=${JSON.stringify(options)}`);
     
     if (options.currentUserId) {
@@ -773,14 +773,24 @@ export class MockMapsManager {
         }
     }
 
-    if (this.mocksRegistered && !options.forceMocks) return;
-    const todayCA = new Date().toLocaleDateString('en-CA');
-
-    // Only register full network interception if NOT in real data mode OR if forced
-    if (!isRealData || options.forceMocks) {
+    // ALWAYS register mock routes so Google Maps and base mocks are available.
+    if (!this.mocksRegistered) {
         console.log('[DIAGNOSTIC] MockMapsManager: Registering mock routes');
         await this.registerMockRoutes();
     }
+
+    // If real data is enabled AND the test didn't explicitly forbid it
+    if (isRealData && !options.forceMocks) {
+        this.realSocialEnabled = true;
+        this.realFavoritesEnabled = true;
+        this.realVisitsEnabled = true;
+        this.realTripsEnabled = true;
+    }
+
+    // Early return if we've already set up state for this instance and aren't forcing a reset
+    if (this.mocksRegistered && !options.forceMocks && !isRealData) return;
+
+    const todayCA = new Date().toLocaleDateString('en-CA');
 
     const markers: MapMarkerRpc[] = [
         createMockMapMarkerRpc({ id: 1 as WineryDbId, google_place_id: 'ch-12345-mock-winery-1' as GooglePlaceId, name: 'Mock Winery One' }),

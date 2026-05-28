@@ -13,7 +13,7 @@ test.describe('Trip Planning Flow', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
     // Re-initialize mocks with the actual user ID to ensure isOwner works
     await mockMaps.useRealVisits();
-    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
   });
 

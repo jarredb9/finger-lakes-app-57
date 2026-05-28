@@ -15,8 +15,7 @@ test.describe('Visit Logging Flow', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
     await clearServiceWorkers(page);
     // Re-initialize mocks with the real user ID to satisfy the Real-User Initialization Rule
-    // Force mocks even if E2E_REAL_DATA is true
-    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
   });
 
