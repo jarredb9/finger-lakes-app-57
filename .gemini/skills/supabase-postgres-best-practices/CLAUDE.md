@@ -1,1 +1,0 @@
-/tmp/gemini-skill-0ybeVC/skills/supabase-postgres-best-practices/AGENTS.md
