@@ -47,37 +47,6 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto" WITH SCHEMA "extensions";
 
 CREATE EXTENSION IF NOT EXISTS "postgis" WITH SCHEMA "extensions";
 
--- RE-BASELINE: Drop legacy functions and policies to prevent RPC ambiguity
-DROP FUNCTION IF EXISTS public.get_friend_activity_feed(integer);
-DROP FUNCTION IF EXISTS public.get_friend_profile_with_visits(uuid);
-DROP FUNCTION IF EXISTS public.get_friends_activity_for_winery(integer);
-DROP FUNCTION IF EXISTS public.get_friends_ratings_for_winery(integer);
-DROP FUNCTION IF EXISTS public.get_map_markers(uuid);
-DROP FUNCTION IF EXISTS public.get_paginated_trips_with_wineries(text, integer, integer);
-DROP FUNCTION IF EXISTS public.get_paginated_visits_with_winery_and_friends(integer, integer);
-DROP FUNCTION IF EXISTS public.get_trip_by_id_with_wineries(integer);
-DROP FUNCTION IF EXISTS public.get_trip_details(integer);
-DROP FUNCTION IF EXISTS public.get_trips_for_date(date);
-DROP FUNCTION IF EXISTS public.get_wineries_for_trip_planner(date);
-DROP FUNCTION IF EXISTS public.get_wineries_in_bounds(double precision, double precision, double precision, double precision);
-DROP FUNCTION IF EXISTS public.get_wineries_in_bounds(double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision);
-DROP FUNCTION IF EXISTS public.get_winery_details(integer);
-DROP FUNCTION IF EXISTS public.get_winery_details_by_id(integer);
-
-DROP POLICY IF EXISTS "Members can add wineries to a trip" ON public.trip_wineries;
-DROP POLICY IF EXISTS "Members can remove wineries from a trip" ON public.trip_wineries;
-DROP POLICY IF EXISTS "Members can update wineries on a trip" ON public.trip_wineries;
-DROP POLICY IF EXISTS "Members can view trip wineries" ON public.trip_wineries;
-DROP POLICY IF EXISTS "Users can view members of trips they belong to" ON public.trip_members;
-DROP FUNCTION IF EXISTS public.is_trip_member(integer);
-
-DROP FUNCTION IF EXISTS public.remove_friend(uuid);
-DROP FUNCTION IF EXISTS public.respond_to_friend_request(uuid, boolean);
-DROP FUNCTION IF EXISTS public.search_wineries_by_name_and_location(text, double precision, double precision);
-DROP FUNCTION IF EXISTS public.search_wineries_by_name_and_location(text, double precision, double precision, double precision, double precision);
-DROP FUNCTION IF EXISTS public.send_friend_request(text);
-DROP FUNCTION IF EXISTS public.upsert_wineries_from_search(jsonb[]);
-
 
 
 
@@ -559,6 +528,7 @@ $$;
 ALTER FUNCTION "public"."get_all_wineries_with_user_data"() OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_friend_activity_feed(integer);
 CREATE OR REPLACE FUNCTION "public"."get_friend_activity_feed"("p_limit" integer DEFAULT 20) RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -619,6 +589,7 @@ $$;
 ALTER FUNCTION "public"."get_friend_activity_feed"("p_limit" integer) OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_friend_profile_with_visits(uuid);
 CREATE OR REPLACE FUNCTION "public"."get_friend_profile_with_visits"("p_friend_id" "uuid") RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -700,6 +671,7 @@ $$;
 ALTER FUNCTION "public"."get_friend_profile_with_visits"("p_friend_id" "uuid") OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_friends_activity_for_winery(integer);
 CREATE OR REPLACE FUNCTION "public"."get_friends_activity_for_winery"("p_winery_id" integer) RETURNS json
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -857,6 +829,7 @@ $$;
 ALTER FUNCTION "public"."get_friends_ids"() OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_friends_ratings_for_winery(integer);
 CREATE OR REPLACE FUNCTION "public"."get_friends_ratings_for_winery"("p_winery_id" integer) RETURNS TABLE("user_id" "uuid", "name" "text", "email" "text", "rating" integer, "user_review" "text", "photos" "text"[])
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -908,6 +881,7 @@ $$;
 ALTER FUNCTION "public"."get_friends_ratings_for_winery"("p_winery_id" integer) OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_map_markers(uuid);
 CREATE OR REPLACE FUNCTION "public"."get_map_markers"("p_user_id" "uuid" DEFAULT "auth"."uid"()) RETURNS TABLE("id" integer, "google_place_id" "text", "name" "text", "latitude" numeric, "longitude" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "is_favorite_private" boolean, "on_wishlist_private" boolean)
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -938,6 +912,7 @@ $$;
 ALTER FUNCTION "public"."get_map_markers"("p_user_id" "uuid") OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_paginated_trips_with_wineries(text, integer, integer);
 CREATE OR REPLACE FUNCTION "public"."get_paginated_trips_with_wineries"("p_trip_type" "text", "p_page_number" integer, "p_page_size" integer) RETURNS TABLE("id" integer, "user_id" "uuid", "trip_date" "date", "name" character varying, "created_at" timestamp with time zone, "wineries" "jsonb", "total_count" bigint)
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public', 'auth'
@@ -1005,6 +980,7 @@ $$;
 ALTER FUNCTION "public"."get_paginated_trips_with_wineries"("p_trip_type" "text", "p_page_number" integer, "p_page_size" integer) OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_paginated_visits_with_winery_and_friends(integer, integer);
 CREATE OR REPLACE FUNCTION "public"."get_paginated_visits_with_winery_and_friends"("p_page_number" integer, "p_page_size" integer) RETURNS TABLE("visit_id" integer, "visit_date" "date", "user_review" "text", "rating" integer, "photos" "text"[], "winery_id" integer, "winery_name" character varying, "winery_address" "text", "google_place_id" "text", "friend_visits" "jsonb", "latitude" numeric, "longitude" numeric)
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public', 'auth'
@@ -1110,6 +1086,7 @@ $$;
 ALTER FUNCTION "public"."get_paginated_wineries"("p_page" integer, "p_limit" integer) OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_trip_by_id_with_wineries(integer);
 CREATE OR REPLACE FUNCTION "public"."get_trip_by_id_with_wineries"("p_trip_id" integer) RETURNS TABLE("id" integer, "user_id" "uuid", "trip_date" "date", "name" character varying, "created_at" timestamp with time zone, "wineries" "jsonb")
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public', 'auth'
@@ -1154,6 +1131,7 @@ $$;
 ALTER FUNCTION "public"."get_trip_by_id_with_wineries"("p_trip_id" integer) OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_trip_details(integer);
 CREATE OR REPLACE FUNCTION "public"."get_trip_details"("p_trip_id" integer) RETURNS "jsonb"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -1256,6 +1234,7 @@ $$;
 ALTER FUNCTION "public"."get_trip_details"("p_trip_id" integer) OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_trips_for_date(date);
 CREATE OR REPLACE FUNCTION "public"."get_trips_for_date"("p_target_date" "date") RETURNS TABLE("id" integer, "user_id" "uuid", "trip_date" "date", "name" "text", "updated_at" timestamp with time zone, "wineries" "jsonb")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -1468,6 +1447,7 @@ $$;
 ALTER FUNCTION "public"."get_user_winery_data_aggregated"() OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_wineries_for_trip_planner(date);
 CREATE OR REPLACE FUNCTION "public"."get_wineries_for_trip_planner"("p_trip_date" "date") RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "trip_id" integer, "trip_name" character varying, "trip_date" "date", "visit_order" integer, "notes" "text")
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public', 'auth'
@@ -1545,6 +1525,8 @@ CREATE TABLE IF NOT EXISTS "public"."wineries" (
 ALTER TABLE "public"."wineries" OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_wineries_in_bounds(double precision, double precision, double precision, double precision);
+DROP FUNCTION IF EXISTS public.get_wineries_in_bounds(double precision, double precision, double precision, double precision, double precision, double precision, double precision, double precision);
 CREATE OR REPLACE FUNCTION "public"."get_wineries_in_bounds"("p_min_latitude" double precision, "p_min_longitude" double precision, "p_max_latitude" double precision, "p_max_longitude" double precision) RETURNS SETOF "public"."wineries"
     LANGUAGE "sql" STABLE
     SET "search_path" TO 'public', 'auth'
@@ -1562,6 +1544,7 @@ $$;
 ALTER FUNCTION "public"."get_wineries_in_bounds"("p_min_latitude" double precision, "p_min_longitude" double precision, "p_max_latitude" double precision, "p_max_longitude" double precision) OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_winery_details(integer);
 CREATE OR REPLACE FUNCTION "public"."get_winery_details"("p_winery_id" integer) RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "visits" "jsonb")
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public', 'auth'
@@ -1604,6 +1587,7 @@ $$;
 ALTER FUNCTION "public"."get_winery_details"("p_winery_id" integer) OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.get_winery_details_by_id(integer);
 CREATE OR REPLACE FUNCTION "public"."get_winery_details_by_id"("p_winery_id" integer) RETURNS TABLE("id" integer, "google_place_id" "text", "name" "text", "address" "text", "lat" numeric, "lng" numeric, "latitude" numeric, "longitude" numeric, "phone" "text", "website" "text", "google_rating" numeric, "opening_hours" "jsonb", "reviews" "jsonb", "reservable" boolean, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "is_favorite_private" boolean, "on_wishlist_private" boolean, "visits" "jsonb", "trip_info" "jsonb")
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -1850,6 +1834,7 @@ $$;
 ALTER FUNCTION "public"."handle_new_user"() OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.is_trip_member(integer);
 CREATE OR REPLACE FUNCTION "public"."is_trip_member"("p_trip_id" integer) RETURNS boolean
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -2014,6 +1999,7 @@ $$;
 ALTER FUNCTION "public"."log_visit"("p_winery_data" "jsonb", "p_visit_data" "jsonb") OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.remove_friend(uuid);
 CREATE OR REPLACE FUNCTION "public"."remove_friend"("p_target_friend_id" "uuid") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -2128,6 +2114,7 @@ $$;
 ALTER FUNCTION "public"."respond_to_follow_request"("p_follower_id" "uuid", "p_accept" boolean) OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.respond_to_friend_request(uuid, boolean);
 CREATE OR REPLACE FUNCTION "public"."respond_to_friend_request"("p_requester_id" "uuid", "p_accept" boolean) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -2160,6 +2147,8 @@ $$;
 ALTER FUNCTION "public"."respond_to_friend_request"("p_requester_id" "uuid", "p_accept" boolean) OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.search_wineries_by_name_and_location(text, double precision, double precision);
+DROP FUNCTION IF EXISTS public.search_wineries_by_name_and_location(text, double precision, double precision, double precision, double precision);
 CREATE OR REPLACE FUNCTION "public"."search_wineries_by_name_and_location"("p_search_query" "text", "p_user_latitude" double precision, "p_user_longitude" double precision) RETURNS TABLE("id" integer, "google_place_id" "text", "name" character varying, "address" "text", "latitude" numeric, "longitude" numeric, "phone" character varying, "website" character varying, "google_rating" numeric, "is_favorite" boolean, "on_wishlist" boolean, "user_visited" boolean, "distance_meters" double precision)
     LANGUAGE "plpgsql"
     SET "search_path" TO 'public', 'auth', 'extensions'
@@ -2250,6 +2239,7 @@ $$;
 ALTER FUNCTION "public"."send_follow_request"("p_target_id" "uuid") OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.send_friend_request(text);
 CREATE OR REPLACE FUNCTION "public"."send_friend_request"("p_target_email" "text") RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -2554,6 +2544,7 @@ $$;
 ALTER FUNCTION "public"."update_visit"("p_visit_id" integer, "p_visit_data" "jsonb") OWNER TO "postgres";
 
 
+DROP FUNCTION IF EXISTS public.upsert_wineries_from_search(jsonb[]);
 CREATE OR REPLACE FUNCTION "public"."upsert_wineries_from_search"("p_wineries_data" "jsonb"[]) RETURNS "void"
     LANGUAGE "plpgsql" SECURITY DEFINER
     SET "search_path" TO 'public', 'auth'
@@ -3169,18 +3160,22 @@ CREATE POLICY "Authenticated users can insert wineries" ON "public"."wineries" F
 
 
 
+DROP POLICY IF EXISTS "Members can add wineries to a trip" ON public.trip_wineries;
 CREATE POLICY "Members can add wineries to a trip" ON "public"."trip_wineries" FOR INSERT WITH CHECK ("public"."is_trip_member"("trip_id"));
 
 
 
+DROP POLICY IF EXISTS "Members can remove wineries from a trip" ON public.trip_wineries;
 CREATE POLICY "Members can remove wineries from a trip" ON "public"."trip_wineries" FOR DELETE USING ("public"."is_trip_member"("trip_id"));
 
 
 
+DROP POLICY IF EXISTS "Members can update wineries on a trip" ON public.trip_wineries;
 CREATE POLICY "Members can update wineries on a trip" ON "public"."trip_wineries" FOR UPDATE USING ("public"."is_trip_member"("trip_id"));
 
 
 
+DROP POLICY IF EXISTS "Members can view trip wineries" ON public.trip_wineries;
 CREATE POLICY "Members can view trip wineries" ON "public"."trip_wineries" FOR SELECT USING ("public"."is_trip_member"("trip_id"));
 
 
@@ -3295,6 +3290,7 @@ CREATE POLICY "Users can view follows" ON "public"."follows" FOR SELECT USING ((
 
 
 
+DROP POLICY IF EXISTS "Users can view members of trips they belong to" ON public.trip_members;
 CREATE POLICY "Users can view members of trips they belong to" ON "public"."trip_members" FOR SELECT USING ("public"."is_trip_member"("trip_id"));
 
 
