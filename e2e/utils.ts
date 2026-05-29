@@ -112,6 +112,7 @@ export class MockMapsManager {
   private currentUserId: string = 'test-user-id';
   private swEnabled = false;
   private mocksRegistered = false;
+  private initialized = false;
   private workerIndex: number;
 
   constructor(private page: Page, state?: MockMapsState, workerIndex: number = 0) {
@@ -795,7 +796,7 @@ export class MockMapsManager {
     }
 
     // Early return if we've already set up state for this instance and aren't forcing a reset
-    if (this.mocksRegistered && !options.forceMocks && !isRealData) return;
+    if (this.initialized && !options.forceMocks && !isRealData) return;
 
     const todayCA = new Date().toLocaleDateString('en-CA');
 
@@ -958,6 +959,8 @@ export class MockMapsManager {
         realTripsEnabled: this.realTripsEnabled,
         workerIndex: this.workerIndex
     } as any);
+
+    this.initialized = true;
   }
 
   // --- ERROR INJECTION METHODS (Restored for error-handling.spec.ts) ---

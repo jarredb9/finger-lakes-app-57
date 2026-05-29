@@ -20,6 +20,13 @@ while [[ "$#" -gt 0 ]]; do
     esac
 done
 
+# Cleanup handler to prevent local storage state leakage
+cleanup() {
+    echo "🧹 Cleaning up test storage..."
+    rm -rf test-results/.storage
+}
+trap cleanup EXIT
+
 PROJECT_ARG=$1
 
 echo "🚀 Starting Playwright Containerized Tests (Rootless)..."
@@ -31,11 +38,13 @@ if [ "$USE_LIVE" = true ]; then
     set -a
     source .env.local.production
     set +a
+    E2E_REAL_DATA="true"
 else
     echo "🏠 Using LOCAL database stack..."
     set -a
     source .env.local
     set +a
+    E2E_REAL_DATA="false"
 fi
 
 if [ "$SHOULD_BUILD" = true ]; then
@@ -86,7 +95,7 @@ podman run --rm -it \
     -e NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
     -e NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
     -e SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
-    -e E2E_REAL_DATA="${E2E_REAL_DATA:-true}" \
+    -e E2E_REAL_DATA="$E2E_REAL_DATA" \
     -e TEST_CMD="$TEST_CMD" \
     -e SHOULD_BUILD="$SHOULD_BUILD" \
     "$IMAGE" \
