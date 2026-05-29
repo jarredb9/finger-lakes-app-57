@@ -216,12 +216,10 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       // 4. User A renames the trip
       console.log('[DIAGNOSTIC] User A renaming trip...');
-      await expect(async () => {
-          const detailsBtn = tripCardA.getByTestId('view-trip-details-btn');
-          await expect(detailsBtn).toBeVisible({ timeout: 5000 });
-          await detailsBtn.click({ force: true });
-          await pageA.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' });
-      }).toPass({ timeout: 20000, intervals: [1000, 2000] });
+      const detailsBtn = tripCardA.getByTestId('view-trip-details-btn');
+      await expect(detailsBtn).toBeVisible({ timeout: 5000 });
+      await detailsBtn.click({ force: true });
+      await pageA.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' });
       
       await expect(pageA.getByTestId('trip-details-card')).toBeVisible({ timeout: 10000 });
       console.log('[DIAGNOSTIC] User A on trip details page.');
