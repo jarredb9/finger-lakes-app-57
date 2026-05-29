@@ -806,7 +806,7 @@ export class MockMapsManager {
         this.realFavoritesEnabled = true;
         this.realVisitsEnabled = true;
         this.realTripsEnabled = true;
-    } else {
+    } else if (options.forceMocks) {
         this.realSocialEnabled = false;
         this.realFavoritesEnabled = false;
         this.realVisitsEnabled = false;
