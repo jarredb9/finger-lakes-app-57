@@ -56,4 +56,9 @@ The trip data structure varies significantly between the summary list and the de
 - **Testing Impact:** Tests verifying sidebar avatars or winery counts MUST account for this discrepancy. Sidebar avatars will only be visible if using the `MockMapsManager` (which includes members in its list mock) or if the specific trip has been hydrated via `get_trip_details`.
 - **Proactive Sync:** After a mutation (create/rename), always call `store.fetchTrips(1, 'upcoming', true)` to ensure the list reflects the new state, but be aware that `members` may be empty in the resulting store items.
 
+### 7. Multi-User Websocket Latency & Proactive Refreshes
+In multi-context collaborative tests, real-time sync via websockets (Supabase Realtime) can exhibit latency or fail under CPU/resource contention on CI runners.
+- **Problem:** If Page B performs an action (like accepting a friend request or editing a shared trip) and Page A immediately asserts on that change, the test may fail or time out waiting for the websocket event to propagate the update.
+- **Standard:** Do NOT rely purely on real-time websocket sync. Immediately after a mutation RPC finishes, explicitly trigger a store refresh (e.g., `refreshFriendsStore(page)` or store data refetches) on the asserting page to force a direct database query and bypass websocket latency.
+
 Reference: [Playwright Multi-Context](https://playwright.dev/docs/auth#multi-step-auth)
