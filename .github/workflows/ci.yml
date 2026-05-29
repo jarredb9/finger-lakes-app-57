@@ -127,7 +127,7 @@ jobs:
           supabase start
 
       - name: Run Playwright tests
-        run: npx playwright test --shard=${{ matrix.shard }}/12 --reporter=blob
+        run: npx playwright test --shard=${{ matrix.shard }}/12 --reporter=blob --max-failures=3
         env:
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
