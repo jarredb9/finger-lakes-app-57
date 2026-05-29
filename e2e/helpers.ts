@@ -630,6 +630,7 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
             const acceptBtn = requestRow.locator('[data-testid="accept-request-btn"]');
             await acceptBtn.click({ force: true });
             await pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request'), { timeout: 10000 }).catch(() => null);
+            await refreshFriendsStore(pageB);
         }
 
         // Wait for User B to see User A as a friend
