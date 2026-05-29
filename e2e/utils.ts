@@ -136,7 +136,9 @@ export class MockMapsManager {
             const isInfrastructure = text.includes('SecurityError') || 
                                    text.includes('IDBFactory') || 
                                    text.includes('Cross-Origin Request Blocked') ||
-                                   text.includes('Failed to load resource');
+                                   text.includes('Failed to load resource') ||
+                                   text.includes('WebSocket connection to') ||
+                                   text.includes('/realtime/v1/websocket');
             
             const isExpectedOfflineError = text.includes('Edge Function failed') || 
                                          text.includes('FunctionsHttpError') || 
