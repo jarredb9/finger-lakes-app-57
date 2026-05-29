@@ -433,6 +433,24 @@ export class MockMapsManager {
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
         }
 
+        if (url.includes('update_visit')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const visitId = Number(postData.p_visit_id);
+            const visitData = postData.p_visit_data || {};
+            let updatedObj = {};
+            if (this.state.visits) {
+                const visit = this.state.visits.find(v => Number(v.visit_id) === visitId);
+                if (visit) {
+                    visit.user_review = visitData.user_review !== undefined ? visitData.user_review : visit.user_review;
+                    visit.rating = visitData.rating !== undefined ? visitData.rating : visit.rating;
+                    visit.photos = visitData.photos !== undefined ? visitData.photos : visit.photos;
+                    visit.updated_at = new Date().toISOString();
+                    updatedObj = visit;
+                }
+            }
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(updatedObj) });
+        }
+
         if (url.includes('get_map_markers') || url.includes('get_wineries_in_bounds') || url.includes('get_paginated_wineries')) {
             const userFavorites = this.state.favoritesMap.get(this.currentUserId);
             const userWishlist = this.state.wishlistMap.get(this.currentUserId);
