@@ -318,10 +318,8 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     await expect(tripCard.getByTestId('collaborator-avatars').locator('.rounded-full').first()).toBeVisible();
     
     // Verify user can view details (this will trigger get_trip_details RPC)
-    await expect(async () => {
-        await tripCard.getByTestId('view-trip-details-btn').click({ force: true });
-        await page.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' });
-    }).toPass({ timeout: 20000, intervals: [2000] });
+    await tripCard.getByTestId('view-trip-details-btn').click({ force: true });
+    await page.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' });
     
     // Wait for the details RPC response (MockMapsManager will handle this via its catch-all)
     await page.waitForResponse(resp => resp.url().includes('rpc/get_trip_details'), { timeout: 10000 });
