@@ -58,6 +58,181 @@ CREATE EXTENSION IF NOT EXISTS "supabase_vault" WITH SCHEMA "vault";
 
 
 
+CREATE TABLE IF NOT EXISTS "public"."wineries" (
+    "id" integer NOT NULL,
+    "google_place_id" "text",
+    "name" character varying(255) NOT NULL,
+    "address" "text" NOT NULL,
+    "latitude" numeric(10,8),
+    "longitude" numeric(11,8),
+    "phone" "text",
+    "website" "text",
+    "google_rating" numeric(2,1),
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "opening_hours" "jsonb",
+    "reviews" "jsonb",
+    "reservable" boolean
+);
+
+
+ALTER TABLE "public"."wineries" OWNER TO "postgres";
+CREATE TABLE IF NOT EXISTS "public"."activity_ledger" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "activity_type" "text" NOT NULL,
+    "object_id" "text" NOT NULL,
+    "privacy_level" "text" DEFAULT 'public'::"text" NOT NULL,
+    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."activity_ledger" OWNER TO "postgres";
+CREATE TABLE IF NOT EXISTS "public"."favorites" (
+    "id" integer NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "winery_id" integer NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "is_private" boolean DEFAULT false,
+    "metadata" "jsonb" DEFAULT '{}'::"jsonb"
+);
+
+
+ALTER TABLE "public"."favorites" OWNER TO "postgres";
+CREATE TABLE IF NOT EXISTS "public"."follow_requests" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "follower_id" "uuid" NOT NULL,
+    "following_id" "uuid" NOT NULL,
+    "status" "text" DEFAULT 'pending'::"text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."follow_requests" OWNER TO "postgres";
+CREATE TABLE IF NOT EXISTS "public"."follows" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "follower_id" "uuid" NOT NULL,
+    "following_id" "uuid" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "cannot_follow_self" CHECK (("follower_id" <> "following_id"))
+);
+
+
+ALTER TABLE "public"."follows" OWNER TO "postgres";
+CREATE TABLE IF NOT EXISTS "public"."friends" (
+    "id" integer NOT NULL,
+    "user1_id" "uuid" NOT NULL,
+    "user2_id" "uuid" NOT NULL,
+    "status" "text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    CONSTRAINT "friends_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'accepted'::"text", 'declined'::"text", 'blocked'::"text"])))
+);
+
+
+ALTER TABLE "public"."friends" OWNER TO "postgres";
+
+
+
+
+
+
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'privacy_level') THEN
+        CREATE TYPE "public"."privacy_level" AS ENUM (
+            'public',
+            'friends_only',
+            'private'
+        );
+    END IF;
+END $$;
+
+
+ALTER TYPE "public"."privacy_level" OWNER TO "postgres";
+
+CREATE TABLE IF NOT EXISTS "public"."profiles" (
+    "id" "uuid" NOT NULL,
+    "name" "text",
+    "email" "text",
+    "privacy_level" "public"."privacy_level" DEFAULT 'public'::"public"."privacy_level"
+);
+
+
+ALTER TABLE "public"."profiles" OWNER TO "postgres";
+CREATE TABLE IF NOT EXISTS "public"."trip_members" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "trip_id" integer NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "role" "text" DEFAULT 'member'::"text" NOT NULL,
+    "status" "text" DEFAULT 'joined'::"text" NOT NULL,
+    "invited_at" timestamp with time zone DEFAULT "now"(),
+    "joined_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."trip_members" OWNER TO "postgres";
+CREATE TABLE IF NOT EXISTS "public"."trip_wineries" (
+    "id" integer NOT NULL,
+    "trip_id" integer NOT NULL,
+    "winery_id" integer NOT NULL,
+    "visit_order" integer NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "notes" "text",
+    "updated_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."trip_wineries" OWNER TO "postgres";
+CREATE TABLE IF NOT EXISTS "public"."trips" (
+    "id" integer NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "trip_date" "date" NOT NULL,
+    "name" character varying(255),
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."trips" OWNER TO "postgres";
+CREATE TABLE IF NOT EXISTS "public"."visit_participants" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "visit_id" integer NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "status" "text" DEFAULT 'tagged'::"text" NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"()
+);
+
+
+ALTER TABLE "public"."visit_participants" OWNER TO "postgres";
+CREATE TABLE IF NOT EXISTS "public"."visits" (
+    "id" integer NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "winery_id" integer NOT NULL,
+    "visit_date" "date" NOT NULL,
+    "user_review" "text",
+    "rating" integer,
+    "photos" "text"[],
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "updated_at" timestamp with time zone DEFAULT "now"(),
+    "is_private" boolean DEFAULT false,
+    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
+    CONSTRAINT "visits_rating_check" CHECK ((("rating" >= 1) AND ("rating" <= 5)))
+);
+
+
+ALTER TABLE "public"."visits" OWNER TO "postgres";
+CREATE TABLE IF NOT EXISTS "public"."wishlist" (
+    "id" integer NOT NULL,
+    "user_id" "uuid" NOT NULL,
+    "winery_id" integer NOT NULL,
+    "created_at" timestamp with time zone DEFAULT "now"(),
+    "is_private" boolean DEFAULT false,
+    "metadata" "jsonb" DEFAULT '{}'::"jsonb"
+);
+
+
+ALTER TABLE "public"."wishlist" OWNER TO "postgres";
+
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
@@ -66,14 +241,7 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA "extensions";
 
 
 
-CREATE TYPE "public"."privacy_level" AS ENUM (
-    'public',
-    'friends_only',
-    'private'
-);
 
-
-ALTER TYPE "public"."privacy_level" OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."add_to_wishlist"("p_winery_data" "jsonb") RETURNS "jsonb"
@@ -1505,24 +1673,6 @@ SET default_tablespace = '';
 SET default_table_access_method = "heap";
 
 
-CREATE TABLE IF NOT EXISTS "public"."wineries" (
-    "id" integer NOT NULL,
-    "google_place_id" "text",
-    "name" character varying(255) NOT NULL,
-    "address" "text" NOT NULL,
-    "latitude" numeric(10,8),
-    "longitude" numeric(11,8),
-    "phone" "text",
-    "website" "text",
-    "google_rating" numeric(2,1),
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "opening_hours" "jsonb",
-    "reviews" "jsonb",
-    "reservable" boolean
-);
-
-
-ALTER TABLE "public"."wineries" OWNER TO "postgres";
 
 
 DROP FUNCTION IF EXISTS public.get_wineries_in_bounds(double precision, double precision, double precision, double precision);
@@ -2585,31 +2735,10 @@ $$;
 ALTER FUNCTION "public"."upsert_wineries_from_search"("p_wineries_data" "jsonb"[]) OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."activity_ledger" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "user_id" "uuid" NOT NULL,
-    "activity_type" "text" NOT NULL,
-    "object_id" "text" NOT NULL,
-    "privacy_level" "text" DEFAULT 'public'::"text" NOT NULL,
-    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
-    "created_at" timestamp with time zone DEFAULT "now"()
-);
 
 
-ALTER TABLE "public"."activity_ledger" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."favorites" (
-    "id" integer NOT NULL,
-    "user_id" "uuid" NOT NULL,
-    "winery_id" integer NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "is_private" boolean DEFAULT false,
-    "metadata" "jsonb" DEFAULT '{}'::"jsonb"
-);
-
-
-ALTER TABLE "public"."favorites" OWNER TO "postgres";
 
 
 CREATE SEQUENCE IF NOT EXISTS "public"."favorites_id_seq"
@@ -2628,42 +2757,13 @@ ALTER SEQUENCE "public"."favorites_id_seq" OWNED BY "public"."favorites"."id";
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."follow_requests" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "follower_id" "uuid" NOT NULL,
-    "following_id" "uuid" NOT NULL,
-    "status" "text" DEFAULT 'pending'::"text" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"()
-);
 
 
-ALTER TABLE "public"."follow_requests" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."follows" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "follower_id" "uuid" NOT NULL,
-    "following_id" "uuid" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    CONSTRAINT "cannot_follow_self" CHECK (("follower_id" <> "following_id"))
-);
 
 
-ALTER TABLE "public"."follows" OWNER TO "postgres";
 
-
-CREATE TABLE IF NOT EXISTS "public"."friends" (
-    "id" integer NOT NULL,
-    "user1_id" "uuid" NOT NULL,
-    "user2_id" "uuid" NOT NULL,
-    "status" "text" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "updated_at" timestamp with time zone DEFAULT "now"(),
-    CONSTRAINT "friends_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'accepted'::"text", 'declined'::"text", 'blocked'::"text"])))
-);
-
-
-ALTER TABLE "public"."friends" OWNER TO "postgres";
 
 
 CREATE SEQUENCE IF NOT EXISTS "public"."friends_id_seq"
@@ -2682,43 +2782,13 @@ ALTER SEQUENCE "public"."friends_id_seq" OWNED BY "public"."friends"."id";
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."profiles" (
-    "id" "uuid" NOT NULL,
-    "name" "text",
-    "email" "text",
-    "privacy_level" "public"."privacy_level" DEFAULT 'public'::"public"."privacy_level"
-);
 
 
-ALTER TABLE "public"."profiles" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."trip_members" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "trip_id" integer NOT NULL,
-    "user_id" "uuid" NOT NULL,
-    "role" "text" DEFAULT 'member'::"text" NOT NULL,
-    "status" "text" DEFAULT 'joined'::"text" NOT NULL,
-    "invited_at" timestamp with time zone DEFAULT "now"(),
-    "joined_at" timestamp with time zone DEFAULT "now"()
-);
 
 
-ALTER TABLE "public"."trip_members" OWNER TO "postgres";
 
-
-CREATE TABLE IF NOT EXISTS "public"."trip_wineries" (
-    "id" integer NOT NULL,
-    "trip_id" integer NOT NULL,
-    "winery_id" integer NOT NULL,
-    "visit_order" integer NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "notes" "text",
-    "updated_at" timestamp with time zone DEFAULT "now"()
-);
-
-
-ALTER TABLE "public"."trip_wineries" OWNER TO "postgres";
 
 
 CREATE SEQUENCE IF NOT EXISTS "public"."trip_wineries_id_seq"
@@ -2737,17 +2807,7 @@ ALTER SEQUENCE "public"."trip_wineries_id_seq" OWNED BY "public"."trip_wineries"
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."trips" (
-    "id" integer NOT NULL,
-    "user_id" "uuid" NOT NULL,
-    "trip_date" "date" NOT NULL,
-    "name" character varying(255),
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "updated_at" timestamp with time zone DEFAULT "now"()
-);
 
-
-ALTER TABLE "public"."trips" OWNER TO "postgres";
 
 
 CREATE SEQUENCE IF NOT EXISTS "public"."trips_id_seq"
@@ -2766,35 +2826,10 @@ ALTER SEQUENCE "public"."trips_id_seq" OWNED BY "public"."trips"."id";
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."visit_participants" (
-    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "visit_id" integer NOT NULL,
-    "user_id" "uuid" NOT NULL,
-    "status" "text" DEFAULT 'tagged'::"text" NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"()
-);
 
 
-ALTER TABLE "public"."visit_participants" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."visits" (
-    "id" integer NOT NULL,
-    "user_id" "uuid" NOT NULL,
-    "winery_id" integer NOT NULL,
-    "visit_date" "date" NOT NULL,
-    "user_review" "text",
-    "rating" integer,
-    "photos" "text"[],
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "updated_at" timestamp with time zone DEFAULT "now"(),
-    "is_private" boolean DEFAULT false,
-    "metadata" "jsonb" DEFAULT '{}'::"jsonb",
-    CONSTRAINT "visits_rating_check" CHECK ((("rating" >= 1) AND ("rating" <= 5)))
-);
-
-
-ALTER TABLE "public"."visits" OWNER TO "postgres";
 
 
 CREATE SEQUENCE IF NOT EXISTS "public"."visits_id_seq"
@@ -2829,17 +2864,7 @@ ALTER SEQUENCE "public"."wineries_id_seq" OWNED BY "public"."wineries"."id";
 
 
 
-CREATE TABLE IF NOT EXISTS "public"."wishlist" (
-    "id" integer NOT NULL,
-    "user_id" "uuid" NOT NULL,
-    "winery_id" integer NOT NULL,
-    "created_at" timestamp with time zone DEFAULT "now"(),
-    "is_private" boolean DEFAULT false,
-    "metadata" "jsonb" DEFAULT '{}'::"jsonb"
-);
 
-
-ALTER TABLE "public"."wishlist" OWNER TO "postgres";
 
 
 CREATE SEQUENCE IF NOT EXISTS "public"."wishlist_id_seq"
@@ -2886,138 +2911,207 @@ ALTER TABLE ONLY "public"."wishlist" ALTER COLUMN "id" SET DEFAULT "nextval"('"p
 
 
 
-ALTER TABLE ONLY "public"."activity_ledger"
-    ADD CONSTRAINT "activity_ledger_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'activity_ledger_pkey') THEN
+        ALTER TABLE "public"."activity_ledger" ADD CONSTRAINT "activity_ledger_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."favorites"
-    ADD CONSTRAINT "favorites_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'favorites_pkey') THEN
+        ALTER TABLE "public"."favorites" ADD CONSTRAINT "favorites_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."favorites"
-    ADD CONSTRAINT "favorites_user_id_winery_id_key" UNIQUE ("user_id", "winery_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'favorites_user_id_winery_id_key') THEN
+        ALTER TABLE "public"."favorites" ADD CONSTRAINT "favorites_user_id_winery_id_key" UNIQUE ("user_id", "winery_id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."follow_requests"
-    ADD CONSTRAINT "follow_requests_follower_id_following_id_key" UNIQUE ("follower_id", "following_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'follow_requests_follower_id_following_id_key') THEN
+        ALTER TABLE "public"."follow_requests" ADD CONSTRAINT "follow_requests_follower_id_following_id_key" UNIQUE ("follower_id", "following_id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."follow_requests"
-    ADD CONSTRAINT "follow_requests_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'follow_requests_pkey') THEN
+        ALTER TABLE "public"."follow_requests" ADD CONSTRAINT "follow_requests_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."follows"
-    ADD CONSTRAINT "follows_follower_id_following_id_key" UNIQUE ("follower_id", "following_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'follows_follower_id_following_id_key') THEN
+        ALTER TABLE "public"."follows" ADD CONSTRAINT "follows_follower_id_following_id_key" UNIQUE ("follower_id", "following_id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."follows"
-    ADD CONSTRAINT "follows_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'follows_pkey') THEN
+        ALTER TABLE "public"."follows" ADD CONSTRAINT "follows_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."friends"
-    ADD CONSTRAINT "friends_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'friends_pkey') THEN
+        ALTER TABLE "public"."friends" ADD CONSTRAINT "friends_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."friends"
-    ADD CONSTRAINT "friends_user1_id_user2_id_key" UNIQUE ("user1_id", "user2_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'friends_user1_id_user2_id_key') THEN
+        ALTER TABLE "public"."friends" ADD CONSTRAINT "friends_user1_id_user2_id_key" UNIQUE ("user1_id", "user2_id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."profiles"
-    ADD CONSTRAINT "profiles_email_key" UNIQUE ("email");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_email_key') THEN
+        ALTER TABLE "public"."profiles" ADD CONSTRAINT "profiles_email_key" UNIQUE ("email");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."profiles"
-    ADD CONSTRAINT "profiles_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_pkey') THEN
+        ALTER TABLE "public"."profiles" ADD CONSTRAINT "profiles_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."trip_members"
-    ADD CONSTRAINT "trip_members_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'trip_members_pkey') THEN
+        ALTER TABLE "public"."trip_members" ADD CONSTRAINT "trip_members_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."trip_members"
-    ADD CONSTRAINT "trip_members_trip_id_user_id_key" UNIQUE ("trip_id", "user_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'trip_members_trip_id_user_id_key') THEN
+        ALTER TABLE "public"."trip_members" ADD CONSTRAINT "trip_members_trip_id_user_id_key" UNIQUE ("trip_id", "user_id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."trip_wineries"
-    ADD CONSTRAINT "trip_wineries_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'trip_wineries_pkey') THEN
+        ALTER TABLE "public"."trip_wineries" ADD CONSTRAINT "trip_wineries_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."trip_wineries"
-    ADD CONSTRAINT "trip_wineries_trip_id_winery_id_key" UNIQUE ("trip_id", "winery_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'trip_wineries_trip_id_winery_id_key') THEN
+        ALTER TABLE "public"."trip_wineries" ADD CONSTRAINT "trip_wineries_trip_id_winery_id_key" UNIQUE ("trip_id", "winery_id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."trips"
-    ADD CONSTRAINT "trips_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'trips_pkey') THEN
+        ALTER TABLE "public"."trips" ADD CONSTRAINT "trips_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."visit_participants"
-    ADD CONSTRAINT "visit_participants_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'visit_participants_pkey') THEN
+        ALTER TABLE "public"."visit_participants" ADD CONSTRAINT "visit_participants_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."visit_participants"
-    ADD CONSTRAINT "visit_participants_visit_id_user_id_key" UNIQUE ("visit_id", "user_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'visit_participants_visit_id_user_id_key') THEN
+        ALTER TABLE "public"."visit_participants" ADD CONSTRAINT "visit_participants_visit_id_user_id_key" UNIQUE ("visit_id", "user_id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."visits"
-    ADD CONSTRAINT "visits_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'visits_pkey') THEN
+        ALTER TABLE "public"."visits" ADD CONSTRAINT "visits_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."wineries"
-    ADD CONSTRAINT "wineries_google_place_id_key" UNIQUE ("google_place_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'wineries_google_place_id_key') THEN
+        ALTER TABLE "public"."wineries" ADD CONSTRAINT "wineries_google_place_id_key" UNIQUE ("google_place_id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."wineries"
-    ADD CONSTRAINT "wineries_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'wineries_pkey') THEN
+        ALTER TABLE "public"."wineries" ADD CONSTRAINT "wineries_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."wishlist"
-    ADD CONSTRAINT "wishlist_pkey" PRIMARY KEY ("id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'wishlist_pkey') THEN
+        ALTER TABLE "public"."wishlist" ADD CONSTRAINT "wishlist_pkey" PRIMARY KEY ("id");
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."wishlist"
-    ADD CONSTRAINT "wishlist_user_id_winery_id_key" UNIQUE ("user_id", "winery_id");
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'wishlist_user_id_winery_id_key') THEN
+        ALTER TABLE "public"."wishlist" ADD CONSTRAINT "wishlist_user_id_winery_id_key" UNIQUE ("user_id", "winery_id");
+    END IF;
+END $$;
 
 
 
-CREATE INDEX "idx_friends_user1_id" ON "public"."friends" USING "btree" ("user1_id");
+CREATE INDEX IF NOT EXISTS "idx_friends_user1_id" ON "public"."friends" USING "btree" ("user1_id");
 
 
 
-CREATE INDEX "idx_friends_user2_id" ON "public"."friends" USING "btree" ("user2_id");
+CREATE INDEX IF NOT EXISTS "idx_friends_user2_id" ON "public"."friends" USING "btree" ("user2_id");
 
 
 
-CREATE INDEX "idx_trip_members_trip_id" ON "public"."trip_members" USING "btree" ("trip_id");
+CREATE INDEX IF NOT EXISTS "idx_trip_members_trip_id" ON "public"."trip_members" USING "btree" ("trip_id");
 
 
 
-CREATE INDEX "idx_trips_user_id_trip_date" ON "public"."trips" USING "btree" ("user_id", "trip_date");
+CREATE INDEX IF NOT EXISTS "idx_trips_user_id_trip_date" ON "public"."trips" USING "btree" ("user_id", "trip_date");
 
 
 
-CREATE INDEX "idx_wineries_google_place_id" ON "public"."wineries" USING "btree" ("google_place_id");
+CREATE INDEX IF NOT EXISTS "idx_wineries_google_place_id" ON "public"."wineries" USING "btree" ("google_place_id");
 
 
 
@@ -3047,288 +3141,392 @@ CREATE OR REPLACE TRIGGER "on_auth_user_created" AFTER INSERT ON "auth"."users" 
 
 
 
-ALTER TABLE ONLY "public"."activity_ledger"
-    ADD CONSTRAINT "activity_ledger_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'activity_ledger_user_id_fkey') THEN
+        ALTER TABLE "public"."activity_ledger" ADD CONSTRAINT "activity_ledger_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."favorites"
-    ADD CONSTRAINT "favorites_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'favorites_user_id_fkey') THEN
+        ALTER TABLE "public"."favorites" ADD CONSTRAINT "favorites_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."favorites"
-    ADD CONSTRAINT "favorites_winery_id_fkey" FOREIGN KEY ("winery_id") REFERENCES "public"."wineries"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'favorites_winery_id_fkey') THEN
+        ALTER TABLE "public"."favorites" ADD CONSTRAINT "favorites_winery_id_fkey" FOREIGN KEY ("winery_id") REFERENCES "public"."wineries"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."follow_requests"
-    ADD CONSTRAINT "follow_requests_follower_id_fkey" FOREIGN KEY ("follower_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'follow_requests_follower_id_fkey') THEN
+        ALTER TABLE "public"."follow_requests" ADD CONSTRAINT "follow_requests_follower_id_fkey" FOREIGN KEY ("follower_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."follow_requests"
-    ADD CONSTRAINT "follow_requests_following_id_fkey" FOREIGN KEY ("following_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'follow_requests_following_id_fkey') THEN
+        ALTER TABLE "public"."follow_requests" ADD CONSTRAINT "follow_requests_following_id_fkey" FOREIGN KEY ("following_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."follows"
-    ADD CONSTRAINT "follows_follower_id_fkey" FOREIGN KEY ("follower_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'follows_follower_id_fkey') THEN
+        ALTER TABLE "public"."follows" ADD CONSTRAINT "follows_follower_id_fkey" FOREIGN KEY ("follower_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."follows"
-    ADD CONSTRAINT "follows_following_id_fkey" FOREIGN KEY ("following_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'follows_following_id_fkey') THEN
+        ALTER TABLE "public"."follows" ADD CONSTRAINT "follows_following_id_fkey" FOREIGN KEY ("following_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."friends"
-    ADD CONSTRAINT "friends_user1_id_fkey" FOREIGN KEY ("user1_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'friends_user1_id_fkey') THEN
+        ALTER TABLE "public"."friends" ADD CONSTRAINT "friends_user1_id_fkey" FOREIGN KEY ("user1_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."friends"
-    ADD CONSTRAINT "friends_user2_id_fkey" FOREIGN KEY ("user2_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'friends_user2_id_fkey') THEN
+        ALTER TABLE "public"."friends" ADD CONSTRAINT "friends_user2_id_fkey" FOREIGN KEY ("user2_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."profiles"
-    ADD CONSTRAINT "profiles_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_id_fkey') THEN
+        ALTER TABLE "public"."profiles" ADD CONSTRAINT "profiles_id_fkey" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."trip_members"
-    ADD CONSTRAINT "trip_members_trip_id_fkey" FOREIGN KEY ("trip_id") REFERENCES "public"."trips"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'trip_members_trip_id_fkey') THEN
+        ALTER TABLE "public"."trip_members" ADD CONSTRAINT "trip_members_trip_id_fkey" FOREIGN KEY ("trip_id") REFERENCES "public"."trips"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."trip_members"
-    ADD CONSTRAINT "trip_members_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'trip_members_user_id_fkey') THEN
+        ALTER TABLE "public"."trip_members" ADD CONSTRAINT "trip_members_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."trip_wineries"
-    ADD CONSTRAINT "trip_wineries_trip_id_fkey" FOREIGN KEY ("trip_id") REFERENCES "public"."trips"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'trip_wineries_trip_id_fkey') THEN
+        ALTER TABLE "public"."trip_wineries" ADD CONSTRAINT "trip_wineries_trip_id_fkey" FOREIGN KEY ("trip_id") REFERENCES "public"."trips"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."trip_wineries"
-    ADD CONSTRAINT "trip_wineries_winery_id_fkey" FOREIGN KEY ("winery_id") REFERENCES "public"."wineries"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'trip_wineries_winery_id_fkey') THEN
+        ALTER TABLE "public"."trip_wineries" ADD CONSTRAINT "trip_wineries_winery_id_fkey" FOREIGN KEY ("winery_id") REFERENCES "public"."wineries"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."trips"
-    ADD CONSTRAINT "trips_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'trips_user_id_fkey') THEN
+        ALTER TABLE "public"."trips" ADD CONSTRAINT "trips_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."visit_participants"
-    ADD CONSTRAINT "visit_participants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'visit_participants_user_id_fkey') THEN
+        ALTER TABLE "public"."visit_participants" ADD CONSTRAINT "visit_participants_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."visit_participants"
-    ADD CONSTRAINT "visit_participants_visit_id_fkey" FOREIGN KEY ("visit_id") REFERENCES "public"."visits"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'visit_participants_visit_id_fkey') THEN
+        ALTER TABLE "public"."visit_participants" ADD CONSTRAINT "visit_participants_visit_id_fkey" FOREIGN KEY ("visit_id") REFERENCES "public"."visits"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."visits"
-    ADD CONSTRAINT "visits_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'visits_user_id_fkey') THEN
+        ALTER TABLE "public"."visits" ADD CONSTRAINT "visits_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."visits"
-    ADD CONSTRAINT "visits_winery_id_fkey" FOREIGN KEY ("winery_id") REFERENCES "public"."wineries"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'visits_winery_id_fkey') THEN
+        ALTER TABLE "public"."visits" ADD CONSTRAINT "visits_winery_id_fkey" FOREIGN KEY ("winery_id") REFERENCES "public"."wineries"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."wishlist"
-    ADD CONSTRAINT "wishlist_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'wishlist_user_id_fkey') THEN
+        ALTER TABLE "public"."wishlist" ADD CONSTRAINT "wishlist_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."profiles"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
-ALTER TABLE ONLY "public"."wishlist"
-    ADD CONSTRAINT "wishlist_winery_id_fkey" FOREIGN KEY ("winery_id") REFERENCES "public"."wineries"("id") ON DELETE CASCADE;
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'wishlist_winery_id_fkey') THEN
+        ALTER TABLE "public"."wishlist" ADD CONSTRAINT "wishlist_winery_id_fkey" FOREIGN KEY ("winery_id") REFERENCES "public"."wineries"("id") ON DELETE CASCADE;
+    END IF;
+END $$;
 
 
 
+DROP POLICY IF EXISTS "Anyone can view wineries" ON "public"."wineries";
 CREATE POLICY "Anyone can view wineries" ON "public"."wineries" FOR SELECT USING (true);
 
 
 
+DROP POLICY IF EXISTS "Authenticated users can insert wineries" ON "public"."wineries";
 CREATE POLICY "Authenticated users can insert wineries" ON "public"."wineries" FOR INSERT TO "authenticated" WITH CHECK ((("name" IS NOT NULL) AND ("google_place_id" IS NOT NULL)));
 
 
 
 DROP POLICY IF EXISTS "Members can add wineries to a trip" ON public.trip_wineries;
+DROP POLICY IF EXISTS "Members can add wineries to a trip" ON "public"."trip_wineries";
 CREATE POLICY "Members can add wineries to a trip" ON "public"."trip_wineries" FOR INSERT WITH CHECK ("public"."is_trip_member"("trip_id"));
 
 
 
 DROP POLICY IF EXISTS "Members can remove wineries from a trip" ON public.trip_wineries;
+DROP POLICY IF EXISTS "Members can remove wineries from a trip" ON "public"."trip_wineries";
 CREATE POLICY "Members can remove wineries from a trip" ON "public"."trip_wineries" FOR DELETE USING ("public"."is_trip_member"("trip_id"));
 
 
 
 DROP POLICY IF EXISTS "Members can update wineries on a trip" ON public.trip_wineries;
+DROP POLICY IF EXISTS "Members can update wineries on a trip" ON "public"."trip_wineries";
 CREATE POLICY "Members can update wineries on a trip" ON "public"."trip_wineries" FOR UPDATE USING ("public"."is_trip_member"("trip_id"));
 
 
 
 DROP POLICY IF EXISTS "Members can view trip wineries" ON public.trip_wineries;
+DROP POLICY IF EXISTS "Members can view trip wineries" ON "public"."trip_wineries";
 CREATE POLICY "Members can view trip wineries" ON "public"."trip_wineries" FOR SELECT USING ("public"."is_trip_member"("trip_id"));
 
 
 
+DROP POLICY IF EXISTS "Owners can delete their trips" ON "public"."trips";
 CREATE POLICY "Owners can delete their trips" ON "public"."trips" FOR DELETE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
+DROP POLICY IF EXISTS "Owners can update their trips" ON "public"."trips";
 CREATE POLICY "Owners can update their trips" ON "public"."trips" FOR UPDATE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
+DROP POLICY IF EXISTS "Participants can update their own status" ON "public"."visit_participants";
 CREATE POLICY "Participants can update their own status" ON "public"."visit_participants" FOR UPDATE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
+DROP POLICY IF EXISTS "Profiles are viewable based on privacy settings" ON "public"."profiles";
 CREATE POLICY "Profiles are viewable based on privacy settings" ON "public"."profiles" FOR SELECT USING (( SELECT "public"."is_visible_to_viewer"("profiles"."id") AS "is_visible_to_viewer"));
 
 
 
+DROP POLICY IF EXISTS "System can manage activity_ledger" ON "public"."activity_ledger";
 CREATE POLICY "System can manage activity_ledger" ON "public"."activity_ledger" USING ((( SELECT ("auth"."jwt"() ->> 'role'::"text")) = 'service_role'::"text"));
 
 
 
+DROP POLICY IF EXISTS "Trip owners can add members" ON "public"."trip_members";
 CREATE POLICY "Trip owners can add members" ON "public"."trip_members" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."trips"
   WHERE (("trips"."id" = "trip_members"."trip_id") AND ("trips"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
+DROP POLICY IF EXISTS "Trip owners can remove members" ON "public"."trip_members";
 CREATE POLICY "Trip owners can remove members" ON "public"."trip_members" FOR DELETE USING ((EXISTS ( SELECT 1
    FROM "public"."trips"
   WHERE (("trips"."id" = "trip_members"."trip_id") AND ("trips"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
+DROP POLICY IF EXISTS "Trip owners can update member roles" ON "public"."trip_members";
 CREATE POLICY "Trip owners can update member roles" ON "public"."trip_members" FOR UPDATE USING ((EXISTS ( SELECT 1
    FROM "public"."trips"
   WHERE (("trips"."id" = "trip_members"."trip_id") AND ("trips"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
+DROP POLICY IF EXISTS "Users can create friend requests" ON "public"."friends";
 CREATE POLICY "Users can create friend requests" ON "public"."friends" FOR INSERT WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user1_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can delete their own favorite items" ON "public"."favorites";
 CREATE POLICY "Users can delete their own favorite items" ON "public"."favorites" FOR DELETE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can delete their own friendships" ON "public"."friends";
 CREATE POLICY "Users can delete their own friendships" ON "public"."friends" FOR DELETE USING (((( SELECT "auth"."uid"() AS "uid") = "user1_id") OR (( SELECT "auth"."uid"() AS "uid") = "user2_id")));
 
 
 
+DROP POLICY IF EXISTS "Users can delete their own visits" ON "public"."visits";
 CREATE POLICY "Users can delete their own visits" ON "public"."visits" FOR DELETE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can delete their own wishlist items" ON "public"."wishlist";
 CREATE POLICY "Users can delete their own wishlist items" ON "public"."wishlist" FOR DELETE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can follow others" ON "public"."follows";
 CREATE POLICY "Users can follow others" ON "public"."follows" FOR INSERT WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "follower_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can insert their own favorite items" ON "public"."favorites";
 CREATE POLICY "Users can insert their own favorite items" ON "public"."favorites" FOR INSERT WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can insert their own profile." ON "public"."profiles";
 CREATE POLICY "Users can insert their own profile." ON "public"."profiles" FOR INSERT WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "id"));
 
 
 
+DROP POLICY IF EXISTS "Users can insert their own trips" ON "public"."trips";
 CREATE POLICY "Users can insert their own trips" ON "public"."trips" FOR INSERT WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can insert their own visits" ON "public"."visits";
 CREATE POLICY "Users can insert their own visits" ON "public"."visits" FOR INSERT WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can insert their own wishlist items" ON "public"."wishlist";
 CREATE POLICY "Users can insert their own wishlist items" ON "public"."wishlist" FOR INSERT WITH CHECK ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can respond to friend requests" ON "public"."friends";
 CREATE POLICY "Users can respond to friend requests" ON "public"."friends" FOR UPDATE USING ((( SELECT "auth"."uid"() AS "uid") = "user2_id")) WITH CHECK (("status" = ANY (ARRAY['accepted'::"text", 'declined'::"text"])));
 
 
 
+DROP POLICY IF EXISTS "Users can unfollow" ON "public"."follows";
 CREATE POLICY "Users can unfollow" ON "public"."follows" FOR DELETE USING ((( SELECT "auth"."uid"() AS "uid") = "follower_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can update their own profile." ON "public"."profiles";
 CREATE POLICY "Users can update their own profile." ON "public"."profiles" FOR UPDATE USING ((( SELECT "auth"."uid"() AS "uid") = "id"));
 
 
 
+DROP POLICY IF EXISTS "Users can update their own visits" ON "public"."visits";
 CREATE POLICY "Users can update their own visits" ON "public"."visits" FOR UPDATE USING ((( SELECT "auth"."uid"() AS "uid") = "user_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can view activities based on privacy settings" ON "public"."activity_ledger";
 CREATE POLICY "Users can view activities based on privacy settings" ON "public"."activity_ledger" FOR SELECT USING (( SELECT "public"."is_visible_to_viewer"("activity_ledger"."user_id", ("activity_ledger"."privacy_level" = 'private'::"text")) AS "is_visible_to_viewer"));
 
 
 
+DROP POLICY IF EXISTS "Users can view favorites based on privacy settings" ON "public"."favorites";
 CREATE POLICY "Users can view favorites based on privacy settings" ON "public"."favorites" FOR SELECT USING (( SELECT "public"."is_visible_to_viewer"("favorites"."user_id", "favorites"."is_private") AS "is_visible_to_viewer"));
 
 
 
+DROP POLICY IF EXISTS "Users can view follows" ON "public"."follows";
 CREATE POLICY "Users can view follows" ON "public"."follows" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "follower_id") OR (( SELECT "auth"."uid"() AS "uid") = "following_id")));
 
 
 
 DROP POLICY IF EXISTS "Users can view members of trips they belong to" ON public.trip_members;
+DROP POLICY IF EXISTS "Users can view members of trips they belong to" ON "public"."trip_members";
 CREATE POLICY "Users can view members of trips they belong to" ON "public"."trip_members" FOR SELECT USING ("public"."is_trip_member"("trip_id"));
 
 
 
+DROP POLICY IF EXISTS "Users can view participants of visits they are part of" ON "public"."visit_participants";
 CREATE POLICY "Users can view participants of visits they are part of" ON "public"."visit_participants" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "user_id") OR (EXISTS ( SELECT 1
    FROM "public"."visits"
   WHERE (("visits"."id" = "visit_participants"."visit_id") AND ("visits"."user_id" = ( SELECT "auth"."uid"() AS "uid")))))));
 
 
 
+DROP POLICY IF EXISTS "Users can view requests they sent or received" ON "public"."follow_requests";
 CREATE POLICY "Users can view requests they sent or received" ON "public"."follow_requests" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "follower_id") OR (( SELECT "auth"."uid"() AS "uid") = "following_id")));
 
 
 
+DROP POLICY IF EXISTS "Users can view their own friendships" ON "public"."friends";
 CREATE POLICY "Users can view their own friendships" ON "public"."friends" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "user1_id") OR (( SELECT "auth"."uid"() AS "uid") = "user2_id")));
 
 
 
+DROP POLICY IF EXISTS "Users can view trips they belong to" ON "public"."trips";
 CREATE POLICY "Users can view trips they belong to" ON "public"."trips" FOR SELECT USING (((( SELECT "auth"."uid"() AS "uid") = "user_id") OR (EXISTS ( SELECT 1
    FROM "public"."trip_members"
   WHERE (("trip_members"."trip_id" = "trips"."id") AND ("trip_members"."user_id" = ( SELECT "auth"."uid"() AS "uid")))))));
 
 
 
+DROP POLICY IF EXISTS "Users can view visits based on privacy settings" ON "public"."visits";
 CREATE POLICY "Users can view visits based on privacy settings" ON "public"."visits" FOR SELECT USING (( SELECT "public"."is_visible_to_viewer"("visits"."user_id", "visits"."is_private") AS "is_visible_to_viewer"));
 
 
 
+DROP POLICY IF EXISTS "Users can view wishlist items based on privacy settings" ON "public"."wishlist";
 CREATE POLICY "Users can view wishlist items based on privacy settings" ON "public"."wishlist" FOR SELECT USING (( SELECT "public"."is_visible_to_viewer"("wishlist"."user_id", "wishlist"."is_private") AS "is_visible_to_viewer"));
 
 
 
+DROP POLICY IF EXISTS "Visit owners can remove participants" ON "public"."visit_participants";
 CREATE POLICY "Visit owners can remove participants" ON "public"."visit_participants" FOR DELETE USING ((EXISTS ( SELECT 1
    FROM "public"."visits"
   WHERE (("visits"."id" = "visit_participants"."visit_id") AND ("visits"."user_id" = ( SELECT "auth"."uid"() AS "uid"))))));
 
 
 
+DROP POLICY IF EXISTS "Visit owners can tag participants" ON "public"."visit_participants";
 CREATE POLICY "Visit owners can tag participants" ON "public"."visit_participants" FOR INSERT WITH CHECK ((EXISTS ( SELECT 1
    FROM "public"."visits"
   WHERE (("visits"."id" = "visit_participants"."visit_id") AND ("visits"."user_id" = "auth"."uid"())))));
@@ -3378,16 +3576,27 @@ ALTER TABLE "public"."wishlist" ENABLE ROW LEVEL SECURITY;
 
 ALTER PUBLICATION "supabase_realtime" OWNER TO "postgres";
 
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+          AND schemaname = 'public' 
+          AND tablename = 'friends'
+    ) THEN
+        ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."friends";
+    END IF;
+END $$;
 
-
-
-
-
-ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."friends";
-
-
-
-ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."visits";
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+          AND schemaname = 'public' 
+          AND tablename = 'visits'
+    ) THEN
+        ALTER PUBLICATION "supabase_realtime" ADD TABLE ONLY "public"."visits";
+    END IF;
+END $$;
 
 
 
@@ -6231,9 +6440,12 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('visit-photos', 'visit-photos', true)
 ON CONFLICT (id) DO NOTHING;
 
+DROP POLICY IF EXISTS "User can delete their own photos" ON "storage"."objects";
 CREATE POLICY "User can delete their own photos" ON "storage"."objects" FOR DELETE TO "authenticated" USING ((("bucket_id" = 'visit-photos'::"text") AND (("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text")));
 
+DROP POLICY IF EXISTS "User can upload a photo to a visit" ON "storage"."objects";
 CREATE POLICY "User can upload a photo to a visit" ON "storage"."objects" FOR INSERT TO "authenticated" WITH CHECK ((("bucket_id" = 'visit-photos'::"text") AND (("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text")));
 
+DROP POLICY IF EXISTS "Users can view their own and friends photos" ON "storage"."objects";
 CREATE POLICY "Users can view their own and friends photos" ON "storage"."objects" FOR SELECT TO "authenticated" USING ((("bucket_id" = 'visit-photos'::"text") AND ((("storage"."foldername"("name"))[1] = ("auth"."uid"())::"text") OR (("storage"."foldername"("name"))[1] IN ( SELECT ("get_friends_ids"."friend_id")::"text" AS "friend_id"
    FROM "public"."get_friends_ids"() "get_friends_ids"("friend_id"))))));

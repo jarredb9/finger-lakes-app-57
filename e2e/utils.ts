@@ -785,6 +785,11 @@ export class MockMapsManager {
         this.realFavoritesEnabled = true;
         this.realVisitsEnabled = true;
         this.realTripsEnabled = true;
+    } else {
+        this.realSocialEnabled = false;
+        this.realFavoritesEnabled = false;
+        this.realVisitsEnabled = false;
+        this.realTripsEnabled = false;
     }
 
     // Early return if we've already set up state for this instance and aren't forcing a reset
