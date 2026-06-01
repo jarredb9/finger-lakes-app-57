@@ -1,5 +1,7 @@
 # Implementation Plan: Places API (New) Migration (Lazy Enrichment)
 
+**EXECUTION STRATEGY:** This track follows a **Local-First** workflow. All database migrations, RPCs, and Edge Functions must be tested against the local Supabase container. Remote production updates are explicitly forbidden until the final task of Phase 5.
+
 ### Phase 0: Architectural Foundation (Cleanup & Setup) [checkpoint: 351a77b]
 - [x] Task: Create Google Maps Constants (581d5b2)
     - [ ] Define `ESSENTIALS_FIELD_MASK` (places.id, places.displayName, places.location, places.viewport, places.types, places.formattedAddress, places.photos).
@@ -20,10 +22,11 @@
     - [ ] **Validation**: Add unit test ensuring location is accessed as a property (`location.latitude`), not a function.
 
 ### Phase 1: Infrastructure & Data Schema
-- [ ] Task: Update Supabase schema for enriched winery attributes
-    - [ ] Create migration for `enrichment_tier`, `generative_summary` (jsonb), `allows_dogs`, `has_ev_charging`, etc.
-    - [ ] **Sync-Lock**: Add `last_action_timestamp` (timestamp) and `revision_id` (uuid) to the `wineries` table.
-    - [ ] **Security**: Ensure all new/updated tables have appropriate RLS policies.
+- [~] Task: Update Supabase schema for enriched winery attributes
+    - [x] Create migration for `enrichment_tier`, `generative_summary` (jsonb), `allows_dogs`, `has_ev_charging`, etc.
+    - [x] **Sync-Lock**: Add `last_action_timestamp` (timestamp) and `revision_id` (uuid) to the `wineries` table.
+    - [x] **Security**: Ensure all new/updated tables have appropriate RLS policies.
+    - [!] **PRODUCTION DEVIATION**: These changes were accidentally applied directly to production (project `jfsxclrdxmvftxacjuqf`). Task remains in progress until local migration file is created and committed to the repo for PR.
 - [ ] Task: Implement/Update RPCs with Security Hardening
     - [ ] Update `bulk_upsert_wineries` to handle new v1 fields, normalized coordinates, and revision control.
     - [ ] **MANDATORY**: All RPCs MUST use `SECURITY DEFINER` and `SET search_path = public, auth`.
@@ -83,6 +86,10 @@
 - [ ] Task: Performance & Engine Verification
     - [ ] Compare search latency and payload size between Essentials and Enriched results.
     - [ ] **MANDATORY**: Execute full E2E suite across **Chromium**, **Firefox**, and **WebKit** engines.
+- [ ] Task: Final Production Migration & Verification
+    - [ ] **PR Approval Required**: This task must only be performed after code review and merge.
+    - [ ] Apply local migrations to production project (`jfsxclrdxmvftxacjuqf`).
+    - [ ] Verify production RLS and RPC functionality via smoke tests.
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions (bf522d9)
