@@ -53,9 +53,9 @@
     - [x] **Normalization**: Enforce `Number()` conversion for `WineryDbId` on return.
 
 ## Phase 3: Frontend Refactor & Resilience
-- [ ] Task: Refactor `useWinerySearch` Hook
-    - [ ] Replace direct Google SDK calls with `supabase.functions.invoke('search-wineries')`.
-    - [ ] Wrap invocation with `invokeFunction` for PWA resilience.
+- [x] Task: Refactor `useWinerySearch` Hook (c42eb7a)
+    - [x] Replace direct Google SDK calls with `supabase.functions.invoke('search-wineries')`.
+    - [x] Wrap invocation with `invokeFunction` for PWA resilience.
     - [ ] **Coordination**: Align with `search-upgrade_20260423` to utilize the `useMapSearchTrigger` hook.
 - [ ] Task: Implement Place Autocomplete (New)
     - [ ] Migrate `PlaceAutocomplete` component to use the new V1 Autocomplete.
