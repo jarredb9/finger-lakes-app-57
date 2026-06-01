@@ -9,7 +9,7 @@
     - [ ] Define `GoogleV1Place` interface to map response fields (e.g., `displayName.text` to `name`).
 - [x] Task: Implement Centralized EnrichmentService (TDD) (d2b91bd)
     - [ ] Create a shared utility for 30-day freshness checks (used by Wineries & Regions).
-- [ ] Task: Implement Winery Adapter Pattern
+- [~] Task: Implement Winery Adapter Pattern
     - [ ] Create `lib/utils/adapters/google-v1.ts` to handle the v1 structure.
     - [ ] **MANDATORY**: Explicitly normalize to `latitude`/`longitude` and strip legacy `lat`/`lng` keys.
     - [ ] **Data Mapping**: Map `displayName.text` -> `name`, `formattedAddress` -> `address`, and `camelCase` (API) to `snake_case` (DB).
