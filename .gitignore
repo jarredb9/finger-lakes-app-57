@@ -48,6 +48,7 @@ node_modules/
 # Testing
 coverage/
 *.log
+deno.lock
 
 # PWA
 /public/sw.js
