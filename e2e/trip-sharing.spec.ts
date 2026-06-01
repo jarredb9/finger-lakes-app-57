@@ -219,7 +219,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       const detailsBtn = tripCardA.getByTestId('view-trip-details-btn');
       await expect(detailsBtn).toBeVisible({ timeout: 5000 });
       await Promise.all([
-          pageA.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' }),
+          pageA.waitForURL(/.*\/trips\/\d+/, { timeout: 10000 }),
           detailsBtn.click({ force: true })
       ]);
       
@@ -319,7 +319,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     
     // Verify user can view details (this will trigger get_trip_details RPC)
     await Promise.all([
-      page.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' }),
+      page.waitForURL(/.*\/trips\/\d+/, { timeout: 10000 }),
       page.waitForResponse(resp => resp.url().includes('rpc/get_trip_details'), { timeout: 10000 }),
       tripCard.getByTestId('view-trip-details-btn').click({ force: true })
     ]);
