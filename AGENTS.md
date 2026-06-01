@@ -17,8 +17,8 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript.
 - **Styling:** Tailwind CSS v4, shadcn/ui.
 - **State:** Zustand.
-- **Backend:** Supabase (Postgres, Auth, Edge Functions, Realtime).
-- **Testing:** Playwright (E2E), Jest (Unit).
+- **Backend:** Supabase (Postgres, Auth, Edge Functions, Realtime), Deno 2.0.
+- **Testing:** Playwright (E2E), Jest (Unit), Deno (Edge Functions).
 
 ## 3. Environment & Shell (RHEL 8)
 - **Dev Server:** `npm run dev` (http://localhost:3000).
@@ -29,6 +29,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
     - Status: `npm run db:status`
     - Check Types: `npm run db:check-types:local`
     - Update Types: `npm run db:gen-types`
+    - Test Edge Functions: `npm run test:functions` (Runs Deno tests via package.json)
 - **Playwright:** MUST use Podman: `./scripts/run-e2e-container.sh [project] [test_file]`. Use `--build` if logic changed. **Note:** Orchestrator may run surgical tests (single file) directly in main session.
 - **Microscope (SDL-MCP):** `podman run --rm -v "$(pwd):/app:Z" -w /app -e SDL_CONFIG_HOME=/app node:20-bookworm npx sdl-mcp [command]`
 

@@ -42,3 +42,4 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 ### 4. Execution Standard
 - **Execution Split:** Orchestrator handles surgical fixes (<3 files); sub-agents handle batch work (>=3 files).
 - **Conductor:** Execute ONE task at a time. Write Test -> Implement -> Pass -> Commit.
+- **Backend Testing:** Supabase Edge Functions MUST be tested using Deno (`npm run test:functions`). Functions must export their `handler` to bypass `Deno.serve` during testing.

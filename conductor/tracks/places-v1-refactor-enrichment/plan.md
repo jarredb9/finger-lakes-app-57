@@ -42,11 +42,12 @@
     - [x] Create `supabase/functions/deno.json` and `import_map.json` for environment parity.
     - [x] Install Deno and configure local testing (Unit tests & Mocks).
     - [x] Integrate Deno tests into `package.json` scripts and CI pipeline.
-- [~] Task: Implement `search-wineries` Edge Function
-    - [ ] Implement V1 `searchByText` with **Dynamic Masking**.
-    - [ ] **Normalization**: Ensure the response maps `displayName.text` to `name` and uses snake_case for DB fields.
-    - [ ] **Coordinate Standardization**: Enforce property-based `latitude`/`longitude` mapping.
-    - [ ] Implement `locationBias` and `routingSummaries` in the mask.
+- [x] Task: Implement `search-wineries` Edge Function
+    - [x] Implement V1 `searchByText` with **Dynamic Masking**.
+    - [x] **Normalization**: Ensure the response maps `displayName.text` to `name` and uses snake_case for DB fields.
+    - [x] **Coordinate Standardization**: Enforce property-based `latitude`/`longitude` mapping.
+    - [x] Implement `locationBias` and `routingSummaries` in the mask.
+    - [x] Write Deno unit tests isolating `fetch` and `Deno.env`.
 - [ ] Task: Implement `get-winery-details` Edge Function
     - [ ] Implement lazy enrichment logic (fetch from Google only if cache is >30 days old or tier is 'basic').
     - [ ] **Normalization**: Enforce `Number()` conversion for `WineryDbId` on return.
