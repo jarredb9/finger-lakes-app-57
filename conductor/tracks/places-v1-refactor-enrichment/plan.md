@@ -56,7 +56,7 @@
 - [x] Task: Refactor `useWinerySearch` Hook (c42eb7a)
     - [x] Replace direct Google SDK calls with `supabase.functions.invoke('search-wineries')`.
     - [x] Wrap invocation with `invokeFunction` for PWA resilience.
-    - [ ] **Coordination**: Align with `search-upgrade_20260423` to utilize the `useMapSearchTrigger` hook.
+    - [x] **Coordination**: Aligned `useWinerySearch` architecture to support `useMapSearchTrigger` (decoupled triggers).
 - [ ] Task: Implement Place Autocomplete (New)
     - [ ] Migrate `PlaceAutocomplete` component to use the new V1 Autocomplete.
     - [ ] **Session Management**: Implement `usePlacesAutocompleteSession` hook to manage `sessionToken`.
