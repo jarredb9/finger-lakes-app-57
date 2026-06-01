@@ -12,6 +12,7 @@ import { GoogleV1Place, Winery, GooglePlaceId } from '../../types';
  */
 export function googleV1ToWinery(place: GoogleV1Place): Winery {
   const winery: Winery = {
+    // Explicitly cast Google API ID to internal GooglePlaceId type
     id: place.id as GooglePlaceId,
     name: place.displayName.text,
     address: place.formattedAddress,

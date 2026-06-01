@@ -226,13 +226,13 @@ export interface GoogleV1Place {
     text: string;
     languageCode: string;
   };
-  reviews?: any[];
+  reviews?: unknown[];
   servesWine?: boolean;
   allowsDogs?: boolean;
   goodForChildren?: boolean;
   outdoorSeating?: boolean;
-  parkingOptions?: any;
-  accessibilityOptions?: any;
+  parkingOptions?: Record<string, unknown>;
+  accessibilityOptions?: Record<string, unknown>;
 }
 
 export interface TripMember {
