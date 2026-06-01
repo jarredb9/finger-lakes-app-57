@@ -955,9 +955,7 @@ export type Database = {
           is_favorite: boolean
           is_favorite_private: boolean
           last_enriched_at: string
-          lat: number
           latitude: number
-          lng: number
           longitude: number
           name: string
           neighborhood_summary: Json

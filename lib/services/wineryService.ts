@@ -148,5 +148,66 @@ export const WineryService = {
         success: data.success, 
         isPrivate: data.is_private 
     };
+  },
+  /**
+   * Saves or updates a fully enriched winery in the database.
+   */
+  upsertEnrichedWinery: async (winery: Winery): Promise<WineryDbId | null> => {
+    const isE2E = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true';
+    if (isE2E && shouldSkipRealSync()) {
+        const mockId = 999000 + Math.floor(Math.random() * 1000);
+        return mockId as WineryDbId;
+    }
+
+    const supabase = createClient();
+    
+    // Prepare DB JSON (snake_case)
+    const dbData = {
+      google_place_id: winery.id,
+      name: winery.name,
+      address: winery.address,
+      latitude: winery.latitude,
+      longitude: winery.longitude,
+      website: winery.website || null,
+      google_rating: winery.rating || null,
+      enrichment_tier: winery.enrichment_tier || 'enriched',
+      last_enriched_at: winery.last_enriched_at || new Date().toISOString(),
+      generative_summary: winery.generative_summary ? { overview: { text: winery.generative_summary } } : null,
+      neighborhood_summary: winery.neighborhood_summary ? { overview: { text: winery.neighborhood_summary } } : null,
+      allows_dogs: winery.allows_dogs ?? null,
+      has_ev_charging: winery.has_ev_charging ?? null,
+      serves_wine: winery.serves_wine ?? null,
+      good_for_children: winery.good_for_children ?? null,
+      outdoor_seating: winery.outdoor_seating ?? null,
+    };
+
+    try {
+      const { error } = await supabase.rpc('bulk_upsert_wineries', {
+        p_wineries_data: [dbData]
+      });
+
+      if (error) {
+        console.error("[WineryService] bulk_upsert_wineries failed:", error);
+        return null;
+      }
+
+      // Now query the DB to get the integer ID that was assigned
+      const { data, error: selectError } = await supabase
+        .from('wineries')
+        .select('id')
+        .eq('google_place_id', winery.id)
+        .single();
+
+      if (selectError || !data) {
+        console.error("[WineryService] Failed to retrieve dbId after upsert:", selectError);
+        return null;
+      }
+
+      return Number(data.id) as WineryDbId;
+    } catch (err) {
+      console.error("[WineryService] upsertEnrichedWinery Exception:", err);
+      return null;
+    }
   }
 };
+

@@ -54,6 +54,7 @@ export function AppSidebar({
     handleManualSearchArea,
     filter,
     handleFilterChange,
+    handlePlaceSelect,
   } = useWineryMapContext();
 
   const { setVisitHistoryModalOpen, isHydrated } = useUIStore();
@@ -229,6 +230,7 @@ export function AppSidebar({
                 hitApiLimit={hitApiLimit}
                 filter={filter}
                 handleFilterChange={handleFilterChange}
+                handlePlaceSelect={handlePlaceSelect}
               />
 
               <Separator />
