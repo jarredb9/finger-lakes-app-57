@@ -57,10 +57,10 @@
     - [x] Replace direct Google SDK calls with `supabase.functions.invoke('search-wineries')`.
     - [x] Wrap invocation with `invokeFunction` for PWA resilience.
     - [x] **Coordination**: Aligned `useWinerySearch` architecture to support `useMapSearchTrigger` (decoupled triggers).
-- [ ] Task: Implement Place Autocomplete (New)
-    - [ ] Migrate `PlaceAutocomplete` component to use the new V1 Autocomplete.
-    - [ ] **Session Management**: Implement `usePlacesAutocompleteSession` hook to manage `sessionToken`.
-    - [ ] **Cost Optimization**: Ensure the session is terminated with a full `ENRICHMENT_FIELD_MASK` fetch.
+- [x] Task: Implement Place Autocomplete (New) (472b860)
+    - [x] Migrate `PlaceAutocomplete` component to use the new V1 Autocomplete.
+    - [x] **Session Management**: Implement `usePlacesAutocompleteSession` hook to manage `sessionToken`.
+    - [x] **Cost Optimization**: Ensure the session is terminated with a full `ENRICHMENT_FIELD_MASK` fetch.
 
 ## Phase 4: UI Enrichment & AI Insight
 - [ ] Task: Implement `WineryPhotoHero` & Visuals
