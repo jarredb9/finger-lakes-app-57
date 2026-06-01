@@ -1,6 +1,6 @@
 # Implementation Plan: Places API (New) Migration (Lazy Enrichment)
 
-### Phase 0: Architectural Foundation (Cleanup & Setup)
+### Phase 0: Architectural Foundation (Cleanup & Setup) [checkpoint: 351a77b]
 - [x] Task: Create Google Maps Constants (581d5b2)
     - [ ] Define `ESSENTIALS_FIELD_MASK` (places.id, places.displayName, places.location, places.viewport, places.types, places.formattedAddress, places.photos).
     - [ ] Define `ENRICHMENT_FIELD_MASK` (places.generativeSummary, places.neighborhoodSummary, places.editorialSummary, places.servesWine, places.allowsDogs, places.goodForChildren, places.outdoorSeating, places.reviews, places.parkingOptions, places.accessibilityOptions).
