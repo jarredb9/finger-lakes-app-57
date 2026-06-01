@@ -7,7 +7,7 @@
 - [x] Task: Update Type Definitions for Enrichment & V1 (32bf99c)
     - [ ] Add `enrichment_tier` and `last_enriched_at` to `Winery` interface in `lib/types.ts`.
     - [ ] Define `GoogleV1Place` interface to map response fields (e.g., `displayName.text` to `name`).
-- [ ] Task: Implement Centralized `EnrichmentService` (TDD)
+- [~] Task: Implement Centralized EnrichmentService (TDD)
     - [ ] Create a shared utility for 30-day freshness checks (used by Wineries & Regions).
 - [ ] Task: Implement Winery Adapter Pattern
     - [ ] Create `lib/utils/adapters/google-v1.ts` to handle the v1 structure.
