@@ -3,7 +3,7 @@
 | ID | Name | Status | Link |
 | :--- | :--- | :--- | :--- |
 | **pwa-resilience_20260423** | PWA Resilience & Offline Integrity | [x] Complete | [Plan](./archive/pwa-resilience_20260423/plan.md) |
-| **places-api-migration_20260420** | Places API (New) Migration | ⚪ Priority 2 | [Plan](./tracks/places-api-migration_20260420/plan.md) |
+| **places-v1-refactor-enrichment** | Places API v1 Refactor & Enrichment | [~] In Progress | [Plan](./tracks/places-v1-refactor-enrichment/plan.md) |
 | **advanced-markers-region-guides_20260421** | Global Advanced Markers & Region Guides | ⚪ Priority 3 | [Plan](./tracks/advanced-markers-region-guides_20260421/plan.md) |
 | **search-upgrade_20260423** | Search Function Upgrade & Mobile UX | ⚪ Priority 4 | [Plan](./tracks/search-upgrade_20260423/plan.md) |
 | **store-decoupling-component-purity** | Pattern Isolation & Sync Control | [x] Complete | [Plan](./archive/store-decoupling-component-purity/plan.md) |
