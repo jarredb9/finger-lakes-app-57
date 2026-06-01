@@ -40,16 +40,15 @@
     - [ ] Update map filters to utilize the new boolean attributes from the database.
 
 ## Phase 5: DevSecOps & Migration Stability
-- [ ] Task: Implement "Gold Standard" Migration Verification
-    - [ ] Update `.github/workflows/ci.yml` to include `supabase db diff --linked` in the `build` or `deploy` job.
-    - [ ] Add `supabase migration list` check to verify history parity.
+- [ ] Task: Implement Local "Pre-Push Safety Audit"
+    - [ ] Create `scripts/db-audit.sh` to run `db lint`, `gen types --local` check, and `db diff --linked` locally.
+    - [ ] Add `db:audit` script to `package.json`.
+    - [ ] Update `.husky/pre-commit` to include `npm run db:lint` for any staged files in `supabase/migrations/`.
+- [ ] Task: Implement "Gold Standard" CI Verification
+    - [ ] Update `.github/workflows/ci.yml` to include `supabase db diff --linked` and `supabase migration list`.
     - [ ] Ensure the CI fails if any structural diff is detected (Zero-Drift Policy).
-- [ ] Task: Enable Automated Migration Linting
-    - [ ] Add `supabase db lint` step to the CI `build` job.
-- [ ] Task: Implement Database Type Verification
-    - [ ] Add a step to CI to run `supabase gen types --local` and compare against `lib/database.types.ts`.
 - [ ] Task: Document Migration "Golden Rules"
-    - [ ] Create `docs/architecture/MIGRATION_GUIDE.md` detailing the squash-and-repair protocol and explaining the `db diff --linked` safety net.
+    - [ ] Create `docs/architecture/MIGRATION_GUIDE.md` detailing the squash-and-repair protocol and explaining how to use the local `db:audit` script.
 
 ## Phase 6: Validation & Compliance
 - [ ] Task: Update Mocks & Intercepts
