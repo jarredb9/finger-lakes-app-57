@@ -4,7 +4,7 @@
 - [x] Task: Create Google Maps Constants (581d5b2)
     - [ ] Define `ESSENTIALS_FIELD_MASK` (places.id, places.displayName, places.location, places.viewport, places.types, places.formattedAddress, places.photos).
     - [ ] Define `ENRICHMENT_FIELD_MASK` (places.generativeSummary, places.neighborhoodSummary, places.editorialSummary, places.servesWine, places.allowsDogs, places.goodForChildren, places.outdoorSeating, places.reviews, places.parkingOptions, places.accessibilityOptions).
-- [ ] Task: Update Type Definitions for Enrichment & V1
+- [~] Task: Update Type Definitions for Enrichment & V1
     - [ ] Add `enrichment_tier` and `last_enriched_at` to `Winery` interface in `lib/types.ts`.
     - [ ] Define `GoogleV1Place` interface to map response fields (e.g., `displayName.text` to `name`).
 - [ ] Task: Implement Centralized `EnrichmentService` (TDD)
