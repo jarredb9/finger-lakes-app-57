@@ -16,11 +16,14 @@ This track addresses the technical debt and architectural drift in the current G
     *   Use cost-optimized masks: **Essentials** for discovery, **Atmosphere/Pro** for enriched details.
 4.  **AI Integration:**
     *   Integrate Gemini-powered summaries into the winery details view with "Summarized with Gemini" disclosure.
-5.  **DevSecOps & Migration Stability (Safety Mandate):**
-    *   **Drift Detection:** Implement automated `supabase db push --dry-run` in CI to detect desynchronization between migration files and production schema BEFORE deployment.
+5. **DevSecOps & Migration Stability (Safety Mandate):**
+    *   **Structural Audit (Gold Standard):** Implement `supabase db diff --linked` in CI. This spins up a shadow database to compare the *actual schema result* of local migrations against the live production database. This is the only way to detect "Structural Drift" caused by squashing or manual dashboard changes.
+    *   **History Auditing:** Use `supabase migration list` in CI to ensure the local file list perfectly matches the remote migration history.
+    *   **Drift Detection:** Use `supabase db push --dry-run` as a final sanity check for pending files.
     *   **Migration Linting:** Enable `supabase db lint` in CI to catch syntax errors and RLS violations.
     *   **Type Parity:** Enforce `supabase gen types` verification in CI to ensure the frontend `database.types.ts` is in sync with the current migrations.
     *   **Baseline Protocol:** Document and enforce the "No Squash After Production" rule, using `supabase migration repair` for history corrections.
+
 
 ## Technical Mandates
 - **Coordinate Standardization:** Property-based access only (`location.latitude`). No `.lat()` calls.
