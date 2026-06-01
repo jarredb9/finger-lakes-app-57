@@ -38,7 +38,7 @@
     - [x] Create `docs/architecture/MIGRATION_GUIDE.md` detailing the squash-and-repair protocol and explaining how to use the local `db:audit` script.
 
 ## Phase 2: Edge Function Migration & Testing Infrastructure (Backend)
-- [x] Task: Setup Deno & Edge Function Testing Infrastructure (passed)
+- [x] Task: Setup Deno & Edge Function Testing Infrastructure (3f6b707)
     - [x] Create `supabase/functions/deno.json` and `import_map.json` for environment parity.
     - [x] Install Deno and configure local testing (Unit tests & Mocks).
     - [x] Integrate Deno tests into `package.json` scripts and CI pipeline.
