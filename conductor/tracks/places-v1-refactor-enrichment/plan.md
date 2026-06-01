@@ -20,11 +20,11 @@
     - [x] Add boolean flags: `allows_dogs`, `good_for_children`, `outdoor_seating`, `has_ev_charging`, `serves_wine`.
     - [x] Add logistics: `parking_options` (jsonb), `accessibility_flags` (jsonb).
     - [x] **Sync-Lock**: Add `last_action_timestamp` (timestamptz) and `revision_id` (uuid) to `wineries`.
-- [ ] Task: Update/Harden Database RPCs
-    - [ ] Update `bulk_upsert_wineries` and `get_wineries_in_bounds` to handle the new v1 enriched fields and revision control.
-    - [ ] **Mandate**: Apply `SECURITY DEFINER` and `SET search_path = public, auth`.
-- [ ] Task: Update Type Definitions (Database)
-    - [ ] Update `lib/database.types.ts` (via `gen types`) to reflect the new schema.
+- [x] Task: Update/Harden Database RPCs
+    - [x] Update `bulk_upsert_wineries` and `get_wineries_in_bounds` to handle the new v1 enriched fields and revision control.
+    - [x] **Mandate**: Apply `SECURITY DEFINER` and `SET search_path = public, auth`.
+- [x] Task: Update Type Definitions (Database)
+    - [x] Update `lib/database.types.ts` (via `gen types`) to reflect the new schema.
 
 ## Phase 1: DevSecOps & Migration Stability (IMMEDIATE PRIORITY)
 - [ ] Task: Implement Local "Pre-Push Safety Audit"

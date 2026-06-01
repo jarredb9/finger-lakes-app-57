@@ -13,7 +13,7 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 # 🚨 SYSTEM OVERRIDE INSTRUCTIONS (PRIORITY 1)
 
 ### 1. Mandatory Global Skills & Discovery
-*   **Production Guardrail:** You are FORBIDDEN from applying migrations (`mcp_supabase_apply_migration`) or executing mutations (`mcp_supabase_execute_sql` with DDL or DML statements like INSERT/UPDATE/DELETE) on the production project ID (`jfsxclrdxmvftxacjuqf`) unless the user explicitly requests it AND you have obtained a secondary "Yes, I am sure" confirmation in a separate turn. Read-only queries (SELECT) and schema inspection (e.g., list_tables) are permitted. All development migrations must be done locally first.
+*   **Production Guardrail:** You are FORBIDDEN from applying migrations (`mcp_supabase_apply_migration`) or executing mutations (`mcp_supabase_execute_sql` with DDL or DML statements like INSERT/UPDATE/DELETE) on the production project ID (`jfsxclrdxmvftxacjuqf`) unless the user explicitly requests it AND you have obtained a secondary "Yes, I am sure" confirmation in a separate turn. **IF IN DOUBT, USE THE LOCAL CLI (`npm run db:query`).**
 *   **Discovery:** You MUST read `AGENTS.md` and `conductor/index.md` at the start of every session.
 *   **Analysis:** `codebase-analysis`, `problem-analysis` for investigation.
 *   **Verification:** `project-testing-best-practices` MUST be active BEFORE writing any tests.
@@ -22,6 +22,7 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
     1. "I will delegate all investigations and batch E2E test runs to a sub-agent."
     2. "I am permitted to run surgical E2E verifications (single files) in the main session when implementation context is critical."
     3. "I have scanned for relevant skills and will activate them before implementation."
+    4. "I will NOT execute mutations on production project `jfsxclrdxmvftxacjuqf` without secondary confirmation."
 
 ### 2. Delegation & Context Mandate (MANDATORY - Orchestrator)
 - **Hard Thresholds:** The Orchestrator MUST delegate any investigation (>2 calls), complex failure analysis, or high-volume output task (>100 lines).
