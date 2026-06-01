@@ -48,9 +48,9 @@
     - [x] **Coordinate Standardization**: Enforce property-based `latitude`/`longitude` mapping.
     - [x] Implement `locationBias` and `routingSummaries` in the mask.
     - [x] Write Deno unit tests isolating `fetch` and `Deno.env`.
-- [ ] Task: Implement `get-winery-details` Edge Function
-    - [ ] Implement lazy enrichment logic (fetch from Google only if cache is >30 days old or tier is 'basic').
-    - [ ] **Normalization**: Enforce `Number()` conversion for `WineryDbId` on return.
+- [x] Task: Implement `get-winery-details` Edge Function (81746ee)
+    - [x] Implement lazy enrichment logic (fetch from Google only if cache is >30 days old or tier is 'basic').
+    - [x] **Normalization**: Enforce `Number()` conversion for `WineryDbId` on return.
 
 ## Phase 3: Frontend Refactor & Resilience
 - [ ] Task: Refactor `useWinerySearch` Hook
