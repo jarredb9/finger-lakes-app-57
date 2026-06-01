@@ -1,36 +1,10 @@
-import { serve } from "std/http/server.ts"
 import { createClient } from "@supabase/supabase-js"
+import { ESSENTIALS_FIELD_MASK, ENRICHMENT_FIELD_MASK } from "../_shared/google-maps.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-// Field Masks
-const ESSENTIALS_FIELD_MASK = [
-  'places.id',
-  'places.displayName',
-  'places.location',
-  'places.viewport',
-  'places.types',
-  'places.formattedAddress',
-  'places.photos',
-  'places.routingSummaries', // Pro Enhancement: ETAs
-].join(',');
-
-const ENRICHMENT_FIELD_MASK = [
-  ...ESSENTIALS_FIELD_MASK.split(','),
-  'places.generativeSummary',
-  'places.neighborhoodSummary',
-  'places.editorialSummary',
-  'places.servesWine',
-  'places.allowsDogs',
-  'places.goodForChildren',
-  'places.outdoorSeating',
-  'places.reviews',
-  'places.parkingOptions',
-  'places.accessibilityOptions',
-].join(',');
 
 export const handler = async (req: Request): Promise<Response> => {
   if (req.method === 'OPTIONS') {
@@ -102,7 +76,7 @@ export const handler = async (req: Request): Promise<Response> => {
         latitude: w.latitude,
         longitude: w.longitude,
         website: w.website,
-        rating: w.rating,
+        google_rating: w.rating,
         enrichment_tier: w.enrichment_tier,
         last_enriched_at: w.last_enriched_at,
         generative_summary: w.generative_summary ? { overview: { text: w.generative_summary } } : null,
@@ -114,29 +88,26 @@ export const handler = async (req: Request): Promise<Response> => {
         outdoor_seating: w.outdoor_seating,
       }));
 
-      // Background task IIFE MUST have preceding semicolon if previous line doesn't
-      (async () => {
-        try {
-          const { error } = await supabase.rpc('bulk_upsert_wineries', { wineries_data: dbWineries });
-          if (error) console.error('Error persisting wineries:', error);
-        } catch (e) {
-          console.error('Background persistence failed:', e);
-        }
-      })();
+      // Use bulk upsert RPC
+      const { error: upsertError } = await supabase.rpc('bulk_upsert_wineries', {
+        wineries_data: dbWineries
+      });
+
+      if (upsertError) {
+        console.error('Background persistence failed:', upsertError);
+      }
     }
 
-    return new Response(
-      JSON.stringify(normalizedWineries),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error: any) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    return new Response(JSON.stringify(normalizedWineries), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (err: any) {
+    const error = err as Error;
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
-}
+};
 
-if (import.meta.main) {
-  serve(handler)
-}
+Deno.serve(handler);
