@@ -140,6 +140,9 @@
     "*.{js,jsx,ts,tsx}": [
       "eslint --fix",
       "bash -c 'npm run type-check'"
+    ],
+    "supabase/migrations/*.sql": [
+      "bash -c 'npm run db:lint'"
     ]
   }
 }

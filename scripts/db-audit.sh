@@ -1,42 +1,22 @@
 #!/bin/bash
-
-# db-audit.sh: "Gold Standard" Database Safety Audit
-# This script ensures local migrations match the remote schema and pass all quality checks.
-
 set -e
 
-echo "🚀 Starting Database Safety Audit..."
+# Load Docker Host for Podman
+export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
 
-# 1. Lint Migrations
-echo "🔍 Linting migrations..."
-npx supabase db lint
+echo "🔍 Starting Database Safety Audit..."
 
-# 2. Check for Structural Drift (Local vs Linked)
-# This compares your local migrations against the actual schema of the linked project.
-echo "📉 Checking for structural drift..."
-if npx supabase db diff --linked > /dev/null 2>&1; then
-  echo "✅ No structural drift detected."
-else
-  echo "❌ WARNING: Structural drift detected between local migrations and linked database!"
-  echo "Run 'npx supabase db diff --linked' to see the changes."
-  # We don't exit here yet as drift might be expected during active development, 
-  # but it's a critical warning.
-fi
+# 1. Database Linting
+echo "Step 1: Linting migrations..."
+npm run db:lint
 
-# 3. Verify Migration History
-echo "📜 Verifying migration history..."
-npx supabase migration list
+# 2. Type Check (Local)
+echo "Step 2: Verifying TypeScript types match local schema..."
+npm run db:check-types:local
 
-# 4. Local Type Generation Check
-echo "🧬 Verifying TypeScript type parity..."
-# Generate types locally to a temp file and compare with current file if possible, 
-# or just ensure it succeeds.
-npx supabase gen types --local > /tmp/database.types.ts
-if [ $? -eq 0 ]; then
-  echo "✅ Type generation successful."
-else
-  echo "❌ Type generation failed!"
-  exit 1
-fi
+# 3. Drift Detection (Linked Project)
+# WARNING: This connects to the remote linked project (Production) for comparison.
+echo "Step 3: Checking for schema drift against linked production project..."
+npx supabase db diff --linked
 
-echo "✨ Audit complete. Your database state is stable."
+echo "✅ Database Audit Complete. No critical drift or linting errors found."

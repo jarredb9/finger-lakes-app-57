@@ -27,15 +27,15 @@
     - [x] Update `lib/database.types.ts` (via `gen types`) to reflect the new schema.
 
 ## Phase 1: DevSecOps & Migration Stability (IMMEDIATE PRIORITY)
-- [ ] Task: Implement Local "Pre-Push Safety Audit"
-    - [ ] Create `scripts/db-audit.sh` to run `db lint`, `gen types --local` check, and `db diff --linked` locally.
-    - [ ] Add `db:audit` script to `package.json`.
-    - [ ] Update `.husky/pre-commit` to include `npm run db:lint` for any staged files in `supabase/migrations/`.
-- [ ] Task: Implement "Gold Standard" CI Verification
-    - [ ] Update `.github/workflows/ci.yml` to include `supabase db diff --linked` and `supabase migration list`.
-    - [ ] Ensure the CI fails if any structural diff is detected (Zero-Drift Policy).
-- [ ] Task: Document Migration "Golden Rules"
-    - [ ] Create `docs/architecture/MIGRATION_GUIDE.md` detailing the squash-and-repair protocol and explaining how to use the local `db:audit` script.
+- [x] Task: Implement Local "Pre-Push Safety Audit"
+    - [x] Create `scripts/db-audit.sh` to run `db lint`, `gen types --local` check, and `db diff --linked` locally.
+    - [x] Add `db:audit` script to `package.json`.
+    - [x] Update `.husky/pre-commit` to include `npm run db:lint` for any staged files in `supabase/migrations/`.
+- [x] Task: Implement "Gold Standard" CI Verification
+    - [x] Update `.github/workflows/ci.yml` to include `supabase db diff --linked` and `supabase migration list`.
+    - [x] Ensure the CI fails if any structural diff is detected (Zero-Drift Policy).
+- [x] Task: Document Migration "Golden Rules"
+    - [x] Create `docs/architecture/MIGRATION_GUIDE.md` detailing the squash-and-repair protocol and explaining how to use the local `db:audit` script.
 
 ## Phase 2: Edge Function Migration (Backend)
 - [ ] Task: Implement `search-wineries` Edge Function

@@ -53,9 +53,17 @@ jobs:
           npm run db:lint
           npm run db:check-types:ci
 
-      # - name: Migration Safety Check (Remote Drift)
-      #   run: supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}" --dry-run
-      #   if: github.event_name == 'pull_request'
+      - name: Gold Standard Migration Check (Zero-Drift Policy)
+        run: |
+          supabase migration list --db-url "${{ secrets.SUPABASE_DB_URL }}"
+          # Fail if there is any schema drift between local migrations and the remote database
+          DIFF=$(supabase db diff --db-url "${{ secrets.SUPABASE_DB_URL }}")
+          if [ -n "$DIFF" ]; then
+            echo "❌ ERROR: Schema drift detected between local migrations and remote database!"
+            echo "$DIFF"
+            exit 1
+          fi
+        if: github.event_name == 'pull_request'
 
       - name: Run Jest tests
         run: npm run test
