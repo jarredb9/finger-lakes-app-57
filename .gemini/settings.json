@@ -9,7 +9,7 @@
     "loadFromIncludeDirectories": true
   },
   "mcpServers": {
-    "google-maps-platform-code-assist": {
+    "google-maps-platform": {
       "command": "npx",
       "args": [
         "-y",

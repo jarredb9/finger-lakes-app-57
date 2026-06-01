@@ -13,6 +13,7 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 # 🚨 SYSTEM OVERRIDE INSTRUCTIONS (PRIORITY 1)
 
 ### 1. Mandatory Global Skills & Discovery
+*   **MCP Preference (MANDATORY):** You MUST prioritize the **Supabase MCP Server** (`mcp_supabase_*` tools) for ALL interactions with the hosted Supabase environment (listing projects, migrations, SQL execution, logs). Only use the local CLI for purely local operations (e.g., `db start`, `deno test`).
 *   **Production Guardrail:** You are FORBIDDEN from applying migrations (`mcp_supabase_apply_migration`) or executing mutations (`mcp_supabase_execute_sql` with DDL or DML statements like INSERT/UPDATE/DELETE) on the production project ID (`jfsxclrdxmvftxacjuqf`) unless the user explicitly requests it AND you have obtained a secondary "Yes, I am sure" confirmation in a separate turn. **IF IN DOUBT, USE THE LOCAL CLI (`npm run db:query`).**
 *   **Discovery:** You MUST read `AGENTS.md` and `conductor/index.md` at the start of every session.
 *   **Analysis:** `codebase-analysis`, `problem-analysis` for investigation.
@@ -23,6 +24,7 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
     2. "I am permitted to run surgical E2E verifications (single files) in the main session when implementation context is critical."
     3. "I have scanned for relevant skills and will activate them before implementation."
     4. "I will NOT execute mutations on production project `jfsxclrdxmvftxacjuqf` without secondary confirmation."
+    5. "I will prioritize the Supabase MCP tools over the local CLI for all hosted environment interactions."
 
 ### 2. Delegation & Context Mandate (MANDATORY - Orchestrator)
 - **Hard Thresholds:** The Orchestrator MUST delegate any investigation (>2 calls), complex failure analysis, or high-volume output task (>100 lines).
