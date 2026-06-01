@@ -60,10 +60,10 @@ test.describe('SyncService Redirection Race', () => {
     await page.fill('input[name="password"]', user.password);
     
     const loginStartTime = Date.now();
-    await page.click('button[type="submit"]');
-    
-    // It should redirect back to the trip page
-    await page.waitForURL(new RegExp(`.*\\/trips\\/${tripId}`));
+    await Promise.all([
+        page.waitForURL(new RegExp(`.*\\/trips\\/${tripId}`)),
+        page.click('button[type="submit"]')
+    ]);
     const loginEndTime = Date.now();
     
     console.log(`Login and redirect back took ${loginEndTime - loginStartTime}ms`);

@@ -589,10 +589,10 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
     
     const addBtn = sidebarA.locator('[data-testid="add-friend-btn"]');
     await expect(addBtn).toBeEnabled({ timeout: 10000 });
-    await addBtn.click({ force: true });
-    
-    // Non-fatal response wait for sync
-    await pageA.waitForResponse(resp => resp.url().includes('send_friend_request'), { timeout: 10000 }).catch(() => null);
+    await Promise.all([
+        pageA.waitForResponse(resp => resp.url().includes('send_friend_request'), { timeout: 10000 }).catch(() => null),
+        addBtn.click({ force: true })
+    ]);
 
     // 2. User B Accepts Request
     await expect(async () => {
@@ -628,8 +628,10 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
         const requestRow = pageB.locator(rowId).first();
         if (await requestRow.isVisible()) {
             const acceptBtn = requestRow.locator('[data-testid="accept-request-btn"]');
-            await acceptBtn.click({ force: true });
-            await pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request'), { timeout: 10000 }).catch(() => null);
+            await Promise.all([
+                pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request'), { timeout: 10000 }).catch(() => null),
+                acceptBtn.click({ force: true })
+            ]);
             await refreshFriendsStore(pageB);
         }
 
