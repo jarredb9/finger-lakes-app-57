@@ -18,6 +18,7 @@
     "type-check": "npx tsc -p tsconfig.json --noEmit",
     "test:e2e": "npx playwright test",
     "test:e2e:real": "E2E_REAL_DATA=true npx playwright test",
+    "test:functions": "/home/byrnesjd4821/.deno/bin/deno test --allow-all --import-map ./supabase/functions/import_map.json supabase/functions/",
     "db:start": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase start",
     "db:stop": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase stop",
     "db:status": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase status",

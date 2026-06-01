@@ -1,13 +1,64 @@
-import { assertEquals } from \"https://deno.land/std@0.168.0/testing/asserts.ts\";
+import { assertEquals } from "std/testing/asserts.ts";
+import { handler } from "./index.ts";
+import { mockGooglePlacesResponse, mockDenoEnv } from "../_shared/testing-helpers.ts";
 
-Deno.test(\"search-wineries: returns 501 Not Implemented\", async () => {
-  const req = new Request(\"http://localhost/search-wineries\", {
-    method: \"POST\",
-    headers: { \"Content-Type\": \"application/json\" },
-    body: JSON.stringify({ query: \"test winery\" }),
+Deno.test("search-wineries handler - successful search", async () => {
+  const envStub = mockDenoEnv({
+    GOOGLE_MAPS_API_KEY: "test-key",
+    SUPABASE_URL: "https://test.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "test-role-key",
   });
-  
-  // We'll import the handler once it's created, or just test the response if we serve it.
-  // For now, this is a placeholder to verify the test runner works.
-  assertEquals(1, 1);
+
+  const googleMock = mockGooglePlacesResponse({
+    places: [
+      {
+        id: "ChIJtest",
+        displayName: { text: "Test Winery" },
+        formattedAddress: "123 Test St",
+        location: { latitude: 42.1, longitude: -76.1 },
+        types: ["winery"],
+      },
+    ],
+  });
+
+  try {
+    const req = new Request("https://test.com", {
+      method: "POST",
+      body: JSON.stringify({ query: "test winery" }),
+    });
+
+    const res = await handler(req);
+    const data = await res.json();
+
+    if (res.status !== 200) {
+      console.log("Error response data:", data);
+    }
+
+    assertEquals(res.status, 200);
+    assertEquals(data.length, 1);
+    assertEquals(data[0].name, "Test Winery");
+    assertEquals(data[0].enrichment_tier, "basic");
+  } finally {
+    envStub.restore();
+    googleMock.restore();
+  }
+});
+
+Deno.test("search-wineries handler - missing API key", async () => {
+  const envStub = mockDenoEnv({});
+
+  try {
+    const req = new Request("https://test.com", {
+      method: "POST",
+      body: JSON.stringify({ query: "test winery" }),
+    });
+
+    const res = await handler(req);
+    const data = await res.json();
+
+    assertEquals(res.status, 400);
+    assertEquals(data.error, "Missing GOOGLE_MAPS_API_KEY");
+  } finally {
+    envStub.restore();
+  }
 });
