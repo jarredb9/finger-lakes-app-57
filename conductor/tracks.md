@@ -13,7 +13,7 @@
 
 ---
 
-## 1. [Priority 2] Places API (New) Migration & Enhancement
+## 1. [~] [Priority 2] Places API (New) Migration & Enhancement
 Modernize Google Places API interactions and AI enrichment.
 *Link: [./tracks/places-api-migration_20260420/](./tracks/places-api-migration_20260420/)*
 
