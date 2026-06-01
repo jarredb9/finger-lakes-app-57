@@ -26,7 +26,7 @@ export function googleV1ToWinery(place: GoogleV1Place): Winery {
     generative_summary: place.generativeSummary?.overview?.text || null,
     neighborhood_summary: place.neighborhoodSummary?.overview?.text || null,
     allows_dogs: place.allowsDogs ?? null,
-    has_ev_charging: null, // To be implemented when we find the correct Google field
+    has_ev_charging: (place.parkingOptions as any)?.hasEvChargingStations ?? null,
     serves_wine: place.servesWine ?? null,
     good_for_children: place.goodForChildren ?? null,
     outdoor_seating: place.outdoorSeating ?? null,
