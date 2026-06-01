@@ -13,6 +13,7 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 # 🚨 SYSTEM OVERRIDE INSTRUCTIONS (PRIORITY 1)
 
 ### 1. Mandatory Global Skills & Discovery
+*   **Production Guardrail:** You are FORBIDDEN from applying migrations (`mcp_supabase_apply_migration`) or executing mutations (`mcp_supabase_execute_sql` with DDL or DML statements like INSERT/UPDATE/DELETE) on the production project ID (`jfsxclrdxmvftxacjuqf`) unless the user explicitly requests it AND you have obtained a secondary "Yes, I am sure" confirmation in a separate turn. Read-only queries (SELECT) and schema inspection (e.g., list_tables) are permitted. All development migrations must be done locally first.
 *   **Discovery:** You MUST read `AGENTS.md` and `conductor/index.md` at the start of every session.
 *   **Analysis:** `codebase-analysis`, `problem-analysis` for investigation.
 *   **Verification:** `project-testing-best-practices` MUST be active BEFORE writing any tests.

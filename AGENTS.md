@@ -72,7 +72,9 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **E2E Spec:** `e2e/trip-flow.spec.ts`
 
 ## 8. Boundaries & Constraints
-- **NEVER** modify `.git`, `.github`, or `.next` directories.
+- **NEVER** apply schema changes, migrations, or database mutations (DDL/DML like INSERT, UPDATE, DELETE) directly to the remote Supabase project (`jfsxclrdxmvftxacjuqf`) without an explicit user directive AND a secondary confirmation turn. Read-only queries (SELECT) are permitted for research.
+- **NEVER** modify production data or configuration unless specifically requested as a separate, confirmed action.
+- **NEVER** modify .git, .github, or .next directories.
 - **NEVER** log/print secrets or API keys.
 - **NEVER** commit unless explicitly requested by the user.
 - **NEVER** use `robustClick` or manual event dispatching in tests.
