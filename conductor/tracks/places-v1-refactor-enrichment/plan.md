@@ -37,8 +37,12 @@
 - [x] Task: Document Migration "Golden Rules"
     - [x] Create `docs/architecture/MIGRATION_GUIDE.md` detailing the squash-and-repair protocol and explaining how to use the local `db:audit` script.
 
-## Phase 2: Edge Function Migration (Backend)
-- [ ] Task: Implement `search-wineries` Edge Function
+## Phase 2: Edge Function Migration & Testing Infrastructure (Backend)
+- [ ] Task: Setup Deno & Edge Function Testing Infrastructure
+    - [ ] Create `supabase/functions/deno.json` and `import_map.json` for environment parity.
+    - [ ] Install Deno and configure local testing (Unit tests & Mocks).
+    - [ ] Integrate Deno tests into `package.json` scripts and CI pipeline.
+- [~] Task: Implement `search-wineries` Edge Function
     - [ ] Implement V1 `searchByText` with **Dynamic Masking**.
     - [ ] **Normalization**: Ensure the response maps `displayName.text` to `name` and uses snake_case for DB fields.
     - [ ] **Coordinate Standardization**: Enforce property-based `latitude`/`longitude` mapping.

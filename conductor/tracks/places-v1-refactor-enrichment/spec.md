@@ -33,3 +33,7 @@ This track addresses the technical debt and architectural drift in the current G
 - **PWA Resilience (Reconstitution Rule):** Store photos as **Base64 strings** in the offline queue/cache to prevent detached Blob handles in Safari/WebKit.
 - **Zero-Desync CI:** The pipeline MUST fail if local migrations do not perfectly match the remote target schema.
 - **ID Normalization**: Strictly enforce `Number()` conversion for all `WineryDbId` values returned from new RPCs or functions.
+- **Backend Testing Infrastructure (Deno)**: Implement local Deno testing for all Edge Functions. This includes:
+    *   **Unit Testing**: High-speed verification of normalization logic, field masking, and error handling.
+    *   **Mocking**: Use `deno_std/testing` or equivalent to mock Google Places API and Supabase RPCs, ensuring no quota usage during testing.
+    *   **CI Parity**: Ensure Deno tests run in the CI pipeline to catch regression in backend logic.
