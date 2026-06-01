@@ -5,10 +5,9 @@ import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useToast } from "@/hooks/use-toast";
-import { Winery, GooglePlaceId, DbWinery } from "@/lib/types";
-import { createClient } from "@/utils/supabase/client";
-import { standardizeWineryData } from "@/lib/utils/winery";
+import { Winery } from "@/lib/types";
 import { isE2E, shouldMockWineries } from "@/lib/stores/e2e-utils";
+import { invokeFunction } from "@/lib/utils";
 
 export function useWinerySearch() {
   const {
@@ -132,84 +131,50 @@ export function useWinerySearch() {
       }
 
       const bounds = new google.maps.LatLngBounds(finalSearchBounds);
-      const supabase = createClient();
-      const { data: cachedWineries, error: rpcError } = await supabase.rpc('get_wineries_in_bounds', {
-        p_min_latitude: bounds.getSouthWest().lat(),
-        p_min_longitude: bounds.getSouthWest().lng(),
-        p_max_latitude: bounds.getNorthEast().lat(),
-        p_max_longitude: bounds.getNorthEast().lng(),
-      });
+      const activeFilters = useMapStore.getState().filter;
+      const enrichmentFilters = ['dog-friendly', 'ev-charging', 'outdoor-seating', 'children-friendly', 'has-wine'];
+      const useEnrichment = activeFilters.some(f => enrichmentFilters.includes(f));
 
-      if (rpcError) {
-        console.error("RPC Error fetching wineries in bounds:", rpcError);
-        setError("Failed to find wineries in this area. Please check your connection and try again.");
-        setIsSearching(false);
-        return;
-      }
-
-      const { persistentWineries } = useWineryDataStore.getState();
-      let preloadedWineries: Winery[] = [];
-
-      if (cachedWineries && cachedWineries.length > 0) {
-        preloadedWineries = cachedWineries.map((w: DbWinery) => {
-           const existing = persistentWineries.find(pw => pw.id === w.google_place_id);
-           return standardizeWineryData(w, existing);
-        }).filter(Boolean) as Winery[];
-        // NOTE: We do NOT set search results here to avoid UI blinking.
-        // We will merge these with Google results later.
-      }
+      // Extract raw coordinates safely to handle both real bounds and mocks
+      const sw = bounds.getSouthWest();
+      const ne = bounds.getNorthEast();
       
+      // Handle both LatLng objects (with lat()/lng() methods) and plain objects
+      const swLat = typeof sw.lat === 'function' ? sw.lat() : (sw as any).lat ?? (sw as any).south;
+      const swLng = typeof sw.lng === 'function' ? sw.lng() : (sw as any).lng ?? (sw as any).west;
+      const neLat = typeof ne.lat === 'function' ? ne.lat() : (ne as any).lat ?? (ne as any).north;
+      const neLng = typeof ne.lng === 'function' ? ne.lng() : (ne as any).lng ?? (ne as any).east;
+
       const combinedQuery = `winery OR vineyard OR "wine tasting room"`;
-      const request = {
-        textQuery: combinedQuery,
-        fields: ["displayName", "location", "formattedAddress", "rating", "id"],
-        locationRestriction: finalSearchBounds,
-      };
-
+      
       try {
-        const { places: foundPlaces } = await google.maps.places.Place.searchByText(request);
-        
-        const wineriesFromGoogle: Winery[] = foundPlaces.map((place: any) => ({
-              id: place.id! as GooglePlaceId,
-              place_id: place.id! as GooglePlaceId,
-              name: place.displayName || '',
-              address: place.formattedAddress || '',
-              latitude: place.location?.lat() || 0,
-              longitude: place.location?.lng() || 0,
-              rating: place.rating ?? undefined,
-        }));
-
-        if (wineriesFromGoogle.length > 0) {
-          await bulkUpsertWineries(wineriesFromGoogle);
-        }
-        
-        // Re-fetch latest state after upsert to ensure we have the merged data
-        const updatedPersistentWineries = useWineryDataStore.getState().persistentWineries;
-        const combinedResults = new Map();
-
-        // 1. Add Preloaded (Cached) Wineries
-        preloadedWineries.forEach(w => combinedResults.set(w.id, w));
-        
-        // 2. Add/Update with Google Results
-        wineriesFromGoogle.forEach(w => {
-            const richWinery = updatedPersistentWineries.find(pw => pw.id === w.id);
-            if (richWinery) {
-                combinedResults.set(w.id, richWinery);
-            } else {
-                combinedResults.set(w.id, w);
-            }
+        const { data: wineries, error: functionError } = await invokeFunction<Winery[]>('search-wineries', {
+          body: {
+            query: combinedQuery,
+            locationRestriction: {
+              north: neLat,
+              south: swLat,
+              east: neLng,
+              west: swLng,
+            },
+            useEnrichment
+          }
         });
 
-        setSearchResults(Array.from(combinedResults.values()));
-        setHitApiLimit(foundPlaces.length === 20);
+        if (functionError || !wineries) {
+          throw new Error(functionError?.message || "Search failed");
+        }
+
+        if (wineries.length > 0) {
+          await bulkUpsertWineries(wineries);
+        }
+        
+        setSearchResults(wineries);
+        setHitApiLimit(wineries.length >= 20);
 
       } catch (error) {
-        // Fallback: If Google search fails, at least show what we have in cache
-        if (preloadedWineries.length > 0) {
-            setSearchResults(preloadedWineries);
-        } else {
-            setError("Failed to find wineries in this area. Please check your connection and try again.");
-        }
+        console.error("Search error:", error);
+        setError("Failed to find wineries in this area. Please check your connection and try again.");
       } finally {
         setIsSearching(false);
       }

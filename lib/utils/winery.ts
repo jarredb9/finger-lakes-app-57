@@ -166,8 +166,20 @@ export const standardizeWineryData = (
   // Enrichment (Places API v1)
   const enrichmentTier = source.enrichment_tier || existing?.enrichment_tier;
   const lastEnrichedAt = source.last_enriched_at || existing?.last_enriched_at;
-  const generativeSummary = source.generative_summary || existing?.generative_summary;
-  const neighborhoodSummary = source.neighborhood_summary || existing?.neighborhood_summary;
+  
+  // Handle generative_summary potentially being an object (from DB) or a string (from Edge Function)
+  let generativeSummary = source.generative_summary || existing?.generative_summary;
+  if (typeof generativeSummary === 'object' && generativeSummary !== null) {
+      const summaryObj = generativeSummary as any;
+      generativeSummary = summaryObj.overview?.text || summaryObj.text || null;
+  }
+  
+  let neighborhoodSummary = source.neighborhood_summary || existing?.neighborhood_summary;
+  if (typeof neighborhoodSummary === 'object' && neighborhoodSummary !== null) {
+      const summaryObj = neighborhoodSummary as any;
+      neighborhoodSummary = summaryObj.overview?.text || summaryObj.text || null;
+  }
+
   const allowsDogs = source.allows_dogs !== undefined ? source.allows_dogs : existing?.allows_dogs;
   const hasEvCharging = source.has_ev_charging !== undefined ? source.has_ev_charging : existing?.has_ev_charging;
   const servesWine = source.serves_wine !== undefined ? source.serves_wine : existing?.serves_wine;
