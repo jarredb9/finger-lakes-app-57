@@ -83,3 +83,6 @@
 - [ ] Task: Performance & Engine Verification
     - [ ] Compare search latency and payload size between Essentials and Enriched results.
     - [ ] **MANDATORY**: Execute full E2E suite across **Chromium**, **Firefox**, and **WebKit** engines.
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions (bf522d9)
