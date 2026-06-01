@@ -155,5 +155,5 @@
 - [x] Task: CI Connection Resilience & Port Unification c0b3481
     - Increase web server timeout and ensure consistent use of `127.0.0.1` vs `localhost`.
 
-- [ ] Task: Conductor - User Manual Verification 'Phase 6 & 7: Stabilization and Final Verification'
-- [ ] Task: Conductor - Update CHANGELOG.md and bump package.json version
+- [x] Task: Conductor - User Manual Verification 'Phase 6 & 7: Stabilization and Final Verification'
+- [x] Task: Conductor - Update CHANGELOG.md and bump package.json version
