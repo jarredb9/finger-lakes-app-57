@@ -81,3 +81,6 @@
 - [ ] Task: Final Production Migration & Verification
     - [ ] Apply local migrations to production project (`jfsxclrdxmvftxacjuqf`) ONLY after PR merge.
     - [ ] Verify production RLS and RPC functionality.
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions (c5c4600)
