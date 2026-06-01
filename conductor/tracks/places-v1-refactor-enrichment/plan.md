@@ -39,7 +39,18 @@
 - [ ] Task: Implement Filter UI Grid
     - [ ] Update map filters to utilize the new boolean attributes from the database.
 
-## Phase 4: Validation & Compliance
+## Phase 5: DevSecOps & Migration Stability
+- [ ] Task: Enable Automated Migration Safety Checks
+    - [ ] Update `.github/workflows/ci.yml` to uncomment and configure the `Migration Safety Check`.
+    - [ ] Add `supabase db lint` step to the CI `build` job.
+- [ ] Task: Implement Database Type Verification
+    - [ ] Add a step to CI to run `supabase gen types --local` and compare against `lib/database.types.ts`. The build MUST fail if types are stale.
+- [ ] Task: Document Migration "Golden Rules"
+    - [ ] Create `docs/architecture/MIGRATION_GUIDE.md` detailing the squash-and-repair protocol to prevent future production desyncs.
+- [ ] Task: Production-Ready Migration Verification
+    - [ ] Add a `dry-run` push step to the `deploy` job in CI to double-check sync state immediately before the final `supabase db push`.
+
+## Phase 6: Validation & Compliance
 - [ ] Task: Update Mocks & Intercepts
     - [ ] Update `MockMapsManager` and E2E mocks to reflect the V1 JSON structure and Edge Function responses.
 - [ ] Task: Cross-Browser E2E Verification
