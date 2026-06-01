@@ -14,7 +14,7 @@
     - [ ] **MANDATORY**: Explicitly normalize to `latitude`/`longitude` and strip legacy `lat`/`lng` keys.
     - [ ] **Data Mapping**: Map `displayName.text` -> `name`, `formattedAddress` -> `address`, and `camelCase` (API) to `snake_case` (DB).
     - [ ] **ID Normalization**: Ensure `WineryDbId` outputs are strictly `Number()`.
-- [ ] Task: Update `standardizeWineryData` (Cleanup)
+- [~] Task: Update standardizeWineryData (Cleanup)
     - [ ] Update `lib/utils/winery.ts` to include v1 attributes (enrichment, summaries, boolean flags).
     - [ ] **Coordinate Standardization**: Refactor to enforce `latitude`/`longitude` and strip legacy keys for v1 sources.
     - [ ] **Validation**: Add unit test ensuring location is accessed as a property (`location.latitude`), not a function.

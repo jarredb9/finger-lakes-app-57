@@ -126,7 +126,11 @@ export const standardizeWineryData = (
   let lat: number = 0;
   let lng: number = 0;
 
-  if (isGoogleWinery(source) && source.geometry?.location) {
+  if (source.location && typeof source.location.latitude === 'number' && typeof source.location.longitude === 'number') {
+    // V1 / GoogleV1Place structure
+    lat = source.location.latitude;
+    lng = source.location.longitude;
+  } else if (isGoogleWinery(source) && source.geometry?.location) {
     lat = typeof source.geometry.location.lat === 'function' ? source.geometry.location.lat() : source.geometry.location.lat;
     lng = typeof source.geometry.location.lng === 'function' ? source.geometry.location.lng() : source.geometry.location.lng;
   } else if ('latitude' in source && 'longitude' in source && (source.latitude !== null && source.longitude !== null)) {
@@ -157,7 +161,18 @@ export const standardizeWineryData = (
   const isFavorite = source.is_favorite !== undefined ? source.is_favorite : (source.isFavorite !== undefined ? source.isFavorite : (existing?.isFavorite ?? false));
   
   const favoriteIsPrivate = source.is_favorite_private !== undefined ? source.is_favorite_private : (source.favorite_is_private !== undefined ? source.favorite_is_private : (source.favoriteIsPrivate !== undefined ? source.favoriteIsPrivate : (existing?.favoriteIsPrivate ?? false)));
-  const wishlistIsPrivate = source.on_wishlist_private !== undefined ? source.on_wishlist_private : (source.wishlist_is_private !== undefined ? source.wishlist_is_private : (source.wishlistIsPrivate !== undefined ? source.wishlistIsPrivate : (existing?.wishlistIsPrivate ?? false)));
+  const wishlistIsPrivate = source.on_wishlist_private !== undefined ? source.on_wishlist_private : (source.wishlist_is_private !== undefined ? source.wishlist_is_private : (existing?.wishlistIsPrivate ?? false));
+
+  // Enrichment (Places API v1)
+  const enrichmentTier = source.enrichment_tier || existing?.enrichment_tier;
+  const lastEnrichedAt = source.last_enriched_at || existing?.last_enriched_at;
+  const generativeSummary = source.generative_summary || existing?.generative_summary;
+  const neighborhoodSummary = source.neighborhood_summary || existing?.neighborhood_summary;
+  const allowsDogs = source.allows_dogs !== undefined ? source.allows_dogs : existing?.allows_dogs;
+  const hasEvCharging = source.has_ev_charging !== undefined ? source.has_ev_charging : existing?.has_ev_charging;
+  const servesWine = source.serves_wine !== undefined ? source.serves_wine : existing?.serves_wine;
+  const goodForChildren = source.good_for_children !== undefined ? source.good_for_children : existing?.good_for_children;
+  const outdoorSeating = source.outdoor_seating !== undefined ? source.outdoor_seating : existing?.outdoor_seating;
 
   // Logic to preserve existing visits unless new data overrides it
   // CRITICAL FIX: If source explicitly says userVisited is false, we MUST clear the visits array to prevent "ghost visits"
@@ -203,6 +218,17 @@ export const standardizeWineryData = (
     trip_id: trip_id,
     trip_name: trip_name,
     trip_date: trip_date,
+
+    // Enrichment (Places API v1)
+    enrichment_tier: enrichmentTier,
+    last_enriched_at: lastEnrichedAt,
+    generative_summary: generativeSummary,
+    neighborhood_summary: neighborhoodSummary,
+    allows_dogs: allowsDogs,
+    has_ev_charging: hasEvCharging,
+    serves_wine: servesWine,
+    good_for_children: goodForChildren,
+    outdoor_seating: outdoorSeating,
   };
 
   // Final Validation
