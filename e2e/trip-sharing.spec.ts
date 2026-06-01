@@ -316,11 +316,11 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     await expect(tripCard.getByTestId('collaborator-avatars').locator('.rounded-full').first()).toBeVisible();
     
     // Verify user can view details (this will trigger get_trip_details RPC)
-    await tripCard.getByTestId('view-trip-details-btn').click({ force: true });
-    await page.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' });
-    
-    // Wait for the details RPC response (MockMapsManager will handle this via its catch-all)
-    await page.waitForResponse(resp => resp.url().includes('rpc/get_trip_details'), { timeout: 10000 });
+    await Promise.all([
+      page.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' }),
+      page.waitForResponse(resp => resp.url().includes('rpc/get_trip_details'), { timeout: 10000 }),
+      tripCard.getByTestId('view-trip-details-btn').click({ force: true })
+    ]);
 
     // MANDATORY DIAGNOSTIC: If Edit button not found, dump state
     const editBtn = page.getByRole('button', { name: 'Edit' });
