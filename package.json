@@ -22,6 +22,7 @@
     "db:stop": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase stop",
     "db:status": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase status",
     "db:lint": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase db lint --level error --schema public",
+    "db:audit": "./scripts/db-audit.sh",
     "db:seed": "npx supabase db reset",
     "db:check-types": "npx supabase gen types typescript --db-url \"$SUPABASE_DB_URL\" --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts",
     "db:check-types:ci": "npx supabase gen types typescript --local --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts",

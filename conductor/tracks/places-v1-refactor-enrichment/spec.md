@@ -8,25 +8,28 @@ This track addresses the technical debt and architectural drift in the current G
 ## Functional Requirements
 1.  **Refactor Search to Edge Functions:**
     *   Move search and enrichment logic from `useWinerySearch` to a new Supabase Edge Function: `search-wineries`.
-    *   **Mandate:** Client must use the `invokeFunction` resilience wrapper.
-2.  **Enriched Database Model:**
+    *   **Resilience Wrapper**: All client-side invocations of these functions MUST use the `invokeFunction` resilience wrapper to handle intermittent connectivity.
+    *   **Dynamic Field Masking Strategy**: 
+        *   **Standard Search**: Use "Essentials SKU" (`places.id,places.displayName,places.formattedAddress,places.location,places.types,places.photos`).
+        *   **Filtered Search**: Upgrade to "Enterprise + Atmosphere" masks ONLY if the user has active attribute filters (dog-friendly, etc.).
+        *   **Pro Enhancement**: Include `places.routingSummaries` for ETAs.
+2.  **Enriched Database Model & Centralized Service:**
     *   Update the `wineries` table to include `enrichment_tier`, `generative_summary` (AI insight), and logistical flags (Dog-friendly, EV charging, accessibility).
     *   Implement **Revision Control** (`last_action_timestamp`, `revision_id`) for conflict-free PWA syncing.
-3.  **Dynamic Field Masking:**
-    *   Use cost-optimized masks: **Essentials** for discovery, **Atmosphere/Pro** for enriched details.
-4.  **AI Integration:**
+    *   Utilize the **`EnrichmentService`** to handle the 30-day freshness policy for all AI-enriched entities.
+3.  **AI Integration & UI Enhancements:**
     *   Integrate Gemini-powered summaries into the winery details view with "Summarized with Gemini" disclosure.
-5. **DevSecOps & Migration Stability (Safety Mandate):**
-    *   **Structural Audit (Gold Standard):** Implement `supabase db diff --linked` in CI. This spins up a shadow database to compare the *actual schema result* of local migrations against the live production database. This is the only way to detect "Structural Drift" caused by squashing or manual dashboard changes.
+    *   **UI Structure**: Use **Accordions** for "About the Area" and "Logistics & Accessibility" in `WineryDetails.tsx`.
+    *   **DOM Stability**: Components MUST use the `data-state` signaling pattern and render skeletons/errors inside a stable parent container (No early returns).
+    *   **Quota Resilience**: Implement a "Service Limited" state (using the `data-state` pattern) to gracefully handle Google API quota exhaustion.
+4.  **DevSecOps & Migration Stability (Safety Mandate):**
+    *   **Structural Audit (Gold Standard):** Implement `supabase db diff --linked` in CI. This spins up a shadow database to compare the *actual schema result* of local migrations against the live production database.
     *   **History Auditing:** Use `supabase migration list` in CI to ensure the local file list perfectly matches the remote migration history.
-    *   **Drift Detection:** Use `supabase db push --dry-run` as a final sanity check for pending files.
-    *   **Migration Linting:** Enable `supabase db lint` in CI to catch syntax errors and RLS violations.
     *   **Type Parity:** Enforce `supabase gen types` verification in CI to ensure the frontend `database.types.ts` is in sync with the current migrations.
-    *   **Baseline Protocol:** Document and enforce the "No Squash After Production" rule, using `supabase migration repair` for history corrections.
-
 
 ## Technical Mandates
-- **Coordinate Standardization:** Property-based access only (`location.latitude`). No `.lat()` calls.
-- **Supabase Native:** `SECURITY DEFINER` and `SET search_path` on all new database objects.
-- **PWA Resilience:** Store photos as **Base64 strings** in the offline queue (Reconstitution Rule).
+- **Coordinate Standardization:** Property-based access only (`location.latitude`). No `.lat()` calls. All mapping MUST strip legacy `lat`/`lng` keys.
+- **Supabase Native:** `SECURITY DEFINER` and `SET search_path = public, auth` on all new database objects.
+- **PWA Resilience (Reconstitution Rule):** Store photos as **Base64 strings** in the offline queue/cache to prevent detached Blob handles in Safari/WebKit.
 - **Zero-Desync CI:** The pipeline MUST fail if local migrations do not perfectly match the remote target schema.
+- **ID Normalization**: Strictly enforce `Number()` conversion for all `WineryDbId` values returned from new RPCs or functions.
