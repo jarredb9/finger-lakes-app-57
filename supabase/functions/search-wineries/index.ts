@@ -124,7 +124,7 @@ export const handler = async (req: Request): Promise<Response> => {
 
       // Use bulk upsert RPC
       const { error: upsertError } = await supabase.rpc('bulk_upsert_wineries', {
-        wineries_data: dbWineries
+        p_wineries_data: dbWineries
       });
 
       if (upsertError) {
