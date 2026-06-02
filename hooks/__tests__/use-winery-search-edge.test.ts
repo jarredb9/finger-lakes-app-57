@@ -115,7 +115,7 @@ describe("useWinerySearch (Edge Function Integration)", () => {
   });
 
   it("should pass useEnrichment: true if filters requiring enrichment are active", async () => {
-    useMapStore.setState({ filter: ['dog-friendly'] });
+    useMapStore.setState({ filter: ['allowsDogs'] });
     
     (invokeFunction as jest.Mock).mockResolvedValue({ data: [], error: null });
 

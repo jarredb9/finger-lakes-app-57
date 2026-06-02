@@ -132,7 +132,7 @@ export function useWinerySearch() {
 
       const bounds = new google.maps.LatLngBounds(finalSearchBounds);
       const activeFilters = useMapStore.getState().filter;
-      const enrichmentFilters = ['dog-friendly', 'ev-charging', 'outdoor-seating', 'children-friendly', 'has-wine'];
+      const enrichmentFilters = ['allowsDogs', 'hasEvCharging', 'outdoorSeating', 'goodForChildren'];
       const useEnrichment = activeFilters.some(f => enrichmentFilters.includes(f));
 
       // Extract raw coordinates safely to handle both real bounds and mocks
