@@ -62,7 +62,7 @@
     - [x] **Session Management**: Implement `usePlacesAutocompleteSession` hook to manage `sessionToken`.
     - [x] **Cost Optimization**: Ensure the session is terminated with a full `ENRICHMENT_FIELD_MASK` fetch.
 
-## Phase 4: UI Enrichment & AI Insight
+## Phase 4: UI Enrichment & AI Insight [checkpoint: 8c5eb46]
 - [x] Task: Implement `WineryPhotoHero` & Visuals (a95a9bb)
     - [x] Update `WineryDetails.tsx` to display the primary hero photo and photo grid.
     - [x] **WebKit Stability**: Ensure photos are stored as **Base64 strings** in the offline queue/cache.
