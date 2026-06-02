@@ -25,6 +25,8 @@ import WineryQnA from "./WineryQnA";
 import { isOpenNow } from "@/lib/utils/opening-hours";
 import * as Accordion from "@radix-ui/react-accordion";
 import { useWineryPhoto } from "@/hooks/use-winery-photo";
+import { GeminiDisclosure } from "./GeminiDisclosure";
+import { GoogleAttribution } from "./GoogleAttribution";
 
 interface WineryDetailsProps {
   winery: Winery;
@@ -125,7 +127,7 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
                 <Sparkles className="w-3.5 h-3.5 fill-purple-600/10 animate-pulse" />
                 <span>Gemini Insight</span>
               </div>
-              <span className="text-[10px] text-muted-foreground/80 italic">Summarized with Gemini</span>
+              <GeminiDisclosure />
             </div>
             <p className="text-xs leading-relaxed text-foreground">{winery.generative_summary}</p>
           </div>
@@ -184,7 +186,10 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
       {winery.rating && (
         <div className="flex items-center space-x-2">
           <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
-          <span>{winery.rating}/5.0 (Google Reviews)</span>
+          <div className="flex items-center gap-1.5">
+            <span>{winery.rating}/5.0</span>
+            <GoogleAttribution variant="reviews" />
+          </div>
         </div>
       )}
 
@@ -200,6 +205,7 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
             </Accordion.Header>
             <Accordion.Content className="px-3.5 pb-3.5 pt-1.5 text-xs text-muted-foreground border-t bg-muted/5">
               <p className="leading-relaxed">{winery.neighborhood_summary}</p>
+              <GoogleAttribution className="mt-2 justify-end" variant="powered-by" />
             </Accordion.Content>
           </Accordion.Item>
         )}

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { usePlacesAutocompleteSession } from "@/hooks/use-places-autocomplete-session";
 import { standardizeWineryData } from "@/lib/utils/winery";
 import { Winery } from "@/lib/types";
+import { GoogleAttribution } from "./GoogleAttribution";
 
 interface PlaceAutocompleteProps {
   placeholder?: string;
@@ -251,6 +252,9 @@ export function PlaceAutocomplete({
               </button>
             );
           })}
+          <div className="px-3 py-1.5 border-t mt-1 bg-muted/20">
+            <GoogleAttribution variant="powered-by" />
+          </div>
         </div>
       )}
     </div>

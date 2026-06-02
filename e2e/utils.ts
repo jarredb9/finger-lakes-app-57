@@ -237,6 +237,196 @@ export class MockMapsManager {
     });
   }
 
+  /**
+   * Mocks Google Places API v1 (REST and JS SDK).
+   */
+  async mockPlacesV1() {
+    const commonHeaders = { 
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE, PATCH',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-total-count, x-skip-sw-interception',
+      'Access-Control-Max-Age': '86400'
+    };
+
+    const markers: MapMarkerRpc[] = [
+        createMockMapMarkerRpc({ id: 1 as WineryDbId, google_place_id: 'ch-12345-mock-winery-1' as GooglePlaceId, name: 'Mock Winery One', address: '123 Vineyard Way, NY' }),
+        createMockMapMarkerRpc({ id: 2 as WineryDbId, google_place_id: 'ch-67890-mock-winery-2' as GooglePlaceId, name: 'Vineyard of Illusion', address: '456 Mirage Ln, NY' }),
+        createMockMapMarkerRpc({ id: 3 as WineryDbId, google_place_id: 'ch-abcde-mock-winery-3' as GooglePlaceId, name: 'The Phantom Cellar', address: '789 Ethereal Rd, NY' })
+    ];
+
+    // 1. Google Places Search (REST)
+    await this.page.context().route(/(places\.googleapis\.com\/.*SearchText|places\.googleapis\.com\/v1\/places:searchText)/i, async (route) => {
+        const req = route.request();
+        if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+        return route.fulfill({ 
+            status: 200, 
+            contentType: 'application/json', 
+            headers: commonHeaders, 
+            body: JSON.stringify({ 
+                places: markers.map(m => ({ 
+                    id: m.google_place_id, 
+                    name: `places/${m.google_place_id}`, 
+                    displayName: { text: m.name }, 
+                    formattedAddress: m.address || 'Mock NY', 
+                    location: { latitude: m.latitude, longitude: m.longitude }, 
+                    rating: 4.8 
+                })) 
+            }) 
+        });
+    });
+
+    // 2. Google Places Autocomplete (REST)
+    await this.page.context().route(/places\.googleapis\.com\/v1\/places:autocomplete/i, async (route) => {
+        const req = route.request();
+        if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+        return route.fulfill({ 
+            status: 200, 
+            contentType: 'application/json', 
+            headers: commonHeaders, 
+            body: JSON.stringify({ 
+                suggestions: markers.map(m => ({ 
+                    placePrediction: {
+                        placeId: m.google_place_id,
+                        place: `places/${m.google_place_id}`,
+                        text: { text: m.name },
+                        structuredFormat: {
+                            mainText: { text: m.name },
+                            secondaryText: { text: m.address }
+                        }
+                    }
+                })) 
+            }) 
+        });
+    });
+
+    // 3. Google Places Get Details (REST)
+    await this.page.context().route(/places\.googleapis\.com\/v1\/places\/ch-/i, async (route) => {
+        const req = route.request();
+        if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+        const placeId = req.url().split('/').pop()?.split('?')[0];
+        const marker = markers.find(m => m.google_place_id === placeId);
+        
+        return route.fulfill({ 
+            status: 200, 
+            contentType: 'application/json', 
+            headers: commonHeaders, 
+            body: JSON.stringify({ 
+                id: placeId,
+                name: `places/${placeId}`,
+                displayName: { text: marker?.name || 'Unknown' },
+                formattedAddress: marker?.address || 'Unknown Address',
+                location: { latitude: marker?.latitude || 0, longitude: marker?.longitude || 0 },
+                rating: 4.5,
+                generativeSummary: { overview: { text: "This is a generative summary from Gemini." } },
+                neighborhoodSummary: { overview: { text: "This is a neighborhood summary from Gemini." } }
+            }) 
+        });
+    });
+
+    // 4. JS SDK Intercepts
+    await this.page.context().route(/(maps\.googleapis\.com|google\.com).*js(\?|&)key=/, async (route) => {
+        const req = route.request();
+        if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+        
+        const mockMarkersData = markers.map(m => ({
+            id: m.google_place_id,
+            displayName: { text: m.name },
+            formattedAddress: m.address,
+            location: {
+                lat: `__LAT__${m.latitude}__`,
+                lng: `__LNG__${m.longitude}__`,
+                latitude: m.latitude,
+                longitude: m.longitude
+            },
+            rating: 4.8
+        }));
+
+        const mockBody = `
+            window.google = {
+                maps: {
+                    _isMocked: true,
+                    importLibrary: (name) => {
+                        if (name === 'places') return Promise.resolve(window.google.maps.places);
+                        if (name === 'geocoding') return Promise.resolve(window.google.maps.geocoding);
+                        return Promise.resolve({});
+                    },
+                    LatLng: function(lat, lng) {
+                        return { lat: () => lat, lng: () => lng, latitude: lat, longitude: lng };
+                    },
+                    LatLngBounds: function() {
+                        this.contains = () => true;
+                        this.extend = () => {};
+                        this.getCenter = () => ({ latitude: 42.7, longitude: -76.9, lat: () => 42.7, lng: () => -76.9 });
+                        this.getNorthEast = () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 });
+                        this.getSouthWest = () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 });
+                    },
+                    Geocoder: function() {
+                        this.geocode = () => Promise.resolve({ results: [] });
+                    },
+                    geocoding: {
+                        Geocoder: function() {
+                            this.geocode = () => Promise.resolve({ results: [] });
+                        }
+                    },
+                    places: {
+                        AutocompleteSessionToken: function() { return {}; },
+                        AutocompleteSuggestion: {
+                            fetchAutocompleteSuggestions: (request) => {
+                                return Promise.resolve({ 
+                                    suggestions: ${JSON.stringify(markers)}.map(m => ({
+                                        placePrediction: {
+                                            toPlace: () => new window.google.maps.places.Place({ id: m.google_place_id }),
+                                            text: { text: m.name },
+                                            mainText: { text: m.name },
+                                            secondaryText: { text: m.address }
+                                        }
+                                    }))
+                                });
+                            }
+                        },
+                        Place: function(options) {
+                            this.id = options.id;
+                            this.displayName = options.displayName?.text || '';
+                            this.formattedAddress = options.formattedAddress || '';
+                            this.location = options.location;
+                            this.toPlace = () => this;
+                            this.fetchFields = (req) => {
+                                const marker = ${JSON.stringify(markers)}.find(m => m.google_place_id === this.id);
+                                if (marker) {
+                                    this.displayName = marker.name;
+                                    this.formattedAddress = marker.address;
+                                    this.location = { 
+                                        lat: () => marker.latitude, 
+                                        lng: () => marker.longitude,
+                                        latitude: marker.latitude,
+                                        longitude: marker.longitude
+                                    };
+                                    this.generativeSummary = { overview: { text: "Mocked Gemini Summary" } };
+                                    this.neighborhoodSummary = { overview: { text: "Mocked Neighborhood Summary" } };
+                                }
+                                return Promise.resolve({ place: this });
+                            };
+                        }
+                    }
+                }
+            };
+            window.google.maps.places.Place.searchByText = (request) => {
+                return Promise.resolve({ 
+                    places: ${JSON.stringify(mockMarkersData)}.map(p => new window.google.maps.places.Place(p))
+                });
+            };
+        `.replace(/"__LAT__([\d.-]+)__"/g, '() => $1').replace(/"__LNG__([\d.-]+)__"/g, '() => $1');
+
+        return route.fulfill({ 
+            status: 200, 
+            contentType: 'application/javascript', 
+            headers: { 'Access-Control-Allow-Origin': '*' }, 
+            body: mockBody
+        });
+    });
+  }
+
   private async registerMockRoutes() {
     if (this.mocksRegistered) return;
 
@@ -659,105 +849,8 @@ export class MockMapsManager {
         return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, data: {} }) });
     });
 
-    // 7. Google Maps JS Handler
-    await this.page.context().route(/(maps\.googleapis\.com|google\.com).*js(\?|&)key=/, async (route) => {
-        const req = route.request();
-        console.log(`[DIAGNOSTIC] Intercepting Google Maps JS Loader: ${req.url()}`);
-        if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
-        
-        const mockMarkersData = markers.map(m => ({
-            id: m.google_place_id,
-            displayName: { text: m.name }, // Wrap in object to match REST/SDK expectations
-            formattedAddress: m.address,
-            location: {
-                lat: `__LAT__${m.latitude}__`,
-                lng: `__LNG__${m.longitude}__`,
-                latitude: m.latitude,
-                longitude: m.longitude
-            },
-            rating: 4.8
-        }));
-
-        const mockBody = `
-            console.log('[DIAGNOSTIC] Google Maps Mock Body Executing');
-            window.google = {
-                maps: {
-                    _isMocked: true,
-                    importLibrary: (name) => {
-                        console.log('[DIAGNOSTIC] Google Maps importLibrary:', name);
-                        if (name === 'places') return Promise.resolve(window.google.maps.places);
-                        if (name === 'geocoding') return Promise.resolve(window.google.maps.geocoding);
-                        return Promise.resolve({});
-                    },
-                    LatLng: function(lat, lng) {
-                        return { lat: () => lat, lng: () => lng, latitude: lat, longitude: lng };
-                    },
-                    LatLngBounds: function() {
-                        this.contains = () => true;
-                        this.extend = () => {};
-                        this.getCenter = () => ({ latitude: 42.7, longitude: -76.9, lat: () => 42.7, lng: () => -76.9 });
-                        this.getNorthEast = () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 });
-                        this.getSouthWest = () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 });
-                    },
-                    Geocoder: function() {
-                        this.geocode = () => Promise.resolve({ results: [] });
-                    },
-                    geocoding: {
-                        Geocoder: function() {
-                            this.geocode = () => Promise.resolve({ results: [] });
-                        }
-                    },
-                    places: {
-                        Place: {
-                            searchByText: (request) => {
-                                console.log('[DIAGNOSTIC] Google Maps Place.searchByText called:', request);
-                                return Promise.resolve({ 
-                                    places: ${JSON.stringify(mockMarkersData)}.map(p => ({
-                                        ...p,
-                                        location: {
-                                            lat: p.location.lat,
-                                            lng: p.location.lng,
-                                            latitude: p.location.latitude,
-                                            longitude: p.location.longitude
-                                        }
-                                    }))
-                                });
-                            }
-                        }
-                    }
-                }
-            };
-        `.replace(/"__LAT__([\d.-]+)__"/g, '() => $1').replace(/"__LNG__([\d.-]+)__"/g, '() => $1');
-
-        return route.fulfill({ 
-            status: 200, 
-            contentType: 'application/javascript', 
-            headers: { 'Access-Control-Allow-Origin': '*' }, 
-            body: mockBody
-        });
-    });
-
-    // 8. Google Places Search Handler - Fixed to catch gRPC-web ($rpc) and broadened
-    await this.page.context().route(/(places\.googleapis\.com\/.*SearchText|places\.googleapis\.com\/v1\/places:searchText)/i, async (route) => {
-        const req = route.request();
-        console.log(`[DIAGNOSTIC] Intercepting SearchText: ${req.url()}`);
-        if (req.method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
-        return route.fulfill({ 
-            status: 200, 
-            contentType: 'application/json', 
-            headers: commonHeaders, 
-            body: JSON.stringify({ 
-                places: markers.map(m => ({ 
-                    id: m.google_place_id, 
-                    name: m.name, 
-                    displayName: { text: m.name }, 
-                    formattedAddress: m.address || 'Mock NY', 
-                    location: { latitude: m.latitude, longitude: m.longitude }, 
-                    rating: 4.8 
-                })) 
-            }) 
-        });
-    });
+    // 7. Google Places V1 Intercepts
+    await this.mockPlacesV1();
 
     // 9. Google Maps Tiles Handler
     await this.page.context().route(/google\.com\/maps\/vt\/tile|google\.com\/vt\/tile/, async (route) => {
