@@ -23,49 +23,16 @@ import {
 import { Separator } from "./ui/separator";
 import WineryQnA from "./WineryQnA";
 import { isOpenNow } from "@/lib/utils/opening-hours";
-import { useWineryStore } from "@/lib/stores/wineryStore";
 import * as Accordion from "@radix-ui/react-accordion";
+import { useWineryPhoto } from "@/hooks/use-winery-photo";
 
 interface WineryDetailsProps {
   winery: Winery;
+  loadingWineryId?: string | null;
 }
 
 function WineryImage({ photoRef, winery, className, alt = "Winery photo" }: { photoRef: string; winery: Winery; className?: string; alt?: string }) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-  const updateWinery = useWineryStore((state) => state.updateWinery);
-
-  const imgSrc = (winery.cached_photos && winery.cached_photos[photoRef])
-    ? winery.cached_photos[photoRef]
-    : apiKey
-      ? `https://places.googleapis.com/v1/${photoRef}/media?key=${apiKey}&maxWidthPx=800`
-      : null;
-
-  const handleLoad = async () => {
-    if (winery.cached_photos && winery.cached_photos[photoRef]) {
-      return;
-    }
-    if (!apiKey) return;
-    try {
-      const url = `https://places.googleapis.com/v1/${photoRef}/media?key=${apiKey}&maxWidthPx=800`;
-      const res = await fetch(url);
-      if (!res.ok) return;
-      const blob = await res.blob();
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        const currentCached = winery.cached_photos || {};
-        updateWinery(winery.id, {
-          cached_photos: {
-            ...currentCached,
-            [photoRef]: base64
-          }
-        });
-      };
-      reader.readAsDataURL(blob);
-    } catch (e) {
-      console.warn("Error caching image:", e);
-    }
-  };
+  const { imgSrc, cachePhoto } = useWineryPhoto(photoRef, winery);
 
   if (!imgSrc) return <div className={`bg-muted animate-pulse ${className}`} />;
 
@@ -74,15 +41,14 @@ function WineryImage({ photoRef, winery, className, alt = "Winery photo" }: { ph
       src={imgSrc}
       alt={alt}
       className={className}
-      onLoad={handleLoad}
+      onLoad={cachePhoto}
       loading="lazy"
     />
   );
 }
 
-export default function WineryDetails({ winery }: WineryDetailsProps) {
+export default function WineryDetails({ winery, loadingWineryId }: WineryDetailsProps) {
   const [showAllHours, setShowAllHours] = useState(false);
-  const loadingWineryId = useWineryStore((state) => state.loadingWineryId);
 
   const getTodaysHours = () => {
     if (!winery.openingHours?.weekday_text) {
@@ -248,99 +214,42 @@ export default function WineryDetails({ winery }: WineryDetailsProps) {
           <Accordion.Content className="px-3.5 pb-3.5 pt-2 text-xs text-muted-foreground border-t bg-muted/5 space-y-3">
             <div className="grid grid-cols-2 gap-2">
               <div className="flex items-center gap-2">
-                <Dog className="w-4 h-4 shrink-0 text-muted-foreground" />
-                <span>Dog Friendly:</span>
-                {winery.allows_dogs === true ? (
-                  <Check className="w-4 h-4 text-green-600 font-bold" />
-                ) : winery.allows_dogs === false ? (
-                  <X className="w-4 h-4 text-red-600" />
-                ) : (
-                  <span className="text-muted-foreground/60 italic">Unknown</span>
-                )}
+                <Car className="h-3.5 w-3.5 text-muted-foreground/70" />
+                <span className="text-[11px]">Free Parking:</span>
+                {winery.parking_options?.freeParking ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
               </div>
-
               <div className="flex items-center gap-2">
-                <Baby className="w-4 h-4 shrink-0 text-muted-foreground" />
-                <span>Kid Friendly:</span>
-                {winery.good_for_children === true ? (
-                  <Check className="w-4 h-4 text-green-600 font-bold" />
-                ) : winery.good_for_children === false ? (
-                  <X className="w-4 h-4 text-red-600" />
-                ) : (
-                  <span className="text-muted-foreground/60 italic">Unknown</span>
-                )}
+                <Zap className="h-3.5 w-3.5 text-muted-foreground/70" />
+                <span className="text-[11px]">EV Charging:</span>
+                {winery.has_ev_charging ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
               </div>
-
               <div className="flex items-center gap-2">
-                <Sun className="w-4 h-4 shrink-0 text-muted-foreground" />
-                <span>Outdoor Seating:</span>
-                {winery.outdoor_seating === true ? (
-                  <Check className="w-4 h-4 text-green-600 font-bold" />
-                ) : winery.outdoor_seating === false ? (
-                  <X className="w-4 h-4 text-red-600" />
-                ) : (
-                  <span className="text-muted-foreground/60 italic">Unknown</span>
-                )}
+                <Accessibility className="h-3.5 w-3.5 text-muted-foreground/70" />
+                <span className="text-[11px]">Wheelchair Acc.:</span>
+                {winery.accessibility_options?.wheelchairAccessibleEntrance ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
               </div>
-
               <div className="flex items-center gap-2">
-                <Zap className="w-4 h-4 shrink-0 text-muted-foreground" />
-                <span>EV Charging:</span>
-                {winery.has_ev_charging === true ? (
-                  <Check className="w-4 h-4 text-green-600 font-bold" />
-                ) : winery.has_ev_charging === false ? (
-                  <X className="w-4 h-4 text-red-600" />
-                ) : (
-                  <span className="text-muted-foreground/60 italic">Unknown</span>
-                )}
+                <Sun className="h-3.5 w-3.5 text-muted-foreground/70" />
+                <span className="text-[11px]">Outdoor:</span>
+                {winery.outdoor_seating ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
+              </div>
+              <div className="flex items-center gap-2">
+                <Dog className="h-3.5 w-3.5 text-muted-foreground/70" />
+                <span className="text-[11px]">Dogs Allowed:</span>
+                {winery.allows_dogs ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
+              </div>
+              <div className="flex items-center gap-2">
+                <Baby className="h-3.5 w-3.5 text-muted-foreground/70" />
+                <span className="text-[11px]">Kid Friendly:</span>
+                {winery.good_for_children ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
               </div>
             </div>
-
-            {/* Parking Options */}
-            {winery.parking_options && Object.keys(winery.parking_options).length > 0 && (
-              <div className="border-t pt-2.5 space-y-1">
-                <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px]">
-                  <Car className="w-3.5 h-3.5" />
-                  <span>Parking Options</span>
-                </div>
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1 pl-5 text-[11px]">
-                  {Object.entries(winery.parking_options).map(([key, val]) => (
-                    <div key={key} className="flex items-center gap-1">
-                      <span className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                      {val === true ? <Check className="w-3.5 h-3.5 text-green-600" /> : <X className="w-3.5 h-3.5 text-red-500" />}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Accessibility Options */}
-            {winery.accessibility_options && Object.keys(winery.accessibility_options).length > 0 && (
-              <div className="border-t pt-2.5 space-y-1">
-                <div className="flex items-center gap-1.5 font-semibold text-foreground text-[11px]">
-                  <Accessibility className="w-3.5 h-3.5" />
-                  <span>Accessibility</span>
-                </div>
-                <div className="grid grid-cols-2 gap-x-2 gap-y-1 pl-5 text-[11px]">
-                  {Object.entries(winery.accessibility_options).map(([key, val]) => (
-                    <div key={key} className="flex items-center gap-1">
-                      <span className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                      {val === true ? <Check className="w-3.5 h-3.5 text-green-600" /> : <X className="w-3.5 h-3.5 text-red-500" />}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </Accordion.Content>
         </Accordion.Item>
       </Accordion.Root>
 
-      {((winery.reviews && winery.reviews.length > 0) || winery.reservable !== undefined) && (
-        <>
-          <Separator className="my-4!" />
-          <WineryQnA winery={winery} />
-        </>
-      )}
+      <Separator className="my-4" />
+      <WineryQnA winery={winery} />
     </div>
   );
 }

@@ -56,12 +56,7 @@ describe('WineryDetails', () => {
       generative_summary: null,
     });
 
-    // Mock store state as loading this winery
-    useWineryStore.setState({
-      loadingWineryId: 'loading-winery-id',
-    });
-
-    const { container } = render(<WineryDetails winery={winery} />);
+    const { container } = render(<WineryDetails winery={winery} loadingWineryId={'loading-winery-id' as any} />);
     
     const containerEl = container.querySelector('.stable-gemini-container');
     expect(containerEl).toHaveAttribute('data-state', 'loading');
@@ -86,7 +81,7 @@ describe('WineryDetails', () => {
       good_for_children: false,
       outdoor_seating: true,
       has_ev_charging: false,
-      parking_options: { freeParkingLot: true, valetParking: false },
+      parking_options: { freeParking: true },
       accessibility_options: { wheelchairAccessibleEntrance: true },
       enrichment_tier: 'basic',
     });
@@ -98,13 +93,12 @@ describe('WineryDetails', () => {
 
     expect(screen.getByText('Logistics & Accessibility')).toBeInTheDocument();
     
-    // Check that we render the Dog Friendly Check and Kid Friendly X
-    // (using our checks/X rendering)
-    expect(screen.getByText('Dog Friendly:')).toBeInTheDocument();
+    // Check for specific labels
+    expect(screen.getByText('Dogs Allowed:')).toBeInTheDocument();
     expect(screen.getByText('Kid Friendly:')).toBeInTheDocument();
-    expect(screen.getByText('Outdoor Seating:')).toBeInTheDocument();
+    expect(screen.getByText('Outdoor:')).toBeInTheDocument();
     expect(screen.getByText('EV Charging:')).toBeInTheDocument();
-    expect(screen.getByText('Parking Options')).toBeInTheDocument();
-    expect(screen.getByText('Accessibility')).toBeInTheDocument();
+    expect(screen.getByText('Free Parking:')).toBeInTheDocument();
+    expect(screen.getByText('Wheelchair Acc.:')).toBeInTheDocument();
   });
 });
