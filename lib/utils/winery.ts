@@ -185,6 +185,12 @@ export const standardizeWineryData = (
   const servesWine = source.serves_wine !== undefined ? source.serves_wine : existing?.serves_wine;
   const goodForChildren = source.good_for_children !== undefined ? source.good_for_children : existing?.good_for_children;
   const outdoorSeating = source.outdoor_seating !== undefined ? source.outdoor_seating : existing?.outdoor_seating;
+  const parkingOptions = source.parking_options !== undefined ? source.parking_options : existing?.parking_options;
+  const accessibilityOptions = source.accessibility_options !== undefined ? source.accessibility_options : existing?.accessibility_options;
+
+  const primaryPhotoReference = source.primary_photo_reference !== undefined ? source.primary_photo_reference : (source.primaryPhotoReference !== undefined ? source.primaryPhotoReference : existing?.primary_photo_reference);
+  const photoReferences = source.photo_references !== undefined ? source.photo_references : (source.photoReferences !== undefined ? source.photoReferences : existing?.photo_references);
+  const cachedPhotos = source.cached_photos !== undefined ? source.cached_photos : existing?.cached_photos;
 
   // Logic to preserve existing visits unless new data overrides it
   // CRITICAL FIX: If source explicitly says userVisited is false, we MUST clear the visits array to prevent "ghost visits"
@@ -241,6 +247,11 @@ export const standardizeWineryData = (
     serves_wine: servesWine,
     good_for_children: goodForChildren,
     outdoor_seating: outdoorSeating,
+    parking_options: parkingOptions,
+    accessibility_options: accessibilityOptions,
+    primary_photo_reference: primaryPhotoReference,
+    photo_references: photoReferences,
+    cached_photos: cachedPhotos,
   };
 
   // Final Validation

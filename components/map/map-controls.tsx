@@ -119,7 +119,13 @@ export function MapControls({
               </Badge>
             </div>
           ) : (
-            <ToggleGroup type="multiple" value={filter} onValueChange={handleFilterChange} className="justify-start flex-wrap gap-1" size="sm">
+            <ToggleGroup 
+              type="multiple" 
+              value={filter.filter(f => ["all", "visited", "favorites", "wantToGo", "notVisited"].includes(f))} 
+              onValueChange={(vals) => handleFilterChange([...vals, ...filter.filter(f => !["all", "visited", "favorites", "wantToGo", "notVisited"].includes(f))])} 
+              className="justify-start flex-wrap gap-1" 
+              size="sm"
+            >
               <ToggleGroupItem value="all" className="text-xs h-6 px-2">All</ToggleGroupItem>
               <ToggleGroupItem value="visited" className="text-xs h-6 px-2">Visited</ToggleGroupItem>
               <ToggleGroupItem value="favorites" className="text-xs h-6 px-2">Favorites</ToggleGroupItem>
@@ -127,6 +133,30 @@ export function MapControls({
               <ToggleGroupItem value="notVisited" className="text-xs h-6 px-2">New</ToggleGroupItem>
             </ToggleGroup>
           )}
+        </div>
+
+        <div className="space-y-1.5 pt-1 border-t border-muted/30">
+          <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider block">Attributes</span>
+          <ToggleGroup 
+            type="multiple" 
+            value={filter.filter(f => ["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"].includes(f))} 
+            onValueChange={(vals) => handleFilterChange([...filter.filter(f => !["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"].includes(f)), ...vals])} 
+            className="justify-start flex-wrap gap-1" 
+            size="sm"
+          >
+            <ToggleGroupItem value="allowsDogs" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+              🐾 Dog Friendly
+            </ToggleGroupItem>
+            <ToggleGroupItem value="goodForChildren" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+              👶 Kid Friendly
+            </ToggleGroupItem>
+            <ToggleGroupItem value="outdoorSeating" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+              ☀️ Outdoor Seating
+            </ToggleGroupItem>
+            <ToggleGroupItem value="hasEvCharging" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+              ⚡ EV Charging
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
         <div className="space-y-1 pt-1">

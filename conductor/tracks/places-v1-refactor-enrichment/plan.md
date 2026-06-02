@@ -63,18 +63,18 @@
     - [x] **Cost Optimization**: Ensure the session is terminated with a full `ENRICHMENT_FIELD_MASK` fetch.
 
 ## Phase 4: UI Enrichment & AI Insight
-- [ ] Task: Implement `WineryPhotoHero` & Visuals
-    - [ ] Update `WineryDetails.tsx` to display the primary hero photo and photo grid.
-    - [ ] **WebKit Stability**: Ensure photos are stored as **Base64 strings** in the offline queue/cache.
-- [ ] Task: Integrate AI Insights (Gemini)
-    - [ ] Add the `generative_summary` AI Callout to winery details with "Summarized with Gemini" disclosure.
-    - [ ] Use `data-state` pattern for skeleton/error states within the stable parent container.
-- [ ] Task: Implement Quota Resilience & Logistics UI
-    - [ ] Create a "Service Limited" view for when Places API quota is hit or enrichment fails.
-    - [ ] Implement **Accordions** for "About the Area" and "Logistics & Accessibility" in `WineryDetails.tsx`.
-- [ ] Task: Implement Filter UI Grid & Attribute Persistence
-    - [ ] Update map filters to include 'Dog Friendly', 'Kid Friendly', 'Outdoor Seating', and 'EV Charging'.
-    - [ ] Update `wineryDataStore` to include new enriched attributes in the IndexedDB layer.
+- [x] Task: Implement `WineryPhotoHero` & Visuals (02705a7)
+    - [x] Update `WineryDetails.tsx` to display the primary hero photo and photo grid.
+    - [x] **WebKit Stability**: Ensure photos are stored as **Base64 strings** in the offline queue/cache.
+- [x] Task: Integrate AI Insights (Gemini) (02705a7)
+    - [x] Add the `generative_summary` AI Callout to winery details with "Summarized with Gemini" disclosure.
+    - [x] Use `data-state` pattern for skeleton/error states within the stable parent container.
+- [x] Task: Implement Quota Resilience & Logistics UI (02705a7)
+    - [x] Create a "Service Limited" view for when Places API quota is hit or enrichment fails.
+    - [x] Implement **Accordions** for "About the Area" and "Logistics & Accessibility" in `WineryDetails.tsx`.
+- [x] Task: Implement Filter UI Grid & Attribute Persistence (02705a7)
+    - [x] Update map filters to include 'Dog Friendly', 'Kid Friendly', 'Outdoor Seating', and 'EV Charging'.
+    - [x] Update `wineryDataStore` to include new enriched attributes in the IndexedDB layer.
 
 ## Phase 5: Compliance, Validation & Finalization
 - [ ] Task: Implement Attribution Components

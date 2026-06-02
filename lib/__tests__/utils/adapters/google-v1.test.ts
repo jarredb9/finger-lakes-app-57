@@ -29,6 +29,20 @@ describe('Google V1 Adapter', () => {
         languageCode: 'en',
       },
     },
+    photos: [
+      {
+        name: 'places/place_123/photos/photo_abc',
+        widthPx: 1000,
+        heightPx: 1000,
+        authorAttributions: [],
+      },
+      {
+        name: 'places/place_123/photos/photo_xyz',
+        widthPx: 1000,
+        heightPx: 1000,
+        authorAttributions: [],
+      },
+    ],
   };
 
   it('should correctly map GoogleV1Place to Winery interface', () => {
@@ -45,6 +59,11 @@ describe('Google V1 Adapter', () => {
     expect(winery.allows_dogs).toBe(true);
     expect(winery.outdoor_seating).toBe(true);
     expect(winery.generative_summary).toBe('A beautiful winery with great views.');
+    expect(winery.primary_photo_reference).toBe('places/place_123/photos/photo_abc');
+    expect(winery.photo_references).toEqual([
+      'places/place_123/photos/photo_abc',
+      'places/place_123/photos/photo_xyz',
+    ]);
   });
 
   it('should strip legacy lat/lng keys if present in any intermediate objects', () => {

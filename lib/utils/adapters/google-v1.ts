@@ -30,6 +30,10 @@ export function googleV1ToWinery(place: GoogleV1Place): Winery {
     serves_wine: place.servesWine ?? null,
     good_for_children: place.goodForChildren ?? null,
     outdoor_seating: place.outdoorSeating ?? null,
+    primary_photo_reference: place.photos && place.photos.length > 0 ? place.photos[0].name : null,
+    photo_references: place.photos && place.photos.length > 0 ? place.photos.map(p => p.name) : null,
+    parking_options: place.parkingOptions ?? null,
+    accessibility_options: place.accessibilityOptions ?? null,
   };
 
   return winery;

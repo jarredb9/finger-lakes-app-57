@@ -17,6 +17,9 @@ Deno.test("search-wineries handler - successful search", async () => {
         formattedAddress: "123 Test St",
         location: { latitude: 42.1, longitude: -76.1 },
         types: ["winery"],
+        photos: [
+          { name: "places/ChIJtest/photos/photo_123" }
+        ],
       },
     ],
   });
@@ -38,6 +41,8 @@ Deno.test("search-wineries handler - successful search", async () => {
     assertEquals(data.length, 1);
     assertEquals(data[0].name, "Test Winery");
     assertEquals(data[0].enrichment_tier, "basic");
+    assertEquals(data[0].primary_photo_reference, "places/ChIJtest/photos/photo_123");
+    assertEquals(data[0].photo_references, ["places/ChIJtest/photos/photo_123"]);
   } finally {
     envStub.restore();
     googleMock.restore();

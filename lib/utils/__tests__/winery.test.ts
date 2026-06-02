@@ -92,6 +92,8 @@ describe('standardizeWineryData', () => {
       enrichment_tier: 'enriched',
       generative_summary: 'AI Summary',
       allows_dogs: true,
+      primary_photo_reference: 'places/place_v1/photos/photo_abc',
+      photo_references: ['places/place_v1/photos/photo_abc', 'places/place_v1/photos/photo_xyz'],
     };
 
     const result = standardizeWineryData(v1Data);
@@ -102,5 +104,7 @@ describe('standardizeWineryData', () => {
     expect(result?.enrichment_tier).toBe('enriched');
     expect(result?.generative_summary).toBe('AI Summary');
     expect(result?.allows_dogs).toBe(true);
+    expect(result?.primary_photo_reference).toBe('places/place_v1/photos/photo_abc');
+    expect(result?.photo_references).toEqual(['places/place_v1/photos/photo_abc', 'places/place_v1/photos/photo_xyz']);
   });
 });

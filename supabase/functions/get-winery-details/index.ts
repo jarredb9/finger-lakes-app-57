@@ -84,6 +84,8 @@ export const handler = async (req: Request): Promise<Response> => {
       outdoor_seating: place.outdoorSeating ?? null,
       parking_options: place.parkingOptions || null,
       accessibility_flags: place.accessibilityOptions || null,
+      primary_photo_reference: place.photos && place.photos.length > 0 ? place.photos[0].name : null,
+      photo_references: place.photos && place.photos.length > 0 ? place.photos.map((p: any) => p.name) : null,
     }
 
     const { data: upsertedWinery, error: upsertError } = await supabaseClient

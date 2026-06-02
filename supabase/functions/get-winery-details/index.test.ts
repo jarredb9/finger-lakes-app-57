@@ -45,6 +45,9 @@ Deno.test("get-winery-details - successful fetch (lazy enrichment)", async () =>
     displayName: { text: "Test Winery Enriched" },
     formattedAddress: "123 Test St",
     location: { latitude: 42.1, longitude: -76.1 },
+    photos: [
+      { name: "places/ChIJtest/photos/photo_123" }
+    ],
   };
 
   const dbWinery = {
@@ -52,7 +55,9 @@ Deno.test("get-winery-details - successful fetch (lazy enrichment)", async () =>
     google_place_id: "ChIJtest",
     name: "Test Winery Enriched",
     enrichment_tier: "enriched",
-    last_enriched_at: new Date().toISOString()
+    last_enriched_at: new Date().toISOString(),
+    primary_photo_reference: "places/ChIJtest/photos/photo_123",
+    photo_references: ["places/ChIJtest/photos/photo_123"],
   };
 
   const fetchStub = mockFetch(googlePlace, dbWinery);
@@ -70,6 +75,8 @@ Deno.test("get-winery-details - successful fetch (lazy enrichment)", async () =>
     assertEquals(data.id, "ChIJtest");
     assertEquals(data.dbId, 123);
     assertEquals(data.enrichment_tier, "enriched");
+    assertEquals(data.primary_photo_reference, "places/ChIJtest/photos/photo_123");
+    assertEquals(data.photo_references, ["places/ChIJtest/photos/photo_123"]);
   } finally {
     envStub.restore();
     fetchStub.restore();

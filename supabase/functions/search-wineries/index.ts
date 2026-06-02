@@ -59,6 +59,8 @@ export const handler = async (req: Request): Promise<Response> => {
       good_for_children: place.goodForChildren ?? null,
       outdoor_seating: place.outdoorSeating ?? null,
       routing_summaries: place.routingSummaries || null,
+      primary_photo_reference: place.photos && place.photos.length > 0 ? place.photos[0].name : null,
+      photo_references: place.photos && place.photos.length > 0 ? place.photos.map((p: any) => p.name) : null,
     }));
 
     // Background persistence
@@ -86,6 +88,8 @@ export const handler = async (req: Request): Promise<Response> => {
         serves_wine: w.serves_wine,
         good_for_children: w.good_for_children,
         outdoor_seating: w.outdoor_seating,
+        primary_photo_reference: w.primary_photo_reference,
+        photo_references: w.photo_references,
       }));
 
       // Use bulk upsert RPC

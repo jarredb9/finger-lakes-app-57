@@ -176,6 +176,11 @@ export interface Winery {
   serves_wine?: boolean | null;
   good_for_children?: boolean | null;
   outdoor_seating?: boolean | null;
+  primary_photo_reference?: string | null;
+  photo_references?: string[] | null;
+  cached_photos?: Record<string, string> | null;
+  parking_options?: Record<string, any> | null;
+  accessibility_options?: Record<string, any> | null;
 }
 
 /**
