@@ -44,4 +44,7 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 ### 4. Execution Standard
 - **Execution Split:** Orchestrator handles surgical fixes (<3 files); sub-agents handle batch work (>=3 files).
 - **Conductor:** Execute ONE task at a time. Write Test -> Implement -> Pass -> Commit.
-- **Backend Testing:** Supabase Edge Functions MUST be tested using Deno (`npm run test:functions`). Functions must export their `handler` to bypass `Deno.serve` during testing.
+- **Local Development Environment**:
+  - **Podman/SELinux:** ALWAYS run `restorecon -RF ./supabase/functions` before `npm run db:start` to fix permissions.
+  - **Data Initialization:** ALWAYS run `npm run db:populate` after `db:start` to ingest real winery data.
+  - **Integrated Testing:** Use `npm run dev:real` to run the app with real database connectivity. It forces `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`.

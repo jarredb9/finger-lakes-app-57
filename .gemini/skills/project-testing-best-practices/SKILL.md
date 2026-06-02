@@ -71,3 +71,13 @@ These standards move the project from "Defensive Survivability" to "Architectura
 
 ## MCP Integration
 - If a Playwright test fails, you MUST immediately use the `Chrome Dev-Tools MCP` to inspect the **Zustand Store state** before looking at the DOM.
+
+### 11. Local Stack Verification (Tier 3)
+When moving from mocks (Tier 2) to Real Data verification (Tier 3), you MUST use the **Local Supabase Stack**.
+- **Standard:** Use `./scripts/run-e2e-container.sh --build all ...` to ensure the container build picks up local environment variables.
+- **Pre-requisite:** ALWAYS run `npm run db:populate` to ensure the local DB has enriched data.
+- **Verification:** Monitor diagnostic logs for `[NETWORK-REQ]` to confirm the URL is `http://127.0.0.1:54321`.
+- **Targeting Rule:** 
+    - **Local:** Targets local Supabase (`127.0.0.1:54321`).
+    - **GitHub CI:** Targets Live Database (`supabase.co`) using secrets.
+- **Action:** If a Tier 3 test fails locally but logic seems correct, verify the local database schema matches `lib/database.types.ts` using Supabase MCP tools.

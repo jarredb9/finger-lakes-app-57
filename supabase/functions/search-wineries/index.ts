@@ -21,6 +21,25 @@ export const handler = async (req: Request): Promise<Response> => {
 
     const fieldMask = useEnrichment ? ENRICHMENT_FIELD_MASK : ESSENTIALS_FIELD_MASK;
 
+    // Google Places V1 expects a specific rectangle format for locationRestriction
+    let googleLocationRestriction = locationRestriction;
+    if (locationRestriction && locationRestriction.north && locationRestriction.south) {
+      googleLocationRestriction = {
+        rectangle: {
+          low: {
+            latitude: locationRestriction.south,
+            longitude: locationRestriction.west,
+          },
+          high: {
+            latitude: locationRestriction.north,
+            longitude: locationRestriction.east,
+          },
+        },
+      };
+    }
+
+    console.log(`[SearchWineries] Query: "${query}", UseEnrichment: ${useEnrichment}`);
+    
     const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
       method: 'POST',
       headers: {
@@ -30,14 +49,25 @@ export const handler = async (req: Request): Promise<Response> => {
       },
       body: JSON.stringify({
         textQuery: query,
-        locationRestriction,
+        locationRestriction: googleLocationRestriction,
         locationBias,
         languageCode: 'en',
       }),
     });
 
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[SearchWineries] Google API Error (${response.status}):`, errorText);
+      throw new Error(`Google API returned ${response.status}: ${errorText}`);
+    }
+
     const data = await response.json();
     const googlePlaces = data.places || [];
+    console.log(`[SearchWineries] Google returned ${googlePlaces.length} places.`);
+
+    if (googlePlaces.length === 0) {
+        console.log('[SearchWineries] Raw Google Response:', JSON.stringify(data));
+    }
 
     // Normalize results for client
     const normalizedWineries = googlePlaces.map((place: any) => ({

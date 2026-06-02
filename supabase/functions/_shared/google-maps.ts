@@ -10,7 +10,6 @@ export const ESSENTIALS_FIELD_MASK = [
   'places.types',
   'places.formattedAddress',
   'places.photos',
-  'places.routingSummaries',
 ].join(',');
 
 export const ENRICHMENT_FIELD_MASK = [
