@@ -63,16 +63,16 @@
     - [x] **Cost Optimization**: Ensure the session is terminated with a full `ENRICHMENT_FIELD_MASK` fetch.
 
 ## Phase 4: UI Enrichment & AI Insight
-- [x] Task: Implement `WineryPhotoHero` & Visuals (02705a7)
+- [x] Task: Implement `WineryPhotoHero` & Visuals (a95a9bb)
     - [x] Update `WineryDetails.tsx` to display the primary hero photo and photo grid.
     - [x] **WebKit Stability**: Ensure photos are stored as **Base64 strings** in the offline queue/cache.
-- [x] Task: Integrate AI Insights (Gemini) (02705a7)
+- [x] Task: Integrate AI Insights (Gemini) (a95a9bb)
     - [x] Add the `generative_summary` AI Callout to winery details with "Summarized with Gemini" disclosure.
     - [x] Use `data-state` pattern for skeleton/error states within the stable parent container.
-- [x] Task: Implement Quota Resilience & Logistics UI (02705a7)
+- [x] Task: Implement Quota Resilience & Logistics UI (a95a9bb)
     - [x] Create a "Service Limited" view for when Places API quota is hit or enrichment fails.
     - [x] Implement **Accordions** for "About the Area" and "Logistics & Accessibility" in `WineryDetails.tsx`.
-- [x] Task: Implement Filter UI Grid & Attribute Persistence (02705a7)
+- [x] Task: Implement Filter UI Grid & Attribute Persistence (a95a9bb)
     - [x] Update map filters to include 'Dog Friendly', 'Kid Friendly', 'Outdoor Seating', and 'EV Charging'.
     - [x] Update `wineryDataStore` to include new enriched attributes in the IndexedDB layer.
 
