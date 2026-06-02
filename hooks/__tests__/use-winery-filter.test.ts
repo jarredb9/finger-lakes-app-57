@@ -123,4 +123,22 @@ describe("useWineryFilter", () => {
     // Should clear the specific categories but keep attributes
     expect(useMapStore.getState().filter).toEqual(["all", "allowsDogs"]);
   });
+
+  it("should filter mapWineries categories by active attributes", () => {
+    const winery1 = createMockWinery({ id: "w1" as GooglePlaceId, isFavorite: true, allows_dogs: true });
+    const winery2 = createMockWinery({ id: "w2" as GooglePlaceId, isFavorite: true, allows_dogs: false });
+    
+    useWineryDataStore.setState({
+      persistentWineries: [winery1, winery2],
+    });
+    
+    useMapStore.setState({
+      filter: ["favorites", "allowsDogs"],
+    });
+
+    const { result } = renderHook(() => useWineryFilter());
+
+    expect(result.current.mapWineries.favorites).toHaveLength(1);
+    expect(result.current.mapWineries.favorites[0].id).toBe("w1");
+  });
 });

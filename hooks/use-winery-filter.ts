@@ -20,6 +20,10 @@ export function useWineryFilter() {
       }
     });
 
+    const activeAttributes = filter.filter(f =>
+      ["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"].includes(f)
+    );
+
     const categorizedWineries = {
       favorites: [] as Winery[],
       visited: [] as Winery[],
@@ -28,6 +32,16 @@ export function useWineryFilter() {
     };
 
     wineriesMap.forEach((winery) => {
+      const matchesAttributes = activeAttributes.every(attr => {
+        if (attr === "allowsDogs") return winery.allows_dogs === true;
+        if (attr === "goodForChildren") return winery.good_for_children === true;
+        if (attr === "outdoorSeating") return winery.outdoor_seating === true;
+        if (attr === "hasEvCharging") return winery.has_ev_charging === true;
+        return true;
+      });
+
+      if (!matchesAttributes) return;
+
       if (winery.isFavorite) {
         categorizedWineries.favorites.push(winery);
       } else if (winery.userVisited) {
@@ -43,6 +57,7 @@ export function useWineryFilter() {
   }, [
     searchResults,
     persistentWineries,
+    filter,
   ]);
 
   const listResultsInView = useMemo(() => {
