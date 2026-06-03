@@ -87,6 +87,10 @@
     - [x] Verify all Edge Functions utilize the `_shared/` directory for normalization parity.
     - [x] Confirm "Lazy Enrichment" logic is active in `get-winery-details`.
     - [x] Validate "Hybrid Pattern" usage (Edge Functions calling `bulk_upsert_wineries` RPC).
+- [x] Task: Updated project documentation (a3b7c1d)
+    - [x] Update CHANGELOG.md and package.json
+    - [x] Update AGENTS.md and GEMINI.md based on track changes
+    - [x] Update project-testing-best-practices skill on track changes
 - [ ] Task: Final Production Migration & Verification
     - [ ] Apply local migrations to production project (`jfsxclrdxmvftxacjuqf`) ONLY after PR merge.
     - [ ] Verify production RLS and RPC functionality.
