@@ -32,7 +32,7 @@ description: ACTIVATE THIS SKILL if the user mentions: 'Testing', 'E2E', 'Playwr
 - Before writing a test, you MUST identify the minimum **Store State** required to render the feature.
 - **Check the Brief:** Ask: **'Can I bypass navigation for this test using state injection?'**
 
-# Project Testing Best Practices (v2.1.2 - Senior Standard)
+# Project Testing Best Practices (v2.1.3 - Senior Standard)
 
 These standards move the project from "Defensive Survivability" to "Architectural Purity."
 
@@ -67,7 +67,9 @@ These standards move the project from "Defensive Survivability" to "Architectura
 12. **Handoff Protocol:** Implementation agents MUST activate `handoff-protocol` before concluding. Use `scripts/validate-brief.py` for verification.
 13. **Security Compliance:** `npm run db:lint` MUST pass before merging migrations. `window.matchMedia` MUST be polyfilled in `jest.setup.ts`.
 14. **Mutation Settlement:** ALWAYS verify the appearance of the success toast using `waitForToast` before proceeding to the next interaction.
-15. **Edge Function Purity:** Edge functions MUST export their `handler` for local unit testing via Deno. Tests must mock `Deno.env` and external `fetch` calls (see `references/deno-patterns.md`).
+15. Edge Function Purity: Edge functions MUST export their `handler` for local unit testing via Deno. Tests must mock `Deno.env` and external `fetch` calls (see `references/deno-patterns.md`).
+16. Coordinate Type Safety: All tests involving winery data MUST verify coordinates as property-based `{ latitude: number, longitude: number }`. Legacy `lat`/`lng` keys MUST NOT be present in any normalized data passed to UI or DB.
+17. Field Mask Verification: Integration tests for `search-wineries` MUST verify that the field mask in the Google API request is restricted to Essentials (`places.id,places.displayName,places.formattedAddress,places.location,places.types,places.photos`) unless active filters are present.
 
 ## MCP Integration
 - If a Playwright test fails, you MUST immediately use the `Chrome Dev-Tools MCP` to inspect the **Zustand Store state** before looking at the DOM.

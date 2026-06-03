@@ -44,6 +44,8 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 ### 4. Execution Standard
 - **Execution Split:** Orchestrator handles surgical fixes (<3 files); sub-agents handle batch work (>=3 files).
 - **Conductor:** Execute ONE task at a time. Write Test -> Implement -> Pass -> Commit.
+- **Lazy Enrichment Mandate:** You MUST ensure that any feature utilizing enriched winery data (AI summaries, logistics) adheres to the **30-day freshness policy** by checking the `last_enriched_at` timestamp before initiating external API calls.
+- **Edge Function Orchestration:** Prefer moving complex API integrations (Google Places, Gemini) into **Supabase Edge Functions** to ensure backend stability and client-side performance.
 - **Local Development Environment**:
   - **Podman/SELinux:** ALWAYS run `restorecon -RF ./supabase/functions` before `npm run db:start` to fix permissions.
   - **Data Initialization:** ALWAYS run `npm run db:populate` after `db:start` to ingest real winery data.

@@ -18,6 +18,7 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **Styling:** Tailwind CSS v4, shadcn/ui.
 - **State:** Zustand.
 - **Backend:** Supabase (Postgres, Auth, Edge Functions, Realtime), Deno 2.0.
+- **APIs:** Google Places API (v1 SDK), Gemini API (AI Enrichment).
 - **Testing:** Playwright (E2E), Jest (Unit), Deno (Edge Functions).
 
 ## 3. Environment & Shell (RHEL 8)
@@ -40,8 +41,10 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **Date Handling:** ALWAYS use `formatDateLocal(date)` and `getTodayLocal()` from `lib/utils.ts`.
 - **ID Normalization:** Zustand stores MUST normalize relational IDs to `Number()` upon retrieval.
 - **RPC Return Types:** Ensure that `RETURNS TABLE` types in Postgres functions match the actual data types of the returned columns (e.g., use `text` for `google_place_id` to match the `wineries` table) to avoid type mismatch errors (42804).
-- **Coordinate Standardization:** All winery data sources (Google API, DB RPCs, Mocks) MUST be passed through `standardizeWineryData` in `lib/utils/winery.ts` to ensure consistent mapping of IDs (`googleId`, `dbId`) and coordinates (`latitude`, `longitude`).
+- **Coordinate Standardization:** All winery data sources (Google API, DB RPCs, Mocks) MUST be passed through `standardizeWineryData` in `lib/utils/winery.ts` to ensure consistent mapping of IDs (`googleId`, `dbId`) and coordinates (`latitude`, `longitude`). **Property-based access only (`location.latitude`). No `.lat()` calls. All mapping MUST strip legacy `lat`/`lng` keys.**
 - **Ghost Visit Prevention:** When processing winery data, if the source explicitly reports `user_visited` as `false`, the `visits` array MUST be explicitly cleared in the standardizer to prevent stale local cache data.
+- **Lazy Enrichment Pattern:** Implement a "Cache-First" strategy in Edge Functions: check the local database for fresh data (<30 days) before initiating external Google Places API calls.
+- **Hybrid Implementation Pattern:** Use Edge Functions for orchestration, external API calls, and logic-heavy normalization. Use specialized Database RPCs (invoked by the Edge Function) for complex, high-volume database operations.
 - **UI Pattern:** Use **Container/Presentational** pattern. UI components are "Presentational".
 - **Styling:** Use **Tailwind CSS v4**. Avoid custom CSS.
 - **DOM Stability:** Critical UI containers (e.g., `map-container`, `trip-list-container`) MUST remain in the DOM during error/loading states. Use `data-state="error|loading|ready"` and render `Alert` or `Loader` components *inside* the container instead of early returns.
