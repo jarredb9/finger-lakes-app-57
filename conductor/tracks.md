@@ -29,3 +29,8 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 ## 3. [Priority 4] Search Function Upgrade & Mobile UX
 "Search My Location" and proactive search UX improvements.
 *Link: [./tracks/search-upgrade_20260423/](./tracks/search-upgrade_20260423/)*
+
+---
+
+- [ ] **Track: Migrate core user actions (log_visit, create_trip) to Edge Functions**
+*Link: [./resilient-social-actions_20260603/](./resilient-social-actions_20260603/)*
