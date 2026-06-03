@@ -28,6 +28,9 @@ This track addresses the technical debt and architectural drift in the current G
     *   **Type Parity:** Enforce `supabase gen types` verification in CI to ensure the frontend `database.types.ts` is in sync with the current migrations.
 
 ## Technical Mandates
+- **Hybrid Implementation Pattern:** Use Edge Functions for orchestration, external API calls, and logic-heavy normalization. Use specialized Database RPCs (invoked by the Edge Function) for complex, high-volume database operations to ensure atomicity and performance.
+- **Lazy Enrichment Pattern:** Implement a "Cache-First" strategy in Edge Functions: check the local database for fresh data (<30 days) before initiating external Google Places API calls.
+- **Fat Function Architecture:** Prefer fewer, more robust Edge Functions over many micro-functions. Related logic (e.g., search vs details) should share normalization utilities in the `_shared/` directory to ensure cross-backend parity.
 - **Coordinate Standardization:** Property-based access only (`location.latitude`). No `.lat()` calls. All mapping MUST strip legacy `lat`/`lng` keys.
 - **Supabase Native:** `SECURITY DEFINER` and `SET search_path = public, auth` on all new database objects.
 - **PWA Resilience (Reconstitution Rule):** Store photos as **Base64 strings** in the offline queue/cache to prevent detached Blob handles in Safari/WebKit.

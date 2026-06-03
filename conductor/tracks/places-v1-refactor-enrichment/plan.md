@@ -86,6 +86,10 @@
 - [ ] Task: Final Production Migration & Verification
     - [ ] Apply local migrations to production project (`jfsxclrdxmvftxacjuqf`) ONLY after PR merge.
     - [ ] Verify production RLS and RPC functionality.
+- [ ] Task: Architectural Compliance Audit
+    - [ ] Verify all Edge Functions utilize the `_shared/` directory for normalization parity.
+    - [ ] Confirm "Lazy Enrichment" logic is active in `get-winery-details`.
+    - [ ] Validate "Hybrid Pattern" usage (Edge Functions calling `bulk_upsert_wineries` RPC).
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions (c5c4600)
