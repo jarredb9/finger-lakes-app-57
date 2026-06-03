@@ -846,6 +846,56 @@ export class MockMapsManager {
 
     // 6. Supabase Functions Handler
     await this.page.context().route(new RegExp(`${supabaseHost}/functions/v1/`), async (route) => {
+        const req = route.request();
+        const url = req.url();
+        const method = req.method();
+
+        if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+
+        console.log(`[DIAGNOSTIC] Intercepting Edge Function: ${url}`);
+
+        if (url.includes('search-wineries')) {
+            const mockWineries = markers.map(m => ({
+                id: m.google_place_id,
+                name: m.name,
+                address: m.address,
+                latitude: m.latitude,
+                longitude: m.longitude,
+                rating: 4.8,
+                enrichment_tier: 'basic',
+                last_enriched_at: null,
+                generative_summary: null
+            }));
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(mockWineries) });
+        }
+
+        if (url.includes('get-winery-details')) {
+            const postData = JSON.parse(req.postData() || '{}');
+            const placeId = postData.placeId;
+            const marker = markers.find(m => m.google_place_id === placeId);
+            
+            const detailedWinery = {
+                id: placeId,
+                name: marker?.name || 'Mock Enriched Winery',
+                address: marker?.address || '123 Enrichment Ave',
+                latitude: marker?.latitude || 42.7,
+                longitude: marker?.longitude || -76.9,
+                rating: 4.9,
+                enrichment_tier: 'enriched',
+                last_enriched_at: new Date().toISOString(),
+                generative_summary: "This winery has been enriched with AI insights. It features award-winning Rieslings and a stunning lake view.",
+                neighborhood_summary: "The surrounding area is known for its rolling hills and proximity to Seneca Lake.",
+                allows_dogs: true,
+                has_ev_charging: true,
+                serves_wine: true,
+                good_for_children: true,
+                outdoor_seating: true,
+                parking_options: { freeParking: true },
+                accessibility_options: { wheelchairAccessibleEntrance: true }
+            };
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(detailedWinery) });
+        }
+
         return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, data: {} }) });
     });
 
