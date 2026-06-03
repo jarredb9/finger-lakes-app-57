@@ -1,6 +1,6 @@
 {
   "name": "winery-visit-planner",
-  "version": "2.11.0",
+  "version": "2.12.0",
   "private": true,
   "engines": {
     "node": "20.x"
@@ -16,17 +16,22 @@
     "prepare": "husky",
     "start": "next start",
     "type-check": "npx tsc -p tsconfig.json --noEmit",
+    "dev:real": "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_IS_E2E=false E2E_REAL_DATA=true npm run dev",
+    "db:populate": "npx tsx scripts/populate-wineries.ts",
     "test:e2e": "npx playwright test",
     "test:e2e:real": "E2E_REAL_DATA=true npx playwright test",
-    "db:start": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase start",
+    "test:functions": "/home/byrnesjd4821/.deno/bin/deno test --allow-all --import-map ./supabase/functions/import_map.json supabase/functions/",
+    "db:start": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase start",
     "db:stop": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase stop",
-    "db:status": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase status",
+    "db:reset" : "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase db reset",
+    "db:status": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase status",
     "db:lint": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase db lint --level error --schema public",
+    "db:audit": "./scripts/db-audit.sh",
     "db:seed": "npx supabase db reset",
     "db:check-types": "npx supabase gen types typescript --db-url \"$SUPABASE_DB_URL\" --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts",
     "db:check-types:ci": "npx supabase gen types typescript --local --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts",
-    "db:check-types:local": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase gen types typescript --local --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts",
-    "db:gen-types": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase gen types typescript --local --schema public > lib/database.types.ts"
+    "db:check-types:local": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase gen types typescript --local --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts",
+    "db:gen-types": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase gen types typescript --local --schema public > lib/database.types.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -139,6 +144,9 @@
     "*.{js,jsx,ts,tsx}": [
       "eslint --fix",
       "bash -c 'npm run type-check'"
+    ],
+    "supabase/migrations/*.sql": [
+      "bash -c 'npm run db:lint'"
     ]
   }
 }

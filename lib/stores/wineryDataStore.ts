@@ -15,6 +15,7 @@ interface WineryDataState {
   upsertWinery: (winery: Winery) => void;
   bulkUpsertWineries: (wineries: Winery[]) => void;
   ensureInDb: (wineryId: string) => Promise<WineryDbId | null>;
+  upsertEnrichedWinery: (winery: Winery) => Promise<WineryDbId | null>;
   hydrateWineries: (markers: GoogleWinery[]) => void;
   toggleFavorite: (wineryId: string) => Promise<void>;
   toggleWishlist: (wineryId: string) => Promise<void>;
@@ -70,6 +71,15 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
 
           const dbId = await WineryService.ensureInDb(winery);
           if (dbId && dbId !== winery.dbId) {
+              get().upsertWinery({ ...winery, dbId });
+          }
+          return dbId;
+      },
+
+      upsertEnrichedWinery: async (winery) => {
+          get().upsertWinery(winery);
+          const dbId = await WineryService.upsertEnrichedWinery(winery);
+          if (dbId) {
               get().upsertWinery({ ...winery, dbId });
           }
           return dbId;

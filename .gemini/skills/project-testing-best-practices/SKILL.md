@@ -1,6 +1,6 @@
 ---
 name: project-testing-best-practices
-description: ACTIVATE THIS SKILL if the user mentions: 'Testing', 'E2E', 'Playwright', 'Jest', 'Mock', 'Toast', 'Modal', 'Handoff', 'Bug', 'Regression', 'Axe', or 'A11y'.
+description: ACTIVATE THIS SKILL if the user mentions: 'Testing', 'E2E', 'Playwright', 'Jest', 'Mock', 'Toast', 'Modal', 'Handoff', 'Bug', 'Regression', 'Axe', 'A11y', or 'Deno'.
 ---
 
 # 🚨 PROJECT-TESTING-BEST-PRACTICES OPERATIONAL RULES (MANDATORY)
@@ -32,7 +32,7 @@ description: ACTIVATE THIS SKILL if the user mentions: 'Testing', 'E2E', 'Playwr
 - Before writing a test, you MUST identify the minimum **Store State** required to render the feature.
 - **Check the Brief:** Ask: **'Can I bypass navigation for this test using state injection?'**
 
-# Project Testing Best Practices (v2.1.1 - Senior Standard)
+# Project Testing Best Practices (v2.1.3 - Senior Standard)
 
 These standards move the project from "Defensive Survivability" to "Architectural Purity."
 
@@ -49,6 +49,7 @@ These standards move the project from "Defensive Survivability" to "Architectura
 | 7 | WebKit Stability | HIGH | `pw-webkit-stability` |
 | 8 | Accessibility (Axe) | MEDIUM | `pw-accessibility` |
 | 9 | Collaborative Sync | MEDIUM | `pw-collaborative-sync` |
+| 10 | Edge Functions (Deno) | HIGH | `deno-patterns` |
 
 ## Success Criteria
 
@@ -66,6 +67,19 @@ These standards move the project from "Defensive Survivability" to "Architectura
 12. **Handoff Protocol:** Implementation agents MUST activate `handoff-protocol` before concluding. Use `scripts/validate-brief.py` for verification.
 13. **Security Compliance:** `npm run db:lint` MUST pass before merging migrations. `window.matchMedia` MUST be polyfilled in `jest.setup.ts`.
 14. **Mutation Settlement:** ALWAYS verify the appearance of the success toast using `waitForToast` before proceeding to the next interaction.
+15. Edge Function Purity: Edge functions MUST export their `handler` for local unit testing via Deno. Tests must mock `Deno.env` and external `fetch` calls (see `references/deno-patterns.md`).
+16. Coordinate Type Safety: All tests involving winery data MUST verify coordinates as property-based `{ latitude: number, longitude: number }`. Legacy `lat`/`lng` keys MUST NOT be present in any normalized data passed to UI or DB.
+17. Field Mask Verification: Integration tests for `search-wineries` MUST verify that the field mask in the Google API request is restricted to Essentials (`places.id,places.displayName,places.formattedAddress,places.location,places.types,places.photos`) unless active filters are present.
 
 ## MCP Integration
 - If a Playwright test fails, you MUST immediately use the `Chrome Dev-Tools MCP` to inspect the **Zustand Store state** before looking at the DOM.
+
+### 11. Local Stack Verification (Tier 3)
+When moving from mocks (Tier 2) to Real Data verification (Tier 3), you MUST use the **Local Supabase Stack**.
+- **Standard:** Use `./scripts/run-e2e-container.sh --build all ...` to ensure the container build picks up local environment variables.
+- **Pre-requisite:** ALWAYS run `npm run db:populate` to ensure the local DB has enriched data.
+- **Verification:** Monitor diagnostic logs for `[NETWORK-REQ]` to confirm the URL is `http://127.0.0.1:54321`.
+- **Targeting Rule:** 
+    - **Local:** Targets local Supabase (`127.0.0.1:54321`).
+    - **GitHub CI:** Targets Live Database (`supabase.co`) using secrets.
+- **Action:** If a Tier 3 test fails locally but logic seems correct, verify the local database schema matches `lib/database.types.ts` using Supabase MCP tools.

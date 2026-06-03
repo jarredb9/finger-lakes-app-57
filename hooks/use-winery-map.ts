@@ -153,6 +153,52 @@ export function useWineryMap(userId: string) {
     ensureWineryDetails(winery.id);
   }, [openWineryModal, ensureWineryDetails]);
 
+  const handlePlaceSelect = useCallback(async (winery: Winery, sdkPlace: google.maps.places.Place) => {
+    if (!map) return;
+    
+    // Check if it is a winery (or vineyard, tasting room, etc.)
+    const wineryTypes = ['winery', 'vineyard', 'food', 'establishment', 'point_of_interest'];
+    const isWineryType = sdkPlace.types?.some((t: string) => wineryTypes.includes(t)) || 
+         winery.name.toLowerCase().includes('winery') || 
+         winery.name.toLowerCase().includes('vineyard') || 
+         winery.name.toLowerCase().includes('cellar');
+
+    if (isWineryType) {
+      // 1. Center on winery
+      map.setCenter({ lat: winery.latitude, lng: winery.longitude });
+      map.setZoom(16);
+
+      // 2. Save/upsert to store & database with full enriched fields
+      const dbId = await useWineryDataStore.getState().upsertEnrichedWinery(winery);
+      const wineryWithDbId = { ...winery, dbId };
+      
+      // 3. Open details modal
+      openWineryModal(winery.id);
+      
+      // 4. Add to search results so it displays on the map immediately
+      const { setSearchResults } = useMapStore.getState();
+      const currentResults = useMapStore.getState().searchResults;
+      if (!currentResults.some(w => w.id === winery.id)) {
+        setSearchResults([wineryWithDbId, ...currentResults]);
+      }
+    } else {
+      // It's a region/city/locality
+      setSearchLocation(winery.name);
+      
+      if (sdkPlace.viewport) {
+        map.fitBounds(sdkPlace.viewport);
+      } else {
+        map.setCenter({ lat: winery.latitude, lng: winery.longitude });
+        map.setZoom(13);
+      }
+      
+      // Clear last search bounds to force a search in the new area
+      useMapStore.getState().setLastSearchedBounds(null);
+      // Execute text search for wineries in this new area
+      executeSearch(undefined, map.getBounds() || undefined);
+    }
+  }, [map, openWineryModal, setSearchLocation, executeSearch]);
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchLocation.trim()) {
@@ -187,10 +233,11 @@ export function useWineryMap(userId: string) {
     proposedWinery,
     setProposedWinery,
     selectedTrip,
+    handlePlaceSelect,
   }), [
     error, isLoading, mapWineries, listResultsInView, isSearching, hitApiLimit,
     searchLocation, autoSearch, filter, handleFilterChange, handleOpenModal,
     proposedWinery, selectedTrip, setSearchLocation, setAutoSearch, setProposedWinery,
-    handleSearchSubmit, handleManualSearchArea
+    handleSearchSubmit, handleManualSearchArea, handlePlaceSelect
   ]);
 }

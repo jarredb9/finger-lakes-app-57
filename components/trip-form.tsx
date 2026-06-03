@@ -3,15 +3,16 @@
 
 import { useState, useEffect } from "react";
 import { useTripStore } from "@/lib/stores/tripStore"; 
-import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { DatePicker } from "./DatePicker";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Checkbox } from "./ui/checkbox";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { AuthenticatedUser, Winery, GooglePlaceId } from "@/lib/types";
+import { AuthenticatedUser, Winery } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { Badge } from "./ui/badge";
+import { X } from "lucide-react";
+import { PlaceAutocomplete } from "./PlaceAutocomplete";
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import { z } from "zod"
@@ -55,13 +56,6 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
   const { createTrip } = useTripStore();
   const { ensureInDb, upsertWinery } = useWineryDataStore();
   
-  // Local state for search (not part of the form schema directly)
-  const [winerySearch, setWinerySearch] = useState("");
-  const [searchResults, setSearchResults] = useState<Winery[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  
-  const places = useMapsLibrary("places");
-
   // Initialize form
   const form = useForm<TripFormValues>({
     resolver: zodResolver(tripSchema),
@@ -74,42 +68,6 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
   })
 
   const selectedWineries = form.watch("wineries") as Winery[];
-
-  useEffect(() => {
-    if (!winerySearch.trim() || !places) {
-      setSearchResults([]);
-      return;
-    }
-
-    const debounceSearch = setTimeout(() => {
-      const search = async () => {
-        setIsSearching(true);
-        const request = {
-          textQuery: `${winerySearch} winery`,
-          fields: ["displayName", "location", "formattedAddress", "id", "rating"],
-        };
-        try {
-          const { places: foundPlaces } = await places.Place.searchByText(request);
-          const wineries = foundPlaces.map((place) => ({
-            id: place.id! as GooglePlaceId,
-            name: place.displayName!,
-            address: place.formattedAddress!,
-            latitude: place.location!.lat(),
-            longitude: place.location!.lng(),
-            rating: place.rating ?? undefined,
-          }));
-          setSearchResults(wineries);
-        } catch (error) {
-          toast({ variant: "destructive", description: "Winery search failed." });
-        } finally {
-          setIsSearching(false);
-        }
-      };
-      search();
-    }, 500);
-
-    return () => clearTimeout(debounceSearch);
-  }, [winerySearch, places, toast]);
 
   const handleWineryToggle = async (winery: Winery) => {
     const currentWineries = form.getValues("wineries") as Winery[];
@@ -147,8 +105,6 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
         date: data.date, // Keep the date
         wineries: [],
       });
-      setWinerySearch("");
-      setSearchResults([]);
       onClose?.(); // Close the modal
     } catch (error) {
       toast({ variant: "destructive", description: "Failed to create trip." });
@@ -196,33 +152,40 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
 
             <div>
               <FormLabel className="font-semibold">Select Wineries (Optional):</FormLabel>
-              <Input 
+              
+              <PlaceAutocomplete
                 placeholder="Search for a winery..."
-                value={winerySearch}
-                onChange={(e) => setWinerySearch(e.target.value)}
+                onPlaceSelect={async (winery) => {
+                  await handleWineryToggle(winery);
+                }}
+                includedPrimaryTypes={["winery"]}
                 className="mt-2"
-                data-testid="winery-search-input"
+                id="trip-form-winery-autocomplete"
               />
-              <div className="space-y-2 mt-2 max-h-60 overflow-y-auto p-1" data-testid="winery-search-results">
-                {isSearching ? <p>Searching...</p> : searchResults.map(winery => (
-                  <div key={winery.id} className="flex items-start gap-3 p-3 border rounded-lg hover:bg-muted/50 transition-colors" data-testid={`winery-option-${winery.id}`}>
-                    <Checkbox 
-                      id={`winery-${winery.id}`}
-                      checked={selectedWineries.some(w => w.id === winery.id)}
-                      onCheckedChange={() => handleWineryToggle(winery)}
-                      className="mt-1"
-                      data-testid="winery-checkbox"
-                    />
-                    <div className="grid gap-1.5 leading-none">
-                      <FormLabel htmlFor={`winery-${winery.id}`} className="text-sm font-medium cursor-pointer">
-                        {winery.name}
-                      </FormLabel>
-                      <p className="text-sm text-muted-foreground">{winery.address}</p>
-                      {winery.rating && <p className="text-sm text-muted-foreground">Rating: {winery.rating} ★</p>}
-                    </div>
-                  </div>
-                ))}
-              </div>
+
+              {/* Selected Wineries List */}
+              {selectedWineries.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-3 p-2 border rounded-lg bg-muted/30" data-testid="selected-wineries-list">
+                  {selectedWineries.map((winery) => (
+                    <Badge 
+                      key={winery.id} 
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 px-2.5 py-1 text-xs"
+                      data-testid={`selected-winery-${winery.id}`}
+                    >
+                      <span>{winery.name}</span>
+                      <button 
+                        type="button" 
+                        onClick={() => handleWineryToggle(winery)}
+                        className="rounded-full p-0.5 hover:bg-black/10 text-primary-foreground/80 hover:text-primary-foreground transition-colors cursor-pointer"
+                        aria-label={`Remove ${winery.name}`}
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              )}
+
               {/* Show error for wineries if we added validation for min length later */}
               <FormMessage>{form.formState.errors.wineries?.message}</FormMessage>
             </div>

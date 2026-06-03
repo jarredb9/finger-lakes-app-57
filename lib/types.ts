@@ -165,6 +165,79 @@ export interface Winery {
   openingHours?: OpeningHours | null;
   reviews?: PlaceReview[];
   reservable?: boolean | null;
+
+  // Enrichment (Places API v1)
+  enrichment_tier?: 'basic' | 'enriched' | 'full';
+  last_enriched_at?: string | null;
+  generative_summary?: string | null;
+  neighborhood_summary?: string | null;
+  allows_dogs?: boolean | null;
+  has_ev_charging?: boolean | null;
+  serves_wine?: boolean | null;
+  good_for_children?: boolean | null;
+  outdoor_seating?: boolean | null;
+  primary_photo_reference?: string | null;
+  photo_references?: string[] | null;
+  cached_photos?: Record<string, string> | null;
+  parking_options?: Record<string, any> | null;
+  accessibility_options?: Record<string, any> | null;
+}
+
+/**
+ * Google Places API (New) / V1 Response Interface
+ */
+export interface GoogleV1Place {
+  id: string;
+  displayName: {
+    text: string;
+    languageCode: string;
+  };
+  formattedAddress: string;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+  viewport: {
+    low: { latitude: number; longitude: number };
+    high: { latitude: number; longitude: number };
+  };
+  types: string[];
+  photos?: {
+    name: string;
+    widthPx: number;
+    heightPx: number;
+    authorAttributions: {
+      displayName: string;
+      uri: string;
+      photoUri: string;
+    }[];
+  }[];
+  rating?: number;
+  userRatingCount?: number;
+  websiteUri?: string;
+  generativeSummary?: {
+    overview: {
+      text: string;
+      languageCode: string;
+    };
+  };
+  neighborhoodSummary?: {
+    overview: {
+      text: string;
+      languageCode: string;
+    };
+  };
+  editorialSummary?: {
+    text: string;
+    languageCode: string;
+  };
+  reviews?: unknown[];
+  servesWine?: boolean;
+  allowsDogs?: boolean;
+  goodForChildren?: boolean;
+  outdoorSeating?: boolean;
+  parkingOptions?: Record<string, unknown>;
+  accessibilityOptions?: Record<string, unknown>;
 }
 
 export interface TripMember {

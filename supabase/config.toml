@@ -334,6 +334,14 @@ inspector_port = 8083
 # The Deno major version to use.
 deno_version = 2
 
+[functions.search-wineries]
+verify_jwt = false
+import_map = "functions/import_map.json"
+
+[functions.get-winery-details]
+verify_jwt = false
+import_map = "functions/import_map.json"
+
 [edge_runtime.secrets]
 GOOGLE_MAPS_API_KEY = "env(GOOGLE_MAPS_API_KEY)"
 
@@ -355,3 +363,4 @@ s3_region = "env(S3_REGION)"
 s3_access_key = "env(S3_ACCESS_KEY)"
 # Configures AWS_SECRET_ACCESS_KEY for S3 bucket
 s3_secret_key = "env(S3_SECRET_KEY)"
+

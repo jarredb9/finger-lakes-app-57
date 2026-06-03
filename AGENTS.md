@@ -17,18 +17,22 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript.
 - **Styling:** Tailwind CSS v4, shadcn/ui.
 - **State:** Zustand.
-- **Backend:** Supabase (Postgres, Auth, Edge Functions, Realtime).
-- **Testing:** Playwright (E2E), Jest (Unit).
+- **Backend:** Supabase (Postgres, Auth, Edge Functions, Realtime), Deno 2.0.
+- **APIs:** Google Places API (v1 SDK), Gemini API (AI Enrichment).
+- **Testing:** Playwright (E2E), Jest (Unit), Deno (Edge Functions).
 
 ## 3. Environment & Shell (RHEL 8)
 - **Dev Server:** `npm run dev` (http://localhost:3000).
 - **Python:** **MANDATORY:** Use `python3.11` for all scripts and skills.
 - **Local Database:** http://127.0.0.1:54321.
-    - Start: `npm run db:start`
-    - Stop: `npm run db:stop`
+    - Start Stack: `npm run db:start` (Note: Run `restorecon -RF ./supabase/functions` first if Podman/SELinux issues occur).
+    - Stop Stack: `npm run db:stop`
     - Status: `npm run db:status`
+    - Populate Data: `npm run db:populate` (Required for fresh environments).
+    - Real Integration Testing: `npm run dev:real` (Uses real DB connectivity).
     - Check Types: `npm run db:check-types:local`
     - Update Types: `npm run db:gen-types`
+    - Test Edge Functions: `npm run test:functions`
 - **Playwright:** MUST use Podman: `./scripts/run-e2e-container.sh [project] [test_file]`. Use `--build` if logic changed. **Note:** Orchestrator may run surgical tests (single file) directly in main session.
 - **Microscope (SDL-MCP):** `podman run --rm -v "$(pwd):/app:Z" -w /app -e SDL_CONFIG_HOME=/app node:20-bookworm npx sdl-mcp [command]`
 
@@ -37,8 +41,10 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **Date Handling:** ALWAYS use `formatDateLocal(date)` and `getTodayLocal()` from `lib/utils.ts`.
 - **ID Normalization:** Zustand stores MUST normalize relational IDs to `Number()` upon retrieval.
 - **RPC Return Types:** Ensure that `RETURNS TABLE` types in Postgres functions match the actual data types of the returned columns (e.g., use `text` for `google_place_id` to match the `wineries` table) to avoid type mismatch errors (42804).
-- **Coordinate Standardization:** All winery data sources (Google API, DB RPCs, Mocks) MUST be passed through `standardizeWineryData` in `lib/utils/winery.ts` to ensure consistent mapping of IDs (`googleId`, `dbId`) and coordinates (`latitude`, `longitude`).
+- **Coordinate Standardization:** All winery data sources (Google API, DB RPCs, Mocks) MUST be passed through `standardizeWineryData` in `lib/utils/winery.ts` to ensure consistent mapping of IDs (`googleId`, `dbId`) and coordinates (`latitude`, `longitude`). **Property-based access only (`location.latitude`). No `.lat()` calls. All mapping MUST strip legacy `lat`/`lng` keys.**
 - **Ghost Visit Prevention:** When processing winery data, if the source explicitly reports `user_visited` as `false`, the `visits` array MUST be explicitly cleared in the standardizer to prevent stale local cache data.
+- **Lazy Enrichment Pattern:** Implement a "Cache-First" strategy in Edge Functions: check the local database for fresh data (<30 days) before initiating external Google Places API calls.
+- **Hybrid Implementation Pattern:** Use Edge Functions for orchestration, external API calls, and logic-heavy normalization. Use specialized Database RPCs (invoked by the Edge Function) for complex, high-volume database operations.
 - **UI Pattern:** Use **Container/Presentational** pattern. UI components are "Presentational".
 - **Styling:** Use **Tailwind CSS v4**. Avoid custom CSS.
 - **DOM Stability:** Critical UI containers (e.g., `map-container`, `trip-list-container`) MUST remain in the DOM during error/loading states. Use `data-state="error|loading|ready"` and render `Alert` or `Loader` components *inside* the container instead of early returns.
@@ -72,7 +78,9 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **E2E Spec:** `e2e/trip-flow.spec.ts`
 
 ## 8. Boundaries & Constraints
-- **NEVER** modify `.git`, `.github`, or `.next` directories.
+- **NEVER** apply schema changes, migrations, or database mutations (DDL/DML like INSERT, UPDATE, DELETE) directly to the remote Supabase project (`jfsxclrdxmvftxacjuqf`) without an explicit user directive AND a secondary confirmation turn. Read-only queries (SELECT) are permitted for research.
+- **NEVER** modify production data or configuration unless specifically requested as a separate, confirmed action.
+- **NEVER** modify .git, .github, or .next directories.
 - **NEVER** log/print secrets or API keys.
 - **NEVER** commit unless explicitly requested by the user.
 - **NEVER** use `robustClick` or manual event dispatching in tests.

@@ -20,6 +20,10 @@ export function useWineryFilter() {
       }
     });
 
+    const activeAttributes = filter.filter(f =>
+      ["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"].includes(f)
+    );
+
     const categorizedWineries = {
       favorites: [] as Winery[],
       visited: [] as Winery[],
@@ -28,6 +32,16 @@ export function useWineryFilter() {
     };
 
     wineriesMap.forEach((winery) => {
+      const matchesAttributes = activeAttributes.every(attr => {
+        if (attr === "allowsDogs") return winery.allows_dogs === true;
+        if (attr === "goodForChildren") return winery.good_for_children === true;
+        if (attr === "outdoorSeating") return winery.outdoor_seating === true;
+        if (attr === "hasEvCharging") return winery.has_ev_charging === true;
+        return true;
+      });
+
+      if (!matchesAttributes) return;
+
       if (winery.isFavorite) {
         categorizedWineries.favorites.push(winery);
       } else if (winery.userVisited) {
@@ -43,6 +57,7 @@ export function useWineryFilter() {
   }, [
     searchResults,
     persistentWineries,
+    filter,
   ]);
 
   const listResultsInView = useMemo(() => {
@@ -51,7 +66,20 @@ export function useWineryFilter() {
     // When a search has been performed, the results list should ONLY show those results
     // that are within the current map bounds.
     if (searchResults.length > 0) {
-        return searchResults.filter(
+        let results = searchResults;
+        if (filter.includes("allowsDogs")) {
+          results = results.filter((w) => w.allows_dogs === true);
+        }
+        if (filter.includes("goodForChildren")) {
+          results = results.filter((w) => w.good_for_children === true);
+        }
+        if (filter.includes("outdoorSeating")) {
+          results = results.filter((w) => w.outdoor_seating === true);
+        }
+        if (filter.includes("hasEvCharging")) {
+          results = results.filter((w) => w.has_ev_charging === true);
+        }
+        return results.filter(
             (w) => w && w.latitude && w.longitude && bounds.contains({ lat: w.latitude, lng: w.longitude })
         );
     }
@@ -75,6 +103,31 @@ export function useWineryFilter() {
       if (filter.includes("notVisited"))
         wineriesToFilter.push(...mapWineries.discovered);
     }
+
+    // Fallback if only attributes are selected but no category (so wineriesToFilter would be empty)
+    const categories = ["all", "favorites", "visited", "wantToGo", "notVisited"];
+    const hasCategory = filter.some((f) => categories.includes(f));
+    if (!hasCategory) {
+      wineriesToFilter = [
+        ...mapWineries.favorites,
+        ...mapWineries.visited,
+        ...mapWineries.wishlist,
+        ...mapWineries.discovered,
+      ];
+    }
+
+    if (filter.includes("allowsDogs")) {
+      wineriesToFilter = wineriesToFilter.filter((w) => w.allows_dogs === true);
+    }
+    if (filter.includes("goodForChildren")) {
+      wineriesToFilter = wineriesToFilter.filter((w) => w.good_for_children === true);
+    }
+    if (filter.includes("outdoorSeating")) {
+      wineriesToFilter = wineriesToFilter.filter((w) => w.outdoor_seating === true);
+    }
+    if (filter.includes("hasEvCharging")) {
+      wineriesToFilter = wineriesToFilter.filter((w) => w.has_ev_charging === true);
+    }
     
     const uniqueWineries = Array.from(
         new Map(wineriesToFilter.map(w => [w.id, w])).values()
@@ -86,20 +139,28 @@ export function useWineryFilter() {
   }, [filter, mapWineries, bounds, selectedTrip, searchResults]);
 
   const handleFilterChange = (newFilter: string[]) => {
-    if (newFilter.length === 0) {
-      setFilter(["all"]);
-      return;
-    }
-    if (newFilter.length > 1 && newFilter.includes("all")) {
+    const categories = ["all", "visited", "favorites", "wantToGo", "notVisited"];
+    const attributes = ["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"];
+
+    const selectedCategories = newFilter.filter((f) => categories.includes(f));
+    const selectedAttributes = newFilter.filter((f) => attributes.includes(f));
+
+    let finalCategories = [...selectedCategories];
+
+    if (finalCategories.length === 0) {
+      finalCategories = ["all"];
+    } else if (finalCategories.includes("all") && finalCategories.length > 1) {
+      // If "all" was clicked while other categories were selected, or vice versa
       if (filter.includes("all")) {
-        setFilter(newFilter.filter((f) => f !== "all"));
-        return;
+        // "all" was already active, so the user clicked a new category. Remove "all".
+        finalCategories = finalCategories.filter((c) => c !== "all");
       } else {
-        setFilter(["all"]);
-        return;
+        // "all" was NOT active previously, so the user clicked "all". Keep only "all".
+        finalCategories = ["all"];
       }
     }
-    setFilter(newFilter);
+
+    setFilter([...finalCategories, ...selectedAttributes]);
   };
 
   return {

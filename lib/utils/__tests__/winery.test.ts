@@ -81,4 +81,30 @@ describe('standardizeWineryData', () => {
     expect(result?.visits).toHaveLength(1);
     expect(result?.visits?.[0].user_review).toBe('Great!');
   });
+
+  it('standardizes Google V1 data with property-based coordinates and enrichment', () => {
+    const v1Data = {
+      id: 'place_v1',
+      displayName: { text: 'V1 Winery' }, // This is actually GoogleV1Place structure, but standardizeWineryData uses source.name fallback
+      name: 'V1 Winery', // standardizeWineryData expects source.name
+      address: 'V1 Address',
+      location: { latitude: 42.5, longitude: -76.5 },
+      enrichment_tier: 'enriched',
+      generative_summary: 'AI Summary',
+      allows_dogs: true,
+      primary_photo_reference: 'places/place_v1/photos/photo_abc',
+      photo_references: ['places/place_v1/photos/photo_abc', 'places/place_v1/photos/photo_xyz'],
+    };
+
+    const result = standardizeWineryData(v1Data);
+
+    expect(result?.id).toBe('place_v1');
+    expect(result?.latitude).toBe(42.5);
+    expect(result?.longitude).toBe(-76.5);
+    expect(result?.enrichment_tier).toBe('enriched');
+    expect(result?.generative_summary).toBe('AI Summary');
+    expect(result?.allows_dogs).toBe(true);
+    expect(result?.primary_photo_reference).toBe('places/place_v1/photos/photo_abc');
+    expect(result?.photo_references).toEqual(['places/place_v1/photos/photo_abc', 'places/place_v1/photos/photo_xyz']);
+  });
 });

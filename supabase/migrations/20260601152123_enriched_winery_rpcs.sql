@@ -1,0 +1,47 @@
+drop function if exists "public"."get_winery_details"(p_winery_id integer);
+
+drop function if exists "public"."get_winery_details_by_id"(p_winery_id integer);
+
+set check_function_bodies = off;
+
+CREATE OR REPLACE FUNCTION public.bulk_upsert_wineries(p_wineries_data jsonb[])
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'auth'
+AS $function$ DECLARE winery_record jsonb; BEGIN FOREACH winery_record IN ARRAY p_wineries_data LOOP INSERT INTO public.wineries (google_place_id, name, address, latitude, longitude, google_rating, enrichment_tier, last_enriched_at, generative_summary, neighborhood_summary, editorial_summary, primary_photo_reference, photo_references, allows_dogs, good_for_children, outdoor_seating, has_ev_charging, serves_wine, parking_options, accessibility_flags, last_action_timestamp, revision_id) VALUES (winery_record->>'google_place_id', winery_record->>'name', winery_record->>'address', (winery_record->>'latitude')::double precision, (winery_record->>'longitude')::double precision, (winery_record->>'google_rating')::double precision, COALESCE(winery_record->>'enrichment_tier', 'basic'), (winery_record->>'last_enriched_at')::timestamptz, (winery_record->'generative_summary'), (winery_record->'neighborhood_summary'), (winery_record->'editorial_summary'), winery_record->>'primary_photo_reference', (winery_record->'photo_references'), (winery_record->>'allows_dogs')::boolean, (winery_record->>'good_for_children')::boolean, (winery_record->>'outdoor_seating')::boolean, (winery_record->>'has_ev_charging')::boolean, (winery_record->>'serves_wine')::boolean, (winery_record->'parking_options'), (winery_record->'accessibility_flags'), now(), gen_random_uuid()) ON CONFLICT (google_place_id) DO UPDATE SET google_rating = COALESCE(EXCLUDED.google_rating, wineries.google_rating), name = COALESCE(EXCLUDED.name, wineries.name), address = COALESCE(EXCLUDED.address, wineries.address), latitude = COALESCE(EXCLUDED.latitude, wineries.latitude), longitude = COALESCE(EXCLUDED.longitude, wineries.longitude), enrichment_tier = COALESCE(EXCLUDED.enrichment_tier, wineries.enrichment_tier), last_enriched_at = COALESCE(EXCLUDED.last_enriched_at, wineries.last_enriched_at), generative_summary = COALESCE(EXCLUDED.generative_summary, wineries.generative_summary), neighborhood_summary = COALESCE(EXCLUDED.neighborhood_summary, wineries.neighborhood_summary), editorial_summary = COALESCE(EXCLUDED.editorial_summary, wineries.editorial_summary), primary_photo_reference = COALESCE(EXCLUDED.primary_photo_reference, wineries.primary_photo_reference), photo_references = COALESCE(EXCLUDED.photo_references, wineries.photo_references), allows_dogs = COALESCE(EXCLUDED.allows_dogs, wineries.allows_dogs), good_for_children = COALESCE(EXCLUDED.good_for_children, wineries.good_for_children), outdoor_seating = COALESCE(EXCLUDED.outdoor_seating, wineries.outdoor_seating), has_ev_charging = COALESCE(EXCLUDED.has_ev_charging, wineries.has_ev_charging), serves_wine = COALESCE(EXCLUDED.serves_wine, wineries.serves_wine), parking_options = COALESCE(EXCLUDED.parking_options, wineries.parking_options), accessibility_flags = COALESCE(EXCLUDED.accessibility_flags, wineries.accessibility_flags), last_action_timestamp = EXCLUDED.last_action_timestamp, revision_id = EXCLUDED.revision_id; END LOOP; END; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_wineries_in_bounds(p_min_latitude double precision, p_min_longitude double precision, p_max_latitude double precision, p_max_longitude double precision, p_allows_dogs boolean DEFAULT NULL::boolean, p_has_ev_charging boolean DEFAULT NULL::boolean, p_good_for_children boolean DEFAULT NULL::boolean, p_outdoor_seating boolean DEFAULT NULL::boolean, p_serves_wine boolean DEFAULT NULL::boolean)
+ RETURNS SETOF public.wineries
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public', 'auth'
+AS $function$ SELECT * FROM public.wineries WHERE latitude >= p_min_latitude AND latitude <= p_max_latitude AND longitude >= p_min_longitude AND longitude <= p_max_longitude AND (p_allows_dogs IS NULL OR allows_dogs = p_allows_dogs) AND (p_has_ev_charging IS NULL OR has_ev_charging = p_has_ev_charging) AND (p_good_for_children IS NULL OR good_for_children = p_good_for_children) AND (p_outdoor_seating IS NULL OR outdoor_seating = p_outdoor_seating) AND (p_serves_wine IS NULL OR serves_wine = p_serves_wine); $function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_winery_details(p_winery_id integer)
+ RETURNS TABLE(id integer, google_place_id text, name character varying, address text, latitude numeric, longitude numeric, phone character varying, website character varying, google_rating numeric, is_favorite boolean, on_wishlist boolean, user_visited boolean, visits jsonb, enrichment_tier text, last_enriched_at timestamp with time zone, generative_summary jsonb, neighborhood_summary jsonb, editorial_summary jsonb, primary_photo_reference text, photo_references jsonb, allows_dogs boolean, good_for_children boolean, outdoor_seating boolean, has_ev_charging boolean, serves_wine boolean, parking_options jsonb, accessibility_flags jsonb)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'auth'
+AS $function$ DECLARE v_visits jsonb; BEGIN SELECT jsonb_agg(v_agg) INTO v_visits FROM ( SELECT v.id, v.visit_date, v.user_review, v.rating, v.photos FROM public.visits v WHERE v.winery_id = p_winery_id AND v.user_id = auth.uid() ORDER BY v.visit_date DESC ) AS v_agg; RETURN QUERY SELECT w.id, w.google_place_id, w.name, w.address, w.latitude, w.longitude, w.phone::character varying, w.website::character varying, w.google_rating, f.user_id IS NOT NULL, wl.user_id IS NOT NULL, v_visits IS NOT NULL AND jsonb_array_length(v_visits) > 0, v_visits, w.enrichment_tier, w.last_enriched_at, w.generative_summary, w.neighborhood_summary, w.editorial_summary, w.primary_photo_reference, w.photo_references, w.allows_dogs, w.good_for_children, w.outdoor_seating, w.has_ev_charging, w.serves_wine, w.parking_options, w.accessibility_flags FROM public.wineries w LEFT JOIN public.favorites f ON w.id = f.winery_id AND f.user_id = auth.uid() LEFT JOIN public.wishlist wl ON w.id = wl.winery_id AND wl.user_id = auth.uid() WHERE w.id = p_winery_id; END; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.get_winery_details_by_id(p_winery_id integer)
+ RETURNS TABLE(id integer, google_place_id text, name text, address text, latitude numeric, longitude numeric, phone text, website text, google_rating numeric, opening_hours jsonb, reviews jsonb, reservable boolean, is_favorite boolean, on_wishlist boolean, user_visited boolean, is_favorite_private boolean, on_wishlist_private boolean, visits jsonb, trip_info jsonb, enrichment_tier text, last_enriched_at timestamp with time zone, generative_summary jsonb, neighborhood_summary jsonb, editorial_summary jsonb, primary_photo_reference text, photo_references jsonb, allows_dogs boolean, good_for_children boolean, outdoor_seating boolean, has_ev_charging boolean, serves_wine boolean, parking_options jsonb, accessibility_flags jsonb)
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'auth'
+AS $function$ DECLARE user_uuid uuid := auth.uid(); BEGIN RETURN QUERY SELECT w.id, w.google_place_id, w.name::text, w.address, w.latitude, w.longitude, w.phone::text, w.website::text, w.google_rating, w.opening_hours, w.reviews, w.reservable, EXISTS(SELECT 1 FROM public.favorites f WHERE f.winery_id = w.id AND f.user_id = user_uuid) as is_favorite, EXISTS(SELECT 1 FROM public.wishlist wl WHERE wl.winery_id = w.id AND wl.user_id = user_uuid) as on_wishlist, EXISTS(SELECT 1 FROM public.visits v WHERE v.winery_id = w.id AND v.user_id = user_uuid) as user_visited, COALESCE((SELECT f.is_private FROM public.favorites f WHERE f.winery_id = w.id AND f.user_id = user_uuid), false) as is_favorite_private, COALESCE((SELECT wi.is_private FROM public.wishlist wi WHERE wi.winery_id = w.id AND wi.user_id = user_uuid), false) as on_wishlist_private, ( SELECT COALESCE(jsonb_agg( jsonb_build_object( 'id', v.id, 'visit_date', v.visit_date, 'rating', v.rating, 'user_review', v.user_review, 'photos', v.photos, 'is_private', v.is_private ) ORDER BY v.visit_date DESC ), '[]'::jsonb) FROM public.visits v WHERE v.winery_id = w.id AND v.user_id = user_uuid ) as visits, ( SELECT COALESCE(jsonb_agg( jsonb_build_object( 'trip_id', t.id, 'trip_name', t.name, 'trip_date', t.trip_date, 'notes', tw.notes, 'visit_order', tw.visit_order ) ORDER BY t.trip_date ASC, tw.visit_order ASC ), '[]'::jsonb) FROM public.trip_wineries tw JOIN public.trips t ON tw.trip_id = t.id WHERE tw.winery_id = w.id AND ( t.user_id = user_uuid OR EXISTS ( SELECT 1 FROM public.trip_members tm WHERE tm.trip_id = t.id AND tm.user_id = user_uuid ) ) AND t.trip_date >= CURRENT_DATE ) as trip_info, w.enrichment_tier, w.last_enriched_at, w.generative_summary, w.neighborhood_summary, w.editorial_summary, w.primary_photo_reference, w.photo_references, w.allows_dogs, w.good_for_children, w.outdoor_seating, w.has_ev_charging, w.serves_wine, w.parking_options, w.accessibility_flags FROM public.wineries w WHERE w.id = p_winery_id; END; $function$
+;
+
+CREATE OR REPLACE FUNCTION public.upsert_wineries_from_search(p_wineries_data jsonb[])
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public', 'auth'
+AS $function$ BEGIN PERFORM public.bulk_upsert_wineries(p_wineries_data); END; $function$
+;
+
+

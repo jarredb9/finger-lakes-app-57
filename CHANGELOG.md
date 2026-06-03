@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.12.0] - 2026-06-03
+
+**Places API v1 SDK, Edge Function Orchestration & AI Enrichment**
+
+### 🚀 Features
+*   **Places API v1 Migration**:
+    *   **Edge Function Orchestration**: Replaced client-side search logic with the `search-wineries` Supabase Edge Function.
+    *   **Dynamic Field Masking**: Implemented cost-optimized field masking, upgrading from "Essentials" to "Enterprise/Atmosphere" only when specific filters are active.
+    *   **Place Autocomplete v1**: Migrated to the new Google Places Autocomplete v1 with session token management and field mask optimization.
+*   **AI Enrichment & Logistics**:
+    *   **Gemini-Powered Summaries**: Integrated AI-generated winery summaries with "Summarized with Gemini" disclosure.
+    *   **Enriched Attributes**: Added support for 'Dog Friendly', 'Kid Friendly', 'Outdoor Seating', and 'EV Charging' attributes.
+    *   **Logistics UI**: Implemented Accordions for "About the Area" and "Logistics & Accessibility" in `WineryDetails.tsx`.
+*   **Resilience & Offline Performance**:
+    *   **Lazy Enrichment Pattern**: Implemented a 30-day freshness policy; checking local database cache before fetching from Google API.
+    *   **Base64 Photo Persistence**: Ensured photo reliability in WebKit/Safari by storing hero images as Base64 strings in the offline queue.
+    *   **Quota Resilience**: Added "Service Limited" UI states to handle API quota exhaustion gracefully.
+
+### 🛡 Security & DevSecOps
+*   **"Gold Standard" Migrations**:
+    *   Implemented `db:audit` and CI-level `db diff --linked` verification to ensure zero-drift between local and production schemas.
+    *   Strict `SECURITY DEFINER` and `SET search_path = public, auth` enforcement on all new RPCs.
+*   **Backend Testing (Deno)**: Established a local Deno testing infrastructure for Edge Functions with mocks and unit tests, integrated into the CI pipeline.
+
+### ⚙ Refactoring
+*   **Coordinate Standardization**: Finalized the move to property-based `latitude`/`longitude` access, stripping all legacy `lat`/`lng` keys from the data layer.
+*   **Hybrid Implementation**: Combined Edge Function orchestration with atomic Database RPCs (`bulk_upsert_wineries`) for optimized performance.
+
 ## [2.11.0] - 2026-05-18
 
 **PWA Resilience, Offline Integrity & Cryptographic Hardening**

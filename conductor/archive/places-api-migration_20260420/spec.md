@@ -42,7 +42,9 @@ Migrate the application's Google Places API interactions to the "New" version (v
     *   **Area Context & Logistics**: Use **Accordions** for "About the Area" and "Logistics & Accessibility".
 
 ## Data Integrity & Resilience Standards
-1.  **Coordinate Standardization**: Strictly enforce `latitude` and `longitude` naming conventions. All Places v1 response mapping MUST strip legacy `lat`/`lng` keys and normalize to the system-wide standard.
+1.  **Local-First Development Mandate**: ALL schema changes, RPC updates, and Edge Function implementations MUST be developed and verified in the local Supabase environment (`http://127.0.0.1:54321`) first. Direct mutation of the production project (`jfsxclrdxmvftxacjuqf`) is strictly forbidden during the implementation phase.
+2.  **Deployment Strategy**: The remote migration to production is a discrete, final step that occurs only after the full track has been verified locally and merged via PR.
+3.  **Coordinate Standardization**: Strictly enforce `latitude` and `longitude` naming conventions. All Places v1 response mapping MUST strip legacy `lat`/`lng` keys and normalize to the system-wide standard.
     *   **Naming Alignment**: Map v1 `displayName.text` to the internal `name` field and `formattedAddress` to `address`.
     *   **Property Access**: Implementation MUST use property-based access for location (e.g., `location.latitude`) and avoid legacy function calls (e.g., `location.lat()`).
 2.  **Offline Availability (Master Cache)**: The new enriched attributes (`generative_summary`, boolean flags) MUST be integrated into the **Selective Data Persistence** rules for `wineryDataStore`. These attributes must remain viewable in "Read-Only Mode" when offline.

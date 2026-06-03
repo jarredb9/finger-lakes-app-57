@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useTripStore } from "@/lib/stores/tripStore";
+import { PlaceAutocomplete } from "@/components/PlaceAutocomplete";
+import { Winery } from "@/lib/types";
 
 interface MapControlsProps {
   searchLocation: string;
@@ -22,6 +24,7 @@ interface MapControlsProps {
   hitApiLimit: boolean;
   filter: string[];
   handleFilterChange: (value: string[]) => void;
+  handlePlaceSelect?: (winery: Winery, sdkPlace: google.maps.places.Place) => void;
 }
 
 export function MapControls({
@@ -35,6 +38,7 @@ export function MapControls({
   hitApiLimit,
   filter,
   handleFilterChange,
+  handlePlaceSelect,
 }: MapControlsProps) {
   const { upcomingTrips = [], fetchTripById, selectedTrip, setSelectedTrip } = useTripStore();
 
@@ -52,18 +56,26 @@ export function MapControls({
     <div className="space-y-3">
       {/* Search Bar & Controls */}
       <div className="flex flex-col gap-2">
-        <form onSubmit={handleSearchSubmit} className="flex gap-2">
-          <Input
-            placeholder="City or region..."
-            value={searchLocation}
-            onChange={(e) => setSearchLocation(e.target.value)}
-            className="flex-1 h-9"
-            aria-label="Search location"
+        {handlePlaceSelect ? (
+          <PlaceAutocomplete
+            placeholder="Search city, region, or winery..."
+            onPlaceSelect={handlePlaceSelect}
+            className="w-full"
           />
-          <Button type="submit" size="icon" className="h-9 w-9" disabled={isSearching} aria-label="Submit search">
-            {isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />}
-          </Button>
-        </form>
+        ) : (
+          <form onSubmit={handleSearchSubmit} className="flex gap-2">
+            <Input
+              placeholder="City or region..."
+              value={searchLocation}
+              onChange={(e) => setSearchLocation(e.target.value)}
+              className="flex-1 h-9"
+              aria-label="Search location"
+            />
+            <Button type="submit" size="icon" className="h-9 w-9" disabled={isSearching} aria-label="Submit search">
+              {isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />}
+            </Button>
+          </form>
+        )}
         <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
@@ -107,7 +119,13 @@ export function MapControls({
               </Badge>
             </div>
           ) : (
-            <ToggleGroup type="multiple" value={filter} onValueChange={handleFilterChange} className="justify-start flex-wrap gap-1" size="sm">
+            <ToggleGroup 
+              type="multiple" 
+              value={filter.filter(f => ["all", "visited", "favorites", "wantToGo", "notVisited"].includes(f))} 
+              onValueChange={(vals) => handleFilterChange([...vals, ...filter.filter(f => !["all", "visited", "favorites", "wantToGo", "notVisited"].includes(f))])} 
+              className="justify-start flex-wrap gap-1" 
+              size="sm"
+            >
               <ToggleGroupItem value="all" className="text-xs h-6 px-2">All</ToggleGroupItem>
               <ToggleGroupItem value="visited" className="text-xs h-6 px-2">Visited</ToggleGroupItem>
               <ToggleGroupItem value="favorites" className="text-xs h-6 px-2">Favorites</ToggleGroupItem>
@@ -115,6 +133,30 @@ export function MapControls({
               <ToggleGroupItem value="notVisited" className="text-xs h-6 px-2">New</ToggleGroupItem>
             </ToggleGroup>
           )}
+        </div>
+
+        <div className="space-y-1.5 pt-1 border-t border-muted/30">
+          <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider block">Attributes</span>
+          <ToggleGroup 
+            type="multiple" 
+            value={filter.filter(f => ["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"].includes(f))} 
+            onValueChange={(vals) => handleFilterChange([...filter.filter(f => !["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"].includes(f)), ...vals])} 
+            className="justify-start flex-wrap gap-1" 
+            size="sm"
+          >
+            <ToggleGroupItem value="allowsDogs" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+              🐾 Dog Friendly
+            </ToggleGroupItem>
+            <ToggleGroupItem value="goodForChildren" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+              👶 Kid Friendly
+            </ToggleGroupItem>
+            <ToggleGroupItem value="outdoorSeating" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+              ☀️ Outdoor Seating
+            </ToggleGroupItem>
+            <ToggleGroupItem value="hasEvCharging" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+              ⚡ EV Charging
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
 
         <div className="space-y-1 pt-1">

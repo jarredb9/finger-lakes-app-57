@@ -9,13 +9,13 @@
     "loadFromIncludeDirectories": true
   },
   "mcpServers": {
-    // "google-maps-platform-code-assist": {
-    //   "command": "npx",
-    //   "args": [
-    //     "-y",
-    //     "@googlemaps/code-assist-mcp@latest"
-    //   ]
-    // },
+    "google-maps-platform": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@googlemaps/code-assist-mcp@latest"
+      ]
+    },
     // "a11y-mcp": {
     //   "command": "npx",
     //   "args": [

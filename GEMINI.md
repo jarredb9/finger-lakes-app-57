@@ -13,6 +13,8 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 # 🚨 SYSTEM OVERRIDE INSTRUCTIONS (PRIORITY 1)
 
 ### 1. Mandatory Global Skills & Discovery
+*   **MCP Preference (MANDATORY):** You MUST prioritize the **Supabase MCP Server** (`mcp_supabase_*` tools) for ALL interactions with the hosted Supabase environment (listing projects, migrations, SQL execution, logs). Only use the local CLI for purely local operations (e.g., `db start`, `deno test`).
+*   **Production Guardrail:** You are FORBIDDEN from applying migrations (`mcp_supabase_apply_migration`) or executing mutations (`mcp_supabase_execute_sql` with DDL or DML statements like INSERT/UPDATE/DELETE) on the production project ID (`jfsxclrdxmvftxacjuqf`) unless the user explicitly requests it AND you have obtained a secondary "Yes, I am sure" confirmation in a separate turn. **IF IN DOUBT, USE THE LOCAL CLI (`npm run db:query`).**
 *   **Discovery:** You MUST read `AGENTS.md` and `conductor/index.md` at the start of every session.
 *   **Analysis:** `codebase-analysis`, `problem-analysis` for investigation.
 *   **Verification:** `project-testing-best-practices` MUST be active BEFORE writing any tests.
@@ -21,6 +23,8 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
     1. "I will delegate all investigations and batch E2E test runs to a sub-agent."
     2. "I am permitted to run surgical E2E verifications (single files) in the main session when implementation context is critical."
     3. "I have scanned for relevant skills and will activate them before implementation."
+    4. "I will NOT execute mutations on production project `jfsxclrdxmvftxacjuqf` without secondary confirmation."
+    5. "I will prioritize the Supabase MCP tools over the local CLI for all hosted environment interactions."
 
 ### 2. Delegation & Context Mandate (MANDATORY - Orchestrator)
 - **Hard Thresholds:** The Orchestrator MUST delegate any investigation (>2 calls), complex failure analysis, or high-volume output task (>100 lines).
@@ -40,3 +44,9 @@ BEFORE performing any action, implementation, or deep analysis, you MUST:
 ### 4. Execution Standard
 - **Execution Split:** Orchestrator handles surgical fixes (<3 files); sub-agents handle batch work (>=3 files).
 - **Conductor:** Execute ONE task at a time. Write Test -> Implement -> Pass -> Commit.
+- **Lazy Enrichment Mandate:** You MUST ensure that any feature utilizing enriched winery data (AI summaries, logistics) adheres to the **30-day freshness policy** by checking the `last_enriched_at` timestamp before initiating external API calls.
+- **Edge Function Orchestration:** Prefer moving complex API integrations (Google Places, Gemini) into **Supabase Edge Functions** to ensure backend stability and client-side performance.
+- **Local Development Environment**:
+  - **Podman/SELinux:** ALWAYS run `restorecon -RF ./supabase/functions` before `npm run db:start` to fix permissions.
+  - **Data Initialization:** ALWAYS run `npm run db:populate` after `db:start` to ingest real winery data.
+  - **Integrated Testing:** Use `npm run dev:real` to run the app with real database connectivity. It forces `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`.

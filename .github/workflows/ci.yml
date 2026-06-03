@@ -24,7 +24,7 @@ jobs:
   build:
     name: Build, Check & Unit Test
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -32,11 +32,25 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24' # 2026 Standard
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Cache Playwright Browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Playwright Browsers & OS Dependencies (Pre-heat Cache)
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
+        run: npx playwright install --with-deps
+        env:
+          DEBUG: pw:install
+        timeout-minutes: 15
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -53,9 +67,12 @@ jobs:
           npm run db:lint
           npm run db:check-types:ci
 
-      # - name: Migration Safety Check (Remote Drift)
-      #   run: supabase db push --db-url "${{ secrets.SUPABASE_DB_URL }}" --dry-run
-      #   if: github.event_name == 'pull_request'
+      - name: Verify Migrations (Fresh Build)
+        run: supabase db reset
+
+      - name: "Information Only: Production Schema Diff"
+        if: ${{ github.event_name == 'pull_request' }}
+        run: supabase db diff --db-url "${{ secrets.SUPABASE_DB_URL }}" || true
 
       - name: Run Jest tests
         run: npm run test
@@ -89,7 +106,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
@@ -102,11 +119,15 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
-      - name: Install Playwright Browsers (if cache miss)
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - name: Install Playwright Browsers & OS Dependencies (on cache miss)
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: npx playwright install --with-deps
+        env:
+          DEBUG: pw:install
+        timeout-minutes: 15
 
-      - name: Install Playwright OS Dependencies (Mandatory)
+      - name: Install Playwright OS Dependencies (on cache hit)
+        if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' }}
         run: npx playwright install-deps
         timeout-minutes: 5
 
@@ -133,7 +154,7 @@ jobs:
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
 
       - name: Upload blob report
-        if: always()
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: all-blob-reports-${{ matrix.shard }}
@@ -142,7 +163,7 @@ jobs:
 
   merge-reports:
     name: Merge E2E Reports
-    if: always()
+    if: ${{ always() }}
     needs: [e2e-tests]
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -150,7 +171,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
@@ -172,7 +193,7 @@ jobs:
   deploy:
     name: Deploy to Production
     needs: [build, e2e-tests]
-    if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main'
+    if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
     environment: production
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -183,7 +204,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
           cache: 'npm'
 
       - name: Install dependencies
@@ -213,11 +234,15 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
-      - name: Install Playwright Browsers (if cache miss)
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+      - name: Install Playwright Browsers & OS Dependencies (on cache miss)
+        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: npx playwright install --with-deps
+        env:
+          DEBUG: pw:install
+        timeout-minutes: 15
 
-      - name: Install Playwright OS Dependencies (Mandatory)
+      - name: Install Playwright OS Dependencies (on cache hit)
+        if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' }}
         run: npx playwright install-deps
         timeout-minutes: 5
 

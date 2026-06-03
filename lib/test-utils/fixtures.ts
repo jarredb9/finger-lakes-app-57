@@ -29,6 +29,16 @@ export const createMockWinery = (overrides: Partial<Winery> = {}): Winery => ({
   onWishlist: false,
   isFavorite: false,
   visits: [],
+  allows_dogs: null,
+  has_ev_charging: null,
+  serves_wine: null,
+  good_for_children: null,
+  outdoor_seating: null,
+  primary_photo_reference: null,
+  photo_references: null,
+  cached_photos: null,
+  parking_options: null,
+  accessibility_options: null,
   ...overrides,
 });
 

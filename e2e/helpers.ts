@@ -932,3 +932,32 @@ export async function removeFriend(page: Page, email: string) {
         await expect(sidebar.locator(`text="${email}"`)).not.toBeVisible({ timeout: 10000 });
     }).toPass({ timeout: 45000, intervals: [5000] });
 }
+
+/**
+ * Capture and log critical Zustand store state for diagnostics.
+ */
+export async function dumpStoreDiagnostics(page: Page) {
+  const diagnostics = await page.evaluate(() => {
+    return {
+      // @ts-ignore
+      mapStore: window.useMapStore?.getState(),
+      // @ts-ignore
+      wineryDataStore: window.useWineryDataStore?.getState(),
+      // @ts-ignore
+      userStore: window.useUserStore?.getState(),
+      // @ts-ignore
+      tripStore: window.useTripStore?.getState(),
+      // @ts-ignore
+      friendStore: window.useFriendStore?.getState(),
+      // @ts-ignore
+      visitStore: window.useVisitStore?.getState(),
+      localStorage: { ...localStorage },
+      sessionStorage: { ...sessionStorage }
+    };
+  });
+  
+  console.log('--- DIAGNOSTICS DUMP START ---');
+  console.log(JSON.stringify(diagnostics, null, 2));
+  console.log('--- DIAGNOSTICS DUMP END ---');
+  return diagnostics;
+}

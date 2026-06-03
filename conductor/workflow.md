@@ -19,6 +19,8 @@ All tasks follow a strict lifecycle:
 
 0. **Delegated Discovery (MANDATORY):** Before performing any research, selecting a task, or **investigating a test failure**, you MUST invoke a sub-agent (e.g., `codebase_investigator`) to audit the current state. The sub-agent provides the "Zero-Leakage Summary" and code proposals.
 
+**DATABASE MANDATE:** For any task involving database schema changes (DDL), you MUST develop the migration locally. You are FORBIDDEN from applying migrations to the remote/production project (`jfsxclrdxmvftxacjuqf`) during the implementation phase. Remote application is reserved for the final deployment process after PR approval.
+
 1. **Select Task:** Choose the next available task from `plan.md` in sequential order.
 
 2. **Mark In Progress:** Before beginning work, edit `plan.md` and change the task from `[ ]` to `[~]`.
