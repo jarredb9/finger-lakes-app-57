@@ -4,6 +4,7 @@ import { PlaceReview, Winery } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { MessageSquare, Dog, CalendarCheck, Baby, CheckCircle2, XCircle } from "lucide-react";
+import { GoogleAttribution } from "./GoogleAttribution";
 
 interface WineryQnAProps {
   winery: Winery;
@@ -82,10 +83,13 @@ export default function WineryQnA({ winery }: WineryQnAProps) {
 
   return (
     <div className="space-y-4 pt-2">
-      <h4 className="font-semibold flex items-center gap-2">
-        <MessageSquare className="w-5 h-5" />
-        Common Questions
-      </h4>
+      <div className="flex items-center justify-between">
+        <h4 className="font-semibold flex items-center gap-2">
+          <MessageSquare className="w-5 h-5" />
+          Common Questions
+        </h4>
+        <GoogleAttribution variant="reviews" />
+      </div>
       <div className="flex flex-wrap gap-2">
         {questions.map((q) => (
           <Button
