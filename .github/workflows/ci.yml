@@ -77,20 +77,6 @@ jobs:
       - name: Run Jest tests
         run: npm run test
 
-      - name: Cache Playwright Browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright Browsers & OS Dependencies (Pre-heat Cache)
-        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
-        run: npx playwright install --with-deps
-        env:
-          DEBUG: pw:install
-        timeout-minutes: 15
-
       - name: Build Next.js App
         run: npm run build
 
@@ -185,7 +171,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '20'
           cache: 'npm'
       - name: Install dependencies
         run: npm ci
