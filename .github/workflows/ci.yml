@@ -105,11 +105,15 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
-      - name: Install Playwright Browsers (if cache miss)
+      - name: Install Playwright Browsers & OS Dependencies (on cache miss)
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: npx playwright install --with-deps
+        env:
+          DEBUG: pw:install
+        timeout-minutes: 15
 
-      - name: Install Playwright OS Dependencies (Mandatory)
+      - name: Install Playwright OS Dependencies (on cache hit)
+        if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' }}
         run: npx playwright install-deps
         timeout-minutes: 5
 
@@ -216,11 +220,15 @@ jobs:
           path: ~/.cache/ms-playwright
           key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
 
-      - name: Install Playwright Browsers (if cache miss)
+      - name: Install Playwright Browsers & OS Dependencies (on cache miss)
         if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: npx playwright install --with-deps
+        env:
+          DEBUG: pw:install
+        timeout-minutes: 15
 
-      - name: Install Playwright OS Dependencies (Mandatory)
+      - name: Install Playwright OS Dependencies (on cache hit)
+        if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' }}
         run: npx playwright install-deps
         timeout-minutes: 5
 
