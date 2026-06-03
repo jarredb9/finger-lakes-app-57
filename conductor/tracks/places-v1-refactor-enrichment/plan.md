@@ -81,15 +81,15 @@
     - [x] Add `GoogleAttribution` and `GeminiDisclosure` to relevant views.
 - [x] Task: Update Mocks & Intercepts (b495e68)
     - [x] Update `MockMapsManager` to support **Versioned Intercepts** (e.g., `mockPlacesV1()`).
-- [ ] Task: Cross-Browser E2E Verification
-    - [ ] Run full test suite on **Chromium**, **Firefox**, and **WebKit**.
+- [x] Task: Cross-Browser E2E Verification (User Verified)
+    - [x] Run full test suite on **Chromium**, **Firefox**, and **WebKit**.
+- [x] Task: Architectural Compliance Audit (6373cf4)
+    - [x] Verify all Edge Functions utilize the `_shared/` directory for normalization parity.
+    - [x] Confirm "Lazy Enrichment" logic is active in `get-winery-details`.
+    - [x] Validate "Hybrid Pattern" usage (Edge Functions calling `bulk_upsert_wineries` RPC).
 - [ ] Task: Final Production Migration & Verification
     - [ ] Apply local migrations to production project (`jfsxclrdxmvftxacjuqf`) ONLY after PR merge.
     - [ ] Verify production RLS and RPC functionality.
-- [ ] Task: Architectural Compliance Audit
-    - [ ] Verify all Edge Functions utilize the `_shared/` directory for normalization parity.
-    - [ ] Confirm "Lazy Enrichment" logic is active in `get-winery-details`.
-    - [ ] Validate "Hybrid Pattern" usage (Edge Functions calling `bulk_upsert_wineries` RPC).
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions (c5c4600)
