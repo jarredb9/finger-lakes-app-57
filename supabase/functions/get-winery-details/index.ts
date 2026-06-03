@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js"
 import { ENRICHMENT_FIELD_MASK } from "../_shared/google-maps.ts"
 import { shouldEnrich } from "../_shared/enrichment.ts"
+import { normalizeGooglePlaceV1 } from "../_shared/normalization.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -60,47 +61,29 @@ export const handler = async (req: Request): Promise<Response> => {
     const place = await response.json()
     if (place.error) throw new Error(place.error.message)
 
-    // 3. Normalize & Upsert
-    const wineryData = {
-      google_place_id: place.id,
-      name: place.displayName?.text,
-      address: place.formattedAddress,
-      latitude: place.location?.latitude,
-      longitude: place.location?.longitude,
-      phone: place.internationalPhoneNumber || null,
-      website: place.websiteUri || null,
-      google_rating: place.rating || null,
-      opening_hours: place.regularOpeningHours || null,
-      reviews: place.reviews || null,
-      enrichment_tier: 'enriched',
-      last_enriched_at: new Date().toISOString(),
-      generative_summary: place.generativeSummary ? { overview: { text: place.generativeSummary.overview?.text } } : null,
-      neighborhood_summary: place.neighborhoodSummary ? { overview: { text: place.neighborhoodSummary.overview?.text } } : null,
-      editorial_summary: place.editorialSummary ? { overview: { text: place.editorialSummary.overview?.text } } : null,
-      allows_dogs: place.allowsDogs ?? null,
-      has_ev_charging: place.parkingOptions?.hasEvChargingStations ?? null,
-      serves_wine: place.servesWine ?? null,
-      good_for_children: place.goodForChildren ?? null,
-      outdoor_seating: place.outdoorSeating ?? null,
-      parking_options: place.parkingOptions || null,
-      accessibility_flags: place.accessibilityOptions || null,
-      primary_photo_reference: place.photos && place.photos.length > 0 ? place.photos[0].name : null,
-      photo_references: place.photos && place.photos.length > 0 ? place.photos.map((p: any) => p.name) : null,
-    }
+    // 3. Normalize & Upsert via Hybrid Pattern (RPC)
+    const wineryData = normalizeGooglePlaceV1(place, 'enriched')
 
-    const { data: upsertedWinery, error: upsertError } = await supabaseClient
-      .from('wineries')
-      .upsert(wineryData, { onConflict: 'google_place_id' })
-      .select()
-      .single()
+    const { error: upsertError } = await supabaseClient.rpc('bulk_upsert_wineries', {
+      p_wineries_data: [wineryData]
+    })
 
     if (upsertError) throw upsertError
 
+    // 4. Fetch the updated record to return to client (ensures ID and Revision Control fields are included)
+    const { data: updatedWinery, error: fetchError } = await supabaseClient
+      .from('wineries')
+      .select('*')
+      .eq('google_place_id', placeId)
+      .single()
+
+    if (fetchError) throw fetchError
+
     return new Response(
       JSON.stringify({ 
-        ...upsertedWinery, 
-        id: upsertedWinery.google_place_id, 
-        dbId: Number(upsertedWinery.id) 
+        ...updatedWinery, 
+        id: updatedWinery.google_place_id, 
+        dbId: Number(updatedWinery.id) 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

@@ -1,37 +1,6 @@
 import { assertEquals } from "std/testing/asserts.ts";
 import { handler } from "./index.ts";
-import { stub, Stub } from "std/testing/mock.ts";
-import { mockDenoEnv } from "../_shared/testing-helpers.ts";
-
-/**
- * Enhanced mock for fetch that handles both Google and Supabase URLs
- */
-function mockFetch(googleResponse: any, supabaseResponse: any): Stub {
-  return stub(
-    globalThis,
-    "fetch",
-    (url: string | URL | Request) => {
-      const urlStr = url.toString();
-      if (urlStr.includes("places.googleapis.com")) {
-        return Promise.resolve(
-          new Response(JSON.stringify(googleResponse), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          })
-        );
-      }
-      if (urlStr.includes(".supabase.co")) {
-        return Promise.resolve(
-          new Response(JSON.stringify(supabaseResponse), {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          })
-        );
-      }
-      return Promise.reject(new Error(`Unhandled fetch to ${urlStr}`));
-    }
-  );
-}
+import { mockDenoEnv, mockFetch } from "../_shared/testing-helpers.ts";
 
 Deno.test("get-winery-details - successful fetch (lazy enrichment)", async () => {
   const envStub = mockDenoEnv({
@@ -50,17 +19,25 @@ Deno.test("get-winery-details - successful fetch (lazy enrichment)", async () =>
     ],
   };
 
-  const dbWinery = {
-    id: 123,
-    google_place_id: "ChIJtest",
-    name: "Test Winery Enriched",
-    enrichment_tier: "enriched",
-    last_enriched_at: new Date().toISOString(),
-    primary_photo_reference: "places/ChIJtest/photos/photo_123",
-    photo_references: ["places/ChIJtest/photos/photo_123"],
-  };
+  // Sequence:
+  // 1. Initial select (returns null or basic to trigger enrichment)
+  // 2. RPC (returns void/null)
+  // 3. Final select (returns enriched)
+  const supabaseResponses = [
+    null, // Initial select: Not found
+    null, // RPC: Success
+    {
+      id: 123,
+      google_place_id: "ChIJtest",
+      name: "Test Winery Enriched",
+      enrichment_tier: "enriched",
+      last_enriched_at: new Date().toISOString(),
+      primary_photo_reference: "places/ChIJtest/photos/photo_123",
+      photo_references: ["places/ChIJtest/photos/photo_123"],
+    }
+  ];
 
-  const fetchStub = mockFetch(googlePlace, dbWinery);
+  const fetchStub = mockFetch(googlePlace, supabaseResponses);
 
   try {
     const req = new Request("https://test.com", {

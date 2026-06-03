@@ -1,6 +1,6 @@
 import { assertEquals } from "std/testing/asserts.ts";
 import { handler } from "./index.ts";
-import { mockGooglePlacesResponse, mockDenoEnv } from "../_shared/testing-helpers.ts";
+import { mockDenoEnv, mockFetch } from "../_shared/testing-helpers.ts";
 
 Deno.test("search-wineries handler - successful search", async () => {
   const envStub = mockDenoEnv({
@@ -9,20 +9,23 @@ Deno.test("search-wineries handler - successful search", async () => {
     SUPABASE_SERVICE_ROLE_KEY: "test-role-key",
   });
 
-  const googleMock = mockGooglePlacesResponse({
-    places: [
-      {
-        id: "ChIJtest",
-        displayName: { text: "Test Winery" },
-        formattedAddress: "123 Test St",
-        location: { latitude: 42.1, longitude: -76.1 },
-        types: ["winery"],
-        photos: [
-          { name: "places/ChIJtest/photos/photo_123" }
-        ],
-      },
+  const googlePlace = {
+    id: "ChIJtest",
+    displayName: { text: "Test Winery" },
+    formattedAddress: "123 Test St",
+    location: { latitude: 42.1, longitude: -76.1 },
+    types: ["winery"],
+    photos: [
+      { name: "places/ChIJtest/photos/photo_123" }
     ],
-  });
+  };
+
+  const googleResponse = {
+    places: [googlePlace],
+  };
+
+  // search-wineries does one RPC call in the background
+  const fetchStub = mockFetch(googleResponse, null);
 
   try {
     const req = new Request("https://test.com", {
@@ -45,7 +48,7 @@ Deno.test("search-wineries handler - successful search", async () => {
     assertEquals(data[0].photo_references, ["places/ChIJtest/photos/photo_123"]);
   } finally {
     envStub.restore();
-    googleMock.restore();
+    fetchStub.restore();
   }
 });
 
