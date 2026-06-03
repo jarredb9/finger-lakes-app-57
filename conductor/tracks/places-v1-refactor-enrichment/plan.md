@@ -77,8 +77,8 @@
     - [x] Update `wineryDataStore` to include new enriched attributes in the IndexedDB layer.
 
 ## Phase 5: Compliance, Validation & Finalization
-- [ ] Task: Implement Attribution Components
-    - [ ] Add `GoogleAttribution` and `GeminiDisclosure` to relevant views.
+- [x] Task: Implement Attribution Components (accf6c2)
+    - [x] Add `GoogleAttribution` and `GeminiDisclosure` to relevant views.
 - [ ] Task: Update Mocks & Intercepts
     - [ ] Update `MockMapsManager` to support **Versioned Intercepts** (e.g., `mockPlacesV1()`).
 - [ ] Task: Cross-Browser E2E Verification
