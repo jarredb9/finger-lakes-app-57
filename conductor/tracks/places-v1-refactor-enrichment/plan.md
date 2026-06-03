@@ -79,8 +79,8 @@
 ## Phase 5: Compliance, Validation & Finalization
 - [x] Task: Implement Attribution Components (accf6c2)
     - [x] Add `GoogleAttribution` and `GeminiDisclosure` to relevant views.
-- [ ] Task: Update Mocks & Intercepts
-    - [ ] Update `MockMapsManager` to support **Versioned Intercepts** (e.g., `mockPlacesV1()`).
+- [x] Task: Update Mocks & Intercepts (b495e68)
+    - [x] Update `MockMapsManager` to support **Versioned Intercepts** (e.g., `mockPlacesV1()`).
 - [ ] Task: Cross-Browser E2E Verification
     - [ ] Run full test suite on **Chromium**, **Firefox**, and **WebKit**.
 - [ ] Task: Final Production Migration & Verification
