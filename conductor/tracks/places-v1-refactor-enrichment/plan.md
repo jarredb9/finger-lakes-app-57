@@ -100,3 +100,5 @@
 - [x] Task: Apply review suggestions (coordinate cleanup) (2b0b6b9)
 - [x] Task: Apply review suggestions (arch-ui compliance) (308935e)
 - [x] Task: Explicitly link Edge Function import maps to resolve CLI fallback warnings
+- [x] Task: Apply review suggestions (b58efaa)
+
