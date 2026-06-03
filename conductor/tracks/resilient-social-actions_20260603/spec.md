@@ -1,30 +1,53 @@
-# Specification: Resilient Social Actions Migration
+# Specification: Resilient Social Actions
 
 ## Overview
-This track focuses on migrating high-value user interaction RPCs (`log_visit`, `update_visit`, `create_trip`) to Supabase Edge Functions. The goal is to enhance PWA resilience through standardized retry/queueing logic and to enable extensible backend side-effects like AI-driven winery summary updates and privacy-aware social notifications.
+This track focuses on reinforcing the resilience and data integrity of core user interactions (`log_visit`, `update_visit`, `create_trip`) under offline PWA conditions, while enabling extensible backend side-effects (AI-driven winery summary updates and social notifications) using native Supabase Database Webhooks. 
 
-## Functional Requirements
-1. **Migrate Visit Logging (`log-visit`):**
-    - Replace the `log_visit` RPC with a Deno Edge Function.
-    - **Side Effect**: Trigger a Gemini summary update for the winery if the user review meets a "detail threshold" (e.g., >100 characters).
-    - **Side Effect**: Post to the `activity_ledger` and notify friends, strictly respecting `public.is_visible_to_viewer` and the user's privacy settings.
-2. **Migrate Trip Creation (`create-trip`):**
-    - Replace `create_trip` and `create_trip_with_winery` with a consolidated `manage-trips` Edge Function.
-    - **Resilience**: Ensure trip creation is queued in IndexedDB if the user is offline, using the existing PWA resilience patterns.
-3. **PWA Resilience Integration:**
-    - All client-side invocations MUST use the `invokeFunction` resilience wrapper.
-    - Implement a "Retry with Backoff" strategy for failed social actions.
-4. **Selective Migration Mandate:**
-    - Only migrate functions where the transition to Edge Functions provides a tangible benefit (e.g., orchestration of 3rd party APIs, AI integration, or complex normalization). Relational-only logic stays in Postgres RPCs.
+Following the **Selective Migration Mandate**, core relational writes remain as high-performance PostgreSQL RPCs, avoiding the latency, cold-start, and database-connection overhead of Edge Functions. Background side-effects are decoupled using native, asynchronous Database Webhooks.
 
-## Technical Mandates
-- **Hybrid Pattern:** Edge Functions will still call existing transactional RPCs (like `bulk_upsert_wineries` or join-table inserts) to ensure atomicity.
-- **Full Normalization:** All incoming winery data from user actions MUST pass through the `_shared/normalization.ts` utility.
-- **Privacy-First Notifications:** Social notification triggers MUST perform a `is_visible_to_viewer` check before emitting events to the Realtime bus.
-- **Coordinate Standardization:** Enforce property-based `latitude`/`longitude` mapping across all migrated flows.
+---
 
-## Acceptance Criteria
-- 100% unit test coverage for new Edge Functions (Deno).
-- Social notifications are successfully suppressed for "Private" visits.
-- Visits logged while offline successfully sync once connectivity is restored.
-- Gemini summaries are updated in the background after a detailed visit log.
+## 1. Functional Requirements
+
+### A. Idempotent Core Writes (PostgreSQL RPCs)
+To prevent duplicate records from client-side retries after network timeouts:
+* Extend the `public.visits` and `public.trips` tables to support an optional `idempotency_key` (UUID) column with a `UNIQUE` constraint.
+* Update `log_visit`, `update_visit`, and `create_trip` database RPCs to accept and store the `idempotency_key` (sourced from the client's `SyncItem.id`).
+* If a write attempt encounters a unique constraint violation on `idempotency_key`, the database RPC must handle the conflict gracefully:
+  - For `log_visit` / `create_trip`: Return the existing row ID instead of throwing an error or inserting a duplicate.
+  - For `update_visit`: Return the updated row ID safely.
+
+### B. Decoupled Asynchronous Side-Effects (Database Webhooks)
+Instead of polling database queues with cron daemons, use native **Supabase Database Webhooks** to trigger Edge Functions asynchronously:
+1. **AI Gemini Winery Summary Updates:**
+   - Create a database webhook on `public.visits` that triggers AFTER INSERT or UPDATE.
+   - The webhook filter ensures the hook only fires if `user_review` length is updated and is greater than 100 characters.
+   - The webhook invokes an `update-gemini-summary` Edge Function asynchronously to generate and save a winery summary.
+2. **Privacy-Aware Social Notifications:**
+   - Create a database webhook on `public.activity_ledger` that triggers AFTER INSERT.
+   - Since the database trigger `tr_visits_activity_ledger` automatically creates ledger records, this webhook will fire for all new public or friend-visible social actions.
+   - The webhook invokes a `send-social-notification` Edge Function asynchronously.
+   - The function will verify privacy settings (using `is_visible_to_viewer`) and dispatch notifications (push notifications or badges) to eligible friends.
+
+### C. PWA Client Resilience & Quota Safeguards
+* **Base64 Photo Persistence:** Since file/blob handles can detach in IndexedDB under WebKit, all photos logged offline must be serialized to Base64 in `SyncItem` payloads.
+* **Image Compression:** Before Base64 serialization, compress and resize photos client-side to a maximum dimension of 2048px to protect upload bandwidth and storage quota.
+* **IndexedDB Quota Safety:** Catch `QuotaExceededError` write failures in the offline stores. On failure, run a proactive cleanup of local cache (`checkAndCleanupQuota(0.8)`). If writes continue to fail, display a warning toast notifying the user that offline changes cannot be saved.
+* **Zustand Reset on Logout:** On user logout, clear all cached and persistent data in IndexedDB/localStorage by resetting all Zustand stores. The async `useSyncStore.getState().reset()` must be explicitly awaited to ensure the offline sync queue is entirely deleted before the session ends.
+
+---
+
+## 2. Technical Mandates
+
+### A. Database Schema Backwards-Compatibility
+* Migrations must use the expand-and-contract pattern. Do not alter, modify, or drop existing RPC arguments until the client-side store refactoring is verified and deployed. 
+
+### B. Security Definer & RLS
+* Ensure the Database Webhooks are secure and database RPCs enforce `auth.uid()` checks.
+* RLS policies on `visits`, `trips`, and `activity_ledger` must remain active and secure.
+
+### C. Local Date Stability
+* Database RPCs and Edge Functions must process and store dates (`visit_date`, `trip_date`) as timezone-safe calendar date literals (Postgres `date` type, standard `YYYY-MM-DD` strings) to prevent offset shifts.
+
+### D. E2E Network Mocking
+* Playwright tests simulating offline states must use a hybrid approach combining context offline setting (`context.setOffline(true)`) with explicit route intercepts (`context.route`) to reliably intercept Service Worker network fetches.
