@@ -70,3 +70,18 @@ Deno.test("search-wineries handler - missing API key", async () => {
     envStub.restore();
   }
 });
+
+Deno.test("search-wineries handler - OPTIONS preflight checks", async () => {
+  const req = new Request("https://test.com", {
+    method: "OPTIONS",
+    headers: {
+      "Access-Control-Request-Method": "POST",
+      "Access-Control-Request-Headers": "authorization, x-client-info, apikey, content-type, x-skip-sw-interception"
+    }
+  });
+
+  const res = await handler(req);
+  assertEquals(res.status, 200);
+  const allowHeaders = res.headers.get("Access-Control-Allow-Headers") || "";
+  assertEquals(allowHeaders.toLowerCase().includes("x-skip-sw-interception"), true);
+});

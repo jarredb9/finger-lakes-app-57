@@ -62,6 +62,30 @@ jobs:
           cp supabase/config.ci.toml supabase/config.toml
           supabase start
 
+      - name: Verify Edge Function CORS Preflight Headers
+        run: |
+          echo "Checking search-wineries CORS headers..."
+          RESPONSE_HEADERS=$(curl -s -I -X OPTIONS http://127.0.0.1:54321/functions/v1/search-wineries \
+            -H "Origin: https://localhost:3000" \
+            -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: x-skip-sw-interception")
+          echo "$RESPONSE_HEADERS"
+          if [[ "$RESPONSE_HEADERS" != *"x-skip-sw-interception"* ]]; then
+            echo "ERROR: search-wineries CORS preflight response is missing 'x-skip-sw-interception'"
+            exit 1
+          fi
+
+          echo "Checking get-winery-details CORS headers..."
+          RESPONSE_HEADERS_DETAILS=$(curl -s -I -X OPTIONS http://127.0.0.1:54321/functions/v1/get-winery-details \
+            -H "Origin: https://localhost:3000" \
+            -H "Access-Control-Request-Method: POST" \
+            -H "Access-Control-Request-Headers: x-skip-sw-interception")
+          echo "$RESPONSE_HEADERS_DETAILS"
+          if [[ "$RESPONSE_HEADERS_DETAILS" != *"x-skip-sw-interception"* ]]; then
+            echo "ERROR: get-winery-details CORS preflight response is missing 'x-skip-sw-interception'"
+            exit 1
+          fi
+
       - name: Check Database Integrity (Types & Lint)
         run: |
           npm run db:lint
