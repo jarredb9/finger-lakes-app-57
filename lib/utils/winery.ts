@@ -60,8 +60,9 @@ function isRawDbWinery(source: any): source is DbWinery {
 }
 
 // Helper to parse Json reviews to PlaceReview[]
-function parseReviewsJson(json: any): PlaceReview[] | null {
-    if (!json) return null;
+function parseReviewsJson(json: any): PlaceReview[] | null | undefined {
+    if (json === undefined) return undefined;
+    if (json === null) return null;
     if (Array.isArray(json)) {
         const normalized: PlaceReview[] = [];
         for (const item of json) {
@@ -120,8 +121,9 @@ function parseReviewsJson(json: any): PlaceReview[] | null {
 }
 
 // Helper to parse Json opening_hours to OpeningHours
-function parseOpeningHoursJson(json: Json | null): OpeningHours | null {
-    if (!json) return null;
+function parseOpeningHoursJson(json: Json | null | undefined): OpeningHours | null | undefined {
+    if (json === undefined) return undefined;
+    if (json === null) return null;
     if (typeof json === 'object' && json !== null && 'periods' in json) {
         return json as unknown as OpeningHours;
     }
@@ -199,21 +201,33 @@ export const standardizeWineryData = (
   // Conditionally access properties using type guards
   const name = source.name || existing?.name || 'Unknown Winery';
   const address = isGoogleWinery(source) ? (source.formatted_address || source.address) : source.address;
-  const phone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? (source as any).phone : isWineryDetailsRpc(source) ? (source as any).phone : null);
-  const website = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? (source as any).website : null);
-  const rating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? (source as any).google_rating : isWineryDetailsRpc(source) ? (source as any).google_rating : null);
-  const userRatingCount = isGoogleWinery(source) ? source.userRatingCount : isRawDbWinery(source) ? (source as any).user_rating_count : (isWineryDetailsRpc(source) ? (source as any).user_rating_count : (existing?.userRatingCount || null));
+  
+  // Resolve fields from source, preserving undefined if not present to allow existing data to persist
+  const phone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? (source as any).phone : isWineryDetailsRpc(source) ? (source as any).phone : source.phone);
+  const website = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? (source as any).website : source.website);
+  const rating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? (source as any).google_rating : isWineryDetailsRpc(source) ? (source as any).google_rating : source.rating);
+  const userRatingCount = isGoogleWinery(source) ? source.userRatingCount : isRawDbWinery(source) ? (source as any).user_rating_count : (isWineryDetailsRpc(source) ? (source as any).user_rating_count : (source.userRatingCount || (source as any).user_rating_count || existing?.userRatingCount || null));
 
-  const openingHours = (isGoogleWinery(source) ? source.opening_hours : (isWineryDetailsRpc(source) ? (source as any).opening_hours : parseOpeningHoursJson(isRawDbWinery(source) ? source.opening_hours : (isMapMarkerRpc(source) ? (source.opening_hours as Json) : null)))) as OpeningHours | null;
+  // Handle openingHours more carefully to avoid overwriting with null if missing from source
+  const sourceOpeningHours = isGoogleWinery(source) 
+    ? source.opening_hours 
+    : (isWineryDetailsRpc(source) 
+        ? (source as any).opening_hours 
+        : (isRawDbWinery(source) 
+            ? source.opening_hours 
+            : (isMapMarkerRpc(source) ? (source as any).opening_hours : (source.openingHours || (source as any).opening_hours))));
+  
+  const openingHours = parseOpeningHoursJson(sourceOpeningHours);
+  
   const rawReviews = (
     isGoogleWinery(source)
       ? source.reviews
       : (isWineryDetailsRpc(source)
           ? (source as any).reviews
-          : (isRawDbWinery(source) ? source.reviews : null))
-  ) || source?.reviews;
+          : (isRawDbWinery(source) ? source.reviews : source.reviews))
+  );
   const reviews = parseReviewsJson(rawReviews);
-  const reservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? (source as any).reservable : (isRawDbWinery(source) ? source.reservable : null));
+  const reservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? (source as any).reservable : (isRawDbWinery(source) ? source.reservable : source.reservable));
 
   const userVisited = source.user_visited !== undefined ? source.user_visited : (source.userVisited !== undefined ? source.userVisited : (existing?.userVisited ?? false));
   const onWishlist = source.on_wishlist !== undefined ? source.on_wishlist : (source.onWishlist !== undefined ? source.onWishlist : (existing?.onWishlist ?? false));
@@ -227,13 +241,13 @@ export const standardizeWineryData = (
   const lastEnrichedAt = source.last_enriched_at || existing?.last_enriched_at;
   
   // Handle generative_summary potentially being an object (from DB) or a string (from Edge Function)
-  let generativeSummary = source.generative_summary || existing?.generative_summary;
+  let generativeSummary = source.generative_summary !== undefined ? source.generative_summary : (source.generativeSummary !== undefined ? source.generativeSummary : existing?.generative_summary);
   if (typeof generativeSummary === 'object' && generativeSummary !== null) {
       const summaryObj = generativeSummary as any;
       generativeSummary = summaryObj.overview?.text || summaryObj.text || null;
   }
   
-  let neighborhoodSummary = source.neighborhood_summary || existing?.neighborhood_summary;
+  let neighborhoodSummary = source.neighborhood_summary !== undefined ? source.neighborhood_summary : (source.neighborhoodSummary !== undefined ? source.neighborhoodSummary : existing?.neighborhood_summary);
   if (typeof neighborhoodSummary === 'object' && neighborhoodSummary !== null) {
       const summaryObj = neighborhoodSummary as any;
       neighborhoodSummary = summaryObj.overview?.text || summaryObj.text || null;
@@ -304,15 +318,15 @@ export const standardizeWineryData = (
     address: address || existing?.address || '',
     latitude: lat,
     longitude: lng,
-    phone: phone || existing?.phone,
-    website: website || existing?.website,
-    rating: rating || existing?.rating,
-    userRatingCount: userRatingCount || existing?.userRatingCount,
+    phone: phone !== undefined ? phone : existing?.phone,
+    website: website !== undefined ? website : existing?.website,
+    rating: rating !== undefined ? rating : existing?.rating,
+    userRatingCount: userRatingCount !== undefined ? userRatingCount : (existing?.userRatingCount || null),
     
     // Complex fields that might be missing in partial updates
-    openingHours: openingHours || existing?.openingHours,
-    reviews: reviews || existing?.reviews,
-    reservable: reservable ?? existing?.reservable,
+    openingHours: openingHours !== undefined ? openingHours : existing?.openingHours,
+    reviews: reviews !== undefined ? reviews : existing?.reviews,
+    reservable: reservable !== undefined ? reservable : existing?.reservable,
     
     // User State (Preserve if not provided by source)
     userVisited: userVisited,

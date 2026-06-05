@@ -129,21 +129,28 @@ test.describe('Winery Q&A Review Fallback Flow', () => {
     await expect(qnaSection.getByText(/parking is a bit hard/i)).toBeVisible();
 
     // 5. Load the next review
-    const loadMoreButton = qnaSection.getByTestId('load-another-review');
-    await expect(loadMoreButton).toBeVisible();
-    await loadMoreButton.click();
+    const nextButton = qnaSection.getByTestId('next-review');
+    await expect(nextButton).toBeVisible();
+    await nextButton.click();
 
     // 6. Verify the second review is displayed
     const secondReviewText = /really enjoyed the outdoor atmosphere/i;
     await expect(qnaSection.getByText(secondReviewText)).toBeVisible();
     await expect(qnaSection.getByText(/Jane Smith/i)).toBeVisible();
     
-    // Verify "1 of 2" indicator is now "2 of 2" (Wait, the component says "activeReviewIndex + 1 of searchResults.length")
+    // Verify "1 of 2" indicator is now "2 of 2"
     await expect(qnaSection.getByText(/2 of 2/i)).toBeVisible();
 
-    // 7. Verify "No other relevant reviews found" is displayed after the last review
-    await expect(loadMoreButton).not.toBeVisible();
-    await expect(qnaSection.getByText(/No other relevant reviews found/i)).toBeVisible();
+    // 7. Verify "Previous" button is now visible and "Next" is hidden
+    const prevButton = qnaSection.getByTestId('prev-review');
+    await expect(prevButton).toBeVisible();
+    await expect(nextButton).not.toBeVisible();
+
+    // 8. Go back to first review
+    await prevButton.click();
+    await expect(qnaSection.getByText(firstReviewText)).toBeVisible();
+    await expect(prevButton).not.toBeVisible();
+    await expect(nextButton).toBeVisible();
   });
 
   test('Handling unnormalized V1 review data (Robustness check)', async ({ page }) => {

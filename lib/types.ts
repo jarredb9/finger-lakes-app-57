@@ -165,7 +165,7 @@ export interface Winery {
   
   // Extended Details (Lazy Loaded)
   openingHours?: OpeningHours | null;
-  reviews?: PlaceReview[];
+  reviews?: PlaceReview[] | null;
   reservable?: boolean | null;
 
   // Enrichment (Places API v1)

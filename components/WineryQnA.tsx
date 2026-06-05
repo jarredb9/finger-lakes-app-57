@@ -2,7 +2,7 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { PlaceReview, Winery } from "@/lib/types";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
-import { MessageSquare, Dog, CalendarCheck, Baby, CheckCircle2, XCircle, Car, Zap, Accessibility, Sun, ChevronRight, ChevronDown, ChevronUp, HelpCircle } from "lucide-react";
+import { MessageSquare, Dog, CalendarCheck, Baby, CheckCircle2, XCircle, Car, Zap, Accessibility, Sun, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, HelpCircle } from "lucide-react";
 import { GoogleAttribution } from "./GoogleAttribution";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -251,29 +251,36 @@ export default function WineryQnA({
                             Match {activeReviewIndex + 1} of {searchResults.length}
                           </span>
                         )}
-                        
-                        {searchResults.length > 1 && activeReviewIndex < searchResults.length - 1 ? (
-                          <p className="text-xs text-muted-foreground font-medium">
-                            {searchResults.length - 1 - activeReviewIndex} other matching {searchResults.length - 1 - activeReviewIndex === 1 ? 'review' : 'reviews'} available
-                          </p>
-                        ) : (
-                          <p className="text-xs text-gray-400 italic">
-                            No other relevant reviews found
-                          </p>
-                        )}
                       </div>
 
-                      {searchResults.length > 1 && activeReviewIndex < searchResults.length - 1 && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setActiveReviewIndex(activeReviewIndex + 1)}
-                          className="text-xs h-7 gap-1 border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary"
-                          data-testid="load-another-review"
-                        >
-                          <ChevronRight className="h-3 w-3" />
-                          Load next matching review
-                        </Button>
+                      {searchResults.length > 1 && (
+                        <div className="flex gap-2 w-full sm:w-auto justify-end">
+                          {activeReviewIndex > 0 && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setActiveReviewIndex(activeReviewIndex - 1)}
+                              className="text-xs h-7 gap-1 border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary"
+                              data-testid="prev-review"
+                            >
+                              <ChevronLeft className="h-3 w-3" />
+                              Previous
+                            </Button>
+                          )}
+                          
+                          {activeReviewIndex < searchResults.length - 1 && (
+                            <Button 
+                              variant="outline" 
+                              size="sm" 
+                              onClick={() => setActiveReviewIndex(activeReviewIndex + 1)}
+                              className="text-xs h-7 gap-1 border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary"
+                              data-testid="next-review"
+                            >
+                              Next
+                              <ChevronRight className="h-3 w-3" />
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                     
