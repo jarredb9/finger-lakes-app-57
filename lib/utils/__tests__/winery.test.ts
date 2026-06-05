@@ -107,4 +107,89 @@ describe('standardizeWineryData', () => {
     expect(result?.primary_photo_reference).toBe('places/place_v1/photos/photo_abc');
     expect(result?.photo_references).toEqual(['places/place_v1/photos/photo_abc', 'places/place_v1/photos/photo_xyz']);
   });
+
+  it('standardizes accessibility_flags from database RPC as accessibility_options', () => {
+    const dbRpcData = {
+      id: 123 as WineryDbId,
+      google_place_id: 'ChIJ-mock-id',
+      name: 'Mock Winery',
+      address: '123 Fake St',
+      latitude: 42,
+      longitude: -76,
+      accessibility_flags: {
+        wheelchairAccessibleParking: true,
+        wheelchairAccessibleSeating: true,
+        wheelchairAccessibleEntrance: true,
+        wheelchairAccessibleRestroom: true
+      }
+    };
+
+    const result = standardizeWineryData(dbRpcData);
+
+    expect(result).not.toBeNull();
+    expect(result?.accessibility_options).toEqual({
+      wheelchairAccessibleParking: true,
+      wheelchairAccessibleSeating: true,
+      wheelchairAccessibleEntrance: true,
+      wheelchairAccessibleRestroom: true
+    });
+  });
+
+  it('derives freeParking boolean from subfields when freeParking is undefined', () => {
+    const wineryWithFree = standardizeWineryData({
+      id: 'mock_place',
+      name: 'Mock',
+      latitude: 42,
+      longitude: -76,
+      parking_options: {
+        freeParkingLot: true,
+      }
+    });
+    expect(wineryWithFree?.parking_options?.freeParking).toBe(true);
+
+    const wineryWithGarageFree = standardizeWineryData({
+      id: 'mock_place',
+      name: 'Mock',
+      latitude: 42,
+      longitude: -76,
+      parking_options: {
+        freeGarageParking: true,
+      }
+    });
+    expect(wineryWithGarageFree?.parking_options?.freeParking).toBe(true);
+
+    const wineryWithPaid = standardizeWineryData({
+      id: 'mock_place',
+      name: 'Mock',
+      latitude: 42,
+      longitude: -76,
+      parking_options: {
+        paidParkingLot: true,
+      }
+    });
+    expect(wineryWithPaid?.parking_options?.freeParking).toBe(false);
+
+    const wineryWithGaragePaid = standardizeWineryData({
+      id: 'mock_place',
+      name: 'Mock',
+      latitude: 42,
+      longitude: -76,
+      parking_options: {
+        paidGarageParking: true,
+      }
+    });
+    expect(wineryWithGaragePaid?.parking_options?.freeParking).toBe(false);
+
+    const wineryWithExplicit = standardizeWineryData({
+      id: 'mock_place',
+      name: 'Mock',
+      latitude: 42,
+      longitude: -76,
+      parking_options: {
+        freeParking: false,
+        freeParkingLot: true,
+      }
+    });
+    expect(wineryWithExplicit?.parking_options?.freeParking).toBe(false); // Explicit overrides derivation
+  });
 });

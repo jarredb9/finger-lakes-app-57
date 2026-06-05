@@ -238,6 +238,7 @@ export interface GoogleV1Place {
   outdoorSeating?: boolean;
   parkingOptions?: Record<string, unknown>;
   accessibilityOptions?: Record<string, unknown>;
+  evChargeOptions?: Record<string, any> | null;
 }
 
 export interface TripMember {

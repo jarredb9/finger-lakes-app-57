@@ -242,8 +242,40 @@ export const standardizeWineryData = (
   const servesWine = source.serves_wine !== undefined ? source.serves_wine : existing?.serves_wine;
   const goodForChildren = source.good_for_children !== undefined ? source.good_for_children : existing?.good_for_children;
   const outdoorSeating = source.outdoor_seating !== undefined ? source.outdoor_seating : existing?.outdoor_seating;
-  const parkingOptions = source.parking_options !== undefined ? source.parking_options : existing?.parking_options;
-  const accessibilityOptions = source.accessibility_options !== undefined ? source.accessibility_options : existing?.accessibility_options;
+  let parkingOptions = source.parking_options !== undefined ? source.parking_options : existing?.parking_options;
+  if (parkingOptions && typeof parkingOptions === 'object' && !Array.isArray(parkingOptions)) {
+    const pObj = parkingOptions as Record<string, any>;
+    if (pObj.freeParking === undefined) {
+      const hasFree = 
+        pObj.freeParkingLot === true || 
+        pObj.freeStreetParking === true || 
+        pObj.freeGarageParking === true ||
+        pObj.freeValetParking === true;
+        
+      const hasPaid = 
+        pObj.paidParkingLot === true || 
+        pObj.paidStreetParking === true || 
+        pObj.paidGarageParking === true ||
+        pObj.paidValetParking === true;
+
+      let freeParkingVal: boolean | undefined = undefined;
+      if (hasFree) {
+        freeParkingVal = true;
+      } else if (hasPaid) {
+        freeParkingVal = false;
+      }
+
+      if (freeParkingVal !== undefined) {
+        parkingOptions = {
+          ...pObj,
+          freeParking: freeParkingVal
+        };
+      }
+    }
+  }
+  const accessibilityOptions = source.accessibility_options !== undefined 
+    ? source.accessibility_options 
+    : (source.accessibility_flags !== undefined ? source.accessibility_flags : existing?.accessibility_options);
 
   const primaryPhotoReference = source.primary_photo_reference !== undefined ? source.primary_photo_reference : (source.primaryPhotoReference !== undefined ? source.primaryPhotoReference : existing?.primary_photo_reference);
   const photoReferences = source.photo_references !== undefined ? source.photo_references : (source.photoReferences !== undefined ? source.photoReferences : existing?.photo_references);

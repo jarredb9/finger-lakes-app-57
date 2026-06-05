@@ -47,7 +47,9 @@ export function normalizeGooglePlaceV1(place: any, tier: 'basic' | 'enriched' = 
     neighborhood_summary: place.neighborhoodSummary ? { overview: { text: place.neighborhoodSummary.overview?.text } } : null,
     editorial_summary: place.editorialSummary ? { overview: { text: place.editorialSummary.overview?.text } } : null,
     allows_dogs: place.allowsDogs ?? null,
-    has_ev_charging: place.parkingOptions?.hasEvChargingStations ?? null,
+    has_ev_charging: place.evChargeOptions !== undefined && place.evChargeOptions !== null
+      ? (typeof place.evChargeOptions.connectorCount === 'number' ? place.evChargeOptions.connectorCount > 0 : true)
+      : (place.parkingOptions?.hasEvChargingStations ?? null),
     serves_wine: place.servesWine ?? null,
     good_for_children: place.goodForChildren ?? null,
     outdoor_seating: place.outdoorSeating ?? null,
