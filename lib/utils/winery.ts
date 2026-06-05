@@ -22,6 +22,7 @@ export interface GoogleWinery {
   website?: string | null;
   rating?: number | null;
   google_rating?: number | null;
+  userRatingCount?: number | null;
   opening_hours?: OpeningHours | null;
   reviews?: PlaceReview[] | null;
   reservable?: boolean | null;
@@ -201,6 +202,7 @@ export const standardizeWineryData = (
   const phone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? (source as any).phone : isWineryDetailsRpc(source) ? (source as any).phone : null);
   const website = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? (source as any).website : null);
   const rating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? (source as any).google_rating : isWineryDetailsRpc(source) ? (source as any).google_rating : null);
+  const userRatingCount = isGoogleWinery(source) ? source.userRatingCount : isRawDbWinery(source) ? (source as any).user_rating_count : (isWineryDetailsRpc(source) ? (source as any).user_rating_count : (existing?.userRatingCount || null));
 
   const openingHours = (isGoogleWinery(source) ? source.opening_hours : (isWineryDetailsRpc(source) ? (source as any).opening_hours : parseOpeningHoursJson(isRawDbWinery(source) ? source.opening_hours : (isMapMarkerRpc(source) ? (source.opening_hours as Json) : null)))) as OpeningHours | null;
   const rawReviews = (
@@ -305,6 +307,7 @@ export const standardizeWineryData = (
     phone: phone || existing?.phone,
     website: website || existing?.website,
     rating: rating || existing?.rating,
+    userRatingCount: userRatingCount || existing?.userRatingCount,
     
     // Complex fields that might be missing in partial updates
     openingHours: openingHours || existing?.openingHours,

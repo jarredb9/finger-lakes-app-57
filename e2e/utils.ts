@@ -901,6 +901,12 @@ export class MockMapsManager {
                         text: "Loved the outdoor seating patio and they have electric vehicle ev charging, but parking is a bit hard.",
                         relative_time_description: "a week ago",
                         rating: 5
+                    },
+                    {
+                        author_name: "Jane Smith",
+                        text: "Great Riesling, and we really enjoyed the outdoor atmosphere and outdoor area. Perfect for a sunny day.",
+                        relative_time_description: "2 weeks ago",
+                        rating: 4
                     }
                 ]
             };

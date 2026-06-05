@@ -41,6 +41,7 @@ export interface WineryDetailsRpc {
   phone: string | null;
   website: string | null;
   google_rating: number | null;
+  user_rating_count: number | null;
   opening_hours: Json | null; // Use Json for unstructured JSONB
   reviews: Json | null; // Use Json for unstructured JSONB
   reservable: boolean | null;
@@ -145,6 +146,7 @@ export interface Winery {
   phone?: string | null;
   website?: string | null;
   rating?: number | null; // Google Rating
+  userRatingCount?: number | null;
   
   // User interaction state (derived)
   userVisited?: boolean;

@@ -7,6 +7,7 @@ export interface NormalizedWinery {
   phone?: string | null;
   website?: string | null;
   google_rating?: number | null;
+  user_rating_count?: number | null;
   opening_hours?: any | null;
   reviews?: any | null;
   enrichment_tier: 'basic' | 'enriched';
@@ -39,8 +40,15 @@ export function normalizeGooglePlaceV1(place: any, tier: 'basic' | 'enriched' = 
     phone: place.internationalPhoneNumber || null,
     website: place.websiteUri || null,
     google_rating: place.rating || null,
+    user_rating_count: place.userRatingCount || null,
     opening_hours: place.regularOpeningHours || null,
-    reviews: place.reviews || null,
+    reviews: place.reviews ? place.reviews.map((r: any) => ({
+      author_name: r.authorAttribution?.displayName || 'Anonymous',
+      rating: r.rating,
+      relative_time_description: r.relativePublishTimeDescription,
+      text: r.text?.text || r.originalText?.text || '',
+      time: r.publishTime ? new Date(r.publishTime).getTime() / 1000 : 0
+    })) : null,
     enrichment_tier: tier,
     last_enriched_at: tier === 'enriched' ? new Date().toISOString() : null,
     generative_summary: place.generativeSummary ? { overview: { text: place.generativeSummary.overview?.text } } : null,

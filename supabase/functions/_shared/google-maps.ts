@@ -22,6 +22,7 @@ export const ENRICHMENT_FIELD_MASK = [
   'places.goodForChildren',
   'places.outdoorSeating',
   'places.reviews',
+  'places.userRatingCount',
   'places.parkingOptions',
   'places.accessibilityOptions',
   'places.evChargeOptions',
