@@ -67,7 +67,10 @@ function AttributeStatus({ value, questionId, onSelectQuestion }: AttributeStatu
     return (
       <button
         type="button"
-        onClick={() => onSelectQuestion(questionId)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelectQuestion(questionId);
+        }}
         className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground underline decoration-dotted cursor-pointer"
         data-testid={`status-unknown-${questionId}`}
         title="Click to search reviews"
@@ -260,22 +263,38 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
               <div className="flex items-center gap-2">
                 <Car className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Free Parking:</span>
-                <AttributeStatus value={winery.parking_options?.freeParking} />
+                <AttributeStatus 
+                  value={winery.parking_options?.freeParking} 
+                  questionId="parking" 
+                  onSelectQuestion={setActiveQuestionId} 
+                />
               </div>
               <div className="flex items-center gap-2">
                 <Zap className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">EV Charging:</span>
-                <AttributeStatus value={winery.has_ev_charging} />
+                <AttributeStatus 
+                  value={winery.has_ev_charging} 
+                  questionId="ev_charging" 
+                  onSelectQuestion={setActiveQuestionId} 
+                />
               </div>
               <div className="flex items-center gap-2">
                 <Accessibility className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Wheelchair Acc.:</span>
-                <AttributeStatus value={winery.accessibility_options?.wheelchairAccessibleEntrance} />
+                <AttributeStatus 
+                  value={winery.accessibility_options?.wheelchairAccessibleEntrance} 
+                  questionId="wheelchair" 
+                  onSelectQuestion={setActiveQuestionId} 
+                />
               </div>
               <div className="flex items-center gap-2">
                 <Sun className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Outdoor:</span>
-                <AttributeStatus value={winery.outdoor_seating} />
+                <AttributeStatus 
+                  value={winery.outdoor_seating} 
+                  questionId="outdoor" 
+                  onSelectQuestion={setActiveQuestionId} 
+                />
               </div>
               <div className="flex items-center gap-2">
                 <Dog className="h-3.5 w-3.5 text-muted-foreground/70" />

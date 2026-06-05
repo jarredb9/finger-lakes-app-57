@@ -1,11 +1,11 @@
 // components/WineryQnA.tsx
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { PlaceReview, Winery } from "@/lib/types";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
-import { MessageSquare, Dog, CalendarCheck, Baby, CheckCircle2, XCircle } from "lucide-react";
+import { MessageSquare, Dog, CalendarCheck, Baby, CheckCircle2, XCircle, Car, Zap, Accessibility, Sun } from "lucide-react";
 import { GoogleAttribution } from "./GoogleAttribution";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface WineryQnAProps {
   winery: Winery;
@@ -32,6 +32,30 @@ const questions = [
     icon: Baby,
     keywords: ["kid", "kids", "child", "children", "family", "stroller"],
   },
+  {
+    id: "parking",
+    text: "Is there free parking?",
+    icon: Car,
+    keywords: ["parking", "park", "lot", "garage", "valet", "spaces"],
+  },
+  {
+    id: "ev_charging",
+    text: "Is EV charging available?",
+    icon: Zap,
+    keywords: ["ev", "charging", "charger", "electric vehicle", "tesla"],
+  },
+  {
+    id: "wheelchair",
+    text: "Is it wheelchair accessible?",
+    icon: Accessibility,
+    keywords: ["wheelchair", "accessible", "accessibility", "ramp", "elevator", "handicap", "handicapped"],
+  },
+  {
+    id: "outdoor",
+    text: "Is there outdoor seating?",
+    icon: Sun,
+    keywords: ["outdoor", "patio", "deck", "seating", "outside", "lawn", "garden", "picnic"],
+  },
 ];
 
 const reservationPlatforms = ['tock.com', 'resy.com', 'opentable.com', 'cellarpass.com'];
@@ -42,6 +66,7 @@ export default function WineryQnA({
   setActiveQuestionId: externalSetActiveId 
 }: WineryQnAProps) {
   const [internalActiveId, setInternalActiveId] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   const activeQuestionId = externalActiveId !== undefined ? externalActiveId : internalActiveId;
   const setActiveQuestionId = externalSetActiveId !== undefined ? externalSetActiveId : setInternalActiveId;
@@ -69,12 +94,14 @@ export default function WineryQnA({
 
     reviews.forEach((review) => {
       if (!review.text) return;
-      const reviewTextLower = review.text.toLowerCase();
 
       for (const keyword of activeQuestion.keywords) {
-        if (reviewTextLower.includes(keyword.toLowerCase())) {
-          // Create a snippet
-          const index = reviewTextLower.indexOf(keyword.toLowerCase());
+        const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+        const match = review.text.match(regex);
+        
+        if (match && match.index !== undefined) {
+          const index = match.index;
           const start = Math.max(0, index - 50);
           const end = Math.min(review.text.length, index + keyword.length + 50);
           const snippet = `...${review.text.substring(start, end)}...`;
@@ -88,14 +115,23 @@ export default function WineryQnA({
     return foundReviews;
   }, [activeQuestionId, reviews, winery.reservable, hasOnlineReservations]);
 
-  if ((!reviews || reviews.length === 0) && winery.reservable === undefined) {
+  useEffect(() => {
+    if (activeQuestionId && containerRef.current) {
+      // Use requestAnimationFrame to ensure rendering has committed
+      requestAnimationFrame(() => {
+        containerRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    }
+  }, [activeQuestionId]);
+
+  if ((!reviews || reviews.length === 0) && winery.reservable === undefined && !activeQuestionId) {
     return null;
   }
 
   return (
     <>
       <Separator className="my-4" />
-      <div className="space-y-4 pt-2">
+      <div className="space-y-4 pt-2" ref={containerRef}>
         <div className="flex items-center justify-between">
           <h4 className="font-semibold flex items-center gap-2">
             <MessageSquare className="w-5 h-5" />
@@ -103,18 +139,26 @@ export default function WineryQnA({
           </h4>
           <GoogleAttribution variant="reviews" />
         </div>
-        <div className="flex flex-wrap gap-2">
-          {questions.map((q) => (
-            <Button
-              key={q.id}
-              variant={activeQuestionId === q.id ? "secondary" : "outline-solid"}
-              size="sm"
-              onClick={() => setActiveQuestionId(activeQuestionId === q.id ? null : q.id)}
-            >
-              <q.icon className="w-4 h-4 mr-2" />
-              {q.text}
-            </Button>
-          ))}
+        <div className="w-full sm:max-w-xs">
+          <Select 
+            value={activeQuestionId || "none"} 
+            onValueChange={(val) => setActiveQuestionId(val === "none" ? null : val)}
+          >
+            <SelectTrigger className="w-full font-medium" data-testid="qna-select">
+              <SelectValue placeholder="Select a question to ask reviews..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">Select a question...</SelectItem>
+              {questions.map((q) => (
+                <SelectItem key={q.id} value={q.id}>
+                  <div className="flex items-center gap-2">
+                    <q.icon className="h-4 w-4 shrink-0" />
+                    <span>{q.text}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {activeQuestionId && (

@@ -25,5 +25,6 @@ export function isStale(lastEnrichedAt?: string | null): boolean {
 export function shouldEnrich(winery: any): boolean {
   if (!winery) return true;
   if (winery.enrichment_tier !== 'enriched') return true;
+  if (winery.reviews === null || winery.reviews === undefined) return true;
   return isStale(winery.last_enriched_at);
 }

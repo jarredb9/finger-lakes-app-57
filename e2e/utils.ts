@@ -873,7 +873,10 @@ export class MockMapsManager {
             const postData = JSON.parse(req.postData() || '{}');
             const placeId = postData.placeId;
             const marker = markers.find(m => m.google_place_id === placeId);
-            
+            const isWinery2 = placeId === 'ch-67890-mock-winery-2';
+            const isWinery3 = placeId === 'ch-abcde-mock-winery-3';
+            const isUnknownWinery = isWinery2 || isWinery3;
+
             const detailedWinery = {
                 id: placeId,
                 name: marker?.name || 'Mock Enriched Winery',
@@ -885,13 +888,21 @@ export class MockMapsManager {
                 last_enriched_at: new Date().toISOString(),
                 generative_summary: "This winery has been enriched with AI insights. It features award-winning Rieslings and a stunning lake view.",
                 neighborhood_summary: "The surrounding area is known for its rolling hills and proximity to Seneca Lake.",
-                allows_dogs: true,
-                has_ev_charging: true,
+                allows_dogs: isUnknownWinery ? null : true,
+                has_ev_charging: isUnknownWinery ? null : true,
                 serves_wine: true,
-                good_for_children: true,
-                outdoor_seating: true,
-                parking_options: { freeParking: true },
-                accessibility_options: { wheelchairAccessibleEntrance: true }
+                good_for_children: isUnknownWinery ? null : true,
+                outdoor_seating: isUnknownWinery ? null : true,
+                parking_options: isUnknownWinery ? { freeParking: null } : { freeParking: true },
+                accessibility_options: isUnknownWinery ? { wheelchairAccessibleEntrance: null } : { wheelchairAccessibleEntrance: true },
+                reviews: isWinery2 ? [] : [
+                    {
+                        author_name: "John Doe",
+                        text: "Loved the outdoor seating patio and they have electric vehicle ev charging, but parking is a bit hard.",
+                        relative_time_description: "a week ago",
+                        rating: 5
+                    }
+                ]
             };
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(detailedWinery) });
         }

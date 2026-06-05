@@ -66,7 +66,11 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
     const existing = dataStore.getWinery(placeId);
 
     if (isE2E() && shouldMockWineries()) {
-        return existing || null;
+        // @ts-ignore
+        const skipDetailsMock = typeof window !== 'undefined' && window._E2E_SKIP_DETAILS_MOCK;
+        if (!skipDetailsMock) {
+            return existing || null;
+        }
     }
 
     // Optimization: Return cached details if we have them
@@ -101,7 +105,9 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
 
         // 3. Fallback to Google API (if alphanumeric place ID)
         if (!/^\d+$/.test(placeId)) {
-            if (process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+            // @ts-ignore
+            const skipDetailsMock = typeof window !== 'undefined' && window._E2E_SKIP_DETAILS_MOCK;
+            if (process.env.NEXT_PUBLIC_IS_E2E === 'true' && shouldMockWineries() && !skipDetailsMock) {
                 set({ loadingWineryId: null });
                 return existing || null;
             }
