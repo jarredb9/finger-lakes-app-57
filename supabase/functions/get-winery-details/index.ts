@@ -5,7 +5,7 @@ import { normalizeGooglePlaceV1 } from "../_shared/normalization.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-skip-sw-interception',
 }
 
 export const handler = async (req: Request): Promise<Response> => {
