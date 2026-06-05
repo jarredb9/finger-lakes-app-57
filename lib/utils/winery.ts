@@ -59,11 +59,61 @@ function isRawDbWinery(source: any): source is DbWinery {
 }
 
 // Helper to parse Json reviews to PlaceReview[]
-function parseReviewsJson(json: Json | null): PlaceReview[] | null {
+function parseReviewsJson(json: any): PlaceReview[] | null {
     if (!json) return null;
     if (Array.isArray(json)) {
-        // Basic check for expected properties in a review object
-        return json.filter(item => typeof item === 'object' && item !== null && 'author_name' in item && 'rating' in item) as unknown as PlaceReview[];
+        const normalized: PlaceReview[] = [];
+        for (const item of json) {
+            if (!item || typeof item !== 'object') continue;
+
+            const textObj = item.text;
+            let textVal = '';
+            let languageVal: string | null = null;
+            if (typeof textObj === 'object' && textObj !== null) {
+                textVal = String(textObj.text || '');
+                languageVal = textObj.languageCode ? String(textObj.languageCode) : null;
+            } else if (typeof textObj === 'string') {
+                textVal = textObj;
+            }
+
+            const authorAttr = item.authorAttribution;
+            let authorNameVal = '';
+            let authorUrlVal: string | null = null;
+            let photoUriVal: string | null = null;
+            if (typeof authorAttr === 'object' && authorAttr !== null) {
+                authorNameVal = String(authorAttr.displayName || '');
+                authorUrlVal = authorAttr.uri ? String(authorAttr.uri) : null;
+                photoUriVal = authorAttr.photoUri ? String(authorAttr.photoUri) : null;
+            } else if ('author_name' in item) {
+                authorNameVal = String(item.author_name || '');
+            }
+
+            if (!authorNameVal) {
+                authorNameVal = 'A Google User';
+            }
+
+            const ratingVal = typeof item.rating === 'number' ? item.rating : 0;
+            const relativeTimeVal = String(item.relativePublishTimeDescription || item.relative_time_description || '');
+            
+            let timeVal = 0;
+            if (typeof item.time === 'number') {
+                timeVal = item.time;
+            } else if (item.publishTime) {
+                timeVal = Math.floor(new Date(item.publishTime).getTime() / 1000);
+            }
+
+            normalized.push({
+                author_name: authorNameVal,
+                rating: ratingVal,
+                relative_time_description: relativeTimeVal,
+                text: textVal,
+                time: timeVal,
+                author_url: authorUrlVal || item.author_url || null,
+                language: languageVal || item.language || null,
+                profile_photo_url: photoUriVal || item.profile_photo_url || null,
+            });
+        }
+        return normalized.length > 0 ? normalized : null;
     }
     return null;
 }
@@ -153,7 +203,14 @@ export const standardizeWineryData = (
   const rating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? (source as any).google_rating : isWineryDetailsRpc(source) ? (source as any).google_rating : null);
 
   const openingHours = (isGoogleWinery(source) ? source.opening_hours : (isWineryDetailsRpc(source) ? (source as any).opening_hours : parseOpeningHoursJson(isRawDbWinery(source) ? source.opening_hours : (isMapMarkerRpc(source) ? (source.opening_hours as Json) : null)))) as OpeningHours | null;
-  const reviews = (isGoogleWinery(source) ? source.reviews : (isWineryDetailsRpc(source) ? (source as any).reviews : parseReviewsJson(isRawDbWinery(source) ? source.reviews : null))) as PlaceReview[] | null;
+  const rawReviews = (
+    isGoogleWinery(source)
+      ? source.reviews
+      : (isWineryDetailsRpc(source)
+          ? (source as any).reviews
+          : (isRawDbWinery(source) ? source.reviews : null))
+  ) || source?.reviews;
+  const reviews = parseReviewsJson(rawReviews);
   const reservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? (source as any).reservable : (isRawDbWinery(source) ? source.reservable : null));
 
   const userVisited = source.user_visited !== undefined ? source.user_visited : (source.userVisited !== undefined ? source.userVisited : (existing?.userVisited ?? false));

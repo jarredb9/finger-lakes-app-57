@@ -5,9 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { MessageSquare, Dog, CalendarCheck, Baby, CheckCircle2, XCircle } from "lucide-react";
 import { GoogleAttribution } from "./GoogleAttribution";
+import { Separator } from "@/components/ui/separator";
 
 interface WineryQnAProps {
   winery: Winery;
+  activeQuestionId?: string | null;
+  setActiveQuestionId?: (id: string | null) => void;
 }
 
 const questions = [
@@ -33,8 +36,16 @@ const questions = [
 
 const reservationPlatforms = ['tock.com', 'resy.com', 'opentable.com', 'cellarpass.com'];
 
-export default function WineryQnA({ winery }: WineryQnAProps) {
-  const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
+export default function WineryQnA({ 
+  winery, 
+  activeQuestionId: externalActiveId, 
+  setActiveQuestionId: externalSetActiveId 
+}: WineryQnAProps) {
+  const [internalActiveId, setInternalActiveId] = useState<string | null>(null);
+  
+  const activeQuestionId = externalActiveId !== undefined ? externalActiveId : internalActiveId;
+  const setActiveQuestionId = externalSetActiveId !== undefined ? externalSetActiveId : setInternalActiveId;
+  
   const reviews = winery.reviews;
 
   const hasOnlineReservations = useMemo(() => {
@@ -82,79 +93,82 @@ export default function WineryQnA({ winery }: WineryQnAProps) {
   }
 
   return (
-    <div className="space-y-4 pt-2">
-      <div className="flex items-center justify-between">
-        <h4 className="font-semibold flex items-center gap-2">
-          <MessageSquare className="w-5 h-5" />
-          Common Questions
-        </h4>
-        <GoogleAttribution variant="reviews" />
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {questions.map((q) => (
-          <Button
-            key={q.id}
-            variant={activeQuestionId === q.id ? "secondary" : "outline-solid"}
-            size="sm"
-            onClick={() => setActiveQuestionId(activeQuestionId === q.id ? null : q.id)}
-          >
-            <q.icon className="w-4 h-4 mr-2" />
-            {q.text}
-          </Button>
-        ))}
-      </div>
+    <>
+      <Separator className="my-4" />
+      <div className="space-y-4 pt-2">
+        <div className="flex items-center justify-between">
+          <h4 className="font-semibold flex items-center gap-2">
+            <MessageSquare className="w-5 h-5" />
+            Common Questions
+          </h4>
+          <GoogleAttribution variant="reviews" />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {questions.map((q) => (
+            <Button
+              key={q.id}
+              variant={activeQuestionId === q.id ? "secondary" : "outline-solid"}
+              size="sm"
+              onClick={() => setActiveQuestionId(activeQuestionId === q.id ? null : q.id)}
+            >
+              <q.icon className="w-4 h-4 mr-2" />
+              {q.text}
+            </Button>
+          ))}
+        </div>
 
-      {activeQuestionId && (
-        <>
-          {activeQuestionId === 'reservations' && (winery.reservable !== undefined || hasOnlineReservations) ? (
-            <>
-              {winery.reservable !== undefined && (
-                <Card className="bg-gray-50">
-                  <CardContent className="p-3 text-sm flex items-center gap-2">
-                    {winery.reservable ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <XCircle className="w-5 h-5 text-red-600" />}
-                    <span className="font-medium">
-                      {winery.reservable ? "Reservations can be made." : "Reservations are not offered."}
-                    </span>
-                    <span className="text-xs text-gray-500 ml-auto">(From Google)</span>
-                  </CardContent>
-                </Card>
-              )}
-              {winery.reservable === undefined && hasOnlineReservations && (
-                 <Card className="bg-gray-50">
-                    <CardContent className="p-4 text-sm">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-5 h-5 text-green-600" />
-                        <span className="font-medium">Online reservations seem to be available.</span>
-                      </div>
-                      <CardDescription className="mt-2 pl-7">
-                                          {"Their website points to a reservation service. It's a good idea to book ahead."}
-                      </CardDescription>
-                    </CardContent>
-                 </Card>
-              )}
-            </>
-          ) : ( // Fallback for all other questions, or for reservations if no structured data is found
-            <div className="space-y-2 mt-2">
-              {searchResults && searchResults.length > 0 ? (
-                searchResults.map((result, index) => (
-                  <Card key={index} className="bg-gray-50">
-                    <CardContent className="p-3 text-sm">
-                      <p className="italic text-gray-700">{result.snippet}</p>
-                      <p className="text-xs text-right text-gray-500 mt-2">
-                        - {result.review.author_name} ({result.review.relative_time_description})
-                      </p>
+        {activeQuestionId && (
+          <>
+            {activeQuestionId === 'reservations' && (winery.reservable !== undefined || hasOnlineReservations) ? (
+              <>
+                {winery.reservable !== undefined && (
+                  <Card className="bg-gray-50">
+                    <CardContent className="p-3 text-sm flex items-center gap-2">
+                      {winery.reservable ? <CheckCircle2 className="w-5 h-5 text-green-600" /> : <XCircle className="w-5 h-5 text-red-600" />}
+                      <span className="font-medium">
+                        {winery.reservable ? "Reservations can be made." : "Reservations are not offered."}
+                      </span>
+                      <span className="text-xs text-gray-500 ml-auto">(From Google)</span>
                     </CardContent>
                   </Card>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No mention of this in the reviews. It might be best to call or check their website.
-                </p>
-              )}
-            </div>
-          )}
-        </>
-      )}
-    </div>
+                )}
+                {winery.reservable === undefined && hasOnlineReservations && (
+                   <Card className="bg-gray-50">
+                      <CardContent className="p-4 text-sm">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-green-600" />
+                          <span className="font-medium">Online reservations seem to be available.</span>
+                        </div>
+                        <CardDescription className="mt-2 pl-7">
+                                            {"Their website points to a reservation service. It's a good idea to book ahead."}
+                        </CardDescription>
+                      </CardContent>
+                   </Card>
+                )}
+              </>
+            ) : ( // Fallback for all other questions, or for reservations if no structured data is found
+              <div className="space-y-2 mt-2">
+                {searchResults && searchResults.length > 0 ? (
+                  searchResults.map((result, index) => (
+                    <Card key={index} className="bg-gray-50">
+                      <CardContent className="p-3 text-sm">
+                        <p className="italic text-gray-700">{result.snippet}</p>
+                        <p className="text-xs text-right text-gray-500 mt-2">
+                          - {result.review.author_name} ({result.review.relative_time_description})
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No mention of this in the reviews. It might be best to call or check their website.
+                  </p>
+                )}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </>
   );
 }

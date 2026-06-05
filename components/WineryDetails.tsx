@@ -18,9 +18,9 @@ import {
   Accessibility, 
   Check, 
   X, 
-  AlertTriangle 
+  AlertTriangle,
+  HelpCircle
 } from "lucide-react";
-import { Separator } from "./ui/separator";
 import WineryQnA from "./WineryQnA";
 import { isOpenNow } from "@/lib/utils/opening-hours";
 import * as Accordion from "@radix-ui/react-accordion";
@@ -49,8 +49,46 @@ function WineryImage({ photoRef, winery, className, alt = "Winery photo" }: { ph
   );
 }
 
+interface AttributeStatusProps {
+  value: boolean | null | undefined;
+  questionId?: string;
+  onSelectQuestion?: (id: string | null) => void;
+}
+
+function AttributeStatus({ value, questionId, onSelectQuestion }: AttributeStatusProps) {
+  if (value === true) {
+    return <Check className="h-3 w-3 text-green-500" data-testid="status-yes" />;
+  }
+  if (value === false) {
+    return <X className="h-3 w-3 text-red-500" data-testid="status-no" />;
+  }
+  
+  if (questionId && onSelectQuestion) {
+    return (
+      <button
+        type="button"
+        onClick={() => onSelectQuestion(questionId)}
+        className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground underline decoration-dotted cursor-pointer"
+        data-testid={`status-unknown-${questionId}`}
+        title="Click to search reviews"
+      >
+        <HelpCircle className="h-3 w-3 text-gray-400" />
+        <span>Unknown (Ask Reviews)</span>
+      </button>
+    );
+  }
+  
+  return (
+    <div className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" data-testid="status-unknown">
+      <HelpCircle className="h-3 w-3 text-gray-400" />
+      <span>Unknown</span>
+    </div>
+  );
+}
+
 export default function WineryDetails({ winery, loadingWineryId }: WineryDetailsProps) {
   const [showAllHours, setShowAllHours] = useState(false);
+  const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
 
   const getTodaysHours = () => {
     if (!winery.openingHours?.weekday_text) {
@@ -222,40 +260,51 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
               <div className="flex items-center gap-2">
                 <Car className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Free Parking:</span>
-                {winery.parking_options?.freeParking ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
+                <AttributeStatus value={winery.parking_options?.freeParking} />
               </div>
               <div className="flex items-center gap-2">
                 <Zap className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">EV Charging:</span>
-                {winery.has_ev_charging ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
+                <AttributeStatus value={winery.has_ev_charging} />
               </div>
               <div className="flex items-center gap-2">
                 <Accessibility className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Wheelchair Acc.:</span>
-                {winery.accessibility_options?.wheelchairAccessibleEntrance ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
+                <AttributeStatus value={winery.accessibility_options?.wheelchairAccessibleEntrance} />
               </div>
               <div className="flex items-center gap-2">
                 <Sun className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Outdoor:</span>
-                {winery.outdoor_seating ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
+                <AttributeStatus value={winery.outdoor_seating} />
               </div>
               <div className="flex items-center gap-2">
                 <Dog className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Dogs Allowed:</span>
-                {winery.allows_dogs ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
+                <AttributeStatus 
+                  value={winery.allows_dogs} 
+                  questionId="dogs" 
+                  onSelectQuestion={setActiveQuestionId} 
+                />
               </div>
               <div className="flex items-center gap-2">
                 <Baby className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Kid Friendly:</span>
-                {winery.good_for_children ? <Check className="h-3 w-3 text-green-500" /> : <X className="h-3 w-3 text-red-500" />}
+                <AttributeStatus 
+                  value={winery.good_for_children} 
+                  questionId="kids" 
+                  onSelectQuestion={setActiveQuestionId} 
+                />
               </div>
             </div>
           </Accordion.Content>
         </Accordion.Item>
       </Accordion.Root>
 
-      <Separator className="my-4" />
-      <WineryQnA winery={winery} />
+      <WineryQnA 
+        winery={winery} 
+        activeQuestionId={activeQuestionId} 
+        setActiveQuestionId={setActiveQuestionId} 
+      />
     </div>
   );
 }

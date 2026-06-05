@@ -5,8 +5,8 @@ import { useWineryStore } from '@/lib/stores/wineryStore';
 
 // Mock QnA component since it calls complex sub-hooks
 jest.mock('../WineryQnA', () => {
-  return function DummyWineryQnA() {
-    return <div data-testid="winery-qna">Winery QnA</div>;
+  return function DummyWineryQnA({ activeQuestionId }: { activeQuestionId?: string | null }) {
+    return <div data-testid="winery-qna">{activeQuestionId ? `QnA Active: ${activeQuestionId}` : 'Winery QnA'}</div>;
   };
 });
 
@@ -101,5 +101,47 @@ describe('WineryDetails', () => {
     expect(screen.getByText('EV Charging:')).toBeInTheDocument();
     expect(screen.getByText('Free Parking:')).toBeInTheDocument();
     expect(screen.getByText('Wheelchair Acc.:')).toBeInTheDocument();
+  });
+
+  it('renders three-state logistics status correctly with Q&A review search fallback', () => {
+    const winery = createMockWinery({
+      allows_dogs: null, // Unknown with Q&A fallback
+      good_for_children: false, // Explicitly No
+      outdoor_seating: true, // Explicitly Yes
+      has_ev_charging: null, // Unknown without Q&A fallback
+      enrichment_tier: 'basic',
+    });
+
+    render(<WineryDetails winery={winery} />);
+
+    const trigger = screen.getByRole('button', { name: /Logistics & Accessibility/i });
+    fireEvent.click(trigger);
+
+    // Outdoor Seating (true) should render status-yes (Check)
+    const yesElements = screen.getAllByTestId('status-yes');
+    expect(yesElements.length).toBeGreaterThan(0);
+
+    // Kid Friendly (false) should render status-no (X)
+    const noElements = screen.getAllByTestId('status-no');
+    expect(noElements.length).toBeGreaterThan(0);
+
+    // Dogs Allowed (null) should render the "Unknown (Ask Reviews)" button with fallback trigger
+    const askReviewsBtn = screen.getByTestId('status-unknown-dogs');
+    expect(askReviewsBtn).toBeInTheDocument();
+    expect(screen.getByText('Unknown (Ask Reviews)')).toBeInTheDocument();
+
+    // Verify multiple plain "Unknown" statuses exist (EV Charging, Free Parking, etc.)
+    const unknownPlains = screen.getAllByTestId('status-unknown');
+    expect(unknownPlains.length).toBeGreaterThan(0);
+    expect(unknownPlains[0].textContent).toBe('Unknown');
+
+    // Verify state trigger: QnA initially has no active question
+    expect(screen.getByTestId('winery-qna').textContent).toBe('Winery QnA');
+
+    // Click Dogs Allowed "Unknown (Ask Reviews)" button
+    fireEvent.click(askReviewsBtn);
+
+    // QnA component should now show that the dogs question is active
+    expect(screen.getByTestId('winery-qna').textContent).toBe('QnA Active: dogs');
   });
 });

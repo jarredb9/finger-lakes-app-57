@@ -22,6 +22,7 @@ This track addresses the technical debt and architectural drift in the current G
     *   **UI Structure**: Use **Accordions** for "About the Area" and "Logistics & Accessibility" in `WineryDetails.tsx`.
     *   **DOM Stability**: Components MUST use the `data-state` signaling pattern and render skeletons/errors inside a stable parent container (No early returns).
     *   **Quota Resilience**: Implement a "Service Limited" state (using the `data-state` pattern) to gracefully handle Google API quota exhaustion.
+    *   **Three-State Logistics UI**: Differentiate between `true` (Yes), `false` (No), and `null`/`undefined` (Unknown) states for logistics attributes (dogs allowed, kid friendly, outdoor seating, EV charging, serves wine). For the unknown state, display a neutral badge (e.g. gray question mark) and provide a fallback trigger/action to show the Q&A reviews search fallback.
 4.  **DevSecOps & Migration Stability (Safety Mandate):**
     *   **Structural Audit (Gold Standard):** Implement `supabase db diff --linked` in CI. This spins up a shadow database to compare the *actual schema result* of local migrations against the live production database.
     *   **History Auditing:** Use `supabase migration list` in CI to ensure the local file list perfectly matches the remote migration history.
