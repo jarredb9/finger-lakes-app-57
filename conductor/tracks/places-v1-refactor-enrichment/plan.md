@@ -101,4 +101,5 @@
 - [x] Task: Apply review suggestions (arch-ui compliance) (308935e)
 - [x] Task: Explicitly link Edge Function import maps to resolve CLI fallback warnings
 - [x] Task: Apply review suggestions (b58efaa)
+- [x] Task: Implement three-state UI (Yes/No/Unknown) for logistics with Q&A review fallback (TDD) (b66e21e)
 
