@@ -1,8 +1,8 @@
 # Implementation Plan: Resilient Social Actions
 
 ### Phase 0: Infrastructure & Idempotency
-- [ ] **Task: Add Idempotency Columns to Schema**
-    - [ ] Create a database migration to add `idempotency_key` (UUID) with a `UNIQUE` constraint to `public.visits` and `public.trips`.
+- [x] **Task: Add Idempotency Columns to Schema** [18169be]
+    - [x] Create a database migration to add `idempotency_key` (UUID) with a `UNIQUE` constraint to `public.visits` and `public.trips`.
 - [ ] **Task: Update Database Write RPCs**
     - [ ] Update `public.log_visit` to accept `p_idempotency_key` (UUID). In the insert block, handle uniqueness conflicts: check if the key already exists and, if so, return the existing visit ID and winery ID.
     - [ ] Update `public.update_visit` to accept `p_idempotency_key` (UUID). If the key already exists, return the updated record directly.
