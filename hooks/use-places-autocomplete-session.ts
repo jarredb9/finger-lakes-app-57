@@ -54,9 +54,25 @@ export function usePlacesAutocompleteSession() {
     }
 
     const place = suggestion.placePrediction.toPlace();
+    
+    // Map Web Service field names to Maps JS API field names
+    // Many are identical after removing 'places.', but some booleans differ (is/has prefix)
+    const fieldMapping: Record<string, string> = {
+      'goodForChildren': 'isGoodForChildren',
+      'outdoorSeating': 'hasOutdoorSeating',
+      'reservable': 'isReservable',
+      'wifi': 'hasWiFi',
+    };
+
     const fields = [
-      ...ESSENTIALS_FIELD_MASK.map(f => f.replace("places.", "")),
-      ...ENRICHMENT_FIELD_MASK.map(f => f.replace("places.", ""))
+      ...ESSENTIALS_FIELD_MASK.map(f => {
+        const name = f.replace("places.", "");
+        return fieldMapping[name] || name;
+      }),
+      ...ENRICHMENT_FIELD_MASK.map(f => {
+        const name = f.replace("places.", "");
+        return fieldMapping[name] || name;
+      })
     ];
 
     try {

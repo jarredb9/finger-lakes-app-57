@@ -32,4 +32,5 @@ export const ENRICHMENT_FIELD_MASK = [
   'places.reviews',
   'places.parkingOptions',
   'places.accessibilityOptions',
+  'places.evChargeOptions',
 ];

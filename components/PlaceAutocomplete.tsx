@@ -101,37 +101,54 @@ export function PlaceAutocomplete({
           google_rating: placeAny.rating || null,
           allows_dogs: placeAny.allowsDogs ?? null,
           serves_wine: placeAny.servesWine ?? null,
-          good_for_children: placeAny.goodForChildren ?? null,
-          outdoor_seating: placeAny.outdoorSeating ?? null,
+          good_for_children: placeAny.isGoodForChildren ?? null,
+          outdoor_seating: placeAny.hasOutdoorSeating ?? null,
           enrichment_tier: "enriched",
           last_enriched_at: new Date().toISOString(),
         };
 
-        if (placeAny.generativeSummary?.overview?.text) {
-          v1Place.generative_summary = { overview: { text: placeAny.generativeSummary.overview.text } };
-        } else if (typeof placeAny.generativeSummary === "string") {
-          v1Place.generative_summary = { overview: { text: placeAny.generativeSummary } };
+        if (placeAny.photos && placeAny.photos.length > 0) {
+          v1Place.primary_photo_reference = placeAny.photos[0].name;
+          v1Place.photo_references = placeAny.photos.map((p: any) => p.name);
         }
 
-        if (placeAny.neighborhoodSummary?.overview?.text) {
-          v1Place.neighborhood_summary = { overview: { text: placeAny.neighborhoodSummary.overview.text } };
-        } else if (typeof placeAny.neighborhoodSummary === "string") {
-          v1Place.neighborhood_summary = { overview: { text: placeAny.neighborhoodSummary } };
-        }
+        const extractSummary = (summary: any) => {
+          if (!summary) return null;
+          if (typeof summary === 'string') return { overview: { text: summary } };
+          if (summary.overview?.text) return { overview: { text: summary.overview.text } };
+          if (summary.text) return { overview: { text: summary.text } };
+          return null;
+        };
 
-        if (placeAny.editorialSummary?.overview?.text) {
-          v1Place.editorial_summary = { overview: { text: placeAny.editorialSummary.overview.text } };
-        } else if (typeof placeAny.editorialSummary === "string") {
-          v1Place.editorial_summary = { overview: { text: placeAny.editorialSummary } };
-        }
+        const genSummary = extractSummary(placeAny.generativeSummary);
+        if (genSummary) v1Place.generative_summary = genSummary;
+
+        const neighSummary = extractSummary(placeAny.neighborhoodSummary);
+        if (neighSummary) v1Place.neighborhood_summary = neighSummary;
+
+        const editSummary = extractSummary(placeAny.editorialSummary);
+        if (editSummary) v1Place.editorial_summary = editSummary;
 
         if (placeAny.parkingOptions) {
           v1Place.parking_options = placeAny.parkingOptions;
-          v1Place.has_ev_charging = placeAny.parkingOptions.hasEvChargingStations ?? null;
+        }
+
+        if (placeAny.evChargeOptions) {
+          v1Place.ev_charge_options = placeAny.evChargeOptions;
+          v1Place.has_ev_charging = (placeAny.evChargeOptions.connectorCount || 0) > 0;
+        } else if (placeAny.parkingOptions?.hasEvChargingStations !== undefined) {
+          v1Place.has_ev_charging = placeAny.parkingOptions.hasEvChargingStations;
         }
 
         if (placeAny.accessibilityOptions) {
-          v1Place.accessibility_flags = placeAny.accessibilityOptions;
+          // Map JS API accessibility options to REST API shape for consistency
+          v1Place.accessibility_options = {
+            wheelchairAccessibleEntrance: placeAny.accessibilityOptions.hasWheelchairAccessibleEntrance ?? null,
+            wheelchairAccessibleParking: placeAny.accessibilityOptions.hasWheelchairAccessibleParking ?? null,
+            wheelchairAccessibleRestroom: placeAny.accessibilityOptions.hasWheelchairAccessibleRestroom ?? null,
+            wheelchairAccessibleSeating: placeAny.accessibilityOptions.hasWheelchairAccessibleSeating ?? null,
+          };
+          v1Place.accessibility_flags = v1Place.accessibility_options;
         }
 
         if (placeAny.regularOpeningHours) {
