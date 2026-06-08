@@ -99,6 +99,7 @@ export function PlaceAutocomplete({
           phone: placeAny.nationalPhoneNumber || placeAny.internationalPhoneNumber || null,
           website: placeAny.websiteUri || null,
           google_rating: placeAny.rating || null,
+          user_rating_count: placeAny.userRatingCount || null,
           allows_dogs: placeAny.allowsDogs ?? null,
           serves_wine: placeAny.servesWine ?? null,
           good_for_children: placeAny.isGoodForChildren ?? null,

@@ -231,6 +231,11 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
           <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 shrink-0" />
           <div className="flex items-center gap-1.5">
             <span>{winery.rating}/5.0</span>
+            {winery.userRatingCount && (
+              <span className="text-xs text-muted-foreground">
+                ({winery.userRatingCount.toLocaleString()})
+              </span>
+            )}
             <GoogleAttribution variant="reviews" />
           </div>
         </div>

@@ -24,6 +24,7 @@ export const WineryService = {
       phone: winery.phone || null,
       website: winery.website || null,
       rating: winery.rating || null,
+      user_rating_count: winery.userRatingCount || null,
   }),
 
   /**
@@ -170,6 +171,7 @@ export const WineryService = {
       longitude: winery.longitude,
       website: winery.website || null,
       google_rating: winery.rating || null,
+      user_rating_count: winery.userRatingCount || null,
       enrichment_tier: winery.enrichment_tier || 'enriched',
       last_enriched_at: winery.last_enriched_at || new Date().toISOString(),
       generative_summary: winery.generative_summary ? { overview: { text: winery.generative_summary } } : null,

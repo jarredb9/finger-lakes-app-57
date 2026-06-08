@@ -478,6 +478,7 @@ export type Database = {
           reviews: Json | null
           revision_id: string | null
           serves_wine: boolean | null
+          user_rating_count: number | null
           website: string | null
         }
         Insert: {
@@ -509,6 +510,7 @@ export type Database = {
           reviews?: Json | null
           revision_id?: string | null
           serves_wine?: boolean | null
+          user_rating_count?: number | null
           website?: string | null
         }
         Update: {
@@ -540,6 +542,7 @@ export type Database = {
           reviews?: Json | null
           revision_id?: string | null
           serves_wine?: boolean | null
+          user_rating_count?: number | null
           website?: string | null
         }
         Relationships: []
@@ -847,6 +850,7 @@ export type Database = {
               reviews: Json | null
               revision_id: string | null
               serves_wine: boolean | null
+              user_rating_count: number | null
               website: string | null
             }[]
             SetofOptions: {
@@ -897,6 +901,7 @@ export type Database = {
               reviews: Json | null
               revision_id: string | null
               serves_wine: boolean | null
+              user_rating_count: number | null
               website: string | null
             }[]
             SetofOptions: {
@@ -971,6 +976,7 @@ export type Database = {
           reviews: Json
           serves_wine: boolean
           trip_info: Json
+          user_rating_count: number
           user_visited: boolean
           visits: Json
           website: string
