@@ -245,11 +245,17 @@ export default function WineryQnA({
                     </Card>
                     
                     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center flex-wrap gap-2">
                         {searchResults.length > 0 && (
                           <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">
                             Match {activeReviewIndex + 1} of {searchResults.length}
                           </span>
+                        )}
+                        {winery.userRatingCount && winery.userRatingCount > 5 && (
+                          <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                            <HelpCircle className="h-3 w-3" />
+                            Top results from {winery.userRatingCount} total reviews.
+                          </p>
                         )}
                       </div>
 
@@ -283,13 +289,6 @@ export default function WineryQnA({
                         </div>
                       )}
                     </div>
-                    
-                    {winery.userRatingCount && winery.userRatingCount > 5 && (
-                      <p className="text-[10px] text-gray-400 mt-2 flex items-center gap-1">
-                        <HelpCircle className="h-3 w-3" />
-                        Searching top 5 of {winery.userRatingCount} total reviews.
-                      </p>
-                    )}
                   </>
                 ) : (
                   <p className="text-sm text-muted-foreground text-center py-4">
