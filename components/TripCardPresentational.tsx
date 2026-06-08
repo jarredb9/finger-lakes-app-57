@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-import { Calendar, Users, MapPin, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Share2, Star, Wine, Loader2, Clock } from "lucide-react";
+import { Calendar, Users, GripVertical, Trash2, Edit, Save, Plus, X, UserPlus, Share2, Star, Wine, Loader2, Clock } from "lucide-react";
 import { DragDropContext, Droppable, Draggable, DropResult } from "@hello-pangea/dnd";
 import { DatePicker } from "./DatePicker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -18,6 +18,7 @@ import { calculateDistance, formatDistance } from "@/lib/utils/geo";
 import { cn } from "@/lib/utils";
 
 import { formatDateLocal } from "@/lib/utils";
+import { MapNavigation } from "./MapNavigation";
 
 interface TripCardProps {
   trip: Trip;
@@ -307,7 +308,7 @@ const TripCard = memo(({
                   </div>
                   <div className="grow">
                     <p className="font-semibold">{winery.name}</p>
-                    <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
+                    <MapNavigation address={winery.address} wineryName={winery.name} className="mt-1" />
                   </div>
                 </div>
               </div>
@@ -346,7 +347,7 @@ const TripCard = memo(({
                               </div>
                               <div className="grow">
                                 <p className="font-semibold">{winery.name}</p>
-                                <p className="text-sm text-gray-500 flex items-center gap-1"><MapPin className="w-3 h-3"/>{winery.address}</p>
+                                <MapNavigation address={winery.address} wineryName={winery.name} className="mt-1" />
                                 <DailyHours openingHours={winery.openingHours} tripDate={new Date(trip.trip_date + 'T00:00:00')} />
                                 
                                 <div className="mt-2">

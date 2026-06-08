@@ -5,7 +5,6 @@ import {
   Star, 
   Phone, 
   Globe, 
-  MapPin, 
   Clock, 
   ChevronDown, 
   ChevronUp, 
@@ -27,6 +26,7 @@ import * as Accordion from "@radix-ui/react-accordion";
 import { useWineryPhoto } from "@/hooks/use-winery-photo";
 import { GeminiDisclosure } from "./GeminiDisclosure";
 import { GoogleAttribution } from "./GoogleAttribution";
+import { MapNavigation } from "./MapNavigation";
 
 interface WineryDetailsProps {
   winery: Winery;
@@ -175,10 +175,8 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
         ) : null}
       </div>
 
-      <div className="flex items-start space-x-2">
-        <MapPin className="w-4 h-4 mt-1 shrink-0" />
-        <span>{winery.address}</span>
-      </div>
+      <MapNavigation address={winery.address} wineryName={winery.name} />
+
       {winery.phone && (
         <div className="flex items-center space-x-2">
           <Phone className="w-4 h-4 shrink-0" />

@@ -5,8 +5,9 @@ import { useVisitStore } from "@/lib/stores/visitStore";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, MapPin } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { Pagination, PaginationContent, PaginationItem, PaginationNext } from "@/components/ui/pagination";
+import { MapNavigation } from "./MapNavigation";
 
 interface GlobalVisitHistoryProps {
   isActive?: boolean;
@@ -58,9 +59,16 @@ export default function GlobalVisitHistory({ isActive = true }: GlobalVisitHisto
          <>
            {visits.map((visit) => (
                <div key={visit.id} className="relative">
-                   <div className="flex items-center gap-2 mb-2 px-1">
-                       <MapPin className="w-4 h-4 text-muted-foreground" />
-                       <span className="text-sm font-medium text-muted-foreground">{visit.wineryName}</span>
+                   <div className="mb-2 px-1">
+                       {visit.wineries?.address ? (
+                         <MapNavigation 
+                           address={visit.wineries.address} 
+                           wineryName={visit.wineryName} 
+                           className="font-medium text-muted-foreground" 
+                         />
+                       ) : (
+                         <span className="text-sm font-medium text-muted-foreground">{visit.wineryName}</span>
+                       )}
                    </div>
                    <VisitCardHistory 
                        visits={[visit]} 

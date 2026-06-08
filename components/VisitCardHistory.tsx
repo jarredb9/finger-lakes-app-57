@@ -3,9 +3,10 @@ import { Visit } from "@/lib/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Star, Edit, Trash2, MapPin, Lock, Clock } from "lucide-react";
+import { Star, Edit, Trash2, Lock, Clock } from "lucide-react";
 import PhotoCard from "./photo-card";
 import { cn } from "@/lib/utils";
+import { MapNavigation } from "./MapNavigation";
 
 interface VisitHistoryProps {
   visits: Visit[];
@@ -47,9 +48,13 @@ export default function VisitHistory({
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center justify-between">
                     {showWineryName && visit.wineries && (
-                      <div className="flex items-center gap-1.5 text-primary mb-1">
-                        <MapPin className="w-3.5 h-3.5" />
-                        <p className="text-sm font-bold tracking-tight uppercase">{visit.wineries.name}</p>
+                      <div className="mb-2">
+                        <p className="text-sm font-bold tracking-tight uppercase text-primary mb-1">{visit.wineries.name}</p>
+                        <MapNavigation 
+                          address={visit.wineries.address} 
+                          wineryName={visit.wineries.name} 
+                          className="text-xs" 
+                        />
                       </div>
                     )}
                     {isPending && (

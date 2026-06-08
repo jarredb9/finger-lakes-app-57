@@ -1,8 +1,9 @@
 import { Winery } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { Star, MapPin, Clock } from "lucide-react";
+import { Star, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { isOpenNow } from "@/lib/utils/opening-hours";
+import { MapNavigation } from "./MapNavigation";
 
 interface WineryCardProps {
   winery: Winery;
@@ -41,9 +42,12 @@ export default function WineryCardThumbnail({ winery, onClick }: WineryCardProps
           )}
         </div>
 
-        <div className="flex items-start gap-1.5 text-xs text-muted-foreground">
-          <MapPin className="w-3 h-3 mt-0.5 shrink-0" />
-          <span className="line-clamp-1">{winery.address}</span>
+        <div onClick={(e) => e.stopPropagation()}>
+          <MapNavigation 
+            address={winery.address} 
+            wineryName={winery.name} 
+            className="text-[11px]" 
+          />
         </div>
 
         <div className="flex gap-2 mt-1 items-center flex-wrap">
