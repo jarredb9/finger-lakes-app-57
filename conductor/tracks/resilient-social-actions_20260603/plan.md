@@ -1,6 +1,6 @@
 # Implementation Plan: Resilient Social Actions
 
-### Phase 0: Infrastructure & Idempotency
+### Phase 0: Infrastructure & Idempotency [checkpoint: 6e306d9]
 - [x] **Task: Add Idempotency Columns to Schema** [18169be]
     - [x] Create a database migration to add `idempotency_key` (UUID) with a `UNIQUE` constraint to `public.visits` and `public.trips`.
 - [x] **Task: Update Database Write RPCs** [bf06825]
