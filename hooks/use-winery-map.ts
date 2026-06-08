@@ -174,7 +174,8 @@ export function useWineryMap(userId: string) {
       
       // 3. Open details modal
       openWineryModal(winery.id);
-      
+      ensureWineryDetails(winery.id);
+
       // 4. Add to search results so it displays on the map immediately
       const { setSearchResults } = useMapStore.getState();
       const currentResults = useMapStore.getState().searchResults;
@@ -197,7 +198,7 @@ export function useWineryMap(userId: string) {
       // Execute text search for wineries in this new area
       executeSearch(undefined, map.getBounds() || undefined);
     }
-  }, [map, openWineryModal, setSearchLocation, executeSearch]);
+  }, [map, openWineryModal, ensureWineryDetails, setSearchLocation, executeSearch]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
