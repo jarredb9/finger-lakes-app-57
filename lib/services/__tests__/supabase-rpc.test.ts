@@ -1,3 +1,4 @@
+/** @jest-environment jsdom */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import path from 'path';
@@ -7,6 +8,9 @@ import { createMockWinery, createMockVisit } from '@/lib/test-utils/fixtures';
 // In CI, .env.local won't exist, so we use the provided process.env
 const envPath = path.resolve(process.cwd(), '.env.local');
 dotenv.config({ path: envPath });
+
+// Increase timeout for remote integration tests
+jest.setTimeout(15000);
 
 // Integration test for Supabase RPCs
 // These tests run against the live Supabase instance.
@@ -73,11 +77,24 @@ describe('Supabase RPC Integration Tests', () => {
 
     describe('Trip Management RPCs', () => {
       it('should create a trip with a winery atomically using create_trip_with_winery', async () => {
-        // ... (existing code)
+        const { data: tripData, error: tripError } = await user1.client.rpc('create_trip_with_winery', {
+          p_trip_name: 'Solo Trip',
+          p_trip_date: new Date().toISOString().split('T')[0],
+          p_winery_data: {
+            id: `mock-winery-${crypto.randomUUID()}`,
+            name: 'Solo Winery',
+            address: '456 Solo St',
+            lat: 43.0,
+            lng: -77.5,
+            rating: 4.0
+          }
+        });
+        expect(tripError).toBeNull();
+        expect(tripData).toHaveProperty('trip_id');
       });
 
       it('should allow trip members from trip_members table to fetch details via get_trip_details', async () => {
-        // 1. User 1 creates a trip
+        // 1. User 1 creates a trip and includes User 2 as a member atomically
         const { data: tripData, error: tripError } = await user1.client.rpc('create_trip_with_winery', {
           p_trip_name: 'Shared Trip',
           p_trip_date: new Date().toISOString().split('T')[0],
@@ -88,20 +105,13 @@ describe('Supabase RPC Integration Tests', () => {
             lat: 42.5,
             lng: -77.0,
             rating: 4.5
-          }
+          },
+          p_members: [user1.id, user2.id] // Atomic addition of member
         });
         expect(tripError).toBeNull();
         const tripId = tripData.trip_id;
 
-        // 2. Add User 2 to trip_members table (not the legacy members array)
-        const { error: memberError } = await adminClient.from('trip_members').insert({
-          trip_id: tripId,
-          user_id: user2.id,
-          role: 'member'
-        });
-        expect(memberError).toBeNull();
-
-        // 3. User 2 attempts to fetch trip details
+        // 2. User 2 attempts to fetch trip details
         const { data: details, error: detailsError } = await user2.client.rpc('get_trip_details', {
           p_trip_id: tripId
         });
@@ -149,7 +159,26 @@ describe('Supabase RPC Integration Tests', () => {
 
     describe('Social RPCs', () => {
       it('should handle friend request lifecycle', async () => {
-        // ... (existing test code)
+        // 1. User 1 sends friend request to User 2 using email
+        const { error } = await user1.client.rpc('send_friend_request', {
+          p_target_email: user2.email
+        });
+        expect(error).toBeNull();
+
+        // 2. User 2 accepts using user1's id as p_requester_id
+        const { error: acceptError } = await user2.client.rpc('respond_to_friend_request', {
+          p_requester_id: user1.id,
+          p_accept: true
+        });
+        expect(acceptError).toBeNull();
+
+        // 3. Verify friendship
+        const { data: friend } = await adminClient
+          .from('friends')
+          .select('*')
+          .or(`and(user1_id.eq.${user1.id},user2_id.eq.${user2.id}),and(user1_id.eq.${user2.id},user2_id.eq.${user1.id})`)
+          .single();
+        expect(friend).not.toBeNull();
       });
 
       it('should handle follow lifecycle (instant for public profiles)', async () => {
@@ -248,4 +277,4 @@ describe('Supabase RPC Integration Tests', () => {
         await adminClient.from('follows').delete().eq('follower_id', user1.id).eq('following_id', user2.id);
       });
     });
-        });
+});
