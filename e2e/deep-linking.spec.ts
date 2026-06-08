@@ -61,7 +61,6 @@ test.describe('Deep Linking & Redirection', () => {
 
   test('should redirect to login when accessing trip detail unauthenticated, then redirect back after login', async ({ page, user }) => {
     const tripId = '123';
-    const isWebKit = test.info().project.name.toLowerCase().includes('webkit') || test.info().project.name.toLowerCase().includes('safari');
 
     // 1. Try to access a trip page directly
     await page.goto(`/trips/${tripId}`);
@@ -76,12 +75,6 @@ test.describe('Deep Linking & Redirection', () => {
     await page.waitForURL(new RegExp(`.*\\/trips\\/${tripId}`), { timeout: 15000 });
     
     // 5. Verify hydration and content
-    // WebKit needs a settlement buffer after redirections to re-apply the network proxy reliably
-    if (isWebKit) {
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(2000); 
-    }
-    
     await waitForAppReady(page);
     await expect(page).toHaveURL(new RegExp(`.*\\/trips\\/${tripId}`));
 
@@ -130,7 +123,6 @@ test.describe('Deep Linking & Redirection', () => {
 
   test('should handle navigation from a direct trip link back to the map', async ({ page, user }) => {
     const tripId = 999;
-    const isWebKit = test.info().project.name.toLowerCase().includes('webkit') || test.info().project.name.toLowerCase().includes('safari');
 
     // 1. Login first
     await login(page, user.email, user.password);
@@ -138,10 +130,6 @@ test.describe('Deep Linking & Redirection', () => {
     // 2. Navigate directly
     await page.goto(`/trips/${tripId}`);
     
-    if (isWebKit) {
-        await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(2000); 
-    }
     await waitForAppReady(page);
 
     // 3. Verify content robustly

@@ -34,8 +34,8 @@ export async function waitForAppReady(page: Page) {
     // First ensure the core shell or the page content is visible
     // For mobile, the navigation bar is a reliable indicator that the shell is ready
     const shellSelector = isMobile 
-      ? '[data-testid="mobile-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"], [data-testid="mobile-nav-explore"], [data-testid="app-sidebar"]' 
-      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"]';
+      ? '[data-testid="mobile-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"], [data-testid="trip-details-skeleton"], [data-testid="mobile-nav-explore"], [data-testid="app-sidebar"]' 
+      : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"], [data-testid="trip-details-skeleton"]';
     
     await expect(page.locator(shellSelector).first()).toBeVisible({ timeout: 25000 });
 
@@ -102,7 +102,8 @@ export async function clearServiceWorkers(page: Page) {
     // Then navigate to / to clear the actual app origin storage
     await page.goto('/').catch(() => {});
     await page.waitForLoadState('load');
-    await page.waitForLoadState('networkidle');
+    // networkidle is unreliable in WebKit/Safari due to persistent Realtime connections
+    // We rely on 'load' + immediate execution
 
     await page.evaluate(async () => {
         try {
