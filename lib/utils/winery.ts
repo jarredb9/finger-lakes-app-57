@@ -125,7 +125,11 @@ function parseOpeningHoursJson(json: Json | null | undefined): OpeningHours | nu
     if (json === undefined) return undefined;
     if (json === null) return null;
     if (typeof json === 'object' && json !== null && 'periods' in json) {
-        return json as unknown as OpeningHours;
+        const obj = json as any;
+        return {
+            ...obj,
+            weekday_text: obj.weekday_text || obj.weekdayDescriptions || obj.weekday_descriptions
+        } as OpeningHours;
     }
     return null;
 }

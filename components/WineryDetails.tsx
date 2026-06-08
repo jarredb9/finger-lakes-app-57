@@ -193,23 +193,27 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
           </a>
         </div>
       )}
-      {winery.openingHours && (
+      {winery.openingHours && (winery.openingHours.weekday_text || winery.openingHours.open_now !== undefined) && (
         <div className="flex items-start space-x-2">
           <Clock className="w-4 h-4 mt-1 shrink-0" />
           <div>
             <div className="flex items-center">
-              {isOpen !== null && (
+              {(isOpen !== null || winery.openingHours.open_now !== undefined) && (
                 <span
                   className={`font-semibold mr-2 ${
-                    isOpen ? 'text-green-600' : 'text-red-600'
+                    (isOpen ?? winery.openingHours.open_now) ? 'text-green-600' : 'text-red-600'
                   }`}
                 >
-                  {isOpen ? 'Open' : 'Closed'}
+                  {(isOpen ?? winery.openingHours.open_now) ? 'Open' : 'Closed'}
                 </span>
               )}
-              <span className="text-sm">{getTodaysHours()}</span>
-              {winery.openingHours.weekday_text && (
-                <button onClick={() => setShowAllHours(!showAllHours)} className="ml-2 p-1 rounded-full hover:bg-gray-100">
+              {getTodaysHours() && <span className="text-sm">{getTodaysHours()}</span>}
+              {winery.openingHours.weekday_text && winery.openingHours.weekday_text.length > 0 && (
+                <button 
+                  onClick={() => setShowAllHours(!showAllHours)} 
+                  className="ml-2 p-1 rounded-full hover:bg-gray-100"
+                  data-testid="hours-toggle"
+                >
                   {showAllHours ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                 </button>
               )}
