@@ -75,7 +75,7 @@ export function MapNavigation({ address, wineryName, className }: MapNavigationP
     return (
       <button 
         onClick={handleOpenDesktop}
-        className="block w-full"
+        className="block w-fit max-w-full"
         type="button"
         aria-label={`Open ${address} in Google Maps`}
       >
@@ -88,7 +88,7 @@ export function MapNavigation({ address, wineryName, className }: MapNavigationP
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
         <button 
-          className="block w-full" 
+          className="block w-fit max-w-full" 
           type="button"
           aria-label={`Show navigation options for ${address}`}
         >

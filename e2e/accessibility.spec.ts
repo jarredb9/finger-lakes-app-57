@@ -1,6 +1,6 @@
 import { test, expect } from './utils';
 import AxeBuilder from '@axe-core/playwright';
-import { login, navigateToTab, getSidebarContainer } from './helpers';
+import { login, navigateToTab, getSidebarContainer, waitForSearchComplete } from './helpers';
 
 test.describe('Accessibility (A11y)', () => {
   test('login page should be accessible', async ({ page }) => {
@@ -44,18 +44,20 @@ test.describe('Accessibility (A11y)', () => {
 
     // Use helper to ensure sidebar is visible/expanded
     await navigateToTab(page, 'Explore');
+    await waitForSearchComplete(page);
 
-    // Open a winery modal using robust click
+    // Open a winery modal by clicking the title specifically
     const sidebar = getSidebarContainer(page);
     const resultsList = sidebar.getByTestId('winery-results-list');
     const firstWinery = resultsList.getByTestId('winery-card-Mock Winery One').first();
-    await expect(firstWinery).toBeVisible({ timeout: 10000 });
-    await firstWinery.click({ force: true });
+    const wineryTitle = firstWinery.locator('h3');
+    await expect(wineryTitle).toBeVisible({ timeout: 10000 });
+    await wineryTitle.click({ force: true });
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
 
-    // WAIT for the loading spinner to disappear (Logical state check)
+    // WAIT for the loading spinner to disappear
     await expect(modal.locator('svg.animate-spin')).not.toBeVisible({ timeout: 15000 });
 
     // Scan only the modal content

@@ -42,7 +42,7 @@ export default function WineryCardThumbnail({ winery, onClick }: WineryCardProps
           )}
         </div>
 
-        <div onClick={(e) => e.stopPropagation()}>
+        <div className="w-fit" onClick={(e) => e.stopPropagation()}>
           <MapNavigation 
             address={winery.address} 
             wineryName={winery.name} 

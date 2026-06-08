@@ -186,13 +186,19 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
 
   // Ensure sidebar is open on desktop if we are navigating
   if (!isMobile) {
-      const sidebar = page.locator('[data-testid="desktop-sidebar-container"]');
-      if (!(await sidebar.isVisible())) {
+      // Check store state for sidebar
+      const isSidebarOpenStore = await page.evaluate(() => (window as any).useUIStore?.getState().isSidebarOpen);
+      if (!isSidebarOpenStore) {
           const openBtn = page.getByRole('button', { name: /Open sidebar/i });
           if (await openBtn.isVisible()) {
               await openBtn.click({ force: true });
+          } else {
+              // Fallback: set store state directly if button is missing/hidden but we need it open
+              await page.evaluate(() => (window as any).useUIStore?.getState().setSidebarOpen(true));
           }
       }
+      // Wait for sidebar visually
+      await expect(page.locator('[data-testid="desktop-sidebar-container"]')).toBeVisible({ timeout: 5000 });
   } else {
       // Dismiss overlays that block navigation on mobile
       await dismissCookieConsent(page);
@@ -438,7 +444,14 @@ export async function openWineryDetails(page: Page, wineryName: string) {
     }
     
     await wineryItem.scrollIntoViewIfNeeded();
-    await wineryItem.click({ force: true });
+    
+    // Click the title specifically to avoid stopPropagation zones (like MapNavigation)
+    const title = wineryItem.locator('h3').first();
+    if (await title.isVisible()) {
+        await title.click({ force: true });
+    } else {
+        await wineryItem.click({ force: true });
+    }
     
     const modal = page.getByTestId('winery-modal');
     await waitForSignal(page, 'winery-modal', 'ready', 15000);
