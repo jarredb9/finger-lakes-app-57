@@ -38,6 +38,9 @@ export function shouldEnrich(winery: any): boolean {
 
   // Auto-heal if user_rating_count is missing (newly added field)
   if (winery.user_rating_count === null || winery.user_rating_count === undefined) return true;
+
+  // Auto-heal if critical enrichment data is missing despite being in 'enriched' tier
+  if (!winery.generative_summary || !winery.primary_photo_reference) return true;
   
   return isStale(winery.last_enriched_at);
 }

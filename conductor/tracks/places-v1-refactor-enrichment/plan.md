@@ -91,9 +91,9 @@
     - [x] Update CHANGELOG.md and package.json
     - [x] Update AGENTS.md and GEMINI.md based on track changes
     - [x] Update project-testing-best-practices skill on track changes
-- [ ] Task: Final Production Migration & Verification
-    - [ ] Apply local migrations to production project (`jfsxclrdxmvftxacjuqf`) ONLY after PR merge.
-    - [ ] Verify production RLS and RPC functionality.
+- [x] Task: Final Production Migration & Verification
+    - [x] Apply local migrations to production project (`jfsxclrdxmvftxacjuqf`) ONLY after PR merge.
+    - [x] Verify production RLS and RPC functionality.
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions (c5c4600)
