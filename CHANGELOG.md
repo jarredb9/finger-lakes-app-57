@@ -1,6 +1,6 @@
 # Changelog
 
-## [2.12.0] - 2026-06-03
+## [2.12.0] - 2026-06-08
 
 **Places API v1 SDK, Edge Function Orchestration & AI Enrichment**
 
@@ -9,22 +9,27 @@
     *   **Edge Function Orchestration**: Replaced client-side search logic with the `search-wineries` Supabase Edge Function.
     *   **Dynamic Field Masking**: Implemented cost-optimized field masking, upgrading from "Essentials" to "Enterprise/Atmosphere" only when specific filters are active.
     *   **Place Autocomplete v1**: Migrated to the new Google Places Autocomplete v1 with session token management and field mask optimization.
+    *   **Review Persistence**: Added backend support for saving Google Maps reviews and `user_rating_count` synchronization to the local database.
 *   **AI Enrichment & Logistics**:
+    *   **Intelligent Logistics Status**: Implemented a three-state UI (Yes/No/Unknown) for logistics and accessibility flags, featuring an automated Q&A fallback that scans reviews when AI summaries are unavailable.
     *   **Gemini-Powered Summaries**: Integrated AI-generated winery summaries with "Summarized with Gemini" disclosure.
-    *   **Enriched Attributes**: Added support for 'Dog Friendly', 'Kid Friendly', 'Outdoor Seating', and 'EV Charging' attributes.
-    *   **Logistics UI**: Implemented Accordions for "About the Area" and "Logistics & Accessibility" in `WineryDetails.tsx`.
+    *   **Map Navigation Interface**: Integrated a new `MapNavigation` component across winery views for one-tap access to directions and external navigation apps.
+    *   **Review Discovery**: Enhanced the `WineryQnA` component with whole-word keyword matching and dedicated review navigation filters.
 *   **Resilience & Offline Performance**:
     *   **Lazy Enrichment Pattern**: Implemented a 30-day freshness policy; checking local database cache before fetching from Google API.
+    *   **Opening Hours Restoration**: Re-implemented business hours UI with robust fallbacks and verified accuracy via new E2E test coverage.
     *   **Base64 Photo Persistence**: Ensured photo reliability in WebKit/Safari by storing hero images as Base64 strings in the offline queue.
     *   **Quota Resilience**: Added "Service Limited" UI states to handle API quota exhaustion gracefully.
 
 ### 🛡 Security & DevSecOps
-*   **"Gold Standard" Migrations**:
-    *   Implemented `db:audit` and CI-level `db diff --linked` verification to ensure zero-drift between local and production schemas.
+*   **Edge Function Hardening**:
+    *   **CORS Preflight Validation**: Implemented strict CORS preflight unit tests and added `x-skip-sw-interception` to allowed headers to prevent Service Worker interference with backend requests.
     *   Strict `SECURITY DEFINER` and `SET search_path = public, auth` enforcement on all new RPCs.
-*   **Backend Testing (Deno)**: Established a local Deno testing infrastructure for Edge Functions with mocks and unit tests, integrated into the CI pipeline.
+*   **"Gold Standard" Migrations**: Implemented `db:audit` and CI-level `db diff --linked` verification to ensure zero-drift between local and production schemas.
+*   **CI/CD Optimization**: Resolved Playwright installation hangs and optimized sharded E2E test runs with localized caching for v20+ Node environments.
 
-### ⚙ Refactoring
+### ⚙ Refactoring & Testing
+*   **Integration Testing**: Hardened Supabase RPC integration tests and resolved UI regressions in Jest suites for winery stores.
 *   **Coordinate Standardization**: Finalized the move to property-based `latitude`/`longitude` access, stripping all legacy `lat`/`lng` keys from the data layer.
 *   **Hybrid Implementation**: Combined Edge Function orchestration with atomic Database RPCs (`bulk_upsert_wineries`) for optimized performance.
 
