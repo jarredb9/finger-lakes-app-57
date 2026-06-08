@@ -26,6 +26,7 @@ describe('Google Maps Constants', () => {
       'places.reviews',
       'places.parkingOptions',
       'places.accessibilityOptions',
+      'places.evChargeOptions',
     ];
     expect(ENRICHMENT_FIELD_MASK).toEqual(expected);
   });

@@ -128,12 +128,14 @@ describe('WineryDetails', () => {
     // Dogs Allowed (null) should render the "Unknown (Ask Reviews)" button with fallback trigger
     const askReviewsBtn = screen.getByTestId('status-unknown-dogs');
     expect(askReviewsBtn).toBeInTheDocument();
-    expect(screen.getByText('Unknown (Ask Reviews)')).toBeInTheDocument();
+    expect(askReviewsBtn).toHaveTextContent('Unknown (Ask Reviews)');
 
-    // Verify multiple plain "Unknown" statuses exist (EV Charging, Free Parking, etc.)
-    const unknownPlains = screen.getAllByTestId('status-unknown');
-    expect(unknownPlains.length).toBeGreaterThan(0);
-    expect(unknownPlains[0].textContent).toBe('Unknown');
+    // Verify multiple "Unknown (Ask Reviews)" statuses exist (EV Charging, Free Parking, etc.)
+    const unknownButtons = screen.getAllByText('Unknown (Ask Reviews)');
+    expect(unknownButtons.length).toBeGreaterThan(1);
+    
+    // Check specific one that was previously expected to be plain unknown
+    expect(screen.getByTestId('status-unknown-ev_charging')).toBeInTheDocument();
 
     // Verify state trigger: QnA initially has no active question
     expect(screen.getByTestId('winery-qna').textContent).toBe('Winery QnA');

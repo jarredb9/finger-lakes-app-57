@@ -35,7 +35,10 @@ describe('WineryUIStore: ensureWineryDetails', () => {
       ...createMockWinery(),
       openingHours: { weekday_text: ['Mon: Open'] },
       userVisited: true,
-      visits: [createMockVisit()]
+      visits: [createMockVisit()],
+      enrichment_tier: 'enriched',
+      reviews: [],
+      userRatingCount: 10
     };
     
     useWineryDataStore.setState({ persistentWineries: [winery] });
