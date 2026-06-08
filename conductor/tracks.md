@@ -32,5 +32,6 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 
 ---
 
-- [ ] **Track: Migrate core user actions (log_visit, create_trip) to Edge Functions**
-*Link: [./resilient-social-actions_20260603/](./resilient-social-actions_20260603/)*
+- [ ] **Track: Resilient Social Actions & Offline Integrity**
+*Link: [./tracks/resilient-social-actions_20260603/](./tracks/resilient-social-actions_20260603/)*
+

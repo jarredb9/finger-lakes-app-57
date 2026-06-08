@@ -4,14 +4,14 @@
 - [ ] **Task: Add Idempotency Columns to Schema**
     - [ ] Create a database migration to add `idempotency_key` (UUID) with a `UNIQUE` constraint to `public.visits` and `public.trips`.
 - [ ] **Task: Update Database Write RPCs**
-    - [ ] Update `public.log_visit` to accept `p_idempotency_key` (UUID). In the insert block, handle uniqueness conflicts: on conflict return the existing visit ID and winery ID.
-    - [ ] Update `public.update_visit` to accept `p_idempotency_key` (UUID).
-    - [ ] Update `public.create_trip` and `public.create_trip_with_winery` to accept `p_idempotency_key` (UUID) and handle uniqueness conflicts.
+    - [ ] Update `public.log_visit` to accept `p_idempotency_key` (UUID). In the insert block, handle uniqueness conflicts: check if the key already exists and, if so, return the existing visit ID and winery ID.
+    - [ ] Update `public.update_visit` to accept `p_idempotency_key` (UUID). If the key already exists, return the updated record directly.
+    - [ ] Update `public.create_trip` and `public.create_trip_with_winery` to accept `p_idempotency_key` (UUID). Check if the key already exists and, if so, return the existing trip ID and associated information.
     - [ ] Regenerate database types: `npm run db:gen-types`.
 
 ### Phase 1: Asynchronous Side-Effects (Edge Functions & Webhooks)
 - [ ] **Task: Implement AI Gemini Summary Edge Function**
-    - [ ] Create `supabase/functions/update-gemini-summary` to process webhook payloads, extract detailed reviews, generate summaries via Gemini API, and update `public.wineries`.
+    - [ ] Create `supabase/functions/update-gemini-summary` to process webhook payloads, extract detailed reviews, generate summaries via Gemini API (using a cache-first 30-day check), and update `public.wineries`.
     - [ ] Write unit tests for the summary Edge Function.
 - [ ] **Task: Configure Gemini Update Database Webhook**
     - [ ] Create a database webhook on `public.visits` AFTER INSERT OR UPDATE.
@@ -25,17 +25,22 @@
 
 ### Phase 2: Client-Side PWA Resilience
 - [ ] **Task: Implement Image Compression**
-    - [ ] Create `utils/image.ts` to compress and resize photos (max 2048px) client-side before Base64 serialization.
-- [ ] **Task: Update Sync Store and Payload Idempotency**
-    - [ ] Ensure that when enqueueing mutations offline, the client passes `SyncItem.id` as the `idempotency_key` in the payload.
-    - [ ] Update `SyncService.ts` to call the updated RPCs with the `idempotency_key`.
-    - [ ] Retain and verify photo-to-Base64 serialization in the offline queue, uploading to Supabase Storage before calling the RPC.
+    - [ ] Create `lib/utils/image.ts` to compress and resize photos (max 2048px on long edge) client-side using browser Canvas APIs before Base64 serialization.
+- [ ] **Task: Update Store Actions and Payload Idempotency**
+    - [ ] Generate a UUID `idempotencyKey` at the start of `saveVisit`, `updateVisit`, and `createTrip` actions.
+    - [ ] Pass `idempotencyKey` directly to direct online RPC invocations.
+    - [ ] Update `useSyncStore.addMutation` to accept an optional `id` parameter so that `SyncItem.id` can be set to the client-generated `idempotencyKey`.
+    - [ ] Update `SyncService.ts` to call the updated RPCs with `item.id` as the `idempotency_key` parameter.
 - [ ] **Task: Implement IndexedDB Quota Safeguards**
-    - [ ] Wrap Zustand persistent storage and `syncStore` queue writes in try/catch blocks; handle `QuotaExceededError` by calling cache cleanup (`checkAndCleanupQuota(0.8)`).
-    - [ ] Trigger a UI toast notification warning if storage space remains insufficient to save offline changes.
+    - [ ] Intercept quota errors inside `idbStorage.setItem` and `syncStore.ts`'s `persistToIdb`.
+    - [ ] Run `checkAndCleanupQuota(0.8)` on failure and retry the write once.
+    - [ ] Dispatch a `quota-exceeded-warning` custom event to `window` if the write continues to fail.
+- [ ] **Task: Decouple Quota Warnings to Toast UI**
+    - [ ] Set up a listener for the `quota-exceeded-warning` custom event inside `components/pwa-handler.tsx`.
+    - [ ] Trigger a Shadcn toast warning notification when the event fires, advising the user that offline changes cannot be saved.
 - [ ] **Task: Secure Logout Store Reset**
-    - [ ] Update `useUserStore.logout` to reset all Zustand stores: `useSyncStore`, `useVisitStore`, `useTripStore`, `useFriendStore`, `useWineryStore`, `useWineryDataStore`, `useMapStore`, and `useUIStore`.
-    - [ ] Explicitly await the asynchronous `await useSyncStore.getState().reset()` call in the logout process to guarantee deletion of the IndexedDB offline queue.
+    - [ ] Update `useUserStore.logout` to first await the asynchronous `useSyncStore.getState().reset()` call to guarantee deletion of the IndexedDB offline queue.
+    - [ ] Reset all other 8 Zustand stores (`useVisitStore`, `useTripStore`, `useFriendStore`, `useWineryStore`, `useWineryDataStore`, `useMapStore`, `useUIStore`, and `useUserStore` itself) immediately after.
 
 ### Phase 3: Verification & Testing
 - [ ] **Task: E2E Test Suite Verification**
