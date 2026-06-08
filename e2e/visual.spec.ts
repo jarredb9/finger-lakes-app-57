@@ -54,9 +54,9 @@ test.describe('Visual Regression Testing', () => {
 
     await navigateToTab(page, 'Explore');
 
-    // Open a winery modal
+    // Open a winery modal - click the title to avoid MapNavigation intercepting card clicks
     const firstWinery = page.getByTestId('winery-card-Mock Winery One').first();
-    await firstWinery.click();
+    await firstWinery.locator('h3').click();
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
