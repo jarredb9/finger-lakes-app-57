@@ -3,11 +3,11 @@
 ### Phase 0: Infrastructure & Idempotency
 - [x] **Task: Add Idempotency Columns to Schema** [18169be]
     - [x] Create a database migration to add `idempotency_key` (UUID) with a `UNIQUE` constraint to `public.visits` and `public.trips`.
-- [ ] **Task: Update Database Write RPCs**
-    - [ ] Update `public.log_visit` to accept `p_idempotency_key` (UUID). In the insert block, handle uniqueness conflicts: check if the key already exists and, if so, return the existing visit ID and winery ID.
-    - [ ] Update `public.update_visit` to accept `p_idempotency_key` (UUID). If the key already exists, return the updated record directly.
-    - [ ] Update `public.create_trip` and `public.create_trip_with_winery` to accept `p_idempotency_key` (UUID). Check if the key already exists and, if so, return the existing trip ID and associated information.
-    - [ ] Regenerate database types: `npm run db:gen-types`.
+- [x] **Task: Update Database Write RPCs** [bf06825]
+    - [x] Update `public.log_visit` to accept `p_idempotency_key` (UUID). In the insert block, handle uniqueness conflicts: check if the key already exists and, if so, return the existing visit ID and winery ID.
+    - [x] Update `public.update_visit` to accept `p_idempotency_key` (UUID). If the key already exists, return the updated record directly.
+    - [x] Update `public.create_trip` and `public.create_trip_with_winery` to accept `p_idempotency_key` (UUID). Check if the key already exists and, if so, return the existing trip ID and associated information.
+    - [x] Regenerate database types: `npm run db:gen-types`.
 
 ### Phase 1: Asynchronous Side-Effects (Edge Functions & Webhooks)
 - [ ] **Task: Implement AI Gemini Summary Edge Function**
