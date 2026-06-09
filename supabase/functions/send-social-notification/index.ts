@@ -11,7 +11,14 @@ export const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    let payload: any
+    interface WebhookPayload {
+      record?: {
+        id?: string
+        user_id?: string
+        privacy_level?: string
+      }
+    }
+    let payload: WebhookPayload
     try {
       payload = await req.json()
     } catch (_e) {
@@ -129,8 +136,8 @@ export const handler = async (req: Request): Promise<Response> => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (err: any) {
-    const error = err as Error
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err))
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

@@ -46,7 +46,8 @@ export const handler = async (req: Request): Promise<Response> => {
 
     // 2. Cache-First Check: If less than 30 days old and summary exists
     const lastEnrichedAt = winery.last_enriched_at
-    const hasSummary = winery.generative_summary && (winery.generative_summary as any).overview?.text
+    const cachedSummary = winery.generative_summary as Record<string, any> | null
+    const hasSummary = cachedSummary && cachedSummary.overview?.text
 
     if (lastEnrichedAt && hasSummary) {
       const lastDate = new Date(lastEnrichedAt)
@@ -138,8 +139,8 @@ export const handler = async (req: Request): Promise<Response> => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
 
-  } catch (err: any) {
-    const error = err as Error
+  } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err))
     return new Response(
       JSON.stringify({ error: error.message }),
       { 
