@@ -150,7 +150,7 @@ export const standardizeWineryData = (
   const googleId = (
     (isGoogleWinery(source) && source.place_id) ||
     source.google_place_id ||
-    (typeof source.id === 'string' ? source.id : undefined) ||
+    (typeof source.id === 'string' && !/^\d+$/.test(source.id) ? source.id : undefined) ||
     existing?.id
   ) as GooglePlaceId;
 
@@ -166,6 +166,8 @@ export const standardizeWineryData = (
       resolvedDbId = source.dbId;
   } else if (typeof source.id === 'number') {
       resolvedDbId = source.id;
+  } else if (typeof source.id === 'string' && /^\d+$/.test(source.id)) {
+      resolvedDbId = Number(source.id);
   } else if (isRawDbWinery(source) && typeof (source as DbWinery).id === 'number') {
       resolvedDbId = (source as DbWinery).id;
   } else {
