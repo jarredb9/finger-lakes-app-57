@@ -76,7 +76,7 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
     // Optimization: Return cached details if we have them
     // We check for enrichment_tier 'enriched' or 'full' AND presence of reviews/hours
     const isEnriched = (existing?.enrichment_tier === 'enriched' || existing?.enrichment_tier === 'full') && 
-                       (existing?.reviews !== undefined && existing?.reviews !== null && existing.reviews.length > 0) &&
+                       (existing?.reviews !== undefined && existing?.reviews !== null && Array.isArray(existing.reviews)) &&
                        (existing?.openingHours !== undefined && existing?.openingHours !== null && existing.openingHours.weekday_text && existing.openingHours.weekday_text.length > 0) &&
                        (existing?.userRatingCount !== undefined && existing?.userRatingCount !== null);
     const hasMissingVisits = existing?.userVisited && (!existing.visits || existing.visits.length === 0);
@@ -97,13 +97,23 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
             if (data && data.length > 0) dbData = data[0];
         }
 
-        // 2. If valid DB data found, upsert to DataStore
-        if (dbData && dbData.opening_hours) {
+        // 2. If DB data found, upsert to DataStore to show partial info (phone/website) immediately
+        if (dbData) {
             const standardized = standardizeWineryData(dbData, existing || undefined);
             if (standardized) {
                 dataStore.upsertWinery(standardized);
-                set({ loadingWineryId: null });
-                return standardized;
+                
+                // Optimization: If DB data is already fully enriched, return early.
+                // We trust the 'enriched' tier if it has the core fields (hours, rating count, and reviews array)
+                const dbIsEnriched = dbData.enrichment_tier === 'enriched' &&
+                                    dbData.opening_hours && 
+                                    dbData.user_rating_count !== null && 
+                                    Array.isArray(dbData.reviews);
+
+                if (dbIsEnriched) {
+                    set({ loadingWineryId: null });
+                    return standardized;
+                }
             }
         }
 

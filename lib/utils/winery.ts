@@ -216,8 +216,17 @@ export const standardizeWineryData = (
   const sourceRating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? (source as any).google_rating : isWineryDetailsRpc(source) ? (source as any).google_rating : source.rating);
   const rating = sourceRating !== undefined && sourceRating !== null ? sourceRating : existing?.rating;
 
-  const sourceUserRatingCount = isGoogleWinery(source) ? source.userRatingCount : isRawDbWinery(source) ? (source as any).user_rating_count : (isWineryDetailsRpc(source) ? (source as any).user_rating_count : (source.userRatingCount || (source as any).user_rating_count || existing?.userRatingCount || null));
-  const userRatingCount = sourceUserRatingCount !== undefined && sourceUserRatingCount !== null ? sourceUserRatingCount : (existing?.userRatingCount || null);
+  const sourceUserRatingCount = isGoogleWinery(source) 
+    ? source.userRatingCount 
+    : isRawDbWinery(source) 
+        ? (source as any).user_rating_count 
+        : (isWineryDetailsRpc(source) 
+            ? (source as any).user_rating_count 
+            : (source.userRatingCount ?? (source as any).user_rating_count ?? null));
+  
+  const userRatingCount = (sourceUserRatingCount !== undefined && sourceUserRatingCount !== null) 
+    ? sourceUserRatingCount 
+    : (existing?.userRatingCount ?? null);
 
   // Handle openingHours more carefully to avoid overwriting with null if missing from source
   const sourceOpeningHoursRaw = isGoogleWinery(source) 
