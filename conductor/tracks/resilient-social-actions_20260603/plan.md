@@ -24,7 +24,7 @@
     - [x] Create a database webhook on `public.activity_ledger` AFTER INSERT to trigger `send-social-notification` asynchronously.
 
 ### Phase 2: Client-Side PWA Resilience
-- [ ] **Task: Implement Image Compression**
+- [~] **Task: Implement Image Compression**
     - [ ] Create `lib/utils/image.ts` to compress and resize photos (max 2048px on long edge) client-side using browser Canvas APIs before Base64 serialization.
 - [ ] **Task: Update Store Actions and Payload Idempotency**
     - [ ] Generate a UUID `idempotencyKey` at the start of `saveVisit`, `updateVisit`, and `createTrip` actions.
