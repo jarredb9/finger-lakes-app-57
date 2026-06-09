@@ -25,22 +25,22 @@
 
 ### Phase 2: Client-Side PWA Resilience
 - [x] **Task: Implement Image Compression** [1198a9c]
-    - [ ] Create `lib/utils/image.ts` to compress and resize photos (max 2048px on long edge) client-side using browser Canvas APIs before Base64 serialization.
+    - [x] Create `lib/utils/image.ts` to compress and resize photos (max 2048px on long edge) client-side using browser Canvas APIs before Base64 serialization.
 - [x] **Task: Update Store Actions and Payload Idempotency** [688488b]
-    - [ ] Generate a UUID `idempotencyKey` at the start of `saveVisit`, `updateVisit`, and `createTrip` actions.
-    - [ ] Pass `idempotencyKey` directly to direct online RPC invocations.
-    - [ ] Update `useSyncStore.addMutation` to accept an optional `id` parameter so that `SyncItem.id` can be set to the client-generated `idempotencyKey`.
-    - [ ] Update `SyncService.ts` to call the updated RPCs with `item.id` as the `idempotency_key` parameter.
+    - [x] Generate a UUID `idempotencyKey` at the start of `saveVisit`, `updateVisit`, and `createTrip` actions.
+    - [x] Pass `idempotencyKey` directly to direct online RPC invocations.
+    - [x] Update `useSyncStore.addMutation` to accept an optional `id` parameter so that `SyncItem.id` can be set to the client-generated `idempotencyKey`.
+    - [x] Update `SyncService.ts` to call the updated RPCs with `item.id` as the `idempotency_key` parameter.
 - [x] **Task: Implement IndexedDB Quota Safeguards** [9482270]
-    - [ ] Intercept quota errors inside `idbStorage.setItem` and `syncStore.ts`'s `persistToIdb`.
-    - [ ] Run `checkAndCleanupQuota(0.8)` on failure and retry the write once.
-    - [ ] Dispatch a `quota-exceeded-warning` custom event to `window` if the write continues to fail.
+    - [x] Intercept quota errors inside `idbStorage.setItem` and `syncStore.ts`'s `persistToIdb`.
+    - [x] Run `checkAndCleanupQuota(0.8)` on failure and retry the write once.
+    - [x] Dispatch a `quota-exceeded-warning` custom event to `window` if the write continues to fail.
 - [x] **Task: Decouple Quota Warnings to Toast UI** [fbf9bd2]
-    - [ ] Set up a listener for the `quota-exceeded-warning` custom event inside `components/pwa-handler.tsx`.
-    - [ ] Trigger a Shadcn toast warning notification when the event fires, advising the user that offline changes cannot be saved.
+    - [x] Set up a listener for the `quota-exceeded-warning` custom event inside `components/pwa-handler.tsx`.
+    - [x] Trigger a Shadcn toast warning notification when the event fires, advising the user that offline changes cannot be saved.
 - [x] **Task: Secure Logout Store Reset** [5c0a0a7]
-    - [ ] Update `useUserStore.logout` to first await the asynchronous `useSyncStore.getState().reset()` call to guarantee deletion of the IndexedDB offline queue.
-    - [ ] Reset all other 8 Zustand stores (`useVisitStore`, `useTripStore`, `useFriendStore`, `useWineryStore`, `useWineryDataStore`, `useMapStore`, `useUIStore`, and `useUserStore` itself) immediately after.
+    - [x] Update `useUserStore.logout` to first await the asynchronous `useSyncStore.getState().reset()` call to guarantee deletion of the IndexedDB offline queue.
+    - [x] Reset all other 8 Zustand stores (`useVisitStore`, `useTripStore`, `useFriendStore`, `useWineryStore`, `useWineryDataStore`, `useMapStore`, `useUIStore`, and `useUserStore` itself) immediately after.
 
 ### Phase 3: Verification & Testing
 - [ ] **Task: E2E Test Suite Verification**
