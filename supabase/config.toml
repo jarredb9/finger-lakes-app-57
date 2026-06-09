@@ -336,11 +336,9 @@ deno_version = 2
 
 [functions.search-wineries]
 verify_jwt = false
-import_map = "functions/import_map.json"
 
 [functions.get-winery-details]
 verify_jwt = false
-import_map = "functions/import_map.json"
 
 [edge_runtime.secrets]
 GOOGLE_MAPS_API_KEY = "env(GOOGLE_MAPS_API_KEY)"

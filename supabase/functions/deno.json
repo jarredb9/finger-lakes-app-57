@@ -1,7 +1,14 @@
 {
   "compilerOptions": {
     "allowJs": true,
-    "lib": ["deno.window", "deno.ns"]
+    "lib": [
+      "deno.window",
+      "deno.ns"
+    ]
   },
-  "importMap": "import_map.json"
+  "imports": {
+    "std/testing/asserts.ts": "https://deno.land/std@0.168.0/testing/asserts.ts",
+    "std/testing/mock.ts": "https://deno.land/std@0.168.0/testing/mock.ts",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.39.7"
+  }
 }
