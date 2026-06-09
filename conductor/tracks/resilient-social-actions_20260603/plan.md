@@ -35,7 +35,7 @@
     - [ ] Intercept quota errors inside `idbStorage.setItem` and `syncStore.ts`'s `persistToIdb`.
     - [ ] Run `checkAndCleanupQuota(0.8)` on failure and retry the write once.
     - [ ] Dispatch a `quota-exceeded-warning` custom event to `window` if the write continues to fail.
-- [ ] **Task: Decouple Quota Warnings to Toast UI**
+- [~] **Task: Decouple Quota Warnings to Toast UI**
     - [ ] Set up a listener for the `quota-exceeded-warning` custom event inside `components/pwa-handler.tsx`.
     - [ ] Trigger a Shadcn toast warning notification when the event fires, advising the user that offline changes cannot be saved.
 - [ ] **Task: Secure Logout Store Reset**
