@@ -123,3 +123,118 @@ test.describe('Winery UI Integrity', () => {
     await expect(modal.locator('svg.lucide-clock')).toBeVisible();
   });
 });
+
+test.describe('Winery Data Integrity (Standardization & Merge Guards)', () => {
+  const TEST_WINERY_ID = 'ChIJtest-winery-id' as any;
+
+  test('should not overwrite enriched data with partial map marker data', async ({ page }) => {
+    // 1. Setup: Inject an enriched winery into the store
+    await page.goto('/');
+    
+    const enrichedWinery = {
+      id: TEST_WINERY_ID,
+      name: 'Enriched Winery',
+      address: '123 Wine Ave',
+      latitude: 42.123,
+      longitude: -76.456,
+      phone: '555-1234',
+      rating: 4.5,
+      userRatingCount: 100,
+      enrichment_tier: 'enriched',
+      openingHours: {
+        periods: [],
+        weekday_text: ['Monday: 9:00 AM – 5:00 PM']
+      },
+      reviews: [{ author_name: 'Tester', rating: 5, text: 'Great!', time: Date.now() / 1000, relative_time_description: 'today' }]
+    };
+
+    await page.evaluate((data) => {
+      // @ts-ignore
+      const store = window.useWineryDataStore.getState();
+      store.upsertWinery(data);
+    }, enrichedWinery);
+
+    // Verify initial state
+    const initialStore = await page.evaluate((id) => {
+      // @ts-ignore
+      return window.useWineryDataStore.getState().getWinery(id);
+    }, TEST_WINERY_ID);
+    
+    expect(initialStore.phone).toBe('555-1234');
+    expect(initialStore.enrichment_tier).toBe('enriched');
+
+    // 2. Simulate Map Marker Update (Partial Data)
+    // Map markers often have null/undefined for phone, hours, etc.
+    const markerUpdate = {
+      google_place_id: TEST_WINERY_ID,
+      name: 'Enriched Winery (Updated)',
+      latitude: 42.123,
+      longitude: -76.456,
+      phone: null, // explicitly null to trigger overwrite if not guarded
+      google_rating: null,
+      opening_hours: null,
+      reviews: null,
+    };
+
+    await page.evaluate((marker) => {
+      // @ts-ignore
+      const store = window.useWineryDataStore.getState();
+      const existing = store.getWinery(marker.google_place_id);
+      // @ts-ignore
+      const standardized = window.standardizeWineryData(marker, existing);
+      store.upsertWinery(standardized);
+    }, markerUpdate);
+
+    // 3. Verify that enriched data PERSISTS
+    const finalStore = await page.evaluate((id) => {
+      // @ts-ignore
+      return window.useWineryDataStore.getState().getWinery(id);
+    }, TEST_WINERY_ID);
+
+    expect(finalStore.name).toBe('Enriched Winery (Updated)'); // Name can update
+    expect(finalStore.phone).toBe('555-1234'); // Phone MUST PERSIST
+    expect(finalStore.rating).toBe(4.5); // Rating MUST PERSIST
+    expect(finalStore.userRatingCount).toBe(100); // User rating count MUST PERSIST
+    expect(finalStore.openingHours).not.toBeNull(); // Hours MUST PERSIST
+    expect(finalStore.enrichment_tier).toBe('enriched'); // Tier MUST PERSIST
+  });
+
+  test('should trigger details fetch if enrichment is incomplete', async ({ page }) => {
+    // Inject a "Ghost Enriched" winery (tier enriched but missing fields)
+    const ghostWinery = {
+      id: TEST_WINERY_ID,
+      name: 'Ghost Winery',
+      latitude: 42.123,
+      longitude: -76.456,
+      enrichment_tier: 'enriched',
+      // MISSING reviews or openingHours
+    };
+
+    await page.goto('/');
+    await page.evaluate((data) => {
+      // @ts-ignore
+      window.useWineryDataStore.getState().upsertWinery(data);
+    }, ghostWinery);
+
+    // Intercept the Edge Function call
+    let fetchTriggered = false;
+    await page.route('**/functions/v1/get-winery-details', async (route) => {
+      fetchTriggered = true;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ...ghostWinery, phone: '555-FETCHED', reviews: [], openingHours: { periods: [], weekday_text: ['...'] } })
+      });
+    });
+
+    // Trigger ensureWineryDetails
+    await page.evaluate(async (id) => {
+      // @ts-ignore
+      window._E2E_SKIP_DETAILS_MOCK = true;
+      // @ts-ignore
+      await window.useWineryStore.getState().ensureWineryDetails(id);
+    }, TEST_WINERY_ID);
+
+    expect(fetchTriggered).toBe(true);
+  });
+});

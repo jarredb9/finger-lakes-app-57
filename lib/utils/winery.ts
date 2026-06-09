@@ -206,14 +206,21 @@ export const standardizeWineryData = (
   const name = source.name || existing?.name || 'Unknown Winery';
   const address = isGoogleWinery(source) ? (source.formatted_address || source.address) : source.address;
   
-  // Resolve fields from source, preserving undefined if not present to allow existing data to persist
-  const phone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? (source as any).phone : isWineryDetailsRpc(source) ? (source as any).phone : source.phone);
-  const website = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? (source as any).website : source.website);
-  const rating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? (source as any).google_rating : isWineryDetailsRpc(source) ? (source as any).google_rating : source.rating);
-  const userRatingCount = isGoogleWinery(source) ? source.userRatingCount : isRawDbWinery(source) ? (source as any).user_rating_count : (isWineryDetailsRpc(source) ? (source as any).user_rating_count : (source.userRatingCount || (source as any).user_rating_count || existing?.userRatingCount || null));
+  // Resolve fields from source, preserving existing data if source is null/undefined (Merge Guard)
+  const sourcePhone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? (source as any).phone : isWineryDetailsRpc(source) ? (source as any).phone : source.phone);
+  const phone = sourcePhone !== undefined && sourcePhone !== null ? sourcePhone : existing?.phone;
+
+  const sourceWebsite = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? (source as any).website : source.website);
+  const website = sourceWebsite !== undefined && sourceWebsite !== null ? sourceWebsite : existing?.website;
+
+  const sourceRating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? (source as any).google_rating : isWineryDetailsRpc(source) ? (source as any).google_rating : source.rating);
+  const rating = sourceRating !== undefined && sourceRating !== null ? sourceRating : existing?.rating;
+
+  const sourceUserRatingCount = isGoogleWinery(source) ? source.userRatingCount : isRawDbWinery(source) ? (source as any).user_rating_count : (isWineryDetailsRpc(source) ? (source as any).user_rating_count : (source.userRatingCount || (source as any).user_rating_count || existing?.userRatingCount || null));
+  const userRatingCount = sourceUserRatingCount !== undefined && sourceUserRatingCount !== null ? sourceUserRatingCount : (existing?.userRatingCount || null);
 
   // Handle openingHours more carefully to avoid overwriting with null if missing from source
-  const sourceOpeningHours = isGoogleWinery(source) 
+  const sourceOpeningHoursRaw = isGoogleWinery(source) 
     ? source.opening_hours 
     : (isWineryDetailsRpc(source) 
         ? (source as any).opening_hours 
@@ -221,17 +228,21 @@ export const standardizeWineryData = (
             ? source.opening_hours 
             : (isMapMarkerRpc(source) ? (source as any).opening_hours : (source.openingHours || (source as any).opening_hours))));
   
-  const openingHours = parseOpeningHoursJson(sourceOpeningHours);
+  const parsedOpeningHours = parseOpeningHoursJson(sourceOpeningHoursRaw);
+  const openingHours = parsedOpeningHours !== undefined && parsedOpeningHours !== null ? parsedOpeningHours : existing?.openingHours;
   
-  const rawReviews = (
+  const rawReviewsSource = (
     isGoogleWinery(source)
       ? source.reviews
       : (isWineryDetailsRpc(source)
           ? (source as any).reviews
           : (isRawDbWinery(source) ? source.reviews : source.reviews))
   );
-  const reviews = parseReviewsJson(rawReviews);
-  const reservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? (source as any).reservable : (isRawDbWinery(source) ? source.reservable : source.reservable));
+  const parsedReviews = parseReviewsJson(rawReviewsSource);
+  const reviews = parsedReviews !== undefined && parsedReviews !== null ? parsedReviews : existing?.reviews;
+
+  const sourceReservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? (source as any).reservable : (isRawDbWinery(source) ? source.reservable : source.reservable));
+  const reservable = sourceReservable !== undefined && sourceReservable !== null ? sourceReservable : existing?.reservable;
 
   const userVisited = source.user_visited !== undefined ? source.user_visited : (source.userVisited !== undefined ? source.userVisited : (existing?.userVisited ?? false));
   const onWishlist = source.on_wishlist !== undefined ? source.on_wishlist : (source.onWishlist !== undefined ? source.onWishlist : (existing?.onWishlist ?? false));
@@ -322,15 +333,15 @@ export const standardizeWineryData = (
     address: address || existing?.address || '',
     latitude: lat,
     longitude: lng,
-    phone: phone !== undefined ? phone : existing?.phone,
-    website: website !== undefined ? website : existing?.website,
-    rating: rating !== undefined ? rating : existing?.rating,
-    userRatingCount: userRatingCount !== undefined ? userRatingCount : (existing?.userRatingCount || null),
+    phone,
+    website,
+    rating,
+    userRatingCount,
     
     // Complex fields that might be missing in partial updates
-    openingHours: openingHours !== undefined ? openingHours : existing?.openingHours,
-    reviews: reviews !== undefined ? reviews : existing?.reviews,
-    reservable: reservable !== undefined ? reservable : existing?.reservable,
+    openingHours,
+    reviews,
+    reservable,
     
     // User State (Preserve if not provided by source)
     userVisited: userVisited,

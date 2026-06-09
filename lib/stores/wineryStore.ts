@@ -76,7 +76,8 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
     // Optimization: Return cached details if we have them
     // We check for enrichment_tier 'enriched' or 'full' AND presence of reviews/hours
     const isEnriched = (existing?.enrichment_tier === 'enriched' || existing?.enrichment_tier === 'full') && 
-                       (existing?.reviews !== undefined && existing?.reviews !== null) &&
+                       (existing?.reviews !== undefined && existing?.reviews !== null && existing.reviews.length > 0) &&
+                       (existing?.openingHours !== undefined && existing?.openingHours !== null && existing.openingHours.weekday_text && existing.openingHours.weekday_text.length > 0) &&
                        (existing?.userRatingCount !== undefined && existing?.userRatingCount !== null);
     const hasMissingVisits = existing?.userVisited && (!existing.visits || existing.visits.length === 0);
 
