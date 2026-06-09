@@ -9,7 +9,7 @@
     - [x] Update `public.create_trip` and `public.create_trip_with_winery` to accept `p_idempotency_key` (UUID). Check if the key already exists and, if so, return the existing trip ID and associated information.
     - [x] Regenerate database types: `npm run db:gen-types`.
 
-### Phase 1: Asynchronous Side-Effects (Edge Functions & Webhooks)
+### Phase 1: Asynchronous Side-Effects (Edge Functions & Webhooks) [checkpoint: 6641741]
 - [x] **Task: Implement AI Gemini Summary Edge Function** [b138b83]
     - [x] Create `supabase/functions/update-gemini-summary` to process webhook payloads, extract detailed reviews, generate summaries via Gemini API (using a cache-first 30-day check), and update `public.wineries`.
     - [x] Write unit tests for the summary Edge Function.
