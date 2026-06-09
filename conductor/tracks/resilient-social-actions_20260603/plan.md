@@ -20,8 +20,8 @@
     - [x] Create `supabase/functions/send-social-notification` to process webhook payloads from `public.activity_ledger`.
     - [x] Enforce privacy checks inside the function using `is_visible_to_viewer` and send notifications (badges, push notifications) to friends.
     - [x] Write unit tests for the notification Edge Function.
-- [ ] **Task: Configure Social Notification Database Webhook**
-    - [ ] Create a database webhook on `public.activity_ledger` AFTER INSERT to trigger `send-social-notification` asynchronously.
+- [x] **Task: Configure Social Notification Database Webhook** [877e1c2]
+    - [x] Create a database webhook on `public.activity_ledger` AFTER INSERT to trigger `send-social-notification` asynchronously.
 
 ### Phase 2: Client-Side PWA Resilience
 - [ ] **Task: Implement Image Compression**
