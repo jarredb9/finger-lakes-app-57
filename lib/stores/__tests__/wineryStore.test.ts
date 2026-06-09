@@ -37,7 +37,7 @@ describe('WineryUIStore: ensureWineryDetails', () => {
       userVisited: true,
       visits: [createMockVisit()],
       enrichment_tier: 'enriched',
-      reviews: [],
+      reviews: [{ author_name: 'Tester', rating: 5, text: 'Great!', time: 12345, relative_time_description: 'today' }],
       userRatingCount: 10
     };
     
