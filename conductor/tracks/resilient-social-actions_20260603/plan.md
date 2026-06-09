@@ -31,7 +31,7 @@
     - [ ] Pass `idempotencyKey` directly to direct online RPC invocations.
     - [ ] Update `useSyncStore.addMutation` to accept an optional `id` parameter so that `SyncItem.id` can be set to the client-generated `idempotencyKey`.
     - [ ] Update `SyncService.ts` to call the updated RPCs with `item.id` as the `idempotency_key` parameter.
-- [ ] **Task: Implement IndexedDB Quota Safeguards**
+- [~] **Task: Implement IndexedDB Quota Safeguards**
     - [ ] Intercept quota errors inside `idbStorage.setItem` and `syncStore.ts`'s `persistToIdb`.
     - [ ] Run `checkAndCleanupQuota(0.8)` on failure and retry the write once.
     - [ ] Dispatch a `quota-exceeded-warning` custom event to `window` if the write continues to fail.
