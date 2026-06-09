@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { SyncItem, SyncStatus } from '@/lib/types';
 import { encrypt, decrypt } from '@/lib/utils/crypto';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { checkAndCleanupQuota, isQuotaError } from '@/lib/utils/quota';
 
 const IDB_KEY = 'encrypted-offline-queue';
 const isDiagnostic = typeof process !== 'undefined' && (process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_IS_E2E === 'true');
@@ -12,7 +13,7 @@ interface SyncState {
 
   // Actions
   initialize: () => Promise<void>;
-  addMutation: (params: { type: SyncItem['type']; payload: unknown; userId: string }) => Promise<void>;
+  addMutation: (params: { type: SyncItem['type']; payload: unknown; userId: string; id?: string }) => Promise<void>;
   updateMutationStatus: (id: string, status: SyncStatus) => Promise<void>;
   removeMutation: (id: string) => Promise<void>;
   getDecryptedPayload: <T = unknown>(item: SyncItem, userId: string) => Promise<T>;
@@ -29,8 +30,21 @@ const persistToIdb = async (queue: SyncItem[]) => {
     try {
       await idbSet(IDB_KEY, queue);
       if (isDiagnostic) console.log(`[SyncStore] Successfully wrote queue of length ${length} to IDB.`);
-    } catch (err) {
+    } catch (err: any) {
       console.error(`[SyncStore] Failed to write queue of length ${length} to IDB:`, err);
+      if (isQuotaError(err)) {
+        console.warn('[SyncStore] IDB write failed due to quota. Attempting cleanup...');
+        await checkAndCleanupQuota(0.8);
+        try {
+          await idbSet(IDB_KEY, queue);
+          if (isDiagnostic) console.log(`[SyncStore] Successfully wrote queue of length ${length} to IDB after cleanup.`);
+        } catch (retryErr) {
+          console.error('[SyncStore] IDB write failed again after quota cleanup:', retryErr);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('quota-exceeded-warning'));
+          }
+        }
+      }
     }
   }).catch(err => {
     console.error('[SyncStore] Critical error in idbPromise chain:', err);
@@ -70,7 +84,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
     return initPromise;
   },
 
-  addMutation: async ({ type, payload, userId }) => {
+  addMutation: async ({ type, payload, userId, id }) => {
     if (isDiagnostic) console.log(`[SyncStore] addMutation: type=${type}, userId=${userId}`);
     await get().initialize();
 
@@ -79,7 +93,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 
     // 2. Create sync item
     const newItem: SyncItem = {
-      id: `sync-${crypto.randomUUID()}`,
+      id: id || `sync-${crypto.randomUUID()}`,
       type,
       encryptedPayload,
       createdAt: new Date().toISOString(),

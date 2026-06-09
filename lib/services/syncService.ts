@@ -164,6 +164,7 @@ export const SyncService = {
                   photos: uploadedPaths,
                   is_private: p.is_private || false,
                 },
+                p_idempotency_key: item.id
               });
               error = visitError;
               break;
@@ -202,7 +203,8 @@ export const SyncService = {
 
               const { error: updateError } = await supabase.rpc('update_visit', {
                 p_visit_id: parseInt(p.visitId),
-                p_visit_data: { ...p.visitData, photos: finalPhotoPaths }
+                p_visit_data: { ...p.visitData, photos: finalPhotoPaths },
+                p_idempotency_key: item.id
               });
               
               if (!updateError && photosToDelete.length > 0) {
@@ -227,13 +229,15 @@ export const SyncService = {
                     p_trip_date: payload.trip_date,
                     p_winery_data: WineryService.getRpcData(payload.wineries[0]),
                     p_notes: payload.notes || null,
-                    p_members: []
+                    p_members: [],
+                    p_idempotency_key: item.id
                   });
                   error = tripError;
               } else {
                   const { error: tripError } = await supabase.rpc('create_trip', {
                     p_name: payload.name,
-                    p_trip_date: payload.trip_date
+                    p_trip_date: payload.trip_date,
+                    p_idempotency_key: item.id
                   });
                   error = tripError;
               }
