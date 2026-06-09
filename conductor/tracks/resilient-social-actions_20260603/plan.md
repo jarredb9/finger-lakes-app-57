@@ -38,7 +38,7 @@
 - [x] **Task: Decouple Quota Warnings to Toast UI** [fbf9bd2]
     - [ ] Set up a listener for the `quota-exceeded-warning` custom event inside `components/pwa-handler.tsx`.
     - [ ] Trigger a Shadcn toast warning notification when the event fires, advising the user that offline changes cannot be saved.
-- [ ] **Task: Secure Logout Store Reset**
+- [~] **Task: Secure Logout Store Reset**
     - [ ] Update `useUserStore.logout` to first await the asynchronous `useSyncStore.getState().reset()` call to guarantee deletion of the IndexedDB offline queue.
     - [ ] Reset all other 8 Zustand stores (`useVisitStore`, `useTripStore`, `useFriendStore`, `useWineryStore`, `useWineryDataStore`, `useMapStore`, `useUIStore`, and `useUserStore` itself) immediately after.
 
