@@ -26,7 +26,7 @@
 ### Phase 2: Client-Side PWA Resilience
 - [x] **Task: Implement Image Compression** [1198a9c]
     - [ ] Create `lib/utils/image.ts` to compress and resize photos (max 2048px on long edge) client-side using browser Canvas APIs before Base64 serialization.
-- [ ] **Task: Update Store Actions and Payload Idempotency**
+- [~] **Task: Update Store Actions and Payload Idempotency**
     - [ ] Generate a UUID `idempotencyKey` at the start of `saveVisit`, `updateVisit`, and `createTrip` actions.
     - [ ] Pass `idempotencyKey` directly to direct online RPC invocations.
     - [ ] Update `useSyncStore.addMutation` to accept an optional `id` parameter so that `SyncItem.id` can be set to the client-generated `idempotencyKey`.
