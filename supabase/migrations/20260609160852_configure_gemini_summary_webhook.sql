@@ -23,8 +23,8 @@ BEGIN
     v_apikey := v_secret;
   ELSE
     v_url := 'http://kong:8000/functions/v1/update-gemini-summary';
-    v_auth := 'Bearer your-service-role-key';
-    v_apikey := 'your-service-role-key';
+    v_auth := 'Bearer ' || COALESCE(v_secret, 'your-service-role-key');
+    v_apikey := COALESCE(v_secret, 'your-service-role-key');
   END IF;
 
   PERFORM net.http_post(
