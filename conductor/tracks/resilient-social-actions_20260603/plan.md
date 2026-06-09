@@ -11,15 +11,15 @@
 
 ### Phase 1: Asynchronous Side-Effects (Edge Functions & Webhooks)
 - [x] **Task: Implement AI Gemini Summary Edge Function** [b138b83]
-    - [ ] Create `supabase/functions/update-gemini-summary` to process webhook payloads, extract detailed reviews, generate summaries via Gemini API (using a cache-first 30-day check), and update `public.wineries`.
-    - [ ] Write unit tests for the summary Edge Function.
+    - [x] Create `supabase/functions/update-gemini-summary` to process webhook payloads, extract detailed reviews, generate summaries via Gemini API (using a cache-first 30-day check), and update `public.wineries`.
+    - [x] Write unit tests for the summary Edge Function.
 - [x] **Task: Configure Gemini Update Database Webhook** [6b195f6]
-    - [ ] Create a database webhook on `public.visits` AFTER INSERT OR UPDATE.
-    - [ ] Set filter conditions to only fire when `user_review` is not null and `length(user_review) > 100`.
-- [ ] **Task: Implement Social Notification Edge Function**
-    - [ ] Create `supabase/functions/send-social-notification` to process webhook payloads from `public.activity_ledger`.
-    - [ ] Enforce privacy checks inside the function using `is_visible_to_viewer` and send notifications (badges, push notifications) to friends.
-    - [ ] Write unit tests for the notification Edge Function.
+    - [x] Create a database webhook on `public.visits` AFTER INSERT OR UPDATE.
+    - [x] Set filter conditions to only fire when `user_review` is not null and `length(user_review) > 100`.
+- [x] **Task: Implement Social Notification Edge Function** [768b020]
+    - [x] Create `supabase/functions/send-social-notification` to process webhook payloads from `public.activity_ledger`.
+    - [x] Enforce privacy checks inside the function using `is_visible_to_viewer` and send notifications (badges, push notifications) to friends.
+    - [x] Write unit tests for the notification Edge Function.
 - [ ] **Task: Configure Social Notification Database Webhook**
     - [ ] Create a database webhook on `public.activity_ledger` AFTER INSERT to trigger `send-social-notification` asynchronously.
 
