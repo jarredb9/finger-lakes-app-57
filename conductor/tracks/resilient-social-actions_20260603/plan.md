@@ -10,7 +10,7 @@
     - [x] Regenerate database types: `npm run db:gen-types`.
 
 ### Phase 1: Asynchronous Side-Effects (Edge Functions & Webhooks)
-- [ ] **Task: Implement AI Gemini Summary Edge Function**
+- [x] **Task: Implement AI Gemini Summary Edge Function** [b138b83]
     - [ ] Create `supabase/functions/update-gemini-summary` to process webhook payloads, extract detailed reviews, generate summaries via Gemini API (using a cache-first 30-day check), and update `public.wineries`.
     - [ ] Write unit tests for the summary Edge Function.
 - [ ] **Task: Configure Gemini Update Database Webhook**
