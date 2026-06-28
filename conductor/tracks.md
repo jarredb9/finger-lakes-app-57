@@ -32,6 +32,6 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 
 ---
 
-- [~] **Track: Resilient Social Actions & Offline Integrity**
+- [x] **Track: Resilient Social Actions & Offline Integrity**
 *Link: [./tracks/resilient-social-actions_20260603/](./tracks/resilient-social-actions_20260603/)*
 

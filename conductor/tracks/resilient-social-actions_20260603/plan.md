@@ -43,9 +43,9 @@
     - [x] Reset all other 8 Zustand stores (`useVisitStore`, `useTripStore`, `useFriendStore`, `useWineryStore`, `useWineryDataStore`, `useMapStore`, `useUIStore`, and `useUserStore` itself) immediately after.
 
 ### Phase 3: Verification & Testing
-- [ ] **Task: E2E Test Suite Verification**
-    - [ ] Update E2E mocks in `e2e/utils.ts` to reflect the updated RPC contracts (accepting `idempotency_key`).
-    - [ ] Run `visit-flow.spec.ts` and `trip-flow.spec.ts` in the E2E container simulating offline sync.
+- [x] **Task: E2E Test Suite Verification** [fb3edd3]
+    - [x] Update E2E mocks in `e2e/utils.ts` to reflect the updated RPC contracts (accepting `idempotency_key`).
+    - [x] Run `visit-flow.spec.ts` and `trip-flow.spec.ts` in the E2E container simulating offline sync.
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions [b1485a5]
