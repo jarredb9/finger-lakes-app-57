@@ -39,14 +39,16 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
       upsertWinery: (winery) => {
         set(state => {
           const exists = state.persistentWineries.find(w => w.id === winery.id);
+          const standardized = standardizeWineryData(winery, exists);
+          if (!standardized) return {};
           if (exists) {
             return {
               persistentWineries: state.persistentWineries.map(w =>
-                w.id === winery.id ? { ...w, ...winery } : w
+                w.id === winery.id ? standardized : w
               )
             };
           }
-          return { persistentWineries: [...state.persistentWineries, winery] };
+          return { persistentWineries: [...state.persistentWineries, standardized] };
         });
       },
 
@@ -55,10 +57,14 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           const current = [...state.persistentWineries];
           wineries.forEach(w => {
             const idx = current.findIndex(existing => existing.id === w.id);
-            if (idx !== -1) {
-              current[idx] = { ...current[idx], ...w };
-            } else {
-              current.push(w);
+            const exists = idx !== -1 ? current[idx] : undefined;
+            const standardized = standardizeWineryData(w, exists);
+            if (standardized) {
+              if (idx !== -1) {
+                current[idx] = standardized;
+              } else {
+                current.push(standardized);
+              }
             }
           });
           return { persistentWineries: current };
