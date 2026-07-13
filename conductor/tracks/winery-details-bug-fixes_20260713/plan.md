@@ -11,16 +11,16 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Test Scaffolding & Verification Setup' (Protocol in workflow.md)
 
 ## Phase 2: Core Merging & Data Preservation Logic (Green Phase)
-- [ ] Task: Implement Merge Guards in Standardization Utility
-    - [ ] Edit `standardizeWineryData` in `lib/utils/winery.ts` to reject overwriting non-null/non-undefined properties (phone, website, openingHours, reviews, rating, userRatingCount) with basic marker properties or nulls unless the incoming source tier is `'enriched'` or `'full'`.
-    - [ ] Ensure that `enrichment_tier` is not downgraded from `'enriched'` or `'full'` to `'basic'`.
-- [ ] Task: Standardize Store Updates
-    - [ ] Refactor `bulkUpsertWineries` in `lib/stores/wineryDataStore.ts` to map incoming items using `standardizeWineryData(item, current[idx])` rather than `{ ...current[idx], ...item }`.
-    - [ ] Refactor `upsertWinery` in `lib/stores/wineryDataStore.ts` to pass the updated object through `standardizeWineryData(winery, exists)` to ensure consistent normalization.
-- [ ] Task: Verify Implementation (Green Phase)
-    - [ ] Run the store unit tests via Jest and ensure they pass.
-    - [ ] Run the Playwright E2E test and ensure it passes.
-    - [ ] Run complete E2E test suite locally using `./scripts/run-e2e-container.sh chromium` to verify no regressions.
+- [x] Task: Implement Merge Guards in Standardization Utility [61d1ff1]
+    - [x] Edit `standardizeWineryData` in `lib/utils/winery.ts` to reject overwriting non-null/non-undefined properties (phone, website, openingHours, reviews, rating, userRatingCount) with basic marker properties or nulls unless the incoming source tier is `'enriched'` or `'full'`.
+    - [x] Ensure that `enrichment_tier` is not downgraded from `'enriched'` or `'full'` to `'basic'`.
+- [x] Task: Standardize Store Updates [61d1ff1]
+    - [x] Refactor `bulkUpsertWineries` in `lib/stores/wineryDataStore.ts` to map incoming items using `standardizeWineryData(item, current[idx])` rather than `{ ...current[idx], ...item }`.
+    - [x] Refactor `upsertWinery` in `lib/stores/wineryDataStore.ts` to pass the updated object through `standardizeWineryData(winery, exists)` to ensure consistent normalization.
+- [x] Task: Verify Implementation (Green Phase) [61d1ff1]
+    - [x] Run the store unit tests via Jest and ensure they pass.
+    - [x] Run the Playwright E2E test and ensure it passes.
+    - [x] Run complete E2E test suite locally using `./scripts/run-e2e-container.sh chromium` to verify no regressions.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Core Merging & Data Preservation Logic' (Protocol in workflow.md)
 
 ## Phase 3: Edge Function Sync & Production Prep
