@@ -54,4 +54,5 @@
 - [x] Task: Fix intermittent WebKit/Safari RPC mock failure [c573ce4]
 - [x] Task: Fix collaborator trip card viewport click error in WebKit [8eda867]
 - [x] Task: Fix user renaming trip card viewport click error in WebKit [1523959]
+- [x] Task: Fix Mobile Safari bottom sheet expansion click race [914c345]
 
