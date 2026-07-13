@@ -317,6 +317,9 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     await expect(tripCard.getByTestId('collaborator-avatars')).toBeVisible();
     await expect(tripCard.getByTestId('collaborator-avatars').locator('.rounded-full').first()).toBeVisible();
     
+    // Ensure card is in view
+    await tripCard.scrollIntoViewIfNeeded();
+
     // Verify user can view details (this will trigger get_trip_details RPC)
     await Promise.all([
       page.waitForURL(/.*\/trips\/\d+/, { timeout: 10000 }),
