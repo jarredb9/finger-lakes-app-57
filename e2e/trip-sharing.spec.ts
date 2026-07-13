@@ -218,6 +218,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       console.log('[DIAGNOSTIC] User A renaming trip...');
       const detailsBtn = tripCardA.getByTestId('view-trip-details-btn');
       await expect(detailsBtn).toBeVisible({ timeout: 5000 });
+      await tripCardA.scrollIntoViewIfNeeded();
       await Promise.all([
           pageA.waitForURL(/.*\/trips\/\d+/, { timeout: 10000 }),
           detailsBtn.click({ force: true })
