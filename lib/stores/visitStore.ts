@@ -158,6 +158,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       },
 
       saveVisit: async (winery, visitData) => {
+        const idempotencyKey = crypto.randomUUID();
         set({ isSavingVisit: true });
         const supabase = createClient();
         const { addVisitToWinery, replaceVisit } = useWineryStore.getState();
@@ -208,7 +209,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             tempId
         };
 
-        if (await enqueueIfOffline('log_visit', user.id, syncPayload)) {
+        if (await enqueueIfOffline('log_visit', user.id, syncPayload, idempotencyKey)) {
             set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
         }
@@ -245,6 +246,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
             p_winery_data: rpcWineryData,
             p_visit_data: rpcVisitData,
+            p_idempotency_key: idempotencyKey,
           });
 
           if (rpcError) {
@@ -280,7 +282,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           }));
 
         } catch (error) {
-          if (await handleSyncError(error, 'log_visit', user.id, syncPayload)) {
+          if (await handleSyncError(error, 'log_visit', user.id, syncPayload, idempotencyKey)) {
             set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
           }
@@ -303,6 +305,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       },
 
       updateVisit: async (visitId, visitData, newPhotos = [], photosToDelete = []) => {
+        const idempotencyKey = crypto.randomUUID();
         set({ isSavingVisit: true });
         const supabase = createClient();
         const { optimisticallyUpdateVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
@@ -333,7 +336,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             photosToDelete
         };
 
-        if (await enqueueIfOffline('update_visit', user.id, syncPayload)) {
+        if (await enqueueIfOffline('update_visit', user.id, syncPayload, idempotencyKey)) {
             set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
         }
@@ -361,7 +364,8 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
                 rating: (visitData.rating && visitData.rating > 0) ? visitData.rating : (originalVisit.rating || 5),
                 photos: finalPhotoPaths, 
                 is_private: visitData.is_private 
-              }
+              },
+              p_idempotency_key: idempotencyKey
           });
 
           if (error) {
@@ -392,7 +396,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           get().setLastActionTimestamp(String(visitId), finishedNow);
 
         } catch (error) {
-          if (await handleSyncError(error, 'update_visit', user.id, syncPayload)) {
+          if (await handleSyncError(error, 'update_visit', user.id, syncPayload, idempotencyKey)) {
             set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
             return;
           }

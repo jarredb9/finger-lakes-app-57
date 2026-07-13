@@ -3,6 +3,14 @@ import { createClient } from '@/utils/supabase/client';
 import { ProfileService } from '@/lib/services/profileService';
 import { isE2E, shouldSkipRealSync } from './e2e-utils';
 import { enqueueIfOffline, handleSyncError } from './sync-utils';
+import { useSyncStore } from './syncStore';
+import { useVisitStore } from './visitStore';
+import { useTripStore } from './tripStore';
+import { useFriendStore } from './friendStore';
+import { useWineryStore } from './wineryStore';
+import { useWineryDataStore } from './wineryDataStore';
+import { useMapStore } from './mapStore';
+import { useUIStore } from './uiStore';
 
 export interface User {
   id: string;
@@ -84,8 +92,20 @@ export const useUserStore = createWithEqualityFn<UserState>((set, get) => ({
   },
 
   logout: async () => {
+    // 1. First await the asynchronous reset of the sync store to guarantee queue deletion
+    await useSyncStore.getState().reset();
+
     const supabase = createClient();
     await supabase.auth.signOut();
+
+    // 2. Reset all other 8 Zustand stores
+    useVisitStore.getState().reset?.();
+    useTripStore.getState().reset?.();
+    useFriendStore.getState().reset?.();
+    useWineryStore.getState().reset?.();
+    useWineryDataStore.getState().reset?.();
+    useMapStore.getState().reset?.();
+    useUIStore.getState().reset?.();
     get().reset();
   },
 

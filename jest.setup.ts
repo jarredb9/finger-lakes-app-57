@@ -84,3 +84,12 @@ jest.mock('next/cache', () => ({
   revalidatePath: jest.fn(),
   revalidateTag: jest.fn(),
 }));
+
+jest.mock('./lib/utils/quota', () => {
+  const actual = jest.requireActual('./lib/utils/quota');
+  return {
+    ...actual,
+    checkAndCleanupQuota: jest.fn(actual.checkAndCleanupQuota),
+    isQuotaError: jest.fn(actual.isQuotaError),
+  };
+});

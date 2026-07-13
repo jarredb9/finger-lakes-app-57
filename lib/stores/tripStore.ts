@@ -414,6 +414,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       },
 
       createTrip: async (trip: Partial<Trip>) => {
+        const idempotencyKey = crypto.randomUUID();
         const tempId = -Date.now();
         const tempTrip: Trip = {
           id: tempId,
@@ -448,12 +449,12 @@ export const useTripStore = createWithEqualityFn<TripState>()(
         const user = session?.user;
         const syncPayload = { ...trip, tempId };
 
-        if (await enqueueIfOffline('create_trip', user?.id, syncPayload)) {
+        if (await enqueueIfOffline('create_trip', user?.id, syncPayload, idempotencyKey)) {
             return tempTrip;
         }
 
         try {
-          const createdTrip = await TripService.createTrip(trip);
+          const createdTrip = await TripService.createTrip(trip, idempotencyKey);
           const finishedNow = Date.now();
           if (createdTrip?.id) {
             get().setLastActionTimestamp(createdTrip.id.toString(), finishedNow);
@@ -470,7 +471,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
           return createdTrip;
         } catch (error) {
-          if (await handleSyncError(error, 'create_trip', user?.id, syncPayload)) {
+          if (await handleSyncError(error, 'create_trip', user?.id, syncPayload, idempotencyKey)) {
             return tempTrip;
           }
 

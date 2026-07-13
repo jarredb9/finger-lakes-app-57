@@ -103,7 +103,7 @@ export const TripService = {
     return formattedData;
   },
 
-  async createTrip(trip: Partial<Trip>) {
+  async createTrip(trip: Partial<Trip>, idempotencyKey?: string) {
     const supabase = createClient();
     
     // Note: The RPC 'create_trip_with_winery' handles one winery at a time.
@@ -116,7 +116,8 @@ export const TripService = {
             p_trip_name: trip.name || 'New Trip',
             p_trip_date: trip.trip_date,
             p_winery_data: WineryService.getRpcData(w),
-            p_members: []
+            p_members: [],
+            p_idempotency_key: idempotencyKey
         });
 
         if (error) throw error;
@@ -135,7 +136,8 @@ export const TripService = {
     // Fallback for trip without wineries (Use RPC for robustness)
     const { data, error } = await supabase.rpc('create_trip', {
         p_name: trip.name || 'New Trip',
-        p_trip_date: trip.trip_date
+        p_trip_date: trip.trip_date,
+        p_idempotency_key: idempotencyKey
     });
 
     if (error) throw error;

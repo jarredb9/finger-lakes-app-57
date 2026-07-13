@@ -79,4 +79,55 @@ describe('UserStore Logic', () => {
 
     expect(useUserStore.getState().user).toBeNull();
   });
+
+  it('should await syncStore reset and reset all other stores on logout', async () => {
+    jest.resetModules();
+
+    // Redefine Supabase client mock since resetModules cleared it
+    jest.doMock('@/utils/supabase/client', () => ({
+      createClient: () => ({
+        auth: {
+          signOut: jest.fn().mockResolvedValue({ error: null }),
+        },
+      }),
+    }));
+
+    const mockSyncReset = jest.fn().mockResolvedValue(undefined);
+    const mockGenericReset = jest.fn();
+
+    jest.doMock('../syncStore', () => ({
+      useSyncStore: { getState: () => ({ reset: mockSyncReset }) }
+    }));
+    jest.doMock('../visitStore', () => ({
+      useVisitStore: { getState: () => ({ reset: mockGenericReset }) }
+    }));
+    jest.doMock('../tripStore', () => ({
+      useTripStore: { getState: () => ({ reset: mockGenericReset }) }
+    }));
+    jest.doMock('../friendStore', () => ({
+      useFriendStore: { getState: () => ({ reset: mockGenericReset }) }
+    }));
+    jest.doMock('../wineryStore', () => ({
+      useWineryStore: { getState: () => ({ reset: mockGenericReset }) }
+    }));
+    jest.doMock('../wineryDataStore', () => ({
+      useWineryDataStore: { getState: () => ({ reset: mockGenericReset }) }
+    }));
+    jest.doMock('../mapStore', () => ({
+      useMapStore: { getState: () => ({ reset: mockGenericReset }) }
+    }));
+    jest.doMock('../uiStore', () => ({
+      useUIStore: { getState: () => ({ reset: mockGenericReset }) }
+    }));
+
+    // Re-require userStore under these mocks
+    const testUserStore = require('../userStore').useUserStore;
+
+    await act(async () => {
+      await testUserStore.getState().logout();
+    });
+
+    expect(mockSyncReset).toHaveBeenCalled();
+    expect(mockGenericReset).toHaveBeenCalledTimes(7); // Remaining 7 stores (UserStore itself is reset via get().reset())
+  });
 });

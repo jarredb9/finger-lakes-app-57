@@ -1,6 +1,6 @@
 {
   "name": "winery-visit-planner",
-  "version": "2.12.0",
+  "version": "2.13.0",
   "private": true,
   "engines": {
     "node": "20.x"
@@ -20,8 +20,8 @@
     "db:populate": "npx tsx scripts/populate-wineries.ts",
     "test:e2e": "npx playwright test",
     "test:e2e:real": "E2E_REAL_DATA=true npx playwright test",
-    "test:functions": "deno test --allow-all supabase/functions/",
-    "db:start": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase start",
+    "test:functions": "deno test --allow-all --config supabase/functions/deno.json supabase/functions/",
+    "db:start": "/sbin/restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && export GOOGLE_MAPS_API_KEY=$(grep NEXT_PUBLIC_GOOGLE_MAPS_API_KEY .env.local | cut -d '=' -f2- | tr -d '\"'\\r) && npx supabase start",
     "db:stop": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase stop",
     "db:reset" : "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase db reset",
     "db:status": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase status",

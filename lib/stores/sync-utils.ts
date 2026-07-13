@@ -20,7 +20,8 @@ export const isNetworkError = (error: unknown) => {
 export async function enqueueIfOffline(
     type: SyncItem['type'], 
     userId: string | undefined, 
-    payload: unknown
+    payload: unknown,
+    id?: string
 ): Promise<boolean> {
     if (!userId) return false;
 
@@ -30,7 +31,8 @@ export async function enqueueIfOffline(
         await useSyncStore.getState().addMutation({
             type,
             userId,
-            payload
+            payload,
+            id
         });
         return true;
     }
@@ -46,13 +48,15 @@ export async function handleSyncError(
     error: unknown,
     type: SyncItem['type'],
     userId: string | undefined,
-    payload: unknown
+    payload: unknown,
+    id?: string
 ): Promise<boolean> {
     if (isNetworkError(error) && userId) {
         await useSyncStore.getState().addMutation({
             type,
             userId,
-            payload
+            payload,
+            id
         });
         return true;
     }
