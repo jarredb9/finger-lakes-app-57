@@ -50,4 +50,5 @@
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions [b1485a5]
 - [x] Task: Apply additional review fixes [731431a]
+- [x] Task: Fix WebKit PWA Resilience test failure [8e36ee7]
 
