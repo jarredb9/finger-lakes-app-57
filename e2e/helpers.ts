@@ -256,6 +256,12 @@ export async function ensureSidebarExpanded(page: Page) {
     const expandBtn = page.getByRole('button', { name: 'Expand to full screen' });
     if (await expandBtn.isVisible()) {
         await expandBtn.click({ force: true });
+        
+        // Wait for animation to start
+        try {
+            await expect(sidebar).toHaveAttribute('data-state', 'animating', { timeout: 1500 });
+        } catch (e) {}
+
         // 3. Wait for full screen state
         await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
     }
