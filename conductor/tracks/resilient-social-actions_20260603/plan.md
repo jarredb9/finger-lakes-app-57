@@ -52,4 +52,5 @@
 - [x] Task: Apply additional review fixes [731431a]
 - [x] Task: Fix WebKit PWA Resilience test failure [8e36ee7]
 - [x] Task: Fix intermittent WebKit/Safari RPC mock failure [c573ce4]
+- [x] Task: Fix collaborator trip card viewport click error in WebKit [8eda867]
 
