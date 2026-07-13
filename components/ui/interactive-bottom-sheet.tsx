@@ -25,7 +25,7 @@ export function InteractiveBottomSheet({
   className,
   ...props
 }: InteractiveBottomSheetProps) {
-  const [isStable, setIsStable] = useState(true);
+  const [isStable, setIsStable] = useState(!isOpen);
   const touchStart = useRef<number | null>(null);
   const transitionTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
