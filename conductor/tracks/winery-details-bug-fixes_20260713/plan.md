@@ -1,6 +1,6 @@
 # Implementation Plan: Winery Details Cache Pollution and Review Count Fixes
 
-## Phase 1: Test Scaffolding & Verification Setup (Red Phase)
+## Phase 1: Test Scaffolding & Verification Setup (Red Phase) [checkpoint: e790253]
 - [x] Task: Local Database & Schema Verification
     - [x] Run database check `npm run db:status` and verify that migration `20260605170000_add_user_rating_count_to_rpcs.sql` is active.
     - [x] Verify database schema types locally using `npm run db:check-types:local`.
