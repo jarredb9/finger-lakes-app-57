@@ -8,7 +8,7 @@
     - [x] Create a new unit test in `lib/stores/__tests__/wineryDataStore.test.ts` checking that `bulkUpsertWineries` and `upsertWinery` do not overwrite existing enriched fields (phone, website, openingHours, reviews, rating, userRatingCount, enrichment_tier) with basic marker fields or null values.
     - [x] Write a new Playwright E2E test in `e2e/winery-cache-pollution.spec.ts` (or add to `e2e/winery-ui-integrity.spec.ts`) that clicks a winery to enrich it, closes the modal, pans/updates the map (hydrating basic markers), and reopens the modal, asserting that all details remain intact.
     - [x] Verify both tests fail as expected (Red Phase).
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Test Scaffolding & Verification Setup' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Test Scaffolding & Verification Setup' (Protocol in workflow.md)
 
 ## Phase 2: Core Merging & Data Preservation Logic (Green Phase)
 - [ ] Task: Implement Merge Guards in Standardization Utility
