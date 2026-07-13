@@ -486,6 +486,18 @@ export class MockMapsManager {
         if (this.realTripsEnabled && /rpc\/(get_trip_details|get_trips_for_date|create_trip|create_trip_with_winery|delete_trip|reorder_trip_wineries|update_trip_winery_notes|add_trip_member_by_email|add_winery_to_trip|remove_winery_from_trip|add_winery_to_trips)/.test(url)) return route.fallback();
 
         // Specific RPC Implementations
+        if (url.includes('definitely_does_not_exist_rpc_12345')) {
+            return route.fulfill({
+                status: 404,
+                contentType: 'application/json',
+                headers: commonHeaders,
+                body: JSON.stringify({ 
+                    code: '42883', 
+                    message: 'function definitely_does_not_exist_rpc_12345() does not exist' 
+                })
+            });
+        }
+
         if (url.includes('get_trips_for_date')) {
             const postData = JSON.parse(req.postData() || '{}');
             const targetDate = postData.target_date;
