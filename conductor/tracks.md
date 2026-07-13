@@ -8,6 +8,7 @@
 | **advanced-markers-region-guides_20260421** | Global Advanced Markers & Region Guides | ⚪ Priority 3 | [Plan](./tracks/advanced-markers-region-guides_20260421/plan.md) |
 | **search-upgrade_20260423** | Search Function Upgrade & Mobile UX | ⚪ Priority 4 | [Plan](./tracks/search-upgrade_20260423/plan.md) |
 | **store-decoupling-component-purity** | Pattern Isolation & Sync Control | [x] Complete | [Plan](./archive/store-decoupling-component-purity/plan.md) |
+| **resilient-social-actions_20260603** | Resilient Social Actions & Offline Integrity | [x] Archived | [Plan](./archive/resilient-social-actions_20260603/plan.md) |
 | **community-activity-feed** | Global Discovery & Activity Feed | ⚪ Waiting | [Plan](./tracks/community-activity-feed/plan.md) |
 | **social-visit-tagging** | Social Visit Tagging & Shared History | ⚪ Waiting | [Plan](./tracks/social-visit-tagging/plan.md) |
 | **taste-profiles-recommendations** | Taste Profiles & Smart Recommendations | ⚪ Waiting | [Plan](./tracks/taste-profiles-recommendations/plan.md) |
@@ -29,9 +30,4 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 ## 3. [Priority 4] Search Function Upgrade & Mobile UX
 "Search My Location" and proactive search UX improvements.
 *Link: [./tracks/search-upgrade_20260423/](./tracks/search-upgrade_20260423/)*
-
----
-
-- [x] **Track: Resilient Social Actions & Offline Integrity**
-*Link: [./tracks/resilient-social-actions_20260603/](./tracks/resilient-social-actions_20260603/)*
 
