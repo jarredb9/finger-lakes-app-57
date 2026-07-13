@@ -41,20 +41,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Cache Playwright Browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright Browsers & OS Dependencies (Pre-heat Cache)
-        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
-        run: npx playwright install --with-deps
-        env:
-          DEBUG: pw:install
-        timeout-minutes: 15
-
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
@@ -142,25 +128,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Cache Playwright Browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright Browsers & OS Dependencies (on cache miss)
-        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
-        run: npx playwright install --with-deps
-        env:
-          DEBUG: pw:install
-        timeout-minutes: 15
-
-      - name: Install Playwright OS Dependencies (on cache hit)
-        if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' }}
-        run: npx playwright install-deps
-        timeout-minutes: 15
-
       - name: Download Build Artifact
         uses: actions/download-artifact@v4
         with:
@@ -177,8 +144,8 @@ jobs:
           cp supabase/config.ci.toml supabase/config.toml
           supabase start
 
-      - name: Run Playwright tests
-        run: npx playwright test --shard=${{ matrix.shard }}/12 --reporter=blob --max-failures=3
+      - name: Run Playwright tests in Container
+        run: ./scripts/run-e2e-container.sh all --shard=${{ matrix.shard }}/12 --reporter=blob --max-failures=3
         env:
           TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
           TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
@@ -267,27 +234,8 @@ jobs:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
-      - name: Cache Playwright Browsers
-        id: playwright-cache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-
-      - name: Install Playwright Browsers & OS Dependencies (on cache miss)
-        if: ${{ steps.playwright-cache.outputs.cache-hit != 'true' }}
-        run: npx playwright install --with-deps
-        env:
-          DEBUG: pw:install
-        timeout-minutes: 15
-
-      - name: Install Playwright OS Dependencies (on cache hit)
-        if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' }}
-        run: npx playwright install-deps
-        timeout-minutes: 15
-
-      - name: Run Production Smoke Test
-        run: npx playwright test e2e/smoke.spec.ts
+      - name: Run Production Smoke Test in Container
+        run: ./scripts/run-e2e-container.sh --live webkit e2e/smoke.spec.ts
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
