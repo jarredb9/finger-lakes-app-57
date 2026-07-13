@@ -29,6 +29,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Configure Fast APT Mirror
+        uses: vegardit/fast-apt-mirror.sh@v1
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -127,6 +130,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Configure Fast APT Mirror
+        uses: vegardit/fast-apt-mirror.sh@v1
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -153,7 +159,7 @@ jobs:
       - name: Install Playwright OS Dependencies (on cache hit)
         if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' }}
         run: npx playwright install-deps
-        timeout-minutes: 5
+        timeout-minutes: 15
 
       - name: Download Build Artifact
         uses: actions/download-artifact@v4
@@ -225,6 +231,9 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Configure Fast APT Mirror
+        uses: vegardit/fast-apt-mirror.sh@v1
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -275,7 +284,7 @@ jobs:
       - name: Install Playwright OS Dependencies (on cache hit)
         if: ${{ steps.playwright-cache.outputs.cache-hit == 'true' }}
         run: npx playwright install-deps
-        timeout-minutes: 5
+        timeout-minutes: 15
 
       - name: Run Production Smoke Test
         run: npx playwright test e2e/smoke.spec.ts
