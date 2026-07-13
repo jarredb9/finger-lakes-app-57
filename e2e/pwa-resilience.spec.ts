@@ -79,6 +79,7 @@ test.describe('PWA Resilience & Offline Integrity', () => {
             // Use the internal syncStore directly for the test to ensure we test the queue directly
             const user = (window as any).useUserStore.getState().user;
             await (window as any).useSyncStore.getState().addMutation({
+                id: crypto.randomUUID(),
                 type: 'log_visit',
                 userId: user.id,
                 payload: {
