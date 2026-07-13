@@ -1,13 +1,13 @@
 # Implementation Plan: Winery Details Cache Pollution and Review Count Fixes
 
 ## Phase 1: Test Scaffolding & Verification Setup (Red Phase)
-- [ ] Task: Local Database & Schema Verification
-    - [ ] Run database check `npm run db:status` and verify that migration `20260605170000_add_user_rating_count_to_rpcs.sql` is active.
-    - [ ] Verify database schema types locally using `npm run db:check-types:local`.
-- [ ] Task: Write Failing Tests (Red Phase)
-    - [ ] Create a new unit test in `lib/stores/__tests__/wineryDataStore.test.ts` checking that `bulkUpsertWineries` and `upsertWinery` do not overwrite existing enriched fields (phone, website, openingHours, reviews, rating, userRatingCount, enrichment_tier) with basic marker fields or null values.
-    - [ ] Write a new Playwright E2E test in `e2e/winery-cache-pollution.spec.ts` (or add to `e2e/winery-ui-integrity.spec.ts`) that clicks a winery to enrich it, closes the modal, pans/updates the map (hydrating basic markers), and reopens the modal, asserting that all details remain intact.
-    - [ ] Verify both tests fail as expected (Red Phase).
+- [x] Task: Local Database & Schema Verification
+    - [x] Run database check `npm run db:status` and verify that migration `20260605170000_add_user_rating_count_to_rpcs.sql` is active.
+    - [x] Verify database schema types locally using `npm run db:check-types:local`.
+- [x] Task: Write Failing Tests (Red Phase) [f936838]
+    - [x] Create a new unit test in `lib/stores/__tests__/wineryDataStore.test.ts` checking that `bulkUpsertWineries` and `upsertWinery` do not overwrite existing enriched fields (phone, website, openingHours, reviews, rating, userRatingCount, enrichment_tier) with basic marker fields or null values.
+    - [x] Write a new Playwright E2E test in `e2e/winery-cache-pollution.spec.ts` (or add to `e2e/winery-ui-integrity.spec.ts`) that clicks a winery to enrich it, closes the modal, pans/updates the map (hydrating basic markers), and reopens the modal, asserting that all details remain intact.
+    - [x] Verify both tests fail as expected (Red Phase).
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Test Scaffolding & Verification Setup' (Protocol in workflow.md)
 
 ## Phase 2: Core Merging & Data Preservation Logic (Green Phase)
