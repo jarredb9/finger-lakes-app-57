@@ -12,6 +12,25 @@ export function PwaHandler() {
   const { toast, dismiss: dismissToast } = useToast();
   const [isDismissed, setIsDismissed] = useState(false);
 
+  useEffect(() => {
+    const handleQuotaExceeded = () => {
+      toast({
+        variant: "destructive",
+        title: "Storage Limit Exceeded",
+        description: "Device storage is full. Offline changes cannot be saved.",
+      });
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener("quota-exceeded-warning", handleQuotaExceeded);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener("quota-exceeded-warning", handleQuotaExceeded);
+      }
+    };
+  }, [toast]);
+
   // Handle Update Notification (Rare, so we can keep it as a high-priority Toast or use the banner)
   // We'll use a Toast for updates as they are critical, but the user specifically asked about the "install card".
   // We use a ref to track if the toast has been shown to avoid dependency on state during render/effect cycles.

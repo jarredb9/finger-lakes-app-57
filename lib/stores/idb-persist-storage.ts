@@ -1,5 +1,6 @@
 import { StateStorage } from 'zustand/middleware';
 import { get, set, del } from 'idb-keyval';
+import { checkAndCleanupQuota, isQuotaError } from '@/lib/utils/quota';
 
 /**
  * Custom storage for Zustand persist middleware using IndexedDB (via idb-keyval).
@@ -12,9 +13,28 @@ export const idbStorage: StateStorage = {
     return value || null;
   },
   setItem: async (name: string, value: string): Promise<void> => {
-    await set(name, value);
+    try {
+      await set(name, value);
+    } catch (err: any) {
+      if (isQuotaError(err)) {
+        console.warn(`[Quota] setItem failed for ${name} due to quota. Attempting cleanup...`);
+        await checkAndCleanupQuota(0.8);
+        try {
+          await set(name, value);
+          return;
+        } catch (retryErr) {
+          console.error(`[Quota] Retry setItem failed for ${name} after cleanup:`, retryErr);
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('quota-exceeded-warning'));
+          }
+          throw retryErr;
+        }
+      }
+      throw err;
+    }
   },
   removeItem: async (name: string): Promise<void> => {
     await del(name);
   },
 };
+

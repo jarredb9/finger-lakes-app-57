@@ -1,4 +1,5 @@
 import { blobToBase64Raw as blobToBase64, base64ToFile as base64ToFileRaw } from './binary';
+import { compressImage } from './image';
 
 /**
  * Utility functions for handling sync payloads, especially binary data (photos).
@@ -34,14 +35,16 @@ export const isBase64Photo = (obj: unknown): obj is Base64Photo => {
 export const stabilizePhotos = async (photos: (File | Blob | Base64Photo | string)[]): Promise<(Base64Photo | string)[]> => {
   return await Promise.all(photos.map(async (p) => {
     if (p instanceof Blob) {
-      const base64 = await blobToBase64(p);
+      const compressed = await compressImage(p);
+      const base64 = await blobToBase64(compressed);
       return {
         __isBase64: true,
-        name: (p as File).name || 'photo.jpg',
-        type: p.type,
+        name: (compressed as File).name || (p as File).name || 'photo.jpg',
+        type: compressed.type,
         base64
       } as Base64Photo;
     }
     return p as Base64Photo | string;
   }));
 };
+

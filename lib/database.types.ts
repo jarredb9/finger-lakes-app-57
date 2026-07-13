@@ -321,6 +321,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: number
+          idempotency_key: string | null
           name: string | null
           trip_date: string
           updated_at: string | null
@@ -329,6 +330,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: number
+          idempotency_key?: string | null
           name?: string | null
           trip_date: string
           updated_at?: string | null
@@ -337,6 +339,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: number
+          idempotency_key?: string | null
           name?: string | null
           trip_date?: string
           updated_at?: string | null
@@ -395,6 +398,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: number
+          idempotency_key: string | null
           is_private: boolean | null
           metadata: Json | null
           photos: string[] | null
@@ -408,6 +412,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: number
+          idempotency_key?: string | null
           is_private?: boolean | null
           metadata?: Json | null
           photos?: string[] | null
@@ -421,6 +426,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: number
+          idempotency_key?: string | null
           is_private?: boolean | null
           metadata?: Json | null
           photos?: string[] | null
@@ -617,11 +623,16 @@ export type Database = {
         Returns: undefined
       }
       create_trip: {
-        Args: { p_name: string; p_trip_date: string }
+        Args: {
+          p_idempotency_key?: string
+          p_name: string
+          p_trip_date: string
+        }
         Returns: Json
       }
       create_trip_with_winery: {
         Args: {
+          p_idempotency_key?: string
           p_members?: string[]
           p_notes?: string
           p_trip_date: string
@@ -988,7 +999,11 @@ export type Database = {
         Returns: boolean
       }
       log_visit: {
-        Args: { p_visit_data: Json; p_winery_data: Json }
+        Args: {
+          p_idempotency_key?: string
+          p_visit_data: Json
+          p_winery_data: Json
+        }
         Returns: Json
       }
       remove_friend: {
@@ -1051,7 +1066,11 @@ export type Database = {
         Returns: Json
       }
       update_visit: {
-        Args: { p_visit_data: Json; p_visit_id: number }
+        Args: {
+          p_idempotency_key?: string
+          p_visit_data: Json
+          p_visit_id: number
+        }
         Returns: Json
       }
       upsert_wineries_from_search: {

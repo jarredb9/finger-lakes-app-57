@@ -32,18 +32,50 @@ PROJECT_ARG=$1
 echo "🚀 Starting Playwright Containerized Tests (Rootless)..."
 echo "📦 Image: $IMAGE"
 
+# Detect container engine (prefer podman, fallback to docker)
+if command -v podman >/dev/null 2>&1; then
+    ENGINE="podman"
+elif command -v docker >/dev/null 2>&1; then
+    ENGINE="docker"
+else
+    echo "❌ Error: Neither podman nor docker was found on this system." >&2
+    exit 1
+fi
+
+# Detect TTY/CI environment to set interactive flags safely
+INTERACTIVE_FLAG="-t"
+if [ -t 0 ] && [ "$CI" != "true" ]; then
+    INTERACTIVE_FLAG="-it"
+fi
+
+# Set engine-specific arguments
+EXTRA_OPTS=()
+if [ "$ENGINE" = "podman" ]; then
+    EXTRA_OPTS+=( "--userns=keep-id" )
+else
+    # Docker needs to run as the host user to prevent root-owned files in workspace mount
+    EXTRA_OPTS+=( "--user" "$(id -u):$(id -g)" )
+fi
+
 if [ "$USE_LIVE" = true ]; then
-    echo "🌍 Using LIVE database (loading .env.local.production)..."
-    # Export variables from .env.local.production for the container
-    set -a
-    source .env.local.production
-    set +a
+    echo "🌍 Using LIVE database..."
+    if [ -f .env.local.production ]; then
+        set -a
+        source .env.local.production
+        set +a
+    else
+        echo "⚠️  No .env.local.production file found. Relying on host environment variables."
+    fi
     E2E_REAL_DATA="true"
 else
     echo "🏠 Using LOCAL database stack..."
-    set -a
-    source .env.local
-    set +a
+    if [ -f .env.local ]; then
+        set -a
+        source .env.local
+        set +a
+    else
+        echo "⚠️  No .env.local file found. Relying on host environment variables."
+    fi
     E2E_REAL_DATA="false"
 fi
 
@@ -68,25 +100,32 @@ else
 fi
 
 # 2. Ensure we have the image
-if ! podman image exists "$IMAGE"; then
-    echo "📥 Pulling Playwright image..."
-    podman pull "$IMAGE"
+if [ "$ENGINE" = "podman" ]; then
+    if ! podman image exists "$IMAGE"; then
+        echo "📥 Pulling Playwright image..."
+        podman pull "$IMAGE"
+    fi
+else
+    if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
+        echo "📥 Pulling Playwright image..."
+        docker pull "$IMAGE"
+    fi
 fi
 
 # 3. Run the container
 # Use a unique name to prevent stale container persistence
 CONTAINER_NAME="winery-e2e-$(date +%s)"
-podman stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
-podman rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
+$ENGINE stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
+$ENGINE rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
 # Flush filesystem to ensure volume mount sees latest changes
 sync
 
-podman run --rm -it \
+$ENGINE run --rm $INTERACTIVE_FLAG \
     --name "$CONTAINER_NAME" \
     --network=host \
     -v "$(pwd):/work:Z" \
-    --userns=keep-id \
+    "${EXTRA_OPTS[@]}" \
     --security-opt label=disable \
     --security-opt seccomp=unconfined \
     -w /work \
@@ -98,6 +137,9 @@ podman run --rm -it \
     -e E2E_REAL_DATA="$E2E_REAL_DATA" \
     -e TEST_CMD="$TEST_CMD" \
     -e SHOULD_BUILD="$SHOULD_BUILD" \
+    -e TEST_USER_EMAIL="$TEST_USER_EMAIL" \
+    -e TEST_USER_PASSWORD="$TEST_USER_PASSWORD" \
+    -e BASE_URL="$BASE_URL" \
     "$IMAGE" \
     /bin/bash -c '
         if [ ! -d "node_modules" ]; then

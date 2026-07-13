@@ -24,6 +24,7 @@ export type RpcVisitWithWinery = Omit<Database['public']['Functions']['get_pagin
   updated_at: string;
   user_review: string | null;
   rating: number | null;
+  idempotency_key?: string | null;
 };
 
 export type FriendActivityFeedItem = {
@@ -485,6 +486,18 @@ export class MockMapsManager {
         if (this.realTripsEnabled && /rpc\/(get_trip_details|get_trips_for_date|create_trip|create_trip_with_winery|delete_trip|reorder_trip_wineries|update_trip_winery_notes|add_trip_member_by_email|add_winery_to_trip|remove_winery_from_trip|add_winery_to_trips)/.test(url)) return route.fallback();
 
         // Specific RPC Implementations
+        if (url.includes('definitely_does_not_exist_rpc_12345')) {
+            return route.fulfill({
+                status: 404,
+                contentType: 'application/json',
+                headers: commonHeaders,
+                body: JSON.stringify({ 
+                    code: '42883', 
+                    message: 'function definitely_does_not_exist_rpc_12345() does not exist' 
+                })
+            });
+        }
+
         if (url.includes('get_trips_for_date')) {
             const postData = JSON.parse(req.postData() || '{}');
             const targetDate = postData.target_date;
@@ -494,9 +507,23 @@ export class MockMapsManager {
 
         if (url.includes('log_visit')) {
             const postData = JSON.parse(req.postData() || '{}');
-            const newId = 1000 + Math.floor(Math.random() * 9000);
             const wineryData = postData.p_winery_data || {};
             const visitData = postData.p_visit_data || {};
+            const idempotencyKey = postData.p_idempotency_key || null;
+
+            if (idempotencyKey && this.state.visits) {
+                const existing = this.state.visits.find(v => v.idempotency_key === idempotencyKey);
+                if (existing) {
+                    return route.fulfill({
+                        status: 200,
+                        contentType: 'application/json',
+                        headers: commonHeaders,
+                        body: JSON.stringify({ visit_id: existing.visit_id, winery_id: existing.google_place_id })
+                    });
+                }
+            }
+
+            const newId = 1000 + Math.floor(Math.random() * 9000);
             const wineryId = wineryData.id;
             const winery = markers.find(m => m.id === wineryId || m.google_place_id === wineryId);
             
@@ -516,7 +543,8 @@ export class MockMapsManager {
                 latitude: winery?.latitude || wineryData.latitude || 42.7,
                 longitude: winery?.longitude || wineryData.longitude || -76.9,
                 friend_visits: [],
-                updated_at: new Date(Date.now() + 5000).toISOString()
+                updated_at: new Date(Date.now() + 5000).toISOString(),
+                idempotency_key: idempotencyKey
             };
             this.state.visits.push(newVisit);
 
@@ -577,7 +605,24 @@ export class MockMapsManager {
 
         if (url.includes('create_trip_with_winery')) {
             const postData = JSON.parse(req.postData() || '{}');
+            const idempotencyKey = postData.p_idempotency_key || null;
+
+            if (idempotencyKey && this.state.trips) {
+                const existing = this.state.trips.find(t => (t as any).idempotency_key === idempotencyKey);
+                if (existing) {
+                    return route.fulfill({
+                        status: 200,
+                        contentType: 'application/json',
+                        headers: commonHeaders,
+                        body: JSON.stringify({ trip_id: existing.id, winery_id: (existing as any).winery_id || 1 })
+                    });
+                }
+            }
+
             const newId = Math.floor(Math.random() * 10000);
+            const wineryData = postData.p_winery_data || {};
+            const wineryId = wineryData.id || 1;
+
             const newTrip = createMockTrip({ 
                 id: newId, 
                 name: postData.p_trip_name, 
@@ -585,13 +630,35 @@ export class MockMapsManager {
                 user_id: this.currentUserId,
                 updated_at: new Date(Date.now() + 5000).toISOString()
             });
+            (newTrip as any).idempotency_key = idempotencyKey;
+            (newTrip as any).winery_id = wineryId;
+
             if (!this.state.trips) this.state.trips = [];
             this.state.trips.push(newTrip);
-            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ trip_id: newId }) });
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ trip_id: newId, winery_id: wineryId }) });
         }
 
         if (url.includes('create_trip')) {
             const postData = JSON.parse(req.postData() || '{}');
+            const idempotencyKey = postData.p_idempotency_key || null;
+
+            if (idempotencyKey && this.state.trips) {
+                const existing = this.state.trips.find(t => (t as any).idempotency_key === idempotencyKey);
+                if (existing) {
+                    return route.fulfill({
+                        status: 200,
+                        contentType: 'application/json',
+                        headers: commonHeaders,
+                        body: JSON.stringify({ 
+                            id: existing.id, 
+                            user_id: existing.user_id, 
+                            trip_date: existing.trip_date, 
+                            name: existing.name 
+                        })
+                    });
+                }
+            }
+
             const newId = Math.floor(Math.random() * 10000);
             const newTrip = createMockTrip({ 
                 id: newId, 
@@ -600,9 +667,11 @@ export class MockMapsManager {
                 user_id: this.currentUserId,
                 updated_at: new Date(Date.now() + 5000).toISOString()
             });
+            (newTrip as any).idempotency_key = idempotencyKey;
+
             if (!this.state.trips) this.state.trips = [];
             this.state.trips.push(newTrip);
-            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ id: newId }) });
+            return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ id: newId, user_id: this.currentUserId, trip_date: postData.p_trip_date, name: postData.p_name }) });
         }
 
         if (url.includes('delete_trip')) {
@@ -627,6 +696,20 @@ export class MockMapsManager {
             const postData = JSON.parse(req.postData() || '{}');
             const visitId = Number(postData.p_visit_id);
             const visitData = postData.p_visit_data || {};
+            const idempotencyKey = postData.p_idempotency_key || null;
+
+            if (idempotencyKey && this.state.visits) {
+                const existing = this.state.visits.find(v => v.idempotency_key === idempotencyKey);
+                if (existing) {
+                    return route.fulfill({
+                        status: 200,
+                        contentType: 'application/json',
+                        headers: commonHeaders,
+                        body: JSON.stringify(existing)
+                    });
+                }
+            }
+
             let updatedObj = {};
             if (this.state.visits) {
                 const visit = this.state.visits.find(v => Number(v.visit_id) === visitId);
@@ -635,6 +718,9 @@ export class MockMapsManager {
                     visit.rating = visitData.rating !== undefined ? visitData.rating : visit.rating;
                     visit.photos = visitData.photos !== undefined ? visitData.photos : visit.photos;
                     visit.updated_at = new Date().toISOString();
+                    if (idempotencyKey) {
+                        visit.idempotency_key = idempotencyKey;
+                    }
                     updatedObj = visit;
                 }
             }

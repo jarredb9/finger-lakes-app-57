@@ -35,13 +35,19 @@ export const WineryService = {
   ensureInDb: async (winery: Winery): Promise<WineryDbId | null> => {
     // Check if we already have a valid database ID in the store state
     const currentDbId = winery.dbId;
-    if (typeof currentDbId === 'number' && !isNaN(currentDbId) && currentDbId > 100) {
-        return currentDbId;
+    const isE2E = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true';
+    const skipRealSync = shouldSkipRealSync();
+
+    if (typeof currentDbId === 'number' && !isNaN(currentDbId) && currentDbId > 0) {
+        // In E2E with real sync, mock markers might have pre-assigned mock IDs like 1, 2, 3.
+        // We must not trust these mock IDs and instead query the database to get the real ID.
+        if (!isE2E || skipRealSync) {
+            return currentDbId;
+        }
     }
 
     // Atomic State Injection / Mocking for E2E
-    const isE2E = typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true';
-    if (isE2E && shouldSkipRealSync()) {
+    if (isE2E && skipRealSync) {
         const mockId = 999000 + Math.floor(Math.random() * 1000);
         return mockId as WineryDbId;
     }
@@ -128,7 +134,8 @@ export const WineryService = {
 
     return { 
         success: data.success, 
-        isPrivate: data.is_private 
+        isPrivate: data.is_private,
+        dbId
     };
   },
   /**
@@ -147,7 +154,8 @@ export const WineryService = {
 
     return { 
         success: data.success, 
-        isPrivate: data.is_private 
+        isPrivate: data.is_private,
+        dbId
     };
   },
   /**

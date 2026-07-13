@@ -1,5 +1,29 @@
 # Changelog
 
+## [2.13.0] - 2026-07-10
+
+**PWA Client Resilience, Write Idempotency, AI Summaries & Social Webhooks**
+
+### 🚀 Features
+*   **Write Idempotency & Conflict Resolution**:
+    *   **Schema Hardening**: Added unique `idempotency_key` (UUID) columns to `public.visits` and `public.trips` schemas.
+    *   **Idempotent Write RPCs**: Upgraded `log_visit`, `update_visit`, `create_trip`, and `create_trip_with_winery` Database RPCs to accept an optional `p_idempotency_key` and handle uniqueness conflicts gracefully by returning the existing record's details.
+    *   **Client Idempotency**: Automatically generate client-side UUID `idempotencyKey` on save, update, and create actions, passing them to direct online calls and storing them in the offline sync queue.
+*   **Asynchronous Edge Functions & Webhooks**:
+    *   **Gemini-Powered AI Summaries**: Created the `update-gemini-summary` Edge Function triggered by a database webhook on `public.visits` (when reviews are >100 characters). Performs 30-day cache checks and fetches detailed reviews before invoking Gemini API.
+    *   **Resilient Social Notifications**: Implemented `send-social-notification` Edge Function triggered by `public.activity_ledger` webhook inserts to verify social privacy policies and notify friends.
+*   **PWA Resilience & Offline Enhancements**:
+    *   **Client-Side Image Compression**: Added automated client-side canvas-based image resizing and compression (max 2048px on long edge) prior to Base64 conversion and network transmission.
+    *   **IndexedDB Quota Safeguards**: Implemented proactive storage quota monitoring and single-retry write logic in IndexedDB storage, throwing a decoupled custom warning event (`quota-exceeded-warning`) if storage fails.
+    *   **Decoupled Quota Toasts**: Listens to quota warning events in PWA handler and alerts users via user-friendly Shadcn toast notifications.
+    *   **Secure Logout State Purge**: Hardened authentication state cleanup to await IndexedDB/offline queue reset before synchronously purging remaining Zustand state stores, preventing data leakage between sessions.
+
+### ⚙ Infrastructure, Testing & Bug Fixes
+*   **E2E Test Stability**:
+    *   **Real Sync E2E Fixes**: Addressed an E2E test timeout in `item-privacy.spec.ts` under `useRealFavorites()` by forcing `WineryService.ensureInDb` to resolve the real Database ID instead of trusting pre-assigned client-side mock IDs.
+    *   **Smoke Test Fallbacks**: Configured `e2e/smoke.spec.ts` to fallback to the seeded local user (`tester@mail.com` / `password`) if environment variables are missing.
+    *   **RPC Mocks Update**: Aligned Playwright mock handlers with the updated idempotency parameters.
+
 ## [2.12.0] - 2026-06-08
 
 **Places API v1 SDK, Edge Function Orchestration & AI Enrichment**

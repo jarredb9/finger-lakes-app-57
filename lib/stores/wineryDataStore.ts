@@ -223,7 +223,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
               
               set(state => ({
                   persistentWineries: state.persistentWineries.map(w => 
-                      w.id === wineryId ? { ...w, favoriteIsPrivate: result.isPrivate } : w
+                      w.id === wineryId ? { ...w, favoriteIsPrivate: result.isPrivate, dbId: result.dbId as WineryDbId } : w
                   )
               }));
           } catch (err: any) {
@@ -261,7 +261,7 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
               
               set(state => ({
                   persistentWineries: state.persistentWineries.map(w => 
-                      w.id === wineryId ? { ...w, wishlistIsPrivate: result.isPrivate } : w
+                      w.id === wineryId ? { ...w, wishlistIsPrivate: result.isPrivate, dbId: result.dbId as WineryDbId } : w
                   )
               }));
           } catch (err: any) {

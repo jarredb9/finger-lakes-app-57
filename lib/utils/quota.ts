@@ -30,3 +30,13 @@ export const checkAndCleanupQuota = async (threshold = 0.8) => {
     console.error("[Quota] Failed to check or cleanup quota:", err);
   }
 };
+
+export const isQuotaError = (err: any): boolean => {
+  if (!err) return false;
+  return (
+    err.name === 'QuotaExceededError' ||
+    err.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    (err.message && err.message.toLowerCase().includes('quota exceeded'))
+  );
+};
+

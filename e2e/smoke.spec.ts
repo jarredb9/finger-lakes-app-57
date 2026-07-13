@@ -12,12 +12,8 @@ test('unauthenticated user is redirected to login', async ({ page }) => {
 });
 
 test('authenticated user can reach the app', async ({ page }) => {
-  const email = process.env.TEST_USER_EMAIL;
-  const password = process.env.TEST_USER_PASSWORD;
-  
-  if (!email || !password) {
-    throw new Error('TEST_USER_EMAIL and TEST_USER_PASSWORD environment variables are required for the smoke test');
-  }
+  const email = process.env.TEST_USER_EMAIL || 'tester@mail.com';
+  const password = process.env.TEST_USER_PASSWORD || 'password';
 
   // We use a static test user.
   // The login helper handles hydration guards and wait logic.
