@@ -201,11 +201,11 @@ export default function WineryModal() {
       <DialogContent
         data-testid="winery-modal"
         data-state={isLoading ? "loading" : "ready"}
-        className="max-w-2xl w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col"
+        className="max-w-2xl w-[95vw] sm:w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col top-4 translate-y-0 sm:top-[50%] sm:translate-y-[-50%] overflow-x-hidden"
         onFocusOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="overflow-y-auto" ref={scrollContainerRef} key={activeWineryId || 'none'}>
+        <div className="overflow-y-auto overflow-x-hidden" ref={scrollContainerRef} key={activeWineryId || 'none'}>
           {isLoading || !activeWinery ? (
             <div className="p-6 space-y-4">
               <DialogHeader>

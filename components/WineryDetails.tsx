@@ -266,8 +266,8 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
             </Accordion.Trigger>
           </Accordion.Header>
           <Accordion.Content className="px-3.5 pb-3.5 pt-2 text-xs text-muted-foreground border-t bg-muted/5 space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              <div className="flex items-center gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Car className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Free Parking:</span>
                 <AttributeStatus 
@@ -276,7 +276,7 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
                   onSelectQuestion={setActiveQuestionId} 
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Zap className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">EV Charging:</span>
                 <AttributeStatus 
@@ -285,7 +285,7 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
                   onSelectQuestion={setActiveQuestionId} 
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Accessibility className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Wheelchair Acc.:</span>
                 <AttributeStatus 
@@ -294,7 +294,7 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
                   onSelectQuestion={setActiveQuestionId} 
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Sun className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Outdoor:</span>
                 <AttributeStatus 
@@ -303,7 +303,7 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
                   onSelectQuestion={setActiveQuestionId} 
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Dog className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Dogs Allowed:</span>
                 <AttributeStatus 
@@ -312,7 +312,7 @@ export default function WineryDetails({ winery, loadingWineryId }: WineryDetails
                   onSelectQuestion={setActiveQuestionId} 
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Baby className="h-3.5 w-3.5 text-muted-foreground/70" />
                 <span className="text-[11px]">Kid Friendly:</span>
                 <AttributeStatus 
