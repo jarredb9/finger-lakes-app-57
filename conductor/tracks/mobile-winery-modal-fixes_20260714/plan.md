@@ -6,7 +6,7 @@
     - [x] Add tests in PlaceAutocomplete.test.tsx to assert font size classes (text-base sm:text-sm) and document.activeElement.blur() calls on select
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Test Suite Preparation (TDD)' (Protocol in workflow.md)
 
-## Phase 2: Implementation of Fixes
+## Phase 2: Implementation of Fixes [checkpoint: 484d907]
 - [x] Task: Update Mobile Search Input (PlaceAutocomplete.tsx) (d87b013)
     - [x] Modify className to use `text-base sm:text-sm` for input
     - [x] Blur focus to collapse virtual keyboard on mobile suggestion select
@@ -16,7 +16,7 @@
     - [x] Set modal width to w-[95vw] on mobile to prevent edge spill
 - [x] Task: Update Winery Map Hook (use-winery-map.ts) (36cc5c7)
     - [x] Delay opening modal by 150ms on suggestion selection to allow visual viewport to stabilize after virtual keyboard collapses
-- [~] Task: Conductor - User Manual Verification 'Phase 2: Implementation of Fixes' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Implementation of Fixes' (Protocol in workflow.md) (484d907)
 
 ## Phase 3: Verification & Polish
 - [ ] Task: Run full test suite and verify coverage
