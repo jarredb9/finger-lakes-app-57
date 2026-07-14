@@ -23,3 +23,7 @@
     - [ ] Run the surgical E2E tests (`winery-ui-integrity.spec.ts`) in container
     - [ ] Assert code coverage targets are met (>80%) and check types
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Verification & Polish' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions (1464a2b)
+
