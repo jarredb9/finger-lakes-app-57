@@ -1,13 +1,13 @@
 # Implementation Plan - Mobile Winery Modal & Search UX Fixes
 
 ## Phase 1: Test Suite Preparation (TDD)
-- [ ] Task: Setup failing E2E and Unit test cases verifying layout styles and input focus/blur behaviors
-    - [ ] Add E2E visual/layout check in winery-ui-integrity.spec.ts for mobile top anchoring (using custom viewport configuration)
-    - [ ] Add tests in PlaceAutocomplete.test.tsx to assert font size classes (text-base sm:text-sm) and document.activeElement.blur() calls on select
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Test Suite Preparation (TDD)' (Protocol in workflow.md)
+- [x] Task: Setup failing E2E and Unit test cases verifying layout styles and input focus/blur behaviors (d262a3d)
+    - [x] Add E2E visual/layout check in winery-ui-integrity.spec.ts for mobile top anchoring (using custom viewport configuration)
+    - [x] Add tests in PlaceAutocomplete.test.tsx to assert font size classes (text-base sm:text-sm) and document.activeElement.blur() calls on select
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Test Suite Preparation (TDD)' (Protocol in workflow.md)
 
 ## Phase 2: Implementation of Fixes
-- [ ] Task: Update Mobile Search Input (PlaceAutocomplete.tsx)
+- [~] Task: Update Mobile Search Input (PlaceAutocomplete.tsx)
     - [ ] Modify className to use `text-base sm:text-sm` for input
     - [ ] Blur focus to collapse virtual keyboard on mobile suggestion select
 - [ ] Task: Update Winery Modal (winery-modal.tsx)
