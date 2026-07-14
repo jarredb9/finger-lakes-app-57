@@ -14,9 +14,9 @@
     - [x] Anchor modal to top-4 and set translate-y-0 on mobile viewports
     - [x] Restrict horizontal panning by applying overflow-x-hidden on DialogContent and inner scroll wrapper
     - [x] Set modal width to w-[95vw] on mobile to prevent edge spill
-- [~] Task: Update Winery Map Hook (use-winery-map.ts)
-    - [ ] Delay opening modal by 150ms on suggestion selection to allow visual viewport to stabilize after virtual keyboard collapses
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Implementation of Fixes' (Protocol in workflow.md)
+- [x] Task: Update Winery Map Hook (use-winery-map.ts) (36cc5c7)
+    - [x] Delay opening modal by 150ms on suggestion selection to allow visual viewport to stabilize after virtual keyboard collapses
+- [~] Task: Conductor - User Manual Verification 'Phase 2: Implementation of Fixes' (Protocol in workflow.md)
 
 ## Phase 3: Verification & Polish
 - [ ] Task: Run full test suite and verify coverage
