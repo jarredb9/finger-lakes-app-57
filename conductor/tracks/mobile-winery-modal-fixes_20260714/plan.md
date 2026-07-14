@@ -18,11 +18,11 @@
     - [x] Delay opening modal by 150ms on suggestion selection to allow visual viewport to stabilize after virtual keyboard collapses
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Implementation of Fixes' (Protocol in workflow.md) (484d907)
 
-## Phase 3: Verification & Polish
+## Phase 3: Verification & Polish [checkpoint: ce5ae10]
 - [x] Task: Run full test suite and verify coverage (bb56f1e)
     - [x] Run the surgical E2E tests (`winery-ui-integrity.spec.ts`) in container
     - [x] Assert code coverage targets are met (>80%) and check types
-- [~] Task: Conductor - User Manual Verification 'Phase 3: Verification & Polish' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Verification & Polish' (Protocol in workflow.md) (ce5ae10)
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions (1464a2b)
