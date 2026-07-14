@@ -2,7 +2,7 @@
 
 This plan covers transitioning the mobile navigation to a modern floating pill layout, implementing active highlight pills, and maintaining docking alignment with the bottom sheet drawer.
 
-## Phase 1: Planning & TDD Setup
+## Phase 1: Planning & TDD Setup [checkpoint: a0adca8]
 - [x] Task: Design Refinement and Test Setup (be0976d)
     - [x] Research the CSS/Tailwind classes for centered floating container and custom transitions.
     - [x] Create E2E test file `e2e/mobile-nav-drawer.spec.ts` under mobile viewport configuration to test layout (floating, rounded corners, blur, border), active state styling, and sheet docking.
