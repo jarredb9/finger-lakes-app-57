@@ -7,10 +7,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Test Suite Preparation (TDD)' (Protocol in workflow.md)
 
 ## Phase 2: Implementation of Fixes
-- [~] Task: Update Mobile Search Input (PlaceAutocomplete.tsx)
-    - [ ] Modify className to use `text-base sm:text-sm` for input
-    - [ ] Blur focus to collapse virtual keyboard on mobile suggestion select
-- [ ] Task: Update Winery Modal (winery-modal.tsx)
+- [x] Task: Update Mobile Search Input (PlaceAutocomplete.tsx) (d87b013)
+    - [x] Modify className to use `text-base sm:text-sm` for input
+    - [x] Blur focus to collapse virtual keyboard on mobile suggestion select
+- [~] Task: Update Winery Modal (winery-modal.tsx)
     - [ ] Anchor modal to top-4 and set translate-y-0 on mobile viewports
     - [ ] Restrict horizontal panning by applying overflow-x-hidden on DialogContent and inner scroll wrapper
     - [ ] Set modal width to w-[95vw] on mobile to prevent edge spill
