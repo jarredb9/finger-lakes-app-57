@@ -56,19 +56,27 @@ test.describe('Privacy and Profile Flow', () => {
         // Log Public Visit
         const logBtn = pageA.getByTestId('log-visit-button');
         await logBtn.scrollIntoViewIfNeeded();
-        await logBtn.click({ force: true });
+        await expect(async () => {
+            const isModalOpen = await pageA.evaluate(() => (window as any).useUIStore?.getState().isModalOpen);
+            if (!isModalOpen) {
+                await logBtn.click({ force: true });
+                throw new Error("Modal not open yet");
+            }
+        }).toPass({ timeout: 10000, intervals: [1000] });
         await logVisit(pageA, { review: 'This is a public review' });
 
         // Log Private Visit
-        await pageA.waitForTimeout(1000); // Buffer for scroll and animations to settle
+        // Wait for any toast to disappear if it might block the next button
+        await expect(pageA.locator('[role="status"], [role="alert"]')).not.toBeVisible({ timeout: 10000 }).catch(() => null);
         await logBtn.scrollIntoViewIfNeeded();
         
-        // Hybrid click strategy for cross-engine stability
-        await logBtn.click({ force: true });
-        const isModalOpen = await pageA.evaluate(() => (window as any).useUIStore?.getState().isModalOpen);
-        if (!isModalOpen) {
-            await logBtn.click({ force: true });
-        }
+        await expect(async () => {
+            const isModalOpen = await pageA.evaluate(() => (window as any).useUIStore?.getState().isModalOpen);
+            if (!isModalOpen) {
+                await logBtn.click({ force: true });
+                throw new Error("Modal not open yet");
+            }
+        }).toPass({ timeout: 10000, intervals: [1000] });
         
         await logVisit(pageA, { review: 'This is a private review', isPrivate: true });
 
