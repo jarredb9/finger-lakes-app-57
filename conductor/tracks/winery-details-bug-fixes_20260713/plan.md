@@ -23,9 +23,11 @@
     - [x] Run complete E2E test suite locally using `./scripts/run-e2e-container.sh chromium` to verify no regressions.
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Core Merging & Data Preservation Logic' (Protocol in workflow.md)
 
-## Phase 3: Edge Function Sync & Production Prep
-- [ ] Task: Edge Function Local Verification
-    - [ ] Verify that `supabase/functions/get-winery-details/index.ts` is fetching `userRatingCount` in the field mask and normalizing it correctly using local Deno tests: `npm run test:functions`.
-- [ ] Task: Update Deployment Documentation
-    - [ ] Add explicit deployment steps in the track context or README for deploying the `get-winery-details` Edge Function.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Edge Function & Production Prep' (Protocol in workflow.md)
+## Phase 3: Edge Function Sync & Production Prep [checkpoint: a255647]
+- [x] Task: Edge Function Local Verification
+    - [x] Verify that `supabase/functions/get-winery-details/index.ts` is fetching `userRatingCount` in the field mask and normalizing it correctly using local Deno tests: `npm run test:functions`.
+- [x] Task: Update Deployment Documentation
+    - [x] Add explicit deployment steps in the track context or README for deploying the `get-winery-details` Edge Function.
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Edge Function & Production Prep' (Protocol in workflow.md) [a255647]
+
+
