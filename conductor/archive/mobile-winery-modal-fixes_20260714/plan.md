@@ -26,4 +26,6 @@
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions (1464a2b)
+- [x] Task: Fix flaky E2E privacy tests on Mobile Chrome (edac465)
+
 
