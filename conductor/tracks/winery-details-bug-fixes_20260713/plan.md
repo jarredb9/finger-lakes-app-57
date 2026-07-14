@@ -21,7 +21,7 @@
     - [x] Run the store unit tests via Jest and ensure they pass.
     - [x] Run the Playwright E2E test and ensure it passes.
     - [x] Run complete E2E test suite locally using `./scripts/run-e2e-container.sh chromium` to verify no regressions.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Core Merging & Data Preservation Logic' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Core Merging & Data Preservation Logic' (Protocol in workflow.md)
 
 ## Phase 3: Edge Function Sync & Production Prep
 - [ ] Task: Edge Function Local Verification
