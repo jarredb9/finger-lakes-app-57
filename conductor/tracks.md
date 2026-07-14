@@ -12,7 +12,7 @@
 | **community-activity-feed** | Global Discovery & Activity Feed | ⚪ Waiting | [Plan](./tracks/community-activity-feed/plan.md) |
 | **social-visit-tagging** | Social Visit Tagging & Shared History | ⚪ Waiting | [Plan](./tracks/social-visit-tagging/plan.md) |
 | **taste-profiles-recommendations** | Taste Profiles & Smart Recommendations | ⚪ Waiting | [Plan](./tracks/taste-profiles-recommendations/plan.md) |
-| **winery-details-bug-fixes_20260713** | Winery Details Cache Pollution and Review Count Fixes | [ ] New | [Plan](./tracks/winery-details-bug-fixes_20260713/plan.md) |
+| **winery-details-bug-fixes_20260713** | Winery Details Cache Pollution and Review Count Fixes | [x] Archived | [Plan](./archive/winery-details-bug-fixes_20260713/plan.md) |
 
 ---
 
@@ -31,8 +31,3 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 ## 3. [Priority 4] Search Function Upgrade & Mobile UX
 "Search My Location" and proactive search UX improvements.
 *Link: [./tracks/search-upgrade_20260423/](./tracks/search-upgrade_20260423/)*
-
----
-
-- [ ] **Track: Fix WineryModal Cache Pollution and Missing userRatingCount**
-*Link: [./tracks/winery-details-bug-fixes_20260713/](./tracks/winery-details-bug-fixes_20260713/)*

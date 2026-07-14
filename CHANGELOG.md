@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.13.1] - 2026-07-14
+
+**Winery Details Cache Pollution and Review Count Fixes**
+
+### ⚙ Bug Fixes
+*   **Winery Details Cache Pollution**:
+    *   Added merge guards in `standardizeWineryData` to prevent basic map marker updates and null fields from overwriting enriched winery details (phone, website, opening hours, reviews, rating, user rating count).
+    *   Preserved `enrichment_tier` state and prevented downgrade from `'enriched'`/`'full'` to `'basic'`.
+    *   Explicitly cleared `visits` array when the source payload reports `user_visited: false` to prevent "ghost visits".
+    *   Updated `upsertWinery` and `bulkUpsertWineries` in `wineryDataStore` to utilize `standardizeWineryData` instead of object spreading.
+*   **Edge Function Integration**:
+    *   Updated the `get-winery-details` Edge Function to fetch `userRatingCount` in the field mask and map it correctly using `normalizeGooglePlaceV1`.
+*   **Testing**:
+    *   Added Jest unit tests for `wineryDataStore` verifying detailed field preservation.
+    *   Added Playwright E2E coverage for cache pollution prevention under panning/map updates.
+
 ## [2.13.0] - 2026-07-10
 
 **PWA Client Resilience, Write Idempotency, AI Summaries & Social Webhooks**

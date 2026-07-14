@@ -2,4 +2,6 @@
 
 - [Specification](./spec.md)
 - [Implementation Plan](./plan.md)
+- [Deployment Steps](./DEPLOYMENT.md)
 - [Metadata](./metadata.json)
+
