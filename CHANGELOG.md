@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.13.2] - 2026-07-14
+
+**Mobile Winery Modal Layout & Search UX Fixes**
+
+### ⚙ Bug Fixes
+*   **Mobile Winery Modal Layout**:
+    *   Anchored details modal to `top-4` with `translate-y-0` on mobile viewports.
+    *   Set modal width to `w-[95vw]` to keep responsive gutters on narrow screens.
+    *   Prevented horizontal panning/sliding by applying `overflow-x-hidden` on both `DialogContent` and the inner scroll wrapper.
+    *   Made the logistics grid columns stack on mobile viewports (`grid-cols-1 sm:grid-cols-2`) and added `flex-wrap` to actions and attribute status labels to avoid text clipping.
+*   **Search Input & Virtual Keyboard (Mobile)**:
+    *   Increased search input font size to `text-base` on mobile to prevent iOS Safari auto-zooming, reverting to `sm:text-sm` on larger viewports.
+    *   Dismisses the virtual keyboard immediately upon selecting a suggestion by blurring `document.activeElement`.
+    *   Introduced a 150ms delay before opening the details modal to allow the virtual keyboard to collapse and the mobile visual viewport to stabilize.
+*   **Edge Function Connection Utility**:
+    *   Configured `invokeFunction` to pass an empty `Authorization` header when no session exists, preventing local Supabase Edge Runtime crash.
+*   **Testing**:
+    *   Added Jest unit tests for PlaceAutocomplete text size classes and keyboard blur behavior.
+    *   Added Playwright visual layout tests for mobile viewport top anchoring.
+
 ## [2.13.1] - 2026-07-14
 
 **Winery Details Cache Pollution and Review Count Fixes**

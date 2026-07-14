@@ -77,6 +77,11 @@ export function PlaceAutocomplete({
   const handleSelectSuggestion = async (suggestion: google.maps.places.AutocompleteSuggestion) => {
     if (!suggestion.placePrediction) return;
     
+    // Dismiss virtual keyboard on suggestion select
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+
     const text = suggestion.placePrediction.text?.text || "";
     setInputValue(text);
     setIsOpen(false);
@@ -215,7 +220,7 @@ export function PlaceAutocomplete({
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => inputValue.length >= 3 && setIsOpen(true)}
-          className="pr-10 pl-9 h-9 w-full rounded-md border border-input bg-background text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="pr-10 pl-9 h-9 w-full rounded-md border border-input bg-background text-base sm:text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           autoComplete="off"
           data-testid="place-autocomplete-input"
         />

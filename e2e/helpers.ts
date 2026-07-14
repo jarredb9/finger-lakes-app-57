@@ -210,7 +210,10 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
   
   // Use toPass for the click and initial signal to handle hydration race conditions
   await expect(async () => {
-      await tab.click({ force: true });
+      const currentTab = await page.evaluate(() => (window as any).useUIStore?.getState().activeTab);
+      if (currentTab?.toLowerCase() !== tabName.toLowerCase()) {
+          await tab.click({ force: true });
+      }
       
       const containerIdMap = {
           'Explore': 'map-container',
