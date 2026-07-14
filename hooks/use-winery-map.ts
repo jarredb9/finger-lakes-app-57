@@ -172,9 +172,11 @@ export function useWineryMap(userId: string) {
       const dbId = await useWineryDataStore.getState().upsertEnrichedWinery(winery);
       const wineryWithDbId = { ...winery, dbId };
       
-      // 3. Open details modal
-      openWineryModal(winery.id);
-      ensureWineryDetails(winery.id);
+      // 3. Open details modal with a small delay (150ms) to allow keyboard collapse and viewport stabilization
+      setTimeout(() => {
+        openWineryModal(winery.id);
+        ensureWineryDetails(winery.id);
+      }, 150);
 
       // 4. Add to search results so it displays on the map immediately
       const { setSearchResults } = useMapStore.getState();
