@@ -1,4 +1,4 @@
-import { test, expect, mockGoogleMapsApi } from './utils';
+import { test, expect } from './utils';
 import { getSidebarContainer, login, navigateToTab } from './helpers';
 
 test.describe('Visual Regression Testing', () => {
@@ -21,8 +21,8 @@ test.describe('Visual Regression Testing', () => {
     });
   });
 
-  test('main dashboard visual baseline', async ({ page, user }) => {
-    await mockGoogleMapsApi(page, user.id, true);
+  test('main dashboard visual baseline', async ({ page, user, mockMaps }) => {
+    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     await login(page, user.email, user.password);
 
     // Ensure we are on Explore and the sidebar/sheet is active
@@ -41,7 +41,7 @@ test.describe('Visual Regression Testing', () => {
     });
   });
 
-  test('winery modal visual baseline', async ({ page, user }) => {
+  test('winery modal visual baseline', async ({ page, user, mockMaps }) => {
     const viewport = page.viewportSize();
     const isMobile = viewport && viewport.width < 768;
 
@@ -49,7 +49,7 @@ test.describe('Visual Regression Testing', () => {
         test.skip(true, 'Skipping modal visual scan on mobile due to visibility constraints in the interactive sheet');
     }
 
-    await mockGoogleMapsApi(page, user.id, true);
+    await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     await login(page, user.email, user.password);
 
     await navigateToTab(page, 'Explore');
