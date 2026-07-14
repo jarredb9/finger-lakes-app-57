@@ -44,7 +44,7 @@ export async function invokeFunction<T = any>(
   
   // Get active session. If none exists, set Authorization to empty to prevent 
   // local Supabase Edge Runtime from crashing on parsing the publishable key.
-  const { data: { session } } = await supabase.auth.getSession();
+  const session = supabase.auth ? (await supabase.auth.getSession())?.data?.session : null;
   const headers = { ...options?.headers };
   if (!session && !headers["Authorization"]) {
     headers["Authorization"] = "";
