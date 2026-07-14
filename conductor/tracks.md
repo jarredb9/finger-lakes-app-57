@@ -12,7 +12,7 @@
 | **community-activity-feed** | Global Discovery & Activity Feed | ⚪ Waiting | [Plan](./tracks/community-activity-feed/plan.md) |
 | **social-visit-tagging** | Social Visit Tagging & Shared History | ⚪ Waiting | [Plan](./tracks/social-visit-tagging/plan.md) |
 | **taste-profiles-recommendations** | Taste Profiles & Smart Recommendations | ⚪ Waiting | [Plan](./tracks/taste-profiles-recommendations/plan.md) |
-| **winery-details-bug-fixes_20260713** | Winery Details Cache Pollution and Review Count Fixes | [~] In Progress | [Plan](./tracks/winery-details-bug-fixes_20260713/plan.md) |
+| **winery-details-bug-fixes_20260713** | Winery Details Cache Pollution and Review Count Fixes | [x] Complete | [Plan](./tracks/winery-details-bug-fixes_20260713/plan.md) |
 
 ---
 
@@ -34,5 +34,5 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 
 ---
 
-- [~] **Track: Fix WineryModal Cache Pollution and Missing userRatingCount**
+- [x] **Track: Fix WineryModal Cache Pollution and Missing userRatingCount**
 *Link: [./tracks/winery-details-bug-fixes_20260713/](./tracks/winery-details-bug-fixes_20260713/)*
