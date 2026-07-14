@@ -136,4 +136,54 @@ describe("PlaceAutocomplete", () => {
       expect(mockOnPlaceSelect).toHaveBeenCalledWith(mockWineryObj, mockSdkPlace);
     });
   });
+
+  it("should have mobile-responsive text size classes (text-base sm:text-sm)", () => {
+    render(<PlaceAutocomplete onPlaceSelect={mockOnPlaceSelect} />);
+    const input = screen.getByTestId("place-autocomplete-input");
+    expect(input).toHaveClass("text-base");
+    expect(input).toHaveClass("sm:text-sm");
+  });
+
+  it("should call activeElement.blur() when a suggestion is selected", async () => {
+    const mockSuggestions = [
+      {
+        placePrediction: {
+          toPlace: () => ({ id: "place-1" }),
+          mainText: { text: "Mock Winery" },
+          secondaryText: { text: "123 mock address" },
+        },
+      },
+    ];
+    
+    (usePlacesAutocompleteSession as jest.Mock).mockReturnValue({
+      suggestions: mockSuggestions,
+      isLoading: false,
+      fetchSuggestions: mockFetchSuggestions,
+      fetchPlaceDetails: mockFetchPlaceDetails.mockResolvedValue({ id: "place-1" }),
+      setSuggestions: mockSetSuggestions,
+      refreshSessionToken: jest.fn(),
+    });
+
+    render(<PlaceAutocomplete onPlaceSelect={mockOnPlaceSelect} />);
+    
+    const input = screen.getByTestId("place-autocomplete-input");
+    input.focus();
+    expect(document.activeElement).toBe(input);
+
+    // Type and select
+    fireEvent.change(input, { target: { value: "mock winery" } });
+    await waitFor(() => {
+      expect(screen.getByTestId("place-autocomplete-results")).toBeVisible();
+    });
+
+    const spyBlur = jest.spyOn(input, 'blur');
+    const suggestionBtn = screen.getByTestId("autocomplete-option-0");
+    fireEvent.click(suggestionBtn);
+
+    await waitFor(() => {
+      expect(spyBlur).toHaveBeenCalled();
+    });
+    spyBlur.mockRestore();
+  });
 });
+

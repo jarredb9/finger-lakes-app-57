@@ -122,6 +122,50 @@ test.describe('Winery UI Integrity', () => {
     // Verify Clock icon is still there (since we have open_now)
     await expect(modal.locator('svg.lucide-clock')).toBeVisible();
   });
+
+  test('mobile viewport top anchoring layout check', async ({ page, mockMaps, user }) => {
+    // Set viewport to mobile dimension (e.g., 375x812)
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    // Init mocks and login
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
+    await login(page, user.email, user.password);
+    await waitForAppReady(page);
+
+    // Open a winery modal
+    const mockWineryId = 'mock-winery-hours';
+    const mockWinery = {
+      id: mockWineryId,
+      google_place_id: mockWineryId,
+      name: 'Winery with Hours',
+      address: '123 Vineyard Lane',
+      rating: 4.5,
+    };
+    
+    // Inject mock winery into the store
+    await page.evaluate((winery) => {
+      if ((window as any).useWineryDataStore) {
+        (window as any).useWineryDataStore.setState({ persistentWineries: [winery] });
+      }
+    }, mockWinery);
+
+    await page.evaluate((id) => {
+      if ((window as any).useUIStore) {
+        (window as any).useUIStore.getState().openWineryModal(id);
+      }
+    }, mockWineryId);
+
+    // Select the dialog content container
+    const dialogContent = page.getByTestId('winery-modal');
+    await expect(dialogContent).toBeVisible();
+
+    // Check CSS properties or bounding box layout for top anchoring on mobile
+    const box = await dialogContent.boundingBox();
+    expect(box).not.toBeNull();
+    
+    // We will verify the top coordinate aligns with expected top-4 (16px) or is near the top
+    expect(box!.y).toBeLessThanOrEqual(50); // Asserts top anchoring/offset on mobile viewport
+  });
 });
 
 test.describe('Winery Data Integrity (Standardization & Merge Guards)', () => {
@@ -237,4 +281,43 @@ test.describe('Winery Data Integrity (Standardization & Merge Guards)', () => {
 
     expect(fetchTriggered).toBe(true);
   });
+
+  test('mobile viewport top anchoring layout check', async ({ page, mockMaps, user }) => {
+    // Set viewport to mobile dimension
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
+    await login(page, user.email, user.password);
+    await waitForAppReady(page);
+
+    // Open winery modal
+    const mockWinery = {
+      id: 'mock-winery-hours',
+      google_place_id: 'mock-winery-hours',
+      name: 'Winery with Hours',
+      address: '123 Vineyard Lane',
+    };
+
+    await page.evaluate((winery) => {
+      if ((window as any).useWineryDataStore) {
+        (window as any).useWineryDataStore.setState({ persistentWineries: [winery] });
+      }
+    }, mockWinery);
+
+    await page.evaluate((id) => {
+      if ((window as any).useUIStore) {
+        (window as any).useUIStore.getState().openWineryModal(id);
+      }
+    }, mockWinery.id);
+
+    const dialogContent = page.getByTestId('winery-modal');
+    await expect(dialogContent).toBeVisible();
+
+    const box = await dialogContent.boundingBox();
+    expect(box).not.toBeNull();
+    // Mobile modals should be top anchored or positioned specifically (e.g. check top offset < 50px).
+    // This will fail because the modal is centered default on desktop/unadjusted views.
+    expect(box!.y).toBeLessThanOrEqual(50);
+  });
 });
+
