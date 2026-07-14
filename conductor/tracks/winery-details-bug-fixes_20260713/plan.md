@@ -10,7 +10,7 @@
     - [x] Verify both tests fail as expected (Red Phase).
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Test Scaffolding & Verification Setup' (Protocol in workflow.md)
 
-## Phase 2: Core Merging & Data Preservation Logic (Green Phase)
+## Phase 2: Core Merging & Data Preservation Logic (Green Phase) [checkpoint: 4498c0e]
 - [x] Task: Implement Merge Guards in Standardization Utility [61d1ff1]
     - [x] Edit `standardizeWineryData` in `lib/utils/winery.ts` to reject overwriting non-null/non-undefined properties (phone, website, openingHours, reviews, rating, userRatingCount) with basic marker properties or nulls unless the incoming source tier is `'enriched'` or `'full'`.
     - [x] Ensure that `enrichment_tier` is not downgraded from `'enriched'` or `'full'` to `'basic'`.
