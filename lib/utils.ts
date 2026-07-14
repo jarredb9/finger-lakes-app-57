@@ -41,9 +41,20 @@ export async function invokeFunction<T = any>(
   }
 
   const supabase = createClient();
+  
+  // Get active session. If none exists, set Authorization to empty to prevent 
+  // local Supabase Edge Runtime from crashing on parsing the publishable key.
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers = { ...options?.headers };
+  if (!session && !headers["Authorization"]) {
+    headers["Authorization"] = "";
+  }
 
   try {
-    const response = await supabase.functions.invoke(functionName, options);
+    const response = await supabase.functions.invoke(functionName, {
+      ...options,
+      headers,
+    });
     
     // In WebKit, sometimes the SDK returns an error object that is not a standard Error
     // if the fetch fails due to network issues while the browser thinks it's online.
