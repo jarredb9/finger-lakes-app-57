@@ -204,43 +204,63 @@ export const standardizeWineryData = (
     return null; 
   }
   
+  // Determine incoming and existing enrichment tiers
+  const incomingTier = source.enrichment_tier || source.enrichmentTier || (isWineryDetailsRpc(source) ? 'enriched' : undefined);
+  const isIncomingEnriched = incomingTier === 'enriched' || incomingTier === 'full';
+  const existingTier = existing?.enrichment_tier;
+  const enrichmentTier = (existingTier === 'enriched' || existingTier === 'full') && (incomingTier !== 'enriched' && incomingTier !== 'full')
+    ? existingTier
+    : (incomingTier || existingTier || 'basic');
+
+  // Helper to merge fields while preventing overwriting of enriched data by basic markers
+  const mergeField = <T>(newVal: T | null | undefined, existingVal: T | null | undefined): T | null | undefined => {
+    if (!isIncomingEnriched && existingVal !== undefined && existingVal !== null) {
+      return existingVal;
+    }
+    return newVal !== undefined && newVal !== null ? newVal : existingVal;
+  };
+
   // Conditionally access properties using type guards
   const name = source.name || existing?.name || 'Unknown Winery';
   const address = isGoogleWinery(source) ? (source.formatted_address || source.address) : source.address;
   
   // Resolve fields from source, preserving existing data if source is null/undefined (Merge Guard)
   const sourcePhone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? (source as any).phone : isWineryDetailsRpc(source) ? (source as any).phone : source.phone);
-  const phone = sourcePhone !== undefined && sourcePhone !== null ? sourcePhone : existing?.phone;
+  const phone = mergeField(sourcePhone, existing?.phone);
 
   const sourceWebsite = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? (source as any).website : source.website);
-  const website = sourceWebsite !== undefined && sourceWebsite !== null ? sourceWebsite : existing?.website;
+  const website = mergeField(sourceWebsite, existing?.website);
 
-  const sourceRating = isGoogleWinery(source) ? (source.rating || source.google_rating) : isRawDbWinery(source) ? source.google_rating : (isMapMarkerRpc(source) ? (source as any).google_rating : isWineryDetailsRpc(source) ? (source as any).google_rating : source.rating);
-  const rating = sourceRating !== undefined && sourceRating !== null ? sourceRating : existing?.rating;
+  const sourceRating = isGoogleWinery(source) 
+    ? (source.rating || source.google_rating) 
+    : isRawDbWinery(source) 
+        ? source.google_rating 
+        : (isMapMarkerRpc(source) 
+            ? ((source as any).google_rating ?? (source as any).rating) 
+            : isWineryDetailsRpc(source) 
+                ? ((source as any).google_rating ?? (source as any).rating) 
+                : source.rating);
+  const rating = mergeField(sourceRating, existing?.rating);
 
   const sourceUserRatingCount = isGoogleWinery(source) 
     ? source.userRatingCount 
     : isRawDbWinery(source) 
         ? (source as any).user_rating_count 
         : (isWineryDetailsRpc(source) 
-            ? (source as any).user_rating_count 
+            ? ((source as any).user_rating_count ?? (source as any).userRatingCount) 
             : (source.userRatingCount ?? (source as any).user_rating_count ?? null));
-  
-  const userRatingCount = (sourceUserRatingCount !== undefined && sourceUserRatingCount !== null) 
-    ? sourceUserRatingCount 
-    : (existing?.userRatingCount ?? null);
+  const userRatingCount = mergeField(sourceUserRatingCount, existing?.userRatingCount);
 
   // Handle openingHours more carefully to avoid overwriting with null if missing from source
   const sourceOpeningHoursRaw = isGoogleWinery(source) 
     ? source.opening_hours 
     : (isWineryDetailsRpc(source) 
-        ? (source as any).opening_hours 
+        ? ((source as any).opening_hours ?? (source as any).openingHours) 
         : (isRawDbWinery(source) 
             ? source.opening_hours 
-            : (isMapMarkerRpc(source) ? (source as any).opening_hours : (source.openingHours || (source as any).opening_hours))));
-  
+            : (isMapMarkerRpc(source) ? ((source as any).opening_hours ?? (source as any).openingHours) : (source.openingHours || (source as any).opening_hours))));
   const parsedOpeningHours = parseOpeningHoursJson(sourceOpeningHoursRaw);
-  const openingHours = parsedOpeningHours !== undefined && parsedOpeningHours !== null ? parsedOpeningHours : existing?.openingHours;
+  const openingHours = mergeField(parsedOpeningHours, existing?.openingHours);
   
   const rawReviewsSource = (
     isGoogleWinery(source)
@@ -250,7 +270,7 @@ export const standardizeWineryData = (
           : (isRawDbWinery(source) ? source.reviews : source.reviews))
   );
   const parsedReviews = parseReviewsJson(rawReviewsSource);
-  const reviews = parsedReviews !== undefined && parsedReviews !== null ? parsedReviews : existing?.reviews;
+  const reviews = mergeField(parsedReviews, existing?.reviews);
 
   const sourceReservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? (source as any).reservable : (isRawDbWinery(source) ? source.reservable : source.reservable));
   const reservable = sourceReservable !== undefined && sourceReservable !== null ? sourceReservable : existing?.reservable;
@@ -263,7 +283,6 @@ export const standardizeWineryData = (
   const wishlistIsPrivate = source.on_wishlist_private !== undefined ? source.on_wishlist_private : (source.wishlist_is_private !== undefined ? source.wishlist_is_private : (existing?.wishlistIsPrivate ?? false));
 
   // Enrichment (Places API v1)
-  const enrichmentTier = source.enrichment_tier || existing?.enrichment_tier;
   const lastEnrichedAt = source.last_enriched_at || existing?.last_enriched_at;
   
   // Handle generative_summary potentially being an object (from DB) or a string (from Edge Function)
@@ -272,19 +291,22 @@ export const standardizeWineryData = (
       const summaryObj = generativeSummary as any;
       generativeSummary = summaryObj.overview?.text || summaryObj.text || null;
   }
+  generativeSummary = mergeField(generativeSummary, existing?.generative_summary);
   
   let neighborhoodSummary = source.neighborhood_summary !== undefined ? source.neighborhood_summary : (source.neighborhoodSummary !== undefined ? source.neighborhoodSummary : existing?.neighborhood_summary);
   if (typeof neighborhoodSummary === 'object' && neighborhoodSummary !== null) {
       const summaryObj = neighborhoodSummary as any;
       neighborhoodSummary = summaryObj.overview?.text || summaryObj.text || null;
   }
+  neighborhoodSummary = mergeField(neighborhoodSummary, existing?.neighborhood_summary);
 
-  const allowsDogs = source.allows_dogs !== undefined ? source.allows_dogs : existing?.allows_dogs;
-  const hasEvCharging = source.has_ev_charging !== undefined ? source.has_ev_charging : existing?.has_ev_charging;
-  const servesWine = source.serves_wine !== undefined ? source.serves_wine : existing?.serves_wine;
-  const goodForChildren = source.good_for_children !== undefined ? source.good_for_children : existing?.good_for_children;
-  const outdoorSeating = source.outdoor_seating !== undefined ? source.outdoor_seating : existing?.outdoor_seating;
-  let parkingOptions = source.parking_options !== undefined ? source.parking_options : existing?.parking_options;
+  const allowsDogs = mergeField(source.allows_dogs !== undefined ? source.allows_dogs : null, existing?.allows_dogs);
+  const hasEvCharging = mergeField(source.has_ev_charging !== undefined ? source.has_ev_charging : null, existing?.has_ev_charging);
+  const servesWine = mergeField(source.serves_wine !== undefined ? source.serves_wine : null, existing?.serves_wine);
+  const goodForChildren = mergeField(source.good_for_children !== undefined ? source.good_for_children : null, existing?.good_for_children);
+  const outdoorSeating = mergeField(source.outdoor_seating !== undefined ? source.outdoor_seating : null, existing?.outdoor_seating);
+  
+  let parkingOptions = source.parking_options !== undefined ? source.parking_options : null;
   if (parkingOptions && typeof parkingOptions === 'object' && !Array.isArray(parkingOptions)) {
     const pObj = parkingOptions as Record<string, any>;
     if (pObj.freeParking === undefined) {
@@ -315,13 +337,20 @@ export const standardizeWineryData = (
       }
     }
   }
-  const accessibilityOptions = source.accessibility_options !== undefined 
-    ? source.accessibility_options 
-    : (source.accessibility_flags !== undefined ? source.accessibility_flags : existing?.accessibility_options);
+  parkingOptions = mergeField(parkingOptions, existing?.parking_options);
 
-  const primaryPhotoReference = source.primary_photo_reference !== undefined ? source.primary_photo_reference : (source.primaryPhotoReference !== undefined ? source.primaryPhotoReference : existing?.primary_photo_reference);
-  const photoReferences = source.photo_references !== undefined ? source.photo_references : (source.photoReferences !== undefined ? source.photoReferences : existing?.photo_references);
-  const cachedPhotos = source.cached_photos !== undefined ? source.cached_photos : existing?.cached_photos;
+  const sourceAccessibility = source.accessibility_options !== undefined 
+    ? source.accessibility_options 
+    : (source.accessibility_flags !== undefined ? source.accessibility_flags : null);
+  const accessibilityOptions = mergeField(sourceAccessibility, existing?.accessibility_options);
+
+  const sourcePrimaryPhoto = source.primary_photo_reference !== undefined ? source.primary_photo_reference : (source.primaryPhotoReference !== undefined ? source.primaryPhotoReference : null);
+  const primaryPhotoReference = mergeField(sourcePrimaryPhoto, existing?.primary_photo_reference);
+
+  const sourcePhotoRefs = source.photo_references !== undefined ? source.photo_references : (source.photoReferences !== undefined ? source.photoReferences : null);
+  const photoReferences = mergeField(sourcePhotoRefs, existing?.photo_references);
+
+  const cachedPhotos = mergeField(source.cached_photos !== undefined ? source.cached_photos : null, existing?.cached_photos);
 
   // Logic to preserve existing visits unless new data overrides it
   // CRITICAL FIX: If source explicitly says userVisited is false, we MUST clear the visits array to prevent "ghost visits"
