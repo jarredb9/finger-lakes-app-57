@@ -107,10 +107,10 @@ export function useWineryMap(userId: string) {
         if (lastSearched) {
           const ne = currentBounds.getNorthEast();
           const sw = currentBounds.getSouthWest();
-          const neLat = ne.lat ?? ne[1];
-          const neLng = ne.lng ?? ne[0];
-          const swLat = sw.lat ?? sw[1];
-          const swLng = sw.lng ?? sw[0];
+          const neLat = typeof ne.lat === "function" ? ne.lat() : ne.lat ?? ne[1];
+          const neLng = typeof ne.lng === "function" ? ne.lng() : ne.lng ?? ne[0];
+          const swLat = typeof sw.lat === "function" ? sw.lat() : sw.lat ?? sw[1];
+          const swLng = typeof sw.lng === "function" ? sw.lng() : sw.lng ?? sw[0];
 
           const isContained = isCoordinateInBounds({ latitude: neLat, longitude: neLng }, lastSearched) && 
                               isCoordinateInBounds({ latitude: swLat, longitude: swLng }, lastSearched);
@@ -192,11 +192,11 @@ export function useWineryMap(userId: string) {
 
     if (isWineryType) {
       // 1. Center on winery
-      if (typeof map.setCenter === "function") {
+      if (typeof map.flyTo === "function") {
+        map.flyTo({ center: [winery.longitude, winery.latitude], zoom: 16 });
+      } else if (typeof map.setCenter === "function") {
         map.setCenter({ lat: winery.latitude, lng: winery.longitude });
         map.setZoom(16);
-      } else if (typeof map.flyTo === "function") {
-        map.flyTo({ center: [winery.longitude, winery.latitude], zoom: 16 });
       }
 
       // 2. Save/upsert to store & database with full enriched fields
@@ -225,11 +225,11 @@ export function useWineryMap(userId: string) {
           map.fitBounds([[coords.swLng, coords.swLat], [coords.neLng, coords.neLat]], { padding: 50 });
         }
       } else {
-        if (typeof map.setCenter === "function") {
+        if (typeof map.flyTo === "function") {
+          map.flyTo({ center: [winery.longitude, winery.latitude], zoom: 13 });
+        } else if (typeof map.setCenter === "function") {
           map.setCenter({ lat: winery.latitude, lng: winery.longitude });
           map.setZoom(13);
-        } else if (typeof map.flyTo === "function") {
-          map.flyTo({ center: [winery.longitude, winery.latitude], zoom: 13 });
         }
       }
       

@@ -178,6 +178,7 @@ function GoogleMapFallback({
   useEffect(() => {
     if (!mapRef.current) return;
     const gmap = mapRef.current.gmap;
+    let active = true;
 
     // Clear old markers
     markersRef.current.forEach(m => m.setMap(null));
@@ -193,6 +194,7 @@ function GoogleMapFallback({
     allWineries.forEach(async (winery) => {
       const markerLib = await getGoogleLibrary("marker");
       const mapsLib = await getGoogleLibrary("maps");
+      if (!active) return;
       
       const pinColors = {
         favorite: '#eab308', // Gold
@@ -236,6 +238,10 @@ function GoogleMapFallback({
 
       markersRef.current.push(marker);
     });
+
+    return () => {
+      active = false;
+    };
   }, [discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, onMarkerClick]);
 
   return <div ref={containerRef} className="w-full h-full" />;

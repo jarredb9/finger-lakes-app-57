@@ -93,11 +93,11 @@ export function useWinerySearch() {
             } else if (geometry.location) {
               const point = geometry.location;
               if (map) {
-                if (typeof map.setCenter === 'function') {
+                if (typeof map.flyTo === 'function') {
+                  map.flyTo({ center: [point.lng(), point.lat()], zoom: 13 });
+                } else if (typeof map.setCenter === 'function') {
                   map.setCenter({ lat: point.lat(), lng: point.lng() });
                   map.setZoom(13);
-                } else if (typeof map.flyTo === 'function') {
-                  map.flyTo({ center: [point.lng(), point.lat()], zoom: 13 });
                 }
               }
               const offset = 0.05;

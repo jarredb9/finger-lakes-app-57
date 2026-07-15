@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { AuthenticatedUser } from "@/lib/types";
 import { WineryMapProvider } from "@/components/winery-map-context";
+import { MapProvider } from "react-map-gl/mapbox";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
@@ -296,8 +297,10 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
 export function AppShell(props: AppShellProps) {
     return (
-        <WineryMapProvider user={props.user}>
-            <AppShellContent {...props} />
-        </WineryMapProvider>
+        <MapProvider>
+            <WineryMapProvider user={props.user}>
+                <AppShellContent {...props} />
+            </WineryMapProvider>
+        </MapProvider>
     );
 }
