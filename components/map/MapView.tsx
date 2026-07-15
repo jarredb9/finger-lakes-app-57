@@ -202,8 +202,9 @@ function GoogleMapFallback({
   visitedWineries,
   wishlistWineries,
   favoriteWineries,
+  filter,
   onMarkerClick
-}: Omit<MapViewProps, "filter" | "selectedTrip">) {
+}: Omit<MapViewProps, "selectedTrip">) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GoogleMapAdapter | null>(null);
   const markersRef = useRef<any[]>([]);
@@ -271,12 +272,22 @@ function GoogleMapFallback({
     markersRef.current.forEach(m => m.setMap(null));
     markersRef.current = [];
 
-    const allWineries = [
-      ...discoveredWineries.map(w => ({ ...w, type: 'discovered' })),
-      ...visitedWineries.map(w => ({ ...w, type: 'visited' })),
-      ...wishlistWineries.map(w => ({ ...w, type: 'wishlist' })),
-      ...favoriteWineries.map(w => ({ ...w, type: 'favorite' })),
-    ];
+    const hasCategory = filter.some(f => ["all", "visited", "favorites", "wantToGo", "notVisited"].includes(f));
+    const showAll = filter.includes("all") || !hasCategory;
+
+    const allWineries: any[] = [];
+    if (showAll || filter.includes("notVisited")) {
+      allWineries.push(...discoveredWineries.map(w => ({ ...w, type: 'discovered' })));
+    }
+    if (showAll || filter.includes("visited")) {
+      allWineries.push(...visitedWineries.map(w => ({ ...w, type: 'visited' })));
+    }
+    if (showAll || filter.includes("wantToGo")) {
+      allWineries.push(...wishlistWineries.map(w => ({ ...w, type: 'wishlist' })));
+    }
+    if (showAll || filter.includes("favorites")) {
+      allWineries.push(...favoriteWineries.map(w => ({ ...w, type: 'favorite' })));
+    }
 
     allWineries.forEach(async (winery) => {
       const markerLib = await getGoogleLibrary("marker");
@@ -329,7 +340,7 @@ function GoogleMapFallback({
     return () => {
       active = false;
     };
-  }, [discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, onMarkerClick]);
+  }, [discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, onMarkerClick]);
 
   return (
     <div className="relative w-full h-full bg-muted">
@@ -366,7 +377,7 @@ const MapView = memo(({
   visitedWineries,
   wishlistWineries,
   favoriteWineries,
-  filter: _filter,
+  filter,
   onMarkerClick,
   selectedTrip: _selectedTrip
 }: MapViewProps) => {
@@ -419,16 +430,26 @@ const MapView = memo(({
     };
   }, [setMap]);
 
-  // Combine and type all wineries
+  // Combine and type all wineries based on selected filters
   const allWineries = useMemo(() => {
-    const combined = [
-      ...discoveredWineries.map(w => ({ ...w, type: "discovered" })),
-      ...visitedWineries.map(w => ({ ...w, type: "visited" })),
-      ...wishlistWineries.map(w => ({ ...w, type: "wishlist" })),
-      ...favoriteWineries.map(w => ({ ...w, type: "favorite" })),
-    ];
-    return combined;
-  }, [discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries]);
+    const hasCategory = filter.some(f => ["all", "visited", "favorites", "wantToGo", "notVisited"].includes(f));
+    const showAll = filter.includes("all") || !hasCategory;
+
+    const list: any[] = [];
+    if (showAll || filter.includes("notVisited")) {
+      list.push(...discoveredWineries.map(w => ({ ...w, type: "discovered" })));
+    }
+    if (showAll || filter.includes("visited")) {
+      list.push(...visitedWineries.map(w => ({ ...w, type: "visited" })));
+    }
+    if (showAll || filter.includes("wantToGo")) {
+      list.push(...wishlistWineries.map(w => ({ ...w, type: "wishlist" })));
+    }
+    if (showAll || filter.includes("favorites")) {
+      list.push(...favoriteWineries.map(w => ({ ...w, type: "favorite" })));
+    }
+    return list;
+  }, [discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter]);
  
   // Convert wineries to GeoJSON for Mapbox Source
   const wineriesGeoJSON = useMemo(() => {
@@ -500,6 +521,7 @@ const MapView = memo(({
         visitedWineries={visitedWineries}
         wishlistWineries={wishlistWineries}
         favoriteWineries={favoriteWineries}
+        filter={filter}
         onMarkerClick={onMarkerClick}
       />
     );
