@@ -29,3 +29,4 @@
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions (31562ea)
+- [x] Task: Adjust mobile Google attribution badge positioning (947dc86)
