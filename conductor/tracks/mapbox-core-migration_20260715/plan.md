@@ -1,6 +1,6 @@
 # Track Plan: Core Mapbox Migration & Rendering (mapbox-core-migration_20260715)
 
-## Phase 1: Dependencies and Foundation
+## Phase 1: Dependencies and Foundation [checkpoint: 7cb364a]
 - [x] Task: Uninstall `@vis.gl/react-google-maps` and `@googlemaps/markerclusterer` from package dependencies. (952ec7b)
 - [x] Task: Install `react-map-gl` and `mapbox-gl` as dependencies, and `@types/mapbox-gl` as devDependencies. (952ec7b)
 - [x] Task: Install `@googlemaps/js-api-loader` to support client-side Google Places Autocomplete API calls. (952ec7b)
