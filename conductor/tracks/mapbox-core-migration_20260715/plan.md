@@ -20,11 +20,11 @@
 - [x] Task: Conductor - User Manual Verification 'React Context & Hook Refactoring' (Protocol in workflow.md)
 
 ## Phase 3: Component Rewrite & Style Switcher
-- [ ] Task: Rewrite `components/WineryMap.tsx` and `components/map/MapView.tsx` to render the `react-map-gl` canvas.
-- [ ] Task: Re-implement custom winery clustering using Mapbox's built-in source clustering.
-- [ ] Task: Implement custom, high-fidelity cluster markers styled to match shadcn/ui (circular, showing count, color-coded by density/winery counts).
-- [ ] Task: Implement the floating Style Switcher control on the map canvas allowing toggle between Outdoors and Streets styles.
-- [ ] Task: Implement the floating Google attribution badge in the bottom-left corner of the map (retaining term compliance).
+- [x] Task: Rewrite `components/WineryMap.tsx` and `components/map/MapView.tsx` to render the `react-map-gl` canvas.
+- [x] Task: Re-implement custom winery clustering using Mapbox's built-in source clustering.
+- [x] Task: Implement custom, high-fidelity cluster markers styled to match shadcn/ui (circular, showing count, color-coded by density/winery counts).
+- [x] Task: Implement the floating Style Switcher control on the map canvas allowing toggle between Outdoors and Streets styles.
+- [x] Task: Implement the floating Google attribution badge in the bottom-left corner of the map (retaining term compliance).
 - [ ] Task: Conductor - User Manual Verification 'Component Rewrite & Style Switcher' (Protocol in workflow.md)
 
 ## Phase: Review Fixes
