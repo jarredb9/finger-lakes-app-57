@@ -26,3 +26,6 @@
 - [ ] Task: Implement the floating Style Switcher control on the map canvas allowing toggle between Outdoors and Streets styles.
 - [ ] Task: Implement the floating Google attribution badge in the bottom-left corner of the map (retaining term compliance).
 - [ ] Task: Conductor - User Manual Verification 'Component Rewrite & Style Switcher' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions (31562ea)
