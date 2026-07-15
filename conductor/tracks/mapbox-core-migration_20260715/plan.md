@@ -7,7 +7,7 @@
 - [x] Task: Update environmental templates (`.env.local.example`) and configurations to include `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`. (952ec7b)
 - [x] Task: Write failing unit tests for coordinate translation helpers (e.g., converting coordinate objects `{ latitude, longitude }` to Mapbox `[longitude, latitude]` arrays). (952ec7b)
 - [x] Task: Implement coordinate translation helpers in `lib/utils/map-utils.ts` and verify unit tests pass. (952ec7b)
-- [ ] Task: Conductor - User Manual Verification 'Dependencies and Foundation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Dependencies and Foundation' (Protocol in workflow.md) (9fba07a)
 
 ## Phase 2: React Context, Hook & Store Refactoring
 - [ ] Task: Refactor `lib/stores/mapStore.ts` to replace `google.maps.Map` and bounds types with Mapbox-compatible types.
