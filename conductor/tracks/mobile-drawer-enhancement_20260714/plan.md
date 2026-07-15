@@ -17,7 +17,7 @@ This plan covers transitioning the mobile navigation to a modern floating pill l
     - [ ] Verify test failures in `e2e/mobile-nav-drawer.spec.ts` have changed or pass for nav-bar elements.
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Floating Navigation Bar and Tab Styling' (Protocol in workflow.md)
 
-## Phase 3: Bottom Sheet Docking Integration & Verification
+## Phase 3: Bottom Sheet Docking Integration & Verification [checkpoint: ea3325c]
 - [x] Task: Adjust Sheet Docking and Verify E2E (7ace97b)
     - [ ] Adjust `InteractiveBottomSheet` styles/props in `components/app-shell.tsx` (and `components/ui/interactive-bottom-sheet.tsx` if needed) to dock cleanly above the new floating pill position (e.g. `bottom-24` instead of `bottom-16`).
     - [ ] Run E2E tests (`e2e/mobile-nav-drawer.spec.ts`, `e2e/smoke.spec.ts`) and confirm they all pass (Green Phase).
