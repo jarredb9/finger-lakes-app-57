@@ -1,12 +1,12 @@
 # Track Plan: Core Mapbox Migration & Rendering (mapbox-core-migration_20260715)
 
 ## Phase 1: Dependencies and Foundation
-- [ ] Task: Uninstall `@vis.gl/react-google-maps` and `@googlemaps/markerclusterer` from package dependencies.
-- [ ] Task: Install `react-map-gl` and `mapbox-gl` as dependencies, and `@types/mapbox-gl` as devDependencies.
-- [ ] Task: Install `@googlemaps/js-api-loader` to support client-side Google Places Autocomplete API calls.
-- [ ] Task: Update environmental templates (`.env.local.example`) and configurations to include `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`.
-- [ ] Task: Write failing unit tests for coordinate translation helpers (e.g., converting coordinate objects `{ latitude, longitude }` to Mapbox `[longitude, latitude]` arrays).
-- [ ] Task: Implement coordinate translation helpers in `lib/utils/map-utils.ts` and verify unit tests pass.
+- [x] Task: Uninstall `@vis.gl/react-google-maps` and `@googlemaps/markerclusterer` from package dependencies. (952ec7b)
+- [x] Task: Install `react-map-gl` and `mapbox-gl` as dependencies, and `@types/mapbox-gl` as devDependencies. (952ec7b)
+- [x] Task: Install `@googlemaps/js-api-loader` to support client-side Google Places Autocomplete API calls. (952ec7b)
+- [x] Task: Update environmental templates (`.env.local.example`) and configurations to include `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN`. (952ec7b)
+- [x] Task: Write failing unit tests for coordinate translation helpers (e.g., converting coordinate objects `{ latitude, longitude }` to Mapbox `[longitude, latitude]` arrays). (952ec7b)
+- [x] Task: Implement coordinate translation helpers in `lib/utils/map-utils.ts` and verify unit tests pass. (952ec7b)
 - [ ] Task: Conductor - User Manual Verification 'Dependencies and Foundation' (Protocol in workflow.md)
 
 ## Phase 2: React Context, Hook & Store Refactoring
