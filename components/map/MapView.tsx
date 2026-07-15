@@ -1,10 +1,12 @@
 "use client";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef } from "react";
 import MapboxMap from "react-map-gl/mapbox";
 import mapboxgl from "mapbox-gl";
 import { Winery, Trip } from "@/lib/types";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
+
+import { useMounted } from "@/hooks/use-mounted";
 
 interface MapViewProps {
   discoveredWineries: Winery[];
@@ -253,10 +255,13 @@ function GoogleMapFallback({
 const MapView = memo(
   (props: MapViewProps) => {
     const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
-    const [isSupported] = useState<boolean>(() => {
-      if (typeof window === "undefined") return true;
-      return mapboxgl.supported();
-    });
+    const mounted = useMounted();
+
+    if (!mounted) {
+      return <div className="h-full w-full bg-muted" />;
+    }
+
+    const isSupported = mapboxgl.supported();
 
     if (!isSupported) {
       return (
