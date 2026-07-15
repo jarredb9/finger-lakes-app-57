@@ -14,7 +14,7 @@
 | **taste-profiles-recommendations** | Taste Profiles & Smart Recommendations | ⚪ Waiting | [Plan](./tracks/taste-profiles-recommendations/plan.md) |
 | **winery-details-bug-fixes_20260713** | Winery Details Cache Pollution and Review Count Fixes | [x] Archived | [Plan](./archive/winery-details-bug-fixes_20260713/plan.md) |
 | **mobile-winery-modal-fixes_20260714** | Mobile Winery Modal & Search UX Fixes | [x] Archived | [Plan](./archive/mobile-winery-modal-fixes_20260714/plan.md) |
-| **mobile-drawer-enhancement_20260714** | Mobile Bottom Drawer & Navigation Enhancement | [~] In Progress | [Plan](./tracks/mobile-drawer-enhancement_20260714/plan.md) |
+| **mobile-drawer-enhancement_20260714** | Mobile Bottom Drawer & Navigation Enhancement | [x] Complete | [Plan](./tracks/mobile-drawer-enhancement_20260714/plan.md) |
 
 ---
 
@@ -36,5 +36,5 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 
 ---
 
-- [~] **Track: Mobile Bottom Navigation and Drawer Enhancement**
+- [x] **Track: Mobile Bottom Navigation and Drawer Enhancement**
 *Link: [./tracks/mobile-drawer-enhancement_20260714/](./tracks/mobile-drawer-enhancement_20260714/)*
