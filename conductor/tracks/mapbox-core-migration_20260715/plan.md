@@ -9,14 +9,15 @@
 - [x] Task: Implement coordinate translation helpers in `lib/utils/map-utils.ts` and verify unit tests pass. (952ec7b)
 - [x] Task: Conductor - User Manual Verification 'Dependencies and Foundation' (Protocol in workflow.md) (9fba07a)
 
-## Phase 2: React Context, Hook & Store Refactoring
-- [ ] Task: Refactor `lib/stores/mapStore.ts` to replace `google.maps.Map` and bounds types with Mapbox-compatible types.
-- [ ] Task: Refactor `hooks/use-winery-map.ts` to manage Mapbox camera states, zoom thresholds, and viewport bounding boxes.
-- [ ] Task: Refactor `hooks/use-winery-filter.ts` to support Mapbox bounds containment checks (replacing Google's `bounds.contains`).
-- [ ] Task: Refactor `components/winery-map-context.tsx` to expose Mapbox-compatible event handlers, map instance refs, and bounds calculations.
-- [ ] Task: Delete `components/google-maps-provider.tsx` and `components/generic-marker-clusterer.tsx`. Refactor `components/app-shell.tsx` to remove references to `GoogleMapsProvider`.
-- [ ] Task: Ensure TypeScript types compile and existing codebases do not break.
-- [ ] Task: Conductor - User Manual Verification 'React Context & Hook Refactoring' (Protocol in workflow.md)
+## Phase 2: React Context, Hook & Store Refactoring [checkpoint: 126f6d9]
+- [x] Task: Refactor `lib/stores/mapStore.ts` to replace `google.maps.Map` and bounds types with Mapbox-compatible types.
+- [x] Task: Refactor `hooks/use-winery-map.ts` to manage Mapbox camera states, zoom thresholds, and viewport bounding boxes.
+- [x] Task: Refactor `hooks/use-winery-filter.ts` to support Mapbox bounds containment checks (replacing Google's `bounds.contains`).
+- [x] Task: Refactor `components/winery-map-context.tsx` to expose Mapbox-compatible event handlers, map instance refs, and bounds calculations.
+- [x] Task: Delete `components/google-maps-provider.tsx` and `components/generic-marker-clusterer.tsx`. Refactor `components/app-shell.tsx` to remove references to `GoogleMapsProvider`.
+- [x] Task: Ensure TypeScript types compile and existing codebases do not break.
+- [x] Task: Implement integrated, full-screen immersive Google Street View action button inside Winery Modal with overlay hiding and state preservation.
+- [x] Task: Conductor - User Manual Verification 'React Context & Hook Refactoring' (Protocol in workflow.md)
 
 ## Phase 3: Component Rewrite & Style Switcher
 - [ ] Task: Rewrite `components/WineryMap.tsx` and `components/map/MapView.tsx` to render the `react-map-gl` canvas.

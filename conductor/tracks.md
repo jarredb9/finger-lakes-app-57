@@ -15,7 +15,7 @@
 | **winery-details-bug-fixes_20260713** | Winery Details Cache Pollution and Review Count Fixes | [x] Archived | [Plan](./archive/winery-details-bug-fixes_20260713/plan.md) |
 | **mobile-winery-modal-fixes_20260714** | Mobile Winery Modal & Search UX Fixes | [x] Archived | [Plan](./archive/mobile-winery-modal-fixes_20260714/plan.md) |
 | **mobile-drawer-enhancement_20260714** | Mobile Bottom Drawer & Navigation Enhancement | [x] Archived | [Plan](./archive/mobile-drawer-enhancement_20260714/plan.md) |
-| **mapbox-core-migration_20260715** | Core Mapbox Migration & Rendering | ⚪ Priority 1 | [Plan](./tracks/mapbox-core-migration_20260715/plan.md) |
+| **mapbox-core-migration_20260715** | Core Mapbox Migration & Rendering | [~] In Progress | [Plan](./tracks/mapbox-core-migration_20260715/plan.md) |
 | **mapbox-offline-testing_20260715** | Mapbox Offline Caching & Verification | ⚪ Priority 2 | [Plan](./tracks/mapbox-offline-testing_20260715/plan.md) |
 
 ---
@@ -38,7 +38,7 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 
 ---
 
-- [ ] **Track: Core Mapbox Migration & Rendering**
+- [~] **Track: Core Mapbox Migration & Rendering**
 *Link: [./tracks/mapbox-core-migration_20260715/](./tracks/mapbox-core-migration_20260715/)*
 
 ---
