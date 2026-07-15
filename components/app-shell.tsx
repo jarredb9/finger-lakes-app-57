@@ -125,7 +125,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
             {/* Main Map Area */}
             <div className="flex-1 relative w-full h-full">
-                <WineryMap />
+                <WineryMap className={isMobileSheetOpen ? "sheet-open" : "sheet-closed"} />
 
                 {/* Mobile User Avatar (Floating Top Right) */}
                 {isMobile === true && isStreetViewActive === false && (

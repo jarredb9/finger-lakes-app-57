@@ -566,7 +566,7 @@ const MapView = memo(({
       </div>
 
       {/* Floating Google Attribution Badge */}
-      <div className="absolute bottom-16 md:bottom-4 left-4 z-30 bg-background/95 backdrop-blur-sm px-2.5 py-1 rounded-md border shadow-md text-[10px] text-muted-foreground flex items-center gap-1 select-none pointer-events-none">
+      <div className="absolute bottom-24 group-[.sheet-open]:bottom-[calc(45vh+7.5rem)] md:bottom-4 left-4 z-30 bg-background/95 backdrop-blur-sm px-2.5 py-1 rounded-md border shadow-md text-[10px] text-muted-foreground flex items-center gap-1 select-none pointer-events-none transition-all duration-300">
         <span>Powered by</span>
         <span className="font-semibold text-foreground">Google</span>
       </div>
