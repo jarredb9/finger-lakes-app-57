@@ -282,6 +282,30 @@ test.describe('Winery Data Integrity (Standardization & Merge Guards)', () => {
     expect(fetchTriggered).toBe(true);
   });
 
+  test('should initialize map and run search query to populate wineries', async ({ page, mockMaps, user }) => {
+    // 1. Setup mock data
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
+    
+    // 2. Login
+    await login(page, user.email, user.password);
+    await waitForAppReady(page);
+
+    // 3. Verify that map is synchronized and search results are populated in the store
+    const mapState = await page.evaluate(() => {
+      // @ts-ignore
+      const map = window.useMapStore.getState().map;
+      // @ts-ignore
+      const searchResults = window.useMapStore.getState().searchResults;
+      return {
+        hasMap: !!map,
+        searchCount: searchResults?.length ?? 0
+      };
+    });
+
+    expect(mapState.hasMap).toBe(true);
+    expect(mapState.searchCount).toBeGreaterThan(0);
+  });
+
 });
 
 
