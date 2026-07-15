@@ -1,0 +1,8 @@
+{
+  "track_id": "mapbox-core-migration_20260715",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-07-15T09:49:00Z",
+  "updated_at": "2026-07-15T09:49:00Z",
+  "description": "Migrate Map Canvas to Hybrid Mapbox + Google Places Architecture (Track 1: Core Mapbox Migration & Rendering)"
+}
