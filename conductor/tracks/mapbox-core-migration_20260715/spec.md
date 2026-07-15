@@ -1,18 +1,24 @@
 # Track Specification: Core Mapbox Migration & Rendering (mapbox-core-migration_20260715)
 
 ## Overview
-Migrate the primary map rendering engine from `@vis.gl/react-google-maps` to Mapbox GL JS (`react-map-gl` v8.0.0+ / `mapbox-gl`) to lower Map Load API costs, support offline tile strategies (to be implemented in Track 2), and modernise the UI canvas. We will retain Google Places API v1 on the backend (via Supabase Edge Functions) for search, details, and metadata enrichment.
+Migrate the primary map rendering engine from `@vis.gl/react-google-maps` to Mapbox GL JS (`react-map-gl` v8.0.0+ / `mapbox-gl`) to lower Map Load API costs, support offline tile strategies (to be implemented in Track 2), and modernise the UI canvas. We will retain Google Places API v1 on the backend (via Supabase Edge Functions) for search, details, and metadata enrichment, and use `@googlemaps/js-api-loader` on the client-side for autocomplete loading.
 
 ## Functional Requirements
 - **Dependency Upgrades**:
   - Uninstall `@vis.gl/react-google-maps` and `@googlemaps/markerclusterer`.
   - Install `react-map-gl` and `mapbox-gl` (supporting React 19 / Next.js 16).
+  - Install devDependency `@types/mapbox-gl`.
+  - Install `@googlemaps/js-api-loader` to preserve Google Places autocomplete loading functionality.
   - Configure `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` in environmental files.
 - **Context & Hook Refactoring**:
   - Rewrite `hooks/use-winery-map.ts` to manage Mapbox camera states, viewport bounding boxes, and zoom configurations.
+  - Update `lib/stores/mapStore.ts` to store Mapbox map instances and serializable bounding boxes.
+  - Update `hooks/use-winery-filter.ts` bounds check logic to handle Mapbox bounds or generic bounding box checks instead of using `google.maps.LatLngBounds.contains()`.
   - Update `components/winery-map-context.tsx` to handle Mapbox refs and standardise bounds calculations.
   - Implement a translation layer to map coordinate schemas safely (converting DB `{ latitude, longitude }` objects to Mapbox `[longitude, latitude]` arrays).
-- **Component Refactoring**:
+- **Component Refactoring & Cleanups**:
+  - Delete `components/google-maps-provider.tsx` and `components/generic-marker-clusterer.tsx`.
+  - Refactor `components/app-shell.tsx` to remove references to `GoogleMapsProvider`.
   - Replace the map canvas in `components/WineryMap.tsx` and `components/map/MapView.tsx` with `<Map>` from `react-map-gl`.
   - Re-implement custom winery clustering using Mapbox's built-in source clustering features.
   - Render custom, high-fidelity cluster markers styled to match shadcn/ui (circular, showing count, color-coded by density/winery counts).

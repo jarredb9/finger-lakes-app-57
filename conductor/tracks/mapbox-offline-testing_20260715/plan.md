@@ -5,15 +5,17 @@
     - [ ] Add runtime caching rules for Mapbox styles, sprites, and fonts.
     - [ ] Add runtime caching rules for Mapbox map tiles (vector and raster).
     - [ ] Integrate Mapbox cache namespaces into the quota cleaning logic in `app/sw.ts` to build resilience against QuotaExceededError.
+- [ ] Task: Update cache names in `lib/utils/quota.ts` to include Mapbox tile cache identifiers so they can be cleaned under storage pressure.
 - [ ] Task: Conductor - User Manual Verification 'PWA Service Worker Offline Mapbox Caching' (Protocol in workflow.md)
 
 ## Phase 2: E2E and Unit Test Mocking
 - [ ] Task: Mock Mapbox/WebGL in unit tests (Jest)
     - [ ] Update Jest setup files to mock `react-map-gl` and the Mapbox context.
+    - [ ] Refactor unit tests mock hooks (e.g. `use-winery-search.test.ts`, `use-places-autocomplete-session.test.ts`) that previously mocked `@vis.gl/react-google-maps` features.
 - [ ] Task: Mock Mapbox/WebGL and API endpoints in Playwright E2E tests
     - [ ] Update `e2e/utils.ts` and `e2e/helpers.ts` to intercept Mapbox API requests (styles, glyphs, sprites, tiles).
     - [ ] Add init scripts to mock the canvas context (`getContext('webgl')`) for headless environments.
-    - [ ] Update the `waitForMapReady` helper in `e2e/helpers.ts` to be compatible with Mapbox bounds and state structures.
+    - [ ] Update the `waitForMapReady` helper in `e2e/helpers.ts` and all store bounds mock injectors (e.g. `setBounds`) to match the new Mapbox serializable bounds/states.
 - [ ] Task: Verify offline E2E flow stability
     - [ ] Verify `e2e/pwa-offline.spec.ts` passes with offline routing.
 - [ ] Task: Conductor - User Manual Verification 'E2E and Unit Test Mocking' (Protocol in workflow.md)
