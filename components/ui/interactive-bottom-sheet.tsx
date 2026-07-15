@@ -104,16 +104,16 @@ export function InteractiveBottomSheet({
           data-testid="interactive-bottom-sheet"
           {...props}
           className={cn(
-            "fixed bottom-16 left-0 right-0 z-40 bg-background border-t rounded-t-[15px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex flex-col",
+            "fixed bottom-24 left-0 right-0 z-40 bg-background border-t rounded-t-[15px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex flex-col",
             "transition-transform duration-300 ease-out will-change-transform",
-            "h-[calc(100vh-5rem)]", // Fixed height (100vh - bottom 4rem - top 1rem)
+            "h-[calc(100vh-7rem)]", // Fixed height adjusted for bottom-24 position
             className
           )}
           style={{
             // Translate the sheet so only 45vh is visible in mini mode
             // Full: translateY(0)
             // Mini: translateY(calc(TotalHeight - 45vh))
-            transform: mode === "full" ? "translateY(0)" : "translateY(calc(100vh - 5rem - 45vh))",
+            transform: mode === "full" ? "translateY(0)" : "translateY(calc(100vh - 7rem - 45vh))",
             ...props.style
           }}
         >

@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.13.3] - 2026-07-15
+
+**Mobile Bottom Navigation and Drawer Enhancement**
+
+### 🚀 Features
+*   **Floating Navigation Pill**:
+    *   Transitioned the full-width mobile navigation bar to a horizontally-centered floating pill container in [app-shell.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-shell.tsx).
+    *   Added modern glassmorphism styling (`backdrop-blur-md bg-background/80 border shadow-lg`) and safe area bottom margin alignment.
+    *   Implemented active tab micro-interactions: added active background highlight pill (`bg-primary/10`) and subtle icon scaling (`scale-110`) with smooth transitions.
+*   **Bottom Sheet Docking Integration**:
+    *   Adjusted the bottom docking calculation of the interactive bottom sheet in [interactive-bottom-sheet.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/ui/interactive-bottom-sheet.tsx) to sit cleanly above the new floating pill position at `bottom-24`.
+    *   Rescaled bottom sheet height bounds (`h-[calc(100vh-7rem)]`) and mini-mode translate bounds to avoid overlapping the navigation container.
+*   **Testing & E2E Validation**:
+    *   Created [mobile-nav-drawer.spec.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/mobile-nav-drawer.spec.ts) viewport layout test suite to verify floating boundaries, active states, scaling classes, and non-overlapping sheet docking.
+    *   Updated existing smoke test selector mappings in [smoke.spec.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/smoke.spec.ts) to be layout-agnostic and use the `mobile-nav-bar` test ID.
+
 ## [2.13.2] - 2026-07-14
 
 **Mobile Winery Modal Layout & Search UX Fixes**
