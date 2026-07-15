@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, waitForAppReady } from './helpers';
+import { login, navigateToTab, waitForAppReady, ensureSidebarExpanded } from './helpers';
 
 test.describe('Mobile Navigation & Bottom Sheet Drawer Layout', () => {
 
@@ -56,9 +56,11 @@ test.describe('Mobile Navigation & Bottom Sheet Drawer Layout', () => {
     // Navigate to a tab that activates the bottom drawer
     await navigateToTab(page, 'Trips');
 
-    const sheet = page.locator('[data-testid="interactive-bottom-sheet"]').first();
+    const sheet = page.locator('[data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"]').first();
     await expect(sheet).toBeVisible();
     await expect(sheet).toHaveAttribute('data-state', 'stable');
+
+    await ensureSidebarExpanded(page);
 
     const sheetBox = await sheet.boundingBox();
     const navBarBox = await page.getByTestId('mobile-nav-bar').boundingBox();
