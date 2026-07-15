@@ -1,11 +1,12 @@
 import { Winery } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Star, ListPlus, Check, Lock, Unlock, Edit } from "lucide-react";
+import { Star, ListPlus, Check, Lock, Unlock, Edit, Eye } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface WineryActionsPresentationalProps {
   winery: Winery;
   onLogVisit: () => void;
+  onStreetView: () => void;
   onToggleWishlist: () => void;
   onToggleFavorite: () => void;
   onToggleFavoritePrivacy: (e: React.MouseEvent) => void;
@@ -15,6 +16,7 @@ interface WineryActionsPresentationalProps {
 export default function WineryActionsPresentational({ 
   winery, 
   onLogVisit, 
+  onStreetView,
   onToggleWishlist, 
   onToggleFavorite, 
   onToggleFavoritePrivacy, 
@@ -31,6 +33,16 @@ export default function WineryActionsPresentational({
         >
             <Edit className="mr-2 h-4 w-4" />
             Log Visit
+        </Button>
+
+        <Button 
+            size="sm" 
+            variant="outline-solid" 
+            onClick={onStreetView}
+            data-testid="street-view-button"
+        >
+            <Eye className="mr-2 h-4 w-4" />
+            Street View
         </Button>
 
         <div className="flex items-center -space-x-px">
