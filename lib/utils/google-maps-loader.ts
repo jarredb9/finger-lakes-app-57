@@ -23,7 +23,7 @@ export function loadGoogleMaps(): Promise<any> {
 
 const libraryCache: Record<string, any> = {};
 
-export async function getGoogleLibrary(libraryName: "places" | "geocoding" | "maps" | "core" | "marker"): Promise<any> {
+export async function getGoogleLibrary(libraryName: "places" | "geocoding" | "maps" | "core" | "marker" | "streetView"): Promise<any> {
   if (typeof window === "undefined") return null;
   if (libraryCache[libraryName]) {
     return libraryCache[libraryName];

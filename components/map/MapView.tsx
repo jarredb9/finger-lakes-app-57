@@ -382,11 +382,11 @@ const MapView = memo(({
   const streetViewPanoramaRef = useRef<any>(null);
 
   const openStreetView = useCallback(async (lat: number, lng: number) => {
-    const mapsLib = await getGoogleLibrary("maps");
+    const streetViewLib = await getGoogleLibrary("streetView");
     if (!streetViewContainerRef.current) return;
 
     if (!streetViewPanoramaRef.current) {
-      const panorama = new mapsLib.StreetViewPanorama(streetViewContainerRef.current, {
+      const panorama = new streetViewLib.StreetViewPanorama(streetViewContainerRef.current, {
         position: { lat, lng },
         visible: true,
         enableCloseButton: true
