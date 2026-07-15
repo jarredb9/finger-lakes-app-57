@@ -134,6 +134,8 @@ export function useWineryMap(userId: string) {
 
     if (typeof map.on === "function") {
       map.on("moveend", handleMapMovement);
+      // Trigger initial search/bounds population immediately upon map mount/availability
+      handleMapMovement();
       return () => {
         map.off("moveend", handleMapMovement);
         if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
