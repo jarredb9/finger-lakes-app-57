@@ -1,6 +1,6 @@
 # Track Plan: Mapbox Offline Caching & Verification (mapbox-offline-testing_20260715)
 
-## Phase 1: PWA Service Worker Offline Mapbox Caching
+## Phase 1: PWA Service Worker Offline Mapbox Caching [checkpoint: 702e477]
 - [x] Task: Update `app/sw.ts` to cache Mapbox assets (d93ef79)
     - [x] Add runtime caching rules for Mapbox styles, sprites, and fonts.
     - [x] Add runtime caching rules for Mapbox map tiles (vector and raster).
