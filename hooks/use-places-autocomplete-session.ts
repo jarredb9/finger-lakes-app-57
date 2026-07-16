@@ -1,14 +1,20 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { ESSENTIALS_FIELD_MASK, ENRICHMENT_FIELD_MASK } from "@/lib/constants/google-maps";
+import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
 
 export function usePlacesAutocompleteSession() {
-  const places = useMapsLibrary("places");
-  const [sessionToken, setSessionToken] = useState<google.maps.places.AutocompleteSessionToken | null>(null);
+  const [places, setPlaces] = useState<any>(null);
+  const [sessionToken, setSessionToken] = useState<any>(null);
   const [suggestions, setSuggestions] = useState<google.maps.places.AutocompleteSuggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    getGoogleLibrary("places").then((lib) => {
+      if (lib) setPlaces(lib);
+    });
+  }, []);
 
   // Initialize/Refresh token
   const refreshSessionToken = useCallback(() => {

@@ -20,11 +20,25 @@ import VisitCardHistory from "./VisitCardHistory";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore"; // Import DataStore
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useMapStore } from "@/lib/stores/mapStore";
 
 export default function WineryModal() {
   const { isWineryModalOpen, activeWineryId, closeWineryModal, openVisitForm } = useUIStore();
   const { toast } = useToast();
   const { fetchTripById, setSelectedTrip } = useTripStore();
+  const { map } = useMapStore();
+
+  const handleStreetViewClick = () => {
+    if (!activeWinery) return;
+    
+    if (map && typeof map.openStreetView === "function") {
+      map.openStreetView(activeWinery.latitude, activeWinery.longitude);
+    } else {
+      // Fallback for Mapbox: open in new tab
+      const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${activeWinery.latitude},${activeWinery.longitude}`;
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
 
   const { toggleWishlist, toggleFavorite, toggleFavoritePrivacy, toggleWishlistPrivacy } = useWineryStore(
     (state) => ({
@@ -154,7 +168,9 @@ export default function WineryModal() {
     return undefined;
   }, [visits.length, isWineryModalOpen, isLoading]);
 
-  if (!isWineryModalOpen) {
+  const isStreetViewActive = useMapStore((state) => state.isStreetViewActive);
+
+  if (!isWineryModalOpen || isStreetViewActive) {
     return null;
   }
 
@@ -246,6 +262,7 @@ export default function WineryModal() {
                         <WineryActionsPresentational 
                           winery={activeWinery} 
                           onLogVisit={() => openVisitForm(activeWinery)}
+                          onStreetView={handleStreetViewClick}
                           onToggleWishlist={handleWishlistToggle}
                           onToggleFavorite={handleFavoriteToggle}
                           onToggleFavoritePrivacy={handleToggleFavoritePrivacy}

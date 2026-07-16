@@ -1,12 +1,12 @@
 import { renderHook, act } from "@testing-library/react";
 import { useWinerySearch } from "../use-winery-search";
 import { useMapStore } from "@/lib/stores/mapStore";
-import { useMapsLibrary } from "@vis.gl/react-google-maps";
+import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
 import { createClient } from "@/utils/supabase/client";
 
 // Mock dependencies
-jest.mock("@vis.gl/react-google-maps", () => ({
-  useMapsLibrary: jest.fn(),
+jest.mock("@/lib/utils/google-maps-loader", () => ({
+  getGoogleLibrary: jest.fn(),
 }));
 
 // Mock google maps
@@ -88,10 +88,10 @@ describe("useWinerySearch", () => {
       rpc: jest.fn(),
     };
 
-    (useMapsLibrary as jest.Mock).mockImplementation((lib) => {
-      if (lib === "places") return mockPlaces;
-      if (lib === "geocoding") return mockGeocoder;
-      return null;
+    (getGoogleLibrary as jest.Mock).mockImplementation((lib) => {
+      if (lib === "places") return Promise.resolve(mockPlaces);
+      if (lib === "geocoding") return Promise.resolve(mockGeocoder);
+      return Promise.resolve(null);
     });
 
     (createClient as jest.Mock).mockReturnValue(mockSupabase);
@@ -113,6 +113,10 @@ describe("useWinerySearch", () => {
     mockPlaces.Place.searchByText.mockRejectedValue(new Error("Google Error"));
 
     const { result } = renderHook(() => useWinerySearch());
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
 
     console.log("CALLING EXECUTE SEARCH");
     await act(async () => {

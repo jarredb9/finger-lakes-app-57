@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useMapsLibrary } from "@vis.gl/react-google-maps";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useToast } from "@/hooks/use-toast";
 import { Winery } from "@/lib/types";
 import { isE2E, shouldMockWineries } from "@/lib/stores/e2e-utils";
 import { invokeFunction } from "@/lib/utils";
+import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
+import { isCoordinateInBounds, getCoordinatesFromBounds } from "@/lib/utils/map-utils";
 
 export function useWinerySearch() {
   const {
@@ -21,20 +22,24 @@ export function useWinerySearch() {
   } = useMapStore();
   const { bulkUpsertWineries } = useWineryDataStore();
   const { toast } = useToast();
-  const places = useMapsLibrary("places");
-  const geocoding = useMapsLibrary("geocoding");
-  const [geocoder, setGeocoder] = useState<google.maps.Geocoder | null>(null);
+  const [places, setPlaces] = useState<any>(null);
+  const [geocoder, setGeocoder] = useState<any>(null);
 
   useEffect(() => {
-    if (geocoding && !geocoder) {
-      setGeocoder(new google.maps.Geocoder());
-    }
-  }, [geocoding, geocoder]);
+    getGoogleLibrary("places").then((lib) => {
+      if (lib) setPlaces(lib);
+    });
+    getGoogleLibrary("geocoding").then((lib) => {
+      if (lib && typeof window !== "undefined" && window.google?.maps) {
+        setGeocoder(new window.google.maps.Geocoder());
+      }
+    });
+  }, []);
 
   const executeSearch = useCallback(
     async (
       locationText?: string,
-      searchBounds?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral
+      searchBounds?: any
     ) => {
       
       // OFFLINE HANDLING
@@ -47,11 +52,10 @@ export function useWinerySearch() {
 
         if (searchBounds) {
           setIsSearching(true);
-          const bounds = new google.maps.LatLngBounds(searchBounds);
           const { persistentWineries } = useWineryDataStore.getState();
           
           const localResults = persistentWineries.filter(w => 
-            bounds.contains({ lat: w.latitude, lng: w.longitude })
+            isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, searchBounds)
           );
 
           setSearchResults(localResults);
@@ -71,7 +75,7 @@ export function useWinerySearch() {
         setSearchResults([]);
       }
 
-      let finalSearchBounds: google.maps.LatLngBounds;
+      let finalSearchBounds: any;
       
       if (locationText) {
         try {
@@ -80,16 +84,29 @@ export function useWinerySearch() {
             const geometry = results[0].geometry;
             if (geometry.viewport) {
               finalSearchBounds = geometry.viewport;
-              map?.fitBounds(finalSearchBounds);
+              const coords = getCoordinatesFromBounds(finalSearchBounds);
+              if (coords && map) {
+                if (typeof map.fitBounds === 'function') {
+                  map.fitBounds([[coords.swLng, coords.swLat], [coords.neLng, coords.neLat]], { padding: 50 });
+                }
+              }
             } else if (geometry.location) {
-              map?.setCenter(geometry.location);
-              map?.setZoom(13);
               const point = geometry.location;
+              if (map) {
+                if (typeof map.flyTo === 'function') {
+                  map.flyTo({ center: [point.lng(), point.lat()], zoom: 13 });
+                } else if (typeof map.setCenter === 'function') {
+                  map.setCenter({ lat: point.lat(), lng: point.lng() });
+                  map.setZoom(13);
+                }
+              }
               const offset = 0.05;
-              finalSearchBounds = new google.maps.LatLngBounds(
-                { lat: point.lat() - offset, lng: point.lng() - offset },
-                { lat: point.lat() + offset, lng: point.lng() + offset }
-              );
+              finalSearchBounds = {
+                west: point.lng() - offset,
+                south: point.lat() - offset,
+                east: point.lng() + offset,
+                north: point.lat() + offset
+              };
             } else {
                toast({ variant: "destructive", description: "Location geometry missing." });
                setIsSearching(false);
@@ -105,7 +122,7 @@ export function useWinerySearch() {
           return;
         }
       } else if (searchBounds) {
-        finalSearchBounds = new google.maps.LatLngBounds(searchBounds);
+        finalSearchBounds = searchBounds;
       } else {
         setIsSearching(false);
         return;
@@ -113,16 +130,16 @@ export function useWinerySearch() {
 
       setLastSearchedBounds(finalSearchBounds);
       if (map) {
-        setLastSearchedZoom(map.getZoom() ?? null);
+        const zoom = typeof map.getZoom === 'function' ? map.getZoom() : map.zoom;
+        setLastSearchedZoom(zoom ?? null);
       }
 
       // E2E BYPASS FOR SEARCH
       if (isE2E() && shouldMockWineries()) {
-        const bounds = new google.maps.LatLngBounds(finalSearchBounds);
         const { persistentWineries } = useWineryDataStore.getState();
         
         const localResults = persistentWineries.filter(w => 
-          bounds.contains({ lat: w.latitude, lng: w.longitude })
+          isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, finalSearchBounds)
         );
 
         setSearchResults(localResults);
@@ -130,20 +147,16 @@ export function useWinerySearch() {
         return;
       }
 
-      const bounds = new google.maps.LatLngBounds(finalSearchBounds);
       const activeFilters = useMapStore.getState().filter;
       const enrichmentFilters = ['allowsDogs', 'hasEvCharging', 'outdoorSeating', 'goodForChildren'];
       const useEnrichment = activeFilters.some(f => enrichmentFilters.includes(f));
 
-      // Extract raw coordinates safely to handle both real bounds and mocks
-      const sw = bounds.getSouthWest();
-      const ne = bounds.getNorthEast();
-      
-      // Handle both LatLng objects (with lat()/lng() methods) and plain objects
-      const swLat = typeof sw.lat === 'function' ? sw.lat() : (sw as any).lat ?? (sw as any).south;
-      const swLng = typeof sw.lng === 'function' ? sw.lng() : (sw as any).lng ?? (sw as any).west;
-      const neLat = typeof ne.lat === 'function' ? ne.lat() : (ne as any).lat ?? (ne as any).north;
-      const neLng = typeof ne.lng === 'function' ? ne.lng() : (ne as any).lng ?? (ne as any).east;
+      const coords = getCoordinatesFromBounds(finalSearchBounds);
+      if (!coords) {
+        setIsSearching(false);
+        return;
+      }
+      const { swLat, swLng, neLat, neLng } = coords;
 
       const combinedQuery = `winery OR vineyard OR "wine tasting room"`;
       
