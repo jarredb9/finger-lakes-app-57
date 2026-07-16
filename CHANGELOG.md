@@ -1,5 +1,54 @@
 # Changelog
 
+## [3.0.0] - 2026-07-16
+
+**Mapbox GL JS Migration — Hybrid Map Architecture**
+
+Version 3.0.0 is a major release that migrates the map rendering engine from Google Maps JavaScript API (`@vis.gl/react-google-maps`) to **Mapbox GL JS** (`react-map-gl` / `mapbox-gl`). This reduces Map Load API costs, enables offline tile caching, and modernizes the map canvas with vector-based rendering. Google Places API (v1 SDK) is retained as the single source of truth for search, autocomplete, winery details, reviews, and Street View.
+
+### 💥 Breaking Changes
+*   **Map Engine Replacement:** The `@vis.gl/react-google-maps` and `@googlemaps/markerclusterer` packages have been removed. All map rendering is now handled by Mapbox GL JS via `react-map-gl` v8.
+*   **Environment Variable:** A new `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` environment variable is required. Add it to `.env.local` and all deployment environments.
+
+### 🚀 Features
+*   **Mapbox GL JS Rendering**:
+    *   Replaced the Google Maps canvas in [WineryMap.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/WineryMap.tsx) and [MapView.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/MapView.tsx) with `react-map-gl`'s `<Map>` component backed by Mapbox GL JS.
+    *   Implemented built-in Mapbox source clustering with custom, high-fidelity cluster markers styled to match shadcn/ui (circular count badges, color-coded by density).
+    *   Added coordinate translation helpers in [map-utils.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/map-utils.ts) converting `{ latitude, longitude }` objects to Mapbox `[longitude, latitude]` arrays at the rendering boundary.
+*   **Map Style Switcher**:
+    *   Added a floating style toggle control allowing users to switch between **Outdoors** (`mapbox://styles/mapbox/outdoors-v12`, optimized for rural/scenic terrain) and **Streets** (`mapbox://styles/mapbox/streets-v12`, optimized for navigation).
+*   **Google Street View Integration**:
+    *   Implemented an immersive, full-screen Google Street View experience accessible from the Winery Modal via `@googlemaps/js-api-loader`, with overlay hiding and state preservation.
+*   **Google Attribution Compliance**:
+    *   Added a floating "Powered by Google" badge in the bottom-left corner of the map canvas to comply with Google Places Terms of Service, with responsive mobile positioning.
+*   **Offline Map Caching (PWA)**:
+    *   Updated the Service Worker (`app/sw.ts`) with runtime caching rules for Mapbox assets: styles (`/styles/v1`), sprites (`/sprites/`), glyphs/fonts (`/fonts/v1`), and vector/raster tiles (`/v4/`, `/tiles/`).
+    *   Implemented Cache-First and Stale-While-Revalidate strategies with `ExpirationPlugin` (100 max entries, 30-day max age).
+    *   Registered Mapbox cache namespaces in [quota.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/quota.ts) for resilient eviction under storage pressure.
+
+### ⚙ Refactoring & Architecture
+*   **Context & Hook Migration**:
+    *   Refactored [mapStore.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/stores/mapStore.ts) to store Mapbox map instances and serializable bounding boxes.
+    *   Rewrote [use-winery-map.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-winery-map.ts) to manage Mapbox camera states, viewport bounding boxes, and zoom configurations.
+    *   Updated [use-winery-filter.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-winery-filter.ts) to use generic bounding box containment checks instead of `google.maps.LatLngBounds.contains()`.
+    *   Updated [winery-map-context.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery-map-context.tsx) to expose Mapbox-compatible event handlers, refs, and bounds calculations.
+*   **Legacy Cleanup**:
+    *   Deleted `components/google-maps-provider.tsx` and `components/generic-marker-clusterer.tsx`.
+    *   Removed all `GoogleMapsProvider` references from [app-shell.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-shell.tsx).
+    *   Active category filters now correctly apply to Mapbox markers and any Google Map fallback views.
+
+### 🧪 Testing & Verification
+*   **Jest Unit Tests**:
+    *   Added global mocks for `react-map-gl` and `mapbox-gl` in Jest setup files.
+    *   Refactored unit test mock hooks (e.g., `use-winery-search.test.ts`, `use-places-autocomplete-session.test.ts`) to remove legacy `@vis.gl/react-google-maps` mocks.
+    *   Added unit tests for coordinate translation helpers and Mapbox cache quota eviction.
+*   **Playwright E2E Tests**:
+    *   Updated [helpers.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/helpers.ts) and [utils.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/utils.ts) to intercept Mapbox API requests (styles, glyphs, sprites, tiles) and mock WebGL canvas context for headless environments.
+    *   Updated `waitForMapReady` helper and all store bounds mock injectors (`setBounds`) to match the new Mapbox serializable bounds schema.
+    *   Verified offline E2E flow stability (`pwa-offline.spec.ts`) with Mapbox tile caching.
+*   **Visual Regression**:
+    *   Regenerated all baseline visual snapshots inside the Podman container to match the new Mapbox GL JS layout.
+
 ## [2.13.3] - 2026-07-15
 
 **Mobile Bottom Navigation and Drawer Enhancement**

@@ -15,7 +15,7 @@ This is a Next.js web application for planning and tracking visits to wineries. 
 *   **Styling:** Tailwind CSS, Radix UI (via shadcn/ui)
 *   **State Management:** Zustand
 *   **Database/Auth:** Supabase (**Supabase Native Architecture**: Business logic resides in RPCs or direct client SDK calls)
-*   **Maps:** Google Maps Platform
+*   **Maps:** Mapbox GL JS (rendering, clustering, offline tiles), Google Places API (search, autocomplete, details, Street View)
 *   **Testing:** Jest + React Testing Library + Playwright E2E
 
 ## Key Commands

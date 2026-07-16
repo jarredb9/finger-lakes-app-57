@@ -18,7 +18,8 @@ Before any Next.js work, find and read the relevant doc in `node_modules/next/di
 - **Styling:** Tailwind CSS v4, shadcn/ui.
 - **State:** Zustand.
 - **Backend:** Supabase (Postgres, Auth, Edge Functions, Realtime), Deno 2.0.
-- **APIs:** Google Places API (v1 SDK), Gemini API (AI Enrichment).
+- **Maps:** Mapbox GL JS (`react-map-gl` / `mapbox-gl`) — rendering, clustering, offline tiles.
+- **APIs:** Google Places API (v1 SDK, search/autocomplete/details/Street View), Gemini API (AI Enrichment).
 - **Testing:** Playwright (E2E), Jest (Unit), Deno (Edge Functions).
 
 ## 3. Environment & Shell (RHEL 8)
