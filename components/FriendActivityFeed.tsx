@@ -10,6 +10,7 @@ import { Star, User } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
+import { FriendPhoto } from "@/components/friend-photo";
 
 export default function FriendActivityFeed() {
   const { friendActivityFeed = [], fetchFriendActivityFeed, isLoading } = useFriendStore();
@@ -107,12 +108,9 @@ export default function FriendActivityFeed() {
                 <div className="flex gap-2 overflow-x-auto pb-2 pt-1 scrollbar-hide">
                     {item.visit_photos.map((photo: string, i: number) => (
                       <div key={i} className="relative h-20 w-20 shrink-0 rounded-md overflow-hidden border bg-muted">
-                        <Image 
-                          src={photo} 
+                        <FriendPhoto 
+                          photoPath={photo} 
                           alt={`Visit photo ${i + 1}`}
-                          fill
-                          className="object-cover"
-                          unoptimized
                         />
                       </div>
                     ))}
