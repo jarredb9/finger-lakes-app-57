@@ -1,10 +1,10 @@
-import { renderHook, act } from "@testing-library/react";
+import { renderHook, act, waitFor } from "@testing-library/react";
 import { usePlacesAutocompleteSession } from "../use-places-autocomplete-session";
-import { useMapsLibrary } from "@vis.gl/react-google-maps";
+import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
 
-// Mock react-google-maps hook
-jest.mock("@vis.gl/react-google-maps", () => ({
-  useMapsLibrary: jest.fn(),
+// Mock google-maps-loader
+jest.mock("@/lib/utils/google-maps-loader", () => ({
+  getGoogleLibrary: jest.fn(),
 }));
 
 describe("usePlacesAutocompleteSession", () => {
@@ -38,15 +38,14 @@ describe("usePlacesAutocompleteSession", () => {
       Place: jest.fn().mockImplementation(() => mockPlaceInstance),
     };
 
-    (useMapsLibrary as jest.Mock).mockImplementation((lib) => {
-      if (lib === "places") return mockPlaces;
-      return null;
-    });
+    (getGoogleLibrary as jest.Mock).mockResolvedValue(mockPlaces);
   });
 
-  it("should initialize a session token when the places library is loaded", () => {
+  it("should initialize a session token when the places library is loaded", async () => {
     const { result } = renderHook(() => usePlacesAutocompleteSession());
-    expect(mockPlaces.AutocompleteSessionToken).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockPlaces.AutocompleteSessionToken).toHaveBeenCalled();
+    });
     expect(result.current.sessionToken).toBe(mockTokenInstance);
   });
 
@@ -65,6 +64,10 @@ describe("usePlacesAutocompleteSession", () => {
     mockFetchSuggestions.mockResolvedValue({ suggestions: mockSuggestions });
 
     const { result } = renderHook(() => usePlacesAutocompleteSession());
+
+    await waitFor(() => {
+      expect(result.current.sessionToken).toBe(mockTokenInstance);
+    });
 
     await act(async () => {
       await result.current.fetchSuggestions("wine");
@@ -87,6 +90,10 @@ describe("usePlacesAutocompleteSession", () => {
     } as any;
 
     const { result } = renderHook(() => usePlacesAutocompleteSession());
+
+    await waitFor(() => {
+      expect(result.current.sessionToken).toBe(mockTokenInstance);
+    });
 
     // Clear initial mock calls to track refresh
     mockPlaces.AutocompleteSessionToken.mockClear();

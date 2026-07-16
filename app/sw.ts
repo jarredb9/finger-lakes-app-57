@@ -200,6 +200,38 @@ const serwist = new Serwist({
         ],
       }),
     },
+    {
+      matcher: ({ url }) => {
+        return url.hostname.includes('mapbox.com') && 
+          (url.pathname.includes('/styles/v1') || url.pathname.includes('/fonts/v1') || url.pathname.includes('/sprites'));
+      },
+      handler: new CacheFirst({
+        cacheName: 'mapbox-metadata',
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 50,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+            purgeOnQuotaError: true,
+          }),
+        ],
+      }),
+    },
+    {
+      matcher: ({ url }) => {
+        return url.hostname.includes('mapbox.com') && 
+          (url.pathname.includes('/v4/') || url.pathname.includes('/tiles/'));
+      },
+      handler: new CacheFirst({
+        cacheName: 'mapbox-tiles',
+        plugins: [
+          new ExpirationPlugin({
+            maxEntries: 100,
+            maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+            purgeOnQuotaError: true,
+          }),
+        ],
+      }),
+    },
   ],
 });
 
@@ -223,7 +255,7 @@ function handleUnhandledRejection(event: PromiseRejectionEvent) {
     console.error('[SW] Storage quota exceeded. Clearing caches.');
     event.preventDefault();
     
-    const cachesToClear = ['google-maps-tiles', 'pages', 'supabase-storage'];
+    const cachesToClear = ['google-maps-tiles', 'pages', 'supabase-storage', 'mapbox-tiles', 'mapbox-metadata'];
     caches.keys().then((keys) => {
       return Promise.all(
         keys.filter((key) => {

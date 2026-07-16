@@ -2,11 +2,11 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import { Winery } from '@/lib/types';
 
 interface MapState {
-  map: google.maps.Map | null;
+  map: any | null;
   center: { lat: number; lng: number };
   zoom: number;
-  bounds: google.maps.LatLngBounds | null;
-  lastSearchedBounds: google.maps.LatLngBounds | null;
+  bounds: any | null;
+  lastSearchedBounds: any | null;
   lastSearchedZoom: number | null;
   isSearching: boolean;
   hitApiLimit: boolean;
@@ -15,11 +15,12 @@ interface MapState {
   autoSearch: boolean;
   searchLocation: string;
   error: string | null;
-  setMap: (map: google.maps.Map | null) => void;
+  isStreetViewActive: boolean;
+  setMap: (map: any | null) => void;
   setCenter: (center: { lat: number; lng: number }) => void;
   setZoom: (zoom: number) => void;
-  setBounds: (bounds: google.maps.LatLngBounds | null) => void;
-  setLastSearchedBounds: (bounds: google.maps.LatLngBounds | null) => void;
+  setBounds: (bounds: any | null) => void;
+  setLastSearchedBounds: (bounds: any | null) => void;
   setLastSearchedZoom: (zoom: number | null) => void;
   setIsSearching: (isSearching: boolean) => void;
   setHitApiLimit: (hitApiLimit: boolean) => void;
@@ -28,6 +29,7 @@ interface MapState {
   setAutoSearch: (autoSearch: boolean) => void;
   setSearchLocation: (searchLocation: string) => void;
   setError: (error: string | null) => void;
+  setIsStreetViewActive: (active: boolean) => void;
   reset: () => void;
 }
 
@@ -45,6 +47,7 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   autoSearch: false,
   searchLocation: "",
   error: null,
+  isStreetViewActive: false,
   setMap: (map) => set({ map }),
   setCenter: (center) => set({ center }),
   setZoom: (zoom) => set({ zoom }),
@@ -58,6 +61,7 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   setAutoSearch: (autoSearch) => set({ autoSearch }),
   setSearchLocation: (searchLocation) => set({ searchLocation }),
   setError: (error) => set({ error }),
+  setIsStreetViewActive: (active) => set({ isStreetViewActive: active }),
   reset: () => set({
     map: null,
     center: { lat: 42.7, lng: -76.9 },
@@ -72,6 +76,7 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
     autoSearch: false,
     searchLocation: "",
     error: null,
+    isStreetViewActive: false,
   }),
 }));
 

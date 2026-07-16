@@ -3,12 +3,12 @@
 import { useState, useEffect } from "react";
 import { AuthenticatedUser } from "@/lib/types";
 import { WineryMapProvider } from "@/components/winery-map-context";
+import { MapProvider } from "react-map-gl/mapbox";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, CalendarDays, Search, Menu, X, Users, User as UserIcon, LogOut, FileText, Settings, Clock } from "lucide-react";
+import { Map as MapIcon, CalendarDays, Search, Users, User as UserIcon, LogOut, FileText, Settings, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { GoogleMapsProvider } from "@/components/google-maps-provider";
 import dynamic from "next/dynamic";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -23,6 +23,7 @@ import Link from "next/link";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { InteractiveBottomSheet, SheetMode } from "@/components/ui/interactive-bottom-sheet";
 import { useFriendStore } from "@/lib/stores/friendStore";
+import { useMapStore } from "@/lib/stores/mapStore";
 import { VisitHistoryModal } from "@/components/visit-history-modal";
 import { OfflineIndicator } from "@/components/offline-indicator";
 import { Download, RefreshCw } from "lucide-react";
@@ -42,8 +43,8 @@ interface AppShellProps {
 
 function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
     const isMobile = useIsMobile();
+    const isStreetViewActive = useMapStore(state => state.isStreetViewActive);
     const [activeTab, setActiveTab] = useState<"explore" | "trips" | "friends" | "history">(initialTab);
-    const [isSidebarOpen, setIsSidebarOpen] = useState(true);
     const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(initialTab !== "explore");
     const [sheetMode, setSheetMode] = useState<SheetMode>("mini");
     const { friendRequests = [] } = useFriendStore();
@@ -71,6 +72,8 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             setSheetMode("mini"); // Start small
         }
     };
+
+
 
     const getSheetTitle = () => {
         switch (activeTab) {
@@ -107,12 +110,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
             {/* Desktop Sidebar */}
             {isMobile === false && (
-                <div
-                    className={cn(
-                        "hidden md:flex flex-col border-r bg-background transition-all duration-300 ease-in-out relative",
-                        isSidebarOpen ? "w-[400px]" : "w-0 opacity-0 overflow-hidden"
-                    )}
-                >
+                <div className="hidden md:flex flex-col border-r bg-background w-[400px] relative">
                     <div className="flex-1 overflow-hidden">
                         <div data-testid="desktop-sidebar-container" className="w-[400px] h-full">
                             <AppSidebar
@@ -125,26 +123,12 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                 </div>
             )}
 
-            {/* Desktop Sidebar Toggle */}
-            {isMobile === false && (
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="hidden md:flex absolute top-4 left-4 z-20 bg-background shadow-md"
-                    style={{ left: isSidebarOpen ? "416px" : "16px", transition: "left 0.3s ease-in-out" }}
-                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-                    aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
-                >
-                    {isSidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-                </Button>
-            )}
-
             {/* Main Map Area */}
             <div className="flex-1 relative w-full h-full">
-                <WineryMap />
+                <WineryMap className={isMobileSheetOpen ? "sheet-open" : "sheet-closed"} />
 
                 {/* Mobile User Avatar (Floating Top Right) */}
-                {isMobile === true && (
+                {isMobile === true && isStreetViewActive === false && (
                     <div className="md:hidden absolute top-4 right-4 z-10">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -215,7 +199,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             </div>
 
             {/* Mobile Navigation Bar */}
-            {isMobile === true && (
+            {isMobile === true && isStreetViewActive === false && (
                 <div
                     data-testid="mobile-nav-bar"
                     className="md:hidden fixed bottom-4 left-4 right-4 max-w-lg mx-auto rounded-2xl border backdrop-blur-md shadow-lg bg-background/80 flex items-center justify-around z-50 pb-safe h-auto min-h-16 px-2 py-1"
@@ -289,7 +273,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             )}
 
             {/* Custom Mobile Bottom Sheet */}
-            {isMobile === true && (
+            {isMobile === true && isStreetViewActive === false && (
                 <InteractiveBottomSheet
                     data-testid="mobile-sidebar-container"
                     isOpen={isMobileSheetOpen}
@@ -313,10 +297,10 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
 export function AppShell(props: AppShellProps) {
     return (
-        <GoogleMapsProvider>
+        <MapProvider>
             <WineryMapProvider user={props.user}>
                 <AppShellContent {...props} />
             </WineryMapProvider>
-        </GoogleMapsProvider>
+        </MapProvider>
     );
 }

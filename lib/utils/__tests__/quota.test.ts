@@ -37,6 +37,8 @@ describe('checkAndCleanupQuota', () => {
       'google-maps-tiles-v1',
       'pages-v1',
       'supabase-storage-v1',
+      'mapbox-tiles-v1',
+      'mapbox-metadata-v1',
       'other-cache'
     ]);
     (caches.delete as jest.Mock).mockResolvedValue(true);
@@ -46,6 +48,8 @@ describe('checkAndCleanupQuota', () => {
     expect(caches.delete).toHaveBeenCalledWith('google-maps-tiles-v1');
     expect(caches.delete).toHaveBeenCalledWith('pages-v1');
     expect(caches.delete).toHaveBeenCalledWith('supabase-storage-v1');
+    expect(caches.delete).toHaveBeenCalledWith('mapbox-tiles-v1');
+    expect(caches.delete).toHaveBeenCalledWith('mapbox-metadata-v1');
     expect(caches.delete).not.toHaveBeenCalledWith('other-cache');
   });
 

@@ -5,6 +5,7 @@ import { useMapStore } from "@/lib/stores/mapStore";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { Winery } from "@/lib/types";
+import { isCoordinateInBounds } from "@/lib/utils/map-utils";
 
 export function useWineryFilter() {
   const { searchResults = [], filter = ['all'], bounds, setFilter } = useMapStore();
@@ -80,7 +81,7 @@ export function useWineryFilter() {
           results = results.filter((w) => w.has_ev_charging === true);
         }
         return results.filter(
-            (w) => w && w.latitude && w.longitude && bounds.contains({ lat: w.latitude, lng: w.longitude })
+            (w) => w && w.latitude && w.longitude && isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, bounds)
         );
     }
 
@@ -134,7 +135,7 @@ export function useWineryFilter() {
     );
 
     return uniqueWineries.filter(
-      (w) => w && w.latitude && w.longitude && bounds.contains({ lat: w.latitude, lng: w.longitude })
+      (w) => w && w.latitude && w.longitude && isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, bounds)
     );
   }, [filter, mapWineries, bounds, selectedTrip, searchResults]);
 

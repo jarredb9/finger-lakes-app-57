@@ -93,3 +93,71 @@ jest.mock('./lib/utils/quota', () => {
     isQuotaError: jest.fn(actual.isQuotaError),
   };
 });
+
+// Mock react-map-gl/mapbox and react-map-gl
+jest.mock('react-map-gl/mapbox', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ children, ...props }: any) => React.createElement('div', { 'data-testid': 'mock-mapbox-map', ...props }, children),
+    Map: ({ children, ...props }: any) => React.createElement('div', { 'data-testid': 'mock-mapbox-map', ...props }, children),
+    Source: ({ children }: any) => children || null,
+    Layer: () => null,
+    MapProvider: ({ children }: any) => children,
+    useMap: () => ({
+      current: {
+        getBounds: jest.fn().mockReturnValue({
+          getNorthEast: () => ({ lat: () => 42.9, lng: () => -76.3 }),
+          getSouthWest: () => ({ lat: () => 42.2, lng: () => -77.2 }),
+        }),
+        getZoom: jest.fn().mockReturnValue(10),
+        fitBounds: jest.fn(),
+        setCenter: jest.fn(),
+        setZoom: jest.fn(),
+        on: jest.fn(),
+        off: jest.fn(),
+        flyTo: jest.fn(),
+      }
+    }),
+  };
+}, { virtual: true });
+
+jest.mock('react-map-gl', () => {
+  const React = require('react');
+  return {
+    __esModule: true,
+    default: ({ children, ...props }: any) => React.createElement('div', { 'data-testid': 'mock-mapbox-map', ...props }, children),
+    Map: ({ children, ...props }: any) => React.createElement('div', { 'data-testid': 'mock-mapbox-map', ...props }, children),
+    Source: ({ children }: any) => children || null,
+    Layer: () => null,
+    MapProvider: ({ children }: any) => children,
+    useMap: () => ({
+      current: {
+        getBounds: jest.fn().mockReturnValue({
+          getNorthEast: () => ({ lat: () => 42.9, lng: () => -76.3 }),
+          getSouthWest: () => ({ lat: () => 42.2, lng: () => -77.2 }),
+        }),
+        getZoom: jest.fn().mockReturnValue(10),
+        fitBounds: jest.fn(),
+        setCenter: jest.fn(),
+        setZoom: jest.fn(),
+        on: jest.fn(),
+        off: jest.fn(),
+        flyTo: jest.fn(),
+      }
+    }),
+  };
+}, { virtual: true });
+
+// Mock mapbox-gl
+jest.mock('mapbox-gl', () => ({
+  Map: jest.fn().mockImplementation(() => ({
+    on: jest.fn(),
+    off: jest.fn(),
+    remove: jest.fn(),
+    getBounds: jest.fn(),
+    getZoom: jest.fn(),
+  })),
+  NavigationControl: jest.fn(),
+  GeolocateControl: jest.fn(),
+}), { virtual: true });
