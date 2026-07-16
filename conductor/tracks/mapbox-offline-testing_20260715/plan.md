@@ -6,7 +6,7 @@
     - [x] Add runtime caching rules for Mapbox map tiles (vector and raster).
     - [x] Integrate Mapbox cache namespaces into the quota cleaning logic in `app/sw.ts` to build resilience against QuotaExceededError.
 - [x] Task: Update cache names in `lib/utils/quota.ts` to include Mapbox tile cache identifiers so they can be cleaned under storage pressure. (d93ef79)
-- [ ] Task: Conductor - User Manual Verification 'PWA Service Worker Offline Mapbox Caching' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'PWA Service Worker Offline Mapbox Caching' (Protocol in workflow.md)
 
 ## Phase 2: E2E and Unit Test Mocking
 - [ ] Task: Mock Mapbox/WebGL in unit tests (Jest)
