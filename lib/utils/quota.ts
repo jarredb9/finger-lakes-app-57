@@ -14,7 +14,7 @@ export const checkAndCleanupQuota = async (threshold = 0.8) => {
     if (usage !== undefined && quota !== undefined && quota > 0 && usage / quota > threshold) {
       console.warn(`[Quota] Storage usage is high (${Math.round((usage / quota) * 100)}%). Purging non-essential caches.`);
       
-      const cachesToClear = ["google-maps-tiles", "pages", "supabase-storage"];
+      const cachesToClear = ["google-maps-tiles", "pages", "supabase-storage", "mapbox-tiles", "mapbox-metadata"];
       const keys = await caches.keys();
       
       await Promise.all(
