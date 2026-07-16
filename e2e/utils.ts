@@ -1026,7 +1026,8 @@ export class MockMapsManager {
             body: JSON.stringify({
                 version: 8,
                 sources: {},
-                layers: []
+                layers: [],
+                glyphs: 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf'
             })
         });
     });
@@ -1034,9 +1035,9 @@ export class MockMapsManager {
     await this.page.context().route(/api\.mapbox\.com\/fonts\/v1/, async (route) => {
         await route.fulfill({
             status: 200,
-            contentType: 'application/json',
+            contentType: 'application/x-protobuf',
             headers: { 'Access-Control-Allow-Origin': '*' },
-            body: JSON.stringify([])
+            body: Buffer.alloc(0)
         });
     });
 
@@ -1224,12 +1225,8 @@ export class MockMapsManager {
                 const originalGetContext = window.HTMLCanvasElement.prototype.getContext;
                 window.HTMLCanvasElement.prototype.getContext = function (type: string, attributes?: any) {
                     if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
-                        const glMock = {
+                        const glBase = {
                             canvas: this,
-                            clearColor: () => {},
-                            clear: () => {},
-                            enable: () => {},
-                            disable: () => {},
                             getParameter: (param: number) => {
                                 if (param === 3379) return 16384; // MAX_TEXTURE_SIZE
                                 if (param === 35661) return 80; // MAX_VERTEX_ATTRIBS
@@ -1252,31 +1249,32 @@ export class MockMapsManager {
                             },
                             isContextLost: () => false,
                             createShader: () => ({}),
-                            shaderSource: () => {},
-                            compileShader: () => {},
                             getShaderParameter: () => true,
+                            getShaderInfoLog: () => "",
+                            getShaderSource: () => "",
                             createProgram: () => ({}),
-                            attachShader: () => {},
-                            linkProgram: () => {},
                             getProgramParameter: () => true,
-                            useProgram: () => {},
+                            getProgramInfoLog: () => "",
                             getAttribLocation: () => 0,
                             getUniformLocation: () => ({}),
                             createBuffer: () => ({}),
-                            bindBuffer: () => {},
-                            bufferData: () => {},
-                            vertexAttribPointer: () => {},
-                            enableVertexAttribArray: () => {},
-                            drawArrays: () => {},
-                            viewport: () => {},
                             createTexture: () => ({}),
-                            bindTexture: () => {},
-                            texParameteri: () => {},
-                            texImage2D: () => {},
-                            pixelStorei: () => {},
+                            createFramebuffer: () => ({}),
+                            createRenderbuffer: () => ({}),
+                            checkFramebufferStatus: () => 36053, // FRAMEBUFFER_COMPLETE
                             getError: () => 0,
                             ...glConstants,
-                        } as any;
+                        };
+
+                        const glMock = new Proxy(glBase, {
+                            get: (target: any, prop: string) => {
+                                if (prop in target) {
+                                    return target[prop];
+                                }
+                                // Fallback to a no-op function for any other called methods
+                                return () => {};
+                            }
+                        }) as any;
                         return glMock;
                     }
                     return originalGetContext.call(this, type, attributes);
