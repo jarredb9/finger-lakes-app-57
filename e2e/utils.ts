@@ -1017,6 +1017,56 @@ export class MockMapsManager {
         return route.fallback();
     });
 
+    // 11. Mapbox API Handlers
+    await this.page.context().route(/api\.mapbox\.com\/styles\/v1/, async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: { 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({
+                version: 8,
+                sources: {},
+                layers: []
+            })
+        });
+    });
+
+    await this.page.context().route(/api\.mapbox\.com\/fonts\/v1/, async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: { 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify([])
+        });
+    });
+
+    await this.page.context().route(/api\.mapbox\.com\/sprites\/v1/, async (route) => {
+        if (route.request().url().endsWith('.json')) {
+            await route.fulfill({ 
+                status: 200, 
+                contentType: 'application/json', 
+                headers: { 'Access-Control-Allow-Origin': '*' },
+                body: '{}' 
+            });
+        } else {
+            await route.fulfill({ 
+                status: 200, 
+                contentType: 'image/png', 
+                headers: { 'Access-Control-Allow-Origin': '*' },
+                body: Buffer.from('iVBORw0KGgoAAAANghjYAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') 
+            });
+        }
+    });
+
+    await this.page.context().route(/(api\.mapbox\.com\/v4\/|\.tiles\.mapbox\.com)/, async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'image/png',
+            headers: { 'Access-Control-Allow-Origin': '*' },
+            body: Buffer.from('iVBORw0KGgoAAAANghjYAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+        });
+    });
+
     this.mocksRegistered = true;
   }
 
@@ -1146,6 +1196,99 @@ export class MockMapsManager {
                 return originalRegister(swUrl.toString(), options);
             };
         }
+
+        // Mock WebGL context on HTML Canvas elements for headless compatibility
+        if (typeof window !== 'undefined') {
+            const glConstants = {
+                VERTEX_SHADER: 35633,
+                FRAGMENT_SHADER: 35632,
+                COMPILE_STATUS: 35713,
+                LINK_STATUS: 35714,
+                VALIDATE_STATUS: 35715,
+                MAX_VERTEX_ATTRIBS: 35661,
+                MAX_TEXTURE_SIZE: 3379,
+                VERSION: 7938,
+                VENDOR: 7936,
+                RENDERER: 7937,
+                SHADING_LANGUAGE_VERSION: 35724,
+            };
+
+            const mockCtor = function() {};
+            Object.assign(mockCtor, glConstants);
+            Object.assign(mockCtor.prototype, glConstants);
+
+            (window as any).WebGLRenderingContext = (window as any).WebGLRenderingContext || mockCtor;
+            (window as any).WebGL2RenderingContext = (window as any).WebGL2RenderingContext || mockCtor;
+
+            if (window.HTMLCanvasElement) {
+                const originalGetContext = window.HTMLCanvasElement.prototype.getContext;
+                window.HTMLCanvasElement.prototype.getContext = function (type: string, attributes?: any) {
+                    if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+                        const glMock = {
+                            canvas: this,
+                            clearColor: () => {},
+                            clear: () => {},
+                            enable: () => {},
+                            disable: () => {},
+                            getParameter: (param: number) => {
+                                if (param === 3379) return 16384; // MAX_TEXTURE_SIZE
+                                if (param === 35661) return 80; // MAX_VERTEX_ATTRIBS
+                                if (param === 7938) return "WebGL 1.0"; // VERSION
+                                if (param === 7936) return "WebKit"; // VENDOR
+                                if (param === 7937) return "WebKit WebGL"; // RENDERER
+                                if (param === 35724) return "WebGL GLSL ES 1.0"; // SHADING_LANGUAGE_VERSION
+                                if (param === 37446) return "WebKit WebGL"; // UNMASKED_RENDERER_WEBGL
+                                if (param === 37445) return "WebKit"; // UNMASKED_VENDOR_WEBGL
+                                return 0;
+                            },
+                            getExtension: (name: string) => {
+                                if (name === "WEBGL_debug_renderer_info") {
+                                    return {
+                                        UNMASKED_RENDERER_WEBGL: 37446,
+                                        UNMASKED_VENDOR_WEBGL: 37445,
+                                    };
+                                }
+                                return null;
+                            },
+                            isContextLost: () => false,
+                            createShader: () => ({}),
+                            shaderSource: () => {},
+                            compileShader: () => {},
+                            getShaderParameter: () => true,
+                            createProgram: () => ({}),
+                            attachShader: () => {},
+                            linkProgram: () => {},
+                            getProgramParameter: () => true,
+                            useProgram: () => {},
+                            getAttribLocation: () => 0,
+                            getUniformLocation: () => ({}),
+                            createBuffer: () => ({}),
+                            bindBuffer: () => {},
+                            bufferData: () => {},
+                            vertexAttribPointer: () => {},
+                            enableVertexAttribArray: () => {},
+                            drawArrays: () => {},
+                            viewport: () => {},
+                            createTexture: () => ({}),
+                            bindTexture: () => {},
+                            texParameteri: () => {},
+                            texImage2D: () => {},
+                            pixelStorei: () => {},
+                            getError: () => 0,
+                            ...glConstants,
+                        } as any;
+                        return glMock;
+                    }
+                    return originalGetContext.call(this, type, attributes);
+                };
+            }
+        }
+
+        // Mock mapboxgl.supported
+        if (typeof window !== 'undefined') {
+            (window as any).mapboxgl = (window as any).mapboxgl || {};
+            (window as any).mapboxgl.supported = () => true;
+        }
         
         const inject = () => {
             // @ts-ignore
@@ -1192,8 +1335,8 @@ export class MockMapsManager {
                 if (!state.bounds) {
                     mapStore.setState({ 
                         bounds: { 
-                            getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
-                            getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 }),
+                            getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76, 0: -76, 1: 43 }),
+                            getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77, 0: -77, 1: 42 }),
                             getCenter: () => ({ latitude: 42.5, longitude: -76.5, lat: () => 42.5, lng: () => -76.5 }),
                             contains: () => true,
                             extend: () => {}
