@@ -202,6 +202,8 @@ test.describe('Winery Q&A Review Fallback Flow', () => {
             reviews: [] // Will be populated by the mocked edge function
         };
         (window as any).useWineryDataStore.getState().upsertWinery(winery);
+        const mapStore = (window as any).useMapStore.getState();
+        mapStore.setSearchResults([...mapStore.searchResults, winery]);
     });
 
     await openWineryDetails(page, 'V1 Data Winery');
