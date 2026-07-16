@@ -21,7 +21,7 @@
 - [ ] Task: Conductor - User Manual Verification 'E2E and Unit Test Mocking' (Protocol in workflow.md)
 
 ## Phase 3: Visual Regression Snapshot Regeneration
-- [ ] Task: Regenerate visual baseline snapshots
-    - [ ] Run Playwright snapshot update command inside the Podman container.
-    - [ ] Confirm baseline snapshots are updated and match the new Mapbox UI layout.
-- [ ] Task: Conductor - User Manual Verification 'Visual Regression Snapshot Regeneration' (Protocol in workflow.md)
+- [x] Task: Regenerate visual baseline snapshots (0a995fe)
+    - [x] Run Playwright snapshot update command inside the Podman container.
+    - [x] Confirm baseline snapshots are updated and match the new Mapbox UI layout.
+- [x] Task: Conductor - User Manual Verification 'Visual Regression Snapshot Regeneration' (Protocol in workflow.md) (0a995fe)
