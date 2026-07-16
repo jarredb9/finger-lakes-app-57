@@ -25,11 +25,12 @@
 - [x] Task: Implement custom, high-fidelity cluster markers styled to match shadcn/ui (circular, showing count, color-coded by density/winery counts). (c29e6c1)
 - [x] Task: Implement the floating Style Switcher control on the map canvas allowing toggle between Outdoors and Streets styles. (c29e6c1)
 - [x] Task: Implement the floating Google attribution badge in the bottom-left corner of the map (retaining term compliance). (c29e6c1)
-- [ ] Task: Conductor - User Manual Verification 'Component Rewrite & Style Switcher' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Component Rewrite & Style Switcher' (Protocol in workflow.md) (49dc50b)
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions (31562ea)
 - [x] Task: Adjust mobile Google attribution badge positioning (947dc86)
 - [x] Task: Fix Google Street View panorama instantiation error (4af67e8)
 - [x] Task: Apply active category filters to map markers in Mapbox and Google Map fallback views (aa67c88)
+- [x] Task: Fix unnormalized review data fallback test issue (a4b64e3)
 
