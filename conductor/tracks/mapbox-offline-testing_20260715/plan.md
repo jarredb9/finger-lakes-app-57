@@ -12,12 +12,12 @@
 - [x] Task: Mock Mapbox/WebGL in unit tests (Jest) (dc4d466)
     - [x] Update Jest setup files to mock `react-map-gl` and the Mapbox context.
     - [x] Refactor unit tests mock hooks (e.g. `use-winery-search.test.ts`, `use-places-autocomplete-session.test.ts`) that previously mocked `@vis.gl/react-google-maps` features.
-- [ ] Task: Mock Mapbox/WebGL and API endpoints in Playwright E2E tests
-    - [ ] Update `e2e/utils.ts` and `e2e/helpers.ts` to intercept Mapbox API requests (styles, glyphs, sprites, tiles).
-    - [ ] Add init scripts to mock the canvas context (`getContext('webgl')`) for headless environments.
-    - [ ] Update the `waitForMapReady` helper in `e2e/helpers.ts` and all store bounds mock injectors (e.g. `setBounds`) to match the new Mapbox serializable bounds/states.
-- [ ] Task: Verify offline E2E flow stability
-    - [ ] Verify `e2e/pwa-offline.spec.ts` passes with offline routing.
+- [x] Task: Mock Mapbox/WebGL and API endpoints in Playwright E2E tests
+    - [x] Update `e2e/utils.ts` and `e2e/helpers.ts` to intercept Mapbox API requests (styles, glyphs, sprites, tiles).
+    - [x] Add init scripts to mock the canvas context (`getContext('webgl')`) for headless environments.
+    - [x] Update the `waitForMapReady` helper in `e2e/helpers.ts` and all store bounds mock injectors (e.g. `setBounds`) to match the new Mapbox serializable bounds/states.
+- [x] Task: Verify offline E2E flow stability
+    - [x] Verify `e2e/pwa-offline.spec.ts` passes with offline routing.
 - [ ] Task: Conductor - User Manual Verification 'E2E and Unit Test Mocking' (Protocol in workflow.md)
 
 ## Phase 3: Visual Regression Snapshot Regeneration
