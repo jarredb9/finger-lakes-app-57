@@ -9,9 +9,9 @@
 - [x] Task: Conductor - User Manual Verification 'PWA Service Worker Offline Mapbox Caching' (Protocol in workflow.md)
 
 ## Phase 2: E2E and Unit Test Mocking
-- [ ] Task: Mock Mapbox/WebGL in unit tests (Jest)
-    - [ ] Update Jest setup files to mock `react-map-gl` and the Mapbox context.
-    - [ ] Refactor unit tests mock hooks (e.g. `use-winery-search.test.ts`, `use-places-autocomplete-session.test.ts`) that previously mocked `@vis.gl/react-google-maps` features.
+- [x] Task: Mock Mapbox/WebGL in unit tests (Jest) (dc4d466)
+    - [x] Update Jest setup files to mock `react-map-gl` and the Mapbox context.
+    - [x] Refactor unit tests mock hooks (e.g. `use-winery-search.test.ts`, `use-places-autocomplete-session.test.ts`) that previously mocked `@vis.gl/react-google-maps` features.
 - [ ] Task: Mock Mapbox/WebGL and API endpoints in Playwright E2E tests
     - [ ] Update `e2e/utils.ts` and `e2e/helpers.ts` to intercept Mapbox API requests (styles, glyphs, sprites, tiles).
     - [ ] Add init scripts to mock the canvas context (`getContext('webgl')`) for headless environments.
