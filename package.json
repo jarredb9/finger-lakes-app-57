@@ -1,6 +1,6 @@
 {
   "name": "winery-visit-planner",
-  "version": "2.13.3",
+  "version": "3.0.0",
   "private": true,
   "engines": {
     "node": "20.x"
