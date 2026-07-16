@@ -90,3 +90,71 @@ describe('WineryUIStore: ensureWineryDetails', () => {
     expect(mockRpc).toHaveBeenCalledWith('get_winery_details_by_id', { p_winery_id: 123 });
   });
 });
+
+describe('WineryUIStore: fetchWineryData', () => {
+  let useWineryStore: any;
+  let useWineryDataStore: any;
+  let mockRpc: jest.Mock;
+
+  beforeEach(() => {
+    jest.resetModules();
+    
+    mockRpc = jest.fn().mockResolvedValue({ data: [], error: null });
+
+    jest.doMock('@/utils/supabase/client', () => ({
+      createClient: () => ({
+        rpc: mockRpc
+      })
+    }));
+
+    useWineryStore = require('../wineryStore').useWineryStore;
+    useWineryDataStore = require('../wineryDataStore').useWineryDataStore;
+    
+    useWineryStore.getState().reset();
+    useWineryDataStore.getState().reset();
+  });
+
+  it('fetches map markers and hydrates them into useWineryDataStore', async () => {
+    const mockMarker = {
+      id: 999,
+      google_place_id: 'test-google-id',
+      name: 'Test Winery',
+      latitude: 42.123,
+      longitude: -76.456,
+      is_favorite: true,
+      on_wishlist: false,
+      user_visited: true,
+      is_favorite_private: false,
+      on_wishlist_private: false
+    };
+
+    mockRpc.mockResolvedValueOnce({
+      data: [mockMarker],
+      error: null
+    });
+
+    await useWineryStore.getState().fetchWineryData('test-user-id');
+
+    expect(mockRpc).toHaveBeenCalledWith('get_map_markers', { p_user_id: 'test-user-id' });
+    
+    const persistentWineries = useWineryDataStore.getState().persistentWineries;
+    expect(persistentWineries).toHaveLength(1);
+    expect(persistentWineries[0].id).toBe('test-google-id');
+    expect(persistentWineries[0].dbId).toBe(999);
+    expect(persistentWineries[0].isFavorite).toBe(true);
+    expect(persistentWineries[0].userVisited).toBe(true);
+  });
+
+  it('handles database errors gracefully', async () => {
+    const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockRpc.mockResolvedValueOnce({
+      data: null,
+      error: new Error('DB Error')
+    });
+
+    await useWineryStore.getState().fetchWineryData('test-user-id');
+
+    expect(consoleSpy).toHaveBeenCalledWith('Failed to fetch map markers:', expect.any(Error));
+    consoleSpy.mockRestore();
+  });
+});
