@@ -1,11 +1,11 @@
 # Track Plan: Mapbox Offline Caching & Verification (mapbox-offline-testing_20260715)
 
 ## Phase 1: PWA Service Worker Offline Mapbox Caching
-- [ ] Task: Update `app/sw.ts` to cache Mapbox assets
-    - [ ] Add runtime caching rules for Mapbox styles, sprites, and fonts.
-    - [ ] Add runtime caching rules for Mapbox map tiles (vector and raster).
-    - [ ] Integrate Mapbox cache namespaces into the quota cleaning logic in `app/sw.ts` to build resilience against QuotaExceededError.
-- [ ] Task: Update cache names in `lib/utils/quota.ts` to include Mapbox tile cache identifiers so they can be cleaned under storage pressure.
+- [x] Task: Update `app/sw.ts` to cache Mapbox assets (d93ef79)
+    - [x] Add runtime caching rules for Mapbox styles, sprites, and fonts.
+    - [x] Add runtime caching rules for Mapbox map tiles (vector and raster).
+    - [x] Integrate Mapbox cache namespaces into the quota cleaning logic in `app/sw.ts` to build resilience against QuotaExceededError.
+- [x] Task: Update cache names in `lib/utils/quota.ts` to include Mapbox tile cache identifiers so they can be cleaned under storage pressure. (d93ef79)
 - [ ] Task: Conductor - User Manual Verification 'PWA Service Worker Offline Mapbox Caching' (Protocol in workflow.md)
 
 ## Phase 2: E2E and Unit Test Mocking
