@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Star, Users } from "lucide-react";
 import { Separator } from "./ui/separator";
 import { FriendRating } from "@/lib/types";
-import Image from "next/image";
+import { FriendPhoto } from "./friend-photo";
 
 export default function FriendRatings() {
   const { friendsRatings = [] } = useFriendStore();
@@ -38,12 +38,9 @@ export default function FriendRatings() {
                     {rating.photos.map((photo: string, index: number) => {
                       return (
                         <div key={index} className="relative w-20 h-20 rounded-md overflow-hidden">
-                          <Image 
-                            src={photo} 
+                          <FriendPhoto 
+                            photoPath={photo} 
                             alt={`Friend photo ${index + 1}`} 
-                            fill
-                            className="object-cover" 
-                            unoptimized
                           />
                         </div>
                       );
