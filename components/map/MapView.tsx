@@ -78,6 +78,7 @@ const unclusteredPointLayer = {
     "circle-color": [
       "match",
       ["get", "type"],
+      "trip", "#f97316",
       "favorite", "#eab308",
       "visited", "#16a34a",
       "wishlist", "#a855f7",
@@ -203,8 +204,9 @@ function GoogleMapFallback({
   wishlistWineries,
   favoriteWineries,
   filter,
-  onMarkerClick
-}: Omit<MapViewProps, "selectedTrip">) {
+  onMarkerClick,
+  selectedTrip
+}: MapViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<GoogleMapAdapter | null>(null);
   const markersRef = useRef<any[]>([]);
@@ -276,17 +278,21 @@ function GoogleMapFallback({
     const showAll = filter.includes("all") || !hasCategory;
 
     const allWineries: any[] = [];
-    if (showAll || filter.includes("notVisited")) {
-      allWineries.push(...discoveredWineries.map(w => ({ ...w, type: 'discovered' })));
-    }
-    if (showAll || filter.includes("visited")) {
-      allWineries.push(...visitedWineries.map(w => ({ ...w, type: 'visited' })));
-    }
-    if (showAll || filter.includes("wantToGo")) {
-      allWineries.push(...wishlistWineries.map(w => ({ ...w, type: 'wishlist' })));
-    }
-    if (showAll || filter.includes("favorites")) {
-      allWineries.push(...favoriteWineries.map(w => ({ ...w, type: 'favorite' })));
+    if (selectedTrip?.wineries?.length) {
+      allWineries.push(...selectedTrip.wineries.map(w => ({ ...w, type: 'trip' })));
+    } else {
+      if (showAll || filter.includes("notVisited")) {
+        allWineries.push(...discoveredWineries.map(w => ({ ...w, type: 'discovered' })));
+      }
+      if (showAll || filter.includes("visited")) {
+        allWineries.push(...visitedWineries.map(w => ({ ...w, type: 'visited' })));
+      }
+      if (showAll || filter.includes("wantToGo")) {
+        allWineries.push(...wishlistWineries.map(w => ({ ...w, type: 'wishlist' })));
+      }
+      if (showAll || filter.includes("favorites")) {
+        allWineries.push(...favoriteWineries.map(w => ({ ...w, type: 'favorite' })));
+      }
     }
 
     allWineries.forEach(async (winery) => {
@@ -299,6 +305,7 @@ function GoogleMapFallback({
         visited: '#16a34a',  // Green
         wishlist: '#a855f7', // Purple
         discovered: '#6b7280', // Gray
+        trip: '#f97316',     // Orange
       };
       
       const color = pinColors[winery.type as keyof typeof pinColors] || '#4b5563';
@@ -340,7 +347,7 @@ function GoogleMapFallback({
     return () => {
       active = false;
     };
-  }, [discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, onMarkerClick]);
+  }, [discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, onMarkerClick, selectedTrip]);
 
   return (
     <div className="relative w-full h-full bg-muted">
@@ -432,6 +439,13 @@ const MapView = memo(({
 
   // Combine and type all wineries based on selected filters
   const allWineries = useMemo(() => {
+    if (_selectedTrip?.wineries?.length) {
+      return _selectedTrip.wineries.map(w => ({
+        ...w,
+        type: "trip"
+      }));
+    }
+
     const hasCategory = filter.some(f => ["all", "visited", "favorites", "wantToGo", "notVisited"].includes(f));
     const showAll = filter.includes("all") || !hasCategory;
 
@@ -449,7 +463,7 @@ const MapView = memo(({
       list.push(...favoriteWineries.map(w => ({ ...w, type: "favorite" })));
     }
     return list;
-  }, [discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter]);
+  }, [discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, _selectedTrip]);
  
   // Convert wineries to GeoJSON for Mapbox Source
   const wineriesGeoJSON = useMemo(() => {
@@ -523,6 +537,7 @@ const MapView = memo(({
         favoriteWineries={favoriteWineries}
         filter={filter}
         onMarkerClick={onMarkerClick}
+        selectedTrip={_selectedTrip}
       />
     );
   }
