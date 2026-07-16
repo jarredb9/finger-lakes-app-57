@@ -56,9 +56,20 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
   // Proxy error correctly (Note: state.error might not be reactive if not used in a hook)
   get error() { return useWineryDataStore.getState().error; },
 
-  fetchWineryData: async (_userId: string) => {
-      // In a real app, this might fetch from server and then hydrate
-      // For now, we assume markers come from map interaction and hydrate there
+  fetchWineryData: async (userId: string) => {
+      try {
+          const supabase = createClient();
+          const { data, error } = await supabase.rpc('get_map_markers', { p_user_id: userId });
+          if (error) {
+              console.error("Failed to fetch map markers:", error);
+              return;
+          }
+          if (data) {
+              useWineryDataStore.getState().hydrateWineries(data);
+          }
+      } catch (err) {
+          console.error("Error in fetchWineryData:", err);
+      }
   },
 
   ensureWineryDetails: async (placeId: GooglePlaceId) => {

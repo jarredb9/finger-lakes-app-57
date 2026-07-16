@@ -43,13 +43,20 @@ export function useWineryFilter() {
 
       if (!matchesAttributes) return;
 
+      let isDiscovered = true;
       if (winery.isFavorite) {
         categorizedWineries.favorites.push(winery);
-      } else if (winery.userVisited) {
+        isDiscovered = false;
+      }
+      if (winery.userVisited) {
         categorizedWineries.visited.push(winery);
-      } else if (winery.onWishlist) {
+        isDiscovered = false;
+      }
+      if (winery.onWishlist) {
         categorizedWineries.wishlist.push(winery);
-      } else {
+        isDiscovered = false;
+      }
+      if (isDiscovered) {
         categorizedWineries.discovered.push(winery);
       }
     });
