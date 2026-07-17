@@ -24,13 +24,13 @@ This specification contains visual wireframes, layout rules, and interaction def
 |                                         |  |                                 |  |
 |  +-----------------------------------+  |  |  * Amenities Tab (Active here): |  |
 |  | ⚡ QUICK ACTIONS ROW               |  |  |    - Restrooms: ✅ Yes          |  |
-|  | [❤️ Favorite] [⭐ Wishlist]         |  |  |    - Tasting Room: ✅ Yes       |  |
+|  | [❤️ Favorite [🔒]] [⭐ Wishlist [🔒]]|  |  |    - Tasting Room: ✅ Yes       |  |
 |  | [🌐 Street View] [🔗 Share]        |  |  |    - EV Charging: ❓ Ask-------+--|
 |  +-----------------------------------+  |  |    - Dog Friendly: ✅ Yes       |  |  |
 |                                         |  |                                 |  |  |
 |  +-----------------------------------+  |  |  * Community Tab:               |  |  |
-|  | ℹ️ SEGMENTED DETAILS CARD          |  |  |    - Friend Activity Feed (with |  |  |
-|  | +-------------------------------+ |  |  |      star ratings merged inside)|  |  |
+|  | ℹ️ SEGMENTED DETAILS CARD          |  |  |    - Avatars: 🧑‍🦰🧑👩 (Hover Names) |  |  |
+|  | +-------------------------------+ |  |  |    - Reviews Feed (Text+Photos) |  |  |
 |  | | [ Overview ]  [ AI Insights ] | |  |  |                                 |  |  |
 |  | +-------------------------------+ |  |  * Add to Trip Tab:             |  |  |
 |  | | 🟢 Open Now   | Contact:      | |  |    - Select Trip & Planner      |  |  |
@@ -64,8 +64,8 @@ Rendered inside a bottom sheet `Drawer` wrapper.
 |  +-----------------------------+  |
 |                                   |
 |  +-----------------------------+  |
-|  | ❤️ Favorite   ⭐ Wishlist     |  |  <-- Simplified quick actions row
-|  | 🌐 Street View  🔗 Share    |  |
+|  | ❤️ Favorite [🔒] ⭐ Wishlist [🔒]|  |  <-- Redesigned compact privacy locks
+|  | 🌐 Street View  🔗 Share       |  |
 |  +-----------------------------+  |
 |                                   |
 |  +-----------------------------+  |
@@ -97,7 +97,7 @@ To prevent vertical space bloat, the contact card and Gemini summary are housed 
     *   *Open Status Indicator:* A green dot and text label (e.g., `🟢 Open Now`).
     *   *Expandable Hours Trigger:* Dropdown indicator displaying weekly opening text (e.g., `[v]`).
     *   *Contact Icons:* Inline icon row linking Web, Phone, and Email.
-    *   *Quick Route Trigger:* A `🚗 [ Route From Current Location ]` action button next to the address to trigger background map routing.
+    *   *Quick Route Trigger:* A 🚗 [ Route From Current Location ] action button next to the address. This button uses `MapNavigation` to open the map navigation popup, allowing the user to select their preferred routing application (Google Maps, Apple Maps, or Waze).
 *   **AI Insights Segment:**
     *   *Gemini Summary:* Highlights the generative AI winery summary in a premium gradient container.
     *   *About the Area:* Shows the neighborhood summary.
@@ -107,10 +107,12 @@ To prevent vertical space bloat, the contact card and Gemini summary are housed 
 ## 4. Interactive Tabs & Sub-Drawer/Side-Sheet Flow
 
 The right column (desktop) and bottom container (mobile) support four navigation tabs:
-*   **Tab 1: Community:** Friend activity feed. Stand-alone `FriendRatings` is removed; rating stars are merged directly inside `FriendActivityFeed` cards.
-*   **Tab 2: Amenities:** A vertical list of the 8 logistics checklist attributes (Parking Available, Restrooms, Tasting Room, Dog Friendly, Picnic Area, EV Charging, Reservation Required, Tasting Fee).
+*   **Tab 1: Community:** Consolidated Friend Activity and Ratings feed. Displays compact avatar group summaries of friends who favorited/wishlisted this winery at the top. Below the summary, it displays a scrollable feed of detailed friend review cards containing the friend's name, rating stars, written text review, and uploaded photos (retaining all data from `FriendRatings`).
+*   **Tab 2: Amenities:** A vertical list of the 8 logistics checklist attributes. 
+    *   *Database-backed:* Parking (uses `parking_options`), Dog Friendly (uses `allows_dogs`), EV Charging (uses `has_ev_charging`), and Reservation Required (uses `reservable`).
+    *   *Reviews-backed:* Restrooms, Tasting Room, Picnic Area, and Tasting Fee are NOT stored as database columns (and thus require no database schema migrations or changes to `db:populate`). They query Google reviews dynamically using custom keywords configured in `WineryQnA.tsx`.
 *   **Tab 3: Visits:** The `+ Log Visit` button and personal visit history. `VisitCardHistory` shows a horizontal strip of photo thumbnails uploaded for each logged visit.
-*   **Tab 4: Trip:** The `TripPlannerSection` to planning.
+*   **Tab 4: Trip:** The trip planner section. This tab explicitly reuses the existing `TripPlannerSection.tsx` component to allow users to add/remove the winery to/from active or planned trips.
 
 ### The Sub-Drawer / Side-Sheet Reviews Portal
 Clicking **any** amenity row inside **Tab 2 (Amenities)** triggers a sliding reviews panel:
@@ -146,8 +148,8 @@ Clicking **any** amenity row inside **Tab 2 (Amenities)** triggers a sliding rev
 *   [ ] The Segmented Control and the bottom tabs are styled distinctly (iOS pill slider vs. underline tabs) to prevent layout conflicts.
 *   [ ] Active and hover states across all action buttons feature micro-animations.
 *   [ ] Tapping any of the 8 logistics rows inside the Amenities Tab triggers a Side-Sheet (desktop) or a Sub-Drawer (mobile) containing paginated reviews.
-*   [ ] Standalone `FriendRatings` is removed, and star ratings are merged inside `FriendActivityFeed`.
-*   [ ] Quick Action bar contains a Share button, and lacks individual padlock icons (controlled globally).
-*   [ ] Overview card includes a "Route From Current Location" trigger.
+*   [ ] Standalone `FriendRatings` is merged into the Community Tab, displaying both friend avatars and detailed review text/photos.
+*   [ ] Quick Action bar contains a Share button, and retains decluttered individual padlock toggles (`favorite-privacy-toggle`, `wishlist-privacy-toggle`) for test compatibility.
+*   [ ] Overview card includes a "Route From Current Location" trigger that opens the `MapNavigation` popup choice (supporting Google Maps, Apple Maps, and Waze).
 *   [ ] `VisitCardHistory` shows horizontal photo thumbnail strips for each logged visit.
 *   [ ] Loading skeleton matches the column-split structure of the ready modal exactly.
