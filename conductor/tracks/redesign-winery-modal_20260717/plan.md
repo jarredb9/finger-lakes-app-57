@@ -1,17 +1,17 @@
 # Implementation Plan: Redesign Winery Modal UX/UI (`plan.md`)
 
 ## Phase 1: Test Scaffolding & Red Phase Verification
-- [ ] Task: Write Failing Unit Tests (TDD Red Phase)
-    - [ ] Add unit test assertions in `components/__tests__/winery-modal.test.tsx` verifying responsive rendering (Drawer on mobile, Dialog on desktop)
-    - [ ] Verify that consolidated `WineryCommunityTab` properly merges friend avatars and review details (retaining text reviews and uploaded photos)
-    - [ ] Verify that quick action buttons contain a Share button and retain individual item privacy locks (`favorite-privacy-toggle`, `wishlist-privacy-toggle`)
-    - [ ] Add unit test assertions in `components/__tests__/WineryDetails.test.tsx` for Amenities tab list clicking behavior (including reservations and tasting fee keys) and Side-Sheet / Sub-Drawer reviews panel trigger
-    - [ ] Verify that new unit tests fail initially on the existing modal implementation
-- [ ] Task: Adapt E2E Test Suite and Write Failing E2E Tests (TDD Red Phase)
-    - [ ] Update [winery-qa-fallback.spec.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/winery-qa-fallback.spec.ts) to adapt it to trigger Q&A reviews using the new Amenity row clicks rather than the legacy `qna-select` dropdown.
-    - [ ] Create a new E2E test file `e2e/winery-modal-redesign.spec.ts` (using Playwright) to verify viewport resizing, switching bottom/right tabs, clicking the segmented control triggers, clicking any of the 8 amenities to trigger Side-Sheet/Sub-Drawer reviews, and clicking the "Route From Current" action
-    - [ ] Verify that E2E tests fail initially
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Test Scaffolding & Red Phase Verification' (Protocol in workflow.md)
+- [x] Task: Write Failing Unit Tests (TDD Red Phase)
+    - [x] Add unit test assertions in `components/__tests__/winery-modal.test.tsx` verifying responsive rendering (Drawer on mobile, Dialog on desktop)
+    - [x] Verify that consolidated `WineryCommunityTab` properly merges friend avatars and review details (retaining text reviews and uploaded photos)
+    - [x] Verify that quick action buttons contain a Share button and retain individual item privacy locks (`favorite-privacy-toggle`, `wishlist-privacy-toggle`)
+    - [x] Add unit test assertions in `components/__tests__/WineryDetails.test.tsx` for Amenities tab list clicking behavior (including reservations and tasting fee keys) and Side-Sheet / Sub-Drawer reviews panel trigger
+    - [x] Verify that new unit tests fail initially on the existing modal implementation
+- [x] Task: Adapt E2E Test Suite and Write Failing E2E Tests (TDD Red Phase)
+    - [x] Update [winery-qa-fallback.spec.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/winery-qa-fallback.spec.ts) to adapt it to trigger Q&A reviews using the new Amenity row clicks rather than the legacy `qna-select` dropdown.
+    - [x] Create a new E2E test file `e2e/winery-modal-redesign.spec.ts` (using Playwright) to verify viewport resizing, switching bottom/right tabs, clicking the segmented control triggers, clicking any of the 8 amenities to trigger Side-Sheet/Sub-Drawer reviews, and clicking the "Route From Current" action
+    - [x] Verify that E2E tests fail initially
+- [~] Task: Conductor - User Manual Verification 'Phase 1: Test Scaffolding & Red Phase Verification' (Protocol in workflow.md)
 
 ## Phase 2: Core Components & Layout Implementation (Green Phase)
 - [ ] Task: Refactor Winery Modal Structure (Desktop Dialog & Mobile Drawer)

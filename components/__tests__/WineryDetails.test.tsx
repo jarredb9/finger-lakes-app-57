@@ -146,4 +146,113 @@ describe('WineryDetails', () => {
     // QnA component should now show that the dogs question is active
     expect(screen.getByTestId('winery-qna').textContent).toBe('QnA Active: dogs');
   });
+
+  it('renders all 8 amenities in the list and clicking them triggers the reviews panel', () => {
+    const winery = createMockWinery({
+      allows_dogs: true,
+      good_for_children: true,
+      outdoor_seating: true,
+      has_ev_charging: true,
+      parking_options: { freeParking: true },
+      accessibility_options: { wheelchairAccessibleEntrance: true },
+      reservable: null, // Unknown/Ask reviews for reservations
+      // tasting_fee is reviews-backed (not a Winery type property), so not set here
+      enrichment_tier: 'basic',
+    });
+
+    render(<WineryDetails winery={winery} />);
+
+    // Assert that we have rows/triggers for all 8 amenities:
+    // Parking, Restrooms, Tasting Room, Dog Friendly, Picnic Area, EV Charging, Reservations Required, Tasting Fee
+    const amenities = [
+      'parking',
+      'restrooms',
+      'tasting_room',
+      'dogs',
+      'picnic_area',
+      'ev_charging',
+      'reservations',
+      'tasting_fee'
+    ];
+
+    amenities.forEach((key) => {
+      const row = screen.getByTestId(`amenity-row-${key}`);
+      expect(row).toBeInTheDocument();
+    });
+
+    // Click on Reservations Required row and verify it triggers reviews panel / QnA active question
+    const reservationsRow = screen.getByTestId('amenity-row-reservations');
+    fireEvent.click(reservationsRow);
+    expect(screen.getByTestId('winery-qna').textContent).toBe('QnA Active: reservations');
+
+    // Click on Tasting Fee row and verify it triggers reviews panel / QnA active question
+    const tastingFeeRow = screen.getByTestId('amenity-row-tasting_fee');
+    fireEvent.click(tastingFeeRow);
+    expect(screen.getByTestId('winery-qna').textContent).toBe('QnA Active: tasting_fee');
+  });
+
+  it('clicking an amenity row on desktop triggers a Side-Sheet (Sheet component) for reviews', () => {
+    // Simulate desktop viewport
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1024 });
+    window.dispatchEvent(new Event('resize'));
+
+    const winery = createMockWinery({
+      allows_dogs: null,
+      has_ev_charging: null,
+      parking_options: { freeParking: null },
+      enrichment_tier: 'enriched',
+      reviews: [
+        {
+          author_name: 'Test Reviewer',
+          text: 'The parking lot was very spacious and free.',
+          relative_time_description: '3 days ago',
+          rating: 5,
+          time: Date.now(),
+        },
+      ],
+    });
+
+    render(<WineryDetails winery={winery} />);
+
+    // Click the parking amenity row
+    const parkingRow = screen.getByTestId('amenity-row-parking');
+    fireEvent.click(parkingRow);
+
+    // On desktop, a Sheet (side-sheet) should slide in from the right
+    const sideSheet = screen.getByTestId('amenity-reviews-sheet');
+    expect(sideSheet).toBeInTheDocument();
+    expect(sideSheet).toBeVisible();
+  });
+
+  it('clicking an amenity row on mobile triggers a Sub-Drawer for reviews', () => {
+    // Simulate mobile viewport
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 375 });
+    window.dispatchEvent(new Event('resize'));
+
+    const winery = createMockWinery({
+      allows_dogs: null,
+      has_ev_charging: null,
+      enrichment_tier: 'enriched',
+      reviews: [
+        {
+          author_name: 'Mobile Reviewer',
+          text: 'Dogs are welcome on the patio!',
+          relative_time_description: '1 week ago',
+          rating: 4,
+          time: Date.now(),
+        },
+      ],
+    });
+
+    render(<WineryDetails winery={winery} />);
+
+    // Click the dogs amenity row
+    const dogsRow = screen.getByTestId('amenity-row-dogs');
+    fireEvent.click(dogsRow);
+
+    // On mobile, a sub-drawer should slide up from the bottom
+    const subDrawer = screen.getByTestId('amenity-reviews-drawer');
+    expect(subDrawer).toBeInTheDocument();
+    expect(subDrawer).toBeVisible();
+  });
 });

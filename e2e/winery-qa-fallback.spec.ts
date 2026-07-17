@@ -16,7 +16,7 @@ test.describe('Winery Q&A Review Fallback Flow', () => {
     await login(page, user.email, user.password);
   });
 
-  test('Clicking unknown attributes opens Google Maps reviews section with relevant search results (with Reviews Enrichment)', async ({ page }) => {
+  test('Clicking amenity rows opens reviews panel with relevant search results (with Reviews Enrichment)', async ({ page }) => {
     // 1. Navigate to Explore
     await navigateToTab(page, 'Explore');
 
@@ -26,48 +26,41 @@ test.describe('Winery Q&A Review Fallback Flow', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
 
-    // 3. Expand the "Logistics & Accessibility" accordion
-    const accordionHeader = modal.getByRole('button', { name: /Logistics & Accessibility/i });
-    await expect(accordionHeader).toBeVisible();
-    await accordionHeader.click();
+    // 3. Switch to the Amenities tab in the redesigned tabbed interface
+    const amenitiesTab = modal.getByRole('tab', { name: /Amenities/i });
+    await expect(amenitiesTab).toBeVisible();
+    await amenitiesTab.click();
 
-    // 4. Verify that "Free Parking", "EV Charging", "Wheelchair Acc.", and "Outdoor" display "Unknown (Ask Reviews)" buttons
-    const parkingStatus = modal.getByTestId('status-unknown-parking');
-    const evStatus = modal.getByTestId('status-unknown-ev_charging');
-    const wheelchairStatus = modal.getByTestId('status-unknown-wheelchair');
-    const outdoorStatus = modal.getByTestId('status-unknown-outdoor');
+    // 4. Verify that amenity rows are displayed, including "Outdoor" row
+    const outdoorRow = modal.getByTestId('amenity-row-outdoor');
+    await expect(outdoorRow).toBeVisible();
 
-    await expect(parkingStatus).toBeVisible();
-    await expect(evStatus).toBeVisible();
-    await expect(wheelchairStatus).toBeVisible();
-    await expect(outdoorStatus).toBeVisible();
+    const evRow = modal.getByTestId('amenity-row-ev_charging');
+    await expect(evRow).toBeVisible();
 
-    // 5. Click on the "Outdoor" attribute button to query reviews
-    await outdoorStatus.click();
+    // 5. Click on the "Outdoor" amenity row to trigger the reviews panel (Side-Sheet on desktop or Sub-Drawer on mobile)
+    await outdoorRow.click();
 
-    // 6. Verify that WineryQnA has the "Is there outdoor seating?" question active and displays the review snippet
-    const qnaSection = modal.locator('div.space-y-4.pt-2');
-    await expect(qnaSection).toBeVisible();
-    
-    // The active question should be selected in the dropdown trigger
-    const qnaSelectTrigger = qnaSection.getByTestId('qna-select');
-    await expect(qnaSelectTrigger).toBeVisible();
-    await expect(qnaSelectTrigger).toContainText(/Is there outdoor seating\?/i);
-    
-    // Expect the review text to be displayed in the search results
-    await expect(qnaSection.getByText(/Loved the outdoor seating patio/i)).toBeVisible();
+    // 6. Verify the reviews panel is visible and contains the relevant review snippet
+    const reviewsPanel = page.getByTestId('amenity-reviews-sheet').or(page.getByTestId('amenity-reviews-drawer'));
+    await expect(reviewsPanel).toBeVisible();
 
-    // 7. Click on the "EV Charging" attribute button to query reviews
-    await evStatus.click();
+    // The review text should be displayed
+    await expect(reviewsPanel.getByText(/Loved the outdoor seating patio/i)).toBeVisible();
 
-    // The EV charging question should be active in the dropdown trigger now
-    await expect(qnaSelectTrigger).toContainText(/Is EV charging available\?/i);
+    // 7. Close the reviews panel and click on "EV Charging" row
+    const closeButton = reviewsPanel.getByRole('button', { name: /close/i });
+    await closeButton.click();
 
-    // Expect the review text to be displayed in the search results
-    await expect(qnaSection.getByText(/electric vehicle ev charging/i)).toBeVisible();
+    await evRow.click();
+
+    // The reviews panel should re-open with EV-related content
+    const reviewsPanel2 = page.getByTestId('amenity-reviews-sheet').or(page.getByTestId('amenity-reviews-drawer'));
+    await expect(reviewsPanel2).toBeVisible();
+    await expect(reviewsPanel2.getByText(/electric vehicle ev charging/i)).toBeVisible();
   });
 
-  test('Clicking unknown attributes on winery with NO reviews displays the fallback text (with Reviews Enrichment)', async ({ page }) => {
+  test('Clicking amenity rows on winery with NO reviews displays the fallback text (with Reviews Enrichment)', async ({ page }) => {
     // 1. Navigate to Explore
     await navigateToTab(page, 'Explore');
 
@@ -77,27 +70,23 @@ test.describe('Winery Q&A Review Fallback Flow', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
 
-    // 3. Expand "Logistics & Accessibility" accordion
-    const accordionHeader = modal.getByRole('button', { name: /Logistics & Accessibility/i });
-    await expect(accordionHeader).toBeVisible();
-    await accordionHeader.click();
+    // 3. Switch to Amenities tab
+    const amenitiesTab = modal.getByRole('tab', { name: /Amenities/i });
+    await expect(amenitiesTab).toBeVisible();
+    await amenitiesTab.click();
 
-    // 4. Verify and click "Free Parking" status button (unknown)
-    const parkingStatus = modal.getByTestId('status-unknown-parking');
-    await expect(parkingStatus).toBeVisible();
-    await parkingStatus.click();
+    // 4. Click on "Parking" amenity row
+    const parkingRow = modal.getByTestId('amenity-row-parking');
+    await expect(parkingRow).toBeVisible();
+    await parkingRow.click();
 
-    // 5. Verify that WineryQnA shows fallback text when no reviews are found
-    const qnaSection = modal.locator('div.space-y-4.pt-2');
-    await expect(qnaSection).toBeVisible();
-
-    const qnaSelectTrigger = qnaSection.getByTestId('qna-select');
-    await expect(qnaSelectTrigger).toContainText(/Is there free parking\?/i);
-
-    await expect(qnaSection.getByText(/No mention of this in the reviews/i)).toBeVisible();
+    // 5. Verify the reviews panel shows fallback text when no reviews are found
+    const reviewsPanel = page.getByTestId('amenity-reviews-sheet').or(page.getByTestId('amenity-reviews-drawer'));
+    await expect(reviewsPanel).toBeVisible();
+    await expect(reviewsPanel.getByText(/No mention of this in the reviews/i)).toBeVisible();
   });
 
-  test('Cycling through multiple reviews and expanding a review (with Reviews Enrichment)', async ({ page }) => {
+  test('Cycling through multiple reviews in the reviews panel (with Reviews Enrichment)', async ({ page }) => {
     // 1. Navigate to Explore and open 'The Phantom Cellar'
     await navigateToTab(page, 'Explore');
     await openWineryDetails(page, 'The Phantom Cellar');
@@ -105,50 +94,51 @@ test.describe('Winery Q&A Review Fallback Flow', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
 
-    // 2. Expand "Logistics & Accessibility" and click "Outdoor"
-    const accordionHeader = modal.getByRole('button', { name: /Logistics & Accessibility/i });
-    await accordionHeader.click();
-    const outdoorStatus = modal.getByTestId('status-unknown-outdoor');
-    await outdoorStatus.click();
+    // 2. Switch to Amenities tab and click "Outdoor" row
+    const amenitiesTab = modal.getByRole('tab', { name: /Amenities/i });
+    await amenitiesTab.click();
 
-    const qnaSection = modal.locator('div.space-y-4.pt-2');
-    await expect(qnaSection).toBeVisible();
+    const outdoorRow = modal.getByTestId('amenity-row-outdoor');
+    await outdoorRow.click();
+
+    const reviewsPanel = page.getByTestId('amenity-reviews-sheet').or(page.getByTestId('amenity-reviews-drawer'));
+    await expect(reviewsPanel).toBeVisible();
 
     // 3. Verify the first review is displayed (as a snippet)
     const firstReviewText = /Loved the outdoor seating patio/i;
-    await expect(qnaSection.getByText(firstReviewText)).toBeVisible();
-    await expect(qnaSection.getByText(/John Doe/i)).toBeVisible();
+    await expect(reviewsPanel.getByText(firstReviewText)).toBeVisible();
+    await expect(reviewsPanel.getByText(/John Doe/i)).toBeVisible();
 
     // 4. Expand the first review
-    const expandButton = qnaSection.getByTestId('toggle-full-review');
+    const expandButton = reviewsPanel.getByTestId('toggle-full-review');
     await expect(expandButton).toContainText(/Show full review/i);
     await expandButton.click();
     
     // Verify it now shows "Show less" and the full text (which includes the hard-to-park part)
     await expect(expandButton).toContainText(/Show less/i);
-    await expect(qnaSection.getByText(/parking is a bit hard/i)).toBeVisible();
+    await expect(reviewsPanel.getByText(/parking is a bit hard/i)).toBeVisible();
 
     // 5. Load the next review
-    const nextButton = qnaSection.getByTestId('next-review');
+    const nextButton = reviewsPanel.getByTestId('next-review');
     await expect(nextButton).toBeVisible();
     await nextButton.click();
 
     // 6. Verify the second review is displayed
     const secondReviewText = /really enjoyed the outdoor atmosphere/i;
-    await expect(qnaSection.getByText(secondReviewText)).toBeVisible();
-    await expect(qnaSection.getByText(/Jane Smith/i)).toBeVisible();
+    await expect(reviewsPanel.getByText(secondReviewText)).toBeVisible();
+    await expect(reviewsPanel.getByText(/Jane Smith/i)).toBeVisible();
     
     // Verify "1 of 2" indicator is now "2 of 2"
-    await expect(qnaSection.getByText(/2 of 2/i)).toBeVisible();
+    await expect(reviewsPanel.getByText(/2 of 2/i)).toBeVisible();
 
     // 7. Verify "Previous" button is now visible and "Next" is hidden
-    const prevButton = qnaSection.getByTestId('prev-review');
+    const prevButton = reviewsPanel.getByTestId('prev-review');
     await expect(prevButton).toBeVisible();
     await expect(nextButton).not.toBeVisible();
 
     // 8. Go back to first review
     await prevButton.click();
-    await expect(qnaSection.getByText(firstReviewText)).toBeVisible();
+    await expect(reviewsPanel.getByText(firstReviewText)).toBeVisible();
     await expect(prevButton).not.toBeVisible();
     await expect(nextButton).toBeVisible();
   });
@@ -186,11 +176,6 @@ test.describe('Winery Q&A Review Fallback Flow', () => {
     // 2. Navigate and open the winery
     await navigateToTab(page, 'Explore');
     
-    // We need to trigger the modal for 'ch-v1-data'. 
-    // Since it's not in the map markers, we might need to search or use a trick.
-    // Let's just use openWineryDetails which uses the name.
-    // But we didn't add it to markers.
-    // Let's add it to markers for this test.
     await page.evaluate(() => {
         const winery = {
             id: 'ch-v1-data',
@@ -199,7 +184,7 @@ test.describe('Winery Q&A Review Fallback Flow', () => {
             longitude: -76.9,
             address: 'V1 St',
             enrichment_tier: 'enriched',
-            reviews: [] // Will be populated by the mocked edge function
+            reviews: []
         };
         (window as any).useWineryDataStore.getState().upsertWinery(winery);
         const mapStore = (window as any).useMapStore.getState();
@@ -211,16 +196,17 @@ test.describe('Winery Q&A Review Fallback Flow', () => {
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
 
-    // 3. Select "Outdoor" in Q&A
-    const qnaSection = modal.locator('div.space-y-4.pt-2');
-    await expect(qnaSection).toBeVisible();
-    
-    const qnaSelect = qnaSection.getByTestId('qna-select');
-    await qnaSelect.click();
-    await page.getByRole('option', { name: /Is there outdoor seating\?/i }).click();
+    // 3. Switch to Amenities tab and click "Outdoor" row to trigger reviews
+    const amenitiesTab = modal.getByRole('tab', { name: /Amenities/i });
+    await amenitiesTab.click();
 
-    // 4. Verify the review text is extracted correctly from the V1 object
-    await expect(qnaSection.getByText(/has outdoor seating/i)).toBeVisible();
-    await expect(qnaSection.getByText(/V1 Author/i)).toBeVisible();
+    const outdoorRow = modal.getByTestId('amenity-row-outdoor');
+    await outdoorRow.click();
+
+    // 4. Verify the review text is extracted correctly from the V1 object in the reviews panel
+    const reviewsPanel = page.getByTestId('amenity-reviews-sheet').or(page.getByTestId('amenity-reviews-drawer'));
+    await expect(reviewsPanel).toBeVisible();
+    await expect(reviewsPanel.getByText(/has outdoor seating/i)).toBeVisible();
+    await expect(reviewsPanel.getByText(/V1 Author/i)).toBeVisible();
   });
 });
