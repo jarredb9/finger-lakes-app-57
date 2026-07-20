@@ -39,15 +39,27 @@
     - [x] Run unit and E2E tests to verify they all pass (7/7 in `e2e/winery-modal-ux.spec.ts`)
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Core Components & Layout Implementation' (Protocol in workflow.md)
 
-## Phase 3: Glassmorphism, Polish, & Accessibility Verification
-- [ ] Task: UI Polish & Glassmorphic Styling
-    - [ ] Apply backdrop blurs (`backdrop-blur-md bg-background/85`), transparent borders (`border-border/50`), and glowing drop shadows (`shadow-2xl shadow-primary/5`)
-    - [ ] Add micro-animations (hover/active state transitions, scale effects) on action buttons and badges
-    - [ ] Style the Loading Skeletons to match the final two-column / drawer layout structure perfectly to ensure DOM stability
+## Phase 3: Visual Polish, Layout Fixes, & Accessibility
+- [x] Task: Minor CSS polish (micro-animations, a11y keyboard triggers, skeleton tweaks) [commit: d8b86d9]
+- [~] Task: Hero Image & Overlay Layout Restructure
+    - [ ] Restore full-width hero image to very top of mobile `renderMobileLayout()` and desktop `renderDesktopLayout()` in `winery-modal.tsx` (remove top margins/paddings for flush drawer-edge look)
+    - [ ] Overlay a translucent title card directly on top of the lower part of the Hero Image containing winery name, rating stars, and short address line to save vertical space
+    - [ ] Update loading skeletons to include hero image placeholder and match overlay structure
+- [ ] Task: Quick Actions & Navigation Redesign
+    - [ ] Refactor `WineryActionsPresentational.tsx` from inline button row to a `grid grid-cols-4 gap-2` of vertical icon+label tiles with `bg-muted/30 rounded-xl border border-border/50` styling
+    - [ ] Render privacy lock toggles as small overlay badges on Favorite/Wishlist tiles (preserve `favorite-privacy-toggle` and `wishlist-privacy-toggle` data-testids)
+    - [ ] Add a prominent, full-width "Log Visit" outline button with a pencil icon directly below the actions grid (uses `log-visit-button` test ID)
+- [ ] Task: Contact Card Split & Contrast Improvements
+    - [ ] Restructure Overview segment in `WineryDetails.tsx` as a two-column split card: Left (Open status + Today's hours with chevron dropdown) | Right (Contact & Route title + row of 4 circular buttons: Phone, Website, Email, and Directions). The Directions circular button must wrap `MapNavigation` and use `route-from-current` test ID.
+    - [ ] Update card backgrounds from invisible `bg-background/85` to visible `bg-muted/40 backdrop-blur-md` for real contrast (aligned with floating nav pill design language)
+    - [ ] Restyle amenity rows from individually bordered cards to clean list rows with subtle bottom dividers (`border-b border-border/30 last:border-0`)
+- [ ] Task: Scrollable Navigation Tabs
+    - [ ] Integrate **AI Insights** directly into the bottom navigation tab row as a 5th tab (Community, Amenities, AI Insights, Visits, Trip) and remove the old segment switcher to save height
+    - [ ] Restyle the tab container to be scrollable (`overflow-x-auto scrollbar-none flex-nowrap`) so headers don't squish on small screen widths (like iPhone SE/15)
 - [ ] Task: Accessibility (a11y) & Final Test Run
-    - [ ] Verify keyboard accessibility for drawer, dialog, tabs, and sheet controls
-    - [ ] Run full local test suite and audit coverage to ensure >80% coverage
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Glassmorphism, Polish, & Accessibility Verification' (Protocol in workflow.md)
+    - [ ] Run full Jest unit test suite and Playwright E2E tests to verify no regressions
+    - [ ] Verify keyboard accessibility for all interactive elements
+- [ ] Task: Conductor - User Manual Verification 'Phase 3: Visual Polish, Layout Fixes, & Accessibility' (Protocol in workflow.md)
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions [commit: 1aa77e1]

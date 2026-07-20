@@ -133,23 +133,30 @@ Clicking **any** amenity row inside **Tab 2 (Amenities)** triggers a sliding rev
 
 ## 5. Visual Styling Specs (Tailwind v4)
 *   **Anti-Tab Soup Styling (CRITICAL):**
-    *   *Segmented Control (Top):* Styled as an iOS pill switcher (`bg-muted/80 p-0.5 rounded-full`) with a sliding dark/light capsule background for the active toggle.
-    *   *Navigation Tabs (Bottom):* Styled as borderless, flat text tab triggers. Active tab has no background capsule; it is marked strictly by a colored bottom underline (`border-b-2 border-primary` or a clean colored bar).
-*   **Glassmorphism Container:** Apply `backdrop-blur-md bg-background/85 border border-border/50 shadow-2xl shadow-primary/5` to all modal cards and drawer backgrounds.
-*   **Micro-Animations:** Buttons, tab triggers, and badge buttons must support smooth hover scaling transitions (`transition-all duration-300 hover:scale-105 active:scale-98`).
-*   **DOM Stability:** Skeletons during loading states must match the height and column/layout grid of the finished state, maintaining the `data-state="loading|ready"` structure.
+    *   *Navigation Tabs (Bottom):* Styled as borderless, flat text tab triggers. Includes a scrollable flex row (`overflow-x-auto scrollbar-none flex-nowrap`) housing **5 tabs** (Community, Amenities, AI Insights, Visits, Trip). Active tab has no background capsule; it is marked strictly by a colored bottom underline (`border-b-2 border-primary` or a clean colored bar). 
+*   **Card Contrast (REVISED):** Use `bg-muted/40 backdrop-blur-md border border-border/50 shadow-sm` for internal cards (overview card, action tiles). This provides visible contrast against the modal background, aligned with the floating navigation pill's design language.
+*   **Hero & Title Overlay:** The hero image (`primary_photo_reference`) spans the full width of the modal header without padding/margins (`p-0`). Layered directly over the lower portion of the hero image is a floating translucent card (`bg-background/80 border border-border/50 backdrop-blur-md rounded-2xl mx-4 -mt-8 p-4 text-center z-10 relative`) containing the winery name, rating stars, and short location string (city, state).
+*   **Quick Actions Grid:** Action buttons (Favorite, Wishlist, Street View, Share) are displayed as a `grid grid-cols-4 gap-2` of vertical icon+label tiles with `bg-muted/30 rounded-xl border border-border/50` styling. Privacy toggles render as overlay badges. A full-width "Log Visit" outline button is positioned right below the grid.
+*   **Contact & Route Card Split:** The Overview card uses a two-column layout: Left (Open status + expandable hours chevron dropdown) | Right (Contact & Route label + row of 4 circular buttons: Phone, Website, Email, and Directions). The directions button wraps `MapNavigation` and triggers the browser map choice popup.
+*   **Amenity Row Style:** Amenity rows use clean list style with bottom dividers (`border-b border-border/30 last:border-0`) instead of individually bordered cards.
+*   **Micro-Animations:** Buttons, tab triggers, and badge buttons must support smooth hover scaling transitions (`transition-all duration-300 hover:scale-105 active:scale-95`).
+*   **DOM Stability:** Skeletons during loading states must match the height and column/layout grid of the finished state (including hero overlay and 4-column tiles), maintaining the `data-state="loading|ready"` structure.
 
 ---
 
 ## 6. Acceptance Criteria
-*   [ ] The winery modal uses glassmorphic styling (backdrop blur, glowing shadow, subtle borders).
-*   [ ] On mobile, the modal is rendered inside a drawer component that pulls up from the bottom with gutters (`w-[95vw]` spacing).
-*   [ ] On desktop, the modal presents a split-column view (Left: Info, Segmented Card; Right: Tabbed interaction panel).
-*   [ ] The Segmented Control and the bottom tabs are styled distinctly (iOS pill slider vs. underline tabs) to prevent layout conflicts.
-*   [ ] Active and hover states across all action buttons feature micro-animations.
+*   [ ] Hero image is displayed full width at the very top of both mobile and desktop modal layouts.
+*   [ ] Translucent card overlays the lower edge of the hero image, housing the winery name, rating, and address.
+*   [ ] The winery modal uses visible card contrast (`bg-muted/40 backdrop-blur-md`) consistent with the floating nav pill design language.
+*   [ ] On mobile, the modal is rendered inside a drawer component that pulls up from the bottom.
+*   [ ] On desktop, the modal presents a split-column view (Left: Hero+Overlay, Info, Segmented Card; Right: Tabbed interaction panel).
+*   [ ] The bottom tabs row includes a 5th tab (AI Insights) and is scrollable (`overflow-x-auto scrollbar-none flex-nowrap`) to prevent header squishing.
+*   [ ] Quick Actions are displayed as a 4-column grid of square icon+label tiles (not inline button row).
+*   [ ] A prominent full-width "Log Visit" outline button is displayed directly below the quick actions.
+*   *   [ ] Active and hover states across all action buttons and tiles feature micro-animations.
 *   [ ] Tapping any of the 8 logistics rows inside the Amenities Tab triggers a Side-Sheet (desktop) or a Sub-Drawer (mobile) containing paginated reviews.
+*   [ ] Amenity rows use clean list dividers, not individually bordered cards.
 *   [ ] Standalone `FriendRatings` is merged into the Community Tab, displaying both friend avatars and detailed review text/photos.
-*   [ ] Quick Action bar contains a Share button, and retains decluttered individual padlock toggles (`favorite-privacy-toggle`, `wishlist-privacy-toggle`) for test compatibility.
-*   [ ] Overview card includes a "Route From Current Location" trigger that opens the `MapNavigation` popup choice (supporting Google Maps, Apple Maps, and Waze).
-*   [ ] `VisitCardHistory` shows horizontal photo thumbnail strips for each logged visit.
-*   [ ] Loading skeleton matches the column-split structure of the ready modal exactly.
+*   [ ] Quick Action tiles retain `favorite-privacy-toggle` and `wishlist-privacy-toggle` data-testids as overlay badges.
+*   [ ] Overview card uses a two-column split layout: Left (status + expandable hours) | Right (contact labels and 4 circular action buttons: phone, website, email, directions). The directions button uses `route-from-current` test ID.
+*   [ ] Loading skeleton matches the column-split structure of the ready modal (including hero image overlay and 4-column grid skeletons).
