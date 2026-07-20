@@ -428,6 +428,11 @@ export async function ensureProfileReady(page: Page) {
 }
 
 export async function openWineryDetails(page: Page, wineryName: string) {
+    const isMobile = page.viewportSize() ? page.viewportSize()!.width < 768 : false;
+    if (isMobile) {
+        await ensureSidebarExpanded(page);
+    }
+
     const sidebar = getSidebarContainer(page);
     
     // Ensure sidebar is ready
