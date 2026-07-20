@@ -29,7 +29,7 @@ export default function WineryModal() {
   const { map } = useMapStore();
 
   const [activeTab, setActiveTab] = useState<"community" | "amenities" | "visits" | "trip">("community");
-  const [isMobile, setIsMobile] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 640 : false);
 
   useEffect(() => {
     const handleResize = () => {
@@ -255,7 +255,7 @@ export default function WineryModal() {
               </h3>
               <Button 
                 size="sm"
-                data-testid="log-visit-button" 
+                data-testid="add-visit-button" 
                 onClick={() => openVisitForm(activeWinery)}
                 className="transition-all duration-300 hover:scale-105 active:scale-98"
               >
@@ -305,7 +305,7 @@ export default function WineryModal() {
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 overflow-y-auto" ref={scrollContainerRef}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 overflow-y-auto max-h-[85vh]" ref={scrollContainerRef}>
         {/* Left Column: Info & Details */}
         <div className="space-y-4 flex flex-col" data-testid="modal-left-column">
           <div className="flex flex-col gap-2">
@@ -324,7 +324,7 @@ export default function WineryModal() {
             </div>
           </div>
 
-          <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="full" />
+          <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
           
           <div className="border-t border-border/50 pt-4 mt-auto">
             <WineryActionsPresentational 
@@ -408,8 +408,7 @@ export default function WineryModal() {
     return (
       <Drawer open={isWineryModalOpen} onOpenChange={(open) => !open && closeWineryModal()}>
         <DrawerContent 
-          data-testid="winery-modal"
-          data-drawer-testid="winery-modal-drawer"
+          data-testid="winery-modal-drawer"
           data-state={isLoading ? "loading" : "ready"}
           className="backdrop-blur-md bg-background/95 border-t border-border/50 shadow-2xl shadow-primary/5 rounded-t-[20px]"
         >
@@ -428,10 +427,9 @@ export default function WineryModal() {
   return (
     <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
       <DialogContent
-        data-testid="winery-modal"
-        data-dialog-testid="winery-modal-dialog"
+        data-testid="winery-modal-dialog"
         data-state={isLoading ? "loading" : "ready"}
-        className="max-w-4xl w-[95vw] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-background/95 border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
+        className="max-w-4xl w-[95vw] max-h-[85vh] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-background/95 border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
         onFocusOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
