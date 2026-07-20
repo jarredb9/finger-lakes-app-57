@@ -186,7 +186,7 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
         <div 
           key={key} 
           onClick={() => setActiveQuestionId(key)}
-          className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20 hover:bg-muted/40 transition-all duration-300 hover:scale-[1.02] cursor-pointer"
+          className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-muted/20 hover:bg-muted/40 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
           data-testid={`amenity-row-${key}`}
         >
           <div className="flex items-center gap-3">
@@ -236,7 +236,7 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
       </div>
 
       {(activeSegment === "overview" || isTestEnv) && (
-        <div className="space-y-3.5 p-4 rounded-xl border border-border/50 bg-background/50 backdrop-blur-md">
+        <div className="space-y-3.5 p-4 rounded-xl border border-border/50 bg-background/85 backdrop-blur-md shadow-2xl shadow-primary/5">
           {/* Open Status Indicator */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -266,7 +266,7 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
                 variant="outline" 
                 size="sm" 
                 data-testid="route-from-current"
-                className="w-full sm:w-auto transition-all duration-300 hover:scale-105 active:scale-98"
+                className="w-full sm:w-auto transition-all duration-300 hover:scale-105 active:scale-95"
               >
                 <Navigation className="mr-2 h-4 w-4 text-blue-500" />
                 Route From Current
@@ -305,19 +305,19 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
           {/* Contact icons */}
           <div className="flex items-center gap-4 border-t border-border/50 pt-3">
             {winery.phone && (
-              <a href={`tel:${winery.phone}`} className="p-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" title={winery.phone}>
+              <a href={`tel:${winery.phone}`} className="p-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all duration-300 hover:scale-105 active:scale-95" title={winery.phone}>
                 <Phone className="w-4 h-4" />
                 <span className="sr-only">{winery.phone}</span>
               </a>
             )}
             {winery.website && (
-              <a href={winery.website} target="_blank" rel="noopener noreferrer" className="p-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" title="Website">
+              <a href={winery.website} target="_blank" rel="noopener noreferrer" className="p-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all duration-300 hover:scale-105 active:scale-95" title="Website">
                 <Globe className="w-4 h-4" />
                 {/* Custom attribute for testing match query */}
                 <span className="sr-only" {...(isTestEnv ? { href: winery.website } : {})}>Visit Website</span>
               </a>
             )}
-            <a href={`mailto:info@${winery.website ? new URL(winery.website).hostname.replace('www.', '') : 'winery.com'}`} className="p-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors" title="Email">
+            <a href={`mailto:info@${winery.website ? new URL(winery.website).hostname.replace('www.', '') : 'winery.com'}`} className="p-2 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-all duration-300 hover:scale-105 active:scale-95" title="Email">
               <Mail className="w-4 h-4" />
             </a>
           </div>
@@ -362,7 +362,7 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
           </div>
 
           {winery.neighborhood_summary && (
-            <div className="p-4 rounded-xl border border-border/50 bg-background/50 space-y-2">
+            <div className="p-4 rounded-xl border border-border/50 bg-background/85 backdrop-blur-md shadow-2xl shadow-primary/5 space-y-2">
               <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">About the Area</h4>
               <p className="text-xs leading-relaxed text-foreground">{winery.neighborhood_summary}</p>
               <GoogleAttribution className="mt-2 justify-end" variant="powered-by" />
@@ -452,7 +452,7 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
 
     return (
       <Accordion.Root type="multiple" className="w-full space-y-2 mt-4">
-        <Accordion.Item value="logistics-accessibility" className="border rounded-lg overflow-hidden bg-card text-card-foreground">
+        <Accordion.Item value="logistics-accessibility" className="border border-border/50 rounded-lg overflow-hidden bg-background/85 backdrop-blur-md shadow-2xl shadow-primary/5 text-card-foreground">
           <Accordion.Header className="flex">
             <Accordion.Trigger className="flex flex-1 items-center justify-between py-2.5 px-3.5 font-medium hover:bg-muted/50 transition-all text-xs text-left">
               <span>Logistics & Accessibility</span>
@@ -578,7 +578,7 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
       <div className="w-full space-y-2 mt-4">
         {winery.neighborhood_summary && (
           <Accordion.Root type="multiple" className="w-full space-y-2">
-            <Accordion.Item value="about-area" className="border rounded-lg overflow-hidden bg-card text-card-foreground">
+            <Accordion.Item value="about-area" className="border border-border/50 rounded-lg overflow-hidden bg-background/85 backdrop-blur-md shadow-2xl shadow-primary/5 text-card-foreground">
               <Accordion.Header className="flex">
                 <Accordion.Trigger className="flex flex-1 items-center justify-between py-2.5 px-3.5 font-medium hover:bg-muted/50 transition-all text-xs text-left">
                   <span>About the Area</span>

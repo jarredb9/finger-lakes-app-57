@@ -257,7 +257,7 @@ export default function WineryModal() {
                 size="sm"
                 data-testid="add-visit-button" 
                 onClick={() => openVisitForm(activeWinery)}
-                className="transition-all duration-300 hover:scale-105 active:scale-98"
+                className="transition-all duration-300 hover:scale-105 active:scale-95"
               >
                 + Log Visit
               </Button>
@@ -289,14 +289,14 @@ export default function WineryModal() {
   const renderDesktopLayout = () => {
     if (isLoading || !activeWinery) {
       return (
-        <div className="grid grid-cols-2 gap-6 p-6 h-[500px]">
-          <div className="space-y-4" data-testid="modal-left-column">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 h-[500px] overflow-hidden">
+          <div className="space-y-4 flex flex-col" data-testid="modal-left-column">
             <Skeleton className="h-8 w-3/4" />
             <Skeleton className="h-48 w-full rounded-lg" />
             <Skeleton className="h-10 w-full rounded-md" />
             <Skeleton className="h-24 w-full rounded-lg" />
           </div>
-          <div className="space-y-4" data-testid="modal-right-column">
+          <div className="space-y-4 flex flex-col border-l border-border/50 pl-6" data-testid="modal-right-column">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-64 w-full rounded-lg" />
           </div>
@@ -314,7 +314,15 @@ export default function WineryModal() {
               {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
                 <div
                   data-testid="trip-badge"
-                  className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleTripBadgeClick(activeWinery.trip_id!);
+                    }
+                  }}
+                  className="inline-flex items-center rounded-full border border-border/50 px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm"
                   onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
                 >
                   <Clock className="w-3 h-3 mr-1" />
@@ -353,7 +361,7 @@ export default function WineryModal() {
   const renderMobileLayout = () => {
     if (isLoading || !activeWinery) {
       return (
-        <div className="p-4 space-y-4 h-[400px]">
+        <div className="p-4 space-y-4 overflow-hidden h-[400px] pb-8">
           <Skeleton className="h-6 w-1/2 mx-auto" />
           <Skeleton className="h-32 w-full rounded-lg" />
           <Skeleton className="h-10 w-full" />
@@ -369,7 +377,15 @@ export default function WineryModal() {
           {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
             <div
               data-testid="trip-badge"
-              className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-colors"
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleTripBadgeClick(activeWinery.trip_id!);
+                }
+              }}
+              className="inline-flex items-center rounded-full border border-border/50 px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm"
               onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
             >
               <Clock className="w-3 h-3 mr-1" />
@@ -410,7 +426,7 @@ export default function WineryModal() {
         <DrawerContent 
           data-testid="winery-modal-drawer"
           data-state={isLoading ? "loading" : "ready"}
-          className="backdrop-blur-md bg-background/95 border-t border-border/50 shadow-2xl shadow-primary/5 rounded-t-[20px]"
+          className="backdrop-blur-md bg-background/85 border-t border-border/50 shadow-2xl shadow-primary/5 rounded-t-[20px]"
         >
           <DrawerHeader className="sr-only">
             <DrawerTitle>{activeWinery?.name || "Winery Details"}</DrawerTitle>
@@ -429,7 +445,7 @@ export default function WineryModal() {
       <DialogContent
         data-testid="winery-modal-dialog"
         data-state={isLoading ? "loading" : "ready"}
-        className="max-w-4xl w-[95vw] max-h-[85vh] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-background/95 border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
+        className="max-w-4xl w-[95vw] max-h-[85vh] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-background/85 border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
         onFocusOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
