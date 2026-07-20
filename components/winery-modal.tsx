@@ -1,6 +1,7 @@
 // components/winery-modal.tsx
-import { useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useEffect, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { Separator } from "./ui/separator";
 import { Clock, Calendar as CalendarIcon } from "lucide-react";
 import { useUIStore } from "@/lib/stores/uiStore";
@@ -13,14 +14,13 @@ import { shallow } from "zustand/shallow";
 
 import WineryDetails from "./WineryDetails";
 import WineryActionsPresentational from "./WineryActionsPresentational";
-import FriendActivity from "./FriendActivity";
-import FriendRatings from "./FriendRatings";
+import WineryCommunityTab from "./WineryCommunityTab";
 import TripPlannerSection from "./TripPlannerSection";
 import VisitCardHistory from "./VisitCardHistory";
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore"; // Import DataStore
-import { useFriendStore } from "@/lib/stores/friendStore";
+import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMapStore } from "@/lib/stores/mapStore";
+import { Button } from "./ui/button";
 
 export default function WineryModal() {
   const { isWineryModalOpen, activeWineryId, closeWineryModal, openVisitForm } = useUIStore();
@@ -28,13 +28,24 @@ export default function WineryModal() {
   const { fetchTripById, setSelectedTrip } = useTripStore();
   const { map } = useMapStore();
 
+  const [activeTab, setActiveTab] = useState<"community" | "amenities" | "visits" | "trip">("community");
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 640);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const handleStreetViewClick = () => {
     if (!activeWinery) return;
     
     if (map && typeof map.openStreetView === "function") {
       map.openStreetView(activeWinery.latitude, activeWinery.longitude);
     } else {
-      // Fallback for Mapbox: open in new tab
       const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${activeWinery.latitude},${activeWinery.longitude}`;
       window.open(url, "_blank", "noopener,noreferrer");
     }
@@ -50,7 +61,6 @@ export default function WineryModal() {
     shallow
   );
   
-  // Subscribe directly to DataStore for reactive updates
   const activeWinery = useWineryDataStore((state) =>
     activeWineryId ? state.persistentWineries.find((w) => w.id === activeWineryId) : null
   );
@@ -95,19 +105,15 @@ export default function WineryModal() {
     }
   };
   
-  const loadingWineryId = useWineryStore((state) => state.loadingWineryId); // Get loading state
+  const loadingWineryId = useWineryStore((state) => state.loadingWineryId);
   const { deleteVisit: deleteVisitAction } = useVisitStore();
   
-  // Fetch visits from the global store to ensure offline/optimistic updates are visible
   const storeVisits = useVisitStore((state) => 
     activeWineryId ? state.visits.filter(v => v.wineryId === activeWineryId || v.wineries?.google_place_id === activeWineryId) : []
   );
 
-  const { friendsRatings = [] } = useFriendStore();
-
-  const isLoading = loadingWineryId === activeWineryId; // Check if THIS winery is loading
+  const isLoading = loadingWineryId === activeWineryId;
   
-  // Merge visits from both sources, preferring storeVisits (which contains offline/optimistic state)
   const wineryVisits = activeWinery?.visits || [];
   const visits = [
     ...storeVisits,
@@ -121,17 +127,14 @@ export default function WineryModal() {
   const hasHydrated = useRef(false);
 
   useEffect(() => {
-    // Reset hydration tracker only when modal opens or winery changes
     hasHydrated.current = false;
   }, [isWineryModalOpen, activeWineryId]);
 
   useEffect(() => {
-    // Sync visits length tracker while loading or when modal is closed
     if (isLoading || !isWineryModalOpen) {
       prevVisitsLength.current = visits.length;
     }
 
-    // Reset scroll to top when modal is open and data has finished loading
     if (isWineryModalOpen && !isLoading) {
       requestAnimationFrame(() => {
         scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -142,17 +145,14 @@ export default function WineryModal() {
   useEffect(() => {
     if (!isWineryModalOpen) return undefined;
 
-    // Logic to distinguish between initial hydration and manual additions
     if (!hasHydrated.current) {
       if (!isLoading) {
-        // Initial data has arrived, mark as hydrated and sync length without scrolling
         hasHydrated.current = true;
         prevVisitsLength.current = visits.length;
       }
       return undefined;
     }
 
-    // If we have hydrated and are not loading, check for new visits (manual addition)
     if (!isLoading && visits.length > prevVisitsLength.current) {
       const timer = setTimeout(() => {
         if (visitHistoryRef.current) {
@@ -196,10 +196,8 @@ export default function WineryModal() {
   };
 
   const handleTripBadgeClick = async (tripId: number) => {
-    closeWineryModal(); // Close the winery modal first
+    closeWineryModal();
     
-    // Small delay to allow modal to start closing before potentially triggering
-    // complex state updates or navigation that might conflict with focus restoration.
     setTimeout(async () => {
         await fetchTripById(tripId.toString());
         const updatedTrip = useTripStore.getState().trips.find((t) => t.id === tripId);
@@ -212,92 +210,234 @@ export default function WineryModal() {
     }, 100);
   };
 
+  const renderTabsList = () => (
+    <div className="flex border-b border-border/50 w-full" role="tablist">
+      {[
+        { id: "community", label: "Community" },
+        { id: "amenities", label: "Amenities" },
+        { id: "visits", label: "Visits" },
+        { id: "trip", label: "Trip" }
+      ].map((t) => {
+        const isActive = activeTab === t.id;
+        return (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => setActiveTab(t.id as any)}
+            className={`flex-1 text-center py-2 text-sm font-semibold border-b-2 transition-all duration-300 ${
+              isActive 
+                ? "border-primary text-primary" 
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const renderActiveTabContent = () => {
+    if (!activeWinery) return null;
+    switch (activeTab) {
+      case "community":
+        return <WineryCommunityTab wineryDbId={activeWinery.dbId ?? null} />;
+      case "amenities":
+        return <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="logistics" />;
+      case "visits":
+        return (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <CalendarIcon className="w-4 h-4" />
+                <span>Your Visits</span>
+              </h3>
+              <Button 
+                size="sm"
+                data-testid="log-visit-button" 
+                onClick={() => openVisitForm(activeWinery)}
+                className="transition-all duration-300 hover:scale-105 active:scale-98"
+              >
+                + Log Visit
+              </Button>
+            </div>
+            {visits.length > 0 ? (
+              <div ref={visitHistoryRef}>
+                <VisitCardHistory 
+                  visits={visits} 
+                  editingVisitId={null} 
+                  onEditClick={handleEditClick} 
+                  onDeleteVisit={handleDeleteVisit} 
+                  onTogglePhotoForDeletion={() => {}} 
+                />
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                {activeWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}
+              </p>
+            )}
+          </div>
+        );
+      case "trip":
+        return <TripPlannerSection winery={activeWinery} onClose={closeWineryModal} />;
+      default:
+        return null;
+    }
+  };
+
+  const renderDesktopLayout = () => {
+    if (isLoading || !activeWinery) {
+      return (
+        <div className="grid grid-cols-2 gap-6 p-6 h-[500px]">
+          <div className="space-y-4" data-testid="modal-left-column">
+            <Skeleton className="h-8 w-3/4" />
+            <Skeleton className="h-48 w-full rounded-lg" />
+            <Skeleton className="h-10 w-full rounded-md" />
+            <Skeleton className="h-24 w-full rounded-lg" />
+          </div>
+          <div className="space-y-4" data-testid="modal-right-column">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-64 w-full rounded-lg" />
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 overflow-y-auto" ref={scrollContainerRef}>
+        {/* Left Column: Info & Details */}
+        <div className="space-y-4 flex flex-col" data-testid="modal-left-column">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-2xl font-bold text-foreground tracking-tight pr-4">{activeWinery.name}</h2>
+              {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
+                <div
+                  data-testid="trip-badge"
+                  className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-colors"
+                  onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
+                >
+                  <Clock className="w-3 h-3 mr-1" />
+                  On Trip: {activeWinery.trip_name}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="full" />
+          
+          <div className="border-t border-border/50 pt-4 mt-auto">
+            <WineryActionsPresentational 
+              winery={activeWinery} 
+              onLogVisit={() => openVisitForm(activeWinery)}
+              onStreetView={handleStreetViewClick}
+              onToggleWishlist={handleWishlistToggle}
+              onToggleFavorite={handleFavoriteToggle}
+              onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
+              onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
+            />
+          </div>
+        </div>
+
+        {/* Right Column: Interaction Tabs */}
+        <div className="space-y-4 flex flex-col border-l border-border/50 pl-6" data-testid="modal-right-column">
+          {renderTabsList()}
+          <div className="flex-1 overflow-y-auto pr-1">
+            {renderActiveTabContent()}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMobileLayout = () => {
+    if (isLoading || !activeWinery) {
+      return (
+        <div className="p-4 space-y-4 h-[400px]">
+          <Skeleton className="h-6 w-1/2 mx-auto" />
+          <Skeleton className="h-32 w-full rounded-lg" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-20 w-full" />
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-4 space-y-4 overflow-y-auto max-h-[85vh] pb-8" ref={scrollContainerRef}>
+        <div className="flex flex-col gap-2 text-center items-center">
+          <h2 className="text-xl font-bold text-foreground">{activeWinery.name}</h2>
+          {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
+            <div
+              data-testid="trip-badge"
+              className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-colors"
+              onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
+            >
+              <Clock className="w-3 h-3 mr-1" />
+              On Trip: {activeWinery.trip_name}
+            </div>
+          )}
+        </div>
+
+        <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
+
+        <Separator className="border-border/50" />
+
+        <WineryActionsPresentational 
+          winery={activeWinery} 
+          onLogVisit={() => openVisitForm(activeWinery)}
+          onStreetView={handleStreetViewClick}
+          onToggleWishlist={handleWishlistToggle}
+          onToggleFavorite={handleFavoriteToggle}
+          onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
+          onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
+        />
+
+        <Separator className="border-border/50" />
+
+        <div className="space-y-4">
+          {renderTabsList()}
+          <div className="pt-2">
+            {renderActiveTabContent()}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (isMobile) {
+    return (
+      <Drawer open={isWineryModalOpen} onOpenChange={(open) => !open && closeWineryModal()}>
+        <DrawerContent 
+          data-testid="winery-modal-drawer"
+          className="backdrop-blur-md bg-background/95 border-t border-border/50 shadow-2xl shadow-primary/5 rounded-t-[20px]"
+        >
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>{activeWinery?.name || "Winery Details"}</DrawerTitle>
+            <DrawerDescription>
+              Winery details for {activeWinery?.name || "selected winery"}.
+            </DrawerDescription>
+          </DrawerHeader>
+          {renderMobileLayout()}
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
   return (
     <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
       <DialogContent
-        data-testid="winery-modal"
-        data-state={isLoading ? "loading" : "ready"}
-        className="max-w-2xl w-[95vw] sm:w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col top-4 translate-y-0 sm:top-[50%] sm:translate-y-[-50%] overflow-x-hidden"
+        data-testid="winery-modal-dialog"
+        className="max-w-4xl w-[95vw] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-background/95 border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
         onFocusOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <div className="overflow-y-auto overflow-x-hidden" ref={scrollContainerRef} key={activeWineryId || 'none'}>
-          {isLoading || !activeWinery ? (
-            <div className="p-6 space-y-4">
-              <DialogHeader>
-                <DialogTitle>
-                  <Skeleton className="h-8 w-3/4" />
-                  <span className="sr-only">Loading winery details...</span>
-                </DialogTitle>
-              </DialogHeader>
-              <DialogDescription className="sr-only">Loading winery details...</DialogDescription>
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-1/2" />
-              <Separator className="my-4" />
-              <Skeleton className="h-6 w-1/3" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-2/3" />
-              <Separator className="my-4" />
-              <Skeleton className="h-6 w-1/4" />
-              <Skeleton className="h-20 w-full" />
-            </div>
-          ) : (
-            <>
-              <div className="p-6">
-                <DialogHeader>
-                    <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
-                        <div className="flex items-center gap-2">
-                            <DialogTitle className="text-2xl pr-4">{activeWinery.name}</DialogTitle>
-                            {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
-                                <div
-                                    data-testid="trip-badge"
-                                    className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-[#f17e3a] hover:bg-[#f17e3a]/90 cursor-pointer"
-                                    onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
-                                >
-                                    <Clock className="w-3 h-3 mr-1" />
-                                    On Trip: {activeWinery.trip_name}
-                                </div>
-                            )}
-                        </div>
-                        <WineryActionsPresentational 
-                          winery={activeWinery} 
-                          onLogVisit={() => openVisitForm(activeWinery)}
-                          onStreetView={handleStreetViewClick}
-                          onToggleWishlist={handleWishlistToggle}
-                          onToggleFavorite={handleFavoriteToggle}
-                          onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
-                          onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
-                        />
-                    </div>
-                    <DialogDescription className="sr-only">
-                        Detailed information about {activeWinery.name}, including address, rating, hours, and visit history.
-                    </DialogDescription>
-                    <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} />
-                </DialogHeader>
-                <Separator className="my-4" />
-
-                {!!activeWinery.dbId && <FriendActivity wineryDbId={activeWinery.dbId} />}
-                {friendsRatings.length > 0 && <FriendRatings />}
-
-                <TripPlannerSection winery={activeWinery} onClose={closeWineryModal} />
-
-                <Separator className="my-4" />
-
-                <div className="space-y-4" ref={visitHistoryRef}>
-                  <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
-                    <CalendarIcon className="w-5 h-5" />
-                    <span>Your Visits</span>
-                  </h3>
-                  {visits.length > 0 ? (
-                    <VisitCardHistory visits={visits} editingVisitId={null} onEditClick={handleEditClick} onDeleteVisit={handleDeleteVisit} onTogglePhotoForDeletion={() => {}} />
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{activeWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        <DialogHeader className="sr-only">
+          <DialogTitle>{activeWinery?.name || "Winery Details"}</DialogTitle>
+          <DialogDescription>
+            Detailed split view and interaction panel for {activeWinery?.name || "selected winery"}.
+          </DialogDescription>
+        </DialogHeader>
+        {renderDesktopLayout()}
       </DialogContent>
     </Dialog>
   );
