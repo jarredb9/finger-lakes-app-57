@@ -49,7 +49,7 @@ test.describe('Winery Q&A Review Fallback Flow', () => {
     await expect(reviewsPanel.getByText(/Loved the outdoor seating patio/i)).toBeVisible();
 
     // 7. Close the reviews panel and click on "EV Charging" row
-    const closeButton = reviewsPanel.getByRole('button', { name: /close/i });
+    const closeButton = reviewsPanel.getByTestId('close-qna-button');
     await closeButton.click();
 
     await evRow.click();

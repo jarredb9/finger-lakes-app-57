@@ -30,8 +30,8 @@ import { useWineryPhoto } from "@/hooks/use-winery-photo";
 import { GeminiDisclosure } from "./GeminiDisclosure";
 import { GoogleAttribution } from "./GoogleAttribution";
 import { MapNavigation } from "./MapNavigation";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
-import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 
 interface WineryDetailsProps {
@@ -503,6 +503,10 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
         {!isMobile && activeQuestionId && (
           <Sheet open={!!activeQuestionId} onOpenChange={(open) => !open && setActiveQuestionId(null)}>
             <SheetContent data-testid="amenity-reviews-sheet" className="w-[350px] sm:w-[450px]">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Amenity Reviews</SheetTitle>
+                <SheetDescription>Reviews and Q&A details for {winery.name}</SheetDescription>
+              </SheetHeader>
               <WineryQnA 
                 winery={winery} 
                 activeQuestionId={activeQuestionId} 
@@ -516,6 +520,10 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
         {isMobile && activeQuestionId && (
           <Drawer open={!!activeQuestionId} onOpenChange={(open) => !open && setActiveQuestionId(null)}>
             <DrawerContent data-testid="amenity-reviews-drawer">
+              <DrawerHeader className="sr-only">
+                <DrawerTitle>Amenity Reviews</DrawerTitle>
+                <DrawerDescription>Reviews and Q&A details for {winery.name}</DrawerDescription>
+              </DrawerHeader>
               <div className="p-4">
                 <WineryQnA 
                   winery={winery} 
@@ -609,6 +617,10 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
       {!isMobile && activeQuestionId && (
         <Sheet open={!!activeQuestionId} onOpenChange={(open) => !open && setActiveQuestionId(null)}>
           <SheetContent data-testid="amenity-reviews-sheet" className="w-[350px] sm:w-[450px]">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Amenity Reviews</SheetTitle>
+              <SheetDescription>Reviews and Q&A details for {winery.name}</SheetDescription>
+            </SheetHeader>
             <WineryQnA 
               winery={winery} 
               activeQuestionId={activeQuestionId} 
@@ -622,6 +634,10 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
       {isMobile && activeQuestionId && (
         <Drawer open={!!activeQuestionId} onOpenChange={(open) => !open && setActiveQuestionId(null)}>
           <DrawerContent data-testid="amenity-reviews-drawer">
+            <DrawerHeader className="sr-only">
+              <DrawerTitle>Amenity Reviews</DrawerTitle>
+              <DrawerDescription>Reviews and Q&A details for {winery.name}</DrawerDescription>
+            </DrawerHeader>
             <div className="p-4">
               <WineryQnA 
                 winery={winery} 
