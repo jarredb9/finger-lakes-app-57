@@ -408,7 +408,9 @@ export default function WineryModal() {
     return (
       <Drawer open={isWineryModalOpen} onOpenChange={(open) => !open && closeWineryModal()}>
         <DrawerContent 
-          data-testid="winery-modal-drawer"
+          data-testid="winery-modal"
+          data-drawer-testid="winery-modal-drawer"
+          data-state={isLoading ? "loading" : "ready"}
           className="backdrop-blur-md bg-background/95 border-t border-border/50 shadow-2xl shadow-primary/5 rounded-t-[20px]"
         >
           <DrawerHeader className="sr-only">
@@ -426,7 +428,9 @@ export default function WineryModal() {
   return (
     <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
       <DialogContent
-        data-testid="winery-modal-dialog"
+        data-testid="winery-modal"
+        data-dialog-testid="winery-modal-dialog"
+        data-state={isLoading ? "loading" : "ready"}
         className="max-w-4xl w-[95vw] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-background/95 border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
         onFocusOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
