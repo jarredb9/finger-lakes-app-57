@@ -11,10 +11,10 @@
     - [x] Update [winery-qa-fallback.spec.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/winery-qa-fallback.spec.ts) to adapt it to trigger Q&A reviews using the new Amenity row clicks rather than the legacy `qna-select` dropdown.
     - [x] Create a new E2E test file `e2e/winery-modal-redesign.spec.ts` (using Playwright) to verify viewport resizing, switching bottom/right tabs, clicking the segmented control triggers, clicking any of the 8 amenities to trigger Side-Sheet/Sub-Drawer reviews, and clicking the "Route From Current" action
     - [x] Verify that E2E tests fail initially
-- [~] Task: Conductor - User Manual Verification 'Phase 1: Test Scaffolding & Red Phase Verification' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Test Scaffolding & Red Phase Verification' (Protocol in workflow.md)
 
 ## Phase 2: Core Components & Layout Implementation (Green Phase)
-- [ ] Task: Refactor Winery Modal Structure (Desktop Dialog & Mobile Drawer)
+- [~] Task: Refactor Winery Modal Structure (Desktop Dialog & Mobile Drawer)
     - [ ] Refactor `winery-modal.tsx` to render the shadcn/ui `Drawer` component on viewports `< sm` (using Vaul drawer) and `Dialog` component on viewports `>= sm`
     - [ ] Implement the desktop two-column grid layout (`max-w-4xl`) and mobile single-column stacking
     - [ ] Implement the dynamic Right Column / Bottom drawer `Tabs` component with 4 flat navigation tabs (Community, Amenities, My Visits, Add to Trip) using underline active indicators (no backgrounds)
