@@ -3,6 +3,7 @@ import {
   login,
   navigateToTab,
   openWineryDetails,
+  ensureSidebarExpanded,
   clearServiceWorkers
 } from './helpers';
 
@@ -22,6 +23,7 @@ test.describe('Winery Modal Redesign', () => {
       await page.setViewportSize({ width: 375, height: 812 });
 
       await navigateToTab(page, 'Explore');
+      await ensureSidebarExpanded(page);
       await openWineryDetails(page, 'The Phantom Cellar');
 
       // On mobile, the redesigned modal should render inside a Drawer (bottom sheet)

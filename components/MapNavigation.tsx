@@ -74,7 +74,7 @@ export function MapNavigation({
   };
 
   const defaultTrigger = (
-    <div className={cn("flex items-start space-x-2 text-left group cursor-pointer", className)}>
+    <span className={cn("flex items-start space-x-2 text-left group cursor-pointer", className)}>
       <MapPin className="w-4 h-4 mt-1 shrink-0 group-hover:text-primary transition-colors text-muted-foreground" />
       <span className="group-hover:text-foreground transition-colors group-hover:underline decoration-dotted underline-offset-4">
         {address}
@@ -82,22 +82,29 @@ export function MapNavigation({
       {!isMobile && (
         <ExternalLink className="w-3 h-3 mt-1.5 opacity-0 group-hover:opacity-50 transition-opacity shrink-0" />
       )}
-    </div>
+    </span>
   );
 
-  const triggerElement = children ? children : defaultTrigger;
+  const renderTriggerElement = () => {
+    if (children) {
+      return children;
+    }
+    return (
+      <button
+        className="block w-fit max-w-full text-left"
+        type="button"
+        aria-label={`Open navigation options for ${address}`}
+      >
+        {defaultTrigger}
+      </button>
+    );
+  };
 
   if (!isMobile) {
     return (
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
-          <button
-            className="block w-fit max-w-full text-left"
-            type="button"
-            aria-label={`Open navigation options for ${address}`}
-          >
-            {triggerElement}
-          </button>
+          {renderTriggerElement()}
         </PopoverTrigger>
         <PopoverContent
           data-testid="map-navigation-popover"
@@ -139,13 +146,7 @@ export function MapNavigation({
   return (
     <Drawer open={open} onOpenChange={setOpen}>
       <DrawerTrigger asChild>
-        <button
-          className="block w-fit max-w-full text-left"
-          type="button"
-          aria-label={`Show navigation options for ${address}`}
-        >
-          {triggerElement}
-        </button>
+        {renderTriggerElement()}
       </DrawerTrigger>
       <DrawerContent data-testid="map-navigation-popover">
         <div className="mx-auto w-full max-w-sm">

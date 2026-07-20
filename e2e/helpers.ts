@@ -17,7 +17,7 @@ export function getSidebarContainer(page: Page): Locator {
  * Waits for a specific container to reach a signal state.
  */
 export async function waitForSignal(page: Page, testId: string, state: 'ready' | 'loading' | 'stable' | 'error' | RegExp = 'ready', timeout = 15000) {
-    const container = page.locator(`[data-testid="${testId}"]`);
+    const container = page.locator(`[data-testid*="${testId}"]`).first();
     if (state instanceof RegExp) {
         await expect(container).toHaveAttribute('data-state', state, { timeout });
     } else {
@@ -99,45 +99,47 @@ export async function clearServiceWorkers(page: Page) {
     });
 
     // 3. Clear storage on about:blank origin first (though usually blank has no storage)
-    // Then navigate to / to clear the actual app origin storage
-    await page.goto('/').catch(() => {});
-    await page.waitForLoadState('load');
-    // networkidle is unreliable in WebKit/Safari due to persistent Realtime connections
-    // We rely on 'load' + immediate execution
+    // Then navigate to /login to clear the actual app origin storage without triggering auth redirects
+    await page.goto('/login').catch(() => {});
+    await page.waitForLoadState('domcontentloaded');
 
-    await page.evaluate(async () => {
-        try {
-            if ('serviceWorker' in navigator) {
-                const registrations = await navigator.serviceWorker.getRegistrations();
-                for (const registration of registrations) {
-                    await registration.unregister();
-                }
-            }
-        } catch (e) {}
-
-        try {
-            const cacheNames = await caches.keys();
-            for (const cacheName of cacheNames) {
-                await caches.delete(cacheName);
-            }
-        } catch (e) {}
-
-        try {
-            // Force delete IndexedDB for winery storage
-            if (window.indexedDB && window.indexedDB.databases) {
-                const dbs = await window.indexedDB.databases();
-                for (const db of dbs) {
-                    if (db.name) {
-                        window.indexedDB.deleteDatabase(db.name);
+    try {
+        await page.evaluate(async () => {
+            try {
+                if ('serviceWorker' in navigator) {
+                    const registrations = await navigator.serviceWorker.getRegistrations();
+                    for (const registration of registrations) {
+                        await registration.unregister();
                     }
                 }
-            }
-            // Standard LocalStorage/SessionStorage cleanup
-            window.localStorage.clear();
-            window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
-            window.sessionStorage.clear();
-        } catch (e) {}
-    });
+            } catch (e) {}
+
+            try {
+                const cacheNames = await caches.keys();
+                for (const cacheName of cacheNames) {
+                    await caches.delete(cacheName);
+                }
+            } catch (e) {}
+
+            try {
+                // Force delete IndexedDB for winery storage
+                if (window.indexedDB && window.indexedDB.databases) {
+                    const dbs = await window.indexedDB.databases();
+                    for (const db of dbs) {
+                        if (db.name) {
+                            window.indexedDB.deleteDatabase(db.name);
+                        }
+                    }
+                }
+                // Standard LocalStorage/SessionStorage cleanup
+                window.localStorage.clear();
+                window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
+                window.sessionStorage.clear();
+            } catch (e) {}
+        });
+    } catch (e) {
+        // Ignore execution context destruction during cleanup navigations
+    }
 
     // 4. Navigate back to about:blank to ENSURE all connections are closed after cleanup
     // so the deletions can actually finish before the next test step starts.
@@ -458,18 +460,18 @@ export async function openWineryDetails(page: Page, wineryName: string) {
     // Click the title specifically to avoid stopPropagation zones (like MapNavigation)
     const title = wineryItem.locator('h3').first();
     if (await title.isVisible()) {
-        await title.click({ force: true });
+        await title.click();
     } else {
-        await wineryItem.click({ force: true });
+        await wineryItem.click();
     }
     
-    const modal = page.getByTestId('winery-modal');
+    const modal = page.locator('[data-testid*="winery-modal"]').first();
     await waitForSignal(page, 'winery-modal', 'ready', 15000);
     await expect(modal).toBeVisible();
 }
 
 export async function closeWineryModal(page: Page) {
-    const modal = page.getByTestId('winery-modal');
+    const modal = page.locator('[data-testid*="winery-modal"]').first();
     
     const isOpen = await page.evaluate(() => {
         // @ts-ignore
