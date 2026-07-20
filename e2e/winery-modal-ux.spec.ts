@@ -59,7 +59,7 @@ test.describe('Winery Modal Redesign', () => {
       await navigateToTab(page, 'Explore');
       await openWineryDetails(page, 'The Phantom Cellar');
 
-      const modal = page.getByRole('dialog');
+      const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
       await expect(modal).toBeVisible();
 
       // The 4 tabs should be: Community, Amenities, My Visits, Add to Trip
@@ -100,7 +100,7 @@ test.describe('Winery Modal Redesign', () => {
       await navigateToTab(page, 'Explore');
       await openWineryDetails(page, 'The Phantom Cellar');
 
-      const modal = page.getByRole('dialog');
+      const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
       await expect(modal).toBeVisible();
 
       // The segmented control should have Overview and AI Insights
@@ -133,7 +133,7 @@ test.describe('Winery Modal Redesign', () => {
       await navigateToTab(page, 'Explore');
       await openWineryDetails(page, 'The Phantom Cellar');
 
-      const modal = page.getByRole('dialog');
+      const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
       await expect(modal).toBeVisible();
 
       // Switch to Amenities tab
@@ -165,7 +165,7 @@ test.describe('Winery Modal Redesign', () => {
       await navigateToTab(page, 'Explore');
       await openWineryDetails(page, 'The Phantom Cellar');
 
-      const modal = page.getByRole('dialog');
+      const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
       await expect(modal).toBeVisible();
 
       // The "Route From Current Location" button should be visible in the Overview segment
@@ -180,10 +180,10 @@ test.describe('Winery Modal Redesign', () => {
       await expect(mapChoices).toBeVisible();
 
       // Should contain Google Maps option
-      await expect(mapChoices.getByText(/Google Maps/i)).toBeVisible();
+      await expect(mapChoices.getByRole('button', { name: /Google Maps/i })).toBeVisible();
 
       // Should contain Waze option (new in redesign)
-      await expect(mapChoices.getByText(/Waze/i)).toBeVisible();
+      await expect(mapChoices.getByRole('button', { name: /Waze/i })).toBeVisible();
     });
   });
 
@@ -192,7 +192,7 @@ test.describe('Winery Modal Redesign', () => {
       await navigateToTab(page, 'Explore');
       await openWineryDetails(page, 'The Phantom Cellar');
 
-      const modal = page.getByRole('dialog');
+      const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
       await expect(modal).toBeVisible();
 
       const shareButton = modal.getByTestId('share-button');
