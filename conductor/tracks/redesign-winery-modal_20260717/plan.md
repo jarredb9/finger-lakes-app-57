@@ -48,3 +48,9 @@
     - [ ] Verify keyboard accessibility for drawer, dialog, tabs, and sheet controls
     - [ ] Run full local test suite and audit coverage to ensure >80% coverage
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Glassmorphism, Polish, & Accessibility Verification' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions [commit: 1aa77e1]
+    - [x] Add screen reader accessible `SheetHeader` (`SheetTitle`, `SheetDescription`) and `DrawerHeader` (`DrawerTitle`, `DrawerDescription`) inside `WineryDetails.tsx` to fix Radix UI accessibility console errors.
+    - [x] Update `closeButton` selector in `e2e/winery-qa-fallback.spec.ts` to target `data-testid="close-qna-button"` to resolve Playwright strict mode click violation.
+
