@@ -85,8 +85,12 @@ const reservationPlatforms = ['tock.com', 'resy.com', 'opentable.com', 'cellarpa
 
 export default function WineryQnA({ 
   winery, 
-  activeQuestionId 
+  activeQuestionId: activeQuestionIdProp,
+  setActiveQuestionId: setActiveQuestionIdProp
 }: WineryQnAProps) {
+  const [localActiveQuestionId, setLocalActiveQuestionId] = useState<string | null>(null);
+  const activeQuestionId = activeQuestionIdProp !== undefined ? activeQuestionIdProp : (localActiveQuestionId || (winery.reviews && winery.reviews.length > 0 ? "dogs" : null));
+  const setActiveQuestionId = setActiveQuestionIdProp !== undefined ? setActiveQuestionIdProp : setLocalActiveQuestionId;
   const [activeReviewIndex, setActiveReviewIndex] = useState(0);
   const [isExpanded, setIsExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -180,7 +184,22 @@ export default function WineryQnA({
             </>
           )}
         </h4>
-        <GoogleAttribution variant="reviews" />
+        <div className="flex items-center gap-2">
+          <GoogleAttribution variant="reviews" />
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 w-7 p-0"
+            onClick={() => setActiveQuestionId(null)}
+            data-testid="close-qna-button"
+            aria-label="Close insights"
+          >
+            <span className="sr-only">Close</span>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </Button>
+        </div>
       </div>
 
       <div className="space-y-3">
