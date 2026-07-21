@@ -55,6 +55,7 @@ export function WineryImage({ photoRef, winery, className, alt = "Winery photo" 
       className={className}
       onLoad={cachePhoto}
       loading="lazy"
+      draggable={false}
     />
   );
 }

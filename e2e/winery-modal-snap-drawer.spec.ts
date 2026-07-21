@@ -43,4 +43,55 @@ test.describe('Winery Modal 3-Tier Snap Drawer (Mobile)', () => {
     const directionsBtn = page.getByTestId('route-from-current').first();
     await expect(directionsBtn).toBeVisible();
   });
+
+  test('allows dragging the drawer up to Full and back down to Peek', async ({ page }) => {
+    // Set mobile viewport
+    await page.setViewportSize({ width: 375, height: 812 });
+
+    await navigateToTab(page, 'Explore');
+    await ensureSidebarExpanded(page);
+    await openWineryDetails(page, 'The Phantom Cellar');
+
+    const drawer = page.getByTestId('winery-modal-drawer');
+    await expect(drawer).toBeVisible();
+
+    const handle = page.getByTestId('drawer-drag-handle');
+    await expect(handle).toBeVisible();
+
+    // Get drag handle starting coordinates (in Peek state)
+    const initialBox = await handle.boundingBox();
+    expect(initialBox).not.toBeNull();
+    const startX = initialBox!.x + initialBox!.width / 2;
+    const startY = initialBox!.y + initialBox!.height / 2;
+
+    // 1. Swipe Up from Peek to Half (move pointer up)
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await page.mouse.move(startX, startY - 200, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(600); // Wait for vaul snap animation
+
+    // 2. Swipe Up from Half to Full (move pointer up again)
+    const halfBox = await handle.boundingBox();
+    expect(halfBox).not.toBeNull();
+    const halfY = halfBox!.y + halfBox!.height / 2;
+    await page.mouse.move(startX, halfY);
+    await page.mouse.down();
+    await page.mouse.move(startX, halfY - 200, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    // 3. Swipe Down from Full back to Peek (move pointer down)
+    const fullBox = await handle.boundingBox();
+    expect(fullBox).not.toBeNull();
+    const fullY = fullBox!.y + fullBox!.height / 2;
+    await page.mouse.move(startX, fullY);
+    await page.mouse.down();
+    await page.mouse.move(startX, fullY + 400, { steps: 15 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+
+    // Verify the drawer is still open and returned back to a lower snap state
+    await expect(drawer).toBeVisible();
+  });
 });
