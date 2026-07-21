@@ -2,8 +2,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-import { Separator } from "./ui/separator";
-import { Clock, Calendar as CalendarIcon } from "lucide-react";
+
+import { Clock, Calendar as CalendarIcon, Star } from "lucide-react";
+import { WineryImage } from "./WineryDetails";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useVisitStore } from "@/lib/stores/visitStore";
@@ -20,15 +21,43 @@ import VisitCardHistory from "./VisitCardHistory";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMapStore } from "@/lib/stores/mapStore";
-import { Button } from "./ui/button";
+
 
 export default function WineryModal() {
   const { isWineryModalOpen, activeWineryId, closeWineryModal, openVisitForm } = useUIStore();
   const { toast } = useToast();
   const { fetchTripById, setSelectedTrip } = useTripStore();
+  
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const touchStartY = useRef(0);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartY.current = e.touches[0].clientY;
+    setIsDragging(true);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (scrollContainerRef.current && scrollContainerRef.current.scrollTop > 0) {
+      return;
+    }
+    const currentY = e.touches[0].clientY;
+    const deltaY = currentY - touchStartY.current;
+    if (deltaY > 0) {
+      setDragOffset(deltaY);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    if (dragOffset > 100) {
+      closeWineryModal();
+    }
+    setDragOffset(0);
+  };
   const { map } = useMapStore();
 
-  const [activeTab, setActiveTab] = useState<"community" | "amenities" | "visits" | "trip">("community");
+  const [activeTab, setActiveTab] = useState<"community" | "amenities" | "ai_insights" | "visits" | "trip">("community");
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 640 : false);
 
   useEffect(() => {
@@ -211,10 +240,11 @@ export default function WineryModal() {
   };
 
   const renderTabsList = () => (
-    <div className="flex border-b border-border/50 w-full" role="tablist">
+    <div className="flex border-b border-border/50 w-full overflow-x-auto scrollbar-none flex-nowrap justify-between" role="tablist">
       {[
         { id: "community", label: "Community" },
         { id: "amenities", label: "Amenities" },
+        { id: "ai_insights", label: "AI Insights" },
         { id: "visits", label: "Visits" },
         { id: "trip", label: "Trip" }
       ].map((t) => {
@@ -225,9 +255,9 @@ export default function WineryModal() {
             role="tab"
             aria-selected={isActive}
             onClick={() => setActiveTab(t.id as any)}
-            className={`flex-1 text-center py-2 text-sm font-semibold border-b-2 transition-all duration-300 ${
+            className={`py-2.5 px-3.5 text-xs md:text-sm font-semibold border-b-2 transition-all duration-300 whitespace-nowrap shrink-0 ${
               isActive 
-                ? "border-primary text-primary" 
+                ? "border-primary text-primary font-bold" 
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
@@ -245,22 +275,16 @@ export default function WineryModal() {
         return <WineryCommunityTab wineryDbId={activeWinery.dbId ?? null} />;
       case "amenities":
         return <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="logistics" />;
+      case "ai_insights":
+        return <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="ai_insights" />;
       case "visits":
         return (
-          <div className="space-y-4">
+          <div className="space-y-4" data-testid="visits-tab-content">
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                 <CalendarIcon className="w-4 h-4" />
                 <span>Your Visits</span>
               </h3>
-              <Button 
-                size="sm"
-                data-testid="add-visit-button" 
-                onClick={() => openVisitForm(activeWinery)}
-                className="transition-all duration-300 hover:scale-105 active:scale-95"
-              >
-                + Log Visit
-              </Button>
             </div>
             {visits.length > 0 ? (
               <div ref={visitHistoryRef}>
@@ -289,14 +313,26 @@ export default function WineryModal() {
   const renderDesktopLayout = () => {
     if (isLoading || !activeWinery) {
       return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 h-[500px] overflow-hidden">
-          <div className="space-y-4 flex flex-col" data-testid="modal-left-column">
-            <Skeleton className="h-8 w-3/4" />
-            <Skeleton className="h-48 w-full rounded-lg" />
-            <Skeleton className="h-10 w-full rounded-md" />
-            <Skeleton className="h-24 w-full rounded-lg" />
+        <div className="grid grid-cols-1 md:grid-cols-2 h-[500px] overflow-hidden">
+          <div className="flex flex-col" data-testid="modal-left-column">
+            {/* Hero Image skeleton with overlay skeleton */}
+            <div className="relative h-48 w-full bg-muted animate-pulse">
+              <div className="absolute bottom-0 left-0 right-0 bg-background/60 backdrop-blur-md p-3 border-t border-border/30 space-y-2">
+                <Skeleton className="h-5 w-1/2" />
+                <Skeleton className="h-3 w-3/4" />
+              </div>
+            </div>
+            <div className="p-6 pt-4 space-y-4 flex flex-col flex-1">
+              <div className="grid grid-cols-4 gap-2">
+                <Skeleton className="h-16 w-full rounded-xl" />
+                <Skeleton className="h-16 w-full rounded-xl" />
+                <Skeleton className="h-16 w-full rounded-xl" />
+                <Skeleton className="h-16 w-full rounded-xl" />
+              </div>
+              <Skeleton className="h-24 w-full rounded-lg" />
+            </div>
           </div>
-          <div className="space-y-4 flex flex-col border-l border-border/50 pl-6" data-testid="modal-right-column">
+          <div className="space-y-4 flex flex-col border-l border-border/50 p-6" data-testid="modal-right-column">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-64 w-full rounded-lg" />
           </div>
@@ -305,36 +341,56 @@ export default function WineryModal() {
     }
 
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 overflow-y-auto max-h-[85vh]" ref={scrollContainerRef}>
+      <div className="grid grid-cols-1 md:grid-cols-2 overflow-y-auto max-h-[85vh]" ref={scrollContainerRef}>
         {/* Left Column: Info & Details */}
-        <div className="space-y-4 flex flex-col" data-testid="modal-left-column">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h2 className="text-2xl font-bold text-foreground tracking-tight pr-4">{activeWinery.name}</h2>
-              {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
-                <div
-                  data-testid="trip-badge"
-                  role="button"
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleTripBadgeClick(activeWinery.trip_id!);
-                    }
-                  }}
-                  className="inline-flex items-center rounded-full border border-border/50 px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm"
-                  onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
-                >
-                  <Clock className="w-3 h-3 mr-1" />
-                  On Trip: {activeWinery.trip_name}
-                </div>
-              )}
-            </div>
+        <div className="flex flex-col" data-testid="modal-left-column">
+          <div className="relative h-56 w-full overflow-hidden bg-muted rounded-tl-xl">
+            {activeWinery.primary_photo_reference ? (
+              <WineryImage
+                photoRef={activeWinery.primary_photo_reference}
+                winery={activeWinery}
+                className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
+                alt={`${activeWinery.name} hero photo`}
+              />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-r from-muted/30 to-muted/10" />
+            )}
           </div>
 
-          <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
-          
-          <div className="border-t border-border/50 pt-4 mt-auto">
+          <div className="px-6 pb-6 space-y-4 flex flex-col flex-1 relative">
+            {/* Translucent overlay title card */}
+            <div className="-mt-12 mx-auto relative z-10 bg-background/70 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center gap-1.5 text-center w-[92%] max-w-sm">
+              <h2 className="text-xl md:text-2xl font-bold text-foreground leading-tight text-balance break-words w-full line-clamp-2">{activeWinery.name}</h2>
+              <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs md:text-[13px] text-muted-foreground font-medium w-full">
+                {activeWinery.rating && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Star className="w-3.5 h-3.5 md:w-4 md:h-4 fill-foreground text-foreground" />
+                    <span className="text-foreground">{activeWinery.rating}</span>
+                    <span className="px-1 text-muted-foreground/40">|</span>
+                  </div>
+                )}
+                <span className="text-balance break-words line-clamp-2">{activeWinery.address}</span>
+              </div>
+            </div>
+            {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
+              <div
+                data-testid="trip-badge"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleTripBadgeClick(activeWinery.trip_id!);
+                  }
+                }}
+                className="inline-flex items-center self-start rounded-full border border-border/50 px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm"
+                onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
+              >
+                <Clock className="w-3 h-3 mr-1" />
+                On Trip: {activeWinery.trip_name}
+              </div>
+            )}
+
             <WineryActionsPresentational 
               winery={activeWinery} 
               onLogVisit={() => openVisitForm(activeWinery)}
@@ -344,11 +400,13 @@ export default function WineryModal() {
               onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
               onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
             />
+
+            <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
           </div>
         </div>
 
         {/* Right Column: Interaction Tabs */}
-        <div className="space-y-4 flex flex-col border-l border-border/50 pl-6" data-testid="modal-right-column">
+        <div className="p-6 space-y-4 flex flex-col border-l border-border/50" data-testid="modal-right-column">
           {renderTabsList()}
           <div className="flex-1 overflow-y-auto pr-1">
             {renderActiveTabContent()}
@@ -361,19 +419,68 @@ export default function WineryModal() {
   const renderMobileLayout = () => {
     if (isLoading || !activeWinery) {
       return (
-        <div className="p-4 space-y-4 overflow-hidden h-[400px] pb-8">
-          <Skeleton className="h-6 w-1/2 mx-auto" />
-          <Skeleton className="h-32 w-full rounded-lg" />
-          <Skeleton className="h-10 w-full" />
-          <Skeleton className="h-20 w-full" />
+        <div className="flex flex-col h-[400px] overflow-hidden pb-8">
+          <div className="relative h-44 w-full bg-muted animate-pulse">
+            <div className="absolute bottom-0 left-0 right-0 bg-background/60 backdrop-blur-md p-3 border-t border-border/30 space-y-2">
+              <div className="h-5 bg-muted rounded w-1/2" />
+              <div className="h-3 bg-muted rounded w-3/4" />
+            </div>
+          </div>
+          <div className="p-4 space-y-4">
+            <div className="grid grid-cols-4 gap-2">
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+              <Skeleton className="h-16 w-full rounded-xl" />
+            </div>
+            <Skeleton className="h-20 w-full rounded-lg" />
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="p-4 space-y-4 overflow-y-auto max-h-[85vh] pb-8" ref={scrollContainerRef}>
-        <div className="flex flex-col gap-2 text-center items-center">
-          <h2 className="text-xl font-bold text-foreground">{activeWinery.name}</h2>
+      <div className="overflow-y-auto max-h-[85vh] pb-8 flex flex-col" ref={scrollContainerRef}>
+        <div 
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="relative cursor-ns-resize"
+        >
+          {/* Hero Image / Header Area */}
+          <div className="relative h-48 sm:h-56 w-full overflow-hidden bg-muted">
+            <div className="absolute top-0 left-0 right-0 h-10 bg-gradient-to-b from-black/40 to-transparent pointer-events-none z-10" />
+            {activeWinery.primary_photo_reference ? (
+              <WineryImage
+                photoRef={activeWinery.primary_photo_reference}
+                winery={activeWinery}
+                className="h-full w-full object-cover"
+                alt={`${activeWinery.name} hero photo`}
+              />
+            ) : (
+              <div className="h-full w-full bg-gradient-to-r from-muted/30 to-muted/10" />
+            )}
+          </div>
+
+          <div className="px-4 space-y-4 relative">
+            {/* Translucent overlay title card */}
+            <div className="-mt-10 mx-auto relative z-10 bg-background/80 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center gap-1.5 text-center w-[92%] max-w-sm">
+              <h2 className="text-xl md:text-2xl font-bold text-foreground leading-tight text-balance break-words w-full line-clamp-2">{activeWinery.name}</h2>
+              <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs md:text-[13px] text-muted-foreground font-medium w-full">
+                {activeWinery.rating && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Star className="w-3.5 h-3.5 md:w-4 md:h-4 fill-foreground text-foreground" />
+                    <span className="text-foreground">{activeWinery.rating}</span>
+                    <span className="px-1 text-muted-foreground/40">|</span>
+                  </div>
+                )}
+                <span className="text-balance break-words line-clamp-2">{activeWinery.address}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-4 pb-4 mt-4 space-y-4 relative">
           {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
             <div
               data-testid="trip-badge"
@@ -392,28 +499,24 @@ export default function WineryModal() {
               On Trip: {activeWinery.trip_name}
             </div>
           )}
-        </div>
 
-        <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
+          <WineryActionsPresentational 
+            winery={activeWinery} 
+            onLogVisit={() => openVisitForm(activeWinery)}
+            onStreetView={handleStreetViewClick}
+            onToggleWishlist={handleWishlistToggle}
+            onToggleFavorite={handleFavoriteToggle}
+            onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
+            onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
+          />
 
-        <Separator className="border-border/50" />
+          <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
 
-        <WineryActionsPresentational 
-          winery={activeWinery} 
-          onLogVisit={() => openVisitForm(activeWinery)}
-          onStreetView={handleStreetViewClick}
-          onToggleWishlist={handleWishlistToggle}
-          onToggleFavorite={handleFavoriteToggle}
-          onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
-          onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
-        />
-
-        <Separator className="border-border/50" />
-
-        <div className="space-y-4">
-          {renderTabsList()}
-          <div className="pt-2">
-            {renderActiveTabContent()}
+          <div className="space-y-4">
+            {renderTabsList()}
+            <div className="pt-2">
+              {renderActiveTabContent()}
+            </div>
           </div>
         </div>
       </div>
@@ -426,7 +529,11 @@ export default function WineryModal() {
         <DrawerContent 
           data-testid="winery-modal-drawer"
           data-state={isLoading ? "loading" : "ready"}
-          className="backdrop-blur-md bg-background/85 border-t border-border/50 shadow-2xl shadow-primary/5 rounded-t-[20px]"
+          className="backdrop-blur-md bg-background border-t border-border/50 shadow-2xl shadow-primary/5 rounded-t-[20px] overflow-hidden p-0 gap-0"
+          style={{
+            transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
+            transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
+          }}
         >
           <DrawerHeader className="sr-only">
             <DrawerTitle>{activeWinery?.name || "Winery Details"}</DrawerTitle>
@@ -445,7 +552,7 @@ export default function WineryModal() {
       <DialogContent
         data-testid="winery-modal-dialog"
         data-state={isLoading ? "loading" : "ready"}
-        className="max-w-4xl w-[95vw] max-h-[85vh] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-background/85 border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
+        className="max-w-4xl w-[95vw] max-h-[85vh] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-muted/40 border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
         onFocusOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
