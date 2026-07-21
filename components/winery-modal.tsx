@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
-import { Clock, Calendar as CalendarIcon, Star } from "lucide-react";
+import { Clock, Calendar as CalendarIcon, Star, Pencil } from "lucide-react";
 import { WineryImage } from "./WineryDetails";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
@@ -33,41 +33,29 @@ export default function WineryModal() {
   const { toast } = useToast();
   const { fetchTripById, setSelectedTrip } = useTripStore();
   
-  const [dragOffset, setDragOffset] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
-  const touchStartY = useRef(0);
+  const [snapPoint, setSnapPoint] = useState<string | number | null>("300px");
+  const prevActiveWineryRef = useRef<string | null>(null);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartY.current = e.touches[0].clientY;
-    setIsDragging(true);
-  };
+  useEffect(() => {
+    if (isWineryModalOpen) {
+      if (activeWineryId !== prevActiveWineryRef.current) {
+        console.log(`[DRAWER-DIAGNOSTIC] Modal opened for winery ${activeWineryId}. Initializing snapPoint to 300px.`);
+        prevActiveWineryRef.current = activeWineryId;
+        setSnapPoint("300px");
+      }
+    } else {
+      prevActiveWineryRef.current = null;
+    }
+  }, [isWineryModalOpen, activeWineryId]);
 
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (scrollContainerRef.current && scrollContainerRef.current.scrollTop > 0) {
-      return;
-    }
-    const currentY = e.touches[0].clientY;
-    const deltaY = currentY - touchStartY.current;
-    if (deltaY > 0) {
-      setDragOffset(deltaY);
-    }
-  };
-
-  const handleTouchEnd = () => {
-    setIsDragging(false);
-    if (dragOffset > 100) {
-      closeWineryModal();
-    }
-    setDragOffset(0);
-  };
   const { map } = useMapStore();
 
   const [activeTab, setActiveTab] = useState<"community" | "amenities" | "ai_insights" | "varietals" | "visits" | "trip">("community");
-  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 640 : false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 640);
+      setIsMobile(window.innerWidth < 768);
     };
     handleResize();
     window.addEventListener("resize", handleResize);
@@ -95,9 +83,17 @@ export default function WineryModal() {
     shallow
   );
   
-  const activeWinery = useWineryDataStore((state) =>
-    activeWineryId ? state.persistentWineries.find((w) => w.id === activeWineryId) : null
-  );
+  const activeWinery = useWineryDataStore((state) => {
+    if (!activeWineryId) return null;
+    return (
+      state.persistentWineries.find(
+        (w) =>
+          w.id === activeWineryId ||
+          String(w.dbId) === String(activeWineryId) ||
+          w.googleId === activeWineryId
+      ) || null
+    );
+  });
 
   const handleWishlistToggle = async () => {
     if (!activeWinery) return;
@@ -431,138 +427,257 @@ export default function WineryModal() {
     );
   };
 
+function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?: boolean; isMobile?: boolean }) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const photos: string[] = winery?.photo_references?.length
+    ? winery.photo_references
+    : winery?.primary_photo_reference
+    ? [winery.primary_photo_reference]
+    : [];
+
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollLeft, clientWidth } = scrollRef.current;
+    if (clientWidth > 0) {
+      const index = Math.round(scrollLeft / clientWidth);
+      setCurrentIndex(index);
+    }
+  };
+
+  if (!photos.length) {
+    return <div className="h-full w-full bg-gradient-to-r from-muted/30 to-muted/10" />;
+  }
+
+  // Render a single static image on mobile viewports to prevent horizontal vs vertical swipe gesture conflicts
+  if (isMobile) {
+    return (
+      <div className="relative h-full w-full overflow-hidden">
+        <WineryImage
+          photoRef={photos[0]}
+          winery={winery}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          alt={`${winery.name} hero photo`}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`relative h-full w-full group overflow-hidden touch-pan-y ${isFull ? "pointer-events-auto" : "pointer-events-none"}`}>
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex h-full w-full overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth touch-pan-y"
+      >
+        {photos.map((ref, idx) => (
+          <div key={ref || idx} className="h-full w-full shrink-0 snap-center relative">
+            <WineryImage
+              photoRef={ref}
+              winery={winery}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              alt={`${winery.name} photo ${idx + 1}`}
+            />
+          </div>
+        ))}
+      </div>
+
+      {photos.length > 1 && (
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 backdrop-blur-md">
+          {photos.map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              aria-label={`Go to photo ${idx + 1}`}
+              onClick={() => {
+                if (scrollRef.current) {
+                  scrollRef.current.scrollTo({
+                    left: idx * scrollRef.current.clientWidth,
+                    behavior: "smooth",
+                  });
+                }
+              }}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                currentIndex === idx ? "w-4 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
   const renderMobileLayout = () => {
     if (isLoading || !activeWinery) {
       return (
-        <div className="flex flex-col h-[400px] overflow-hidden pb-8">
-          <div className="relative h-44 w-full bg-muted animate-pulse">
-            <div className="absolute bottom-0 left-0 right-0 bg-background/60 backdrop-blur-md p-3 border-t border-border/30 space-y-2">
-              <div className="h-5 bg-muted rounded w-1/2" />
-              <div className="h-3 bg-muted rounded w-3/4" />
-            </div>
+        <div className="flex flex-col h-[300px] overflow-hidden p-4 space-y-4">
+          <Skeleton className="h-10 w-3/4 mx-auto rounded-lg text-center" />
+          <div className="grid grid-cols-4 gap-2">
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
           </div>
-          <div className="p-4 space-y-4">
-            <div className="grid grid-cols-4 gap-2">
-              <Skeleton className="h-16 w-full rounded-xl" />
-              <Skeleton className="h-16 w-full rounded-xl" />
-              <Skeleton className="h-16 w-full rounded-xl" />
-              <Skeleton className="h-16 w-full rounded-xl" />
-            </div>
-            <Skeleton className="h-20 w-full rounded-lg" />
-          </div>
+          <Skeleton className="h-20 w-full rounded-lg" />
         </div>
       );
     }
 
     const isOpen = isOpenNow(activeWinery.openingHours);
+    const isPeek = snapPoint === "300px";
+    const isFull = snapPoint === "100%" || snapPoint === 1;
 
+    const vibeTags = activeWinery.vibe_tags?.length
+      ? activeWinery.vibe_tags
+      : ["🍷 Riesling Specialist", "🐶 Dog Friendly", "🌅 Sunset Views", "⚡ EV Charging"];
     return (
-      <div className="overflow-y-auto max-h-[85vh] pb-8 flex flex-col" ref={scrollContainerRef}>
-        {/* Peek bar status & action strip */}
-        <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-1 border-b border-border/20 bg-muted/20">
-          <span
-            data-testid="peek-open-status-tag"
-            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-background border border-border/50 shadow-2xs"
-          >
-            {isOpen ? "🟢 OPEN NOW" : "🔴 CLOSED"}
-          </span>
-          <div className="flex items-center gap-2">
-            <MapNavigation
-              address={activeWinery.address}
-              wineryName={activeWinery.name}
-              latitude={activeWinery.latitude}
-              longitude={activeWinery.longitude}
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Pinned Header: Flush Top Hero Photo Carousel & Floating Title Overlay */}
+        <div className="relative w-full shrink-0 bg-muted rounded-t-[20px] overflow-hidden">
+          {/* Flush Hero Image Carousel with Height Scaling */}
+          <div className={`relative w-full ${isPeek ? "h-32 sm:h-36" : "h-56 sm:h-64"}`}>
+            <HeroPhotoCarousel winery={activeWinery} isFull={isFull} isMobile={isMobile} />
+            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background/90 to-transparent pointer-events-none z-10" />
+
+            {/* Overlaid Translucent Open Status Badge */}
+            <span
+              data-testid="peek-open-status-tag"
+              className="absolute top-3 right-3 z-20 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-black/40 backdrop-blur-md text-white border border-white/20 shadow-xs"
             >
-              <button
-                type="button"
-                data-testid="route-from-current"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/50 bg-background text-xs font-semibold text-foreground hover:bg-muted/80"
-              >
-                <Navigation className="w-3.5 h-3.5 text-blue-500" />
-                <span>Directions</span>
-              </button>
-            </MapNavigation>
-            {activeWinery.latitude && activeWinery.longitude && (
-              <WineryWeatherWidget latitude={activeWinery.latitude} longitude={activeWinery.longitude} />
-            )}
-          </div>
-        </div>
-
-        <div 
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          className="relative cursor-ns-resize"
-        >
-          {/* Hero Image / Header Area */}
-          <div className="relative h-48 sm:h-56 w-full overflow-hidden bg-muted">
-            <div className="absolute top-0 left-0 right-0 h-10 bg-gradient-to-b from-black/40 to-transparent pointer-events-none z-10" />
-            {activeWinery.primary_photo_reference ? (
-              <WineryImage
-                photoRef={activeWinery.primary_photo_reference}
-                winery={activeWinery}
-                className="h-full w-full object-cover"
-                alt={`${activeWinery.name} hero photo`}
-              />
-            ) : (
-              <div className="h-full w-full bg-gradient-to-r from-muted/30 to-muted/10" />
-            )}
+              {isOpen ? "🟢 OPEN NOW" : "🔴 CLOSED"}
+            </span>
           </div>
 
-          <div className="px-4 space-y-4 relative">
-            {/* Translucent overlay title card */}
-            <div className="-mt-10 mx-auto relative z-10 bg-background/80 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center gap-1.5 text-center w-[92%] max-w-sm">
-              <h2 className="text-xl md:text-2xl font-bold text-foreground leading-tight text-balance break-words w-full line-clamp-2">{activeWinery.name}</h2>
-              <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs md:text-[13px] text-muted-foreground font-medium w-full">
+          {/* Translucent Floating Title Card (Tappable to cycle snap points) */}
+          <div 
+            onClick={() => {
+              const nextSnap = snapPoint === "300px" ? "550px" : snapPoint === "550px" ? "100%" : "300px";
+              console.log(`[DRAWER-DIAGNOSTIC] Header title card tapped! Transitioning snapPoint from ${snapPoint} to ${nextSnap}`);
+              setSnapPoint(nextSnap);
+            }}
+            className={`px-4 relative z-20 cursor-pointer ${isPeek ? "-mt-8" : "-mt-14"}`}
+          >
+            <div className="bg-background/85 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-3 sm:p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center gap-1 text-center max-w-sm mx-auto">
+              <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight">{activeWinery.name}</h2>
+              <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-muted-foreground font-medium">
                 {activeWinery.rating && (
-                  <div className="flex items-center gap-1 shrink-0">
-                    <Star className="w-3.5 h-3.5 md:w-4 md:h-4 fill-foreground text-foreground" />
-                    <span className="text-foreground">{activeWinery.rating}</span>
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
+                    <span className="text-foreground font-semibold">{activeWinery.rating}</span>
                     <span className="px-1 text-muted-foreground/40">|</span>
                   </div>
                 )}
-                <span className="text-balance break-words line-clamp-2">{activeWinery.address}</span>
+                <span className="line-clamp-1">{activeWinery.address}</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="px-4 pb-4 mt-4 space-y-4 relative">
-          {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
-            <div
-              data-testid="trip-badge"
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  handleTripBadgeClick(activeWinery.trip_id!);
-                }
-              }}
-              className="inline-flex items-center rounded-full border border-border/50 px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm"
-              onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
+        {/* Peek Primary Action Bar (Directions + Log Visit) */}
+        <div className={`px-4 pt-2.5 pb-1 flex items-center gap-2 shrink-0 ${isPeek ? "flex" : "hidden"}`}>
+          <MapNavigation
+            address={activeWinery.address}
+            wineryName={activeWinery.name}
+            latitude={activeWinery.latitude}
+            longitude={activeWinery.longitude}
+          >
+            <button
+              type="button"
+              data-testid="route-from-current"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-border/60 bg-muted/40 text-xs font-semibold text-foreground hover:bg-muted"
             >
-              <Clock className="w-3 h-3 mr-1" />
-              On Trip: {activeWinery.trip_name}
+              <Navigation className="w-4 h-4 text-blue-500" />
+              <span>Directions</span>
+            </button>
+          </MapNavigation>
+          <button
+            type="button"
+            data-testid="log-visit-button"
+            onClick={() => openVisitForm(activeWinery)}
+            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-foreground text-background text-xs font-semibold hover:bg-foreground/90 transition-all shadow-xs"
+          >
+            <span>Log Visit</span>
+          </button>
+        </div>
+
+        {/* Scrollable Content Area (Only scrolls inside when Full) */}
+        <div 
+          ref={scrollContainerRef}
+          className={`flex-1 flex flex-col min-h-0 pb-10 scrollbar-none ${isFull ? "overflow-y-auto" : "overflow-hidden"}`}
+        >
+          <div className="px-4 mt-3 space-y-4">
+            {/* 4-Grid Quick Action Tiles */}
+            <WineryActionsPresentational 
+              winery={activeWinery} 
+              onLogVisit={() => openVisitForm(activeWinery)}
+              onStreetView={handleStreetViewClick}
+              onToggleWishlist={handleWishlistToggle}
+              onToggleFavorite={handleFavoriteToggle}
+              onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
+              onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
+            />
+
+            {/* Outdoor Weather Widget */}
+            {activeWinery.latitude && activeWinery.longitude && (
+              <div className="flex justify-center">
+                <WineryWeatherWidget latitude={activeWinery.latitude} longitude={activeWinery.longitude} />
+              </div>
+            )}
+
+            {/* Prominent Full-Width Log Visit CTA Button */}
+            <button
+              type="button"
+              data-testid="log-visit-button"
+              onClick={() => openVisitForm(activeWinery)}
+              className={`w-full py-3 px-4 rounded-xl bg-[#6B1536] hover:bg-[#58102b] text-white font-bold text-sm transition-all duration-200 shadow-md items-center justify-center gap-2 active:scale-98 ${isPeek ? "hidden" : "flex"}`}
+            >
+              <Pencil className="w-4 h-4" />
+              <span>Log Visit</span>
+            </button>
+
+            {/* Horizontal Vibe & Specialty Badges Scroller */}
+            <div className="overflow-x-auto scrollbar-none flex items-center gap-2 py-1 flex-nowrap">
+              {vibeTags.map((tag, idx) => (
+                <span
+                  key={idx}
+                  className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 border border-primary/20 text-primary flex items-center gap-1.5 shadow-2xs whitespace-nowrap"
+                >
+                  {tag}
+                </span>
+              ))}
             </div>
-          )}
 
-          <WineryActionsPresentational 
-            winery={activeWinery} 
-            onLogVisit={() => openVisitForm(activeWinery)}
-            onStreetView={handleStreetViewClick}
-            onToggleWishlist={handleWishlistToggle}
-            onToggleFavorite={handleFavoriteToggle}
-            onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
-            onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
-          />
+            {/* Trip Badge */}
+            {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
+              <div
+                data-testid="trip-badge"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleTripBadgeClick(activeWinery.trip_id!);
+                  }
+                }}
+                className="inline-flex items-center rounded-full border border-border/50 px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm"
+                onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
+              >
+                <Clock className="w-3 h-3 mr-1" />
+                On Trip: {activeWinery.trip_name}
+              </div>
+            )}
 
-          <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
+            {/* Contact Overview Card */}
+            <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
 
-          <div className="space-y-4">
-            {renderTabsList()}
-            <div className="pt-2">
-              {renderActiveTabContent()}
+            {/* Interaction Tabs */}
+            <div className="space-y-4 pt-2">
+              {renderTabsList()}
+              <div className="pt-2">
+                {renderActiveTabContent()}
+              </div>
             </div>
           </div>
         </div>
@@ -572,16 +687,21 @@ export default function WineryModal() {
 
   if (isMobile) {
     return (
-      <Drawer open={isWineryModalOpen} onOpenChange={(open) => !open && closeWineryModal()}>
+      <Drawer 
+        open={isWineryModalOpen} 
+        onOpenChange={(open) => !open && closeWineryModal()}
+        snapPoints={["300px", "550px", 1]}
+        activeSnapPoint={snapPoint}
+        setActiveSnapPoint={setSnapPoint}
+        modal={false}
+        dismissible={true}
+      >
         <DrawerContent 
+          showOverlay={false}
           data-testid="winery-modal-drawer"
           data-snap-points="300px,550px,1"
           data-state={isLoading ? "loading" : "ready"}
-          className="backdrop-blur-md bg-background border-t border-border/50 shadow-2xl shadow-primary/5 rounded-t-[20px] overflow-hidden p-0 gap-0"
-          style={{
-            transform: dragOffset > 0 ? `translateY(${dragOffset}px)` : undefined,
-            transition: isDragging ? 'none' : 'transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
-          }}
+          className="backdrop-blur-xl bg-background/95 border-t border-border/50 shadow-2xl rounded-t-[20px] overflow-hidden p-0 gap-0"
         >
           <DrawerHeader className="sr-only">
             <DrawerTitle>{activeWinery?.name || "Winery Details"}</DrawerTitle>
@@ -600,7 +720,7 @@ export default function WineryModal() {
       <DialogContent
         data-testid="winery-modal-dialog"
         data-state={isLoading ? "loading" : "ready"}
-        className="max-w-4xl w-[95vw] max-h-[85vh] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-muted/40 border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
+        className="fixed left-[50%] top-[50%] z-50 -translate-x-1/2 -translate-y-1/2 max-w-4xl w-[95vw] max-h-[85vh] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-background border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
         onFocusOutside={(e) => e.preventDefault()}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >

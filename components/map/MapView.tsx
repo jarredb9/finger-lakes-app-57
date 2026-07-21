@@ -7,6 +7,7 @@ import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
 
 import { Winery, Trip } from "@/lib/types";
 import { useMapStore } from "@/lib/stores/mapStore";
+import { useUIStore } from "@/lib/stores/uiStore";
 import { useMounted } from "@/hooks/use-mounted";
 import { Button } from "@/components/ui/button";
 import { Compass, Navigation } from "lucide-react";
@@ -392,6 +393,7 @@ const MapView = memo(({
   const mounted = useMounted();
   const mapRef = useRef<MapRef>(null);
   const { setMap } = useMapStore();
+  const { closeWineryModal } = useUIStore();
   const isStreetViewActive = useMapStore((state) => state.isStreetViewActive);
   const [mapStyle, setMapStyle] = useState<"streets" | "outdoors">("streets");
   const [cursor, setCursor] = useState<string>("");
@@ -498,7 +500,10 @@ const MapView = memo(({
       layers: ["clusters", "unclustered-point"]
     });
 
-    if (!features.length) return;
+    if (!features.length) {
+      closeWineryModal();
+      return;
+    }
 
     const clickedFeature = features[0];
     if (clickedFeature.layer.id === "clusters") {
@@ -518,7 +523,7 @@ const MapView = memo(({
         onMarkerClick(winery);
       }
     }
-  }, [allWineries, onMarkerClick]);
+  }, [allWineries, onMarkerClick, closeWineryModal]);
 
   const onMouseEnter = useCallback(() => setCursor("pointer"), []);
   const onMouseLeave = useCallback(() => setCursor(""), []);
