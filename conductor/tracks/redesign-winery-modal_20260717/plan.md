@@ -69,14 +69,14 @@
     - [x] Build `lib/services/weatherService.ts` to query live weather data (temperature, wind, condition) using Open-Meteo API with client-side/in-memory caching (15-min TTL).
 
 ## Phase 5: Test Scaffolding & TDD Red Phase (New Components & Snap States)
-- [ ] Task: Write Failing Unit Tests (TDD Red Phase)
-    - [ ] Write unit tests in `components/__tests__/WineryVarietalsTab.test.tsx` verifying rendering of grape varietal cards (*Dry Riesling, Cabernet Franc, Ice Wine*), flavor profile sliders, and Gemini tasting notes.
-    - [ ] Write unit tests in `components/__tests__/WineryWeatherWidget.test.tsx` verifying temperature display and weather condition labels.
-    - [ ] Update `components/__tests__/winery-modal.test.tsx` with assertions for 3-Tier Multi-Snap Drawer states (`300px`, `550px`, `1.0`), Open/Closed tag in Peek state, and swapped `Log Visit` CTA button.
-    - [ ] Verify that all new unit tests fail initially (Red Phase).
-- [ ] Task: Adapt & Write Failing E2E Tests (TDD Red Phase)
-    - [ ] Create `e2e/winery-modal-snap-drawer.spec.ts` to test drawer snapping between Peek, Half, and Full states, clicking the swapped `Log Visit` button in Peek view, and interacting with Varietals tab sliders.
-    - [ ] Verify E2E tests fail initially (Red Phase).
+- [x] Task: Write Failing Unit Tests (TDD Red Phase)
+    - [x] Write unit tests in `components/__tests__/WineryVarietalsTab.test.tsx` verifying rendering of grape varietal cards (*Dry Riesling, Cabernet Franc, Ice Wine*), flavor profile sliders, and Gemini tasting notes.
+    - [x] Write unit tests in `components/__tests__/WineryWeatherWidget.test.tsx` verifying temperature display and weather condition labels.
+    - [x] Update `components/__tests__/winery-modal.test.tsx` with assertions for 3-Tier Multi-Snap Drawer states (`300px`, `550px`, `1.0`), Open/Closed tag in Peek state, and swapped `Log Visit` CTA button.
+    - [x] Verify that all new unit tests fail initially (Red Phase).
+- [x] Task: Adapt & Write Failing E2E Tests (TDD Red Phase)
+    - [x] Create `e2e/winery-modal-snap-drawer.spec.ts` to test drawer snapping between Peek, Half, and Full states, clicking the swapped `Log Visit` button in Peek view, and interacting with Varietals tab sliders.
+    - [x] Verify E2E tests fail initially (Red Phase).
 
 ## Phase 6: Green Phase Component & Layout Implementation
 - [ ] Task: Implement Apple Maps-Style 3-Tier Multi-Snap Drawer
