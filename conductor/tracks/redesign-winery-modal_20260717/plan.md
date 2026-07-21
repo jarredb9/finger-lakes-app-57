@@ -90,6 +90,11 @@
 - [x] Task: Build Varietals & Tasting Profile Tab Component
     - [x] Create `WineryVarietalsTab.tsx` component to display visual wine varietal cards (*Dry Riesling, Cabernet Franc, Ice Wine*) with dual linear flavor profile sliders (Dry ↔ Sweet, Light ↔ Full Body) and Gemini AI Tasting Notes.
     - [x] Wire keyword fallback adapter for un-enriched wineries scanning `winery.reviews` for grape varietals.
+- [ ] Task: Mobile Drawer & Hero Layout Refactor (Remediation)
+    - [ ] Refactor `components/ui/drawer.tsx` to use native `vaul` drawer (`Drawer.Root`, `Drawer.Content`) with `snapPoints={['300px', '550px', 1]}` and `activeSnapPoint` controlled state so vertical drag and 3-tier snap levels function natively.
+    - [ ] Build horizontal swipeable hero photo carousel (using CSS `snap-x snap-mandatory` or `embla-carousel-react`) mapping `activeWinery.photo_references` with touch swipe gestures and pagination dots.
+    - [ ] Restore flush hero image placement to the absolute top edge of the mobile drawer (`rounded-t-[20px]`), removing block elements above the photo and rendering status badges (`🟢 OPEN NOW`, `Directions`, `Weather`) as absolute translucent overlay pills directly over the photo.
+    - [ ] Deduplicate `🟢 OPEN NOW` / `🔴 CLOSED` status badges by consolidating them into the floating hero photo overlay and removing redundant open/closed indicators from the contact card in `WineryDetails.tsx`.
 
 ## Phase 7: Feature Audit, Testing & Final Verification
 - [ ] Task: Modal Component Feature Audit
