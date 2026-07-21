@@ -78,22 +78,22 @@
     - [x] Create `e2e/winery-modal-snap-drawer.spec.ts` to test drawer snapping between Peek, Half, and Full states, clicking the swapped `Log Visit` button in Peek view, and interacting with Varietals tab sliders.
     - [x] Verify E2E tests fail initially (Red Phase).
 
-## Phase 6: Green Phase Component & Layout Implementation
-- [ ] Task: Implement Apple Maps-Style 3-Tier Multi-Snap Drawer
-    - [ ] Update Vaul/shadcn `Drawer` in `winery-modal.tsx` to support 3 dynamic snap points (`300px`, `550px`, `1.0`) via `snapPoints` prop and `activeSnapPoint` state tracking.
-    - [ ] Implement **Peek State (~300px / ~30vh)**: Render photo preview, title overlay card, explicit `🟢 OPEN NOW` / `🔴 CLOSED` status tag, `Directions` button (`route-from-current`), and `Log Visit` CTA button (`log-visit-button` opening `openVisitForm`) swapped from `Add to Trip`.
-    - [ ] Implement **Half State (~550px / ~60vh)**: Render hero photo carousel with pagination dots, 4-column quick action grid (*Favorite, Wishlist, Street View, Share*) with privacy badges, live outdoor weather widget (`☀️ 74°F Lake Breeze`), full-width "Log Visit" CTA button, and horizontal "At-a-Glance" Vibe & Specialty Badges scroller (`🍷 Riesling Specialist`, `🐶 Dog Friendly`, `🌅 Sunset Views`, `⚡ EV Charging`).
-    - [ ] Implement **Full State (1.0 / ~90vh)**: Render sticky compact header bar and 5 scrollable tabs (`Community`, `Amenities`, `AI Insights`, `Varietals & Tasting`, `Trip`).
-- [ ] Task: Build Swipeable Hero Photo Carousel & Lightbox
-    - [ ] Integrate `embla-carousel-react` or horizontal snap carousel inside `WineryDetails.tsx` to cycle through `photo_references`.
-    - [ ] Build full-screen image Lightbox modal trigger when tapping any photo in the carousel.
-- [ ] Task: Build Varietals & Tasting Profile Tab Component
-    - [ ] Create `WineryVarietalsTab.tsx` component to display visual wine varietal cards (*Dry Riesling, Cabernet Franc, Ice Wine*) with dual linear flavor profile sliders (Dry ↔ Sweet, Light ↔ Full Body) and Gemini AI Tasting Notes.
-    - [ ] Wire keyword fallback adapter for un-enriched wineries scanning `winery.reviews` for grape varietals.
+## Phase 6: Green Phase Component & Layout Implementation [commit: 236d2b5]
+- [x] Task: Implement Apple Maps-Style 3-Tier Multi-Snap Drawer
+    - [x] Update Vaul/shadcn `Drawer` in `winery-modal.tsx` to support 3 dynamic snap points (`300px`, `550px`, `1.0`) via `snapPoints` prop and `activeSnapPoint` state tracking.
+    - [x] Implement **Peek State (~300px / ~30vh)**: Render photo preview, title overlay card, explicit `🟢 OPEN NOW` / `🔴 CLOSED` status tag, `Directions` button (`route-from-current`), and `Log Visit` CTA button (`log-visit-button` opening `openVisitForm`) swapped from `Add to Trip`.
+    - [x] Implement **Half State (~550px / ~60vh)**: Render hero photo carousel with pagination dots, 4-column quick action grid (*Favorite, Wishlist, Street View, Share*) with privacy badges, live outdoor weather widget (`☀️ 74°F Lake Breeze`), full-width "Log Visit" CTA button, and horizontal "At-a-Glance" Vibe & Specialty Badges scroller (`🍷 Riesling Specialist`, `🐶 Dog Friendly`, `🌅 Sunset Views`, `⚡ EV Charging`).
+    - [x] Implement **Full State (1.0 / ~90vh)**: Render sticky compact header bar and 5 scrollable tabs (`Community`, `Amenities`, `AI Insights`, `Varietals & Tasting`, `Trip`).
+- [x] Task: Build Swipeable Hero Photo Carousel & Lightbox
+    - [x] Integrate `embla-carousel-react` or horizontal snap carousel inside `WineryDetails.tsx` to cycle through `photo_references`.
+    - [x] Build full-screen image Lightbox modal trigger when tapping any photo in the carousel.
+- [x] Task: Build Varietals & Tasting Profile Tab Component
+    - [x] Create `WineryVarietalsTab.tsx` component to display visual wine varietal cards (*Dry Riesling, Cabernet Franc, Ice Wine*) with dual linear flavor profile sliders (Dry ↔ Sweet, Light ↔ Full Body) and Gemini AI Tasting Notes.
+    - [x] Wire keyword fallback adapter for un-enriched wineries scanning `winery.reviews` for grape varietals.
 
 ## Phase 7: Feature Audit, Testing & Final Verification
 - [ ] Task: Modal Component Feature Audit
-    - [ ] Audit all 7 modal components (`winery-modal.tsx`, `WineryDetails.tsx`, `WineryActionsPresentational.tsx`, `WineryCommunityTab.tsx`, `TripPlannerSection.tsx`, `VisitCardHistory.tsx`, `WineryQnA.tsx`) to verify zero feature or data loss.
+    - [ ] Audit all 7 modal components (`winery-modal.tsx`, `WineryDetails.tsx`, `WineryActionsPresentational.tsx`, `WineryCommunityTab.tsx`, `TripPlannerSection.tsx`, `VisitCardHistory.tsx`, `WineryQnA.tsx`) to verify zero feature or data loss using commit d8b86d9c21c7680e0e8ca70282470407f3ccc58d as a reference for fully featured components.
     - [ ] Verify preservation of all 15+ test IDs (`favorite-privacy-toggle`, `wishlist-privacy-toggle`, `log-visit-button`, `route-from-current`, `amenity-row-*`, `close-qna-button`, `trip-badge`, etc.).
 - [ ] Task: Automated Testing Suite Verification
     - [ ] Run full Jest unit test suite (`npx jest`) to achieve 100% clean test passes across all suites.
