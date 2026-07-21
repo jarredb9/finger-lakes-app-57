@@ -78,7 +78,7 @@
     - [x] Create `e2e/winery-modal-snap-drawer.spec.ts` to test drawer snapping between Peek, Half, and Full states, clicking the swapped `Log Visit` button in Peek view, and interacting with Varietals tab sliders.
     - [x] Verify E2E tests fail initially (Red Phase).
 
-## Phase 6: Green Phase Component & Layout Implementation [commit: 236d2b5]
+## Phase 6: Green Phase Component & Layout Implementation [checkpoint: 28bf3a1]
 - [x] Task: Implement Apple Maps-Style 3-Tier Multi-Snap Drawer
     - [x] Update Vaul/shadcn `Drawer` in `winery-modal.tsx` to support 3 dynamic snap points (`300px`, `550px`, `1.0`) via `snapPoints` prop and `activeSnapPoint` state tracking.
     - [x] Implement **Peek State (~300px / ~30vh)**: Render photo preview, title overlay card, explicit `🟢 OPEN NOW` / `🔴 CLOSED` status tag, `Directions` button (`route-from-current`), and `Log Visit` CTA button (`log-visit-button` opening `openVisitForm`) swapped from `Add to Trip`.
