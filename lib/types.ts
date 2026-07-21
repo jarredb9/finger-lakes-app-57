@@ -137,6 +137,7 @@ export interface Winery {
   id: GooglePlaceId; 
   // Use 'dbId' for database operations.
   dbId?: WineryDbId | null; 
+  googleId?: string; 
   
   name: string;
   address: string;
