@@ -61,7 +61,7 @@
     - [x] Verify keyboard accessibility for all interactive elements
 - [X] Task: Conductor - User Manual Verification 'Phase 3: Visual Polish, Layout Fixes, & Accessibility' (Protocol in workflow.md)
 
-## Phase 4: Database Schema Migration & Data Layer
+## Phase 4: Database Schema Migration & Data Layer [checkpoint: 61577b6]
 - [x] Task: Create Backwards-Compatible Database Migration [commit: 53d7e24]
     - [x] Create migration script `supabase/migrations/20260721000000_add_winery_varietals_and_vibe_tags.sql` adding `varietals` (`jsonb DEFAULT '[]'::jsonb`) and `vibe_tags` (`text[] DEFAULT '{}'::text[]`) columns to `public.wineries` using expand-and-contract pattern.
     - [x] Update `lib/database.types.ts` and `lib/types.ts` to type `varietals` and `vibe_tags`.
