@@ -65,8 +65,8 @@
 - [x] Task: Create Backwards-Compatible Database Migration [commit: 53d7e24]
     - [x] Create migration script `supabase/migrations/20260721000000_add_winery_varietals_and_vibe_tags.sql` adding `varietals` (`jsonb DEFAULT '[]'::jsonb`) and `vibe_tags` (`text[] DEFAULT '{}'::text[]`) columns to `public.wineries` using expand-and-contract pattern.
     - [x] Update `lib/database.types.ts` and `lib/types.ts` to type `varietals` and `vibe_tags`.
-- [ ] Task: Weather Integration Service
-    - [ ] Build `lib/services/weatherService.ts` to query live weather data (temperature, wind, condition) using Open-Meteo API with client-side/in-memory caching (15-min TTL).
+- [x] Task: Weather Integration Service [commit: fc522d2]
+    - [x] Build `lib/services/weatherService.ts` to query live weather data (temperature, wind, condition) using Open-Meteo API with client-side/in-memory caching (15-min TTL).
 
 ## Phase 5: Test Scaffolding & TDD Red Phase (New Components & Snap States)
 - [ ] Task: Write Failing Unit Tests (TDD Red Phase)
