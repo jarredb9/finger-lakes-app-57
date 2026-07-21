@@ -59,12 +59,12 @@
 - [x] Task: Accessibility (a11y) & Final Test Run
     - [x] Run full Jest unit test suite and Playwright E2E tests to verify no regressions
     - [x] Verify keyboard accessibility for all interactive elements
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Visual Polish, Layout Fixes, & Accessibility' (Protocol in workflow.md)
+- [X] Task: Conductor - User Manual Verification 'Phase 3: Visual Polish, Layout Fixes, & Accessibility' (Protocol in workflow.md)
 
 ## Phase 4: Database Schema Migration & Data Layer
-- [ ] Task: Create Backwards-Compatible Database Migration
-    - [ ] Create migration script `supabase/migrations/20260721000000_add_winery_varietals_and_vibe_tags.sql` adding `varietals` (`jsonb DEFAULT '[]'::jsonb`) and `vibe_tags` (`text[] DEFAULT '{}'::text[]`) columns to `public.wineries` using expand-and-contract pattern.
-    - [ ] Update `lib/database.types.ts` and `lib/types.ts` to type `varietals` and `vibe_tags`.
+- [x] Task: Create Backwards-Compatible Database Migration [commit: 53d7e24]
+    - [x] Create migration script `supabase/migrations/20260721000000_add_winery_varietals_and_vibe_tags.sql` adding `varietals` (`jsonb DEFAULT '[]'::jsonb`) and `vibe_tags` (`text[] DEFAULT '{}'::text[]`) columns to `public.wineries` using expand-and-contract pattern.
+    - [x] Update `lib/database.types.ts` and `lib/types.ts` to type `varietals` and `vibe_tags`.
 - [ ] Task: Weather Integration Service
     - [ ] Build `lib/services/weatherService.ts` to query live weather data (temperature, wind, condition) using Open-Meteo API with client-side/in-memory caching (15-min TTL).
 
