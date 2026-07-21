@@ -485,6 +485,8 @@ export type Database = {
           revision_id: string | null
           serves_wine: boolean | null
           user_rating_count: number | null
+          varietals: Json | null
+          vibe_tags: string[] | null
           website: string | null
         }
         Insert: {
@@ -517,6 +519,8 @@ export type Database = {
           revision_id?: string | null
           serves_wine?: boolean | null
           user_rating_count?: number | null
+          varietals?: Json | null
+          vibe_tags?: string[] | null
           website?: string | null
         }
         Update: {
@@ -549,6 +553,8 @@ export type Database = {
           revision_id?: string | null
           serves_wine?: boolean | null
           user_rating_count?: number | null
+          varietals?: Json | null
+          vibe_tags?: string[] | null
           website?: string | null
         }
         Relationships: []
