@@ -62,14 +62,16 @@ test.describe('Winery Modal Redesign', () => {
       const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
       await expect(modal).toBeVisible();
 
-      // The 4 tabs should be: Community, Amenities, My Visits, Add to Trip
+      // The 5 tabs should be: Community, Amenities, AI Insights, Visits, Trip
       const communityTab = modal.getByRole('tab', { name: /Community/i });
       const amenitiesTab = modal.getByRole('tab', { name: /Amenities/i });
+      const aiInsightsTab = modal.getByRole('tab', { name: /AI Insights/i });
       const visitsTab = modal.getByRole('tab', { name: /Visits/i });
       const tripTab = modal.getByRole('tab', { name: /Trip/i });
 
       await expect(communityTab).toBeVisible();
       await expect(amenitiesTab).toBeVisible();
+      await expect(aiInsightsTab).toBeVisible();
       await expect(visitsTab).toBeVisible();
       await expect(tripTab).toBeVisible();
 
@@ -95,36 +97,24 @@ test.describe('Winery Modal Redesign', () => {
     });
   });
 
-  test.describe('Segmented Control', () => {
-    test('clicking segmented control toggles between Overview and AI Insights', async ({ page }) => {
+  test.describe('AI Insights Tab', () => {
+    test('switching to AI Insights tab displays generative summary', async ({ page }) => {
       await navigateToTab(page, 'Explore');
       await openWineryDetails(page, 'The Phantom Cellar');
 
       const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
       await expect(modal).toBeVisible();
 
-      // The segmented control should have Overview and AI Insights
-      const overviewSegment = modal.getByTestId('segment-overview');
-      const aiInsightsSegment = modal.getByTestId('segment-ai-insights');
+      const aiInsightsTab = modal.getByRole('tab', { name: /AI Insights/i });
+      await expect(aiInsightsTab).toBeVisible();
 
-      await expect(overviewSegment).toBeVisible();
-      await expect(aiInsightsSegment).toBeVisible();
-
-      // Overview should be active by default
-      await expect(overviewSegment).toHaveAttribute('data-state', 'active');
-
-      // Click AI Insights
-      await aiInsightsSegment.click();
-      await expect(aiInsightsSegment).toHaveAttribute('data-state', 'active');
-      await expect(overviewSegment).toHaveAttribute('data-state', 'inactive');
+      // Click AI Insights tab
+      await aiInsightsTab.click();
+      await expect(aiInsightsTab).toHaveAttribute('aria-selected', 'true');
 
       // Verify AI content is visible (Gemini summary)
       const geminiSummary = modal.locator('[data-testid="gemini-summary"]');
       await expect(geminiSummary).toBeVisible();
-
-      // Switch back to Overview
-      await overviewSegment.click();
-      await expect(overviewSegment).toHaveAttribute('data-state', 'active');
     });
   });
 

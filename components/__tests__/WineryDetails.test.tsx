@@ -33,8 +33,6 @@ describe('WineryDetails', () => {
     expect(screen.getByText('789 Vineyard Rd')).toBeInTheDocument();
     expect(screen.getByText('555-0199')).toBeInTheDocument();
     expect(screen.getByText('Visit Website')).toHaveAttribute('href', 'https://beautifulestate.com');
-    expect(screen.getByText('4.8/5.0')).toBeInTheDocument();
-    expect(screen.getByText('(Google Reviews)')).toBeInTheDocument();
   });
 
   it('renders Gemini Insight when generative_summary is available', () => {

@@ -43,9 +43,9 @@ const DrawerContent = React.forwardRef<
       )}
       {...props}
     >
-      <div data-testid="drawer-drag-handle" className="mx-auto h-2 w-[100px] rounded-full bg-muted" />
+      <div data-testid="drawer-drag-handle" className="absolute left-1/2 top-3 z-50 h-1.5 w-12 -translate-x-1/2 rounded-full bg-muted/80 backdrop-blur-sm" />
       {children}
-      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+      <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground hidden">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
