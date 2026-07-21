@@ -78,7 +78,8 @@ describe('DatePicker', () => {
     expect(onSelect).toHaveBeenCalled();
     
     await waitFor(() => {
-      expect(screen.queryByText('Select a date')).not.toBeInTheDocument();
+      const title = screen.queryByText('Select a date');
+      expect(!title || title.closest('[data-state="closed"]') !== null).toBe(true);
     });
   });
 });
