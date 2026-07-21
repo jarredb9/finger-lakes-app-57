@@ -138,15 +138,6 @@ describe('WineryModal Redesign', () => {
   });
 
   describe('Quick Action buttons', () => {
-    it('contains a Share button in the quick actions row', () => {
-      render(<WineryModal />);
-
-      // The redesigned modal should have a Share button
-      const shareButton = screen.getByTestId('share-button');
-      expect(shareButton).toBeInTheDocument();
-      expect(shareButton).toHaveTextContent(/share/i);
-    });
-
     it('retains individual privacy locks with correct test IDs', () => {
       render(<WineryModal />);
 
@@ -158,4 +149,31 @@ describe('WineryModal Redesign', () => {
       expect(wishPrivacyToggle).toBeInTheDocument();
     });
   });
+
+  describe('3-Tier Multi-Snap Drawer & Peek State', () => {
+    it('supports 3-Tier Multi-Snap Drawer snap points and Peek state elements', () => {
+      Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 375 });
+      window.dispatchEvent(new Event('resize'));
+
+      render(<WineryModal />);
+
+      // Drawer snap points configuration check (via data-snap-points or props)
+      const drawer = screen.getByTestId('winery-modal-drawer');
+      expect(drawer).toHaveAttribute('data-snap-points', '300px,550px,1');
+
+      // Peek state elements
+      const openStatusTag = screen.getByTestId('peek-open-status-tag');
+      expect(openStatusTag).toBeInTheDocument();
+      expect(openStatusTag).toHaveTextContent(/OPEN NOW|CLOSED/i);
+
+      // Swapped Log Visit button in Peek bar
+      const peekLogVisitBtn = screen.getByTestId('log-visit-button');
+      expect(peekLogVisitBtn).toBeInTheDocument();
+
+      const peekDirectionsBtn = screen.getByTestId('route-from-current');
+      expect(peekDirectionsBtn).toBeInTheDocument();
+    });
+  });
 });
+
+
