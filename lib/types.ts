@@ -190,8 +190,10 @@ export interface Winery {
 export interface WineryVarietal {
   name: string;
   dryness?: number; // 0 (Dry) to 10 (Sweet)
+  sweetness?: number; // 0 (Dry) to 10 (Sweet)
   body?: number; // 0 (Light) to 10 (Full Body)
   tasting_notes?: string;
+  description?: string;
   price?: string;
 }
 

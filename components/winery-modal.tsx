@@ -16,11 +16,16 @@ import { shallow } from "zustand/shallow";
 import WineryDetails from "./WineryDetails";
 import WineryActionsPresentational from "./WineryActionsPresentational";
 import WineryCommunityTab from "./WineryCommunityTab";
+import WineryVarietalsTab from "./WineryVarietalsTab";
+import { WineryWeatherWidget } from "./WineryWeatherWidget";
 import TripPlannerSection from "./TripPlannerSection";
 import VisitCardHistory from "./VisitCardHistory";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMapStore } from "@/lib/stores/mapStore";
+import { isOpenNow } from "@/lib/utils/opening-hours";
+import { MapNavigation } from "./MapNavigation";
+import { Navigation } from "lucide-react";
 
 
 export default function WineryModal() {
@@ -57,7 +62,7 @@ export default function WineryModal() {
   };
   const { map } = useMapStore();
 
-  const [activeTab, setActiveTab] = useState<"community" | "amenities" | "ai_insights" | "visits" | "trip">("community");
+  const [activeTab, setActiveTab] = useState<"community" | "amenities" | "ai_insights" | "varietals" | "visits" | "trip">("community");
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 640 : false);
 
   useEffect(() => {
@@ -245,6 +250,7 @@ export default function WineryModal() {
         { id: "community", label: "Community" },
         { id: "amenities", label: "Amenities" },
         { id: "ai_insights", label: "AI Insights" },
+        { id: "varietals", label: "Varietals" },
         { id: "visits", label: "Visits" },
         { id: "trip", label: "Trip" }
       ].map((t) => {
@@ -277,6 +283,15 @@ export default function WineryModal() {
         return <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="logistics" />;
       case "ai_insights":
         return <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="ai_insights" />;
+      case "varietals":
+        return (
+          <WineryVarietalsTab 
+            varietals={activeWinery.varietals ?? undefined} 
+            vibeTags={activeWinery.vibe_tags ?? undefined} 
+            geminiTastingNotes={activeWinery.generative_summary ?? undefined} 
+            reviews={activeWinery.reviews} 
+          />
+        );
       case "visits":
         return (
           <div className="space-y-4" data-testid="visits-tab-content">
@@ -439,8 +454,40 @@ export default function WineryModal() {
       );
     }
 
+    const isOpen = isOpenNow(activeWinery.openingHours);
+
     return (
       <div className="overflow-y-auto max-h-[85vh] pb-8 flex flex-col" ref={scrollContainerRef}>
+        {/* Peek bar status & action strip */}
+        <div className="flex items-center justify-between gap-2 px-4 pt-3 pb-1 border-b border-border/20 bg-muted/20">
+          <span
+            data-testid="peek-open-status-tag"
+            className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-background border border-border/50 shadow-2xs"
+          >
+            {isOpen ? "🟢 OPEN NOW" : "🔴 CLOSED"}
+          </span>
+          <div className="flex items-center gap-2">
+            <MapNavigation
+              address={activeWinery.address}
+              wineryName={activeWinery.name}
+              latitude={activeWinery.latitude}
+              longitude={activeWinery.longitude}
+            >
+              <button
+                type="button"
+                data-testid="route-from-current"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-border/50 bg-background text-xs font-semibold text-foreground hover:bg-muted/80"
+              >
+                <Navigation className="w-3.5 h-3.5 text-blue-500" />
+                <span>Directions</span>
+              </button>
+            </MapNavigation>
+            {activeWinery.latitude && activeWinery.longitude && (
+              <WineryWeatherWidget latitude={activeWinery.latitude} longitude={activeWinery.longitude} />
+            )}
+          </div>
+        </div>
+
         <div 
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
@@ -528,6 +575,7 @@ export default function WineryModal() {
       <Drawer open={isWineryModalOpen} onOpenChange={(open) => !open && closeWineryModal()}>
         <DrawerContent 
           data-testid="winery-modal-drawer"
+          data-snap-points="300px,550px,1"
           data-state={isLoading ? "loading" : "ready"}
           className="backdrop-blur-md bg-background border-t border-border/50 shadow-2xl shadow-primary/5 rounded-t-[20px] overflow-hidden p-0 gap-0"
           style={{

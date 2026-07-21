@@ -136,6 +136,85 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
   const [showAllHours, setShowAllHours] = useState(false);
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+
+  const renderPhotoSection = () => {
+    if (!winery.primary_photo_reference && (!winery.photo_references || winery.photo_references.length === 0)) {
+      return null;
+    }
+
+    const allPhotos = winery.photo_references && winery.photo_references.length > 0
+      ? winery.photo_references
+      : winery.primary_photo_reference ? [winery.primary_photo_reference] : [];
+
+    return (
+      <div className="space-y-2 mb-4">
+        {/* Main Photo */}
+        <div 
+          onClick={() => setLightboxPhoto(allPhotos[0])}
+          className="relative h-48 w-full overflow-hidden rounded-lg border border-border/50 bg-muted cursor-pointer group"
+          data-testid="hero-photo-container"
+        >
+          <WineryImage
+            photoRef={allPhotos[0]}
+            winery={winery}
+            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            alt={`${winery.name} hero photo`}
+          />
+          <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-xs font-semibold">
+            Click to view full photo
+          </div>
+        </div>
+
+        {/* Thumbnail Carousel Strip */}
+        {allPhotos.length > 1 && (
+          <div className="grid grid-cols-4 gap-2">
+            {allPhotos.slice(1, 5).map((ref, idx) => (
+              <div 
+                key={ref} 
+                onClick={() => setLightboxPhoto(ref)}
+                className="relative h-16 overflow-hidden rounded-md border border-border/50 bg-muted cursor-pointer group"
+              >
+                <WineryImage
+                  photoRef={ref}
+                  winery={winery}
+                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-110"
+                  alt={`${winery.name} photo ${idx + 1}`}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Lightbox Dialog */}
+        {lightboxPhoto && (
+          <div 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4"
+            data-testid="photo-lightbox-modal"
+            onClick={() => setLightboxPhoto(null)}
+          >
+            <div className="relative max-w-3xl max-h-[90vh] w-full flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                data-testid="close-lightbox-button"
+                onClick={() => setLightboxPhoto(null)}
+                className="absolute top-2 right-2 z-10 p-2 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                aria-label="Close Lightbox"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <WineryImage
+                photoRef={lightboxPhoto}
+                winery={winery}
+                className="max-h-[85vh] w-auto max-w-full object-contain rounded-lg shadow-2xl"
+                alt={`${winery.name} enlarged photo`}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   useEffect(() => {
     const handleResize = () => {
@@ -557,36 +636,7 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
 
   return (
     <div className="text-sm text-muted-foreground space-y-4 pt-2 mt-2!">
-      {/* Hero section */}
-      {winery.primary_photo_reference && (
-        <div className="space-y-2 mb-4">
-          <div className="relative h-48 w-full overflow-hidden rounded-lg border bg-muted">
-            <WineryImage
-              photoRef={winery.primary_photo_reference}
-              winery={winery}
-              className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
-              alt={`${winery.name} hero photo`}
-            />
-          </div>
-          {winery.photo_references && winery.photo_references.length > 1 && (
-            <div className="grid grid-cols-4 gap-2">
-              {winery.photo_references
-                .filter(ref => ref !== winery.primary_photo_reference)
-                .slice(0, 4)
-                .map((ref, idx) => (
-                  <div key={ref} className="relative h-16 overflow-hidden rounded-md border bg-muted">
-                    <WineryImage
-                      photoRef={ref}
-                      winery={winery}
-                      className="h-full w-full object-cover transition-transform duration-300 hover:scale-110"
-                      alt={`${winery.name} photo ${idx + 1}`}
-                    />
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
-      )}
+      {renderPhotoSection()}
 
       {/* Info Part */}
       {renderInfo()}
