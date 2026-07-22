@@ -138,3 +138,13 @@
     - [x] Move title card outside the overflow-hidden header wrapper to position it half-on/half-off without clipping
     - [x] Set peek view hero image height to h-48 to fill the 300px drawer height exactly
 
+## Post-Deployment Steps
+- [ ] Task: Reset Enrichment Cache in Production
+    - [ ] Run the following SQL query on the production database using Supabase Studio / CLI to force re-enrichment of existing wineries:
+      ```sql
+      UPDATE wineries 
+      SET last_enriched_at = NULL 
+      WHERE vibe_tags IS NULL OR vibe_tags = '{}';
+      ```
+
+
