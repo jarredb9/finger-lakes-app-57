@@ -141,6 +141,11 @@
     - [x] Remove `vibeTags` prop and tags render block from `WineryVarietalsTab.tsx`
     - [x] Remove `vibeTags` pass from `winery-modal.tsx`
     - [x] Update `WineryVarietalsTab.test.tsx` unit tests to match new structure
+- [x] Task: Re-implement swipeable hero carousel on desktop and inside lightbox [commit: a6c245b]
+    - [x] Enable Embla Carousel on desktop Dialog layout
+    - [x] Maintain static single photo on mobile Drawer view to prevent drag conflicts
+    - [x] Enable Embla Carousel inside the full-screen photo Lightbox modal for both platforms
+    - [x] Resolve scrolling reset snapping bug by utilizing stable useRef for startIndex
 
 ## Post-Deployment Steps
 - [ ] Task: Reset Enrichment Cache in Production
