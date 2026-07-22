@@ -72,11 +72,11 @@ async function populate() {
     }
   }
 
-  console.log('\n🌱 Seeding mock vibe tags and varietals for local testing...');
+  console.log('\n🌱 Seeding mock vibe tags, varietals, and AI insights for local testing...');
   try {
     const { data: wineries, error: fetchErr } = await supabase
       .from('wineries')
-      .select('id, name, vibe_tags, varietals');
+      .select('id, name, vibe_tags, varietals, generative_summary, neighborhood_summary');
 
     if (fetchErr) throw fetchErr;
 
@@ -104,6 +104,18 @@ async function populate() {
         ]
       ];
 
+      const mockGenerativeSummariesPool = [
+        "A historic Seneca Lake staple known for its world-class dry Rieslings and stunning tasting room views. The friendly staff and scenic outdoor patio make it a must-visit spot.",
+        "Renowned for its elegant red wines, especially Cabernet Franc, and a modern sustainable tasting facility. Guests love the cozy atmosphere and highly knowledgeable guides.",
+        "Perched on Keuka Lake, this family-friendly winery offers premium aromatic white wines and a gorgeous picnic area overlooking the water."
+      ];
+
+      const mockNeighborhoodSummariesPool = [
+        "Located on the scenic east side of Seneca Lake, nearby several excellent dining options and historic landmarks.",
+        "Nestled in the rolling hills of the southern Seneca Lake corridor, surrounded by lush vineyards and scenic hiking trails.",
+        "Situated on the tranquil west branch of Keuka Lake, offering a quieter, rustic environment close to local state parks."
+      ];
+
       for (let i = 0; i < wineries.length; i++) {
         const w = wineries[i];
         const updatePayload: Record<string, any> = {};
@@ -113,6 +125,12 @@ async function populate() {
         }
         if (!w.varietals || (Array.isArray(w.varietals) && w.varietals.length === 0) || w.varietals === '[]') {
           updatePayload.varietals = mockVarietalsPool[i % mockVarietalsPool.length];
+        }
+        if (!w.generative_summary) {
+          updatePayload.generative_summary = mockGenerativeSummariesPool[i % mockGenerativeSummariesPool.length];
+        }
+        if (!w.neighborhood_summary) {
+          updatePayload.neighborhood_summary = mockNeighborhoodSummariesPool[i % mockNeighborhoodSummariesPool.length];
         }
 
         if (Object.keys(updatePayload).length > 0) {
@@ -126,7 +144,7 @@ async function populate() {
           }
         }
       }
-      console.log('✅ Mock vibe tags and varietals seeded successfully.');
+      console.log('✅ Mock vibe tags, varietals, and AI insights seeded successfully.');
     }
   } catch (err: any) {
     console.error('💥 Failed to seed mock data:', err.message);
