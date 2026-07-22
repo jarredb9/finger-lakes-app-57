@@ -29,7 +29,7 @@ test.describe('Winery Modal 3-Tier Snap Drawer (Mobile)', () => {
     await expect(drawer).toBeVisible();
 
     // Verify 3-tier snap points attribute
-    await expect(drawer).toHaveAttribute('data-snap-points', '300px,550px,1');
+    await expect(drawer).toHaveAttribute('data-snap-points', '300px,520px,1');
 
     // Peek state checks
     const openStatusTag = page.getByTestId('peek-open-status-tag');

@@ -528,6 +528,7 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
     const isOpen = isOpenNow(activeWinery.openingHours);
     const isPeek = snapPoint === "300px";
     const isFull = snapPoint === "100%" || snapPoint === 1;
+    const isHalf = !isPeek && !isFull;
 
     const vibeTags = activeWinery.vibe_tags?.length
       ? activeWinery.vibe_tags
@@ -537,7 +538,7 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
         {/* Pinned Header: Flush Top Hero Photo Carousel */}
         <div className="relative w-full shrink-0 bg-muted rounded-t-[20px] overflow-hidden">
           {/* Flush Hero Image Carousel with Height Scaling */}
-          <div className={`relative w-full ${isPeek ? "h-48" : "h-56 sm:h-64"}`}>
+          <div className={`relative w-full ${isPeek ? "h-48" : isHalf ? "h-40" : "h-56 sm:h-64"}`}>
             <HeroPhotoCarousel winery={activeWinery} isFull={isFull} isMobile={isMobile} />
             <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background/90 to-transparent pointer-events-none z-10" />
 
@@ -554,7 +555,7 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
         {/* Translucent Floating Title Card (Tappable to cycle snap points) */}
         <div 
           onClick={() => {
-            const nextSnap = snapPoint === "300px" ? "550px" : snapPoint === "550px" ? "100%" : "300px";
+            const nextSnap = snapPoint === "300px" ? "520px" : snapPoint === "520px" ? "100%" : "300px";
             console.log(`[DRAWER-DIAGNOSTIC] Header title card tapped! Transitioning snapPoint from ${snapPoint} to ${nextSnap}`);
             setSnapPoint(nextSnap);
           }}
@@ -605,12 +606,11 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
           </button>
         </div>
 
-        {/* Scrollable Content Area (Only scrolls inside when Full) */}
         <div 
           ref={scrollContainerRef}
-          className={`flex-1 flex flex-col min-h-0 pb-10 scrollbar-none ${isFull ? "overflow-y-auto" : "overflow-hidden"} ${isPeek ? "hidden" : "flex"}`}
+          className={`flex-1 flex flex-col min-h-0 scrollbar-none ${isFull ? "overflow-y-auto pb-10" : "overflow-hidden pb-4"} ${isPeek ? "hidden" : "flex"}`}
         >
-          <div className="px-4 mt-3 space-y-4">
+          <div className="px-4 mt-2.5 space-y-2.5">
             {/* 4-Grid Quick Action Tiles */}
             <WineryActionsPresentational 
               winery={activeWinery} 
@@ -620,6 +620,7 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
               onToggleFavorite={handleFavoriteToggle}
               onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
               onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
+              showLogVisit={false}
             />
 
             {/* Outdoor Weather Widget */}
@@ -676,12 +677,14 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
             <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
 
             {/* Interaction Tabs */}
-            <div className="space-y-4 pt-2">
-              {renderTabsList()}
-              <div className="pt-2">
-                {renderActiveTabContent()}
+            {isFull && (
+              <div className="space-y-4 pt-2">
+                {renderTabsList()}
+                <div className="pt-2">
+                  {renderActiveTabContent()}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -693,7 +696,7 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
       <Drawer 
         open={isWineryModalOpen} 
         onOpenChange={(open) => !open && closeWineryModal()}
-        snapPoints={["300px", "550px", 1]}
+        snapPoints={["300px", "520px", 1]}
         activeSnapPoint={snapPoint}
         setActiveSnapPoint={setSnapPoint}
         modal={false}
@@ -702,7 +705,7 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
         <DrawerContent 
           showOverlay={false}
           data-testid="winery-modal-drawer"
-          data-snap-points="300px,550px,1"
+          data-snap-points="300px,520px,1"
           data-state={isLoading ? "loading" : "ready"}
           className="backdrop-blur-xl bg-background/95 border-t border-border/50 shadow-2xl rounded-t-[20px] overflow-hidden p-0 gap-0"
         >

@@ -11,6 +11,7 @@ interface WineryActionsPresentationalProps {
   onToggleFavorite: () => void;
   onToggleFavoritePrivacy: (e: React.MouseEvent) => void;
   onToggleWishlistPrivacy: (e: React.MouseEvent) => void;
+  showLogVisit?: boolean;
 }
 
 export default function WineryActionsPresentational({ 
@@ -20,7 +21,8 @@ export default function WineryActionsPresentational({
   onToggleWishlist, 
   onToggleFavorite, 
   onToggleFavoritePrivacy, 
-  onToggleWishlistPrivacy 
+  onToggleWishlistPrivacy,
+  showLogVisit = true
 }: WineryActionsPresentationalProps) {
   const { toast } = useToast();
 
@@ -127,14 +129,16 @@ export default function WineryActionsPresentational({
         </button>
       </div>
 
-      <button
-        onClick={onLogVisit}
-        data-testid="log-visit-button"
-        className="w-full flex items-center justify-center gap-2 h-11 md:h-12 py-2 px-4 rounded-xl border border-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 font-semibold text-sm md:text-base shadow-sm hover:shadow-md active:scale-98 cursor-pointer"
-      >
-        <Pencil className="h-4 w-4 md:h-5 md:w-5" />
-        <span>Log Visit</span>
-      </button>
+      {showLogVisit && (
+        <button
+          onClick={onLogVisit}
+          data-testid="log-visit-button"
+          className="w-full flex items-center justify-center gap-2 h-11 md:h-12 py-2 px-4 rounded-xl border border-primary/20 bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-300 font-semibold text-sm md:text-base shadow-sm hover:shadow-md active:scale-98 cursor-pointer"
+        >
+          <Pencil className="h-4 w-4 md:h-5 md:w-5" />
+          <span>Log Visit</span>
+        </button>
+      )}
     </div>
   );
 }

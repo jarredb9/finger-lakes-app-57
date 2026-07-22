@@ -159,7 +159,7 @@ describe('WineryModal Redesign', () => {
 
       // Drawer snap points configuration check (via data-snap-points or props)
       const drawer = screen.getByTestId('winery-modal-drawer');
-      expect(drawer).toHaveAttribute('data-snap-points', '300px,550px,1');
+      expect(drawer).toHaveAttribute('data-snap-points', '300px,520px,1');
 
       // Peek state elements
       const openStatusTag = screen.getByTestId('peek-open-status-tag');

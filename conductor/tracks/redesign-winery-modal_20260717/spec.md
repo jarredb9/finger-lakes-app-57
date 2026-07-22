@@ -69,7 +69,7 @@ This specification contains visual wireframes, layout rules, and interaction def
 +-----------------------------------+
 ```
 
-#### 2. Half Snap State (~550px / ~60% Viewport Height)
+#### 2. Half Snap State (~520px / ~60% Viewport Height)
 *Primary hub for quick decision-making, vibe evaluation, and action taking.*
 ```
 +-----------------------------------+
@@ -130,7 +130,7 @@ To ensure **ZERO feature loss** across all refactors, the following component ma
 
 | Component | Required Data & Functionality | Required Test IDs & Interactive Hooks |
 | :--- | :--- | :--- |
-| `winery-modal.tsx` | Responsive Drawer/Dialog, 3 Snap Points (`300px`, `550px`, `1.0`), Drag offset dismiss, Trip badge click handler (`handleTripBadgeClick`). | `winery-modal-drawer`, `winery-modal-dialog`, `modal-left-column`, `modal-right-column`, `trip-badge` |
+| `winery-modal.tsx` | Responsive Drawer/Dialog, 3 Snap Points (`300px`, `520px`, `1.0`), Drag offset dismiss, Trip badge click handler (`handleTripBadgeClick`). | `winery-modal-drawer`, `winery-modal-dialog`, `modal-left-column`, `modal-right-column`, `trip-badge` |
 | `WineryDetails.tsx` | Photo carousel, Open status indicator (`isOpenNow`), Expandable weekly hours, Contact icons (Phone, Website, Email, Directions), Gemini summary, Neighborhood summary, 8+ Logistics checklist rows, Side-Sheet/Sub-Drawer review trigger. | `hours-toggle`, `route-from-current`, `amenity-row-*`, `status-yes`, `status-no`, `status-unknown-*`, `gemini-summary` |
 | `WineryActionsPresentational.tsx` | 4-grid tiles (Favorite, Wishlist, Street View, Share), privacy lock toggles as overlay badges, full-width "Log Visit" CTA button. | `favorite-button`, `wishlist-button`, `favorite-privacy-toggle`, `wishlist-privacy-toggle`, `street-view-button`, `share-button`, `log-visit-button` |
 | `WineryCommunityTab.tsx` | Consolidated friend avatar summaries + detailed review cards feed (rating stars, written text, uploaded photos). | `community-tab-content`, friend avatar group, review card items |
@@ -147,7 +147,7 @@ To ensure **ZERO feature loss** across all refactors, the following component ma
 ---
 
 ## 5. Visual Styling Specs (Tailwind v4)
-* **Drawer Snap Points**: `snapPoints={['300px', '550px', 1]}` using Vaul / Radix UI Drawer primitives.
+* **Drawer Snap Points**: `snapPoints={['300px', '520px', 1]}` using Vaul / Radix UI Drawer primitives.
 * **Hero Carousel**: `embla-carousel-react` or Tailwind horizontal scroll snapping with animated pagination indicators.
 * **Vibe Badges Scroller**: `overflow-x-auto scrollbar-none flex gap-2 py-1` housing pill badges (`bg-primary/10 border border-primary/20 text-primary text-xs rounded-full px-3 py-1 font-medium`).
 * **Varietal Cards & Flavor Sliders**: Glassmorphic cards (`bg-muted/40 border border-border/50 rounded-xl p-3`) featuring custom linear sliders for Dry ↔ Sweet and Light ↔ Full Body.
@@ -155,7 +155,7 @@ To ensure **ZERO feature loss** across all refactors, the following component ma
 ---
 
 ## 6. Acceptance Criteria
-* [ ] Mobile modal supports 3 dynamic snap points: `Peek (~300px)`, `Half (~550px)`, and `Full (1.0)`.
+* [ ] Mobile modal supports 3 dynamic snap points: `Peek (~300px)`, `Half (~520px)`, and `Full (1.0)`.
 * [ ] Peek snap state displays the `🟢 OPEN NOW` / `🔴 CLOSED` status tag.
 * [ ] Peek snap state action bar contains `Directions` and `Log Visit` (swapped from `Add to Trip`).
 * [ ] Hero header renders an interactive photo carousel with pagination dots.
