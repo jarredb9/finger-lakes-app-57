@@ -137,6 +137,10 @@
     - [x] Wrap MapNavigation in a flex-1 wrapper to ensure equal button sizing
     - [x] Move title card outside the overflow-hidden header wrapper to position it half-on/half-off without clipping
     - [x] Set peek view hero image height to h-48 to fill the 300px drawer height exactly
+- [x] Task: Remove redundant vibe tags from Varietals tab [commit: 190763e]
+    - [x] Remove `vibeTags` prop and tags render block from `WineryVarietalsTab.tsx`
+    - [x] Remove `vibeTags` pass from `winery-modal.tsx`
+    - [x] Update `WineryVarietalsTab.test.tsx` unit tests to match new structure
 
 ## Post-Deployment Steps
 - [ ] Task: Reset Enrichment Cache in Production
