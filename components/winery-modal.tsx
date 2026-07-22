@@ -534,10 +534,10 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
       : ["🍷 Riesling Specialist", "🐶 Dog Friendly", "🌅 Sunset Views", "⚡ EV Charging"];
     return (
       <div className="flex flex-col h-full overflow-hidden">
-        {/* Pinned Header: Flush Top Hero Photo Carousel & Floating Title Overlay */}
+        {/* Pinned Header: Flush Top Hero Photo Carousel */}
         <div className="relative w-full shrink-0 bg-muted rounded-t-[20px] overflow-hidden">
           {/* Flush Hero Image Carousel with Height Scaling */}
-          <div className={`relative w-full ${isPeek ? "h-32 sm:h-36" : "h-56 sm:h-64"}`}>
+          <div className={`relative w-full ${isPeek ? "h-48" : "h-56 sm:h-64"}`}>
             <HeroPhotoCarousel winery={activeWinery} isFull={isFull} isMobile={isMobile} />
             <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background/90 to-transparent pointer-events-none z-10" />
 
@@ -549,55 +549,58 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
               {isOpen ? "🟢 OPEN NOW" : "🔴 CLOSED"}
             </span>
           </div>
+        </div>
 
-          {/* Translucent Floating Title Card (Tappable to cycle snap points) */}
-          <div 
-            onClick={() => {
-              const nextSnap = snapPoint === "300px" ? "550px" : snapPoint === "550px" ? "100%" : "300px";
-              console.log(`[DRAWER-DIAGNOSTIC] Header title card tapped! Transitioning snapPoint from ${snapPoint} to ${nextSnap}`);
-              setSnapPoint(nextSnap);
-            }}
-            className={`px-4 relative z-20 cursor-pointer ${isPeek ? "-mt-8" : "-mt-14"}`}
-          >
-            <div className="bg-background/85 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-3 sm:p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center gap-1 text-center max-w-sm mx-auto">
-              <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight">{activeWinery.name}</h2>
-              <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-muted-foreground font-medium">
-                {activeWinery.rating && (
-                  <div className="flex items-center gap-1">
-                    <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
-                    <span className="text-foreground font-semibold">{activeWinery.rating}</span>
-                    <span className="px-1 text-muted-foreground/40">|</span>
-                  </div>
-                )}
-                <span className="line-clamp-1">{activeWinery.address}</span>
-              </div>
+        {/* Translucent Floating Title Card (Tappable to cycle snap points) */}
+        <div 
+          onClick={() => {
+            const nextSnap = snapPoint === "300px" ? "550px" : snapPoint === "550px" ? "100%" : "300px";
+            console.log(`[DRAWER-DIAGNOSTIC] Header title card tapped! Transitioning snapPoint from ${snapPoint} to ${nextSnap}`);
+            setSnapPoint(nextSnap);
+          }}
+          className={`px-4 relative z-20 cursor-pointer -mt-10`}
+        >
+          <div className="bg-background/85 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-3 sm:p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center gap-1 text-center max-w-sm mx-auto">
+            <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight">{activeWinery.name}</h2>
+            <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-muted-foreground font-medium">
+              {activeWinery.rating && (
+                <div className="flex items-center gap-1">
+                  <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
+                  <span className="text-foreground font-semibold">{activeWinery.rating}</span>
+                  <span className="px-1 text-muted-foreground/40">|</span>
+                </div>
+              )}
+              <span className="line-clamp-1">{activeWinery.address}</span>
             </div>
           </div>
         </div>
 
         {/* Peek Primary Action Bar (Directions + Log Visit) */}
-        <div className={`px-4 pt-2.5 pb-1 flex items-center gap-2 shrink-0 ${isPeek ? "flex" : "hidden"}`}>
-          <MapNavigation
-            address={activeWinery.address}
-            wineryName={activeWinery.name}
-            latitude={activeWinery.latitude}
-            longitude={activeWinery.longitude}
-          >
-            <button
-              type="button"
-              data-testid="route-from-current"
-              className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-border/60 bg-muted/40 text-xs font-semibold text-foreground hover:bg-muted"
+        <div className={`px-4 pt-2.5 pb-1.5 flex items-center gap-3 shrink-0 ${isPeek ? "flex" : "hidden"}`}>
+          <div className="flex-1">
+            <MapNavigation
+              address={activeWinery.address}
+              wineryName={activeWinery.name}
+              latitude={activeWinery.latitude}
+              longitude={activeWinery.longitude}
             >
-              <Navigation className="w-4 h-4 text-blue-500" />
-              <span>Directions</span>
-            </button>
-          </MapNavigation>
+              <button
+                type="button"
+                data-testid="route-from-current"
+                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-border/60 bg-muted/80 text-sm font-bold text-foreground hover:bg-muted transition-all active:scale-98 shadow-sm"
+              >
+                <Navigation className="w-4.5 h-4.5 text-blue-500 fill-blue-500" />
+                <span>Directions</span>
+              </button>
+            </MapNavigation>
+          </div>
           <button
             type="button"
             data-testid="log-visit-button"
             onClick={() => openVisitForm(activeWinery)}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-foreground text-background text-xs font-semibold hover:bg-foreground/90 transition-all shadow-xs"
+            className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#6B1536] hover:bg-[#58102b] text-white text-sm font-bold transition-all shadow-md active:scale-98"
           >
+            <Pencil className="w-4 h-4" />
             <span>Log Visit</span>
           </button>
         </div>
@@ -605,7 +608,7 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
         {/* Scrollable Content Area (Only scrolls inside when Full) */}
         <div 
           ref={scrollContainerRef}
-          className={`flex-1 flex flex-col min-h-0 pb-10 scrollbar-none ${isFull ? "overflow-y-auto" : "overflow-hidden"}`}
+          className={`flex-1 flex flex-col min-h-0 pb-10 scrollbar-none ${isFull ? "overflow-y-auto" : "overflow-hidden"} ${isPeek ? "hidden" : "flex"}`}
         >
           <div className="px-4 mt-3 space-y-4">
             {/* 4-Grid Quick Action Tiles */}
