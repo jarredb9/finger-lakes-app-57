@@ -23,7 +23,6 @@ describe('WineryVarietalsTab Unit Tests', () => {
     render(
       <WineryVarietalsTab
         varietals={mockVarietals}
-        vibeTags={['Riesling Specialist', 'Estate Grown']}
         geminiTastingNotes="Known across the Finger Lakes for world-class Dry Riesling."
       />
     );
@@ -36,17 +35,14 @@ describe('WineryVarietalsTab Unit Tests', () => {
     expect(screen.getAllByRole('slider')).toHaveLength(4); // 2 sliders per card x 2 cards
   });
 
-  it('renders Gemini tasting notes and vibe tags', () => {
+  it('renders Gemini tasting notes', () => {
     render(
       <WineryVarietalsTab
         varietals={mockVarietals}
-        vibeTags={['Riesling Specialist', 'Estate Grown']}
         geminiTastingNotes="Known across the Finger Lakes for world-class Dry Riesling."
       />
     );
 
     expect(screen.getByText(/Known across the Finger Lakes for world-class Dry Riesling/)).toBeInTheDocument();
-    expect(screen.getByText('Riesling Specialist')).toBeInTheDocument();
-    expect(screen.getByText('Estate Grown')).toBeInTheDocument();
   });
 });
