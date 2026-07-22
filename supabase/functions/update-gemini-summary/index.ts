@@ -84,9 +84,18 @@ export const handler = async (req: Request): Promise<Response> => {
       .join('\n\n')
 
     // 4. Call Google Gemini API
-    const prompt = reviewsText 
+    const basePrompt = reviewsText 
       ? `Summarize the following user reviews for the winery "${winery.name}" into a cohesive, concise overview summary (max 2-3 sentences):\n\n${reviewsText}`
       : `Write a cohesive, concise overview summary (max 2-3 sentences) for the winery "${winery.name}" located at "${winery.address}".`
+
+    const prompt = `${basePrompt}
+
+Also extract or generate 3-4 concise vibe/specialty tags (e.g. "Riesling Specialist", "Dog Friendly", "Sunset Views", "EV Charging", "Historic Tasting Room").
+You MUST respond with a JSON object. Do not include markdown code block formatting (like \`\`\`json). The JSON structure must be:
+{
+  "summary": "Your 2-3 sentence summary here",
+  "vibe_tags": ["Tag 1", "Tag 2", "Tag 3"]
+}`
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
     const geminiResponse = await fetch(geminiUrl, {
@@ -109,19 +118,38 @@ export const handler = async (req: Request): Promise<Response> => {
     }
 
     const geminiData = await geminiResponse.json()
-    const summaryText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
+
+    if (!rawText) {
+      throw new Error('Gemini API did not return any content')
+    }
+
+    // Parse JSON response safely, handling potential code block markdown wrapper
+    let summaryText = ''
+    let vibeTags: string[] = []
+
+    try {
+      const cleanedJson = rawText.replace(/^```json\s*/i, '').replace(/```$/, '').trim()
+      const parsed = JSON.parse(cleanedJson)
+      summaryText = parsed.summary || ''
+      vibeTags = Array.isArray(parsed.vibe_tags) ? parsed.vibe_tags : []
+    } catch (_e) {
+      // Fallback in case Gemini returns plain text instead of JSON
+      summaryText = rawText
+    }
 
     if (!summaryText) {
-      throw new Error('Gemini API did not return any summary text')
+      throw new Error('Could not extract summary text from Gemini response')
     }
 
     const generativeSummary = { overview: { text: summaryText } }
 
-    // 5. Update the winery's generative_summary and last_enriched_at
+    // 5. Update the winery's generative_summary, vibe_tags and last_enriched_at
     const { error: updateError } = await supabaseClient
       .from('wineries')
       .update({
         generative_summary: generativeSummary,
+        vibe_tags: vibeTags,
         last_enriched_at: new Date().toISOString()
       })
       .eq('id', wineryId)
@@ -133,8 +161,9 @@ export const handler = async (req: Request): Promise<Response> => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Summary updated successfully', 
-        generative_summary: generativeSummary 
+        message: 'Summary and vibe tags updated successfully', 
+        generative_summary: generativeSummary,
+        vibe_tags: vibeTags
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

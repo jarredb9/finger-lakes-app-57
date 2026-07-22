@@ -413,6 +413,8 @@ export const standardizeWineryData = (
     primary_photo_reference: primaryPhotoReference,
     photo_references: photoReferences,
     cached_photos: cachedPhotos,
+    varietals: mergeField(source.varietals !== undefined ? source.varietals : null, existing?.varietals),
+    vibe_tags: mergeField(source.vibe_tags !== undefined ? source.vibe_tags : null, existing?.vibe_tags),
   };
 
   // Final Validation
@@ -424,7 +426,29 @@ export const standardizeWineryData = (
   return standardized;
 };
 
+/**
+ * Returns vibe/specialty tags for a winery.
+ * If vibe_tags exists and is non-empty, returns it.
+ * Otherwise, maps Boolean attributes to text badges.
+ */
+export const getWineryVibeTags = (winery: Partial<Winery> | null | undefined): string[] => {
+  if (!winery) return [];
+  if (Array.isArray(winery.vibe_tags) && winery.vibe_tags.length > 0) {
+    return winery.vibe_tags;
+  }
+  
+  const tags: string[] = [];
+  if (winery.allows_dogs === true) tags.push("Dog Friendly");
+  if (winery.has_ev_charging === true) tags.push("EV Charging");
+  if (winery.outdoor_seating === true) tags.push("Outdoor Seating");
+  if (winery.good_for_children === true) tags.push("Kid Friendly");
+  
+  return tags;
+};
+
 // Expose for E2E testing
 if (typeof window !== 'undefined') {
     (window as any).standardizeWineryData = standardizeWineryData;
+    (window as any).getWineryVibeTags = getWineryVibeTags;
 }
+

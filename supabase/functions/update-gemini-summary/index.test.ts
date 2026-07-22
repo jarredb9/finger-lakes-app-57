@@ -111,7 +111,10 @@ Deno.test("update-gemini-summary - successful summary update when cache is stale
         content: {
           parts: [
             {
-              text: "A highly rated winery featuring great Pinot Noir and a lovely tasting room.",
+              text: JSON.stringify({
+                summary: "A highly rated winery featuring great Pinot Noir and a lovely tasting room.",
+                vibe_tags: ["Pinot Noir Specialist", "Lovely Tasting Room", "Scenic Views"]
+              })
             },
           ],
         },
@@ -140,11 +143,12 @@ Deno.test("update-gemini-summary - successful summary update when cache is stale
 
     assertEquals(res.status, 200)
     assertEquals(data.success, true)
-    assertEquals(data.message, "Summary updated successfully")
+    assertEquals(data.message, "Summary and vibe tags updated successfully")
     assertEquals(
       data.generative_summary.overview.text,
       "A highly rated winery featuring great Pinot Noir and a lovely tasting room."
     )
+    assertEquals(data.vibe_tags, ["Pinot Noir Specialist", "Lovely Tasting Room", "Scenic Views"])
   } finally {
     envStub.restore()
     fetchStub.restore()
