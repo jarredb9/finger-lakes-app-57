@@ -1,10 +1,11 @@
 // components/winery-modal.tsx
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import useEmblaCarousel from "embla-carousel-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
-import { Clock, Calendar as CalendarIcon, Star, Pencil, X } from "lucide-react";
+import { Clock, Calendar as CalendarIcon, Star, Pencil, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { WineryImage } from "./WineryDetails";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
@@ -32,12 +33,17 @@ import { getWineryVibeTags } from "@/lib/utils/winery";
 
 
 export default function WineryModal() {
-  const { isWineryModalOpen, activeWineryId, closeWineryModal, openVisitForm } = useUIStore();
+  const { isWineryModalOpen, activeWineryId, closeWineryModal: closeWineryModalRaw, openVisitForm } = useUIStore();
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+
+  const closeWineryModal = () => {
+    setLightboxPhoto(null);
+    closeWineryModalRaw();
+  };
   const { toast } = useToast();
   const { fetchTripById, setSelectedTrip } = useTripStore();
   
   const [snapPoint, setSnapPoint] = useState<string | number | null>("300px");
-  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const prevActiveWineryRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -49,8 +55,11 @@ export default function WineryModal() {
       }
     } else {
       prevActiveWineryRef.current = null;
+      setLightboxPhoto(null);
     }
   }, [isWineryModalOpen, activeWineryId]);
+
+
 
   const { map } = useMapStore();
 
@@ -231,6 +240,7 @@ export default function WineryModal() {
 
   const handleTripBadgeClick = async (tripId: number) => {
     closeWineryModal();
+    setLightboxPhoto(null);
     
     setTimeout(async () => {
         await fetchTripById(tripId.toString());
@@ -430,63 +440,74 @@ function HeroPhotoCarousel({
   winery, 
   isMobile, 
   onPhotoClick,
-  initialPhotoRef
+  initialPhotoRef,
+  isLightbox = false,
+  onPhotoSelect
 }: { 
   winery: any; 
   isFull?: boolean; 
   isMobile?: boolean; 
   onPhotoClick?: (photoRef: string) => void;
   initialPhotoRef?: string | null;
+  isLightbox?: boolean;
+  onPhotoSelect?: (photoRef: string) => void;
 }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const photos = useMemo<string[]>(() => {
+    return winery?.photo_references?.length
+      ? winery.photo_references
+      : winery?.primary_photo_reference
+      ? [winery.primary_photo_reference]
+      : [];
+  }, [winery?.photo_references, winery?.primary_photo_reference]);
 
-  const photos: string[] = winery?.photo_references?.length
-    ? winery.photo_references
-    : winery?.primary_photo_reference
-    ? [winery.primary_photo_reference]
-    : [];
+  // Set the initial index state once on mount from initialPhotoRef
+  const initialIndex = useMemo(() => {
+    return initialPhotoRef ? Math.max(0, photos.indexOf(initialPhotoRef)) : 0;
+  }, []);
 
-  const initialIndexRef = useRef(initialPhotoRef ? Math.max(0, photos.indexOf(initialPhotoRef)) : 0);
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
 
-  const [emblaRef, emblaApi] = useEmblaCarousel({
+  // Keep emblaOptions updated with the active index so internal reInit calls preserve the current slide
+  const emblaOptions = useMemo(() => ({
     loop: false,
-    startIndex: initialIndexRef.current,
+    startIndex: currentIndex,
     watchSlides: true
-  });
+  }), [currentIndex]);
+
+  const [emblaRef, emblaApi] = useEmblaCarousel(emblaOptions);
 
   useEffect(() => {
     if (!emblaApi) return;
 
     const onSelect = () => {
-      setCurrentIndex(emblaApi.selectedScrollSnap());
+      const index = emblaApi.selectedScrollSnap();
+      setCurrentIndex(index);
+      setCanScrollPrev(emblaApi.canScrollPrev());
+      setCanScrollNext(emblaApi.canScrollNext());
+      if (photos[index]) {
+        onPhotoSelect?.(photos[index]);
+      }
     };
 
     emblaApi.on("select", onSelect);
-    setCurrentIndex(emblaApi.selectedScrollSnap());
+    emblaApi.on("reInit", onSelect);
+    onSelect();
 
     return () => {
       emblaApi.off("select", onSelect);
+      emblaApi.off("reInit", onSelect);
     };
   }, [emblaApi]);
 
-  const lastPhotoRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (emblaApi && initialPhotoRef && initialPhotoRef !== lastPhotoRef.current) {
-      lastPhotoRef.current = initialPhotoRef;
-      const idx = photos.indexOf(initialPhotoRef);
-      if (idx !== -1) {
-        emblaApi.scrollTo(idx, true);
-      }
-    }
-  }, [emblaApi, initialPhotoRef, photos]);
 
   if (!photos.length) {
     return <div className="h-full w-full bg-gradient-to-r from-muted/30 to-muted/10" />;
   }
 
   // Render a single static image on mobile viewports to prevent horizontal vs vertical swipe gesture conflicts
-  if (isMobile) {
+  if (isMobile && !isLightbox) {
     return (
       <div 
         className="relative h-full w-full overflow-hidden cursor-pointer"
@@ -495,7 +516,7 @@ function HeroPhotoCarousel({
         <WineryImage
           photoRef={photos[0]}
           winery={winery}
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          className="h-full w-full object-cover"
           alt={`${winery.name} hero photo`}
         />
       </div>
@@ -509,13 +530,13 @@ function HeroPhotoCarousel({
           {photos.map((ref, idx) => (
             <div 
               key={ref || idx} 
-              className="h-full w-full shrink-0 relative cursor-pointer flex-[0_0_100%] min-w-0"
+              className="h-full shrink-0 relative cursor-pointer flex-[0_0_calc(100%+1px)] -mr-[1px] min-w-0"
               onClick={() => onPhotoClick?.(ref)}
             >
               <WineryImage
                 photoRef={ref}
                 winery={winery}
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                className="h-full w-full object-cover"
                 alt={`${winery.name} photo ${idx + 1}`}
               />
             </div>
@@ -524,7 +545,45 @@ function HeroPhotoCarousel({
       </div>
 
       {photos.length > 1 && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 backdrop-blur-md">
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (canScrollPrev) {
+              emblaApi && emblaApi.scrollPrev();
+            }
+          }}
+          className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all duration-300 ${
+            canScrollPrev ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
+          }`}
+          aria-label="Previous photo"
+          disabled={!canScrollPrev}
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      )}
+
+      {photos.length > 1 && (
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (canScrollNext) {
+              emblaApi && emblaApi.scrollNext();
+            }
+          }}
+          className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all duration-300 ${
+            canScrollNext ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
+          }`}
+          aria-label="Next photo"
+          disabled={!canScrollNext}
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      )}
+
+      {photos.length > 1 && (
+        <div className={`absolute ${isLightbox ? "bottom-3" : "bottom-14"} left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 backdrop-blur-md`}>
           {photos.map((_, idx) => (
             <button
               key={idx}
@@ -592,7 +651,6 @@ function HeroPhotoCarousel({
         <div 
           onClick={() => {
             const nextSnap = snapPoint === "300px" ? "520px" : snapPoint === "520px" ? "100%" : "300px";
-            console.log(`[DRAWER-DIAGNOSTIC] Header title card tapped! Transitioning snapPoint from ${snapPoint} to ${nextSnap}`);
             setSnapPoint(nextSnap);
           }}
           className={`px-4 relative z-20 cursor-pointer -mt-10`}
@@ -754,36 +812,52 @@ function HeroPhotoCarousel({
                 Winery details for {activeWinery?.name || "selected winery"}.
               </DrawerDescription>
             </DrawerHeader>
-            {renderMobileLayout()}
+            <div className="flex-1 overflow-y-auto" data-testid="drawer-scroll-container">
+              {renderMobileLayout()}
+            </div>
+            {lightboxPhoto && createPortal(
+              <div 
+                className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto"
+                data-testid="photo-lightbox-modal"
+                onPointerDown={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setLightboxPhoto(null);
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  data-testid="close-lightbox-button"
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    setLightboxPhoto(null);
+                  }}
+                  className="absolute top-6 right-6 z-[210] p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                  aria-label="Close Lightbox"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div 
+                  className="relative max-w-3xl h-[70vh] w-full flex flex-col items-center justify-center" 
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <div className="h-full w-full overflow-hidden rounded-lg">
+                    <HeroPhotoCarousel
+                      winery={activeWinery!}
+                      isFull={true}
+                      isMobile={false}
+                      initialPhotoRef={lightboxPhoto}
+                      isLightbox={true}
+                      onPhotoSelect={setLightboxPhoto}
+                    />
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
           </DrawerContent>
         </Drawer>
-        {lightboxPhoto && (
-          <div 
-            className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
-            data-testid="photo-lightbox-modal"
-            onClick={() => setLightboxPhoto(null)}
-          >
-            <div className="relative max-w-3xl h-[70vh] w-full flex flex-col items-center justify-center" onClick={(e) => e.stopPropagation()}>
-              <button
-                type="button"
-                data-testid="close-lightbox-button"
-                onClick={() => setLightboxPhoto(null)}
-                className="absolute top-4 right-4 z-[110] p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-                aria-label="Close Lightbox"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              <div className="h-full w-full overflow-hidden rounded-lg">
-                <HeroPhotoCarousel
-                  winery={activeWinery!}
-                  isFull={true}
-                  isMobile={false}
-                  initialPhotoRef={lightboxPhoto}
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </>
     );
   }
@@ -805,35 +879,49 @@ function HeroPhotoCarousel({
             </DialogDescription>
           </DialogHeader>
           {renderDesktopLayout()}
+          {lightboxPhoto && createPortal(
+            <div 
+              className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto"
+              data-testid="photo-lightbox-modal"
+              onPointerDown={(e) => {
+                if (e.target === e.currentTarget) {
+                  setLightboxPhoto(null);
+                }
+              }}
+            >
+              <button
+                type="button"
+                data-testid="close-lightbox-button"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  setLightboxPhoto(null);
+                }}
+                className="absolute top-6 right-6 z-[210] p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                aria-label="Close Lightbox"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div 
+                className="relative max-w-3xl h-[70vh] w-full flex flex-col items-center justify-center" 
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <div className="h-full w-full overflow-hidden rounded-lg">
+                  <HeroPhotoCarousel
+                    winery={activeWinery!}
+                    isFull={true}
+                    isMobile={false}
+                    initialPhotoRef={lightboxPhoto}
+                    isLightbox={true}
+                    onPhotoSelect={setLightboxPhoto}
+                  />
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
         </DialogContent>
       </Dialog>
-      {lightboxPhoto && (
-        <div 
-          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
-          data-testid="photo-lightbox-modal"
-          onClick={() => setLightboxPhoto(null)}
-        >
-          <div className="relative max-w-3xl h-[70vh] w-full flex flex-col items-center justify-center" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              data-testid="close-lightbox-button"
-              onClick={() => setLightboxPhoto(null)}
-              className="absolute top-4 right-4 z-[110] p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
-              aria-label="Close Lightbox"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <div className="h-full w-full overflow-hidden rounded-lg">
-              <HeroPhotoCarousel
-                winery={activeWinery!}
-                isFull={true}
-                isMobile={false}
-                initialPhotoRef={lightboxPhoto}
-              />
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
