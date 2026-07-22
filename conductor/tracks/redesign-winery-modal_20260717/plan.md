@@ -96,14 +96,32 @@
     - [x] Restore flush hero image placement to the absolute top edge of the mobile drawer (`rounded-t-[20px]`), removing block elements above the photo and rendering status badges (`🟢 OPEN NOW`, `Directions`) as absolute translucent overlay pills directly over the photo.
     - [x] Deduplicate `🟢 OPEN NOW` / `🔴 CLOSED` status badges by consolidating them into the floating hero photo overlay and removing redundant open/closed indicators from the contact card in `WineryDetails.tsx`.
 
-## Phase 7: Feature Audit, Testing & Final Verification
+## Phase 7: Dynamic Vibe & Specialty Badges Implementation [checkpoint: e3b0417]
+- [x] Task: Update Gemini Edge Function (update-gemini-summary) [commit: e3b0417]
+    - [x] Modify `supabase/functions/update-gemini-summary/index.ts` to request a structured JSON response containing both `summary` and an array of `vibe_tags` (3-4 concise vibe/specialty tags).
+    - [x] Update Gemini API query prompt to extract these tags from user reviews/description.
+    - [x] Parse response and update `public.wineries` table, saving the tags in the `vibe_tags` column.
+    - [x] Update `scripts/populate-wineries.ts` to trigger `update-gemini-summary` for populated wineries, or seed realistic mock vibe tags to facilitate local testing and verification.
+- [x] Task: Implement Rules-Based Fallback Utility [commit: e3b0417]
+    - [x] Create utility `getWineryVibeTags` in `lib/utils/winery.ts` (or equivalent location).
+    - [x] Map Boolean fields (`allows_dogs`, `has_ev_charging`, `outdoor_seating`, `good_for_children`) to corresponding pill badges if `vibe_tags` is empty/null.
+- [x] Task: Integrate dynamically with Winery Modal UI [commit: e3b0417]
+    - [x] Update `components/winery-modal.tsx` to render the dynamic badges returned by `getWineryVibeTags`.
+    - [x] Ensure the badges scroller handles empty arrays cleanly by hiding if no tags are present.
+- [x] Task: Verify & Test Vibe Tags Feature [commit: e3b0417]
+    - [x] Write unit tests verifying that both AI-extracted tags and rules-based fallback tags render correctly in the modal.
+    - [x] Verify local database integration tests and edge function tests pass.
+- [x] Task: Conductor - User Manual Verification 'Phase 7: Dynamic Vibe & Specialty Badges Implementation' (Protocol in workflow.md) [commit: e3b0417]
+
+
+## Phase 8: Feature Audit, Testing & Final Verification
 - [ ] Task: Modal Component Feature Audit
     - [ ] Audit all 7 modal components (`winery-modal.tsx`, `WineryDetails.tsx`, `WineryActionsPresentational.tsx`, `WineryCommunityTab.tsx`, `TripPlannerSection.tsx`, `VisitCardHistory.tsx`, `WineryQnA.tsx`) to verify zero feature or data loss using commit d8b86d9c21c7680e0e8ca70282470407f3ccc58d as a reference for fully featured components.
     - [ ] Verify preservation of all 15+ test IDs (`favorite-privacy-toggle`, `wishlist-privacy-toggle`, `log-visit-button`, `route-from-current`, `amenity-row-*`, `close-qna-button`, `trip-badge`, etc.).
 - [ ] Task: Automated Testing Suite Verification
     - [ ] Run full Jest unit test suite (`npx jest`) to achieve 100% clean test passes across all suites.
     - [ ] Run Playwright E2E tests (`./scripts/run-e2e-container.sh`) to verify full integration.
-- [ ] Task: Conductor - User Manual Verification 'Phase 7: Feature Audit, Testing & Final Verification' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 8: Feature Audit, Testing & Final Verification' (Protocol in workflow.md)
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions [commit: 1aa77e1]
