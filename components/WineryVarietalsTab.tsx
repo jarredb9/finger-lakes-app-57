@@ -64,17 +64,23 @@ export default function WineryVarietalsTab({
   return (
     <div className="space-y-4" data-testid="varietals-tab-content">
       {/* Gemini AI Tasting Notes */}
-      {geminiTastingNotes && (
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 space-y-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Sommelier AI Tasting Notes</span>
+      {(() => {
+        const notesText = typeof geminiTastingNotes === 'string' 
+          ? geminiTastingNotes 
+          : (geminiTastingNotes as any)?.overview?.text || (geminiTastingNotes as any)?.text;
+        if (!notesText) return null;
+        return (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Sommelier AI Tasting Notes</span>
+            </div>
+            <p className="text-xs text-foreground/90 leading-relaxed font-medium">
+              {notesText}
+            </p>
           </div>
-          <p className="text-xs text-foreground/90 leading-relaxed font-medium">
-            {geminiTastingNotes}
-          </p>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Grape Varietal Cards */}
       <div className="space-y-3">
