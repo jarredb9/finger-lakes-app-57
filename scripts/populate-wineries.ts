@@ -72,7 +72,68 @@ async function populate() {
     }
   }
 
+  console.log('\n🌱 Seeding mock vibe tags and varietals for local testing...');
+  try {
+    const { data: wineries, error: fetchErr } = await supabase
+      .from('wineries')
+      .select('id, name, vibe_tags, varietals');
+
+    if (fetchErr) throw fetchErr;
+
+    if (wineries && wineries.length > 0) {
+      const mockVibesPool = [
+        ["Riesling Specialist", "Dog Friendly", "Sunset Views"],
+        ["EV Charging", "Outdoor Seating", "Scenic Patio"],
+        ["Family Owned", "Kid Friendly", "Cabernet Franc Specialist"],
+        ["Dog Friendly", "Historic Tasting Room", "Dry Riesling"],
+        ["Picnic Friendly", "Sunset Views", "EV Charging"]
+      ];
+
+      const mockVarietalsPool = [
+        [
+          { name: "Dry Riesling", dryness: 2, body: 3, price: "$22", description: "Crisp acidity with notes of green apple and mineral finish." },
+          { name: "Cabernet Franc", dryness: 1, body: 6, price: "$28", description: "Medium-bodied red with aromas of dark cherry and light spice." }
+        ],
+        [
+          { name: "Semi-Dry Riesling", dryness: 4, body: 3, price: "$20", description: "Subtle sweetness balanced by bright citrus notes." },
+          { name: "Chardonnay", dryness: 1, body: 5, price: "$25", description: "Rich and buttery with vanilla oak finish." }
+        ],
+        [
+          { name: "Pinot Noir", dryness: 1, body: 4, price: "$32", description: "Elegant red with raspberry aromas and smooth tannins." },
+          { name: "Gewürztraminer", dryness: 3, body: 4, price: "$24", description: "Aromatic white with notes of lychee and spice." }
+        ]
+      ];
+
+      for (let i = 0; i < wineries.length; i++) {
+        const w = wineries[i];
+        const updatePayload: Record<string, any> = {};
+
+        if (!w.vibe_tags || w.vibe_tags.length === 0) {
+          updatePayload.vibe_tags = mockVibesPool[i % mockVibesPool.length];
+        }
+        if (!w.varietals || (Array.isArray(w.varietals) && w.varietals.length === 0) || w.varietals === '[]') {
+          updatePayload.varietals = mockVarietalsPool[i % mockVarietalsPool.length];
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          const { error: updateErr } = await supabase
+            .from('wineries')
+            .update(updatePayload)
+            .eq('id', w.id);
+          
+          if (updateErr) {
+            console.error(`❌ Failed to update mock data for ${w.name}:`, updateErr.message);
+          }
+        }
+      }
+      console.log('✅ Mock vibe tags and varietals seeded successfully.');
+    }
+  } catch (err: any) {
+    console.error('💥 Failed to seed mock data:', err.message);
+  }
+
   console.log('\n✨ Population complete! Run "npm run dev" to see the wineries on your map.');
 }
 
 populate();
+

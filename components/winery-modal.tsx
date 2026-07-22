@@ -26,6 +26,8 @@ import { useMapStore } from "@/lib/stores/mapStore";
 import { isOpenNow } from "@/lib/utils/opening-hours";
 import { MapNavigation } from "./MapNavigation";
 import { Navigation } from "lucide-react";
+import { getWineryVibeTags } from "@/lib/utils/winery";
+
 
 
 export default function WineryModal() {
@@ -530,9 +532,7 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
     const isFull = snapPoint === "100%" || snapPoint === 1;
     const isHalf = !isPeek && !isFull;
 
-    const vibeTags = activeWinery.vibe_tags?.length
-      ? activeWinery.vibe_tags
-      : ["🍷 Riesling Specialist", "🐶 Dog Friendly", "🌅 Sunset Views", "⚡ EV Charging"];
+    const vibeTags = getWineryVibeTags(activeWinery);
     return (
       <div className="flex flex-col h-full overflow-hidden">
         {/* Pinned Header: Flush Top Hero Photo Carousel */}
@@ -642,16 +642,18 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
             </button>
 
             {/* Horizontal Vibe & Specialty Badges Scroller */}
-            <div className="overflow-x-auto scrollbar-none flex items-center gap-2 py-1 flex-nowrap">
-              {vibeTags.map((tag, idx) => (
-                <span
-                  key={idx}
-                  className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 border border-primary/20 text-primary flex items-center gap-1.5 shadow-2xs whitespace-nowrap"
-                >
-                  {tag}
-                </span>
-              ))}
-            </div>
+            {vibeTags.length > 0 && (
+              <div className="overflow-x-auto scrollbar-none flex items-center gap-2 py-1 flex-nowrap" data-testid="vibe-tags-scroller">
+                {vibeTags.map((tag, idx) => (
+                  <span
+                    key={idx}
+                    className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 border border-primary/20 text-primary flex items-center gap-1.5 shadow-2xs whitespace-nowrap"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
 
             {/* Trip Badge */}
             {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (

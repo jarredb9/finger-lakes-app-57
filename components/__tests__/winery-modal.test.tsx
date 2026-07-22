@@ -174,6 +174,73 @@ describe('WineryModal Redesign', () => {
       expect(peekDirectionsBtn).toBeInTheDocument();
     });
   });
+
+  describe('Dynamic Vibe & Specialty Badges', () => {
+    beforeEach(() => {
+      Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 375 });
+      window.dispatchEvent(new Event('resize'));
+      useUIStore.setState({ isWineryModalOpen: true, activeWineryId: TEST_WINERY_ID });
+    });
+
+    it('renders AI-extracted vibe tags when present', () => {
+      const wineryWithAiTags = createMockWinery({
+        id: TEST_WINERY_ID,
+        name: 'AI Tag Winery',
+        vibe_tags: ['Riesling Specialist', 'Sunset Views', 'Dog Friendly'],
+      });
+      useWineryDataStore.setState({ persistentWineries: [wineryWithAiTags] });
+      useUIStore.setState({ activeWineryId: TEST_WINERY_ID });
+
+      render(<WineryModal />);
+      
+      const scroller = screen.getByTestId('vibe-tags-scroller');
+      expect(scroller).toBeInTheDocument();
+      expect(within(scroller).getByText('Riesling Specialist')).toBeInTheDocument();
+      expect(within(scroller).getByText('Sunset Views')).toBeInTheDocument();
+      expect(within(scroller).getByText('Dog Friendly')).toBeInTheDocument();
+    });
+
+    it('falls back to rules-based tags mapping boolean fields if vibe_tags is empty/null', () => {
+      const wineryWithBooleans = createMockWinery({
+        id: TEST_WINERY_ID,
+        name: 'Boolean Fallback Winery',
+        vibe_tags: [],
+        allows_dogs: true,
+        has_ev_charging: true,
+        outdoor_seating: false,
+        good_for_children: true,
+      });
+      useWineryDataStore.setState({ persistentWineries: [wineryWithBooleans] });
+      useUIStore.setState({ activeWineryId: TEST_WINERY_ID });
+
+      render(<WineryModal />);
+      
+      const scroller = screen.getByTestId('vibe-tags-scroller');
+      expect(scroller).toBeInTheDocument();
+      expect(within(scroller).getByText('Dog Friendly')).toBeInTheDocument();
+      expect(within(scroller).getByText('EV Charging')).toBeInTheDocument();
+      expect(within(scroller).getByText('Kid Friendly')).toBeInTheDocument();
+      expect(within(scroller).queryByText('Outdoor Seating')).not.toBeInTheDocument();
+    });
+
+    it('hides the scroller completely if no vibe tags and no boolean flags are present', () => {
+      const emptyWinery = createMockWinery({
+        id: TEST_WINERY_ID,
+        name: 'Empty Vibe Winery',
+        vibe_tags: null,
+        allows_dogs: false,
+        has_ev_charging: false,
+        outdoor_seating: false,
+        good_for_children: false,
+      });
+      useWineryDataStore.setState({ persistentWineries: [emptyWinery] });
+      useUIStore.setState({ activeWineryId: TEST_WINERY_ID });
+
+      render(<WineryModal />);
+      
+      expect(screen.queryByTestId('vibe-tags-scroller')).not.toBeInTheDocument();
+    });
+  });
 });
 
 
