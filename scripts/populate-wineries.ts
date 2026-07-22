@@ -120,17 +120,20 @@ async function populate() {
         const w = wineries[i];
         const updatePayload: Record<string, any> = {};
 
+        const hasValidGenSummary = w.generative_summary && typeof w.generative_summary === 'object' && 'overview' in w.generative_summary;
+        const hasValidNeighSummary = w.neighborhood_summary && typeof w.neighborhood_summary === 'object' && 'overview' in w.neighborhood_summary;
+
         if (!w.vibe_tags || w.vibe_tags.length === 0) {
           updatePayload.vibe_tags = mockVibesPool[i % mockVibesPool.length];
         }
         if (!w.varietals || (Array.isArray(w.varietals) && w.varietals.length === 0) || w.varietals === '[]') {
           updatePayload.varietals = mockVarietalsPool[i % mockVarietalsPool.length];
         }
-        if (!w.generative_summary) {
-          updatePayload.generative_summary = mockGenerativeSummariesPool[i % mockGenerativeSummariesPool.length];
+        if (!hasValidGenSummary) {
+          updatePayload.generative_summary = { overview: { text: mockGenerativeSummariesPool[i % mockGenerativeSummariesPool.length] } };
         }
-        if (!w.neighborhood_summary) {
-          updatePayload.neighborhood_summary = mockNeighborhoodSummariesPool[i % mockNeighborhoodSummariesPool.length];
+        if (!hasValidNeighSummary) {
+          updatePayload.neighborhood_summary = { overview: { text: mockNeighborhoodSummariesPool[i % mockNeighborhoodSummariesPool.length] } };
         }
 
         if (Object.keys(updatePayload).length > 0) {
