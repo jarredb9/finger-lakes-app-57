@@ -115,4 +115,8 @@
     - [x] Remove conflicting layout transition classes (`transition-all`) to stop ResizeObserver loops and layout jitter during snapping.
     - [x] Enable native swipe-down dismissal past Peek state by setting `dismissible={true}` on `<Drawer>`, and configure empty map background clicks in `MapView.tsx` to close the modal.
     - [x] Write and verify pointer drag gesture tests in `e2e/winery-modal-snap-drawer.spec.ts` simulating dragging up to Full and down back to Peek.
+- [x] Task: Fix Peek View button sizing, title card overlap, and bottom whitespace [commit: 8070690]
+    - [x] Wrap MapNavigation in a flex-1 wrapper to ensure equal button sizing
+    - [x] Move title card outside the overflow-hidden header wrapper to position it half-on/half-off without clipping
+    - [x] Set peek view hero image height to h-48 to fill the 300px drawer height exactly
 
