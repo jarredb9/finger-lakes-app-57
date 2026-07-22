@@ -156,6 +156,11 @@
     - [x] Sync Embla Carousel index changes back to the parent state (lightboxPhoto) using onPhotoSelect
     - [x] Make emblaOptions dynamically depend on currentIndex so internal reInit calls (triggered when lazy enriched photos load) preserve the current slide instead of snapping back to index 0
     - [x] Remove the redundant scroll-on-initialPhotoRef-change useEffect that was causing conflicting programmatic scrolls
+- [x] Task: Safe AI summary parsing, desktop feature parity, and populate script check [commit: cd2e7f7]
+    - [x] Add defensive `getSummaryText()` text extraction to `WineryDetails.tsx` (`renderAIInsights`) and `WineryVarietalsTab.tsx` to handle string primitives and JSON objects (`{ overview: { text: "..." } }`) cleanly.
+    - [x] Integrate `WineryWeatherWidget` and `vibe-tags-scroller` into `renderDesktopLayout()` inside `components/winery-modal.tsx` to maintain feature parity across viewports.
+    - [x] Update `scripts/populate-wineries.ts` summary presence validation to seed mock AI insights, vibe tags, and varietals for all wineries in the database.
+    - [x] Resolve nested `overflow-y-auto` scroll container collision in `DrawerContent` to restore smooth mobile swipe gestures and Vaul drawer snap points.
 
 ## Post-Deployment Steps
 - [ ] Task: Reset Enrichment Cache in Production
