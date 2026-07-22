@@ -1,9 +1,10 @@
 // components/winery-modal.tsx
 import { useEffect, useRef, useState } from "react";
+import useEmblaCarousel from "embla-carousel-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
-import { Clock, Calendar as CalendarIcon, Star, Pencil } from "lucide-react";
+import { Clock, Calendar as CalendarIcon, Star, Pencil, X } from "lucide-react";
 import { WineryImage } from "./WineryDetails";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
@@ -36,6 +37,7 @@ export default function WineryModal() {
   const { fetchTripById, setSelectedTrip } = useTripStore();
   
   const [snapPoint, setSnapPoint] = useState<string | number | null>("300px");
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
   const prevActiveWineryRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -357,16 +359,12 @@ export default function WineryModal() {
         {/* Left Column: Info & Details */}
         <div className="flex flex-col" data-testid="modal-left-column">
           <div className="relative h-56 w-full overflow-hidden bg-muted rounded-tl-xl">
-            {activeWinery.primary_photo_reference ? (
-              <WineryImage
-                photoRef={activeWinery.primary_photo_reference}
-                winery={activeWinery}
-                className="h-full w-full object-cover transition-transform duration-300 hover:scale-105"
-                alt={`${activeWinery.name} hero photo`}
-              />
-            ) : (
-              <div className="h-full w-full bg-gradient-to-r from-muted/30 to-muted/10" />
-            )}
+            <HeroPhotoCarousel 
+              winery={activeWinery} 
+              isFull={true} 
+              isMobile={false} 
+              onPhotoClick={setLightboxPhoto} 
+            />
           </div>
 
           <div className="px-6 pb-6 space-y-4 flex flex-col flex-1 relative">
@@ -428,9 +426,19 @@ export default function WineryModal() {
     );
   };
 
-function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?: boolean; isMobile?: boolean }) {
+function HeroPhotoCarousel({ 
+  winery, 
+  isMobile, 
+  onPhotoClick,
+  initialPhotoRef
+}: { 
+  winery: any; 
+  isFull?: boolean; 
+  isMobile?: boolean; 
+  onPhotoClick?: (photoRef: string) => void;
+  initialPhotoRef?: string | null;
+}) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollRef = useRef<HTMLDivElement>(null);
 
   const photos: string[] = winery?.photo_references?.length
     ? winery.photo_references
@@ -438,14 +446,40 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
     ? [winery.primary_photo_reference]
     : [];
 
-  const handleScroll = () => {
-    if (!scrollRef.current) return;
-    const { scrollLeft, clientWidth } = scrollRef.current;
-    if (clientWidth > 0) {
-      const index = Math.round(scrollLeft / clientWidth);
-      setCurrentIndex(index);
+  const initialIndexRef = useRef(initialPhotoRef ? Math.max(0, photos.indexOf(initialPhotoRef)) : 0);
+
+  const [emblaRef, emblaApi] = useEmblaCarousel({
+    loop: false,
+    startIndex: initialIndexRef.current,
+    watchSlides: true
+  });
+
+  useEffect(() => {
+    if (!emblaApi) return;
+
+    const onSelect = () => {
+      setCurrentIndex(emblaApi.selectedScrollSnap());
+    };
+
+    emblaApi.on("select", onSelect);
+    setCurrentIndex(emblaApi.selectedScrollSnap());
+
+    return () => {
+      emblaApi.off("select", onSelect);
+    };
+  }, [emblaApi]);
+
+  const lastPhotoRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (emblaApi && initialPhotoRef && initialPhotoRef !== lastPhotoRef.current) {
+      lastPhotoRef.current = initialPhotoRef;
+      const idx = photos.indexOf(initialPhotoRef);
+      if (idx !== -1) {
+        emblaApi.scrollTo(idx, true);
+      }
     }
-  };
+  }, [emblaApi, initialPhotoRef, photos]);
 
   if (!photos.length) {
     return <div className="h-full w-full bg-gradient-to-r from-muted/30 to-muted/10" />;
@@ -454,7 +488,10 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
   // Render a single static image on mobile viewports to prevent horizontal vs vertical swipe gesture conflicts
   if (isMobile) {
     return (
-      <div className="relative h-full w-full overflow-hidden">
+      <div 
+        className="relative h-full w-full overflow-hidden cursor-pointer"
+        onClick={() => onPhotoClick?.(photos[0])}
+      >
         <WineryImage
           photoRef={photos[0]}
           winery={winery}
@@ -466,22 +503,24 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
   }
 
   return (
-    <div className={`relative h-full w-full group overflow-hidden touch-pan-y ${isFull ? "pointer-events-auto" : "pointer-events-none"}`}>
-      <div
-        ref={scrollRef}
-        onScroll={handleScroll}
-        className="flex h-full w-full overflow-x-auto snap-x snap-mandatory scrollbar-none scroll-smooth touch-pan-y"
-      >
-        {photos.map((ref, idx) => (
-          <div key={ref || idx} className="h-full w-full shrink-0 snap-center relative">
-            <WineryImage
-              photoRef={ref}
-              winery={winery}
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              alt={`${winery.name} photo ${idx + 1}`}
-            />
-          </div>
-        ))}
+    <div className="relative h-full w-full group overflow-hidden pointer-events-auto">
+      <div className="overflow-hidden h-full w-full" ref={emblaRef}>
+        <div className="flex h-full w-full">
+          {photos.map((ref, idx) => (
+            <div 
+              key={ref || idx} 
+              className="h-full w-full shrink-0 relative cursor-pointer flex-[0_0_100%] min-w-0"
+              onClick={() => onPhotoClick?.(ref)}
+            >
+              <WineryImage
+                photoRef={ref}
+                winery={winery}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                alt={`${winery.name} photo ${idx + 1}`}
+              />
+            </div>
+          ))}
+        </div>
       </div>
 
       {photos.length > 1 && (
@@ -491,14 +530,7 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
               key={idx}
               type="button"
               aria-label={`Go to photo ${idx + 1}`}
-              onClick={() => {
-                if (scrollRef.current) {
-                  scrollRef.current.scrollTo({
-                    left: idx * scrollRef.current.clientWidth,
-                    behavior: "smooth",
-                  });
-                }
-              }}
+              onClick={() => emblaApi && emblaApi.scrollTo(idx)}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 currentIndex === idx ? "w-4 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
               }`}
@@ -538,7 +570,12 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
         <div className="relative w-full shrink-0 bg-muted rounded-t-[20px] overflow-hidden">
           {/* Flush Hero Image Carousel with Height Scaling */}
           <div className={`relative w-full ${isPeek ? "h-48" : isHalf ? "h-40" : "h-56 sm:h-64"}`}>
-            <HeroPhotoCarousel winery={activeWinery} isFull={isFull} isMobile={isMobile} />
+            <HeroPhotoCarousel 
+              winery={activeWinery} 
+              isFull={isFull} 
+              isMobile={isMobile} 
+              onPhotoClick={setLightboxPhoto} 
+            />
             <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background/90 to-transparent pointer-events-none z-10" />
 
             {/* Overlaid Translucent Open Status Badge */}
@@ -694,51 +731,109 @@ function HeroPhotoCarousel({ winery, isFull, isMobile }: { winery: any; isFull?:
 
   if (isMobile) {
     return (
-      <Drawer 
-        open={isWineryModalOpen} 
-        onOpenChange={(open) => !open && closeWineryModal()}
-        snapPoints={["300px", "520px", 1]}
-        activeSnapPoint={snapPoint}
-        setActiveSnapPoint={setSnapPoint}
-        modal={false}
-        dismissible={true}
-      >
-        <DrawerContent 
-          showOverlay={false}
-          data-testid="winery-modal-drawer"
-          data-snap-points="300px,520px,1"
-          data-state={isLoading ? "loading" : "ready"}
-          className="backdrop-blur-xl bg-background/95 border-t border-border/50 shadow-2xl rounded-t-[20px] overflow-hidden p-0 gap-0"
+      <>
+        <Drawer 
+          open={isWineryModalOpen} 
+          onOpenChange={(open) => !open && closeWineryModal()}
+          snapPoints={["300px", "520px", 1]}
+          activeSnapPoint={snapPoint}
+          setActiveSnapPoint={setSnapPoint}
+          modal={false}
+          dismissible={true}
         >
-          <DrawerHeader className="sr-only">
-            <DrawerTitle>{activeWinery?.name || "Winery Details"}</DrawerTitle>
-            <DrawerDescription>
-              Winery details for {activeWinery?.name || "selected winery"}.
-            </DrawerDescription>
-          </DrawerHeader>
-          {renderMobileLayout()}
-        </DrawerContent>
-      </Drawer>
+          <DrawerContent 
+            showOverlay={false}
+            data-testid="winery-modal-drawer"
+            data-snap-points="300px,520px,1"
+            data-state={isLoading ? "loading" : "ready"}
+            className="backdrop-blur-xl bg-background/95 border-t border-border/50 shadow-2xl rounded-t-[20px] overflow-hidden p-0 gap-0"
+          >
+            <DrawerHeader className="sr-only">
+              <DrawerTitle>{activeWinery?.name || "Winery Details"}</DrawerTitle>
+              <DrawerDescription>
+                Winery details for {activeWinery?.name || "selected winery"}.
+              </DrawerDescription>
+            </DrawerHeader>
+            {renderMobileLayout()}
+          </DrawerContent>
+        </Drawer>
+        {lightboxPhoto && (
+          <div 
+            className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
+            data-testid="photo-lightbox-modal"
+            onClick={() => setLightboxPhoto(null)}
+          >
+            <div className="relative max-w-3xl h-[70vh] w-full flex flex-col items-center justify-center" onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                data-testid="close-lightbox-button"
+                onClick={() => setLightboxPhoto(null)}
+                className="absolute top-4 right-4 z-[110] p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                aria-label="Close Lightbox"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="h-full w-full overflow-hidden rounded-lg">
+                <HeroPhotoCarousel
+                  winery={activeWinery!}
+                  isFull={true}
+                  isMobile={false}
+                  initialPhotoRef={lightboxPhoto}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
   return (
-    <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
-      <DialogContent
-        data-testid="winery-modal-dialog"
-        data-state={isLoading ? "loading" : "ready"}
-        className="fixed left-[50%] top-[50%] z-50 -translate-x-1/2 -translate-y-1/2 max-w-4xl w-[95vw] max-h-[85vh] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-background border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
-        onFocusOutside={(e) => e.preventDefault()}
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        <DialogHeader className="sr-only">
-          <DialogTitle>{activeWinery?.name || "Winery Details"}</DialogTitle>
-          <DialogDescription>
-            Detailed split view and interaction panel for {activeWinery?.name || "selected winery"}.
-          </DialogDescription>
-        </DialogHeader>
-        {renderDesktopLayout()}
-      </DialogContent>
-    </Dialog>
+    <>
+      <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
+        <DialogContent
+          data-testid="winery-modal-dialog"
+          data-state={isLoading ? "loading" : "ready"}
+          className="fixed left-[50%] top-[50%] z-50 -translate-x-1/2 -translate-y-1/2 max-w-4xl w-[95vw] max-h-[85vh] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-background border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
+          onFocusOutside={(e) => e.preventDefault()}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>{activeWinery?.name || "Winery Details"}</DialogTitle>
+            <DialogDescription>
+              Detailed split view and interaction panel for {activeWinery?.name || "selected winery"}.
+            </DialogDescription>
+          </DialogHeader>
+          {renderDesktopLayout()}
+        </DialogContent>
+      </Dialog>
+      {lightboxPhoto && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-4"
+          data-testid="photo-lightbox-modal"
+          onClick={() => setLightboxPhoto(null)}
+        >
+          <div className="relative max-w-3xl h-[70vh] w-full flex flex-col items-center justify-center" onClick={(e) => e.stopPropagation()}>
+            <button
+              type="button"
+              data-testid="close-lightbox-button"
+              onClick={() => setLightboxPhoto(null)}
+              className="absolute top-4 right-4 z-[110] p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+              aria-label="Close Lightbox"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="h-full w-full overflow-hidden rounded-lg">
+              <HeroPhotoCarousel
+                winery={activeWinery!}
+                isFull={true}
+                isMobile={false}
+                initialPhotoRef={lightboxPhoto}
+              />
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
