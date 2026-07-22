@@ -146,6 +146,16 @@
     - [x] Maintain static single photo on mobile Drawer view to prevent drag conflicts
     - [x] Enable Embla Carousel inside the full-screen photo Lightbox modal for both platforms
     - [x] Resolve scrolling reset snapping bug by utilizing stable useRef for startIndex
+- [x] Task: Fix desktop lightbox event trapping and layout bugs
+    - [x] Resolve subpixel gaps on carousel slides using calc flex width and negative margins
+    - [x] Correct dots indicator overlap by shifting position to bottom-14 on desktop
+    - [x] Prevent Radix UI Dialog closing on lightbox interactions by inspecting native pointer down target
+- [x] Task: Fix photo lightbox scroll reset and click interactions [commit: 6d8a527]
+    - [x] Render lightbox portal inside DialogContent/DrawerContent to ensure event bubbling handles click dismiss correctly in Radix UI
+    - [x] Set explicit pointer-events-auto on the portal backdrop to prevent Radix UI pointer trap from blocking clicks on backdrop and close button
+    - [x] Sync Embla Carousel index changes back to the parent state (lightboxPhoto) using onPhotoSelect
+    - [x] Make emblaOptions dynamically depend on currentIndex so internal reInit calls (triggered when lazy enriched photos load) preserve the current slide instead of snapping back to index 0
+    - [x] Remove the redundant scroll-on-initialPhotoRef-change useEffect that was causing conflicting programmatic scrolls
 
 ## Post-Deployment Steps
 - [ ] Task: Reset Enrichment Cache in Production
