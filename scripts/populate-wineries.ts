@@ -120,8 +120,14 @@ async function populate() {
         const w = wineries[i];
         const updatePayload: Record<string, any> = {};
 
-        const hasValidGenSummary = w.generative_summary && typeof w.generative_summary === 'object' && 'overview' in w.generative_summary;
-        const hasValidNeighSummary = w.neighborhood_summary && typeof w.neighborhood_summary === 'object' && 'overview' in w.neighborhood_summary;
+        const hasValidGenSummary = !!w.generative_summary && (
+          (typeof w.generative_summary === 'string' && w.generative_summary.trim().length > 0) ||
+          (typeof w.generative_summary === 'object' && ('overview' in w.generative_summary || 'text' in w.generative_summary))
+        );
+        const hasValidNeighSummary = !!w.neighborhood_summary && (
+          (typeof w.neighborhood_summary === 'string' && w.neighborhood_summary.trim().length > 0) ||
+          (typeof w.neighborhood_summary === 'object' && ('overview' in w.neighborhood_summary || 'text' in w.neighborhood_summary))
+        );
 
         if (!w.vibe_tags || w.vibe_tags.length === 0) {
           updatePayload.vibe_tags = mockVibesPool[i % mockVibesPool.length];

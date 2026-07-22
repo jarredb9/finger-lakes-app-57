@@ -493,10 +493,22 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
   };
 
   const renderAIInsights = () => {
-    const isEnrichmentPending = !winery.enrichment_tier && !winery.generative_summary;
+    const getSummaryText = (summary: any): string | null => {
+      if (!summary) return null;
+      if (typeof summary === 'string') return summary;
+      if (typeof summary === 'object') {
+        return summary.overview?.text || summary.text || null;
+      }
+      return null;
+    };
+
+    const genSummaryText = getSummaryText(winery.generative_summary);
+    const neighSummaryText = getSummaryText(winery.neighborhood_summary);
+
+    const isEnrichmentPending = !winery.enrichment_tier && !genSummaryText;
     const hasServiceLimitError = 
       winery.enrichment_tier === 'enriched' && 
-      !winery.generative_summary && 
+      !genSummaryText && 
       !winery.primary_photo_reference;
     return (
       <div className="space-y-3">
@@ -516,7 +528,7 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
               <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-600" />
               <span>Service Limited: Rich details and AI summaries are currently unavailable.</span>
             </div>
-          ) : winery.generative_summary ? (
+          ) : genSummaryText ? (
             <div 
               data-testid="gemini-summary"
               className="relative p-4 rounded-xl bg-gradient-to-r from-purple-500/10 to-indigo-500/10 border border-purple-500/20 space-y-2"
@@ -528,17 +540,17 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
                 </div>
                 <GeminiDisclosure />
               </div>
-              <p className="text-xs leading-relaxed text-foreground">{winery.generative_summary}</p>
+              <p className="text-xs leading-relaxed text-foreground">{genSummaryText}</p>
             </div>
           ) : (
             <p className="text-xs text-muted-foreground p-4 text-center border rounded-xl border-dashed">No AI summaries generated yet.</p>
           )}
         </div>
 
-        {winery.neighborhood_summary && (
+        {neighSummaryText && (
           <div className="p-4 rounded-xl border border-border/50 bg-muted/40 backdrop-blur-md shadow-sm space-y-2">
             <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">About the Area</h4>
-            <p className="text-xs leading-relaxed text-foreground">{winery.neighborhood_summary}</p>
+            <p className="text-xs leading-relaxed text-foreground">{neighSummaryText}</p>
             <GoogleAttribution className="mt-2 justify-end" variant="powered-by" />
           </div>
         )}

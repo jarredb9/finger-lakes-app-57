@@ -364,6 +364,8 @@ export default function WineryModal() {
       );
     }
 
+    const vibeTags = getWineryVibeTags(activeWinery);
+
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 overflow-y-auto max-h-[85vh]" ref={scrollContainerRef}>
         {/* Left Column: Info & Details */}
@@ -420,6 +422,27 @@ export default function WineryModal() {
               onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
               onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
             />
+
+            {/* Outdoor Weather Widget */}
+            {activeWinery.latitude && activeWinery.longitude && (
+              <div className="flex justify-center">
+                <WineryWeatherWidget latitude={activeWinery.latitude} longitude={activeWinery.longitude} />
+              </div>
+            )}
+
+            {/* Horizontal Vibe & Specialty Badges Scroller */}
+            {vibeTags.length > 0 && (
+              <div className="overflow-x-auto scrollbar-none flex items-center gap-2 py-1 flex-nowrap" data-testid="vibe-tags-scroller">
+                {vibeTags.map((tag, idx) => (
+                  <span
+                    key={idx}
+                    className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 border border-primary/20 text-primary flex items-center gap-1.5 shadow-2xs whitespace-nowrap"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
 
             <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
           </div>
@@ -812,7 +835,7 @@ function HeroPhotoCarousel({
                 Winery details for {activeWinery?.name || "selected winery"}.
               </DrawerDescription>
             </DrawerHeader>
-            <div className="flex-1 overflow-y-auto" data-testid="drawer-scroll-container">
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden" data-testid="drawer-scroll-container">
               {renderMobileLayout()}
             </div>
             {lightboxPhoto && createPortal(
