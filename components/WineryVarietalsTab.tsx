@@ -1,11 +1,10 @@
 // components/WineryVarietalsTab.tsx
 import React from "react";
 import { WineryVarietal } from "@/lib/types";
-import { Wine, Sparkles, Tag } from "lucide-react";
+import { Wine, Sparkles } from "lucide-react";
 
 interface WineryVarietalsTabProps {
   varietals?: WineryVarietal[];
-  vibeTags?: string[];
   geminiTastingNotes?: string;
   reviews?: Array<{ text?: string; user_review?: string }> | null;
 }
@@ -26,7 +25,6 @@ const COMMON_VARIETALS = [
 
 export default function WineryVarietalsTab({
   varietals,
-  vibeTags,
   geminiTastingNotes,
   reviews = [],
 }: WineryVarietalsTabProps) {
@@ -75,26 +73,6 @@ export default function WineryVarietalsTab({
           <p className="text-xs text-foreground/90 leading-relaxed font-medium">
             {geminiTastingNotes}
           </p>
-        </div>
-      )}
-
-      {/* Vibe Tags */}
-      {vibeTags && vibeTags.length > 0 && (
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <Tag className="w-3.5 h-3.5" />
-            <span>Vibe & Specialty Badges</span>
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {vibeTags.map((tag) => (
-              <span
-                key={tag}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-muted border border-border/40 text-foreground"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
         </div>
       )}
 

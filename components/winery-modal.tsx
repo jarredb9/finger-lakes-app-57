@@ -285,7 +285,6 @@ export default function WineryModal() {
         return (
           <WineryVarietalsTab 
             varietals={activeWinery.varietals ?? undefined} 
-            vibeTags={activeWinery.vibe_tags ?? undefined} 
             geminiTastingNotes={activeWinery.generative_summary ?? undefined} 
             reviews={activeWinery.reviews} 
           />
