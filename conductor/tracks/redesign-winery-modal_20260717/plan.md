@@ -114,14 +114,14 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 7: Dynamic Vibe & Specialty Badges Implementation' (Protocol in workflow.md) [commit: e3b0417]
 
 
-## Phase 8: Feature Audit, Testing & Final Verification
-- [ ] Task: Modal Component Feature Audit
-    - [ ] Audit all 7 modal components (`winery-modal.tsx`, `WineryDetails.tsx`, `WineryActionsPresentational.tsx`, `WineryCommunityTab.tsx`, `TripPlannerSection.tsx`, `VisitCardHistory.tsx`, `WineryQnA.tsx`) to verify zero feature or data loss using commit d8b86d9c21c7680e0e8ca70282470407f3ccc58d as a reference for fully featured components.
-    - [ ] Verify preservation of all 15+ test IDs (`favorite-privacy-toggle`, `wishlist-privacy-toggle`, `log-visit-button`, `route-from-current`, `amenity-row-*`, `close-qna-button`, `trip-badge`, etc.).
-- [ ] Task: Automated Testing Suite Verification
-    - [ ] Run full Jest unit test suite (`npx jest`) to achieve 100% clean test passes across all suites.
-    - [ ] Run Playwright E2E tests (`./scripts/run-e2e-container.sh`) to verify full integration.
-- [ ] Task: Conductor - User Manual Verification 'Phase 8: Feature Audit, Testing & Final Verification' (Protocol in workflow.md)
+## Phase 8: Feature Audit, Testing & Final Verification [checkpoint: da7d8f2]
+- [x] Task: Modal Component Feature Audit [commit: da7d8f2]
+    - [x] Audit all 7 modal components (`winery-modal.tsx`, `WineryDetails.tsx`, `WineryActionsPresentational.tsx`, `WineryCommunityTab.tsx`, `TripPlannerSection.tsx`, `VisitCardHistory.tsx`, `WineryQnA.tsx`) to verify zero feature or data loss using commit d8b86d9c21c7680e0e8ca70282470407f3ccc58d as a reference for fully featured components.
+    - [x] Verify preservation of all 15+ test IDs (`favorite-privacy-toggle`, `wishlist-privacy-toggle`, `log-visit-button`, `route-from-current`, `amenity-row-*`, `close-qna-button`, `trip-badge`, etc.).
+- [x] Task: Automated Testing Suite Verification [commit: da7d8f2]
+    - [x] Run full Jest unit test suite (`npx jest`) to achieve 100% clean test passes across all suites.
+    - [x] Run Playwright E2E tests (`./scripts/run-e2e-container.sh`) to verify full integration.
+- [x] Task: Conductor - User Manual Verification 'Phase 8: Feature Audit, Testing & Final Verification' (Protocol in workflow.md) [commit: da7d8f2]
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions [commit: 1aa77e1]
