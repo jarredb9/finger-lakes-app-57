@@ -72,7 +72,7 @@
 - [x] Task: Write Failing Unit Tests (TDD Red Phase)
     - [x] Write unit tests in `components/__tests__/WineryVarietalsTab.test.tsx` verifying rendering of grape varietal cards (*Dry Riesling, Cabernet Franc, Ice Wine*), flavor profile sliders, and Gemini tasting notes.
     - [x] Write unit tests in `components/__tests__/WineryWeatherWidget.test.tsx` verifying temperature display and weather condition labels.
-    - [x] Update `components/__tests__/winery-modal.test.tsx` with assertions for 3-Tier Multi-Snap Drawer states (`300px`, `550px`, `1.0`), Open/Closed tag in Peek state, and swapped `Log Visit` CTA button.
+    - [x] Update `components/__tests__/winery-modal.test.tsx` with assertions for 3-Tier Multi-Snap Drawer states (`300px`, `520px`, `1.0`), Open/Closed tag in Peek state, and swapped `Log Visit` CTA button.
     - [x] Verify that all new unit tests fail initially (Red Phase).
 - [x] Task: Adapt & Write Failing E2E Tests (TDD Red Phase)
     - [x] Create `e2e/winery-modal-snap-drawer.spec.ts` to test drawer snapping between Peek, Half, and Full states, clicking the swapped `Log Visit` button in Peek view, and interacting with Varietals tab sliders.
@@ -80,9 +80,9 @@
 
 ## Phase 6: Green Phase Component & Layout Implementation [checkpoint: 28bf3a1]
 - [x] Task: Implement Apple Maps-Style 3-Tier Multi-Snap Drawer
-    - [x] Update Vaul/shadcn `Drawer` in `winery-modal.tsx` to support 3 dynamic snap points (`300px`, `550px`, `1.0`) via `snapPoints` prop and `activeSnapPoint` state tracking.
+    - [x] Update Vaul/shadcn `Drawer` in `winery-modal.tsx` to support 3 dynamic snap points (`300px`, `520px`, `1.0`) via `snapPoints` prop and `activeSnapPoint` state tracking.
     - [x] Implement **Peek State (~300px / ~30vh)**: Render photo preview, title overlay card, explicit `🟢 OPEN NOW` / `🔴 CLOSED` status tag, `Directions` button (`route-from-current`), and `Log Visit` CTA button (`log-visit-button` opening `openVisitForm`) swapped from `Add to Trip`.
-    - [x] Implement **Half State (~550px / ~60vh)**: Render hero photo carousel with pagination dots, 4-column quick action grid (*Favorite, Wishlist, Street View, Share*) with privacy badges, live outdoor weather widget (`☀️ 74°F Lake Breeze`), full-width "Log Visit" CTA button, and horizontal "At-a-Glance" Vibe & Specialty Badges scroller (`🍷 Riesling Specialist`, `🐶 Dog Friendly`, `🌅 Sunset Views`, `⚡ EV Charging`).
+    - [x] Implement **Half State (~520px / ~60vh)**: Render hero photo carousel with pagination dots, 4-column quick action grid (*Favorite, Wishlist, Street View, Share*) with privacy badges, live outdoor weather widget (`☀️ 74°F Lake Breeze`), full-width "Log Visit" CTA button, and horizontal "At-a-Glance" Vibe & Specialty Badges scroller (`🍷 Riesling Specialist`, `🐶 Dog Friendly`, `🌅 Sunset Views`, `⚡ EV Charging`).
     - [x] Implement **Full State (1.0 / ~90vh)**: Render sticky compact header bar and 5 scrollable tabs (`Community`, `Amenities`, `AI Insights`, `Varietals & Tasting`, `Trip`).
 - [x] Task: Build Swipeable Hero Photo Carousel & Lightbox
     - [x] Integrate `embla-carousel-react` or horizontal snap carousel inside `WineryDetails.tsx` to cycle through `photo_references`.
@@ -91,7 +91,7 @@
     - [x] Create `WineryVarietalsTab.tsx` component to display visual wine varietal cards (*Dry Riesling, Cabernet Franc, Ice Wine*) with dual linear flavor profile sliders (Dry ↔ Sweet, Light ↔ Full Body) and Gemini AI Tasting Notes.
     - [x] Wire keyword fallback adapter for un-enriched wineries scanning `winery.reviews` for grape varietals.
 - [x] Task: Mobile Drawer & Hero Layout Refactor (Remediation)
-    - [x] Refactor `components/ui/drawer.tsx` to use native `vaul` drawer with bottom sheet placement (`fixed inset-x-0 bottom-0 h-full`) and controlled `snapPoints={['300px', '550px', 1]}` state so 3-tier snapping functions natively.
+    - [x] Refactor `components/ui/drawer.tsx` to use native `vaul` drawer with bottom sheet placement (`fixed inset-x-0 bottom-0 h-full`) and controlled `snapPoints={['300px', '520px', 1]}` state so 3-tier snapping functions natively.
     - [x] Render a single static hero photo on mobile (rather than swipeable carousel) to resolve horizontal overflow scroll conflicts that hijack vertical drag gestures in Full state.
     - [x] Restore flush hero image placement to the absolute top edge of the mobile drawer (`rounded-t-[20px]`), removing block elements above the photo and rendering status badges (`🟢 OPEN NOW`, `Directions`) as absolute translucent overlay pills directly over the photo.
     - [x] Deduplicate `🟢 OPEN NOW` / `🔴 CLOSED` status badges by consolidating them into the floating hero photo overlay and removing redundant open/closed indicators from the contact card in `WineryDetails.tsx`.

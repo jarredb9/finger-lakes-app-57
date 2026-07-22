@@ -282,7 +282,7 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
     <div className="space-y-4 relative z-20">
       <div className="bg-muted/40 backdrop-blur-md border border-border/50 rounded-xl flex flex-row items-center justify-between w-full p-3 gap-2 min-h-[72px]">
         {/* Left Side: Hours & Status */}
-        <div className="flex flex-col gap-0.5 justify-center flex-1 min-w-0 pl-2 pr-2">
+        <div className="flex flex-col gap-0.5 justify-center flex-1 min-w-0 pl-1 pr-1">
           <div className="flex items-center gap-1.5 text-xs font-semibold">
             <span className={`relative flex h-2.5 w-2.5`}>
               {isOpen && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
@@ -307,7 +307,7 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
                     <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-300 ${showAllHours ? 'rotate-180' : ''}`} />
                   </button>
                   {showAllHours && (
-                    <div className="absolute top-full left-0 mt-2 w-56 bg-background/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl p-3 z-50">
+                    <div className={`absolute left-0 w-56 bg-background/95 backdrop-blur-xl border border-border/50 shadow-xl rounded-xl p-3 z-50 ${isMobile ? "bottom-full mb-2" : "top-full mt-2"}`}>
                       <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">Weekly Hours</div>
                       <div className="space-y-1.5">
                         {winery.openingHours.weekday_text.map((line, index) => {
@@ -331,10 +331,10 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
         </div>
 
         {/* Divider */}
-        <div className="w-px bg-border/50 self-stretch my-1.5 mx-4 shrink-0"></div>
+        <div className="w-px bg-border/50 self-stretch my-1.5 mx-2 shrink-0"></div>
 
         {/* Right Side: Contact Buttons */}
-        <div className="flex items-center gap-3 shrink-0 pr-2 pl-2">
+        <div className="flex items-center gap-2 shrink-0 pr-1 pl-1">
           {winery.phone ? (
             <a 
               href={`tel:${winery.phone}`} 
