@@ -124,7 +124,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 8: Feature Audit, Testing & Final Verification' (Protocol in workflow.md) [commit: da7d8f2]
 
 ## Phase 9: Resolve E2E Testing Failures
-- [x] Task: Update `e2e/visual.spec.ts` 
+- [x] Task: Update `e2e/visual.spec.ts` [commit: 5eb6985]
      - [x] Update the test to accomadate the new desktop winery-modal and all 3 snap points of the new mobile winery-modal 
      - [x] Apply any updates to the `scripts/run-e2e-container.sh` or testing infrastructure to verify that the --update-snapshot script option updates all 4 winery-modal views
 - [~] Task: Resolve E2E testing errors [commit: 9aff51b]

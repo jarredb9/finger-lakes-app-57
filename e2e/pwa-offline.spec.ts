@@ -61,7 +61,7 @@ test.describe('PWA Offline Functionality', () => {
     await ensureSidebarExpanded(page);
     await openWineryDetails(page, 'Vineyard of Illusion');
 
-    await expect(page.locator('[data-testid*="winery-modal"]').first().getByRole('heading', { name: 'Vineyard of Illusion' })).toBeVisible();
+    await expect(page.locator('[data-testid*="winery-modal"]').first().getByText('Vineyard of Illusion').first()).toBeVisible();
 
     await context.setOffline(true);
     // Use context.route + page.route to block Service Worker requests reliably

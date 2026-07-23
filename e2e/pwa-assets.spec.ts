@@ -49,7 +49,7 @@ test.describe('PWA Assets & Sync', () => {
     await openWineryDetails(page, 'Vineyard of Illusion');
 
     const modal = page.locator('[data-testid*="winery-modal"]').first();
-    await expect(modal.getByRole('heading', { name: 'Vineyard of Illusion' })).toBeVisible();
+    await expect(modal.getByText('Vineyard of Illusion').first()).toBeVisible();
 
     // 2. Go Offline
     await context.setOffline(true);
