@@ -38,5 +38,5 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 
 ---
 
-- [x] **Track: Redesign winery modal UX/UI for mobile and desktop responsive experience**
+- [~] **Track: Redesign winery modal UX/UI for mobile and desktop responsive experience**
 *Link: [./tracks/redesign-winery-modal_20260717/](./tracks/redesign-winery-modal_20260717/)*
