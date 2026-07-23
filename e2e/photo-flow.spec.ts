@@ -86,7 +86,8 @@ test.describe('Photo Management Workflow', () => {
     await expectVisitInStore(page, { date: today });
 
     // 3. Verify Photo is visible in the UI (Winery Modal) and has a valid server URL
-    const wineryModal = page.getByRole('dialog').filter({ hasText: /Mock Winery One/i });
+    const wineryModal = page.locator('[data-testid*="winery-modal"]').first();
+    await wineryModal.getByRole('tab', { name: /Visits/i }).click();
     
     // We need to wait for the photo to be rendered and its signed URL to be loaded
     // PhotoCard shows a loader or "Photo unavailable" if it fails
