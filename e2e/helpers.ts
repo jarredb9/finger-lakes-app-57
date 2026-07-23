@@ -473,6 +473,14 @@ export async function openWineryDetails(page: Page, wineryName: string) {
     const modal = page.locator('[data-testid*="winery-modal"]').first();
     await waitForSignal(page, 'winery-modal', 'ready', 15000);
     await expect(modal).toBeVisible();
+
+    if (isMobile) {
+        const titleCard = modal.getByTestId('drawer-title-card').first();
+        if (await titleCard.isVisible()) {
+            await titleCard.click({ force: true }).catch(() => {});
+            await page.waitForTimeout(500);
+        }
+    }
 }
 
 export async function closeWineryModal(page: Page) {

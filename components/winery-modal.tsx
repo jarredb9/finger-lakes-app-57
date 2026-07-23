@@ -675,6 +675,7 @@ function HeroPhotoCarousel({
 
         {/* Translucent Floating Title Card (Tappable to cycle snap points) */}
         <div 
+          data-testid="drawer-title-card"
           onClick={() => {
             const nextSnap = snapPoint === "300px" ? "520px" : snapPoint === "520px" ? "100%" : "300px";
             setSnapPoint(nextSnap);
@@ -728,7 +729,7 @@ function HeroPhotoCarousel({
 
         <div 
           ref={scrollContainerRef}
-          className={`flex-1 flex flex-col min-h-0 scrollbar-none ${isFull ? "overflow-y-auto pb-10" : "overflow-hidden pb-4"} ${isPeek ? "hidden" : "flex"}`}
+          className={`flex-1 flex flex-col min-h-0 scrollbar-none ${isFull ? "overflow-y-auto pb-10" : "overflow-hidden pb-4"} flex`}
         >
           <div className="px-4 mt-2.5 space-y-2.5">
             {/* 4-Grid Quick Action Tiles */}
