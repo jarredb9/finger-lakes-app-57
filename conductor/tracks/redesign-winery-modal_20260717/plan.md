@@ -129,7 +129,6 @@
      - [x] Apply any updates to the `scripts/run-e2e-container.sh` or testing infrastructure to verify that the --update-snapshot script option updates all 4 winery-modal views
 - [~] Task: Resolve E2E testing errors [commit: 9aff51b]
      - [x] e2e/datepicker-ux.spec.ts:10:7 › DatePicker UX › should open picker and close on date selection [commit: 9aff51b]
-     - [ ] e2e/item-privacy.spec.ts:17:7 › Item Privacy Flow (Favorites & Wishlist) › Users can control privacy of their favorites and wishlist 
      - [ ] e2e/photo-flow.spec.ts:30:7 › Photo Management Workflow › should successfully add and then delete a photo when logging a new visit 
      - [ ] e2e/pwa-assets.spec.ts:22:7 › PWA Assets & Sync › should sync queued visits when back online 
      - [ ] e2e/pwa-offline.spec.ts:35:7 › PWA Offline Functionality › should queue visit creation when offline (Lie-Fi) 
@@ -178,6 +177,10 @@
     - [x] Integrate `WineryWeatherWidget` and `vibe-tags-scroller` into `renderDesktopLayout()` inside `components/winery-modal.tsx` to maintain feature parity across viewports.
     - [x] Update `scripts/populate-wineries.ts` summary presence validation to seed mock AI insights, vibe tags, and varietals for all wineries in the database.
     - [x] Resolve nested `overflow-y-auto` scroll container collision in `DrawerContent` to restore smooth mobile swipe gestures and Vaul drawer snap points.
+- [x] Task: Refactor Item Privacy E2E test to use self-consistent mock state [commit: 32c8b49]
+    - [x] Add `favoritePrivacyMap` and `wishlistPrivacyMap` to `MockMapsState` in `e2e/utils.ts`.
+    - [x] Support dynamic privacy calculation in `get_friend_profile_with_visits`, `get_winery_details_by_id`, and `get_map_markers`.
+    - [x] Refactor `e2e/item-privacy.spec.ts` to use shared `MockMapsState` and full mock flow, ensuring 100% deterministic test execution.
 
 ## Post-Deployment Steps
 - [ ] Task: Reset Enrichment Cache in Production
