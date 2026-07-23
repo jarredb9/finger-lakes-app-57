@@ -69,6 +69,7 @@ export default function WineryActionsPresentational({
           </button>
           {winery.isFavorite && (
             <button
+              type="button"
               onClick={onToggleFavoritePrivacy}
               aria-label={winery.favoriteIsPrivate ? "Make favorite public" : "Make favorite private"}
               title={winery.favoriteIsPrivate ? "Private (Hidden from friends)" : "Public (Visible to friends)"}
@@ -83,6 +84,7 @@ export default function WineryActionsPresentational({
         {/* Wishlist Tile */}
         <div className="relative">
           <button 
+            type="button"
             onClick={onToggleWishlist}
             disabled={winery.userVisited}
             data-testid="wishlist-button"
@@ -97,6 +99,7 @@ export default function WineryActionsPresentational({
           </button>
           {winery.onWishlist && (
             <button
+              type="button"
               onClick={onToggleWishlistPrivacy}
               aria-label={winery.wishlistIsPrivate ? "Make wishlist item public" : "Make wishlist item private"}
               title={winery.wishlistIsPrivate ? "Private (Hidden from friends)" : "Public (Visible to friends)"}
