@@ -30,4 +30,6 @@
     - [ ] Use the shared **`EnrichmentService`** to enforce 30-day freshness.
 - [ ] Task: Performance Audit & E2E Verification
     - [ ] Verify 100+ Advanced Marker performance on mobile.
+- [ ] Task: Review E2E Test Suite Optimization & Consolidation
+    - [x] Review and optimize E2E test suite for winery components (`e2e/winery*.spec.ts`), consolidating overlapping tests into 3 spec files (`e2e/winery-modal.spec.ts`, `e2e/winery-modal-amenities.spec.ts`, `e2e/winery-data-hydration.spec.ts`). Addressed Vaul drawer mobile snap point testing via `_E2E_FULL_DRAWER` override. (Commit SHA: `e4be9dfb1ec03a023435e68c5424009a15b66ce9`)
 - [ ] Task: Conductor - User Manual Verification 'Lazy Enrichment & Content'
