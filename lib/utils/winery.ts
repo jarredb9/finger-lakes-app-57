@@ -228,7 +228,7 @@ export const standardizeWineryData = (
   const sourcePhone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? (source as any).phone : isWineryDetailsRpc(source) ? (source as any).phone : source.phone);
   const phone = mergeField(sourcePhone, existing?.phone);
 
-  const sourceWebsite = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? (source as any).website : source.website);
+  const sourceWebsite = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? (source as any).website : isWineryDetailsRpc(source) ? (source as any).website : source.website);
   const website = mergeField(sourceWebsite, existing?.website);
 
   const sourceRating = isGoogleWinery(source) 

@@ -135,8 +135,8 @@
      - [ ] e2e/pwa-offline.spec.ts:35:7 › PWA Offline Functionality › should queue visit creation when offline (Lie-Fi) 
      - [x] e2e/trip-flow.spec.ts:32:7 › Trip Planning Flow › can create a new trip from winery details [commit: 9aff51b]
      - [ ] e2e/visual.spec.ts:44:7 › Visual Regression Testing › winery modal visual baseline 
-     - [ ] e2e/winery-data-hydration.spec.ts:14:7 › Winery Data Hydration & Integrity Consolidated Suite › Map markers RPC hydration into persistentWineries store 
-     - [ ] e2e/winery-data-hydration.spec.ts:43:7 › Winery Data Hydration & Integrity Consolidated Suite › Cache pollution merge guard (bulkUpsertWineries retains enriched details) 
+     - [x] e2e/winery-data-hydration.spec.ts:14:7 › Winery Data Hydration & Integrity Consolidated Suite › Map markers RPC hydration into persistentWineries store 
+     - [x] e2e/winery-data-hydration.spec.ts:43:7 › Winery Data Hydration & Integrity Consolidated Suite › Cache pollution merge guard (bulkUpsertWineries retains enriched details) 
      - [x] e2e/wishlist-flow.spec.ts:17:7 › Wishlist Flow › can toggle winery on wishlist [commit: 9aff51b]
 
 
