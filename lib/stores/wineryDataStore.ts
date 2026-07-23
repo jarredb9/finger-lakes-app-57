@@ -38,13 +38,19 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
 
       upsertWinery: (winery) => {
         set(state => {
-          const exists = state.persistentWineries.find(w => w.id === winery.id);
+          const rawWinery = winery as any;
+          const exists = state.persistentWineries.find(w => 
+            w.id === winery.id || 
+            (rawWinery.google_place_id && w.id === rawWinery.google_place_id) ||
+            (winery.id && w.id === String(winery.id)) ||
+            (w.dbId && (w.dbId === winery.dbId || w.dbId === Number(winery.id)))
+          );
           const standardized = standardizeWineryData(winery, exists);
           if (!standardized) return {};
           if (exists) {
             return {
               persistentWineries: state.persistentWineries.map(w =>
-                w.id === winery.id ? standardized : w
+                w.id === exists.id ? standardized : w
               )
             };
           }
@@ -56,7 +62,13 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
         set(state => {
           const current = [...state.persistentWineries];
           wineries.forEach(w => {
-            const idx = current.findIndex(existing => existing.id === w.id);
+            const rawW = w as any;
+            const idx = current.findIndex(existing => 
+              existing.id === w.id || 
+              (rawW.google_place_id && existing.id === rawW.google_place_id) || 
+              (w.id && existing.id === String(w.id)) ||
+              (existing.dbId && (existing.dbId === w.dbId || existing.dbId === Number(w.id)))
+            );
             const exists = idx !== -1 ? current[idx] : undefined;
             const standardized = standardizeWineryData(w, exists);
             if (standardized) {

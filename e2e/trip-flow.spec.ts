@@ -37,6 +37,7 @@ test.describe('Trip Planning Flow', () => {
     await openWineryDetails(page, 'Mock Winery One');
 
     const modal = page.getByRole('dialog');
+    await modal.getByRole('tab', { name: /Trip/i }).click();
     await expect(modal.getByRole('heading', { name: /Add to a Trip/i })).toBeVisible();
 
     await modal.getByRole('button', { name: 'Pick a date' }).click();

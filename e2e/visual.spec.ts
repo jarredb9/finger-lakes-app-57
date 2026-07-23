@@ -67,7 +67,7 @@ test.describe('Visual Regression Testing', () => {
     // Stabilize layout: hide trip badge and prevent title from wrapping which causes 28px height jumps in CI
     await page.addStyleTag({ content: `
         [data-testid="trip-badge"] { display: none !important; }
-        [data-testid="winery-modal"] h2 { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 320px !important; }
+        [data-testid*="winery-modal"] h2 { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 320px !important; }
     ` });
 
     await expect(modal).toHaveScreenshot('winery-modal.png', {
