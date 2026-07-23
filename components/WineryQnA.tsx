@@ -128,7 +128,7 @@ export default function WineryQnA({
 
       for (const keyword of currentQuestion.keywords) {
         const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        const regex = new RegExp(`\\b${escaped}\\b`, 'i');
+        const regex = new RegExp(escaped, 'i');
         const match = reviewText.match(regex);
         
         if (match && match.index !== undefined) {

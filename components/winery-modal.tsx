@@ -43,15 +43,18 @@ export default function WineryModal() {
   const { toast } = useToast();
   const { fetchTripById, setSelectedTrip } = useTripStore();
   
-  const [snapPoint, setSnapPoint] = useState<string | number | null>("300px");
+  const [snapPoint, setSnapPoint] = useState<string | number | null>(() => 
+    typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? "100%" : "300px"
+  );
   const prevActiveWineryRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (isWineryModalOpen) {
       if (activeWineryId !== prevActiveWineryRef.current) {
-        console.log(`[DRAWER-DIAGNOSTIC] Modal opened for winery ${activeWineryId}. Initializing snapPoint to 300px.`);
+        const defaultSnap = typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? "100%" : "300px";
+        console.log(`[DRAWER-DIAGNOSTIC] Modal opened for winery ${activeWineryId}. Initializing snapPoint to ${defaultSnap}.`);
         prevActiveWineryRef.current = activeWineryId;
-        setSnapPoint("300px");
+        setSnapPoint(defaultSnap);
       }
     } else {
       prevActiveWineryRef.current = null;
