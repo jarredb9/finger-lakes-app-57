@@ -83,6 +83,12 @@ test.describe('PWA Offline Functionality', () => {
     await page.getByLabel('Visit Date').fill('2025-01-01');
     await logVisit(page, { review: 'Offline note test' });
     
+    // Switch to Visits tab inside winery modal if visible, or expect directly
+    const visitsTab = page.getByRole('tab', { name: 'Visits' });
+    if (await visitsTab.isVisible()) {
+      await visitsTab.click();
+    }
+    
     await expect(page.getByText('Offline note test').locator('visible=true')).toBeVisible({ timeout: 10000 });
 
     await page.getByRole('button', { name: 'Close' }).click();
