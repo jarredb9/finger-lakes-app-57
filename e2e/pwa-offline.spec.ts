@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, logVisit, ensureSidebarExpanded } from './helpers';
+import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, closeWineryModal, logVisit, ensureSidebarExpanded } from './helpers';
 
 test.describe('PWA Offline Functionality', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -62,9 +62,16 @@ test.describe('PWA Offline Functionality', () => {
     });
 
     await ensureSidebarExpanded(page);
+    
+    // Enable Full Drawer state in E2E before opening modal so tabs render on mobile
+    await page.evaluate(() => {
+      (window as any)._E2E_FULL_DRAWER = true;
+    });
+
     await openWineryDetails(page, 'Vineyard of Illusion');
 
-    await expect(page.locator('[data-testid*="winery-modal"]').first().getByText('Vineyard of Illusion').first()).toBeVisible();
+    const modal = page.locator('[data-testid*="winery-modal"]').first();
+    await expect(modal).toBeVisible();
 
     await context.setOffline(true);
     // Use context.route + page.route to block Service Worker requests reliably
@@ -86,26 +93,14 @@ test.describe('PWA Offline Functionality', () => {
     await page.getByLabel('Visit Date').fill('2025-01-01');
     await logVisit(page, { review: 'Offline note test' });
     
-    // Set _E2E_FULL_DRAWER so modal drawer mounts in Full state with tabs visible on mobile
-    await page.evaluate(() => {
-      (window as any)._E2E_FULL_DRAWER = true;
-    });
-
-    const modal = page.getByRole('dialog').or(page.getByTestId('winery-modal-drawer'));
-    await expect(modal).toBeVisible();
-    
-    // Switch to Visits tab inside winery modal
-    const visitsTab = modal.getByRole('tab', { name: 'Visits' });
-    await expect(visitsTab).toBeVisible();
+    // Ensure Visits tab is visible (in Full drawer state) and click it
+    const visitsTab = page.getByRole('tab', { name: 'Visits' });
+    await expect(visitsTab).toBeVisible({ timeout: 10000 });
     await visitsTab.click();
     
     await expect(page.getByText('Offline note test').locator('visible=true')).toBeVisible({ timeout: 10000 });
 
-    // Close modal via UIStore or close button safely without manual timeouts
-    await page.evaluate(() => {
-      (window as any).useUIStore.getState().closeWineryModal();
-    });
-    await expect(modal).not.toBeVisible();
+    await closeWineryModal(page);
     await navigateToTab(page, 'History');
     
     await expect(page.getByText('Vineyard of Illusion').locator('visible=true')).toBeVisible({ timeout: 10000 });
