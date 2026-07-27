@@ -123,7 +123,7 @@
     - [x] Run Playwright E2E tests (`./scripts/run-e2e-container.sh`) to verify full integration.
 - [x] Task: Conductor - User Manual Verification 'Phase 8: Feature Audit, Testing & Final Verification' (Protocol in workflow.md) [commit: da7d8f2]
 
-## Phase 9: Resolve E2E Testing Failures [commit: 77e327b]
+## Phase 9: Resolve E2E Testing Failures 
 - [x] Task: Update `e2e/visual.spec.ts` [commit: 5eb6985]
      - [x] Update the test to accomadate the new desktop winery-modal and all 3 snap points of the new mobile winery-modal 
      - [x] Apply any updates to the `scripts/run-e2e-container.sh` or testing infrastructure to verify that the --update-snapshot script option updates all 4 winery-modal views
@@ -137,6 +137,14 @@
      - [x] e2e/winery-data-hydration.spec.ts:14:7 › Winery Data Hydration & Integrity Consolidated Suite › Map markers RPC hydration into persistentWineries store  [commit: 8aa9744]
      - [x] e2e/winery-data-hydration.spec.ts:43:7 › Winery Data Hydration & Integrity Consolidated Suite › Cache pollution merge guard (bulkUpsertWineries retains enriched details) [commit: 8aa9744]
      - [x] e2e/wishlist-flow.spec.ts:17:7 › Wishlist Flow › can toggle winery on wishlist [commit: 9aff51b]
+- [ ] Task: Resolve mobile browser (mobile safari) E2E testing errors:
+     - [x] e2e/datepicker-ux.spec.ts:10:7 › DatePicker UX › should open picker and close on date selection 
+     - [ ] [Mobile Safari] › e2e/item-privacy.spec.ts:17:7 › Item Privacy Flow (Favorites & Wishlist) › Users can control privacy of their favorites and wishlist 
+     - [ ] e2e/privacy-flow.spec.ts:16:7 › Privacy and Profile Flow › Users can control visit and profile visibility 
+     - [ ] e2e/trip-flow.spec.ts:32:7 › Trip Planning Flow › can create a new trip from winery details 
+     - [ ] e2e/winery-modal.spec.ts:135:9 › Winery Modal Consolidated Suite › Navigation Tabs & Quick Actions › Share button and Route Navigation popover (Google Maps & Waze) 
+     - [ ] e2e/wishlist-flow.spec.ts:17:7 › Wishlist Flow › can toggle winery on wishlist 
+
 
 
 ## Phase: Review Fixes

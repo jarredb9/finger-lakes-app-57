@@ -24,6 +24,9 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
+      await pageA.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+      await pageB.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+
       const sharedState = createDefaultMockState();
       const managerA = new MockMapsManager(pageA, sharedState);
       const managerB = new MockMapsManager(pageB, sharedState);
@@ -34,12 +37,14 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       // 3. Setup: Login and establish friendship
       await test.step('Initial Setup: Login & Friendship', async () => {
         await managerA.useRealSocial();
+        await managerA.useRealFavorites();
         await managerA.initDefaultMocks({ currentUserId: user1.id });
         await login(pageA, user1.email, user1.password);
         await pageA.evaluate((email) => { (window as any)._E2E_USER_EMAIL = email; }, user1.email);
         await ensureProfileReady(pageA);
 
         await managerB.useRealSocial();
+        await managerB.useRealFavorites();
         await managerB.initDefaultMocks({ currentUserId: user2.id });
         await login(pageB, user2.email, user2.password);
         await pageB.evaluate((email) => { (window as any)._E2E_USER_EMAIL = email; }, user2.email);
@@ -68,6 +73,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         // Favorite
         const favBtn = pageA.getByTestId('favorite-button');
         await expect(favBtn).toBeVisible({ timeout: 10000 });
+        await favBtn.scrollIntoViewIfNeeded();
         
         await Promise.all([
             pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_favorite') && resp.status() === 200),
@@ -81,6 +87,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         // Wishlist
         const wishBtn = pageA.getByTestId('wishlist-button');
         await expect(wishBtn).toBeVisible({ timeout: 10000 });
+        await wishBtn.scrollIntoViewIfNeeded();
         
         await Promise.all([
             pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_wishlist') && resp.status() === 200),
@@ -122,6 +129,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         
         const favPrivacyToggle = pageA.getByTestId('favorite-privacy-toggle');
         await expect(favPrivacyToggle).toBeVisible({ timeout: 10000 });
+        await favPrivacyToggle.scrollIntoViewIfNeeded();
         
         await Promise.all([
             pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_favorite_privacy') && resp.status() === 200),
@@ -135,6 +143,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
 
         const wishPrivacyToggle = pageA.getByTestId('wishlist-privacy-toggle');
         await expect(wishPrivacyToggle).toBeVisible();
+        await wishPrivacyToggle.scrollIntoViewIfNeeded();
         
         await Promise.all([
             pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_wishlist_privacy') && resp.status() === 200),
