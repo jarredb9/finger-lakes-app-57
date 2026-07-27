@@ -22,6 +22,9 @@ test.describe('Photo Management Workflow', () => {
 
   test.beforeEach(async ({ page, mockMaps, user }) => {
     // CRITICAL: Override mocks to use real Supabase interactions
+    await page.addInitScript(() => {
+      (window as any)._E2E_FULL_DRAWER = true;
+    });
     await mockMaps.useRealVisits();
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
@@ -87,7 +90,22 @@ test.describe('Photo Management Workflow', () => {
 
     // 3. Verify Photo is visible in the UI (Winery Modal) and has a valid server URL
     const wineryModal = page.locator('[data-testid*="winery-modal"]').first();
-    await wineryModal.getByRole('tab', { name: /Visits/i }).click();
+    const visitsTab = wineryModal.getByRole('tab', { name: /Visits/i });
+    
+    const isMobile = (page.viewportSize()?.width ?? 1024) < 640;
+    if (isMobile) {
+        const titleCard = wineryModal.getByTestId('drawer-title-card').first();
+        for (let i = 0; i < 3; i++) {
+            if (await visitsTab.isVisible()) break;
+            if (await titleCard.isVisible()) {
+                await titleCard.click({ force: true });
+                await page.waitForTimeout(500);
+            }
+        }
+    }
+    
+    await expect(visitsTab).toBeVisible({ timeout: 10000 });
+    await visitsTab.click();
     
     // We need to wait for the photo to be rendered and its signed URL to be loaded
     // PhotoCard shows a loader or "Photo unavailable" if it fails
