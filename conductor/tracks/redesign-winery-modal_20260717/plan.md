@@ -129,7 +129,7 @@
      - [x] Apply any updates to the `scripts/run-e2e-container.sh` or testing infrastructure to verify that the --update-snapshot script option updates all 4 winery-modal views
 - [~] Task: Resolve E2E testing errors [commit: 9aff51b]
      - [x] e2e/datepicker-ux.spec.ts:10:7 › DatePicker UX › should open picker and close on date selection [commit: 9aff51b]
-     - [ ] e2e/photo-flow.spec.ts:30:7 › Photo Management Workflow › should successfully add and then delete a photo when logging a new visit 
+     - [x] e2e/photo-flow.spec.ts:30:7 › Photo Management Workflow › should successfully add and then delete a photo when logging a new visit [commit: e7aaec1]
      - [ ] e2e/pwa-assets.spec.ts:22:7 › PWA Assets & Sync › should sync queued visits when back online 
      - [ ] e2e/pwa-offline.spec.ts:35:7 › PWA Offline Functionality › should queue visit creation when offline (Lie-Fi) 
      - [x] e2e/trip-flow.spec.ts:32:7 › Trip Planning Flow › can create a new trip from winery details [commit: 9aff51b]
