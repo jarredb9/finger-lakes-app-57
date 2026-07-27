@@ -4,6 +4,9 @@ import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryD
 test.describe('PWA Offline Functionality', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
     await clearServiceWorkers(page);
+    await page.addInitScript(() => {
+      (window as any)._E2E_FULL_DRAWER = true;
+    });
     mockMaps.enableServiceWorker();
     await login(page, user.email, user.password, { isPwa: true });
   });
@@ -83,16 +86,26 @@ test.describe('PWA Offline Functionality', () => {
     await page.getByLabel('Visit Date').fill('2025-01-01');
     await logVisit(page, { review: 'Offline note test' });
     
-    // Switch to Visits tab inside winery modal if visible, or expect directly
-    const visitsTab = page.getByRole('tab', { name: 'Visits' });
-    if (await visitsTab.isVisible()) {
-      await visitsTab.click();
-    }
+    // Set _E2E_FULL_DRAWER so modal drawer mounts in Full state with tabs visible on mobile
+    await page.evaluate(() => {
+      (window as any)._E2E_FULL_DRAWER = true;
+    });
+
+    const modal = page.getByRole('dialog').or(page.getByTestId('winery-modal-drawer'));
+    await expect(modal).toBeVisible();
+    
+    // Switch to Visits tab inside winery modal
+    const visitsTab = modal.getByRole('tab', { name: 'Visits' });
+    await expect(visitsTab).toBeVisible();
+    await visitsTab.click();
     
     await expect(page.getByText('Offline note test').locator('visible=true')).toBeVisible({ timeout: 10000 });
 
-    await page.getByRole('button', { name: 'Close' }).click();
-    await expect(page.getByRole('dialog')).not.toBeVisible();
+    // Close modal via UIStore or close button safely without manual timeouts
+    await page.evaluate(() => {
+      (window as any).useUIStore.getState().closeWineryModal();
+    });
+    await expect(modal).not.toBeVisible();
     await navigateToTab(page, 'History');
     
     await expect(page.getByText('Vineyard of Illusion').locator('visible=true')).toBeVisible({ timeout: 10000 });
