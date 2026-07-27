@@ -51,7 +51,7 @@ export default function WineryModal() {
   useEffect(() => {
     if (isWineryModalOpen) {
       if (activeWineryId !== prevActiveWineryRef.current) {
-        const defaultSnap = typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? "100%" : "300px";
+        const defaultSnap = typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? 1 : "300px";
         console.log(`[DRAWER-DIAGNOSTIC] Modal opened for winery ${activeWineryId}. Initializing snapPoint to ${defaultSnap}.`);
         prevActiveWineryRef.current = activeWineryId;
         setSnapPoint(defaultSnap);
@@ -677,7 +677,7 @@ function HeroPhotoCarousel({
         <div 
           data-testid="drawer-title-card"
           onClick={() => {
-            const nextSnap = snapPoint === "300px" ? "520px" : snapPoint === "520px" ? "100%" : "300px";
+            const nextSnap = snapPoint === "300px" ? "520px" : snapPoint === "520px" ? 1 : "300px";
             setSnapPoint(nextSnap);
           }}
           className={`px-4 relative z-20 cursor-pointer -mt-10`}
@@ -698,34 +698,36 @@ function HeroPhotoCarousel({
         </div>
 
         {/* Peek Primary Action Bar (Directions + Log Visit) */}
-        <div className={`px-4 pt-2.5 pb-1.5 flex items-center gap-3 shrink-0 ${isPeek ? "flex" : "hidden"}`}>
-          <div className="flex-1">
-            <MapNavigation
-              address={activeWinery.address}
-              wineryName={activeWinery.name}
-              latitude={activeWinery.latitude}
-              longitude={activeWinery.longitude}
-            >
-              <button
-                type="button"
-                data-testid="route-from-current"
-                className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-border/60 bg-muted/80 text-sm font-bold text-foreground hover:bg-muted transition-all active:scale-98 shadow-sm"
+        {isPeek && (
+          <div className="px-4 pt-2.5 pb-1.5 flex items-center gap-3 shrink-0">
+            <div className="flex-1">
+              <MapNavigation
+                address={activeWinery.address}
+                wineryName={activeWinery.name}
+                latitude={activeWinery.latitude}
+                longitude={activeWinery.longitude}
               >
-                <Navigation className="w-4.5 h-4.5 text-blue-500 fill-blue-500" />
-                <span>Directions</span>
-              </button>
-            </MapNavigation>
+                <button
+                  type="button"
+                  data-testid="route-from-current"
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-border/60 bg-muted/80 text-sm font-bold text-foreground hover:bg-muted transition-all active:scale-98 shadow-sm"
+                >
+                  <Navigation className="w-4.5 h-4.5 text-blue-500 fill-blue-500" />
+                  <span>Directions</span>
+                </button>
+              </MapNavigation>
+            </div>
+            <button
+              type="button"
+              data-testid="log-visit-button"
+              onClick={() => openVisitForm(activeWinery)}
+              className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#6B1536] hover:bg-[#58102b] text-white text-sm font-bold transition-all shadow-md active:scale-98"
+            >
+              <Pencil className="w-4 h-4" />
+              <span>Log Visit</span>
+            </button>
           </div>
-          <button
-            type="button"
-            data-testid="log-visit-button"
-            onClick={() => openVisitForm(activeWinery)}
-            className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#6B1536] hover:bg-[#58102b] text-white text-sm font-bold transition-all shadow-md active:scale-98"
-          >
-            <Pencil className="w-4 h-4" />
-            <span>Log Visit</span>
-          </button>
-        </div>
+        )}
 
         <div 
           ref={scrollContainerRef}
@@ -752,15 +754,17 @@ function HeroPhotoCarousel({
             )}
 
             {/* Prominent Full-Width Log Visit CTA Button */}
-            <button
-              type="button"
-              data-testid="log-visit-button"
-              onClick={() => openVisitForm(activeWinery)}
-              className={`w-full py-3 px-4 rounded-xl bg-[#6B1536] hover:bg-[#58102b] text-white font-bold text-sm transition-all duration-200 shadow-md items-center justify-center gap-2 active:scale-98 ${isPeek ? "hidden" : "flex"}`}
-            >
-              <Pencil className="w-4 h-4" />
-              <span>Log Visit</span>
-            </button>
+            {!isPeek && (
+              <button
+                type="button"
+                data-testid="log-visit-button"
+                onClick={() => openVisitForm(activeWinery)}
+                className="w-full py-3 px-4 rounded-xl bg-[#6B1536] hover:bg-[#58102b] text-white font-bold text-sm transition-all duration-200 shadow-md flex items-center justify-center gap-2 active:scale-98"
+              >
+                <Pencil className="w-4 h-4" />
+                <span>Log Visit</span>
+              </button>
+            )}
 
             {/* Horizontal Vibe & Specialty Badges Scroller */}
             {vibeTags.length > 0 && (
