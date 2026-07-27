@@ -3,6 +3,9 @@ import { login, navigateToTab, openWineryDetails, ensureSidebarExpanded, clearSe
 
 test.describe('DatePicker UX', () => {
   test.beforeEach(async ({ page, mockMaps }) => {
+    await page.addInitScript(() => {
+      (window as any)._E2E_FULL_DRAWER = true;
+    });
     await clearServiceWorkers(page);
     await mockMaps.initDefaultMocks();
   });

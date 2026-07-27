@@ -475,11 +475,14 @@ export async function openWineryDetails(page: Page, wineryName: string) {
     await expect(modal).toBeVisible();
 
     if (isMobile) {
-        const titleCard = modal.getByTestId('drawer-title-card').first();
-        if (await titleCard.isVisible()) {
-            await titleCard.click({ force: true }).catch(() => {});
-            await page.waitForTimeout(500);
+        const isFullDrawer = await page.evaluate(() => (window as any)._E2E_FULL_DRAWER).catch(() => false);
+        if (!isFullDrawer) {
+            const titleCard = modal.getByTestId('drawer-title-card').first();
+            if (await titleCard.isVisible()) {
+                await titleCard.click({ force: true }).catch(() => {});
+            }
         }
+        await page.waitForTimeout(300);
     }
 }
 

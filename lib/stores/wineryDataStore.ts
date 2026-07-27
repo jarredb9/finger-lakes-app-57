@@ -152,13 +152,11 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
           try {
               const result = await WineryService.toggleFavorite(winery);
               
-              if (result.dbId) {
-                  set(state => ({
-                      persistentWineries: state.persistentWineries.map(w => 
-                          w.id === wineryId ? { ...w, dbId: result.dbId as WineryDbId } : w
-                      )
-                  }));
-              }
+              set(state => ({
+                  persistentWineries: state.persistentWineries.map(w => 
+                      w.id === wineryId ? { ...w, isFavorite: result.isFavorite, dbId: (result.dbId || w.dbId) as WineryDbId } : w
+                  )
+              }));
           } catch (err: any) {
               if (await handleSyncError(err, 'winery_action', user?.id, syncPayload)) {
                   return;
@@ -199,13 +197,11 @@ export const useWineryDataStore = createWithEqualityFn<WineryDataState>()(
         try {
             const result = await WineryService.toggleWishlist(winery);
             
-            if (result.dbId) {
-                set(state => ({
-                    persistentWineries: state.persistentWineries.map(w => 
-                        w.id === wineryId ? { ...w, dbId: result.dbId as WineryDbId } : w
-                    )
-                }));
-            }
+            set(state => ({
+                persistentWineries: state.persistentWineries.map(w => 
+                    w.id === wineryId ? { ...w, onWishlist: result.onWishlist, dbId: (result.dbId || w.dbId) as WineryDbId } : w
+                )
+            }));
         } catch (err: any) {
             if (await handleSyncError(err, 'winery_action', user?.id, syncPayload)) {
                 return;

@@ -275,12 +275,19 @@ export const standardizeWineryData = (
   const sourceReservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? (source as any).reservable : (isRawDbWinery(source) ? source.reservable : source.reservable));
   const reservable = sourceReservable !== undefined && sourceReservable !== null ? sourceReservable : existing?.reservable;
 
-  const userVisited = source.user_visited !== undefined ? source.user_visited : (source.userVisited !== undefined ? source.userVisited : (existing?.userVisited ?? false));
-  const onWishlist = source.on_wishlist !== undefined ? source.on_wishlist : (source.onWishlist !== undefined ? source.onWishlist : (existing?.onWishlist ?? false));
-  const isFavorite = source.is_favorite !== undefined ? source.is_favorite : (source.isFavorite !== undefined ? source.isFavorite : (existing?.isFavorite ?? false));
+  const userVisited = source.user_visited !== undefined ? Boolean(source.user_visited) : (source.userVisited !== undefined ? Boolean(source.userVisited) : (existing?.userVisited ?? false));
+
+  const rawOnWishlist = source.on_wishlist !== undefined ? Boolean(source.on_wishlist) : (source.onWishlist !== undefined ? Boolean(source.onWishlist) : undefined);
+  const onWishlist = rawOnWishlist !== undefined ? (rawOnWishlist || (existing?.onWishlist ?? false)) : (existing?.onWishlist ?? false);
+
+  const rawIsFavorite = source.is_favorite !== undefined ? Boolean(source.is_favorite) : (source.isFavorite !== undefined ? Boolean(source.isFavorite) : undefined);
+  const isFavorite = rawIsFavorite !== undefined ? (rawIsFavorite || (existing?.isFavorite ?? false)) : (existing?.isFavorite ?? false);
   
-  const favoriteIsPrivate = source.is_favorite_private !== undefined ? source.is_favorite_private : (source.favorite_is_private !== undefined ? source.favorite_is_private : (source.favoriteIsPrivate !== undefined ? source.favoriteIsPrivate : (existing?.favoriteIsPrivate ?? false)));
-  const wishlistIsPrivate = source.on_wishlist_private !== undefined ? source.on_wishlist_private : (source.wishlist_is_private !== undefined ? source.wishlist_is_private : (existing?.wishlistIsPrivate ?? false));
+  const rawFavPriv = source.is_favorite_private !== undefined ? Boolean(source.is_favorite_private) : (source.favorite_is_private !== undefined ? Boolean(source.favorite_is_private) : (source.favoriteIsPrivate !== undefined ? Boolean(source.favoriteIsPrivate) : undefined));
+  const favoriteIsPrivate = rawFavPriv !== undefined ? (rawFavPriv || (existing?.favoriteIsPrivate ?? false)) : (existing?.favoriteIsPrivate ?? false);
+
+  const rawWishPriv = source.on_wishlist_private !== undefined ? Boolean(source.on_wishlist_private) : (source.wishlist_is_private !== undefined ? Boolean(source.wishlist_is_private) : (source.wishlistIsPrivate !== undefined ? Boolean(source.wishlistIsPrivate) : undefined));
+  const wishlistIsPrivate = rawWishPriv !== undefined ? (rawWishPriv || (existing?.wishlistIsPrivate ?? false)) : (existing?.wishlistIsPrivate ?? false);;
 
   // Enrichment (Places API v1)
   const lastEnrichedAt = source.last_enriched_at || existing?.last_enriched_at;

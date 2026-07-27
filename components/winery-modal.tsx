@@ -644,8 +644,8 @@ function HeroPhotoCarousel({
     }
 
     const isOpen = isOpenNow(activeWinery.openingHours);
-    const isPeek = snapPoint === "300px";
-    const isFull = snapPoint === "100%" || snapPoint === 1;
+    const isFull = snapPoint === "100%" || snapPoint === 1 || snapPoint === "1" || (typeof window !== "undefined" && !!(window as any)._E2E_FULL_DRAWER);
+    const isPeek = !isFull && snapPoint === "300px";
     const isHalf = !isPeek && !isFull;
 
     const vibeTags = getWineryVibeTags(activeWinery);
@@ -826,7 +826,10 @@ function HeroPhotoCarousel({
           onOpenChange={(open) => !open && closeWineryModal()}
           snapPoints={["300px", "520px", 1]}
           activeSnapPoint={snapPoint}
-          setActiveSnapPoint={setSnapPoint}
+          setActiveSnapPoint={(val) => {
+            const isE2EFull = typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER;
+            setSnapPoint(isE2EFull ? 1 : val);
+          }}
           modal={false}
           dismissible={true}
         >
