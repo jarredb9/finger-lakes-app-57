@@ -44,7 +44,7 @@ export default function WineryModal() {
   const { fetchTripById, setSelectedTrip } = useTripStore();
   
   const [snapPoint, setSnapPoint] = useState<string | number | null>(() => 
-    typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? "100%" : "300px"
+    typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? 1 : "300px"
   );
   const prevActiveWineryRef = useRef<string | null>(null);
 
