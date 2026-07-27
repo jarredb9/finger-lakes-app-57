@@ -101,6 +101,9 @@ test.describe('Winery Modal Consolidated Suite', () => {
 
   test.describe('Navigation Tabs & Quick Actions', () => {
     test('switches across tabs (Community, Amenities, AI Insights, Visits, Trip)', async ({ page }) => {
+      await page.evaluate(() => {
+        (window as any)._E2E_FULL_DRAWER = true;
+      });
       await seedWineryAndOpenModal(page);
 
       const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
@@ -128,7 +131,7 @@ test.describe('Winery Modal Consolidated Suite', () => {
       await expect(modal.getByTestId('trip-planner-section')).toBeVisible();
 
       await aiInsightsTab.click();
-      const insightsContainer = modal.locator('.stable-gemini-container').or(modal.getByTestId('gemini-summary'));
+      const insightsContainer = modal.getByTestId('gemini-summary');
       await expect(insightsContainer).toBeVisible();
     });
 
@@ -138,7 +141,7 @@ test.describe('Winery Modal Consolidated Suite', () => {
       const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
       await expect(modal.getByTestId('share-button')).toBeVisible();
 
-      const routeButton = modal.getByTestId('route-from-current');
+      const routeButton = modal.getByTestId('route-from-current').first();
       await routeButton.click();
 
       const mapChoices = page.getByTestId('map-navigation-popover');
