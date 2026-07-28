@@ -189,6 +189,11 @@
     - [x] Add `favoritePrivacyMap` and `wishlistPrivacyMap` to `MockMapsState` in `e2e/utils.ts`.
     - [x] Support dynamic privacy calculation in `get_friend_profile_with_visits`, `get_winery_details_by_id`, and `get_map_markers`.
     - [x] Refactor `e2e/item-privacy.spec.ts` to use shared `MockMapsState` and full mock flow, ensuring 100% deterministic test execution.
+- [x] Task: Implement openWineryModalState helper and getEquivalentWineryIds ID normalization [commit: d46c36f]
+    - [x] Implement `openWineryModalState` in `e2e/helpers.ts` for atomic state injection and controlled drawer snapping.
+    - [x] Add `getEquivalentWineryIds` in `e2e/utils.ts` to normalize ID matching across `dbId`, `google_place_id`, and string IDs.
+    - [x] Refactor `e2e/winery-modal.spec.ts` and `e2e/winery-modal-amenities.spec.ts` to consume `openWineryModalState`.
+    - [x] Add `{ fullDrawer?: boolean }` options support to `openWineryDetails` in `e2e/helpers.ts`.
 
 ## Post-Deployment Steps
 - [ ] Task: Reset Enrichment Cache in Production
