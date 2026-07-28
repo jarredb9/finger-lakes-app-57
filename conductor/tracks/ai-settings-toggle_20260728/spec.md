@@ -26,8 +26,9 @@ When AI features are disabled:
    - Hide the "AI Insights" tab trigger and content on both mobile and desktop layouts when `ai_enabled` is `false`.
    - If active tab is `"ai_insights"` and AI features are turned off, fall back to `"community"`.
 
-5. **Winery Varietals Tab (`components/WineryVarietalsTab.tsx`) Updates**:
-   - Conditionally hide AI tasting insights / AI summary sections when `ai_enabled` is `false`.
+6. **Test Suite Updates**:
+   - Update existing E2E specs (such as `e2e/winery-modal.spec.ts`) to account for default OFF state (`ai_enabled: false`) and inject `ai_enabled: true` when testing AI Insights tab features.
+   - Add new E2E and Jest unit test cases to explicitly test both ON and OFF states for AI capabilities.
 
 ## Non-Functional & Architectural Requirements
 - **Backwards Compatibility**: Migration for `ai_enabled` column on profiles table (or profile update helper) must default to `false` and avoid breaking existing users.
