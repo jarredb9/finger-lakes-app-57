@@ -1,7 +1,8 @@
 import { test, expect } from './utils';
 import {
   login,
-  clearServiceWorkers
+  clearServiceWorkers,
+  openWineryModalState
 } from './helpers';
 
 test.describe('Winery Modal Consolidated Suite', () => {
@@ -14,35 +15,32 @@ test.describe('Winery Modal Consolidated Suite', () => {
     await login(page, user.email, user.password);
   });
 
-  const seedWineryAndOpenModal = async (page: any, wineryId = 3, name = 'The Phantom Cellar') => {
-    await page.evaluate(({ id, wineryName }: { id: any; wineryName: any }) => {
-      const winery = {
-        id,
-        google_place_id: `place_${id}`,
-        name: wineryName,
-        address: '123 Seneca Trail, Dundee, NY',
-        latitude: 42.52,
-        longitude: -76.95,
-        rating: 4.8,
-        user_rating_count: 124,
-        enrichment_tier: 'enriched',
-        generative_summary: { overview: { text: 'A charming winery with beautiful views of Seneca Lake.' } },
-        opening_hours: {
-          open_now: true,
-          weekday_text: [
-            'Monday: 10:00 AM – 5:00 PM',
-            'Tuesday: 10:00 AM – 5:00 PM',
-            'Wednesday: 10:00 AM – 5:00 PM',
-            'Thursday: 10:00 AM – 5:00 PM',
-            'Friday: 10:00 AM – 6:00 PM',
-            'Saturday: 10:00 AM – 6:00 PM',
-            'Sunday: 11:00 AM – 5:00 PM'
-          ]
-        }
-      };
-      (window as any).useWineryDataStore.getState().upsertWinery(winery);
-      (window as any).useUIStore.getState().openWineryModal(String(id));
-    }, { id: wineryId, wineryName: name });
+  const seedWineryAndOpenModal = async (page: any, wineryId = 3, name = 'The Phantom Cellar', options: { fullDrawer?: boolean } = {}) => {
+    const winery = {
+      id: wineryId,
+      google_place_id: `place_${wineryId}`,
+      name,
+      address: '123 Seneca Trail, Dundee, NY',
+      latitude: 42.52,
+      longitude: -76.95,
+      rating: 4.8,
+      user_rating_count: 124,
+      enrichment_tier: 'enriched',
+      generative_summary: { overview: { text: 'A charming winery with beautiful views of Seneca Lake.' } },
+      opening_hours: {
+        open_now: true,
+        weekday_text: [
+          'Monday: 10:00 AM – 5:00 PM',
+          'Tuesday: 10:00 AM – 5:00 PM',
+          'Wednesday: 10:00 AM – 5:00 PM',
+          'Thursday: 10:00 AM – 5:00 PM',
+          'Friday: 10:00 AM – 6:00 PM',
+          'Saturday: 10:00 AM – 6:00 PM',
+          'Sunday: 11:00 AM – 5:00 PM'
+        ]
+      }
+    };
+    await openWineryModalState(page, winery, options);
   };
 
   test.describe('Responsive Layouts', () => {
@@ -101,10 +99,7 @@ test.describe('Winery Modal Consolidated Suite', () => {
 
   test.describe('Navigation Tabs & Quick Actions', () => {
     test('switches across tabs (Community, Amenities, AI Insights, Visits, Trip)', async ({ page }) => {
-      await page.evaluate(() => {
-        (window as any)._E2E_FULL_DRAWER = true;
-      });
-      await seedWineryAndOpenModal(page);
+      await seedWineryAndOpenModal(page, 3, 'The Phantom Cellar', { fullDrawer: true });
 
       const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
       await expect(modal).toBeVisible();

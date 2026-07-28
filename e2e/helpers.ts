@@ -427,7 +427,10 @@ export async function ensureProfileReady(page: Page) {
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });
 }
 
-export async function openWineryDetails(page: Page, wineryName: string) {
+export async function openWineryDetails(page: Page, wineryName: string, options: { fullDrawer?: boolean } = {}) {
+    if (options.fullDrawer) {
+        await page.evaluate(() => { (window as any)._E2E_FULL_DRAWER = true; });
+    }
     const isMobile = page.viewportSize() ? page.viewportSize()!.width < 768 : false;
     if (isMobile) {
         await ensureSidebarExpanded(page);
@@ -485,6 +488,34 @@ export async function openWineryDetails(page: Page, wineryName: string) {
         await page.waitForTimeout(300);
     }
 }
+
+/**
+ * Programmatically upserts a winery object (optional) and opens the winery modal via UI store with optional _E2E_FULL_DRAWER snap point override.
+ */
+export async function openWineryModalState(
+    page: Page, 
+    wineryIdOrData: string | number | Record<string, any> = 3, 
+    options: { fullDrawer?: boolean } = {}
+) {
+    if (options.fullDrawer) {
+        await page.evaluate(() => { (window as any)._E2E_FULL_DRAWER = true; });
+    }
+    await page.evaluate((arg) => {
+        let id: string;
+        if (typeof arg === 'object' && arg !== null) {
+            (window as any).useWineryDataStore?.getState().upsertWinery(arg);
+            id = String(arg.google_place_id || arg.id);
+        } else {
+            id = String(arg);
+        }
+        (window as any).useUIStore?.getState().openWineryModal(id);
+    }, wineryIdOrData);
+
+    const modal = page.locator('[data-testid*="winery-modal"], [role="dialog"], [data-testid="winery-modal-drawer"]').first();
+    await waitForSignal(page, 'winery-modal', 'ready', 15000);
+    await expect(modal).toBeVisible({ timeout: 15000 });
+}
+
 
 export async function closeWineryModal(page: Page) {
     const modal = page.locator('[data-testid*="winery-modal"]').first();
