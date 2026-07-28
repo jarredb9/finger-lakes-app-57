@@ -9,6 +9,7 @@ import {
 
 test.describe('Wishlist Flow', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
+    await page.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
     // Re-initialize mocks with correct user ID to avoid profile mismatch
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);
@@ -19,7 +20,7 @@ test.describe('Wishlist Flow', () => {
     await navigateToTab(page, 'Explore');
     await openWineryDetails(page, 'Mock Winery One');
 
-    const modal = page.getByRole('dialog');
+    const modal = page.locator('[role="dialog"], [data-testid*="winery-modal"]').first();
 
     // 1. Wishlist Toggle ON
     const wishlistBtn = modal.getByTestId('wishlist-button');

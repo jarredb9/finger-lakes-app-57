@@ -140,7 +140,7 @@
 - [ ] Task: Resolve mobile browser (mobile safari) E2E testing errors:
      - [x] e2e/datepicker-ux.spec.ts:10:7 › DatePicker UX › should open picker and close on date selection 
      - [x] [Mobile Safari] › e2e/item-privacy.spec.ts:17:7 › Item Privacy Flow (Favorites & Wishlist) › Users can control privacy of their favorites and wishlist [commit: 33af8f2]
-     - [ ] e2e/privacy-flow.spec.ts:16:7 › Privacy and Profile Flow › Users can control visit and profile visibility 
+     - [x] e2e/privacy-flow.spec.ts:16:7 › Privacy and Profile Flow › Users can control visit and profile visibility 
      - [ ] e2e/trip-flow.spec.ts:32:7 › Trip Planning Flow › can create a new trip from winery details 
      - [ ] e2e/winery-modal.spec.ts:135:9 › Winery Modal Consolidated Suite › Navigation Tabs & Quick Actions › Share button and Route Navigation popover (Google Maps & Waze) 
      - [ ] e2e/wishlist-flow.spec.ts:17:7 › Wishlist Flow › can toggle winery on wishlist 
