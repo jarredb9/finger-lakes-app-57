@@ -46,10 +46,10 @@ export default function VisitHistory({
               <div className="flex items-start justify-between">
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center justify-between">
-                    {showWineryName && visit.wineries && (
+                    {showWineryName && (visit.wineries || (visit as any).winery) && (
                       <div className="flex items-center gap-1.5 text-primary mb-1">
                         <MapPin className="w-3.5 h-3.5" />
-                        <p className="text-sm font-bold tracking-tight uppercase">{visit.wineries.name}</p>
+                        <p className="text-sm font-bold tracking-tight uppercase">{(visit.wineries || (visit as any).winery).name}</p>
                       </div>
                     )}
                     {isPending && (

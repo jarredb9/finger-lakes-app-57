@@ -11,6 +11,7 @@ import {
 
 test.describe('Trip Planning Flow', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
+    await page.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
     // Re-initialize mocks with the actual user ID to ensure isOwner works
     await mockMaps.useRealVisits();
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
@@ -36,7 +37,7 @@ test.describe('Trip Planning Flow', () => {
 
     await openWineryDetails(page, 'Mock Winery One');
 
-    const modal = page.getByRole('dialog');
+    const modal = page.locator('[role="dialog"], [data-testid*="winery-modal"]').first();
     await modal.getByRole('tab', { name: /Trip/i }).click();
     await expect(modal.getByRole('heading', { name: /Add to a Trip/i })).toBeVisible();
 

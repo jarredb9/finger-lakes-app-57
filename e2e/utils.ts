@@ -484,8 +484,8 @@ export class MockMapsManager {
         // Social Fallbacks
         const isSocialRpc = /rpc\/(send_friend_request|respond_to_friend_request|get_friends_and_requests|remove_friend|get_friend_activity_feed|get_friend_profile_with_visits|is_visible_to_viewer|update_profile_privacy|get_friends_ratings_for_winery|get_friends_activity_for_winery|send_follow_request|respond_to_follow_request)/.test(url);
         if (this.realSocialEnabled && isSocialRpc) {
-            if (url.includes('get_friend_profile_with_visits') && !this.realFavoritesEnabled) {
-                // Use mock handler for friend profile stats when using mock favorites
+            if (url.includes('get_friend_profile_with_visits') && !this.realVisitsEnabled) {
+                // Use mock handler for friend profile stats when visits are mocked
             } else {
                 return route.fallback();
             }
@@ -554,8 +554,9 @@ export class MockMapsManager {
                 longitude: winery?.longitude || wineryData.longitude || -76.9,
                 friend_visits: [],
                 updated_at: new Date(Date.now() + 5000).toISOString(),
-                idempotency_key: idempotencyKey
-            };
+                idempotency_key: idempotencyKey,
+                is_private: !!visitData.is_private
+            } as any;
             this.state.visits.push(newVisit);
 
             if (!this.state.activityFeed) this.state.activityFeed = [];
@@ -874,7 +875,7 @@ export class MockMapsManager {
         if (url.includes('get_friend_profile_with_visits')) {
             const postData = JSON.parse(req.postData() || '{}');
             const friendId = postData.friend_id || postData.p_friend_id;
-            const visits = (this.state.visits || []).filter(v => v.user_id === friendId);
+            const visits = (this.state.visits || []).filter(v => v.user_id === friendId && !(v as any).is_private);
 
             let favCount = 0;
             const favs = this.state.favoritesMap.get(friendId);
