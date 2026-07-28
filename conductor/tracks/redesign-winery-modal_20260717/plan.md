@@ -137,12 +137,12 @@
      - [x] e2e/winery-data-hydration.spec.ts:14:7 › Winery Data Hydration & Integrity Consolidated Suite › Map markers RPC hydration into persistentWineries store  [commit: 8aa9744]
      - [x] e2e/winery-data-hydration.spec.ts:43:7 › Winery Data Hydration & Integrity Consolidated Suite › Cache pollution merge guard (bulkUpsertWineries retains enriched details) [commit: 8aa9744]
      - [x] e2e/wishlist-flow.spec.ts:17:7 › Wishlist Flow › can toggle winery on wishlist [commit: 9aff51b]
-- [ ] Task: Resolve mobile browser (mobile safari) E2E testing errors:
+- [x] Task: Resolve mobile browser (mobile safari) E2E testing errors:
      - [x] e2e/datepicker-ux.spec.ts:10:7 › DatePicker UX › should open picker and close on date selection 
      - [x] [Mobile Safari] › e2e/item-privacy.spec.ts:17:7 › Item Privacy Flow (Favorites & Wishlist) › Users can control privacy of their favorites and wishlist [commit: 33af8f2]
      - [x] e2e/privacy-flow.spec.ts:16:7 › Privacy and Profile Flow › Users can control visit and profile visibility [commit: 11cef5c]
      - [x] e2e/trip-flow.spec.ts:32:7 › Trip Planning Flow › can create a new trip from winery details [commit: 11cef5c]
-     - [ ] e2e/winery-modal.spec.ts:135:9 › Winery Modal Consolidated Suite › Navigation Tabs & Quick Actions › Share button and Route Navigation popover (Google Maps & Waze) 
+     - [x] e2e/winery-modal.spec.ts:135:9 › Winery Modal Consolidated Suite › Navigation Tabs & Quick Actions › Share button and Route Navigation popover (Google Maps & Waze) 
      - [x] e2e/wishlist-flow.spec.ts:17:7 › Wishlist Flow › can toggle winery on wishlist [commit: 11cef5c]
 
 
