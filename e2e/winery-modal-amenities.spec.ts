@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, clearServiceWorkers } from './helpers';
+import { login, clearServiceWorkers, openWineryModalState } from './helpers';
 
 test.describe('Winery Amenities & Q&A Reviews Consolidated Suite', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -13,20 +13,7 @@ test.describe('Winery Amenities & Q&A Reviews Consolidated Suite', () => {
   });
 
   const seedAndOpenWinery = async (page: any, rawWinery: any) => {
-    await page.evaluate((wineryData: any) => {
-      (window as any).useWineryDataStore.getState().upsertWinery(wineryData);
-      const wineryId = String(wineryData.google_place_id || wineryData.id);
-      (window as any).useUIStore.getState().openWineryModal(wineryId);
-    }, rawWinery);
-
-    const modal = page.getByRole('dialog').or(page.getByTestId('winery-modal-drawer'));
-    await expect(modal).toBeVisible();
-
-    const isMobile = await page.evaluate(() => window.innerWidth < 768);
-    if (isMobile) {
-      const tabsList = modal.locator('[role="tablist"]');
-      await expect(tabsList).toBeVisible();
-    }
+    await openWineryModalState(page, rawWinery);
   };
 
   test('Clicking amenity rows opens reviews panel with matched search results', async ({ page }) => {

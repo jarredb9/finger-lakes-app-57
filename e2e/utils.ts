@@ -205,6 +205,25 @@ export class MockMapsManager {
       return this.state;
   }
 
+  /**
+   * Normalizes any winery ID (numeric dbId or string google_place_id) into a canonical list of matching keys.
+   */
+  getEquivalentWineryIds(rawId: string | number | undefined | null, markersList: MapMarkerRpc[] = []): string[] {
+      if (!rawId) return ['ch-12345-mock-winery-1', '1', '999123'];
+      const strId = String(rawId);
+      
+      const marker = markersList.find(m => String(m.id) === strId || m.google_place_id === strId);
+      if (marker) {
+          return Array.from(new Set([strId, String(marker.id), marker.google_place_id, 'ch-12345-mock-winery-1']));
+      }
+      
+      if (strId === '1' || strId === 'ch-12345-mock-winery-1' || strId === '999123') {
+          return ['ch-12345-mock-winery-1', '1', '999123'];
+      }
+      
+      return [strId];
+  }
+
   enableServiceWorker() {
     this.swEnabled = true;
   }
@@ -581,17 +600,15 @@ export class MockMapsManager {
         if (url.includes('toggle_favorite_privacy')) {
             const postData = JSON.parse(req.postData() || '{}');
             const wineryId = postData.p_winery_id || 'ch-12345-mock-winery-1';
+            const keys = this.getEquivalentWineryIds(wineryId, markers);
             if (!this.state.favoritePrivacyMap.has(this.currentUserId)) this.state.favoritePrivacyMap.set(this.currentUserId, new Set());
             const userFavPriv = this.state.favoritePrivacyMap.get(this.currentUserId)!;
-            let isPrivate = true;
-            if (userFavPriv.has(String(wineryId)) || userFavPriv.has('ch-12345-mock-winery-1')) {
-                userFavPriv.delete(String(wineryId));
-                userFavPriv.delete('ch-12345-mock-winery-1');
-                isPrivate = false;
+            const isCurrentlyPrivate = keys.some(k => userFavPriv.has(k));
+            let isPrivate = !isCurrentlyPrivate;
+            if (isCurrentlyPrivate) {
+                keys.forEach(k => userFavPriv.delete(k));
             } else {
-                userFavPriv.add(String(wineryId));
-                userFavPriv.add('ch-12345-mock-winery-1');
-                isPrivate = true;
+                keys.forEach(k => userFavPriv.add(k));
             }
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, is_private: isPrivate }) });
         }
@@ -599,17 +616,15 @@ export class MockMapsManager {
         if (url.includes('toggle_wishlist_privacy')) {
             const postData = JSON.parse(req.postData() || '{}');
             const wineryId = postData.p_winery_id || 'ch-12345-mock-winery-1';
+            const keys = this.getEquivalentWineryIds(wineryId, markers);
             if (!this.state.wishlistPrivacyMap.has(this.currentUserId)) this.state.wishlistPrivacyMap.set(this.currentUserId, new Set());
             const userWishPriv = this.state.wishlistPrivacyMap.get(this.currentUserId)!;
-            let isPrivate = true;
-            if (userWishPriv.has(String(wineryId)) || userWishPriv.has('ch-12345-mock-winery-1')) {
-                userWishPriv.delete(String(wineryId));
-                userWishPriv.delete('ch-12345-mock-winery-1');
-                isPrivate = false;
+            const isCurrentlyPrivate = keys.some(k => userWishPriv.has(k));
+            let isPrivate = !isCurrentlyPrivate;
+            if (isCurrentlyPrivate) {
+                keys.forEach(k => userWishPriv.delete(k));
             } else {
-                userWishPriv.add(String(wineryId));
-                userWishPriv.add('ch-12345-mock-winery-1');
-                isPrivate = true;
+                keys.forEach(k => userWishPriv.add(k));
             }
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, is_private: isPrivate }) });
         }
@@ -617,21 +632,15 @@ export class MockMapsManager {
         if (url.includes('toggle_wishlist')) {
             const postData = JSON.parse(req.postData() || '{}');
             const wineryId = postData.p_winery_data?.google_place_id || postData.p_winery_data?.id || postData.p_winery_id || 'ch-12345-mock-winery-1';
+            const keys = this.getEquivalentWineryIds(wineryId, markers);
             if (!this.state.wishlistMap.has(this.currentUserId)) this.state.wishlistMap.set(this.currentUserId, new Set());
             const userWishlist = this.state.wishlistMap.get(this.currentUserId)!;
-            let nextState = true;
-            if (userWishlist.has(String(wineryId)) || userWishlist.has('ch-12345-mock-winery-1')) {
-                userWishlist.delete(String(wineryId));
-                userWishlist.delete('ch-12345-mock-winery-1');
-                userWishlist.delete('999123');
-                userWishlist.delete('1');
-                nextState = false;
+            const isCurrentlyWishlist = keys.some(k => userWishlist.has(k));
+            let nextState = !isCurrentlyWishlist;
+            if (isCurrentlyWishlist) {
+                keys.forEach(k => userWishlist.delete(k));
             } else {
-                userWishlist.add(String(wineryId));
-                userWishlist.add('ch-12345-mock-winery-1');
-                userWishlist.add('999123');
-                userWishlist.add('1');
-                nextState = true;
+                keys.forEach(k => userWishlist.add(k));
             }
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(nextState) });
         }
@@ -639,21 +648,15 @@ export class MockMapsManager {
         if (url.includes('toggle_favorite')) {
             const postData = JSON.parse(req.postData() || '{}');
             const wineryId = postData.p_winery_data?.google_place_id || postData.p_winery_data?.id || postData.p_winery_id || 'ch-12345-mock-winery-1';
+            const keys = this.getEquivalentWineryIds(wineryId, markers);
             if (!this.state.favoritesMap.has(this.currentUserId)) this.state.favoritesMap.set(this.currentUserId, new Set());
             const userFavorites = this.state.favoritesMap.get(this.currentUserId)!;
-            let nextState = true;
-            if (userFavorites.has(String(wineryId)) || userFavorites.has('ch-12345-mock-winery-1')) {
-                userFavorites.delete(String(wineryId));
-                userFavorites.delete('ch-12345-mock-winery-1');
-                userFavorites.delete('999123');
-                userFavorites.delete('1');
-                nextState = false;
+            const isCurrentlyFav = keys.some(k => userFavorites.has(k));
+            let nextState = !isCurrentlyFav;
+            if (isCurrentlyFav) {
+                keys.forEach(k => userFavorites.delete(k));
             } else {
-                userFavorites.add(String(wineryId));
-                userFavorites.add('ch-12345-mock-winery-1');
-                userFavorites.add('999123');
-                userFavorites.add('1');
-                nextState = true;
+                keys.forEach(k => userFavorites.add(k));
             }
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(nextState) });
         }
@@ -787,13 +790,16 @@ export class MockMapsManager {
             const userFavPriv = this.state.favoritePrivacyMap.get(this.currentUserId);
             const userWishlist = this.state.wishlistMap.get(this.currentUserId);
             const userWishPriv = this.state.wishlistPrivacyMap.get(this.currentUserId);
-            const dynamicMarkers = markers.map(m => ({
-                ...m,
-                is_favorite: (userFavorites && userFavorites.size > 0) || userFavorites?.has(m.google_place_id) || userFavorites?.has(String(m.id)) || userFavorites?.has('ch-12345-mock-winery-1') || false,
-                is_favorite_private: userFavPriv?.has(m.google_place_id) || userFavPriv?.has(String(m.id)) || userFavPriv?.has('ch-12345-mock-winery-1') || false,
-                on_wishlist: (userWishlist && userWishlist.size > 0) || userWishlist?.has(m.google_place_id) || userWishlist?.has(String(m.id)) || userWishlist?.has('ch-12345-mock-winery-1') || false,
-                on_wishlist_private: userWishPriv?.has(m.google_place_id) || userWishPriv?.has(String(m.id)) || userWishPriv?.has('ch-12345-mock-winery-1') || false,
-            }));
+            const dynamicMarkers = markers.map(m => {
+                const keys = this.getEquivalentWineryIds(m.google_place_id || m.id, markers);
+                return {
+                    ...m,
+                    is_favorite: !!(userFavorites && keys.some(k => userFavorites.has(k))),
+                    is_favorite_private: !!(userFavPriv && keys.some(k => userFavPriv.has(k))),
+                    on_wishlist: !!(userWishlist && keys.some(k => userWishlist.has(k))),
+                    on_wishlist_private: !!(userWishPriv && keys.some(k => userWishPriv.has(k))),
+                };
+            });
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(dynamicMarkers) });
         }
 
@@ -921,20 +927,21 @@ export class MockMapsManager {
             const userWishs = this.state.wishlistMap.get(this.currentUserId);
             const userWishPriv = this.state.wishlistPrivacyMap.get(this.currentUserId);
             const gId = marker?.google_place_id || 'ch-12345-mock-winery-1';
+            const keys = this.getEquivalentWineryIds(wineryId || gId, markers);
             const detail = {
                 address: marker?.address || '123 Mock St',
                 google_place_id: gId,
                 google_rating: 4.5,
                 id: wineryId || marker?.id || 12345,
-                is_favorite: (userFavs && userFavs.size > 0) || userFavs?.has(gId) || userFavs?.has(String(wineryId)) || userFavs?.has('ch-12345-mock-winery-1') || false,
-                is_favorite_private: userFavPriv?.has(gId) || userFavPriv?.has(String(wineryId)) || userFavPriv?.has('ch-12345-mock-winery-1') || false,
+                is_favorite: !!(userFavs && keys.some(k => userFavs.has(k))),
+                is_favorite_private: !!(userFavPriv && keys.some(k => userFavPriv.has(k))),
                 latitude: marker?.latitude || 42.7,
                 longitude: marker?.longitude || -76.9,
                 lat: marker?.latitude || 42.7,
                 lng: marker?.longitude || -76.9,
                 name: marker?.name || 'Mock Winery One',
-                on_wishlist: (userWishs && userWishs.size > 0) || userWishs?.has(gId) || userWishs?.has(String(wineryId)) || userWishs?.has('ch-12345-mock-winery-1') || false,
-                on_wishlist_private: userWishPriv?.has(gId) || userWishPriv?.has(String(wineryId)) || userWishPriv?.has('ch-12345-mock-winery-1') || false,
+                on_wishlist: !!(userWishs && keys.some(k => userWishs.has(k))),
+                on_wishlist_private: !!(userWishPriv && keys.some(k => userWishPriv.has(k))),
                 opening_hours: null,
                 phone: '555-0123',
                 reservable: false,
