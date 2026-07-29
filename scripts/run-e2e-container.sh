@@ -32,8 +32,12 @@ PROJECT_ARG=$1
 echo "🚀 Starting Playwright Containerized Tests (Rootless)..."
 echo "📦 Image: $IMAGE"
 
-# Detect container engine (prefer podman, fallback to docker)
-if command -v podman >/dev/null 2>&1; then
+# Detect container engine (honor CONTAINER_ENGINE env var, prefer docker in CI, fallback to podman locally)
+if [ -n "$CONTAINER_ENGINE" ]; then
+    ENGINE="$CONTAINER_ENGINE"
+elif [ "$CI" = "true" ] && command -v docker >/dev/null 2>&1; then
+    ENGINE="docker"
+elif command -v podman >/dev/null 2>&1; then
     ENGINE="podman"
 elif command -v docker >/dev/null 2>&1; then
     ENGINE="docker"
