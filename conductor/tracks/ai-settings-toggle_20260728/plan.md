@@ -8,10 +8,10 @@ This plan outlines the TDD-driven tasks for implementing the AI features toggle 
 - [x] Task: Create extensible `useAIFeaturesEnabled()` hook / helper for component AI feature checks 25dbe65
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Database Migration & Core State Infrastructure' (Protocol in workflow.md) 06a69bb
 
-## Phase 2: Settings UI & User Opt-in Toggle
+## Phase 2: Settings UI & User Opt-in Toggle [checkpoint: 971e698]
 - [x] Task: Build `AISettings` component with toggle switch (default OFF) and descriptive opt-in copy 5098819
 - [x] Task: Integrate `AISettings` into `app/settings/page.tsx` da52081
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Settings UI & User Opt-in Toggle' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Settings UI & User Opt-in Toggle' (Protocol in workflow.md) 971e698
 
 ## Phase 3: Conditional AI Insights in Winery Modal & Varietals Tab
 - [ ] Task: Update `components/winery-modal.tsx` to conditionally render "AI Insights" tab (mobile & desktop) based on AI feature state, with tab fallback to "Community"
