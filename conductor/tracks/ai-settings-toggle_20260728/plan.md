@@ -3,7 +3,7 @@
 This plan outlines the TDD-driven tasks for implementing the AI features toggle setting, defaulting to OFF, hiding AI components when disabled, and establishing an extensible AI capability system.
 
 ## Phase 1: Database Migration & Core State Infrastructure
-- [ ] Task: Create database migration for `ai_enabled` column on user profiles (default `false`)
+- [x] Task: Create database migration for `ai_enabled` column on user profiles (default `false`) b6b1805
 - [ ] Task: Update `User` interface & `userStore` to support `ai_enabled` state and offline-friendly sync (`updateAIEnabled`)
 - [ ] Task: Create extensible `useAIFeaturesEnabled()` hook / helper for component AI feature checks
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Database Migration & Core State Infrastructure' (Protocol in workflow.md)
