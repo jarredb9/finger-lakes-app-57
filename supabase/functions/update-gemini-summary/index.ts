@@ -91,10 +91,14 @@ export const handler = async (req: Request): Promise<Response> => {
     const prompt = `${basePrompt}
 
 Also extract or generate 3-4 concise vibe/specialty tags (e.g. "Riesling Specialist", "Dog Friendly", "Sunset Views", "EV Charging", "Historic Tasting Room").
+Also extract 2-4 key wine varietals offered or noted for this winery with estimated flavor profiles (sweetness 1-10 rating from dry to sweet, body 1-10 rating from light to full).
 You MUST respond with a JSON object. Do not include markdown code block formatting (like \`\`\`json). The JSON structure must be:
 {
   "summary": "Your 2-3 sentence summary here",
-  "vibe_tags": ["Tag 1", "Tag 2", "Tag 3"]
+  "vibe_tags": ["Tag 1", "Tag 2", "Tag 3"],
+  "varietals": [
+    { "name": "Dry Riesling", "description": "Crisp white wine with bright citrus acidity", "sweetness": 2, "body": 3 }
+  ]
 }`
 
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`
@@ -127,12 +131,14 @@ You MUST respond with a JSON object. Do not include markdown code block formatti
     // Parse JSON response safely, handling potential code block markdown wrapper
     let summaryText = ''
     let vibeTags: string[] = []
+    let varietals: Array<{ name: string; description?: string; sweetness?: number; body?: number; price?: string }> = []
 
     try {
       const cleanedJson = rawText.replace(/^```json\s*/i, '').replace(/```$/, '').trim()
       const parsed = JSON.parse(cleanedJson)
       summaryText = parsed.summary || ''
       vibeTags = Array.isArray(parsed.vibe_tags) ? parsed.vibe_tags : []
+      varietals = Array.isArray(parsed.varietals) ? parsed.varietals : []
     } catch (_e) {
       // Fallback in case Gemini returns plain text instead of JSON
       summaryText = rawText
@@ -144,14 +150,17 @@ You MUST respond with a JSON object. Do not include markdown code block formatti
 
     const generativeSummary = { overview: { text: summaryText } }
 
-    // 5. Update the winery's generative_summary, vibe_tags and last_enriched_at
+    // 5. Update the winery's generative_summary, vibe_tags, varietals, and last_enriched_at
+    const updatePayload: Record<string, any> = {
+      generative_summary: generativeSummary,
+      vibe_tags: vibeTags,
+      varietals: varietals,
+      last_enriched_at: new Date().toISOString()
+    }
+
     const { error: updateError } = await supabaseClient
       .from('wineries')
-      .update({
-        generative_summary: generativeSummary,
-        vibe_tags: vibeTags,
-        last_enriched_at: new Date().toISOString()
-      })
+      .update(updatePayload)
       .eq('id', wineryId)
 
     if (updateError) {
@@ -161,9 +170,10 @@ You MUST respond with a JSON object. Do not include markdown code block formatti
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: 'Summary and vibe tags updated successfully', 
+        message: 'Summary, vibe tags, and varietals updated successfully', 
         generative_summary: generativeSummary,
-        vibe_tags: vibeTags
+        vibe_tags: vibeTags,
+        varietals: varietals
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
