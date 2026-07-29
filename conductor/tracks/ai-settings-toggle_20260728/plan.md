@@ -13,10 +13,10 @@ This plan outlines the TDD-driven tasks for implementing the AI features toggle 
 - [x] Task: Integrate `AISettings` into `app/settings/page.tsx` da52081
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Settings UI & User Opt-in Toggle' (Protocol in workflow.md) 971e698
 
-## Phase 3: Conditional AI Insights in Winery Modal & Varietals Tab
-- [ ] Task: Update `components/winery-modal.tsx` to conditionally render "AI Insights" tab (mobile & desktop) based on AI feature state, with tab fallback to "Community"
-- [ ] Task: Update `components/WineryVarietalsTab.tsx` to conditionally hide AI tasting insights when AI features are OFF
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Conditional AI Insights in Winery Modal & Varietals Tab' (Protocol in workflow.md)
+## Phase 3: Conditional AI Insights in Winery Modal & Varietals Tab [checkpoint: 8533c77]
+- [x] Task: Update `components/winery-modal.tsx` to conditionally render "AI Insights" tab (mobile & desktop) based on AI feature state, with tab fallback to "Community" 8600c02
+- [x] Task: Update `components/WineryVarietalsTab.tsx` to conditionally hide AI tasting insights when AI features are OFF 8600c02
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Conditional AI Insights in Winery Modal & Varietals Tab' (Protocol in workflow.md) 8533c77
 
 ## Phase 4: E2E Verification & Test Suite Updates
 - [ ] Task: Update existing E2E tests (e.g. `e2e/winery-modal.spec.ts`) to test both default OFF state (verifying tab absence) and opted-in ON state (verifying tab presence & interaction)
