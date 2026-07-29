@@ -9,7 +9,7 @@ This plan outlines the TDD-driven tasks for implementing the AI features toggle 
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Database Migration & Core State Infrastructure' (Protocol in workflow.md) 06a69bb
 
 ## Phase 2: Settings UI & User Opt-in Toggle
-- [ ] Task: Build `AISettings` component with toggle switch (default OFF) and descriptive opt-in copy
+- [x] Task: Build `AISettings` component with toggle switch (default OFF) and descriptive opt-in copy 5098819
 - [ ] Task: Integrate `AISettings` into `app/settings/page.tsx`
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Settings UI & User Opt-in Toggle' (Protocol in workflow.md)
 
