@@ -48,7 +48,11 @@ const DrawerContent = React.forwardRef<
       )}
       {...props}
     >
-      <div data-testid="drawer-drag-handle" className="absolute top-2.5 left-1/2 -translate-x-1/2 z-30 h-1.5 w-12 rounded-full bg-white/70 backdrop-blur-md shadow-xs pointer-events-none" />
+      <div 
+        data-testid="drawer-drag-handle" 
+        aria-hidden="true"
+        className="absolute top-2.5 left-1/2 -translate-x-1/2 z-30 h-1.5 w-12 rounded-full bg-foreground/20 pointer-events-none" 
+      />
       {children}
     </DrawerPrimitive.Content>
   </DrawerPortal>

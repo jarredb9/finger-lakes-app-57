@@ -272,6 +272,28 @@ describe('WineryModal Redesign', () => {
       expect(screen.getByRole('tab', { name: /AI Insights/i })).toBeInTheDocument();
     });
   });
+
+  describe('Drawer UX Affordances & Accessibility', () => {
+    beforeEach(() => {
+      Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 375 });
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    it('renders Option B title card with right-aligned chevron expand button on mobile', () => {
+      render(<WineryModal />);
+
+      const dragHandle = screen.getByTestId('drawer-drag-handle');
+      expect(dragHandle).toBeInTheDocument();
+
+      const titleCard = screen.getByTestId('drawer-title-card');
+      expect(titleCard).toBeInTheDocument();
+      expect(within(titleCard).getByText('Test Modal Winery')).toBeInTheDocument();
+
+      const expandButton = screen.getByTestId('drawer-expand-chevron-button');
+      expect(expandButton).toBeInTheDocument();
+    });
+  });
 });
+
 
 

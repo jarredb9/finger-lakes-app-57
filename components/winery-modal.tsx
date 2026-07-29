@@ -5,7 +5,7 @@ import useEmblaCarousel from "embla-carousel-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
-import { Clock, Calendar as CalendarIcon, Star, Pencil, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Clock, Calendar as CalendarIcon, Star, Pencil, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
 import { WineryDetails, WineryImage } from "./WineryDetails";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
@@ -684,7 +684,7 @@ function HeroPhotoCarousel({
           </div>
         </div>
 
-        {/* Translucent Floating Title Card (Tappable to cycle snap points) */}
+        {/* Option B: Translucent Floating Title Card with Right-Aligned Expand Chevron Button */}
         <div 
           data-testid="drawer-title-card"
           onClick={() => {
@@ -692,18 +692,34 @@ function HeroPhotoCarousel({
             setSnapPoint(nextSnap);
           }}
           className={`px-4 relative z-20 cursor-pointer -mt-10`}
+          role="button"
+          aria-label={isPeek ? "Tap for more details" : isHalf ? "Tap for full details" : "Tap to collapse view"}
         >
-          <div className="bg-background/85 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-3 sm:p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center gap-1 text-center max-w-sm mx-auto">
-            <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight">{activeWinery.name}</h2>
-            <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-muted-foreground font-medium">
-              {activeWinery.rating && (
-                <div className="flex items-center gap-1">
-                  <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
-                  <span className="text-foreground font-semibold">{activeWinery.rating}</span>
-                  <span className="px-1 text-muted-foreground/40">|</span>
-                </div>
+          <div className="bg-background/85 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-3 sm:p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center justify-between gap-3 max-w-sm mx-auto group hover:border-primary/40 transition-colors">
+            <div className="flex-1 min-w-0 text-left">
+              <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight truncate">{activeWinery.name}</h2>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground font-medium mt-0.5">
+                {activeWinery.rating && (
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
+                    <span className="text-foreground font-semibold">{activeWinery.rating}</span>
+                    <span className="px-1 text-muted-foreground/40">|</span>
+                  </div>
+                )}
+                <span className="truncate">{activeWinery.address}</span>
+              </div>
+            </div>
+
+            {/* Dedicated Right-Aligned Chevron Expand Button */}
+            <div 
+              data-testid="drawer-expand-chevron-button"
+              className="shrink-0 w-8 h-8 rounded-full bg-muted/80 border border-border/40 flex items-center justify-center text-muted-foreground group-hover:text-foreground group-hover:bg-muted transition-all shadow-xs"
+            >
+              {isFull ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronUp className="w-4 h-4" />
               )}
-              <span className="line-clamp-1">{activeWinery.address}</span>
             </div>
           </div>
         </div>
