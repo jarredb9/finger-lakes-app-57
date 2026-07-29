@@ -194,6 +194,8 @@
     - [x] Add `getEquivalentWineryIds` in `e2e/utils.ts` to normalize ID matching across `dbId`, `google_place_id`, and string IDs.
     - [x] Refactor `e2e/winery-modal.spec.ts` and `e2e/winery-modal-amenities.spec.ts` to consume `openWineryModalState`.
     - [x] Add `{ fullDrawer?: boolean }` options support to `openWineryDetails` in `e2e/helpers.ts`.
+- [x] Task: Enable useRealVisits in item-privacy.spec.ts to fix real RPC mock split-brain [commit: e84227d]
+    - [x] Enable `managerA.useRealVisits()` and `managerB.useRealVisits()` to ensure consistency when querying `get_friend_profile_with_visits` via real local Supabase RPCs.
 
 ## Post-Deployment Steps
 - [ ] Task: Reset Enrichment Cache in Production
