@@ -91,16 +91,16 @@ async function populate() {
 
       const mockVarietalsPool = [
         [
-          { name: "Dry Riesling", dryness: 2, body: 3, price: "$22", description: "Crisp acidity with notes of green apple and mineral finish." },
-          { name: "Cabernet Franc", dryness: 1, body: 6, price: "$28", description: "Medium-bodied red with aromas of dark cherry and light spice." }
+          { name: "Dry Riesling", sweetness: 2, dryness: 2, body: 3, price: "$22", description: "Crisp acidity with notes of green apple and mineral finish." },
+          { name: "Cabernet Franc", sweetness: 1, dryness: 1, body: 6, price: "$28", description: "Medium-bodied red with aromas of dark cherry and light spice." }
         ],
         [
-          { name: "Semi-Dry Riesling", dryness: 4, body: 3, price: "$20", description: "Subtle sweetness balanced by bright citrus notes." },
-          { name: "Chardonnay", dryness: 1, body: 5, price: "$25", description: "Rich and buttery with vanilla oak finish." }
+          { name: "Semi-Dry Riesling", sweetness: 4, dryness: 4, body: 3, price: "$20", description: "Subtle sweetness balanced by bright citrus notes." },
+          { name: "Chardonnay", sweetness: 1, dryness: 1, body: 5, price: "$25", description: "Rich and buttery with vanilla oak finish." }
         ],
         [
-          { name: "Pinot Noir", dryness: 1, body: 4, price: "$32", description: "Elegant red with raspberry aromas and smooth tannins." },
-          { name: "Gewürztraminer", dryness: 3, body: 4, price: "$24", description: "Aromatic white with notes of lychee and spice." }
+          { name: "Pinot Noir", sweetness: 1, dryness: 1, body: 4, price: "$32", description: "Elegant red with raspberry aromas and smooth tannins." },
+          { name: "Gewürztraminer", sweetness: 3, dryness: 3, body: 4, price: "$24", description: "Aromatic white with notes of lychee and spice." }
         ]
       ];
 
