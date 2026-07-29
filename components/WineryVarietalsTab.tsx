@@ -5,7 +5,7 @@ import { Wine, Sparkles } from "lucide-react";
 
 interface WineryVarietalsTabProps {
   varietals?: WineryVarietal[];
-  geminiTastingNotes?: string;
+  geminiTastingNotes?: string | { overview?: { text?: string }; text?: string } | null;
   reviews?: Array<{ text?: string; user_review?: string }> | null;
 }
 
@@ -23,7 +23,7 @@ const COMMON_VARIETALS = [
   "Sparkling Wine",
 ];
 
-export default function WineryVarietalsTab({
+export function WineryVarietalsTab({
   varietals,
   geminiTastingNotes,
   reviews = [],
@@ -67,7 +67,9 @@ export default function WineryVarietalsTab({
       {(() => {
         const notesText = typeof geminiTastingNotes === 'string' 
           ? geminiTastingNotes 
-          : (geminiTastingNotes as any)?.overview?.text || (geminiTastingNotes as any)?.text;
+          : (typeof geminiTastingNotes === 'object' && geminiTastingNotes !== null 
+              ? (geminiTastingNotes.overview?.text || geminiTastingNotes.text) 
+              : undefined);
         if (!notesText) return null;
         return (
           <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3.5 space-y-1.5">
@@ -166,3 +168,5 @@ export default function WineryVarietalsTab({
     </div>
   );
 }
+
+export default WineryVarietalsTab;

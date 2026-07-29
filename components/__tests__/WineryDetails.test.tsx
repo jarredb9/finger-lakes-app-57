@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import WineryDetails from '../WineryDetails';
+import { WineryDetails } from '../WineryDetails';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
 import { useWineryStore } from '@/lib/stores/wineryStore';
 

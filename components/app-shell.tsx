@@ -32,7 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMounted } from "@/hooks/use-mounted";
 
-const WineryModal = dynamic(() => import("@/components/winery-modal"), {
+const WineryModal = dynamic(() => import("@/components/winery-modal").then((mod) => mod.WineryModal), {
     ssr: false,
 });
 

@@ -6,19 +6,18 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
 import { Clock, Calendar as CalendarIcon, Star, Pencil, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { WineryImage } from "./WineryDetails";
+import { WineryDetails, WineryImage } from "./WineryDetails";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useVisitStore } from "@/lib/stores/visitStore";
 import { useToast } from "@/hooks/use-toast";
-import { Visit } from "@/lib/types";
+import { Visit, Winery } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { shallow } from "zustand/shallow";
 
-import WineryDetails from "./WineryDetails";
-import WineryActionsPresentational from "./WineryActionsPresentational";
-import WineryCommunityTab from "./WineryCommunityTab";
-import WineryVarietalsTab from "./WineryVarietalsTab";
+import { WineryActionsPresentational } from "./WineryActionsPresentational";
+import { WineryCommunityTab } from "./WineryCommunityTab";
+import { WineryVarietalsTab } from "./WineryVarietalsTab";
 import { WineryWeatherWidget } from "./WineryWeatherWidget";
 import TripPlannerSection from "./TripPlannerSection";
 import VisitCardHistory from "./VisitCardHistory";
@@ -32,7 +31,7 @@ import { getWineryVibeTags } from "@/lib/utils/winery";
 
 
 
-export default function WineryModal() {
+export function WineryModal() {
   const { isWineryModalOpen, activeWineryId, closeWineryModal: closeWineryModalRaw, openVisitForm } = useUIStore();
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
 
@@ -470,7 +469,7 @@ function HeroPhotoCarousel({
   isLightbox = false,
   onPhotoSelect
 }: { 
-  winery: any; 
+  winery: Winery; 
   isFull?: boolean; 
   isMobile?: boolean; 
   onPhotoClick?: (photoRef: string) => void;
@@ -849,7 +848,7 @@ function HeroPhotoCarousel({
             <div className="flex-1 flex flex-col min-h-0 overflow-hidden" data-testid="drawer-scroll-container">
               {renderMobileLayout()}
             </div>
-            {lightboxPhoto && createPortal(
+            {activeWinery && lightboxPhoto && createPortal(
               <div 
                 className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto"
                 data-testid="photo-lightbox-modal"
@@ -878,7 +877,7 @@ function HeroPhotoCarousel({
                 >
                   <div className="h-full w-full overflow-hidden rounded-lg">
                     <HeroPhotoCarousel
-                      winery={activeWinery!}
+                      winery={activeWinery}
                       isFull={true}
                       isMobile={false}
                       initialPhotoRef={lightboxPhoto}
@@ -913,7 +912,7 @@ function HeroPhotoCarousel({
             </DialogDescription>
           </DialogHeader>
           {renderDesktopLayout()}
-          {lightboxPhoto && createPortal(
+          {activeWinery && lightboxPhoto && createPortal(
             <div 
               className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto"
               data-testid="photo-lightbox-modal"
@@ -942,7 +941,7 @@ function HeroPhotoCarousel({
               >
                 <div className="h-full w-full overflow-hidden rounded-lg">
                   <HeroPhotoCarousel
-                    winery={activeWinery!}
+                    winery={activeWinery}
                     isFull={true}
                     isMobile={false}
                     initialPhotoRef={lightboxPhoto}
@@ -959,3 +958,5 @@ function HeroPhotoCarousel({
     </>
   );
 }
+
+export default WineryModal;

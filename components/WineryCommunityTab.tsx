@@ -11,7 +11,7 @@ interface WineryCommunityTabProps {
   wineryDbId: WineryDbId | null;
 }
 
-export default function WineryCommunityTab({ wineryDbId }: WineryCommunityTabProps) {
+export function WineryCommunityTab({ wineryDbId }: WineryCommunityTabProps) {
   const { friendsActivity = { favoritedBy: [], wishlistedBy: [] }, fetchFriendDataForWinery, friendsRatings = [] } = useFriendStore();
 
   useEffect(() => {
@@ -123,3 +123,5 @@ export default function WineryCommunityTab({ wineryDbId }: WineryCommunityTabPro
     </div>
   );
 }
+
+export default WineryCommunityTab;

@@ -1,5 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
-import WineryModal from '../winery-modal';
+import { WineryModal } from '../winery-modal';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
 import { useUIStore } from '@/lib/stores/uiStore';
 import { useWineryDataStore } from '@/lib/stores/wineryDataStore';
@@ -16,11 +16,18 @@ jest.mock('@/hooks/use-toast', () => ({
 }));
 
 // Mock the sub-components that are not the focus of this test
-jest.mock('../WineryDetails', () => {
-  return function DummyWineryDetails() {
+jest.mock('../WineryDetails', () => ({
+  __esModule: true,
+  WineryDetails: function DummyWineryDetails() {
     return <div data-testid="winery-details">WineryDetails</div>;
-  };
-});
+  },
+  WineryImage: function DummyWineryImage() {
+    return <div data-testid="winery-image">WineryImage</div>;
+  },
+  default: function DummyWineryDetails() {
+    return <div data-testid="winery-details">WineryDetails</div>;
+  },
+}));
 
 jest.mock('../TripPlannerSection', () => {
   return function DummyTripPlanner() {
