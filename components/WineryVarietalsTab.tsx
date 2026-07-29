@@ -1,7 +1,7 @@
-// components/WineryVarietalsTab.tsx
 import React from "react";
 import { WineryVarietal } from "@/lib/types";
 import { Wine, Sparkles } from "lucide-react";
+import { useAIFeaturesEnabled } from "@/hooks/use-ai-features";
 
 interface WineryVarietalsTabProps {
   varietals?: WineryVarietal[];
@@ -28,6 +28,7 @@ export function WineryVarietalsTab({
   geminiTastingNotes,
   reviews = [],
 }: WineryVarietalsTabProps) {
+  const isAIEnabled = useAIFeaturesEnabled();
   // If no explicit varietals provided, perform fallback scanning of reviews
   const activeVarietals: WineryVarietal[] = React.useMemo(() => {
     if (varietals && varietals.length > 0) {
@@ -65,6 +66,7 @@ export function WineryVarietalsTab({
     <div className="space-y-4" data-testid="varietals-tab-content">
       {/* Gemini AI Tasting Notes */}
       {(() => {
+        if (!isAIEnabled) return null;
         const notesText = typeof geminiTastingNotes === 'string' 
           ? geminiTastingNotes 
           : (typeof geminiTastingNotes === 'object' && geminiTastingNotes !== null 

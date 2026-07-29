@@ -52,7 +52,13 @@ const mockWinery = createMockWinery({
   wishlistIsPrivate: true,
 });
 
+import { useUserStore } from '@/lib/stores/userStore';
+
 function setupStores() {
+  useUserStore.setState({
+    user: { id: 'test-user', ai_enabled: false },
+    isLoading: false,
+  });
   useUIStore.setState({
     isWineryModalOpen: true,
     activeWineryId: TEST_WINERY_ID,
@@ -88,6 +94,8 @@ function setupStores() {
     isStreetViewActive: false,
     map: null,
   });
+  Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1024 });
+  window.dispatchEvent(new Event('resize'));
 }
 
 describe('WineryModal Redesign', () => {
@@ -246,6 +254,22 @@ describe('WineryModal Redesign', () => {
       render(<WineryModal />);
       
       expect(screen.queryByTestId('vibe-tags-scroller')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('AI Insights Tab Visibility', () => {
+    it('hides AI Insights tab when ai_enabled is false (default)', () => {
+      useUserStore.setState({ user: { id: 'test-user', ai_enabled: false } });
+      render(<WineryModal />);
+
+      expect(screen.queryByRole('tab', { name: /AI Insights/i })).not.toBeInTheDocument();
+    });
+
+    it('shows AI Insights tab when ai_enabled is true', () => {
+      useUserStore.setState({ user: { id: 'test-user', ai_enabled: true } });
+      render(<WineryModal />);
+
+      expect(screen.getByRole('tab', { name: /AI Insights/i })).toBeInTheDocument();
     });
   });
 });

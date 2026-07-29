@@ -28,6 +28,7 @@ import { isOpenNow } from "@/lib/utils/opening-hours";
 import { MapNavigation } from "./MapNavigation";
 import { Navigation } from "lucide-react";
 import { getWineryVibeTags } from "@/lib/utils/winery";
+import { useAIFeaturesEnabled } from "@/hooks/use-ai-features";
 
 
 
@@ -64,9 +65,16 @@ export function WineryModal() {
 
 
   const { map } = useMapStore();
+  const isAIEnabled = useAIFeaturesEnabled();
 
   const [activeTab, setActiveTab] = useState<"community" | "amenities" | "ai_insights" | "varietals" | "visits" | "trip">("community");
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
+
+  useEffect(() => {
+    if (!isAIEnabled && activeTab === "ai_insights") {
+      setActiveTab("community");
+    }
+  }, [isAIEnabled, activeTab]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -261,7 +269,7 @@ export function WineryModal() {
       {[
         { id: "community", label: "Community" },
         { id: "amenities", label: "Amenities" },
-        { id: "ai_insights", label: "AI Insights" },
+        ...(isAIEnabled ? [{ id: "ai_insights", label: "AI Insights" }] : []),
         { id: "varietals", label: "Varietals" },
         { id: "visits", label: "Visits" },
         { id: "trip", label: "Trip" }
@@ -294,7 +302,11 @@ export function WineryModal() {
       case "amenities":
         return <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="logistics" />;
       case "ai_insights":
-        return <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="ai_insights" />;
+        return isAIEnabled ? (
+          <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="ai_insights" />
+        ) : (
+          <WineryCommunityTab wineryDbId={activeWinery.dbId ?? null} />
+        );
       case "varietals":
         return (
           <WineryVarietalsTab 
