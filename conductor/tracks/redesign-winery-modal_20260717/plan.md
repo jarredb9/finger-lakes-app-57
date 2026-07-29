@@ -194,8 +194,12 @@
     - [x] Add `getEquivalentWineryIds` in `e2e/utils.ts` to normalize ID matching across `dbId`, `google_place_id`, and string IDs.
     - [x] Refactor `e2e/winery-modal.spec.ts` and `e2e/winery-modal-amenities.spec.ts` to consume `openWineryModalState`.
     - [x] Add `{ fullDrawer?: boolean }` options support to `openWineryDetails` in `e2e/helpers.ts`.
-- [x] Task: Enable useRealVisits in item-privacy.spec.ts to fix real RPC mock split-brain [commit: e84227d]
-    - [x] Enable `managerA.useRealVisits()` and `managerB.useRealVisits()` to ensure consistency when querying `get_friend_profile_with_visits` via real local Supabase RPCs.
+- [x] Task: Apply styleguide and type safety review suggestions [commit: a746223]
+    - [x] Add named exports alongside default aliases across core components (`WineryModal`, `WineryDetails`, `WineryActionsPresentational`, `WineryCommunityTab`, `WineryVarietalsTab`).
+    - [x] Refactor unsafe `any` type casting and parameter types to `unknown` in `WineryDetails.tsx`, `WineryVarietalsTab.tsx`, and `lib/utils/winery.ts`.
+    - [x] Guard `activeWinery` rendering in mobile and desktop lightbox portals in `winery-modal.tsx`.
+    - [x] Remove syntax noise (double semicolon `;;`) in `lib/utils/winery.ts`.
+    - [x] Update Jest test suite component mocks to support named exports (`winery-modal.test.tsx`, `WineryDetails.test.tsx`, `WineryVarietalsTab.test.tsx`).
 
 ## Post-Deployment Steps
 - [ ] Task: Reset Enrichment Cache in Production
