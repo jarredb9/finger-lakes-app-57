@@ -10,7 +10,7 @@ This plan outlines the TDD-driven tasks for implementing the AI features toggle 
 
 ## Phase 2: Settings UI & User Opt-in Toggle
 - [x] Task: Build `AISettings` component with toggle switch (default OFF) and descriptive opt-in copy 5098819
-- [ ] Task: Integrate `AISettings` into `app/settings/page.tsx`
+- [x] Task: Integrate `AISettings` into `app/settings/page.tsx` da52081
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Settings UI & User Opt-in Toggle' (Protocol in workflow.md)
 
 ## Phase 3: Conditional AI Insights in Winery Modal & Varietals Tab
