@@ -98,7 +98,7 @@ test.describe('Winery Modal Consolidated Suite', () => {
   });
 
   test.describe('Navigation Tabs & Quick Actions', () => {
-    test('switches across tabs (Community, Amenities, AI Insights, Visits, Trip)', async ({ page }) => {
+    test('switches across tabs and respects AI features preference (default OFF vs ON)', async ({ page }) => {
       await seedWineryAndOpenModal(page, 3, 'The Phantom Cellar', { fullDrawer: true });
 
       const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
@@ -110,9 +110,10 @@ test.describe('Winery Modal Consolidated Suite', () => {
       const visitsTab = modal.getByRole('tab', { name: /Visits/i });
       const tripTab = modal.getByRole('tab', { name: /Trip/i });
 
+      // By default (ai_enabled = false), AI Insights tab should NOT be visible
       await expect(communityTab).toBeVisible();
       await expect(amenitiesTab).toBeVisible();
-      await expect(aiInsightsTab).toBeVisible();
+      await expect(aiInsightsTab).not.toBeVisible();
       await expect(visitsTab).toBeVisible();
       await expect(tripTab).toBeVisible();
 
@@ -125,6 +126,17 @@ test.describe('Winery Modal Consolidated Suite', () => {
       await tripTab.click();
       await expect(modal.getByTestId('trip-planner-section')).toBeVisible();
 
+      // Enable AI features via store state injection
+      await page.evaluate(() => {
+        const userStore = (window as any).useUserStore;
+        if (userStore) {
+          const current = userStore.getState();
+          userStore.setState({ user: { ...current.user, ai_enabled: true } });
+        }
+      });
+
+      // AI Insights tab should now be visible and clickable
+      await expect(aiInsightsTab).toBeVisible();
       await aiInsightsTab.click();
       const insightsContainer = modal.getByTestId('gemini-summary');
       await expect(insightsContainer).toBeVisible();
