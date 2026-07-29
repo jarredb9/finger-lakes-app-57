@@ -5,7 +5,7 @@ This plan outlines the TDD-driven tasks for implementing the AI features toggle 
 ## Phase 1: Database Migration & Core State Infrastructure
 - [x] Task: Create database migration for `ai_enabled` column on user profiles (default `false`) b6b1805
 - [x] Task: Update `User` interface & `userStore` to support `ai_enabled` state and offline-friendly sync (`updateAIEnabled`) 52e4cd3
-- [ ] Task: Create extensible `useAIFeaturesEnabled()` hook / helper for component AI feature checks
+- [x] Task: Create extensible `useAIFeaturesEnabled()` hook / helper for component AI feature checks 25dbe65
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Database Migration & Core State Infrastructure' (Protocol in workflow.md)
 
 ## Phase 2: Settings UI & User Opt-in Toggle
