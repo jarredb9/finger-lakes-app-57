@@ -23,7 +23,7 @@ export class ProfileService {
           full_name: data.name || 'User',
           email: data.email || '',
           privacy_level: data.privacy_level,
-          ai_enabled: (data as any).ai_enabled ?? false,
+          ai_enabled: data.ai_enabled ?? false,
         };
       }
       
