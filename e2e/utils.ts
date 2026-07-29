@@ -119,6 +119,7 @@ export class MockMapsManager {
   private mocksRegistered = false;
   private initialized = false;
   private workerIndex: number;
+  private userProfilesState: Record<string, Partial<Profile>> = {};
 
   constructor(private page: Page, state?: MockMapsState, workerIndex: number = 0) {
       this.state = state || createDefaultMockState();
@@ -482,7 +483,21 @@ export class MockMapsManager {
         const idMatch = req.url().match(/id=eq\.([^&]+)/);
         const requestedId = idMatch ? idMatch[1] : this.currentUserId;
         
-        const profile: Profile = { id: requestedId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' };
+        if (req.method() === 'PATCH') {
+            try {
+                const postData = req.postDataJSON();
+                if (postData) {
+                    this.userProfilesState[requestedId] = {
+                        ...(this.userProfilesState[requestedId] || {}),
+                        ...postData
+                    };
+                }
+            } catch (e) {}
+            return route.fulfill({ status: 200, headers: commonHeaders, body: JSON.stringify([]) });
+        }
+
+        const baseProfile: Profile = { id: requestedId, name: 'Test User', email: 'test@example.com', privacy_level: 'public', ai_enabled: false };
+        const profile: Profile = { ...baseProfile, ...(this.userProfilesState[requestedId] || {}) };
         const body = req.headers()['accept']?.includes('application/vnd.pgrst.object+json') 
             ? JSON.stringify(profile) 
             : JSON.stringify([profile]);
@@ -811,8 +826,8 @@ export class MockMapsManager {
             const postData = JSON.parse(req.postData() || '{}');
             const targetEmail = postData.target_email || postData.p_friend_email;
             if (!this.state.social) this.state.social = { friends: [], pending_incoming: [], pending_outgoing: [] };
-            this.state.social.pending_outgoing.push({ id: 'mock-target-id', name: (targetEmail || 'unknown').split('@')[0], email: targetEmail || 'unknown@example.com', privacy_level: 'public' });
-            this.state.social.pending_incoming.push({ id: this.currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public' });
+            this.state.social.pending_outgoing.push({ id: 'mock-target-id', name: (targetEmail || 'unknown').split('@')[0], email: targetEmail || 'unknown@example.com', privacy_level: 'public', ai_enabled: false });
+            this.state.social.pending_incoming.push({ id: this.currentUserId, name: 'Test User', email: 'test@example.com', privacy_level: 'public', ai_enabled: false });
             return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
         }
         
@@ -905,7 +920,7 @@ export class MockMapsManager {
                 });
             }
 
-            const profile: Profile = { id: friendId, name: 'Mock Friend', email: 'friend@example.com', privacy_level: 'public' };
+            const profile: Profile = { id: friendId, name: 'Mock Friend', email: 'friend@example.com', privacy_level: 'public', ai_enabled: false };
             return route.fulfill({ 
                 status: 200, 
                 contentType: 'application/json', 
