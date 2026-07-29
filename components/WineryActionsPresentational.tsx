@@ -14,7 +14,7 @@ interface WineryActionsPresentationalProps {
   showLogVisit?: boolean;
 }
 
-export default function WineryActionsPresentational({ 
+export function WineryActionsPresentational({ 
   winery, 
   onLogVisit, 
   onStreetView,
@@ -145,3 +145,5 @@ export default function WineryActionsPresentational({
     </div>
   );
 }
+
+export default WineryActionsPresentational;

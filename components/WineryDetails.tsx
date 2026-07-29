@@ -133,7 +133,7 @@ function AccordionAttributeStatus({ value, questionId, onSelectQuestion }: Attri
   );
 }
 
-export default function WineryDetails({ winery, loadingWineryId, mode = "full" }: WineryDetailsProps) {
+export function WineryDetails({ winery, loadingWineryId, mode = "full" }: WineryDetailsProps) {
   const [showAllHours, setShowAllHours] = useState(false);
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -493,11 +493,13 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
   };
 
   const renderAIInsights = () => {
-    const getSummaryText = (summary: any): string | null => {
+    const getSummaryText = (summary: unknown): string | null => {
       if (!summary) return null;
       if (typeof summary === 'string') return summary;
-      if (typeof summary === 'object') {
-        return summary.overview?.text || summary.text || null;
+      if (typeof summary === 'object' && summary !== null) {
+        const s = summary as Record<string, unknown>;
+        const overview = s.overview as Record<string, unknown> | undefined;
+        return (typeof overview?.text === 'string' ? overview.text : null) || (typeof s.text === 'string' ? s.text : null);
       }
       return null;
     };
@@ -736,3 +738,5 @@ export default function WineryDetails({ winery, loadingWineryId, mode = "full" }
     </div>
   );
 }
+
+export default WineryDetails;

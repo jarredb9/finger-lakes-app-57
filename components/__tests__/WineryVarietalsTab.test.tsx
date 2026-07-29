@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { render, screen } from '@testing-library/react';
 // @ts-ignore
-import WineryVarietalsTab from '../WineryVarietalsTab';
+import { WineryVarietalsTab } from '../WineryVarietalsTab';
 
 describe('WineryVarietalsTab Unit Tests', () => {
   const mockVarietals = [

@@ -287,7 +287,7 @@ export const standardizeWineryData = (
   const favoriteIsPrivate = rawFavPriv !== undefined ? (rawFavPriv || (existing?.favoriteIsPrivate ?? false)) : (existing?.favoriteIsPrivate ?? false);
 
   const rawWishPriv = source.on_wishlist_private !== undefined ? Boolean(source.on_wishlist_private) : (source.wishlist_is_private !== undefined ? Boolean(source.wishlist_is_private) : (source.wishlistIsPrivate !== undefined ? Boolean(source.wishlistIsPrivate) : undefined));
-  const wishlistIsPrivate = rawWishPriv !== undefined ? (rawWishPriv || (existing?.wishlistIsPrivate ?? false)) : (existing?.wishlistIsPrivate ?? false);;
+  const wishlistIsPrivate = rawWishPriv !== undefined ? (rawWishPriv || (existing?.wishlistIsPrivate ?? false)) : (existing?.wishlistIsPrivate ?? false);
 
   // Enrichment (Places API v1)
   const lastEnrichedAt = source.last_enriched_at || existing?.last_enriched_at;
