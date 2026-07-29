@@ -208,18 +208,21 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ai_enabled: boolean
           email: string | null
           id: string
           name: string | null
           privacy_level: Database["public"]["Enums"]["privacy_level"] | null
         }
         Insert: {
+          ai_enabled?: boolean
           email?: string | null
           id: string
           name?: string | null
           privacy_level?: Database["public"]["Enums"]["privacy_level"] | null
         }
         Update: {
+          ai_enabled?: boolean
           email?: string | null
           id?: string
           name?: string | null

@@ -18,9 +18,9 @@ This plan outlines the TDD-driven tasks for implementing the AI features toggle 
 - [x] Task: Update `components/WineryVarietalsTab.tsx` to conditionally hide AI tasting insights when AI features are OFF 8600c02
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Conditional AI Insights in Winery Modal & Varietals Tab' (Protocol in workflow.md) 8533c77
 
-## Phase 4: E2E Verification & Test Suite Updates
-- [ ] Task: Update existing E2E tests (e.g. `e2e/winery-modal.spec.ts`) to test both default OFF state (verifying tab absence) and opted-in ON state (verifying tab presence & interaction)
-- [ ] Task: Create new Playwright E2E test covering Settings page AI toggle interaction and persistence across page reloads
-- [ ] Task: Update Jest unit tests for `userStore` and presentational components to cover `ai_enabled` state
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: E2E Verification & Test Suite Updates' (Protocol in workflow.md)
+## Phase 4: E2E Verification & Test Suite Updates [checkpoint: d0fd30d]
+- [x] Task: Update existing E2E tests (e.g. `e2e/winery-modal.spec.ts`) to test both default OFF state (verifying tab absence) and opted-in ON state (verifying tab presence & interaction) 7652ad9
+- [x] Task: Create new Playwright E2E test covering Settings page AI toggle interaction and persistence across page reloads 7652ad9
+- [x] Task: Update Jest unit tests for `userStore` and presentational components to cover `ai_enabled` state 7652ad9
+- [x] Task: Conductor - User Manual Verification 'Phase 4: E2E Verification & Test Suite Updates' (Protocol in workflow.md) d0fd30d
 
