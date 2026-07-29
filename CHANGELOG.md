@@ -1,5 +1,37 @@
 # Changelog
 
+## [3.1.0] - 2026-07-29
+
+**Winery Modal Redesign, Opt-In AI Settings & AI Varietal Extraction**
+
+### 🚀 Features
+* **Redesign Winery Modal UX/UI**:
+    * **3-Tier Multi-Snap Drawer (Mobile)**: Implemented Apple Maps-style drawer snapping (`Peek ~300px`, `Half ~520px`, `Full 1.0`) with translucent title card, drag handle, and gesture dismissal.
+    * **Peek Snap Directives**: Added mandatory `🟢 OPEN NOW` / `🔴 CLOSED` status badge and swapped `Add to Trip` button with `Log Visit` CTA.
+    * **Hero Photo Carousel & Lightbox**: Added swipeable hero image preview with pagination indicators and full-screen lightbox modal.
+    * **Outdoor Weather Widget**: Integrated `WineryWeatherWidget` fetching real-time weather and tasting conditions (`weatherService`).
+    * **Vibe & Specialty Badges**: Added horizontal scroller with AI-enriched vibe and specialty badges (e.g., Riesling Specialist, Dog Friendly, EV Charging).
+    * **Varietals & Tasting Profile Tab**: Added dedicated tab with interactive flavor profile sliders (Dry ↔ Sweet, Light ↔ Full Body) and structured varietal notes.
+    * **Interactive Amenities & Reviews Side-Sheet**: Added sub-drawer/side-sheet overlay (`WineryQnA`) for review keyword search and amenity details.
+* **AI Features Toggle & User Preference (Opt-In / Default OFF)**:
+    * **Database Migration**: Added `ai_enabled` (boolean, default `false`) column to `public.profiles` table with backwards-compatible migration.
+    * **State & Store Integration**: Extended `userStore` and `User` model with `ai_enabled` property and `updateAIEnabled` offline-friendly sync action.
+    * **Settings UI**: Built `AISettings` section in `/settings` with opt-in switch toggle and clear disclosure copy.
+    * **Conditional Rendering & Global Hook**: Created `useAIFeaturesEnabled()` hook to conditionally hide "AI Insights" tab in `WineryModal` and AI notes in `WineryVarietalsTab` when disabled (falling back cleanly to "Community" tab).
+* **Gemini Edge Function Varietal Extraction**:
+    * Updated `update-gemini-summary` Supabase Edge Function to extract structured varietals data directly from winery review summaries and store them in the `wineries` table (`feat(ai)`).
+
+### ⚙ Database Schema & Migrations
+* Added migration `20260717000000_add_varietals_and_vibe_tags.sql` adding `varietals` (JSONB) and `vibe_tags` (text[]) columns to `public.wineries`.
+* Added migration `20260728000000_add_ai_enabled_to_profiles.sql` adding `ai_enabled` column to `public.profiles`.
+
+### 🛡 Security & Dependabot
+* Resolved `npm audit` findings and updated vulnerable sub-dependencies.
+
+### 🧪 Testing & E2E Verification
+* Overhauled `winery-modal.spec.ts`, `visual.spec.ts`, `pwa-offline.spec.ts`, and `privacy-flow.spec.ts` for multi-snap drawer states and AI toggle preferences.
+* Added Jest unit test suites for `AISettings`, `useAIFeaturesEnabled`, `WineryWeatherWidget`, and store updates.
+
 ## [3.0.0] - 2026-07-16
 
 **Mapbox GL JS Migration — Hybrid Map Architecture**
