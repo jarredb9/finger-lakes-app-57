@@ -4,10 +4,11 @@ import { getUser } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Settings } from "lucide-react";
 import PrivacySettings from "@/components/PrivacySettings";
+import AISettings from "@/components/AISettings";
 
 export const metadata = {
   title: "Settings | Winery Tracker",
-  description: "Manage your account and privacy settings.",
+  description: "Manage your account, privacy, and AI settings.",
 };
 
 export default async function SettingsPage() {
@@ -39,7 +40,11 @@ export default async function SettingsPage() {
                     <PrivacySettings />
                 </section>
 
-                {/* Future settings sections can be added here */}
+                <section>
+                    <h2 className="text-xl font-semibold mb-4">AI Features</h2>
+                    <AISettings />
+                </section>
+
                 <section className="pt-6 border-t">
                     <h2 className="text-xl font-semibold mb-2">Account</h2>
                     <p className="text-sm text-muted-foreground">
