@@ -309,6 +309,12 @@ export const SyncService = {
                   p_privacy_level: payload.level
                 });
                 error = pError;
+              } else if (payload.type === 'ai_enabled') {
+                const { error: aiError } = await supabase
+                  .from('profiles')
+                  .update({ ai_enabled: payload.enabled })
+                  .eq('id', user.id);
+                error = aiError;
               }
               break;
 

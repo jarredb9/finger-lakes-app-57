@@ -46,10 +46,10 @@ export default function VisitHistory({
               <div className="flex items-start justify-between">
                 <div className="flex-1 space-y-1">
                   <div className="flex items-center justify-between">
-                    {showWineryName && visit.wineries && (
+                    {showWineryName && (visit.wineries || (visit as any).winery) && (
                       <div className="flex items-center gap-1.5 text-primary mb-1">
                         <MapPin className="w-3.5 h-3.5" />
-                        <p className="text-sm font-bold tracking-tight uppercase">{visit.wineries.name}</p>
+                        <p className="text-sm font-bold tracking-tight uppercase">{(visit.wineries || (visit as any).winery).name}</p>
                       </div>
                     )}
                     {isPending && (
@@ -83,6 +83,7 @@ export default function VisitHistory({
                       onClick={() => onEditClick?.(visit)} 
                       aria-label="Edit visit"
                       disabled={isPending}
+                      data-testid="edit-visit-button"
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
@@ -103,15 +104,16 @@ export default function VisitHistory({
               </div>
               {visit.user_review && <p className="text-sm text-slate-700 bg-white p-3 rounded-md border">{visit.user_review}</p>}
               {visit.photos && visit.photos.length > 0 && editingVisitId !== String(visit.id) && (
-                <div className="flex gap-2 mt-2 flex-wrap">
+                <div className="flex gap-2 mt-2 overflow-x-auto pb-1 scrollbar-none">
                   {visit.photos.map((photoPath, index) => (
-                    <PhotoCard 
-                      key={index} 
-                      photoPath={photoPath} 
-                      onDelete={() => onTogglePhotoForDeletion?.(photoPath)} 
-                      isEditing={false} 
-                      isMarkedForDeletion={false} 
-                    />
+                    <div key={index} className="relative w-16 h-16 rounded-md overflow-hidden shrink-0 border border-slate-200">
+                      <PhotoCard 
+                        photoPath={photoPath} 
+                        onDelete={() => onTogglePhotoForDeletion?.(photoPath)} 
+                        isEditing={false} 
+                        isMarkedForDeletion={false} 
+                      />
+                    </div>
                   ))}
                 </div>
               )}

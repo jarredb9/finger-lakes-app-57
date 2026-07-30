@@ -6,14 +6,14 @@ import * as path from 'path';
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://127.0.0.1:54321';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseAnonKey) {
-  console.error('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY is missing from .env.local');
+if (!supabaseKey) {
+  console.error('❌ SUPABASE_SERVICE_ROLE_KEY or NEXT_PUBLIC_SUPABASE_ANON_KEY is missing from .env.local');
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Finger Lakes Regions to populate
 const REGIONS = [
@@ -72,7 +72,95 @@ async function populate() {
     }
   }
 
+  console.log('\n🌱 Seeding mock vibe tags, varietals, and AI insights for local testing...');
+  try {
+    const { data: wineries, error: fetchErr } = await supabase
+      .from('wineries')
+      .select('id, name, vibe_tags, varietals, generative_summary, neighborhood_summary');
+
+    if (fetchErr) throw fetchErr;
+
+    if (wineries && wineries.length > 0) {
+      const mockVibesPool = [
+        ["Riesling Specialist", "Dog Friendly", "Sunset Views"],
+        ["EV Charging", "Outdoor Seating", "Scenic Patio"],
+        ["Family Owned", "Kid Friendly", "Cabernet Franc Specialist"],
+        ["Dog Friendly", "Historic Tasting Room", "Dry Riesling"],
+        ["Picnic Friendly", "Sunset Views", "EV Charging"]
+      ];
+
+      const mockVarietalsPool = [
+        [
+          { name: "Dry Riesling", sweetness: 2, dryness: 2, body: 3, price: "$22", description: "Crisp acidity with notes of green apple and mineral finish." },
+          { name: "Cabernet Franc", sweetness: 1, dryness: 1, body: 6, price: "$28", description: "Medium-bodied red with aromas of dark cherry and light spice." }
+        ],
+        [
+          { name: "Semi-Dry Riesling", sweetness: 4, dryness: 4, body: 3, price: "$20", description: "Subtle sweetness balanced by bright citrus notes." },
+          { name: "Chardonnay", sweetness: 1, dryness: 1, body: 5, price: "$25", description: "Rich and buttery with vanilla oak finish." }
+        ],
+        [
+          { name: "Pinot Noir", sweetness: 1, dryness: 1, body: 4, price: "$32", description: "Elegant red with raspberry aromas and smooth tannins." },
+          { name: "Gewürztraminer", sweetness: 3, dryness: 3, body: 4, price: "$24", description: "Aromatic white with notes of lychee and spice." }
+        ]
+      ];
+
+      const mockGenerativeSummariesPool = [
+        "A historic Seneca Lake staple known for its world-class dry Rieslings and stunning tasting room views. The friendly staff and scenic outdoor patio make it a must-visit spot.",
+        "Renowned for its elegant red wines, especially Cabernet Franc, and a modern sustainable tasting facility. Guests love the cozy atmosphere and highly knowledgeable guides.",
+        "Perched on Keuka Lake, this family-friendly winery offers premium aromatic white wines and a gorgeous picnic area overlooking the water."
+      ];
+
+      const mockNeighborhoodSummariesPool = [
+        "Located on the scenic east side of Seneca Lake, nearby several excellent dining options and historic landmarks.",
+        "Nestled in the rolling hills of the southern Seneca Lake corridor, surrounded by lush vineyards and scenic hiking trails.",
+        "Situated on the tranquil west branch of Keuka Lake, offering a quieter, rustic environment close to local state parks."
+      ];
+
+      for (let i = 0; i < wineries.length; i++) {
+        const w = wineries[i];
+        const updatePayload: Record<string, any> = {};
+
+        const hasValidGenSummary = !!w.generative_summary && (
+          (typeof w.generative_summary === 'string' && w.generative_summary.trim().length > 0) ||
+          (typeof w.generative_summary === 'object' && ('overview' in w.generative_summary || 'text' in w.generative_summary))
+        );
+        const hasValidNeighSummary = !!w.neighborhood_summary && (
+          (typeof w.neighborhood_summary === 'string' && w.neighborhood_summary.trim().length > 0) ||
+          (typeof w.neighborhood_summary === 'object' && ('overview' in w.neighborhood_summary || 'text' in w.neighborhood_summary))
+        );
+
+        if (!w.vibe_tags || w.vibe_tags.length === 0) {
+          updatePayload.vibe_tags = mockVibesPool[i % mockVibesPool.length];
+        }
+        if (!w.varietals || (Array.isArray(w.varietals) && w.varietals.length === 0) || w.varietals === '[]') {
+          updatePayload.varietals = mockVarietalsPool[i % mockVarietalsPool.length];
+        }
+        if (!hasValidGenSummary) {
+          updatePayload.generative_summary = { overview: { text: mockGenerativeSummariesPool[i % mockGenerativeSummariesPool.length] } };
+        }
+        if (!hasValidNeighSummary) {
+          updatePayload.neighborhood_summary = { overview: { text: mockNeighborhoodSummariesPool[i % mockNeighborhoodSummariesPool.length] } };
+        }
+
+        if (Object.keys(updatePayload).length > 0) {
+          const { error: updateErr } = await supabase
+            .from('wineries')
+            .update(updatePayload)
+            .eq('id', w.id);
+          
+          if (updateErr) {
+            console.error(`❌ Failed to update mock data for ${w.name}:`, updateErr.message);
+          }
+        }
+      }
+      console.log('✅ Mock vibe tags, varietals, and AI insights seeded successfully.');
+    }
+  } catch (err: any) {
+    console.error('💥 Failed to seed mock data:', err.message);
+  }
+
   console.log('\n✨ Population complete! Run "npm run dev" to see the wineries on your map.');
 }
 
 populate();
+

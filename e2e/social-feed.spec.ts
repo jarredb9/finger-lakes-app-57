@@ -45,8 +45,8 @@ test.describe('Social Activity Feed Flow', () => {
 
       // 2. Establish Friendship via ATOMIC INJECTION (Bypasses UI flakiness)
       await test.step('Establish Friendship via Injection', async () => {
-          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const };
-          const friendForB = { id: userA.id, name: user1Name, email: userA.email, status: 'accepted', privacy_level: 'public' as const };
+          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
+          const friendForB = { id: userA.id, name: user1Name, email: userA.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
 
           await pageA.evaluate((f) => {
               (window as any).useFriendStore.setState({ friends: [f] });

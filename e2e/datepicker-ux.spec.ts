@@ -3,6 +3,9 @@ import { login, navigateToTab, openWineryDetails, ensureSidebarExpanded, clearSe
 
 test.describe('DatePicker UX', () => {
   test.beforeEach(async ({ page, mockMaps }) => {
+    await page.addInitScript(() => {
+      (window as any)._E2E_FULL_DRAWER = true;
+    });
     await clearServiceWorkers(page);
     await mockMaps.initDefaultMocks();
   });
@@ -21,6 +24,8 @@ test.describe('DatePicker UX', () => {
     });
 
     await test.step('Open DatePicker', async () => {
+        const modal = page.getByRole('dialog');
+        await modal.getByRole('tab', { name: /Trip/i }).click();
         const datePickerBtn = page.getByTestId('datepicker-trigger');
         await expect(datePickerBtn).toHaveAttribute('data-state', 'ready');
         

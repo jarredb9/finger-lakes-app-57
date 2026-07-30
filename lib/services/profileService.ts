@@ -13,7 +13,7 @@ export class ProfileService {
     while (retries > 0) {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, name, email, privacy_level')
+        .select('id, name, email, privacy_level, ai_enabled')
         .eq('id', userId)
         .single();
 
@@ -22,7 +22,8 @@ export class ProfileService {
           id: data.id,
           full_name: data.name || 'User',
           email: data.email || '',
-          privacy_level: data.privacy_level
+          privacy_level: data.privacy_level,
+          ai_enabled: data.ai_enabled ?? false,
         };
       }
       
@@ -43,6 +44,22 @@ export class ProfileService {
     const { error } = await supabase.rpc('update_profile_privacy', {
       p_privacy_level: level
     });
+
+    if (error) throw error;
+  }
+
+  /**
+   * Updates the user's AI enabled preference setting.
+   */
+  static async updateAIEnabled(enabled: boolean): Promise<void> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ ai_enabled: enabled })
+      .eq('id', user.id);
 
     if (error) throw error;
   }

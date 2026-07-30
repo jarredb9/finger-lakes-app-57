@@ -18,6 +18,7 @@ export interface User {
   full_name?: string;
   avatar_url?: string;
   privacy_level?: 'public' | 'friends_only' | 'private';
+  ai_enabled?: boolean;
 }
 
 interface UserState {
@@ -25,6 +26,7 @@ interface UserState {
   isLoading: boolean;
   fetchUser: () => Promise<void>;
   updatePrivacyLevel: (level: User['privacy_level']) => Promise<void>;
+  updateAIEnabled: (enabled: boolean) => Promise<void>;
   logout: () => Promise<void>;
   reset: () => void;
 }
@@ -51,7 +53,8 @@ export const useUserStore = createWithEqualityFn<UserState>((set, get) => ({
           email: authUser.email,
           full_name: profile?.full_name,
           avatar_url: profile?.avatar_url,
-          privacy_level: profile?.privacy_level || 'private'
+          privacy_level: profile?.privacy_level || 'private',
+          ai_enabled: profile?.ai_enabled ?? false
         }, 
         isLoading: false 
       });
@@ -87,6 +90,36 @@ export const useUserStore = createWithEqualityFn<UserState>((set, get) => ({
           return;
       }
       console.error('Failed to update privacy level', error);
+      throw error;
+    }
+  },
+
+  updateAIEnabled: async (enabled) => {
+    const currentUser = get().user;
+    if (!currentUser) return;
+
+    const syncPayload = { type: 'ai_enabled', enabled };
+
+    if (await enqueueIfOffline('update_profile', currentUser.id, syncPayload)) {
+      set({
+        user: { ...currentUser, ai_enabled: enabled }
+      });
+      return;
+    }
+
+    try {
+      await ProfileService.updateAIEnabled(enabled);
+      set({
+        user: { ...currentUser, ai_enabled: enabled }
+      });
+    } catch (error) {
+      if (await handleSyncError(error, 'update_profile', currentUser.id, syncPayload)) {
+        set({
+          user: { ...currentUser, ai_enabled: enabled }
+        });
+        return;
+      }
+      console.error('Failed to update AI enabled state', error);
       throw error;
     }
   },

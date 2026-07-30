@@ -1,0 +1,213 @@
+# Implementation Plan: Redesign Winery Modal UX/UI (`plan.md`)
+
+## Phase 1: Test Scaffolding & Red Phase Verification
+- [x] Task: Write Failing Unit Tests (TDD Red Phase)
+    - [x] Add unit test assertions in `components/__tests__/winery-modal.test.tsx` verifying responsive rendering (Drawer on mobile, Dialog on desktop)
+    - [x] Verify that consolidated `WineryCommunityTab` properly merges friend avatars and review details (retaining text reviews and uploaded photos)
+    - [x] Verify that quick action buttons contain a Share button and retain individual item privacy locks (`favorite-privacy-toggle`, `wishlist-privacy-toggle`)
+    - [x] Add unit test assertions in `components/__tests__/WineryDetails.test.tsx` for Amenities tab list clicking behavior (including reservations and tasting fee keys) and Side-Sheet / Sub-Drawer reviews panel trigger
+    - [x] Verify that new unit tests fail initially on the existing modal implementation
+- [x] Task: Adapt E2E Test Suite and Write Failing E2E Tests (TDD Red Phase)
+    - [x] Update [winery-qa-fallback.spec.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/winery-qa-fallback.spec.ts) to adapt it to trigger Q&A reviews using the new Amenity row clicks rather than the legacy `qna-select` dropdown.
+    - [x] Create a new E2E test file `e2e/winery-modal-redesign.spec.ts` (using Playwright) to verify viewport resizing, switching bottom/right tabs, clicking the segmented control triggers, clicking any of the 8 amenities to trigger Side-Sheet/Sub-Drawer reviews, and clicking the "Route From Current" action
+    - [x] Verify that E2E tests fail initially
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Test Scaffolding & Red Phase Verification' (Protocol in workflow.md)
+
+## Phase 2: Core Components & Layout Implementation (Green Phase)
+- [x] Task: Refactor Winery Modal Structure (Desktop Dialog & Mobile Drawer) [commit: 440fc79]
+    - [x] Refactor `winery-modal.tsx` to render the shadcn/ui `Drawer` component on viewports `< sm` (using Vaul drawer) and `Dialog` component on viewports `>= sm`
+    - [x] Implement the desktop two-column grid layout (`max-w-4xl`) and mobile single-column stacking
+    - [x] Implement the dynamic Right Column / Bottom drawer `Tabs` component with 4 flat navigation tabs (Community, Amenities, My Visits, Add to Trip) using underline active indicators (no backgrounds)
+- [x] Task: Refactor Actions, Social Feed, & Visits [commit: 5e48c37]
+    - [x] Refactor `WineryActionsPresentational.tsx` to add the Share button and redesign individual Favorite/Wishlist privacy locks into a decluttered compact layout, keeping `favorite-privacy-toggle` and `wishlist-privacy-toggle` test IDs and click handlers intact
+    - [x] Consolidate `FriendActivity.tsx` and `FriendRatings.tsx` into `WineryCommunityTab.tsx`. Display the friend avatar summaries at the top, and a feed of detailed friend review cards (name, rating stars, written text reviews, and photo uploads) below. Remove standalone files.
+    - [x] Refactor `MapNavigation.tsx` to support `latitude` and `longitude` coordinate-based routing, add Waze support (coordinates-based routing `waze://?ll=lat,lng`), allow a custom trigger child, and support dropdown menu style popovers on desktop to choose maps.
+    - [x] Refactor `VisitCardHistory.tsx` to display a horizontal strip of thumbnail previews of photos uploaded for each visit. Ensure '+ Log Visit' and 'Edit Visit' triggers route to the global `VisitFormModal` via `useUIStore.openVisitForm` to reuse `VisitForm.tsx` and preserve E2E testing hooks.
+- [x] Task: Implement the Segmented Details Card [commit: bae048a]
+    - [x] Build the Segmented Details Card with an iOS-style pill switcher bar at the top (Overview vs. AI Insights) using encapsulated capsule active slide animations
+    - [x] Implement Overview segment (Open status, Web/Phone/Email icons, Address, Expandable weekly hours dropdown)
+    - [x] Add the "Route From Current Location" button next to the address, wrapping it with the refactored `MapNavigation` component to present a choice of Google Maps, Apple Maps, or Waze.
+    - [x] Implement AI Insights segment (Gemini generative summary and Neighborhood area description)
+- [x] Task: Implement Interactive Amenities Tab & Sliding Reviews Sheet [commit: 2a7b0e0, 6acbe83]
+    - [x] List all 8 logistics checklist rows inside the Amenities Tab (Parking, Restrooms, Tasting Room, Dog Friendly, Picnic Area, EV Charging, Reservations Required, Tasting Fee)
+    - [x] Build the sliding Side-Sheet (`Sheet` component from shadcn/ui) that slides in from the right edge of the modal on desktop (covering the tabs)
+    - [x] Build the sub-drawer (`Drawer` component from shadcn/ui) that slides up from the bottom of the screen on mobile (covering the lower 50%)
+    - [x] Make all 8 logistics rows in the Amenities Tab clickable to launch this reviews panel overlay
+    - [x] Update `WineryQnA.tsx` to act as the reviews panel content, removing the select dropdown trigger, and integrating pagination controls (Arrows `<` and `>`) and status indicator (e.g. "1 of 3")
+    - [x] Update `WineryQnA.tsx`'s question definitions array to add keyword search configurations for the 4 reviews-backed logistics rows: Restrooms, Tasting Room, Picnic Area, and Tasting Fee
+- [x] Task: Verify Green Phase (Passing Tests)
+    - [x] Run unit and E2E tests to verify they all pass (7/7 in `e2e/winery-modal-ux.spec.ts`)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Core Components & Layout Implementation' (Protocol in workflow.md)
+
+## Phase 3: Visual Polish, Layout Fixes, & Accessibility
+- [x] Task: Minor CSS polish (micro-animations, a11y keyboard triggers, skeleton tweaks) [commit: d8b86d9]
+- [x] Task: Hero Image & Overlay Layout Restructure
+    - [x] Restore full-width hero image to very top of mobile `renderMobileLayout()` and desktop `renderDesktopLayout()` in `winery-modal.tsx` (remove top margins/paddings for flush drawer-edge look)
+    - [x] Overlay a translucent title card directly on top of the lower part of the Hero Image containing winery name, rating stars, and short address line to save vertical space
+    - [x] Update loading skeletons to include hero image placeholder and match overlay structure
+- [x] Task: Quick Actions & Navigation Redesign
+    - [x] Refactor `WineryActionsPresentational.tsx` from inline button row to a `grid grid-cols-4 gap-2` of vertical icon+label tiles with `bg-muted/30 rounded-xl border border-border/50` styling
+    - [x] Render privacy lock toggles as small overlay badges on Favorite/Wishlist tiles (preserve `favorite-privacy-toggle` and `wishlist-privacy-toggle` data-testids)
+    - [x] Add a prominent, full-width "Log Visit" outline button with a pencil icon directly below the actions grid (uses `log-visit-button` test ID)
+- [x] Task: Contact Card Split & Contrast Improvements
+    - [x] Restructure Overview segment in `WineryDetails.tsx` as a two-column split card: Left (Open status + Today's hours with chevron dropdown) | Right (Contact & Route title + row of 4 circular buttons: Phone, Website, Email, and Directions). The Directions circular button must wrap `MapNavigation` and use `route-from-current` test ID.
+    - [x] Update card backgrounds from invisible `bg-background/85` to visible `bg-muted/40 backdrop-blur-md` for real contrast (aligned with floating nav pill design language)
+    - [x] Restyle amenity rows from individually bordered cards to clean list rows with subtle bottom dividers (`border-b border-border/30 last:border-0`)
+- [x] Task: Scrollable Navigation Tabs
+    - [x] Integrate **AI Insights** directly into the bottom navigation tab row as a 5th tab (Community, Amenities, AI Insights, Visits, Trip) and remove the old segment switcher to save height
+    - [x] Restyle the tab container to be scrollable (`overflow-x-auto scrollbar-none flex-nowrap`) so headers don't squish on small screen widths (like iPhone SE/15)
+- [x] Task: Accessibility (a11y) & Final Test Run
+    - [x] Run full Jest unit test suite and Playwright E2E tests to verify no regressions
+    - [x] Verify keyboard accessibility for all interactive elements
+- [X] Task: Conductor - User Manual Verification 'Phase 3: Visual Polish, Layout Fixes, & Accessibility' (Protocol in workflow.md)
+
+## Phase 4: Database Schema Migration & Data Layer [checkpoint: 61577b6]
+- [x] Task: Create Backwards-Compatible Database Migration [commit: 53d7e24]
+    - [x] Create migration script `supabase/migrations/20260721000000_add_winery_varietals_and_vibe_tags.sql` adding `varietals` (`jsonb DEFAULT '[]'::jsonb`) and `vibe_tags` (`text[] DEFAULT '{}'::text[]`) columns to `public.wineries` using expand-and-contract pattern.
+    - [x] Update `lib/database.types.ts` and `lib/types.ts` to type `varietals` and `vibe_tags`.
+- [x] Task: Weather Integration Service [commit: fc522d2]
+    - [x] Build `lib/services/weatherService.ts` to query live weather data (temperature, wind, condition) using Open-Meteo API with client-side/in-memory caching (15-min TTL).
+
+## Phase 5: Test Scaffolding & TDD Red Phase (New Components & Snap States)
+- [x] Task: Write Failing Unit Tests (TDD Red Phase)
+    - [x] Write unit tests in `components/__tests__/WineryVarietalsTab.test.tsx` verifying rendering of grape varietal cards (*Dry Riesling, Cabernet Franc, Ice Wine*), flavor profile sliders, and Gemini tasting notes.
+    - [x] Write unit tests in `components/__tests__/WineryWeatherWidget.test.tsx` verifying temperature display and weather condition labels.
+    - [x] Update `components/__tests__/winery-modal.test.tsx` with assertions for 3-Tier Multi-Snap Drawer states (`300px`, `520px`, `1.0`), Open/Closed tag in Peek state, and swapped `Log Visit` CTA button.
+    - [x] Verify that all new unit tests fail initially (Red Phase).
+- [x] Task: Adapt & Write Failing E2E Tests (TDD Red Phase)
+    - [x] Create `e2e/winery-modal-snap-drawer.spec.ts` to test drawer snapping between Peek, Half, and Full states, clicking the swapped `Log Visit` button in Peek view, and interacting with Varietals tab sliders.
+    - [x] Verify E2E tests fail initially (Red Phase).
+
+## Phase 6: Green Phase Component & Layout Implementation [checkpoint: 28bf3a1]
+- [x] Task: Implement Apple Maps-Style 3-Tier Multi-Snap Drawer
+    - [x] Update Vaul/shadcn `Drawer` in `winery-modal.tsx` to support 3 dynamic snap points (`300px`, `520px`, `1.0`) via `snapPoints` prop and `activeSnapPoint` state tracking.
+    - [x] Implement **Peek State (~300px / ~30vh)**: Render photo preview, title overlay card, explicit `🟢 OPEN NOW` / `🔴 CLOSED` status tag, `Directions` button (`route-from-current`), and `Log Visit` CTA button (`log-visit-button` opening `openVisitForm`) swapped from `Add to Trip`.
+    - [x] Implement **Half State (~520px / ~60vh)**: Render hero photo carousel with pagination dots, 4-column quick action grid (*Favorite, Wishlist, Street View, Share*) with privacy badges, live outdoor weather widget (`☀️ 74°F Lake Breeze`), full-width "Log Visit" CTA button, and horizontal "At-a-Glance" Vibe & Specialty Badges scroller (`🍷 Riesling Specialist`, `🐶 Dog Friendly`, `🌅 Sunset Views`, `⚡ EV Charging`).
+    - [x] Implement **Full State (1.0 / ~90vh)**: Render sticky compact header bar and 5 scrollable tabs (`Community`, `Amenities`, `AI Insights`, `Varietals & Tasting`, `Trip`).
+- [x] Task: Build Swipeable Hero Photo Carousel & Lightbox
+    - [x] Integrate `embla-carousel-react` or horizontal snap carousel inside `WineryDetails.tsx` to cycle through `photo_references`.
+    - [x] Build full-screen image Lightbox modal trigger when tapping any photo in the carousel.
+- [x] Task: Build Varietals & Tasting Profile Tab Component
+    - [x] Create `WineryVarietalsTab.tsx` component to display visual wine varietal cards (*Dry Riesling, Cabernet Franc, Ice Wine*) with dual linear flavor profile sliders (Dry ↔ Sweet, Light ↔ Full Body) and Gemini AI Tasting Notes.
+    - [x] Wire keyword fallback adapter for un-enriched wineries scanning `winery.reviews` for grape varietals.
+- [x] Task: Mobile Drawer & Hero Layout Refactor (Remediation)
+    - [x] Refactor `components/ui/drawer.tsx` to use native `vaul` drawer with bottom sheet placement (`fixed inset-x-0 bottom-0 h-full`) and controlled `snapPoints={['300px', '520px', 1]}` state so 3-tier snapping functions natively.
+    - [x] Render a single static hero photo on mobile (rather than swipeable carousel) to resolve horizontal overflow scroll conflicts that hijack vertical drag gestures in Full state.
+    - [x] Restore flush hero image placement to the absolute top edge of the mobile drawer (`rounded-t-[20px]`), removing block elements above the photo and rendering status badges (`🟢 OPEN NOW`, `Directions`) as absolute translucent overlay pills directly over the photo.
+    - [x] Deduplicate `🟢 OPEN NOW` / `🔴 CLOSED` status badges by consolidating them into the floating hero photo overlay and removing redundant open/closed indicators from the contact card in `WineryDetails.tsx`.
+
+## Phase 7: Dynamic Vibe & Specialty Badges Implementation [checkpoint: e3b0417]
+- [x] Task: Update Gemini Edge Function (update-gemini-summary) [commit: e3b0417]
+    - [x] Modify `supabase/functions/update-gemini-summary/index.ts` to request a structured JSON response containing both `summary` and an array of `vibe_tags` (3-4 concise vibe/specialty tags).
+    - [x] Update Gemini API query prompt to extract these tags from user reviews/description.
+    - [x] Parse response and update `public.wineries` table, saving the tags in the `vibe_tags` column.
+    - [x] Update `scripts/populate-wineries.ts` to trigger `update-gemini-summary` for populated wineries, or seed realistic mock vibe tags to facilitate local testing and verification.
+- [x] Task: Implement Rules-Based Fallback Utility [commit: e3b0417]
+    - [x] Create utility `getWineryVibeTags` in `lib/utils/winery.ts` (or equivalent location).
+    - [x] Map Boolean fields (`allows_dogs`, `has_ev_charging`, `outdoor_seating`, `good_for_children`) to corresponding pill badges if `vibe_tags` is empty/null.
+- [x] Task: Integrate dynamically with Winery Modal UI [commit: e3b0417]
+    - [x] Update `components/winery-modal.tsx` to render the dynamic badges returned by `getWineryVibeTags`.
+    - [x] Ensure the badges scroller handles empty arrays cleanly by hiding if no tags are present.
+- [x] Task: Verify & Test Vibe Tags Feature [commit: e3b0417]
+    - [x] Write unit tests verifying that both AI-extracted tags and rules-based fallback tags render correctly in the modal.
+    - [x] Verify local database integration tests and edge function tests pass.
+- [x] Task: Conductor - User Manual Verification 'Phase 7: Dynamic Vibe & Specialty Badges Implementation' (Protocol in workflow.md) [commit: e3b0417]
+
+
+## Phase 8: Feature Audit, Testing & Final Verification [checkpoint: da7d8f2]
+- [x] Task: Modal Component Feature Audit [commit: da7d8f2]
+    - [x] Audit all 7 modal components (`winery-modal.tsx`, `WineryDetails.tsx`, `WineryActionsPresentational.tsx`, `WineryCommunityTab.tsx`, `TripPlannerSection.tsx`, `VisitCardHistory.tsx`, `WineryQnA.tsx`) to verify zero feature or data loss using commit d8b86d9c21c7680e0e8ca70282470407f3ccc58d as a reference for fully featured components.
+    - [x] Verify preservation of all 15+ test IDs (`favorite-privacy-toggle`, `wishlist-privacy-toggle`, `log-visit-button`, `route-from-current`, `amenity-row-*`, `close-qna-button`, `trip-badge`, etc.).
+- [x] Task: Automated Testing Suite Verification [commit: da7d8f2]
+    - [x] Run full Jest unit test suite (`npx jest`) to achieve 100% clean test passes across all suites.
+    - [x] Run Playwright E2E tests (`./scripts/run-e2e-container.sh`) to verify full integration.
+- [x] Task: Conductor - User Manual Verification 'Phase 8: Feature Audit, Testing & Final Verification' (Protocol in workflow.md) [commit: da7d8f2]
+
+## Phase 9: Resolve E2E Testing Failures 
+- [x] Task: Update `e2e/visual.spec.ts` [commit: 5eb6985]
+     - [x] Update the test to accomadate the new desktop winery-modal and all 3 snap points of the new mobile winery-modal 
+     - [x] Apply any updates to the `scripts/run-e2e-container.sh` or testing infrastructure to verify that the --update-snapshot script option updates all 4 winery-modal views
+- [x] Task: Resolve E2E testing errors [commit: 77e327b]
+     - [x] e2e/datepicker-ux.spec.ts:10:7 › DatePicker UX › should open picker and close on date selection [commit: 9aff51b]
+     - [x] e2e/photo-flow.spec.ts:30:7 › Photo Management Workflow › should successfully add and then delete a photo when logging a new visit [commit: e7aaec1]
+     - [x] e2e/pwa-assets.spec.ts:22:7 › PWA Assets & Sync › should sync queued visits when back online [commit: 77e327b]
+     - [x] e2e/pwa-offline.spec.ts:35:7 › PWA Offline Functionality › should queue visit creation when offline (Lie-Fi) [commit: 05f9339]
+     - [x] e2e/trip-flow.spec.ts:32:7 › Trip Planning Flow › can create a new trip from winery details [commit: 9aff51b]
+     - [x] e2e/visual.spec.ts:44:7 › Visual Regression Testing › winery modal visual baseline [commit: 5eb6985]
+     - [x] e2e/winery-data-hydration.spec.ts:14:7 › Winery Data Hydration & Integrity Consolidated Suite › Map markers RPC hydration into persistentWineries store  [commit: 8aa9744]
+     - [x] e2e/winery-data-hydration.spec.ts:43:7 › Winery Data Hydration & Integrity Consolidated Suite › Cache pollution merge guard (bulkUpsertWineries retains enriched details) [commit: 8aa9744]
+     - [x] e2e/wishlist-flow.spec.ts:17:7 › Wishlist Flow › can toggle winery on wishlist [commit: 9aff51b]
+- [x] Task: Resolve mobile browser (mobile safari) E2E testing errors:
+     - [x] e2e/datepicker-ux.spec.ts:10:7 › DatePicker UX › should open picker and close on date selection 
+     - [x] [Mobile Safari] › e2e/item-privacy.spec.ts:17:7 › Item Privacy Flow (Favorites & Wishlist) › Users can control privacy of their favorites and wishlist [commit: 33af8f2]
+     - [x] e2e/privacy-flow.spec.ts:16:7 › Privacy and Profile Flow › Users can control visit and profile visibility [commit: 11cef5c]
+     - [x] e2e/trip-flow.spec.ts:32:7 › Trip Planning Flow › can create a new trip from winery details [commit: 11cef5c]
+     - [x] e2e/winery-modal.spec.ts:135:9 › Winery Modal Consolidated Suite › Navigation Tabs & Quick Actions › Share button and Route Navigation popover (Google Maps & Waze) 
+     - [x] e2e/wishlist-flow.spec.ts:17:7 › Wishlist Flow › can toggle winery on wishlist [commit: 11cef5c]
+
+
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions [commit: 1aa77e1]
+    - [x] Add screen reader accessible `SheetHeader` (`SheetTitle`, `SheetDescription`) and `DrawerHeader` (`DrawerTitle`, `DrawerDescription`) inside `WineryDetails.tsx` to fix Radix UI accessibility console errors.
+    - [x] Update `closeButton` selector in `e2e/winery-qa-fallback.spec.ts` to target `data-testid="close-qna-button"` to resolve Playwright strict mode click violation.
+- [x] Task: Resolve Mobile Drawer Gesture Conflicts, Snap Jitter, and Map Dismissal [commit: 07765c8]
+    - [x] Update `components/ui/drawer.tsx` to use standard bottom sheet positioning (`fixed inset-x-0 bottom-0 h-full`) for correct Vaul translation coordinate mapping.
+    - [x] Separate the non-scrollable hero photo/title header from the scrollable tabs content container in `renderMobileLayout()` to eliminate vertical scroll gesture capture conflicts.
+    - [x] Remove conflicting layout transition classes (`transition-all`) to stop ResizeObserver loops and layout jitter during snapping.
+    - [x] Enable native swipe-down dismissal past Peek state by setting `dismissible={true}` on `<Drawer>`, and configure empty map background clicks in `MapView.tsx` to close the modal.
+    - [x] Write and verify pointer drag gesture tests in `e2e/winery-modal-snap-drawer.spec.ts` simulating dragging up to Full and down back to Peek.
+- [x] Task: Fix Peek View button sizing, title card overlap, and bottom whitespace [commit: 8070690]
+    - [x] Wrap MapNavigation in a flex-1 wrapper to ensure equal button sizing
+    - [x] Move title card outside the overflow-hidden header wrapper to position it half-on/half-off without clipping
+    - [x] Set peek view hero image height to h-48 to fill the 300px drawer height exactly
+- [x] Task: Remove redundant vibe tags from Varietals tab [commit: 190763e]
+    - [x] Remove `vibeTags` prop and tags render block from `WineryVarietalsTab.tsx`
+    - [x] Remove `vibeTags` pass from `winery-modal.tsx`
+    - [x] Update `WineryVarietalsTab.test.tsx` unit tests to match new structure
+- [x] Task: Re-implement swipeable hero carousel on desktop and inside lightbox [commit: a6c245b]
+    - [x] Enable Embla Carousel on desktop Dialog layout
+    - [x] Maintain static single photo on mobile Drawer view to prevent drag conflicts
+    - [x] Enable Embla Carousel inside the full-screen photo Lightbox modal for both platforms
+    - [x] Resolve scrolling reset snapping bug by utilizing stable useRef for startIndex
+- [x] Task: Fix desktop lightbox event trapping and layout bugs
+    - [x] Resolve subpixel gaps on carousel slides using calc flex width and negative margins
+    - [x] Correct dots indicator overlap by shifting position to bottom-14 on desktop
+    - [x] Prevent Radix UI Dialog closing on lightbox interactions by inspecting native pointer down target
+- [x] Task: Fix photo lightbox scroll reset and click interactions [commit: 6d8a527]
+    - [x] Render lightbox portal inside DialogContent/DrawerContent to ensure event bubbling handles click dismiss correctly in Radix UI
+    - [x] Set explicit pointer-events-auto on the portal backdrop to prevent Radix UI pointer trap from blocking clicks on backdrop and close button
+    - [x] Sync Embla Carousel index changes back to the parent state (lightboxPhoto) using onPhotoSelect
+    - [x] Make emblaOptions dynamically depend on currentIndex so internal reInit calls (triggered when lazy enriched photos load) preserve the current slide instead of snapping back to index 0
+    - [x] Remove the redundant scroll-on-initialPhotoRef-change useEffect that was causing conflicting programmatic scrolls
+- [x] Task: Safe AI summary parsing, desktop feature parity, and populate script check [commit: cd2e7f7]
+    - [x] Add defensive `getSummaryText()` text extraction to `WineryDetails.tsx` (`renderAIInsights`) and `WineryVarietalsTab.tsx` to handle string primitives and JSON objects (`{ overview: { text: "..." } }`) cleanly.
+    - [x] Integrate `WineryWeatherWidget` and `vibe-tags-scroller` into `renderDesktopLayout()` inside `components/winery-modal.tsx` to maintain feature parity across viewports.
+    - [x] Update `scripts/populate-wineries.ts` summary presence validation to seed mock AI insights, vibe tags, and varietals for all wineries in the database.
+    - [x] Resolve nested `overflow-y-auto` scroll container collision in `DrawerContent` to restore smooth mobile swipe gestures and Vaul drawer snap points.
+- [x] Task: Refactor Item Privacy E2E test to use self-consistent mock state [commit: 32c8b49]
+    - [x] Add `favoritePrivacyMap` and `wishlistPrivacyMap` to `MockMapsState` in `e2e/utils.ts`.
+    - [x] Support dynamic privacy calculation in `get_friend_profile_with_visits`, `get_winery_details_by_id`, and `get_map_markers`.
+    - [x] Refactor `e2e/item-privacy.spec.ts` to use shared `MockMapsState` and full mock flow, ensuring 100% deterministic test execution.
+- [x] Task: Implement openWineryModalState helper and getEquivalentWineryIds ID normalization [commit: d46c36f]
+    - [x] Implement `openWineryModalState` in `e2e/helpers.ts` for atomic state injection and controlled drawer snapping.
+    - [x] Add `getEquivalentWineryIds` in `e2e/utils.ts` to normalize ID matching across `dbId`, `google_place_id`, and string IDs.
+    - [x] Refactor `e2e/winery-modal.spec.ts` and `e2e/winery-modal-amenities.spec.ts` to consume `openWineryModalState`.
+    - [x] Add `{ fullDrawer?: boolean }` options support to `openWineryDetails` in `e2e/helpers.ts`.
+- [x] Task: Apply styleguide and type safety review suggestions [commit: a746223]
+    - [x] Add named exports alongside default aliases across core components (`WineryModal`, `WineryDetails`, `WineryActionsPresentational`, `WineryCommunityTab`, `WineryVarietalsTab`).
+    - [x] Refactor unsafe `any` type casting and parameter types to `unknown` in `WineryDetails.tsx`, `WineryVarietalsTab.tsx`, and `lib/utils/winery.ts`.
+    - [x] Guard `activeWinery` rendering in mobile and desktop lightbox portals in `winery-modal.tsx`.
+    - [x] Remove syntax noise (double semicolon `;;`) in `lib/utils/winery.ts`.
+    - [x] Update Jest test suite component mocks to support named exports (`winery-modal.test.tsx`, `WineryDetails.test.tsx`, `WineryVarietalsTab.test.tsx`).
+
+## Post-Deployment Steps
+- [ ] Task: Reset Enrichment Cache in Production
+    - [ ] Run the following SQL query on the production database using Supabase Studio / CLI to force re-enrichment of existing wineries:
+      ```sql
+      UPDATE wineries 
+      SET last_enriched_at = NULL 
+      WHERE vibe_tags IS NULL OR vibe_tags = '{}';
+      ```
+
+

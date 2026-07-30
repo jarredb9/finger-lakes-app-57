@@ -23,6 +23,9 @@ test.describe('Privacy and Profile Flow', () => {
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
+      await pageA.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+      await pageB.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+
       const sharedState = createDefaultMockState();
       const managerA = new MockMapsManager(pageA, sharedState);
       const managerB = new MockMapsManager(pageB, sharedState);
@@ -30,10 +33,12 @@ test.describe('Privacy and Profile Flow', () => {
       // 3. Setup: Login and establish friendship
       await test.step('Initial Setup: Login & Friendship', async () => {
         await managerA.useRealSocial();
+        await managerA.useRealVisits();
         await managerA.initDefaultMocks({ currentUserId: user1.id });
         await login(pageA, user1.email, user1.password);
 
         await managerB.useRealSocial();
+        await managerB.useRealVisits();
         await managerB.initDefaultMocks({ currentUserId: user2.id });
         await login(pageB, user2.email, user2.password);
 
@@ -42,8 +47,6 @@ test.describe('Privacy and Profile Flow', () => {
 
       // 4. User A logs one public and one private visit
       await test.step('User A logs public and private visits', async () => {
-        await managerA.useRealVisits(); 
-        
         // Ensure Explore tab is active after setupFriendship (which navigates to Friends)
         await navigateToTab(pageA, 'Explore');
         await waitForMapReady(pageA);

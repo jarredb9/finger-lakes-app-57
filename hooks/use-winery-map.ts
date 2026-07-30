@@ -178,8 +178,11 @@ export function useWineryMap(userId: string) {
   }, [map, handleMapClick]);
 
   const handleOpenModal = useCallback(async (winery: Winery) => {
-    openWineryModal(winery.id);
-    ensureWineryDetails(winery.id);
+    if (winery) {
+      useWineryDataStore.getState().upsertWinery(winery);
+      openWineryModal(winery.id);
+      ensureWineryDetails(winery.id);
+    }
   }, [openWineryModal, ensureWineryDetails]);
 
   const handlePlaceSelect = useCallback(async (winery: Winery, sdkPlace: any) => {

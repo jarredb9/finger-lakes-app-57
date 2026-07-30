@@ -119,7 +119,7 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
 
   if (selectedTrip) {
     return (
-      <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+      <div className="space-y-4 p-4 border rounded-lg bg-gray-50" data-testid="trip-planner-section">
         <h3 className="font-semibold">Active Trip: {selectedTrip.name}</h3>
         <p className="text-sm text-muted-foreground">
           This trip is for {new Date(selectedTrip.trip_date + "T00:00:00").toLocaleDateString()}.
