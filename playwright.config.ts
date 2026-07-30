@@ -27,6 +27,16 @@ export default defineConfig({
   /* Increase timeout for CI */
   timeout: 90 * 1000,
 
+  /* Global visual snapshot configuration to absorb SwiftShader / headless renderer sub-pixel differences */
+  expect: {
+    toHaveScreenshot: {
+      maxDiffPixelRatio: 0.10,
+      threshold: 0.2,
+      animations: 'disabled',
+      scale: 'css',
+    },
+  },
+
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
     /* Base URL to use in actions like `await page.goto('')`. */
