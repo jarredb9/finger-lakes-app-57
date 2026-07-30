@@ -24,11 +24,15 @@ describe('UserStore Logic', () => {
                   id: 'user-123', 
                   name: 'Test User', 
                   email: 'test@example.com',
-                  privacy_level: 'friends_only'
+                  privacy_level: 'friends_only',
+                  ai_enabled: false
                 },
                 error: null
               })
             })
+          }),
+          update: () => ({
+            eq: jest.fn().mockResolvedValue({ data: null, error: null })
           })
         }),
         rpc: jest.fn().mockResolvedValue({ data: { success: true }, error: null }),
@@ -40,7 +44,7 @@ describe('UserStore Logic', () => {
     useUserStore.getState().reset();
   });
 
-  it('should fetch user with privacy level', async () => {
+  it('should fetch user with ai_enabled defaulting to false', async () => {
     await act(async () => {
       await useUserStore.getState().fetchUser();
     });
@@ -49,6 +53,7 @@ describe('UserStore Logic', () => {
     expect(user).toBeDefined();
     expect(user.id).toBe('user-123');
     expect(user.privacy_level).toBe('friends_only');
+    expect(user.ai_enabled).toBe(false);
     expect(useUserStore.getState().user).not.toBeNull();
   });
 
@@ -64,6 +69,26 @@ describe('UserStore Logic', () => {
 
     const user = useUserStore.getState().user;
     expect(user.privacy_level).toBe('public');
+  });
+
+  it('should update ai_enabled setting optimistically', async () => {
+    await act(async () => {
+      await useUserStore.getState().fetchUser();
+    });
+
+    expect(useUserStore.getState().user.ai_enabled).toBe(false);
+
+    await act(async () => {
+      await useUserStore.getState().updateAIEnabled(true);
+    });
+
+    expect(useUserStore.getState().user.ai_enabled).toBe(true);
+
+    await act(async () => {
+      await useUserStore.getState().updateAIEnabled(false);
+    });
+
+    expect(useUserStore.getState().user.ai_enabled).toBe(false);
   });
 
   it('should reset user state', async () => {

@@ -34,7 +34,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       // 2. ATOMIC INJECTION: Establish friendship and inject trip
       await test.step('Atomic state injection', async () => {
-          const friend = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const };
+          const friend = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
           
           await page.evaluate(({ f, t }) => {
               (window as any).useFriendStore.setState({ friends: [f] });
@@ -130,8 +130,8 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       // 1. Establish friendship and inject trip via ATOMIC INJECTION
       await test.step('Atomic state injection', async () => {
-          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const };
-          const friendForB = { id: userA.id, name: 'User A', email: userA.email, status: 'accepted', privacy_level: 'public' as const };
+          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
+          const friendForB = { id: userA.id, name: 'User A', email: userA.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
 
           await pageA.evaluate(({ f, t }) => {
               (window as any).useFriendStore.setState({ friends: [f] });

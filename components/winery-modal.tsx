@@ -1,32 +1,89 @@
 // components/winery-modal.tsx
-import { useEffect, useRef } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Separator } from "./ui/separator";
-import { Clock, Calendar as CalendarIcon } from "lucide-react";
+import { useEffect, useRef, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
+import useEmblaCarousel from "embla-carousel-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+
+import { Clock, Calendar as CalendarIcon, Star, Pencil, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { WineryDetails, WineryImage } from "./WineryDetails";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useVisitStore } from "@/lib/stores/visitStore";
 import { useToast } from "@/hooks/use-toast";
-import { Visit } from "@/lib/types";
+import { Visit, Winery } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { shallow } from "zustand/shallow";
 
-import WineryDetails from "./WineryDetails";
-import WineryActionsPresentational from "./WineryActionsPresentational";
-import FriendActivity from "./FriendActivity";
-import FriendRatings from "./FriendRatings";
+import { WineryActionsPresentational } from "./WineryActionsPresentational";
+import { WineryCommunityTab } from "./WineryCommunityTab";
+import { WineryVarietalsTab } from "./WineryVarietalsTab";
+import { WineryWeatherWidget } from "./WineryWeatherWidget";
 import TripPlannerSection from "./TripPlannerSection";
 import VisitCardHistory from "./VisitCardHistory";
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore"; // Import DataStore
-import { useFriendStore } from "@/lib/stores/friendStore";
+import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMapStore } from "@/lib/stores/mapStore";
+import { isOpenNow } from "@/lib/utils/opening-hours";
+import { MapNavigation } from "./MapNavigation";
+import { Navigation } from "lucide-react";
+import { getWineryVibeTags } from "@/lib/utils/winery";
+import { useAIFeaturesEnabled } from "@/hooks/use-ai-features";
 
-export default function WineryModal() {
-  const { isWineryModalOpen, activeWineryId, closeWineryModal, openVisitForm } = useUIStore();
+
+
+export function WineryModal() {
+  const { isWineryModalOpen, activeWineryId, closeWineryModal: closeWineryModalRaw, openVisitForm } = useUIStore();
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+
+  const closeWineryModal = () => {
+    setLightboxPhoto(null);
+    closeWineryModalRaw();
+  };
   const { toast } = useToast();
   const { fetchTripById, setSelectedTrip } = useTripStore();
+  
+  const [snapPoint, setSnapPoint] = useState<string | number | null>(() => 
+    typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? 1 : "300px"
+  );
+  const prevActiveWineryRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isWineryModalOpen) {
+      if (activeWineryId !== prevActiveWineryRef.current) {
+        const defaultSnap = typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? 1 : "300px";
+        console.log(`[DRAWER-DIAGNOSTIC] Modal opened for winery ${activeWineryId}. Initializing snapPoint to ${defaultSnap}.`);
+        prevActiveWineryRef.current = activeWineryId;
+        setSnapPoint(defaultSnap);
+      }
+    } else {
+      prevActiveWineryRef.current = null;
+      setLightboxPhoto(null);
+    }
+  }, [isWineryModalOpen, activeWineryId]);
+
+
+
   const { map } = useMapStore();
+  const isAIEnabled = useAIFeaturesEnabled();
+
+  const [activeTab, setActiveTab] = useState<"community" | "amenities" | "ai_insights" | "varietals" | "visits" | "trip">("community");
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
+
+  useEffect(() => {
+    if (!isAIEnabled && activeTab === "ai_insights") {
+      setActiveTab("community");
+    }
+  }, [isAIEnabled, activeTab]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const handleStreetViewClick = () => {
     if (!activeWinery) return;
@@ -34,7 +91,6 @@ export default function WineryModal() {
     if (map && typeof map.openStreetView === "function") {
       map.openStreetView(activeWinery.latitude, activeWinery.longitude);
     } else {
-      // Fallback for Mapbox: open in new tab
       const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${activeWinery.latitude},${activeWinery.longitude}`;
       window.open(url, "_blank", "noopener,noreferrer");
     }
@@ -50,10 +106,17 @@ export default function WineryModal() {
     shallow
   );
   
-  // Subscribe directly to DataStore for reactive updates
-  const activeWinery = useWineryDataStore((state) =>
-    activeWineryId ? state.persistentWineries.find((w) => w.id === activeWineryId) : null
-  );
+  const activeWinery = useWineryDataStore((state) => {
+    if (!activeWineryId) return null;
+    return (
+      state.persistentWineries.find(
+        (w) =>
+          w.id === activeWineryId ||
+          String(w.dbId) === String(activeWineryId) ||
+          w.googleId === activeWineryId
+      ) || null
+    );
+  });
 
   const handleWishlistToggle = async () => {
     if (!activeWinery) return;
@@ -95,19 +158,15 @@ export default function WineryModal() {
     }
   };
   
-  const loadingWineryId = useWineryStore((state) => state.loadingWineryId); // Get loading state
+  const loadingWineryId = useWineryStore((state) => state.loadingWineryId);
   const { deleteVisit: deleteVisitAction } = useVisitStore();
   
-  // Fetch visits from the global store to ensure offline/optimistic updates are visible
   const storeVisits = useVisitStore((state) => 
     activeWineryId ? state.visits.filter(v => v.wineryId === activeWineryId || v.wineries?.google_place_id === activeWineryId) : []
   );
 
-  const { friendsRatings = [] } = useFriendStore();
-
-  const isLoading = loadingWineryId === activeWineryId; // Check if THIS winery is loading
+  const isLoading = loadingWineryId === activeWineryId;
   
-  // Merge visits from both sources, preferring storeVisits (which contains offline/optimistic state)
   const wineryVisits = activeWinery?.visits || [];
   const visits = [
     ...storeVisits,
@@ -121,17 +180,14 @@ export default function WineryModal() {
   const hasHydrated = useRef(false);
 
   useEffect(() => {
-    // Reset hydration tracker only when modal opens or winery changes
     hasHydrated.current = false;
   }, [isWineryModalOpen, activeWineryId]);
 
   useEffect(() => {
-    // Sync visits length tracker while loading or when modal is closed
     if (isLoading || !isWineryModalOpen) {
       prevVisitsLength.current = visits.length;
     }
 
-    // Reset scroll to top when modal is open and data has finished loading
     if (isWineryModalOpen && !isLoading) {
       requestAnimationFrame(() => {
         scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
@@ -142,17 +198,14 @@ export default function WineryModal() {
   useEffect(() => {
     if (!isWineryModalOpen) return undefined;
 
-    // Logic to distinguish between initial hydration and manual additions
     if (!hasHydrated.current) {
       if (!isLoading) {
-        // Initial data has arrived, mark as hydrated and sync length without scrolling
         hasHydrated.current = true;
         prevVisitsLength.current = visits.length;
       }
       return undefined;
     }
 
-    // If we have hydrated and are not loading, check for new visits (manual addition)
     if (!isLoading && visits.length > prevVisitsLength.current) {
       const timer = setTimeout(() => {
         if (visitHistoryRef.current) {
@@ -196,10 +249,9 @@ export default function WineryModal() {
   };
 
   const handleTripBadgeClick = async (tripId: number) => {
-    closeWineryModal(); // Close the winery modal first
+    closeWineryModal();
+    setLightboxPhoto(null);
     
-    // Small delay to allow modal to start closing before potentially triggering
-    // complex state updates or navigation that might conflict with focus restoration.
     setTimeout(async () => {
         await fetchTripById(tripId.toString());
         const updatedTrip = useTripStore.getState().trips.find((t) => t.id === tripId);
@@ -212,93 +264,727 @@ export default function WineryModal() {
     }, 100);
   };
 
-  return (
-    <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
-      <DialogContent
-        data-testid="winery-modal"
-        data-state={isLoading ? "loading" : "ready"}
-        className="max-w-2xl w-[95vw] sm:w-full max-h-[85dvh] sm:max-h-[90vh] p-0 flex flex-col top-4 translate-y-0 sm:top-[50%] sm:translate-y-[-50%] overflow-x-hidden"
-        onFocusOutside={(e) => e.preventDefault()}
-        onOpenAutoFocus={(e) => e.preventDefault()}
-      >
-        <div className="overflow-y-auto overflow-x-hidden" ref={scrollContainerRef} key={activeWineryId || 'none'}>
-          {isLoading || !activeWinery ? (
-            <div className="p-6 space-y-4">
-              <DialogHeader>
-                <DialogTitle>
-                  <Skeleton className="h-8 w-3/4" />
-                  <span className="sr-only">Loading winery details...</span>
-                </DialogTitle>
-              </DialogHeader>
-              <DialogDescription className="sr-only">Loading winery details...</DialogDescription>
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-1/2" />
-              <Separator className="my-4" />
-              <Skeleton className="h-6 w-1/3" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-2/3" />
-              <Separator className="my-4" />
-              <Skeleton className="h-6 w-1/4" />
-              <Skeleton className="h-20 w-full" />
+  const renderTabsList = () => (
+    <div className="flex border-b border-border/50 w-full overflow-x-auto scrollbar-none flex-nowrap justify-between" role="tablist">
+      {[
+        { id: "community", label: "Community" },
+        { id: "amenities", label: "Amenities" },
+        ...(isAIEnabled ? [{ id: "ai_insights", label: "AI Insights" }] : []),
+        { id: "varietals", label: "Varietals" },
+        { id: "visits", label: "Visits" },
+        { id: "trip", label: "Trip" }
+      ].map((t) => {
+        const isActive = activeTab === t.id;
+        return (
+          <button
+            key={t.id}
+            role="tab"
+            aria-selected={isActive}
+            onClick={() => setActiveTab(t.id as any)}
+            className={`py-2.5 px-3.5 text-xs md:text-sm font-semibold border-b-2 transition-all duration-300 whitespace-nowrap shrink-0 ${
+              isActive 
+                ? "border-primary text-primary font-bold" 
+                : "border-transparent text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const renderActiveTabContent = () => {
+    if (!activeWinery) return null;
+    switch (activeTab) {
+      case "community":
+        return <WineryCommunityTab wineryDbId={activeWinery.dbId ?? null} />;
+      case "amenities":
+        return <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="logistics" />;
+      case "ai_insights":
+        return isAIEnabled ? (
+          <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="ai_insights" />
+        ) : (
+          <WineryCommunityTab wineryDbId={activeWinery.dbId ?? null} />
+        );
+      case "varietals":
+        return (
+          <WineryVarietalsTab 
+            varietals={activeWinery.varietals ?? undefined} 
+            geminiTastingNotes={activeWinery.generative_summary ?? undefined} 
+            reviews={activeWinery.reviews} 
+          />
+        );
+      case "visits":
+        return (
+          <div className="space-y-4" data-testid="visits-tab-content">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <CalendarIcon className="w-4 h-4" />
+                <span>Your Visits</span>
+              </h3>
             </div>
-          ) : (
-            <>
-              <div className="p-6">
-                <DialogHeader>
-                    <div className="flex flex-col-reverse sm:flex-row justify-between items-start gap-4">
-                        <div className="flex items-center gap-2">
-                            <DialogTitle className="text-2xl pr-4">{activeWinery.name}</DialogTitle>
-                            {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
-                                <div
-                                    data-testid="trip-badge"
-                                    className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-hidden focus:ring-2 focus:ring-ring focus:ring-offset-2 bg-[#f17e3a] hover:bg-[#f17e3a]/90 cursor-pointer"
-                                    onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
-                                >
-                                    <Clock className="w-3 h-3 mr-1" />
-                                    On Trip: {activeWinery.trip_name}
-                                </div>
-                            )}
-                        </div>
-                        <WineryActionsPresentational 
-                          winery={activeWinery} 
-                          onLogVisit={() => openVisitForm(activeWinery)}
-                          onStreetView={handleStreetViewClick}
-                          onToggleWishlist={handleWishlistToggle}
-                          onToggleFavorite={handleFavoriteToggle}
-                          onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
-                          onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
-                        />
-                    </div>
-                    <DialogDescription className="sr-only">
-                        Detailed information about {activeWinery.name}, including address, rating, hours, and visit history.
-                    </DialogDescription>
-                    <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} />
-                </DialogHeader>
-                <Separator className="my-4" />
-
-                {!!activeWinery.dbId && <FriendActivity wineryDbId={activeWinery.dbId} />}
-                {friendsRatings.length > 0 && <FriendRatings />}
-
-                <TripPlannerSection winery={activeWinery} onClose={closeWineryModal} />
-
-                <Separator className="my-4" />
-
-                <div className="space-y-4" ref={visitHistoryRef}>
-                  <h3 className="text-lg font-semibold flex items-center space-x-2 text-gray-800">
-                    <CalendarIcon className="w-5 h-5" />
-                    <span>Your Visits</span>
-                  </h3>
-                  {visits.length > 0 ? (
-                    <VisitCardHistory visits={visits} editingVisitId={null} onEditClick={handleEditClick} onDeleteVisit={handleDeleteVisit} onTogglePhotoForDeletion={() => {}} />
-                  ) : (
-                    <p className="text-sm text-muted-foreground">{activeWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}</p>
-                  )}
-                </div>
+            {visits.length > 0 ? (
+              <div ref={visitHistoryRef}>
+                <VisitCardHistory 
+                  visits={visits} 
+                  editingVisitId={null} 
+                  onEditClick={handleEditClick} 
+                  onDeleteVisit={handleDeleteVisit} 
+                  onTogglePhotoForDeletion={() => {}} 
+                />
               </div>
-            </>
-          )}
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-6">
+                {activeWinery.userVisited ? "You haven't reviewed any visits here yet." : "You haven't visited this winery yet."}
+              </p>
+            )}
+          </div>
+        );
+      case "trip":
+        return <TripPlannerSection winery={activeWinery} onClose={closeWineryModal} />;
+      default:
+        return null;
+    }
+  };
+
+  const renderDesktopLayout = () => {
+    if (isLoading || !activeWinery) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 h-[500px] overflow-hidden">
+          <div className="flex flex-col" data-testid="modal-left-column">
+            {/* Hero Image skeleton with overlay skeleton */}
+            <div className="relative h-48 w-full bg-muted animate-pulse">
+              <div className="absolute bottom-0 left-0 right-0 bg-background/60 backdrop-blur-md p-3 border-t border-border/30 space-y-2">
+                <Skeleton className="h-5 w-1/2" />
+                <Skeleton className="h-3 w-3/4" />
+              </div>
+            </div>
+            <div className="p-6 pt-4 space-y-4 flex flex-col flex-1">
+              <div className="grid grid-cols-4 gap-2">
+                <Skeleton className="h-16 w-full rounded-xl" />
+                <Skeleton className="h-16 w-full rounded-xl" />
+                <Skeleton className="h-16 w-full rounded-xl" />
+                <Skeleton className="h-16 w-full rounded-xl" />
+              </div>
+              <Skeleton className="h-24 w-full rounded-lg" />
+            </div>
+          </div>
+          <div className="space-y-4 flex flex-col border-l border-border/50 p-6" data-testid="modal-right-column">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-64 w-full rounded-lg" />
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      );
+    }
+
+    const vibeTags = getWineryVibeTags(activeWinery);
+
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 overflow-y-auto max-h-[85vh]" ref={scrollContainerRef}>
+        {/* Left Column: Info & Details */}
+        <div className="flex flex-col" data-testid="modal-left-column">
+          <div className="relative h-56 w-full overflow-hidden bg-muted rounded-tl-xl">
+            <HeroPhotoCarousel 
+              winery={activeWinery} 
+              isFull={true} 
+              isMobile={false} 
+              onPhotoClick={setLightboxPhoto} 
+            />
+          </div>
+
+          <div className="px-6 pb-6 space-y-4 flex flex-col flex-1 relative">
+            {/* Translucent overlay title card */}
+            <div className="-mt-12 mx-auto relative z-10 bg-background/70 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center gap-1.5 text-center w-[92%] max-w-sm">
+              <h2 className="text-xl md:text-2xl font-bold text-foreground leading-tight text-balance break-words w-full line-clamp-2">{activeWinery.name}</h2>
+              <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs md:text-[13px] text-muted-foreground font-medium w-full">
+                {activeWinery.rating && (
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Star className="w-3.5 h-3.5 md:w-4 md:h-4 fill-foreground text-foreground" />
+                    <span className="text-foreground">{activeWinery.rating}</span>
+                    <span className="px-1 text-muted-foreground/40">|</span>
+                  </div>
+                )}
+                <span className="text-balance break-words line-clamp-2">{activeWinery.address}</span>
+              </div>
+            </div>
+            {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
+              <div
+                data-testid="trip-badge"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleTripBadgeClick(activeWinery.trip_id!);
+                  }
+                }}
+                className="inline-flex items-center self-start rounded-full border border-border/50 px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm"
+                onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
+              >
+                <Clock className="w-3 h-3 mr-1" />
+                On Trip: {activeWinery.trip_name}
+              </div>
+            )}
+
+            <WineryActionsPresentational 
+              winery={activeWinery} 
+              onLogVisit={() => openVisitForm(activeWinery)}
+              onStreetView={handleStreetViewClick}
+              onToggleWishlist={handleWishlistToggle}
+              onToggleFavorite={handleFavoriteToggle}
+              onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
+              onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
+            />
+
+            {/* Outdoor Weather Widget */}
+            {activeWinery.latitude && activeWinery.longitude && (
+              <div className="flex justify-center">
+                <WineryWeatherWidget latitude={activeWinery.latitude} longitude={activeWinery.longitude} />
+              </div>
+            )}
+
+            {/* Horizontal Vibe & Specialty Badges Scroller */}
+            {vibeTags.length > 0 && (
+              <div className="overflow-x-auto scrollbar-none flex items-center gap-2 py-1 flex-nowrap" data-testid="vibe-tags-scroller">
+                {vibeTags.map((tag, idx) => (
+                  <span
+                    key={idx}
+                    className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 border border-primary/20 text-primary flex items-center gap-1.5 shadow-2xs whitespace-nowrap"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
+          </div>
+        </div>
+
+        {/* Right Column: Interaction Tabs */}
+        <div className="p-6 space-y-4 flex flex-col border-l border-border/50" data-testid="modal-right-column">
+          {renderTabsList()}
+          <div className="flex-1 overflow-y-auto pr-1">
+            {renderActiveTabContent()}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+function HeroPhotoCarousel({ 
+  winery, 
+  isMobile, 
+  onPhotoClick,
+  initialPhotoRef,
+  isLightbox = false,
+  onPhotoSelect
+}: { 
+  winery: Winery; 
+  isFull?: boolean; 
+  isMobile?: boolean; 
+  onPhotoClick?: (photoRef: string) => void;
+  initialPhotoRef?: string | null;
+  isLightbox?: boolean;
+  onPhotoSelect?: (photoRef: string) => void;
+}) {
+  const photos = useMemo<string[]>(() => {
+    return winery?.photo_references?.length
+      ? winery.photo_references
+      : winery?.primary_photo_reference
+      ? [winery.primary_photo_reference]
+      : [];
+  }, [winery?.photo_references, winery?.primary_photo_reference]);
+
+  // Set the initial index state once on mount from initialPhotoRef
+  const initialIndex = useMemo(() => {
+    return initialPhotoRef ? Math.max(0, photos.indexOf(initialPhotoRef)) : 0;
+  }, []);
+
+  const [currentIndex, setCurrentIndex] = useState(initialIndex);
+  const [canScrollPrev, setCanScrollPrev] = useState(false);
+  const [canScrollNext, setCanScrollNext] = useState(false);
+
+  // Keep emblaOptions updated with the active index so internal reInit calls preserve the current slide
+  const emblaOptions = useMemo(() => ({
+    loop: false,
+    startIndex: currentIndex,
+    watchSlides: true
+  }), [currentIndex]);
+
+  const [emblaRef, emblaApi] = useEmblaCarousel(emblaOptions);
+
+  useEffect(() => {
+    if (!emblaApi) return;
+
+    const onSelect = () => {
+      const index = emblaApi.selectedScrollSnap();
+      setCurrentIndex(index);
+      setCanScrollPrev(emblaApi.canScrollPrev());
+      setCanScrollNext(emblaApi.canScrollNext());
+      if (photos[index]) {
+        onPhotoSelect?.(photos[index]);
+      }
+    };
+
+    emblaApi.on("select", onSelect);
+    emblaApi.on("reInit", onSelect);
+    onSelect();
+
+    return () => {
+      emblaApi.off("select", onSelect);
+      emblaApi.off("reInit", onSelect);
+    };
+  }, [emblaApi]);
+
+
+  if (!photos.length) {
+    return <div className="h-full w-full bg-gradient-to-r from-muted/30 to-muted/10" />;
+  }
+
+  // Render a single static image on mobile viewports to prevent horizontal vs vertical swipe gesture conflicts
+  if (isMobile && !isLightbox) {
+    return (
+      <div 
+        className="relative h-full w-full overflow-hidden cursor-pointer"
+        onClick={() => onPhotoClick?.(photos[0])}
+      >
+        <WineryImage
+          photoRef={photos[0]}
+          winery={winery}
+          className="h-full w-full object-cover"
+          alt={`${winery.name} hero photo`}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative h-full w-full group overflow-hidden pointer-events-auto">
+      <div className="overflow-hidden h-full w-full" ref={emblaRef}>
+        <div className="flex h-full w-full">
+          {photos.map((ref, idx) => (
+            <div 
+              key={ref || idx} 
+              className="h-full shrink-0 relative cursor-pointer flex-[0_0_calc(100%+1px)] -mr-[1px] min-w-0"
+              onClick={() => onPhotoClick?.(ref)}
+            >
+              <WineryImage
+                photoRef={ref}
+                winery={winery}
+                className="h-full w-full object-cover"
+                alt={`${winery.name} photo ${idx + 1}`}
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {photos.length > 1 && (
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (canScrollPrev) {
+              emblaApi && emblaApi.scrollPrev();
+            }
+          }}
+          className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all duration-300 ${
+            canScrollPrev ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
+          }`}
+          aria-label="Previous photo"
+          disabled={!canScrollPrev}
+        >
+          <ChevronLeft className="w-5 h-5" />
+        </button>
+      )}
+
+      {photos.length > 1 && (
+        <button
+          type="button"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            if (canScrollNext) {
+              emblaApi && emblaApi.scrollNext();
+            }
+          }}
+          className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all duration-300 ${
+            canScrollNext ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
+          }`}
+          aria-label="Next photo"
+          disabled={!canScrollNext}
+        >
+          <ChevronRight className="w-5 h-5" />
+        </button>
+      )}
+
+      {photos.length > 1 && (
+        <div className={`absolute ${isLightbox ? "bottom-3" : "bottom-14"} left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/40 backdrop-blur-md`}>
+          {photos.map((_, idx) => (
+            <button
+              key={idx}
+              type="button"
+              aria-label={`Go to photo ${idx + 1}`}
+              onClick={() => emblaApi && emblaApi.scrollTo(idx)}
+              className={`h-1.5 rounded-full transition-all duration-300 ${
+                currentIndex === idx ? "w-4 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
+              }`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
+
+  const renderMobileLayout = () => {
+    if (isLoading || !activeWinery) {
+      return (
+        <div className="flex flex-col h-[300px] overflow-hidden p-4 space-y-4">
+          <Skeleton className="h-10 w-3/4 mx-auto rounded-lg text-center" />
+          <div className="grid grid-cols-4 gap-2">
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+            <Skeleton className="h-14 w-full rounded-xl" />
+          </div>
+          <Skeleton className="h-20 w-full rounded-lg" />
+        </div>
+      );
+    }
+
+    const isOpen = isOpenNow(activeWinery.openingHours);
+    const isFull = snapPoint === "100%" || snapPoint === 1 || snapPoint === "1" || (typeof window !== "undefined" && !!(window as any)._E2E_FULL_DRAWER);
+    const isPeek = !isFull && snapPoint === "300px";
+    const isHalf = !isPeek && !isFull;
+
+    const vibeTags = getWineryVibeTags(activeWinery);
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Pinned Header: Flush Top Hero Photo Carousel */}
+        <div className="relative w-full shrink-0 bg-muted rounded-t-[20px] overflow-hidden">
+          {/* Flush Hero Image Carousel with Height Scaling */}
+          <div className={`relative w-full ${isPeek ? "h-48" : isHalf ? "h-40" : "h-56 sm:h-64"}`}>
+            <HeroPhotoCarousel 
+              winery={activeWinery} 
+              isFull={isFull} 
+              isMobile={isMobile} 
+              onPhotoClick={setLightboxPhoto} 
+            />
+            <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background/90 to-transparent pointer-events-none z-10" />
+
+            {/* Overlaid Translucent Open Status Badge */}
+            <span
+              data-testid="peek-open-status-tag"
+              className="absolute top-3 right-3 z-20 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-black/40 backdrop-blur-md text-white border border-white/20 shadow-xs"
+            >
+              {isOpen ? "🟢 OPEN NOW" : "🔴 CLOSED"}
+            </span>
+          </div>
+        </div>
+
+        {/* Option B: Translucent Floating Title Card with Right-Aligned Expand Chevron Button */}
+        <div 
+          data-testid="drawer-title-card"
+          onClick={() => {
+            const nextSnap = snapPoint === "300px" ? "520px" : snapPoint === "520px" ? 1 : "300px";
+            setSnapPoint(nextSnap);
+          }}
+          className={`px-4 relative z-20 cursor-pointer -mt-10`}
+          role="button"
+          aria-label={isPeek ? "Tap for more details" : isHalf ? "Tap for full details" : "Tap to collapse view"}
+        >
+          <div className="bg-background/85 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-3 sm:p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center justify-between gap-3 max-w-sm mx-auto group hover:border-primary/40 transition-colors">
+            <div className="flex-1 min-w-0 text-left">
+              <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight truncate">{activeWinery.name}</h2>
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground font-medium mt-0.5">
+                {activeWinery.rating && (
+                  <div className="flex items-center gap-1">
+                    <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
+                    <span className="text-foreground font-semibold">{activeWinery.rating}</span>
+                    <span className="px-1 text-muted-foreground/40">|</span>
+                  </div>
+                )}
+                <span className="truncate">{activeWinery.address}</span>
+              </div>
+            </div>
+
+            {/* Dedicated Right-Aligned Chevron Expand Button */}
+            <div 
+              data-testid="drawer-expand-chevron-button"
+              className="shrink-0 w-8 h-8 rounded-full bg-muted/80 border border-border/40 flex items-center justify-center text-muted-foreground group-hover:text-foreground group-hover:bg-muted transition-all shadow-xs"
+            >
+              {isFull ? (
+                <ChevronDown className="w-4 h-4" />
+              ) : (
+                <ChevronUp className="w-4 h-4" />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Peek Primary Action Bar (Directions + Log Visit) */}
+        {isPeek && (
+          <div className="px-4 pt-2.5 pb-1.5 flex items-center gap-3 shrink-0">
+            <div className="flex-1">
+              <MapNavigation
+                address={activeWinery.address}
+                wineryName={activeWinery.name}
+                latitude={activeWinery.latitude}
+                longitude={activeWinery.longitude}
+              >
+                <button
+                  type="button"
+                  data-testid="route-from-current"
+                  className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl border border-border/60 bg-muted/80 text-sm font-bold text-foreground hover:bg-muted transition-all active:scale-98 shadow-sm"
+                >
+                  <Navigation className="w-4.5 h-4.5 text-blue-500 fill-blue-500" />
+                  <span>Directions</span>
+                </button>
+              </MapNavigation>
+            </div>
+            <button
+              type="button"
+              data-testid="log-visit-button"
+              onClick={() => openVisitForm(activeWinery)}
+              className="flex-1 inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#6B1536] hover:bg-[#58102b] text-white text-sm font-bold transition-all shadow-md active:scale-98"
+            >
+              <Pencil className="w-4 h-4" />
+              <span>Log Visit</span>
+            </button>
+          </div>
+        )}
+
+        <div 
+          ref={scrollContainerRef}
+          className={`flex-1 flex flex-col min-h-0 scrollbar-none ${isFull ? "overflow-y-auto pb-10" : "overflow-hidden pb-4"} flex`}
+        >
+          <div className="px-4 mt-2.5 space-y-2.5">
+            {/* 4-Grid Quick Action Tiles */}
+            <WineryActionsPresentational 
+              winery={activeWinery} 
+              onLogVisit={() => openVisitForm(activeWinery)}
+              onStreetView={handleStreetViewClick}
+              onToggleWishlist={handleWishlistToggle}
+              onToggleFavorite={handleFavoriteToggle}
+              onToggleFavoritePrivacy={handleToggleFavoritePrivacy}
+              onToggleWishlistPrivacy={handleToggleWishlistPrivacy}
+              showLogVisit={false}
+            />
+
+            {/* Outdoor Weather Widget */}
+            {activeWinery.latitude && activeWinery.longitude && (
+              <div className="flex justify-center">
+                <WineryWeatherWidget latitude={activeWinery.latitude} longitude={activeWinery.longitude} />
+              </div>
+            )}
+
+            {/* Prominent Full-Width Log Visit CTA Button */}
+            {!isPeek && (
+              <button
+                type="button"
+                data-testid="log-visit-button"
+                onClick={() => openVisitForm(activeWinery)}
+                className="w-full py-3 px-4 rounded-xl bg-[#6B1536] hover:bg-[#58102b] text-white font-bold text-sm transition-all duration-200 shadow-md flex items-center justify-center gap-2 active:scale-98"
+              >
+                <Pencil className="w-4 h-4" />
+                <span>Log Visit</span>
+              </button>
+            )}
+
+            {/* Horizontal Vibe & Specialty Badges Scroller */}
+            {vibeTags.length > 0 && (
+              <div className="overflow-x-auto scrollbar-none flex items-center gap-2 py-1 flex-nowrap" data-testid="vibe-tags-scroller">
+                {vibeTags.map((tag, idx) => (
+                  <span
+                    key={idx}
+                    className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold bg-primary/10 border border-primary/20 text-primary flex items-center gap-1.5 shadow-2xs whitespace-nowrap"
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Trip Badge */}
+            {activeWinery.trip_name && activeWinery.trip_date && activeWinery.trip_id && (
+              <div
+                data-testid="trip-badge"
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleTripBadgeClick(activeWinery.trip_id!);
+                  }
+                }}
+                className="inline-flex items-center rounded-full border border-border/50 px-2.5 py-0.5 text-xs font-semibold bg-[#f17e3a] hover:bg-[#f17e3a]/90 text-white cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95 shadow-sm"
+                onClick={() => handleTripBadgeClick(activeWinery.trip_id!)}
+              >
+                <Clock className="w-3 h-3 mr-1" />
+                On Trip: {activeWinery.trip_name}
+              </div>
+            )}
+
+            {/* Contact Overview Card */}
+            <WineryDetails winery={activeWinery} loadingWineryId={loadingWineryId} mode="info" />
+
+            {/* Interaction Tabs */}
+            {isFull && (
+              <div className="space-y-4 pt-2">
+                {renderTabsList()}
+                <div className="pt-2">
+                  {renderActiveTabContent()}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (isMobile) {
+    return (
+      <>
+        <Drawer 
+          open={isWineryModalOpen} 
+          onOpenChange={(open) => !open && closeWineryModal()}
+          snapPoints={["300px", "520px", 1]}
+          activeSnapPoint={snapPoint}
+          setActiveSnapPoint={(val) => {
+            const isE2EFull = typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER;
+            setSnapPoint(isE2EFull ? 1 : val);
+          }}
+          modal={false}
+          dismissible={true}
+        >
+          <DrawerContent 
+            showOverlay={false}
+            data-testid="winery-modal-drawer"
+            data-snap-points="300px,520px,1"
+            data-state={isLoading ? "loading" : "ready"}
+            className="backdrop-blur-xl bg-background/95 border-t border-border/50 shadow-2xl rounded-t-[20px] overflow-hidden p-0 gap-0"
+          >
+            <DrawerHeader className="sr-only">
+              <DrawerTitle>{activeWinery?.name || "Winery Details"}</DrawerTitle>
+              <DrawerDescription>
+                Winery details for {activeWinery?.name || "selected winery"}.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="flex-1 flex flex-col min-h-0 overflow-hidden" data-testid="drawer-scroll-container">
+              {renderMobileLayout()}
+            </div>
+            {activeWinery && lightboxPhoto && createPortal(
+              <div 
+                className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto"
+                data-testid="photo-lightbox-modal"
+                onPointerDown={(e) => {
+                  if (e.target === e.currentTarget) {
+                    setLightboxPhoto(null);
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  data-testid="close-lightbox-button"
+                  onPointerDown={(e) => {
+                    e.stopPropagation();
+                    setLightboxPhoto(null);
+                  }}
+                  className="absolute top-6 right-6 z-[210] p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                  aria-label="Close Lightbox"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <div 
+                  className="relative max-w-3xl h-[70vh] w-full flex flex-col items-center justify-center" 
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <div className="h-full w-full overflow-hidden rounded-lg">
+                    <HeroPhotoCarousel
+                      winery={activeWinery}
+                      isFull={true}
+                      isMobile={false}
+                      initialPhotoRef={lightboxPhoto}
+                      isLightbox={true}
+                      onPhotoSelect={setLightboxPhoto}
+                    />
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
+          </DrawerContent>
+        </Drawer>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <Dialog open={isWineryModalOpen} onOpenChange={closeWineryModal}>
+        <DialogContent
+          data-testid="winery-modal-dialog"
+          data-state={isLoading ? "loading" : "ready"}
+          className="fixed left-[50%] top-[50%] z-50 -translate-x-1/2 -translate-y-1/2 max-w-4xl w-[95vw] max-h-[85vh] p-0 flex flex-col overflow-hidden backdrop-blur-md bg-background border border-border/50 shadow-2xl shadow-primary/5 rounded-xl"
+          onFocusOutside={(e) => e.preventDefault()}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          <DialogHeader className="sr-only">
+            <DialogTitle>{activeWinery?.name || "Winery Details"}</DialogTitle>
+            <DialogDescription>
+              Detailed split view and interaction panel for {activeWinery?.name || "selected winery"}.
+            </DialogDescription>
+          </DialogHeader>
+          {renderDesktopLayout()}
+          {activeWinery && lightboxPhoto && createPortal(
+            <div 
+              className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto"
+              data-testid="photo-lightbox-modal"
+              onPointerDown={(e) => {
+                if (e.target === e.currentTarget) {
+                  setLightboxPhoto(null);
+                }
+              }}
+            >
+              <button
+                type="button"
+                data-testid="close-lightbox-button"
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  setLightboxPhoto(null);
+                }}
+                className="absolute top-6 right-6 z-[210] p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+                aria-label="Close Lightbox"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div 
+                className="relative max-w-3xl h-[70vh] w-full flex flex-col items-center justify-center" 
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <div className="h-full w-full overflow-hidden rounded-lg">
+                  <HeroPhotoCarousel
+                    winery={activeWinery}
+                    isFull={true}
+                    isMobile={false}
+                    initialPhotoRef={lightboxPhoto}
+                    isLightbox={true}
+                    onPhotoSelect={setLightboxPhoto}
+                  />
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+export default WineryModal;

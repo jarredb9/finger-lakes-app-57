@@ -1,4 +1,4 @@
-import { test, expect, MockMapsManager } from './utils';
+import { test, expect, MockMapsManager, createDefaultMockState } from './utils';
 import { 
     getSidebarContainer, 
     login, 
@@ -24,8 +24,12 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
-      const managerA = new MockMapsManager(pageA);
-      const managerB = new MockMapsManager(pageB);
+      await pageA.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+      await pageB.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+
+      const sharedState = createDefaultMockState();
+      const managerA = new MockMapsManager(pageA, sharedState);
+      const managerB = new MockMapsManager(pageB, sharedState);
       
       managerA.setupLogging();
       managerB.setupLogging();
@@ -34,6 +38,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       await test.step('Initial Setup: Login & Friendship', async () => {
         await managerA.useRealSocial();
         await managerA.useRealFavorites();
+        await managerA.useRealVisits();
         await managerA.initDefaultMocks({ currentUserId: user1.id });
         await login(pageA, user1.email, user1.password);
         await pageA.evaluate((email) => { (window as any)._E2E_USER_EMAIL = email; }, user1.email);
@@ -41,6 +46,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
 
         await managerB.useRealSocial();
         await managerB.useRealFavorites();
+        await managerB.useRealVisits();
         await managerB.initDefaultMocks({ currentUserId: user2.id });
         await login(pageB, user2.email, user2.password);
         await pageB.evaluate((email) => { (window as any)._E2E_USER_EMAIL = email; }, user2.email);
@@ -51,8 +57,6 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
 
       // 4. User A favorites and wishlists a winery
       await test.step('User A favorites and wishlists a winery', async () => {
-        await managerA.useRealVisits(); 
-        
         await navigateToTab(pageA, 'Explore');
         await waitForMapReady(pageA);
         await ensureSidebarExpanded(pageA);
@@ -71,6 +75,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         // Favorite
         const favBtn = pageA.getByTestId('favorite-button');
         await expect(favBtn).toBeVisible({ timeout: 10000 });
+        await favBtn.scrollIntoViewIfNeeded();
         
         await Promise.all([
             pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_favorite') && resp.status() === 200),
@@ -84,6 +89,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         // Wishlist
         const wishBtn = pageA.getByTestId('wishlist-button');
         await expect(wishBtn).toBeVisible({ timeout: 10000 });
+        await wishBtn.scrollIntoViewIfNeeded();
         
         await Promise.all([
             pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_wishlist') && resp.status() === 200),
@@ -118,13 +124,14 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       });
 
       // 6. User A makes the favorite and wishlist private
+      // NOTE: User A is already on Explore tab from step 4 — do NOT re-navigate,
+      // as that triggers get_map_markers re-fetch which overwrites store state.
       await test.step('User A makes items private', async () => {
-        await navigateToTab(pageA, 'Explore');
-        await ensureSidebarExpanded(pageA);
         await openWineryDetails(pageA, 'Mock Winery One');
         
         const favPrivacyToggle = pageA.getByTestId('favorite-privacy-toggle');
-        await expect(favPrivacyToggle).toBeVisible();
+        await expect(favPrivacyToggle).toBeVisible({ timeout: 10000 });
+        await favPrivacyToggle.scrollIntoViewIfNeeded();
         
         await Promise.all([
             pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_favorite_privacy') && resp.status() === 200),
@@ -138,6 +145,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
 
         const wishPrivacyToggle = pageA.getByTestId('wishlist-privacy-toggle');
         await expect(wishPrivacyToggle).toBeVisible();
+        await wishPrivacyToggle.scrollIntoViewIfNeeded();
         
         await Promise.all([
             pageA.waitForResponse(resp => resp.url().includes('rpc/toggle_wishlist_privacy') && resp.status() === 200),

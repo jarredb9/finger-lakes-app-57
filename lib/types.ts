@@ -137,6 +137,7 @@ export interface Winery {
   id: GooglePlaceId; 
   // Use 'dbId' for database operations.
   dbId?: WineryDbId | null; 
+  googleId?: string; 
   
   name: string;
   address: string;
@@ -183,6 +184,18 @@ export interface Winery {
   cached_photos?: Record<string, string> | null;
   parking_options?: Record<string, any> | null;
   accessibility_options?: Record<string, any> | null;
+  varietals?: WineryVarietal[] | null;
+  vibe_tags?: string[] | null;
+}
+
+export interface WineryVarietal {
+  name: string;
+  dryness?: number; // 0 (Dry) to 10 (Sweet)
+  sweetness?: number; // 0 (Dry) to 10 (Sweet)
+  body?: number; // 0 (Light) to 10 (Full Body)
+  tasting_notes?: string;
+  description?: string;
+  price?: string;
 }
 
 /**

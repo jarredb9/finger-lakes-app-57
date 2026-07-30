@@ -208,18 +208,21 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ai_enabled: boolean
           email: string | null
           id: string
           name: string | null
           privacy_level: Database["public"]["Enums"]["privacy_level"] | null
         }
         Insert: {
+          ai_enabled?: boolean
           email?: string | null
           id: string
           name?: string | null
           privacy_level?: Database["public"]["Enums"]["privacy_level"] | null
         }
         Update: {
+          ai_enabled?: boolean
           email?: string | null
           id?: string
           name?: string | null
@@ -485,6 +488,8 @@ export type Database = {
           revision_id: string | null
           serves_wine: boolean | null
           user_rating_count: number | null
+          varietals: Json | null
+          vibe_tags: string[] | null
           website: string | null
         }
         Insert: {
@@ -517,6 +522,8 @@ export type Database = {
           revision_id?: string | null
           serves_wine?: boolean | null
           user_rating_count?: number | null
+          varietals?: Json | null
+          vibe_tags?: string[] | null
           website?: string | null
         }
         Update: {
@@ -549,6 +556,8 @@ export type Database = {
           revision_id?: string | null
           serves_wine?: boolean | null
           user_rating_count?: number | null
+          varietals?: Json | null
+          vibe_tags?: string[] | null
           website?: string | null
         }
         Relationships: []
@@ -862,6 +871,8 @@ export type Database = {
               revision_id: string | null
               serves_wine: boolean | null
               user_rating_count: number | null
+              varietals: Json | null
+              vibe_tags: string[] | null
               website: string | null
             }[]
             SetofOptions: {
@@ -913,6 +924,8 @@ export type Database = {
               revision_id: string | null
               serves_wine: boolean | null
               user_rating_count: number | null
+              varietals: Json | null
+              vibe_tags: string[] | null
               website: string | null
             }[]
             SetofOptions: {

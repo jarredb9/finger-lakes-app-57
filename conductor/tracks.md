@@ -18,6 +18,8 @@
 | **mapbox-core-migration_20260715** | Core Mapbox Migration & Rendering | [x] Archived | [Plan](./archive/mapbox-core-migration_20260715/plan.md) |
 | **mapbox-offline-testing_20260715** | Mapbox Offline Caching & Verification | [x] Archived | [Plan](./archive/mapbox-offline-testing_20260715/plan.md) |
 
+| **ai-settings-toggle_20260728** | User AI Features Opt-In Toggle & Extensible Capability System | [x] Archived | [Plan](./archive/ai-settings-toggle_20260728/plan.md) |
+
 ---
 
 ## 1. [~] [Priority 2] Places API (New) Migration & Enhancement
@@ -37,5 +39,13 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 *Link: [./tracks/search-upgrade_20260423/](./tracks/search-upgrade_20260423/)*
 
 ---
+
+- [x] **Track: Redesign winery modal UX/UI for mobile and desktop responsive experience**
+*Link: [./archive/redesign-winery-modal_20260717/](./archive/redesign-winery-modal_20260717/)*
+
+---
+
+- [x] **Track: User preference in settings to disable AI features (default OFF), hiding AI insights in winery modal and varietals tab**
+*Link: [./archive/ai-settings-toggle_20260728/](./archive/ai-settings-toggle_20260728/)*
 
 

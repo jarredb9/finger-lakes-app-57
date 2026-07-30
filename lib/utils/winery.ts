@@ -228,7 +228,7 @@ export const standardizeWineryData = (
   const sourcePhone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? (source as any).phone : isWineryDetailsRpc(source) ? (source as any).phone : source.phone);
   const phone = mergeField(sourcePhone, existing?.phone);
 
-  const sourceWebsite = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? null : isWineryDetailsRpc(source) ? (source as any).website : source.website);
+  const sourceWebsite = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? (source as any).website : isWineryDetailsRpc(source) ? (source as any).website : source.website);
   const website = mergeField(sourceWebsite, existing?.website);
 
   const sourceRating = isGoogleWinery(source) 
@@ -275,12 +275,19 @@ export const standardizeWineryData = (
   const sourceReservable = isGoogleWinery(source) ? source.reservable : (isWineryDetailsRpc(source) ? (source as any).reservable : (isRawDbWinery(source) ? source.reservable : source.reservable));
   const reservable = sourceReservable !== undefined && sourceReservable !== null ? sourceReservable : existing?.reservable;
 
-  const userVisited = source.user_visited !== undefined ? source.user_visited : (source.userVisited !== undefined ? source.userVisited : (existing?.userVisited ?? false));
-  const onWishlist = source.on_wishlist !== undefined ? source.on_wishlist : (source.onWishlist !== undefined ? source.onWishlist : (existing?.onWishlist ?? false));
-  const isFavorite = source.is_favorite !== undefined ? source.is_favorite : (source.isFavorite !== undefined ? source.isFavorite : (existing?.isFavorite ?? false));
+  const userVisited = source.user_visited !== undefined ? Boolean(source.user_visited) : (source.userVisited !== undefined ? Boolean(source.userVisited) : (existing?.userVisited ?? false));
+
+  const rawOnWishlist = source.on_wishlist !== undefined ? Boolean(source.on_wishlist) : (source.onWishlist !== undefined ? Boolean(source.onWishlist) : undefined);
+  const onWishlist = rawOnWishlist !== undefined ? (rawOnWishlist || (existing?.onWishlist ?? false)) : (existing?.onWishlist ?? false);
+
+  const rawIsFavorite = source.is_favorite !== undefined ? Boolean(source.is_favorite) : (source.isFavorite !== undefined ? Boolean(source.isFavorite) : undefined);
+  const isFavorite = rawIsFavorite !== undefined ? (rawIsFavorite || (existing?.isFavorite ?? false)) : (existing?.isFavorite ?? false);
   
-  const favoriteIsPrivate = source.is_favorite_private !== undefined ? source.is_favorite_private : (source.favorite_is_private !== undefined ? source.favorite_is_private : (source.favoriteIsPrivate !== undefined ? source.favoriteIsPrivate : (existing?.favoriteIsPrivate ?? false)));
-  const wishlistIsPrivate = source.on_wishlist_private !== undefined ? source.on_wishlist_private : (source.wishlist_is_private !== undefined ? source.wishlist_is_private : (existing?.wishlistIsPrivate ?? false));
+  const rawFavPriv = source.is_favorite_private !== undefined ? Boolean(source.is_favorite_private) : (source.favorite_is_private !== undefined ? Boolean(source.favorite_is_private) : (source.favoriteIsPrivate !== undefined ? Boolean(source.favoriteIsPrivate) : undefined));
+  const favoriteIsPrivate = rawFavPriv !== undefined ? (rawFavPriv || (existing?.favoriteIsPrivate ?? false)) : (existing?.favoriteIsPrivate ?? false);
+
+  const rawWishPriv = source.on_wishlist_private !== undefined ? Boolean(source.on_wishlist_private) : (source.wishlist_is_private !== undefined ? Boolean(source.wishlist_is_private) : (source.wishlistIsPrivate !== undefined ? Boolean(source.wishlistIsPrivate) : undefined));
+  const wishlistIsPrivate = rawWishPriv !== undefined ? (rawWishPriv || (existing?.wishlistIsPrivate ?? false)) : (existing?.wishlistIsPrivate ?? false);
 
   // Enrichment (Places API v1)
   const lastEnrichedAt = source.last_enriched_at || existing?.last_enriched_at;
@@ -413,6 +420,8 @@ export const standardizeWineryData = (
     primary_photo_reference: primaryPhotoReference,
     photo_references: photoReferences,
     cached_photos: cachedPhotos,
+    varietals: mergeField(source.varietals !== undefined ? source.varietals : null, existing?.varietals),
+    vibe_tags: mergeField(source.vibe_tags !== undefined ? source.vibe_tags : null, existing?.vibe_tags),
   };
 
   // Final Validation
@@ -424,7 +433,29 @@ export const standardizeWineryData = (
   return standardized;
 };
 
+/**
+ * Returns vibe/specialty tags for a winery.
+ * If vibe_tags exists and is non-empty, returns it.
+ * Otherwise, maps Boolean attributes to text badges.
+ */
+export const getWineryVibeTags = (winery: Partial<Winery> | null | undefined): string[] => {
+  if (!winery) return [];
+  if (Array.isArray(winery.vibe_tags) && winery.vibe_tags.length > 0) {
+    return winery.vibe_tags;
+  }
+  
+  const tags: string[] = [];
+  if (winery.allows_dogs === true) tags.push("Dog Friendly");
+  if (winery.has_ev_charging === true) tags.push("EV Charging");
+  if (winery.outdoor_seating === true) tags.push("Outdoor Seating");
+  if (winery.good_for_children === true) tags.push("Kid Friendly");
+  
+  return tags;
+};
+
 // Expose for E2E testing
 if (typeof window !== 'undefined') {
     (window as any).standardizeWineryData = standardizeWineryData;
+    (window as any).getWineryVibeTags = getWineryVibeTags;
 }
+
