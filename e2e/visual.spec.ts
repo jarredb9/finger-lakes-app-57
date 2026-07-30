@@ -73,7 +73,10 @@ test.describe('Visual Regression Testing', () => {
 
       // 1. Peek Snap State (~300px)
       await expect(drawer).toHaveScreenshot('winery-modal-mobile-peek.png', {
-          mask: [drawer.locator('.text-muted-foreground')],
+          mask: [
+              drawer.locator('.text-muted-foreground'),
+              drawer.locator('[data-testid="winery-weather-widget"]')
+          ],
           maxDiffPixelRatio: 0.10,
           animations: 'disabled'
       });
@@ -83,7 +86,10 @@ test.describe('Visual Regression Testing', () => {
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
       await page.waitForTimeout(300);
       await expect(drawer).toHaveScreenshot('winery-modal-mobile-half.png', {
-          mask: [drawer.locator('.text-muted-foreground')],
+          mask: [
+              drawer.locator('.text-muted-foreground'),
+              drawer.locator('[data-testid="winery-weather-widget"]')
+          ],
           maxDiffPixelRatio: 0.10,
           animations: 'disabled'
       });
@@ -93,7 +99,10 @@ test.describe('Visual Regression Testing', () => {
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
       await page.waitForTimeout(300);
       await expect(drawer).toHaveScreenshot('winery-modal-mobile-full.png', {
-          mask: [drawer.locator('.text-muted-foreground')],
+          mask: [
+              drawer.locator('.text-muted-foreground'),
+              drawer.locator('[data-testid="winery-weather-widget"]')
+          ],
           maxDiffPixelRatio: 0.10,
           animations: 'disabled'
       });
@@ -117,7 +126,8 @@ test.describe('Visual Regression Testing', () => {
       await expect(modal).toHaveScreenshot('winery-modal.png', {
           mask: [
               modal.locator('.text-muted-foreground'),
-              modal.locator('[data-testid="visit-date"]')
+              modal.locator('[data-testid="visit-date"]'),
+              modal.locator('[data-testid="winery-weather-widget"]')
           ],
           maxDiffPixelRatio: 0.10,
           animations: 'disabled'
