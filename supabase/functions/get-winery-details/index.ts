@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js"
 import { ENRICHMENT_FIELD_MASK } from "../_shared/google-maps.ts"
 import { shouldEnrich } from "../_shared/enrichment.ts"
 import { normalizeGooglePlaceV1 } from "../_shared/normalization.ts"
+import { generateGeminiSummary } from "../_shared/gemini.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,7 +45,7 @@ export const handler = async (req: Request): Promise<Response> => {
       )
     }
 
-    // 2. Fetch from Google V1
+    // 2. Fetch from Google V1 Places API
     const apiKey = Deno.env.get('GOOGLE_MAPS_API_KEY')
     if (!apiKey) {
       throw new Error('Missing GOOGLE_MAPS_API_KEY')
@@ -58,19 +59,57 @@ export const handler = async (req: Request): Promise<Response> => {
       },
     })
 
+    if (!response.ok) {
+      const errorText = await response.text()
+      throw new Error(`Google Places API error (${response.status}): ${errorText}`)
+    }
+
     const place = await response.json()
     if (place.error) throw new Error(place.error.message)
 
-    // 3. Normalize & Upsert via Hybrid Pattern (RPC)
+    // 3. Normalize place data
     const wineryData = normalizeGooglePlaceV1(place, 'enriched')
 
+    // 4. Fetch any existing in-app reviews for this winery if db record exists
+    let appReviews: Array<{ user_review: string }> = []
+    if (winery?.id) {
+      const { data: visits } = await supabaseClient
+        .from('visits')
+        .select('user_review')
+        .eq('winery_id', winery.id)
+        .not('user_review', 'is', null)
+
+      if (visits) {
+        appReviews = visits as Array<{ user_review: string }>
+      }
+    }
+
+    // 5. Generate Gemini AI Summary, Vibe Tags, and Varietals
+    const geminiResult = await generateGeminiSummary(
+      wineryData.name,
+      wineryData.address,
+      wineryData.reviews || [],
+      appReviews
+    )
+
+    if (geminiResult.generative_summary) {
+      wineryData.generative_summary = geminiResult.generative_summary
+    }
+    if (geminiResult.vibe_tags && geminiResult.vibe_tags.length > 0) {
+      wineryData.vibe_tags = geminiResult.vibe_tags
+    }
+    if (geminiResult.varietals && geminiResult.varietals.length > 0) {
+      wineryData.varietals = geminiResult.varietals
+    }
+
+    // 6. Upsert via Hybrid Pattern (RPC)
     const { error: upsertError } = await supabaseClient.rpc('bulk_upsert_wineries', {
       p_wineries_data: [wineryData]
     })
 
     if (upsertError) throw upsertError
 
-    // 4. Fetch the updated record to return to client (ensures ID and Revision Control fields are included)
+    // 7. Fetch the updated record to return to client
     const { data: updatedWinery, error: fetchError } = await supabaseClient
       .from('wineries')
       .select('*')

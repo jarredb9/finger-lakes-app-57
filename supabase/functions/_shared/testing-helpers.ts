@@ -1,4 +1,4 @@
-import { Stub, stub } from "std/testing/mock.ts";
+import { Stub, stub } from "jsr:@std/testing/mock";
 
 /**
  * Enhanced mock for fetch that handles both Google and Supabase URLs
@@ -18,7 +18,34 @@ export function mockFetch(googleResponse: any, supabaseResponses: any[] | any): 
           })
         );
       }
-      if (urlStr.includes(".supabase.co")) {
+      if (urlStr.includes("generativelanguage.googleapis.com")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              candidates: [
+                {
+                  content: {
+                    parts: [
+                      {
+                        text: JSON.stringify({
+                          summary: "A lovely winery summary.",
+                          vibe_tags: ["Riesling Specialist", "Dog Friendly"],
+                          varietals: [{ name: "Dry Riesling", sweetness: 2, body: 3 }],
+                        }),
+                      },
+                    ],
+                  },
+                },
+              ],
+            }),
+            {
+              status: 200,
+              headers: { "Content-Type": "application/json" },
+            }
+          )
+        );
+      }
+      if (urlStr.includes(".supabase.co") || urlStr.includes("127.0.0.1:54321") || urlStr.includes("localhost:54321")) {
         const response = Array.isArray(supabaseResponses) 
           ? (supabaseResponses[supabaseCallCount] || supabaseResponses[supabaseResponses.length - 1])
           : supabaseResponses;
