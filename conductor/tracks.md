@@ -48,4 +48,10 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 - [x] **Track: User preference in settings to disable AI features (default OFF), hiding AI insights in winery modal and varietals tab**
 *Link: [./archive/ai-settings-toggle_20260728/](./archive/ai-settings-toggle_20260728/)*
 
+---
+
+- [ ] **Track: Refactor WineryModal and WineryDetails components into modular subcomponents**
+*Link: [./tracks/refactor-winery-modal-details_20260730/](./tracks/refactor-winery-modal-details_20260730/)*
+
+
 
