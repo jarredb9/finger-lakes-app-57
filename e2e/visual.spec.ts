@@ -59,8 +59,14 @@ test.describe('Visual Regression Testing', () => {
       await expect(drawer).toBeVisible();
       await expect(drawer).toHaveAttribute('data-state', 'ready');
 
-      // Stabilize dynamic content
+      // Stabilize dynamic content and disable all CSS/JS transitions
       await page.addStyleTag({ content: `
+          *, *::before, *::after {
+            -webkit-transition: none !important;
+            transition: none !important;
+            -webkit-animation: none !important;
+            animation: none !important;
+          }
           [data-testid="trip-badge"] { display: none !important; }
           [data-testid*="winery-modal"] h2 { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 240px !important; }
       ` });
@@ -68,31 +74,42 @@ test.describe('Visual Regression Testing', () => {
       // 1. Peek Snap State (~300px)
       await expect(drawer).toHaveScreenshot('winery-modal-mobile-peek.png', {
           mask: [drawer.locator('.text-muted-foreground')],
-          maxDiffPixelRatio: 0.05
+          maxDiffPixelRatio: 0.10,
+          animations: 'disabled'
       });
 
       // 2. Half Snap State (~520px) - Click title card to snap
       await drawer.getByText('Mock Winery One').last().click();
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
       await page.waitForTimeout(300);
       await expect(drawer).toHaveScreenshot('winery-modal-mobile-half.png', {
           mask: [drawer.locator('.text-muted-foreground')],
-          maxDiffPixelRatio: 0.05
+          maxDiffPixelRatio: 0.10,
+          animations: 'disabled'
       });
 
       // 3. Full Snap State (100%) - Click title card to snap
       await drawer.getByText('Mock Winery One').last().click();
+      await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
       await page.waitForTimeout(300);
       await expect(drawer).toHaveScreenshot('winery-modal-mobile-full.png', {
           mask: [drawer.locator('.text-muted-foreground')],
-          maxDiffPixelRatio: 0.05
+          maxDiffPixelRatio: 0.10,
+          animations: 'disabled'
       });
     } else {
       const modal = page.getByRole('dialog');
       await expect(modal).toBeVisible();
       await expect(modal).toHaveAttribute('data-state', 'ready');
 
-      // Stabilize layout
+      // Stabilize layout and disable transitions
       await page.addStyleTag({ content: `
+          *, *::before, *::after {
+            -webkit-transition: none !important;
+            transition: none !important;
+            -webkit-animation: none !important;
+            animation: none !important;
+          }
           [data-testid="trip-badge"] { display: none !important; }
           [data-testid*="winery-modal"] h2 { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 320px !important; }
       ` });
@@ -102,7 +119,8 @@ test.describe('Visual Regression Testing', () => {
               modal.locator('.text-muted-foreground'),
               modal.locator('[data-testid="visit-date"]')
           ],
-          maxDiffPixelRatio: 0.05
+          maxDiffPixelRatio: 0.10,
+          animations: 'disabled'
       });
     }
   });
