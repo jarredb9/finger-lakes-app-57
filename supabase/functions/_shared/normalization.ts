@@ -24,6 +24,8 @@ export interface NormalizedWinery {
   accessibility_flags?: any | null;
   primary_photo_reference?: string | null;
   photo_references?: string[] | null;
+  varietals?: any | null;
+  vibe_tags?: string[] | null;
 }
 
 /**
@@ -35,8 +37,8 @@ export function normalizeGooglePlaceV1(place: any, tier: 'basic' | 'enriched' = 
     google_place_id: place.id,
     name: place.displayName?.text || '',
     address: place.formattedAddress || '',
-    latitude: place.location?.latitude,
-    longitude: place.location?.longitude,
+    latitude: place.location?.latitude ?? 0,
+    longitude: place.location?.longitude ?? 0,
     phone: place.internationalPhoneNumber || null,
     website: place.websiteUri || null,
     google_rating: typeof place.rating === 'number' ? place.rating : 0,
@@ -65,5 +67,7 @@ export function normalizeGooglePlaceV1(place: any, tier: 'basic' | 'enriched' = 
     accessibility_flags: place.accessibilityOptions,
     primary_photo_reference: place.photos && place.photos.length > 0 ? place.photos[0].name : null,
     photo_references: place.photos && place.photos.length > 0 ? place.photos.map((p: any) => p.name) : null,
+    varietals: place.varietals || null,
+    vibe_tags: place.vibe_tags || null,
   };
 }

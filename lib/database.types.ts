@@ -1002,6 +1002,8 @@ export type Database = {
           trip_info: Json
           user_rating_count: number
           user_visited: boolean
+          varietals: Json
+          vibe_tags: string[]
           visits: Json
           website: string
         }[]
