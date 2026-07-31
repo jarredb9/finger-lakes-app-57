@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient } from "npm:@supabase/supabase-js@2"
 import { ESSENTIALS_FIELD_MASK, ENRICHMENT_FIELD_MASK } from "../_shared/google-maps.ts"
 import { normalizeGooglePlaceV1 } from "../_shared/normalization.ts"
 

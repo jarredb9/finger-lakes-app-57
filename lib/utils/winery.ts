@@ -214,6 +214,9 @@ export const standardizeWineryData = (
 
   // Helper to merge fields while preventing overwriting of enriched data by basic markers
   const mergeField = <T>(newVal: T | null | undefined, existingVal: T | null | undefined): T | null | undefined => {
+    if (Array.isArray(newVal) && newVal.length === 0 && Array.isArray(existingVal) && existingVal.length > 0) {
+      return existingVal;
+    }
     if (!isIncomingEnriched && existingVal !== undefined && existingVal !== null) {
       return existingVal;
     }

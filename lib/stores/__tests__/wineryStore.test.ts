@@ -38,7 +38,9 @@ describe('WineryUIStore: ensureWineryDetails', () => {
       visits: [createMockVisit()],
       enrichment_tier: 'enriched',
       reviews: [{ author_name: 'Tester', rating: 5, text: 'Great!', time: 12345, relative_time_description: 'today' }],
-      userRatingCount: 10
+      userRatingCount: 10,
+      generative_summary: 'Great winery summary',
+      vibe_tags: ['Dog Friendly']
     };
     
     useWineryDataStore.setState({ persistentWineries: [winery] });
