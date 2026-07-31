@@ -85,11 +85,13 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
     }
 
     // Optimization: Return cached details if we have them
-    // We check for enrichment_tier 'enriched' or 'full' AND presence of reviews/hours
+    // We check for enrichment_tier 'enriched' or 'full' AND presence of reviews/hours/generative_summary/vibe_tags
     const isEnriched = (existing?.enrichment_tier === 'enriched' || existing?.enrichment_tier === 'full') && 
                        (existing?.reviews !== undefined && existing?.reviews !== null && Array.isArray(existing.reviews)) &&
                        (existing?.openingHours !== undefined && existing?.openingHours !== null && existing.openingHours.weekday_text && existing.openingHours.weekday_text.length > 0) &&
-                       (existing?.userRatingCount !== undefined && existing?.userRatingCount !== null);
+                       (existing?.userRatingCount !== undefined && existing?.userRatingCount !== null) &&
+                       (existing?.generative_summary !== undefined && existing?.generative_summary !== null) &&
+                       (existing?.vibe_tags !== undefined && existing?.vibe_tags !== null && Array.isArray(existing.vibe_tags) && existing.vibe_tags.length > 0);
     const hasMissingVisits = existing?.userVisited && (!existing.visits || existing.visits.length === 0);
 
     if (existing && isEnriched && !hasMissingVisits) {
@@ -114,12 +116,13 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
             if (standardized) {
                 dataStore.upsertWinery(standardized);
                 
-                // Optimization: If DB data is already fully enriched, return early.
-                // We trust the 'enriched' tier if it has the core fields (hours, rating count, and reviews array)
+                // Optimization: If DB data is already fully enriched (including AI generative_summary and vibe_tags), return early.
                 const dbIsEnriched = dbData.enrichment_tier === 'enriched' &&
                                     dbData.opening_hours && 
                                     dbData.user_rating_count !== null && 
-                                    Array.isArray(dbData.reviews);
+                                    Array.isArray(dbData.reviews) &&
+                                    dbData.generative_summary &&
+                                    Array.isArray(dbData.vibe_tags) && dbData.vibe_tags.length > 0;
 
                 if (dbIsEnriched) {
                     set({ loadingWineryId: null });

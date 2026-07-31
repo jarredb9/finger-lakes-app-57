@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js"
+import { createClient } from "npm:@supabase/supabase-js@2"
 import { ENRICHMENT_FIELD_MASK } from "../_shared/google-maps.ts"
 import { shouldEnrich } from "../_shared/enrichment.ts"
 import { normalizeGooglePlaceV1 } from "../_shared/normalization.ts"
@@ -94,6 +94,11 @@ export const handler = async (req: Request): Promise<Response> => {
 
     if (geminiResult.generative_summary) {
       wineryData.generative_summary = geminiResult.generative_summary
+    } else {
+      console.warn(`[get-winery-details] Gemini enrichment failed for "${wineryData.name}" (${placeId}):`, {
+        error: geminiResult.error,
+        errorDetails: geminiResult.errorDetails
+      });
     }
     if (geminiResult.vibe_tags && geminiResult.vibe_tags.length > 0) {
       wineryData.vibe_tags = geminiResult.vibe_tags
@@ -105,6 +110,9 @@ export const handler = async (req: Request): Promise<Response> => {
     // Only set last_enriched_at if Gemini AI enrichment succeeded to avoid getting stuck in a half-enriched state
     if (!geminiResult.generative_summary) {
       wineryData.last_enriched_at = null;
+      if (!wineryData.generative_summary) {
+        wineryData.generative_summary = null;
+      }
     }
 
     // 6. Upsert via Hybrid Pattern (RPC)
