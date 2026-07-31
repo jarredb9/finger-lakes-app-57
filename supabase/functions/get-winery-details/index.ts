@@ -102,6 +102,11 @@ export const handler = async (req: Request): Promise<Response> => {
       wineryData.varietals = geminiResult.varietals
     }
 
+    // Only set last_enriched_at if Gemini AI enrichment succeeded to avoid getting stuck in a half-enriched state
+    if (!geminiResult.generative_summary) {
+      wineryData.last_enriched_at = null;
+    }
+
     // 6. Upsert via Hybrid Pattern (RPC)
     const { error: upsertError } = await supabaseClient.rpc('bulk_upsert_wineries', {
       p_wineries_data: [wineryData]

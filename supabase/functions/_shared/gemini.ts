@@ -10,11 +10,16 @@ export async function generateGeminiSummary(
   googleReviews: Array<{ text: string }> = [],
   appReviews: Array<{ user_review: string }> = []
 ): Promise<GeminiEnrichmentResult> {
-  const apiKey = Deno.env.get('GEMINI_API_KEY') || Deno.env.get('GOOGLE_MAPS_API_KEY');
+  const geminiKey = Deno.env.get('GEMINI_API_KEY');
+  const mapsKey = Deno.env.get('GOOGLE_MAPS_API_KEY');
+  const apiKey = geminiKey || mapsKey;
+
   if (!apiKey) {
     console.warn('[Gemini] Missing GEMINI_API_KEY or GOOGLE_MAPS_API_KEY, skipping AI enrichment');
     return { generative_summary: null, vibe_tags: [], varietals: [] };
   }
+
+  console.log(`[Gemini] Initiating AI enrichment using ${geminiKey ? 'GEMINI_API_KEY' : 'GOOGLE_MAPS_API_KEY fallback'}`);
 
   // Combine review sources for context
   const googleReviewTexts = Array.isArray(googleReviews) ? googleReviews.map((r) => r?.text).filter(Boolean) : [];
@@ -38,57 +43,67 @@ You MUST respond with a JSON object. Do not include markdown code block formatti
   ]
 }`;
 
-  try {
-    const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    const geminiResponse = await fetch(geminiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: prompt
-          }]
-        }]
-      })
-    });
+  // Models to try in priority order
+  const models = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro'];
 
-    if (!geminiResponse.ok) {
-      const errText = await geminiResponse.text();
-      console.warn(`[Gemini] API error (${geminiResponse.status}): ${errText}`);
-      return { generative_summary: null, vibe_tags: [], varietals: [] };
-    }
-
-    const geminiData = await geminiResponse.json();
-    const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
-
-    if (!rawText) {
-      console.warn('[Gemini] API did not return any content');
-      return { generative_summary: null, vibe_tags: [], varietals: [] };
-    }
-
-    let summaryText = '';
-    let vibeTags: string[] = [];
-    let varietals: Array<{ name: string; description?: string; sweetness?: number; body?: number; price?: string }> = [];
-
+  for (const model of models) {
     try {
-      const cleanedJson = rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
-      const parsed = JSON.parse(cleanedJson);
-      summaryText = parsed.summary || '';
-      vibeTags = Array.isArray(parsed.vibe_tags) ? parsed.vibe_tags : [];
-      varietals = Array.isArray(parsed.varietals) ? parsed.varietals : [];
-    } catch (_e) {
-      summaryText = rawText;
-    }
+      const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+      const geminiResponse = await fetch(geminiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{
+              text: prompt
+            }]
+          }]
+        })
+      });
 
-    return {
-      generative_summary: summaryText ? { overview: { text: summaryText } } : null,
-      vibe_tags: vibeTags,
-      varietals: varietals
-    };
-  } catch (err) {
-    console.error('[Gemini] Error generating summary:', err);
-    return { generative_summary: null, vibe_tags: [], varietals: [] };
+      if (!geminiResponse.ok) {
+        const errText = await geminiResponse.text();
+        console.warn(`[Gemini] Model ${model} returned error (${geminiResponse.status}): ${errText}`);
+        continue; // Try next model
+      }
+
+      const geminiData = await geminiResponse.json();
+      const rawText = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+      if (!rawText) {
+        console.warn(`[Gemini] Model ${model} did not return content`);
+        continue;
+      }
+
+      let summaryText = '';
+      let vibeTags: string[] = [];
+      let varietals: Array<{ name: string; description?: string; sweetness?: number; body?: number; price?: string }> = [];
+
+      try {
+        const cleanedJson = rawText.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '').trim();
+        const parsed = JSON.parse(cleanedJson);
+        summaryText = parsed.summary || '';
+        vibeTags = Array.isArray(parsed.vibe_tags) ? parsed.vibe_tags : [];
+        varietals = Array.isArray(parsed.varietals) ? parsed.varietals : [];
+      } catch (_e) {
+        summaryText = rawText;
+      }
+
+      if (summaryText) {
+        console.log(`[Gemini] Successfully generated AI summary using ${model}`);
+        return {
+          generative_summary: { overview: { text: summaryText } },
+          vibe_tags: vibeTags,
+          varietals: varietals
+        };
+      }
+    } catch (err) {
+      console.error(`[Gemini] Exception during ${model} call:`, err);
+    }
   }
+
+  console.error('[Gemini] All Gemini models failed to generate content');
+  return { generative_summary: null, vibe_tags: [], varietals: [] };
 }
