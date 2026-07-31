@@ -7,10 +7,11 @@ import {
     waitForMapReady, 
     openWineryDetails, 
     closeWineryModal,
-    ensureSidebarExpanded,
     ensureProfileReady,
     expectWineryPrivacyInStore,
-    expectWineryStatusInStore
+    expectWineryStatusInStore,
+    waitForSignal,
+    refreshFriendsStore
 } from './helpers';
 
 test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
@@ -59,7 +60,6 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       await test.step('User A favorites and wishlists a winery', async () => {
         await navigateToTab(pageA, 'Explore');
         await waitForMapReady(pageA);
-        await ensureSidebarExpanded(pageA);
 
         // Ensure sidebar is populated with markers
         await pageA.evaluate(() => {
@@ -103,20 +103,21 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       // 5. User B views User A's profile and sees the items
       await test.step('User B sees public items', async () => {
         await navigateToTab(pageB, 'Friends');
-        await ensureSidebarExpanded(pageB);
         
         // Force a refresh of the friends store to ensure the new status is picked up
-        await pageB.evaluate(async () => {
-            // @ts-ignore
-            const store = window.useFriendStore?.getState();
-            if (store) await store.fetchFriends();
-        });
+        await refreshFriendsStore(pageB);
 
         const sidebarB = getSidebarContainer(pageB);
         
-        const userALink = sidebarB.locator('a', { hasText: user1.email.split('@')[0] });
+        const userARow = sidebarB.locator(`[data-testid="friend-row-${user1.email}"]`).first();
+        await expect(userARow).toBeVisible({ timeout: 10000 });
+        
+        const userALink = userARow.locator('a').first();
         await userALink.scrollIntoViewIfNeeded();
         await userALink.click({ force: true });
+
+        // Readiness gate: Wait for friend profile component to complete loading
+        await waitForSignal(pageB, 'friend-profile-container', 'ready', 15000);
 
         await expect(pageB.getByText('Favorites', { exact: false }).first()).toBeVisible();
         await expect(pageB.getByTestId('favorite-count')).toHaveText('1');
