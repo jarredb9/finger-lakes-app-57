@@ -252,21 +252,16 @@ export async function ensureSidebarExpanded(page: Page) {
     const isMobile = page.viewportSize()!.width < 768;
     if (!isMobile) return;
     
-    const isFullDrawer = await page.evaluate(() => !!(window as any)._E2E_FULL_DRAWER).catch(() => false);
-
     const sidebar = getSidebarContainer(page);
+    await expect(sidebar).toBeVisible({ timeout: 10000 });
     await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
 
-    if (isFullDrawer) return;
-
     const expandBtn = page.getByRole('button', { name: 'Expand to full screen' });
-    try {
-        if (await expandBtn.isVisible({ timeout: 1500 })) {
-            await expandBtn.click({ force: true });
-            await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
-        }
-    } catch (e) {
-        // Expand button was not present or drawer is already expanded
+    const isMiniMode = await expandBtn.isVisible().catch(() => false);
+    
+    if (isMiniMode) {
+        await expandBtn.click({ force: true });
+        await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
     }
 }
 

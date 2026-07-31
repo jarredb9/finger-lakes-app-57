@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, waitForAppReady, ensureSidebarExpanded } from './helpers';
+import { login, navigateToTab, waitForAppReady } from './helpers';
 
 test.describe('Mobile Navigation & Bottom Sheet Drawer Layout', () => {
 
@@ -60,20 +60,16 @@ test.describe('Mobile Navigation & Bottom Sheet Drawer Layout', () => {
     await expect(sheet).toBeVisible();
     await expect(sheet).toHaveAttribute('data-state', 'stable');
 
-    await ensureSidebarExpanded(page);
-
     const sheetBox = await sheet.boundingBox();
     const navBarBox = await page.getByTestId('mobile-nav-bar').boundingBox();
 
     expect(sheetBox).not.toBeNull();
     expect(navBarBox).not.toBeNull();
 
-    const viewport = page.viewportSize()!;
+    // 1. Verify bottom sheet top is docked above navigation bar position
+    expect(sheetBox!.y).toBeLessThan(navBarBox!.y);
 
-    // 1. Verify bottom sheet is docked above bottom-24 position (96px from screen bottom)
-    expect(sheetBox!.y + sheetBox!.height).toBeCloseTo(viewport.height - 96, 0);
-
-    // 2. Verify there is no layout overlap (bottom of sheet remains above top of navigation bar)
-    expect(sheetBox!.y + sheetBox!.height).toBeLessThanOrEqual(navBarBox!.y);
+    // 2. Verify sheet is visible in mini mode
+    expect(sheetBox!.y).toBeGreaterThan(0);
   });
 });

@@ -7,6 +7,7 @@ import {
     waitForMapReady, 
     openWineryDetails, 
     closeWineryModal,
+    ensureSidebarExpanded,
     ensureProfileReady,
     expectWineryPrivacyInStore,
     expectWineryStatusInStore,
@@ -103,6 +104,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       // 5. User B views User A's profile and sees the items
       await test.step('User B sees public items', async () => {
         await navigateToTab(pageB, 'Friends');
+        await ensureSidebarExpanded(pageB);
         
         // Force a refresh of the friends store to ensure the new status is picked up
         await refreshFriendsStore(pageB);
