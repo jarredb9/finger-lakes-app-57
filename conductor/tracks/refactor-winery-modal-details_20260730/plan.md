@@ -2,12 +2,12 @@
 
 Decompose monolithic `winery-modal.tsx` and `WineryDetails.tsx` into modular sub-components and hooks in `components/winery/`, preserving 100% visual/behavioral parity and E2E test contracts.
 
-## Phase 1: Shared Sub-Components Extraction
+## Phase 1: Shared Sub-Components Extraction [checkpoint: 1b9cb65]
 Extract self-contained utility and status sub-components into `components/winery/`.
 
 - [x] Task: Create `components/winery/winery-image.tsx` for lazy image rendering with photo caching. cf8cf99
 - [x] Task: Create `components/winery/attribute-status.tsx` for check/cross/help status indicators. 1a46d65
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Shared Sub-Components Extraction' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Shared Sub-Components Extraction' (Protocol in workflow.md) 1b9cb65
 
 ## Phase 2: WineryDetails Sub-View Decomposition
 Decompose `WineryDetails.tsx` into single-responsibility presentational components.
