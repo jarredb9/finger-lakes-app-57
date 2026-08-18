@@ -15,7 +15,7 @@ Decompose `WineryDetails.tsx` into single-responsibility presentational componen
 - [x] Task: Create `components/winery/winery-info-card.tsx` for hours, status, and contact action buttons. a394b19
 - [x] Task: Create `components/winery/winery-amenities-list.tsx` for amenities checklist & logistics accordions. bae4fa3
 - [x] Task: Create `components/winery/winery-ai-insights-card.tsx` for Gemini summary and neighborhood details. 314ccd3
-- [ ] Task: Refactor `WineryDetails.tsx` into a lightweight view-mode switcher (~60 lines).
+- [x] Task: Refactor `WineryDetails.tsx` into a lightweight view-mode switcher (~60 lines). 140621d
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: WineryDetails Sub-View Decomposition' (Protocol in workflow.md)
 
 ## Phase 3: WineryModal State & Carousel Modularization
