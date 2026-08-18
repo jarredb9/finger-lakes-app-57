@@ -9,14 +9,14 @@ Extract self-contained utility and status sub-components into `components/winery
 - [x] Task: Create `components/winery/attribute-status.tsx` for check/cross/help status indicators. 1a46d65
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Shared Sub-Components Extraction' (Protocol in workflow.md) 1b9cb65
 
-## Phase 2: WineryDetails Sub-View Decomposition
+## Phase 2: WineryDetails Sub-View Decomposition [checkpoint: db56314]
 Decompose `WineryDetails.tsx` into single-responsibility presentational components.
 
 - [x] Task: Create `components/winery/winery-info-card.tsx` for hours, status, and contact action buttons. a394b19
 - [x] Task: Create `components/winery/winery-amenities-list.tsx` for amenities checklist & logistics accordions. bae4fa3
 - [x] Task: Create `components/winery/winery-ai-insights-card.tsx` for Gemini summary and neighborhood details. 314ccd3
 - [x] Task: Refactor `WineryDetails.tsx` into a lightweight view-mode switcher (~60 lines). 140621d
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: WineryDetails Sub-View Decomposition' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: WineryDetails Sub-View Decomposition' (Protocol in workflow.md) db56314
 
 ## Phase 3: WineryModal State & Carousel Modularization
 Extract photo carousel, lightbox portal, and custom modal state hook.
