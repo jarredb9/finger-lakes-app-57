@@ -497,47 +497,61 @@ function HeroPhotoCarousel({
       : [];
   }, [winery?.photo_references, winery?.primary_photo_reference]);
 
-  // Set the initial index state from initialPhotoRef
   const initialIndex = useMemo(() => {
-    return initialPhotoRef ? Math.max(0, photos.indexOf(initialPhotoRef)) : 0;
+    if (!initialPhotoRef) return 0;
+    const idx = photos.indexOf(initialPhotoRef);
+    return idx > 0 ? idx : 0;
   }, [initialPhotoRef, photos]);
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
+  const activeIndexRef = useRef(initialIndex);
 
-  // Keep emblaOptions stable so reInit does not reset to stale startIndex on every slide transition
-  const emblaOptions = useMemo(() => ({
+  const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     startIndex: initialIndex,
-    watchSlides: true
-  }), [initialIndex]);
+    watchSlides: false,
+    watchResize: false,
+  });
 
-  const [emblaRef, emblaApi] = useEmblaCarousel(emblaOptions);
-
+  // Handle slide selection and preserve position on any internal reInit
   useEffect(() => {
     if (!emblaApi) return;
 
     const onSelect = () => {
       const index = emblaApi.selectedScrollSnap();
-      setCurrentIndex(index);
+      if (index !== activeIndexRef.current) {
+        activeIndexRef.current = index;
+        setCurrentIndex(index);
+        if (photos[index]) {
+          onPhotoSelect?.(photos[index]);
+        }
+      }
       setCanScrollPrev(emblaApi.canScrollPrev());
       setCanScrollNext(emblaApi.canScrollNext());
-      if (photos[index]) {
-        onPhotoSelect?.(photos[index]);
+    };
+
+    const onReInit = () => {
+      if (activeIndexRef.current > 0 && activeIndexRef.current < photos.length) {
+        emblaApi.scrollTo(activeIndexRef.current, true);
       }
+      setCanScrollPrev(emblaApi.canScrollPrev());
+      setCanScrollNext(emblaApi.canScrollNext());
     };
 
     emblaApi.on("select", onSelect);
-    emblaApi.on("reInit", onSelect);
-    onSelect();
+    emblaApi.on("reInit", onReInit);
+
+    // Initial button state sync
+    setCanScrollPrev(emblaApi.canScrollPrev());
+    setCanScrollNext(emblaApi.canScrollNext());
 
     return () => {
       emblaApi.off("select", onSelect);
-      emblaApi.off("reInit", onSelect);
+      emblaApi.off("reInit", onReInit);
     };
-  }, [emblaApi]);
-
+  }, [emblaApi, photos, onPhotoSelect]);
 
   if (!photos.length) {
     return <div className="h-full w-full bg-gradient-to-r from-muted/30 to-muted/10" />;
@@ -566,8 +580,8 @@ function HeroPhotoCarousel({
         <div className="flex h-full w-full">
           {photos.map((ref, idx) => (
             <div 
-              key={ref || idx} 
-              className="h-full shrink-0 relative cursor-pointer flex-[0_0_calc(100%+1px)] -mr-[1px] min-w-0"
+              key={`${ref}-${idx}`} 
+              className="h-full shrink-0 relative cursor-pointer min-w-0 flex-[0_0_100%]"
               onClick={() => onPhotoClick?.(ref)}
             >
               <WineryImage
@@ -584,15 +598,15 @@ function HeroPhotoCarousel({
       {photos.length > 1 && (
         <button
           type="button"
-          onPointerDown={(e) => {
+          onClick={(e) => {
             e.stopPropagation();
-            if (canScrollPrev) {
-              emblaApi && emblaApi.scrollPrev();
+            e.preventDefault();
+            if (canScrollPrev && emblaApi) {
+              emblaApi.scrollPrev();
             }
           }}
-          onClick={(e) => e.stopPropagation()}
           className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all duration-300 ${
-            canScrollPrev ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
+            canScrollPrev ? "opacity-100 scale-100 cursor-pointer" : "opacity-0 scale-90 pointer-events-none"
           }`}
           aria-label="Previous photo"
           disabled={!canScrollPrev}
@@ -604,15 +618,15 @@ function HeroPhotoCarousel({
       {photos.length > 1 && (
         <button
           type="button"
-          onPointerDown={(e) => {
+          onClick={(e) => {
             e.stopPropagation();
-            if (canScrollNext) {
-              emblaApi && emblaApi.scrollNext();
+            e.preventDefault();
+            if (canScrollNext && emblaApi) {
+              emblaApi.scrollNext();
             }
           }}
-          onClick={(e) => e.stopPropagation()}
           className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all duration-300 ${
-            canScrollNext ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
+            canScrollNext ? "opacity-100 scale-100 cursor-pointer" : "opacity-0 scale-90 pointer-events-none"
           }`}
           aria-label="Next photo"
           disabled={!canScrollNext}
@@ -628,8 +642,11 @@ function HeroPhotoCarousel({
               key={idx}
               type="button"
               aria-label={`Go to photo ${idx + 1}`}
-              onClick={() => emblaApi && emblaApi.scrollTo(idx)}
-              className={`h-1.5 rounded-full transition-all duration-300 ${
+              onClick={(e) => {
+                e.stopPropagation();
+                emblaApi && emblaApi.scrollTo(idx);
+              }}
+              className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
                 currentIndex === idx ? "w-4 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80"
               }`}
             />
