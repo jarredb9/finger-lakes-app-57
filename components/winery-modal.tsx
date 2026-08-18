@@ -1,19 +1,12 @@
 // components/winery-modal.tsx
-import { useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
-import { Clock, Calendar as CalendarIcon, Star, Pencil, ChevronUp, ChevronDown } from "lucide-react";
+import { Clock, Calendar as CalendarIcon, Star, Pencil, ChevronUp, ChevronDown, Navigation } from "lucide-react";
 import { WineryDetails } from "./WineryDetails";
 import { HeroPhotoCarousel } from "./winery/hero-photo-carousel";
 import { PhotoLightboxModal } from "./winery/photo-lightbox-modal";
-import { useUIStore } from "@/lib/stores/uiStore";
-import { useWineryStore } from "@/lib/stores/wineryStore";
-import { useVisitStore } from "@/lib/stores/visitStore";
-import { useToast } from "@/hooks/use-toast";
-import { Visit } from "@/lib/types";
-import { useTripStore } from "@/lib/stores/tripStore";
-import { shallow } from "zustand/shallow";
+import { useWineryModalState } from "./winery/use-winery-modal-state";
 
 import { WineryActionsPresentational } from "./WineryActionsPresentational";
 import { WineryCommunityTab } from "./WineryCommunityTab";
@@ -21,244 +14,44 @@ import { WineryVarietalsTab } from "./WineryVarietalsTab";
 import { WineryWeatherWidget } from "./WineryWeatherWidget";
 import TripPlannerSection from "./TripPlannerSection";
 import VisitCardHistory from "./VisitCardHistory";
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useMapStore } from "@/lib/stores/mapStore";
 import { isOpenNow } from "@/lib/utils/opening-hours";
 import { MapNavigation } from "./MapNavigation";
-import { Navigation } from "lucide-react";
 import { getWineryVibeTags } from "@/lib/utils/winery";
-import { useAIFeaturesEnabled } from "@/hooks/use-ai-features";
-
-
 
 export function WineryModal() {
-  const { isWineryModalOpen, activeWineryId, closeWineryModal: closeWineryModalRaw, openVisitForm } = useUIStore();
-  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
-
-  const closeWineryModal = () => {
-    setLightboxPhoto(null);
-    closeWineryModalRaw();
-  };
-  const { toast } = useToast();
-  const { fetchTripById, setSelectedTrip } = useTripStore();
-  
-  const [snapPoint, setSnapPoint] = useState<string | number | null>(() => 
-    typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? 1 : "300px"
-  );
-  const prevActiveWineryRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (isWineryModalOpen) {
-      if (activeWineryId !== prevActiveWineryRef.current) {
-        const defaultSnap = typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? 1 : "300px";
-        prevActiveWineryRef.current = activeWineryId;
-        queueMicrotask(() => {
-          setSnapPoint(defaultSnap);
-        });
-      }
-    } else {
-      prevActiveWineryRef.current = null;
-      queueMicrotask(() => {
-        setLightboxPhoto(null);
-      });
-    }
-  }, [isWineryModalOpen, activeWineryId]);
-
-  const { map } = useMapStore();
-  const isAIEnabled = useAIFeaturesEnabled();
-
-  const [activeTab, setActiveTab] = useState<"community" | "amenities" | "ai_insights" | "varietals" | "visits" | "trip">("community");
-  const effectiveActiveTab = !isAIEnabled && activeTab === "ai_insights" ? "community" : activeTab;
-  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
-
-  const handleStreetViewClick = () => {
-    if (!activeWinery) return;
-    
-    if (map && typeof map.openStreetView === "function") {
-      map.openStreetView(activeWinery.latitude, activeWinery.longitude);
-    } else {
-      const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${activeWinery.latitude},${activeWinery.longitude}`;
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
-  };
-
-  const { toggleWishlist, toggleFavorite, toggleFavoritePrivacy, toggleWishlistPrivacy } = useWineryStore(
-    (state) => ({
-      toggleWishlist: state.toggleWishlist,
-      toggleFavorite: state.toggleFavorite,
-      toggleFavoritePrivacy: state.toggleFavoritePrivacy,
-      toggleWishlistPrivacy: state.toggleWishlistPrivacy,
-    }),
-    shallow
-  );
-  
-  const activeWinery = useWineryDataStore((state) => {
-    if (!activeWineryId) return null;
-    return (
-      state.persistentWineries.find(
-        (w) =>
-          w.id === activeWineryId ||
-          String(w.dbId) === String(activeWineryId) ||
-          w.googleId === activeWineryId
-      ) || null
-    );
-  });
-
-  const handleWishlistToggle = async () => {
-    if (!activeWinery) return;
-    try {
-      await toggleWishlist(activeWinery);
-    } catch (error) {
-      toast({ variant: "destructive", description: "Failed to update wishlist." });
-    }
-  };
-
-  const handleFavoriteToggle = async () => {
-    if (!activeWinery) return;
-    try {
-      await toggleFavorite(activeWinery);
-    } catch (error) {
-      toast({ variant: "destructive", description: "Failed to update favorites." });
-    }
-  };
-
-  const handleToggleFavoritePrivacy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!activeWinery) return;
-    try {
-        await toggleFavoritePrivacy(activeWinery.id);
-        toast({ description: activeWinery.favoriteIsPrivate ? "Favorite is now public." : "Favorite is now private." });
-    } catch (error) {
-        toast({ variant: "destructive", description: "Failed to update favorite privacy." });
-    }
-  };
-
-  const handleToggleWishlistPrivacy = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!activeWinery) return;
-    try {
-        await toggleWishlistPrivacy(activeWinery.id);
-        toast({ description: activeWinery.wishlistIsPrivate ? "Wishlist item is now public." : "Wishlist item is now private." });
-    } catch (error) {
-        toast({ variant: "destructive", description: "Failed to update wishlist privacy." });
-    }
-  };
-  
-  const loadingWineryId = useWineryStore((state) => state.loadingWineryId);
-  const { deleteVisit: deleteVisitAction } = useVisitStore();
-  
-  const storeVisits = useVisitStore((state) => 
-    activeWineryId ? state.visits.filter(v => v.wineryId === activeWineryId || v.wineries?.google_place_id === activeWineryId) : []
-  );
-
-  const isLoading = loadingWineryId === activeWineryId;
-  
-  const wineryVisits = activeWinery?.visits || [];
-  const visits = [
-    ...storeVisits,
-    ...wineryVisits.filter(wv => !storeVisits.some(sv => String(sv.id) === String(wv.id)))
-  ].sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
-
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const visitHistoryRef = useRef<HTMLDivElement>(null);
-
-  const prevVisitsLength = useRef(visits.length);
-  const hasHydrated = useRef(false);
-
-  useEffect(() => {
-    hasHydrated.current = false;
-  }, [isWineryModalOpen, activeWineryId]);
-
-  useEffect(() => {
-    if (isLoading || !isWineryModalOpen) {
-      prevVisitsLength.current = visits.length;
-    }
-
-    if (isWineryModalOpen && !isLoading) {
-      requestAnimationFrame(() => {
-        scrollContainerRef.current?.scrollTo({ top: 0, behavior: 'instant' });
-      });
-    }
-  }, [isWineryModalOpen, activeWineryId, isLoading, visits.length]);
-
-  useEffect(() => {
-    if (!isWineryModalOpen) return undefined;
-
-    if (!hasHydrated.current) {
-      if (!isLoading) {
-        hasHydrated.current = true;
-        prevVisitsLength.current = visits.length;
-      }
-      return undefined;
-    }
-
-    if (!isLoading && visits.length > prevVisitsLength.current) {
-      const timer = setTimeout(() => {
-        if (visitHistoryRef.current) {
-          visitHistoryRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-        }
-      }, 100);
-      
-      prevVisitsLength.current = visits.length;
-      return () => clearTimeout(timer);
-    }
-    
-    prevVisitsLength.current = visits.length;
-    return undefined;
-  }, [visits.length, isWineryModalOpen, isLoading]);
-
-  const isStreetViewActive = useMapStore((state) => state.isStreetViewActive);
+  const {
+    isWineryModalOpen,
+    activeWinery,
+    loadingWineryId,
+    isLoading,
+    isStreetViewActive,
+    isMobile,
+    isAIEnabled,
+    lightboxPhoto,
+    setLightboxPhoto,
+    snapPoint,
+    setSnapPoint,
+    effectiveActiveTab,
+    setActiveTab,
+    visits,
+    scrollContainerRef,
+    visitHistoryRef,
+    closeWineryModal,
+    openVisitForm,
+    handleStreetViewClick,
+    handleWishlistToggle,
+    handleFavoriteToggle,
+    handleToggleFavoritePrivacy,
+    handleToggleWishlistPrivacy,
+    handleEditClick,
+    handleDeleteVisit,
+    handleTripBadgeClick,
+  } = useWineryModalState();
 
   if (!isWineryModalOpen || isStreetViewActive) {
     return null;
   }
-
-  const handleEditClick = (visit: Visit) => {
-    if (!visit.id || !activeWinery) return;
-    openVisitForm(activeWinery, visit);
-  };
-
-  const handleDeleteVisit = async (visitId: string) => {
-    if (!deleteVisitAction || !visitId) return;
-    try {
-      await deleteVisitAction(visitId);
-      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
-      toast({ 
-        description: isOffline 
-          ? "Deletion cached. It will be synced once you're back online." 
-          : "Visit deleted successfully." 
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to delete visit.";
-      toast({ variant: "destructive", description: message });
-    }
-  };
-
-  const handleTripBadgeClick = async (tripId: number) => {
-    closeWineryModal();
-    setLightboxPhoto(null);
-    
-    setTimeout(async () => {
-        await fetchTripById(tripId.toString());
-        const updatedTrip = useTripStore.getState().trips.find((t) => t.id === tripId);
-        if (updatedTrip) {
-          setSelectedTrip(updatedTrip);
-          toast({ description: `Map updated to show trip: ${updatedTrip.name}` });
-        } else {
-          toast({ variant: "destructive", description: "Failed to load trip details." });
-        }
-    }, 100);
-  };
 
   const renderTabsList = () => (
     <div className="flex border-b border-border/50 w-full overflow-x-auto scrollbar-none flex-nowrap justify-between" role="tablist">
