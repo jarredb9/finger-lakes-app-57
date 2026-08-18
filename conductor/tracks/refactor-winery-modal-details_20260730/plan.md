@@ -13,7 +13,7 @@ Extract self-contained utility and status sub-components into `components/winery
 Decompose `WineryDetails.tsx` into single-responsibility presentational components.
 
 - [x] Task: Create `components/winery/winery-info-card.tsx` for hours, status, and contact action buttons. a394b19
-- [ ] Task: Create `components/winery/winery-amenities-list.tsx` for amenities checklist & logistics accordions.
+- [x] Task: Create `components/winery/winery-amenities-list.tsx` for amenities checklist & logistics accordions. bae4fa3
 - [ ] Task: Create `components/winery/winery-ai-insights-card.tsx` for Gemini summary and neighborhood details.
 - [ ] Task: Refactor `WineryDetails.tsx` into a lightweight view-mode switcher (~60 lines).
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: WineryDetails Sub-View Decomposition' (Protocol in workflow.md)
