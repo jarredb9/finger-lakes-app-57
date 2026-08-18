@@ -497,21 +497,21 @@ function HeroPhotoCarousel({
       : [];
   }, [winery?.photo_references, winery?.primary_photo_reference]);
 
-  // Set the initial index state once on mount from initialPhotoRef
+  // Set the initial index state from initialPhotoRef
   const initialIndex = useMemo(() => {
     return initialPhotoRef ? Math.max(0, photos.indexOf(initialPhotoRef)) : 0;
-  }, []);
+  }, [initialPhotoRef, photos]);
 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
   const [canScrollNext, setCanScrollNext] = useState(false);
 
-  // Keep emblaOptions updated with the active index so internal reInit calls preserve the current slide
+  // Keep emblaOptions stable so reInit does not reset to stale startIndex on every slide transition
   const emblaOptions = useMemo(() => ({
     loop: false,
-    startIndex: currentIndex,
+    startIndex: initialIndex,
     watchSlides: true
-  }), [currentIndex]);
+  }), [initialIndex]);
 
   const [emblaRef, emblaApi] = useEmblaCarousel(emblaOptions);
 
@@ -590,6 +590,7 @@ function HeroPhotoCarousel({
               emblaApi && emblaApi.scrollPrev();
             }
           }}
+          onClick={(e) => e.stopPropagation()}
           className={`absolute left-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all duration-300 ${
             canScrollPrev ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
           }`}
@@ -609,6 +610,7 @@ function HeroPhotoCarousel({
               emblaApi && emblaApi.scrollNext();
             }
           }}
+          onClick={(e) => e.stopPropagation()}
           className={`absolute right-3 top-1/2 -translate-y-1/2 z-20 p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all duration-300 ${
             canScrollNext ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
           }`}
