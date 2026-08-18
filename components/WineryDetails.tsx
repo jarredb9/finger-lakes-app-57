@@ -26,7 +26,6 @@ import {
 import WineryQnA from "./WineryQnA";
 import { isOpenNow } from "@/lib/utils/opening-hours";
 import * as Accordion from "@radix-ui/react-accordion";
-import { useWineryPhoto } from "@/hooks/use-winery-photo";
 import { GeminiDisclosure } from "./GeminiDisclosure";
 import { GoogleAttribution } from "./GoogleAttribution";
 import { MapNavigation } from "./MapNavigation";
@@ -43,22 +42,8 @@ interface WineryDetailsProps {
 // Helper to determine if we are running in a test environment
 const isTestEnv = typeof process !== "undefined" && process.env.NODE_ENV === "test";
 
-export function WineryImage({ photoRef, winery, className, alt = "Winery photo" }: { photoRef: string; winery: Winery; className?: string; alt?: string }) {
-  const { imgSrc, cachePhoto } = useWineryPhoto(photoRef, winery);
-
-  if (!imgSrc) return <div className={`bg-muted animate-pulse ${className}`} />;
-
-  return (
-    <img
-      src={imgSrc}
-      alt={alt}
-      className={className}
-      onLoad={cachePhoto}
-      loading="lazy"
-      draggable={false}
-    />
-  );
-}
+import { WineryImage } from "./winery/winery-image";
+export { WineryImage };
 
 interface AttributeStatusProps {
   value: boolean | null | undefined;
