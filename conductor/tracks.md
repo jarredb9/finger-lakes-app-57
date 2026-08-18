@@ -19,6 +19,7 @@
 | **mapbox-offline-testing_20260715** | Mapbox Offline Caching & Verification | [x] Archived | [Plan](./archive/mapbox-offline-testing_20260715/plan.md) |
 
 | **ai-settings-toggle_20260728** | User AI Features Opt-In Toggle & Extensible Capability System | [x] Archived | [Plan](./archive/ai-settings-toggle_20260728/plan.md) |
+| **node24-migration_20260818** | Node.js 24 Migration & Infrastructure Modernization | [ ] In Progress | [Plan](./tracks/node24-migration_20260818/plan.md) |
 
 ---
 
@@ -52,6 +53,12 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 
 - [~] **Track: Refactor WineryModal and WineryDetails components into modular subcomponents**
 *Link: [./tracks/refactor-winery-modal-details_20260730/](./tracks/refactor-winery-modal-details_20260730/)*
+
+---
+
+- [ ] **Track: Migrate application, CI/CD pipelines, package engines, and typing definitions to Node.js 24**
+*Link: [./tracks/node24-migration_20260818/](./tracks/node24-migration_20260818/)*
+
 
 
 
