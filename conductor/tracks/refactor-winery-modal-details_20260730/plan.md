@@ -18,13 +18,13 @@ Decompose `WineryDetails.tsx` into single-responsibility presentational componen
 - [x] Task: Refactor `WineryDetails.tsx` into a lightweight view-mode switcher (~60 lines). 140621d
 - [x] Task: Conductor - User Manual Verification 'Phase 2: WineryDetails Sub-View Decomposition' (Protocol in workflow.md) db56314
 
-## Phase 3: WineryModal State & Carousel Modularization
+## Phase 3: WineryModal State & Carousel Modularization [checkpoint: 22a25b9]
 Extract photo carousel, lightbox portal, and custom modal state hook.
 
 - [x] Task: Create `components/winery/hero-photo-carousel.tsx` for photo slider and touch handling. a3ac28d
 - [x] Task: Create `components/winery/photo-lightbox-modal.tsx` for portal-rendered photo zoom modal. b609d61
 - [x] Task: Create `lib/hooks/useWineryModalState.ts` custom hook for store selectors, visit merging/sorting, and tab state. 6456e02
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: WineryModal State & Carousel Modularization' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: WineryModal State & Carousel Modularization' (Protocol in workflow.md) 22a25b9
 
 ## Phase 4: WineryModal Responsive Layout Split & Integration
 Split desktop and mobile layout renderers and update main entry point.
