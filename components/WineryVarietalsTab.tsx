@@ -136,7 +136,7 @@ export function WineryVarietalsTab({
                         max={10}
                         value={sweetnessVal}
                         readOnly
-                        className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-default accent-primary"
+                        className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-default accent-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0"
                       />
                     </div>
                   </div>
@@ -157,7 +157,7 @@ export function WineryVarietalsTab({
                         max={10}
                         value={bodyVal}
                         readOnly
-                        className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-default accent-primary"
+                        className="w-full h-1.5 bg-muted rounded-lg appearance-none cursor-default accent-primary [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-primary [&::-moz-range-thumb]:border-0"
                       />
                     </div>
                   </div>
