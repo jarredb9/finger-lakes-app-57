@@ -51,7 +51,7 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 
 ---
 
-- [~] **Track: Refactor WineryModal and WineryDetails components into modular subcomponents**
+- [x] **Track: Refactor WineryModal and WineryDetails components into modular subcomponents**
 *Link: [./tracks/refactor-winery-modal-details_20260730/](./tracks/refactor-winery-modal-details_20260730/)*
 
 ---
