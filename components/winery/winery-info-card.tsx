@@ -42,25 +42,25 @@ export function WineryInfoCard({ winery, isMobile: propIsMobile }: WineryInfoCar
 
   return (
     <div className="space-y-4 relative z-20">
-      <div className="bg-muted/40 backdrop-blur-md border border-border/50 rounded-xl flex flex-row items-center justify-between w-full p-3 gap-2 min-h-[72px]">
+      <div className="bg-muted/40 backdrop-blur-md border border-border/50 rounded-xl flex flex-row items-center justify-between w-full p-2.5 sm:p-3 gap-1.5 sm:gap-2 min-h-[72px]">
         {/* Left Side: Hours & Status */}
-        <div className="flex flex-col gap-0.5 justify-center flex-1 min-w-0 pl-1 pr-1">
+        <div className="flex flex-col gap-0.5 justify-center flex-1 min-w-0">
           <div className="flex items-center gap-1.5 text-xs font-semibold">
-            <span className="relative flex h-2.5 w-2.5">
+            <span className="relative flex h-2.5 w-2.5 shrink-0">
               {isOpen && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
               <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isOpen ? "bg-green-500" : "bg-red-500"}`}></span>
             </span>
-            <span className="uppercase tracking-wide text-foreground">
+            <span className="uppercase tracking-wide text-foreground truncate">
               {isOpen ? "Open Now" : "Closed"}
             </span>
           </div>
           {winery.openingHours && (winery.openingHours.weekday_text || winery.openingHours.open_now !== undefined) && (
             <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
-              <span className="text-[11px] md:text-xs text-muted-foreground whitespace-normal leading-tight">
+              <span className="text-[11px] md:text-xs text-muted-foreground truncate leading-tight">
                 {getTodaysHours() || "Hours Unavailable"}
               </span>
               {winery.openingHours.weekday_text && winery.openingHours.weekday_text.length > 0 && (
-                <div className="relative">
+                <div className="relative shrink-0">
                   <button 
                     onClick={() => setShowAllHours(!showAllHours)} 
                     className="flex items-center justify-center p-1 rounded-full hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors"
@@ -94,22 +94,22 @@ export function WineryInfoCard({ winery, isMobile: propIsMobile }: WineryInfoCar
         </div>
 
         {/* Divider */}
-        <div className="w-px bg-border/50 self-stretch my-1.5 mx-2 shrink-0"></div>
+        <div className="w-px bg-border/50 self-stretch my-1 mx-1 sm:mx-2 shrink-0"></div>
 
         {/* Right Side: Contact Buttons */}
-        <div className="flex items-center gap-2 shrink-0 pr-1 pl-1">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {winery.phone ? (
             <a 
               href={`tel:${winery.phone}`} 
-              className="w-8 h-8 rounded-full bg-background border border-border/50 hover:bg-muted/80 text-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-xs flex items-center justify-center p-1.5"
+              className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full bg-background border border-border/50 hover:bg-muted/80 text-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-xs flex items-center justify-center p-1.5 shrink-0"
               title={winery.phone}
             >
-              <Phone className="w-4 h-4" />
+              <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="sr-only">{winery.phone}</span>
             </a>
           ) : (
-            <div className="w-8 h-8 rounded-full bg-muted/20 border border-border/20 text-muted-foreground/30 opacity-50 flex items-center justify-center p-1.5 cursor-not-allowed">
-              <Phone className="w-4 h-4" />
+            <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full bg-muted/20 border border-border/20 text-muted-foreground/30 opacity-50 flex items-center justify-center p-1.5 cursor-not-allowed shrink-0">
+              <Phone className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           )}
           {winery.website ? (
@@ -117,23 +117,23 @@ export function WineryInfoCard({ winery, isMobile: propIsMobile }: WineryInfoCar
               href={winery.website} 
               target="_blank" 
               rel="noopener noreferrer" 
-              className="w-8 h-8 rounded-full bg-background border border-border/50 hover:bg-muted/80 text-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-xs flex items-center justify-center p-1.5"
+              className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full bg-background border border-border/50 hover:bg-muted/80 text-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-xs flex items-center justify-center p-1.5 shrink-0"
               title="Website"
             >
-              <Globe className="w-4 h-4" />
+              <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="sr-only" {...(isTestEnv ? { href: winery.website } : {})}>Visit Website</span>
             </a>
           ) : (
-            <div className="w-8 h-8 rounded-full bg-muted/20 border border-border/20 text-muted-foreground/30 opacity-50 flex items-center justify-center p-1.5 cursor-not-allowed">
-              <Globe className="w-4 h-4" />
+            <div className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full bg-muted/20 border border-border/20 text-muted-foreground/30 opacity-50 flex items-center justify-center p-1.5 cursor-not-allowed shrink-0">
+              <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </div>
           )}
           <a 
             href={`mailto:info@${winery.website ? new URL(winery.website).hostname.replace('www.', '') : 'winery.com'}`} 
-            className="w-8 h-8 rounded-full bg-background border border-border/50 hover:bg-muted/80 text-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-xs flex items-center justify-center p-1.5"
+            className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full bg-background border border-border/50 hover:bg-muted/80 text-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-xs flex items-center justify-center p-1.5 shrink-0"
             title="Email"
           >
-            <Mail className="w-4 h-4" />
+            <Mail className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
           </a>
           <MapNavigation 
             address={winery.address} 
@@ -144,10 +144,10 @@ export function WineryInfoCard({ winery, isMobile: propIsMobile }: WineryInfoCar
             <button 
               type="button" 
               data-testid="route-from-current"
-              className="w-8 h-8 rounded-full bg-background border border-border/50 hover:bg-muted/80 text-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-xs flex items-center justify-center p-1.5"
+              className="w-7.5 h-7.5 sm:w-8 sm:h-8 rounded-full bg-background border border-border/50 hover:bg-muted/80 text-foreground transition-all duration-300 hover:scale-105 active:scale-95 shadow-xs flex items-center justify-center p-1.5 shrink-0 cursor-pointer"
               title="Directions"
             >
-              <Navigation className="w-4 h-4 text-blue-500" />
+              <Navigation className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-500" />
               <span className="sr-only">Directions</span>
             </button>
           </MapNavigation>
@@ -161,3 +161,5 @@ export function WineryInfoCard({ winery, isMobile: propIsMobile }: WineryInfoCar
     </div>
   );
 }
+
+export default WineryInfoCard;
