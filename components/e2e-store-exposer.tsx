@@ -10,6 +10,7 @@ import { useFriendStore } from "@/lib/stores/friendStore";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useSyncStore } from "@/lib/stores/syncStore";
 import { SyncService } from "@/lib/services/syncService";
+import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { useEffect } from "react";
 
 export function E2EStoreExposer() {
@@ -29,6 +30,7 @@ export function E2EStoreExposer() {
       (window as any).useMapStore = useMapStore;
       (window as any).useSyncStore = useSyncStore;
       (window as any).SyncService = SyncService;
+      (window as any).idbKeyVal = { get: idbGet, set: idbSet };
       
       // @ts-ignore
       window._STORES_EXPOSED = true;
