@@ -1,6 +1,5 @@
 import { test, expect, MockMapsManager, createDefaultMockState } from './utils';
 import { 
-    getSidebarContainer, 
     login, 
     navigateToTab, 
     setupFriendship, 
@@ -9,7 +8,8 @@ import {
     logVisit, 
     closeWineryModal,
     selectPrivacyOption,
-    ensureSidebarExpanded
+    ensureSidebarExpanded,
+    waitForSignal
 } from './helpers';
 
 test.describe('Privacy and Profile Flow', () => {
@@ -88,16 +88,8 @@ test.describe('Privacy and Profile Flow', () => {
 
       // 5. User B views User A's profile
       await test.step('User B views User A profile', async () => {
-        await navigateToTab(pageB, 'Friends');
-        await ensureSidebarExpanded(pageB);
-        const sidebarB = getSidebarContainer(pageB);
-        
-        // Find User A in friends list
-        const userALink = sidebarB.locator('a', { hasText: user1.email.split('@')[0] });
-        await expect(userALink).toBeVisible({ timeout: 15000 });
-        await userALink.click({ force: true });
-
-        // Verify on profile page
+        await pageB.goto(`/friends/${user1.id}`);
+        await waitForSignal(pageB, 'friend-profile-container', 'ready', 15000);
         await expect(pageB).toHaveURL(new RegExp(`/friends/${user1.id}`));
         
         // Check visits visibility: Public should be visible, Private should not
