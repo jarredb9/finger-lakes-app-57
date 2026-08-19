@@ -3,13 +3,7 @@ import { render, screen } from '@testing-library/react';
 // @ts-ignore
 import { WineryVarietalsTab } from '../WineryVarietalsTab';
 
-import { useUserStore } from '@/lib/stores/userStore';
-
 describe('WineryVarietalsTab Unit Tests', () => {
-  beforeEach(() => {
-    useUserStore.setState({ user: { id: 'test-user', ai_enabled: false } });
-  });
-
   const mockVarietals = [
     {
       name: 'Dry Riesling',
@@ -29,7 +23,6 @@ describe('WineryVarietalsTab Unit Tests', () => {
     render(
       <WineryVarietalsTab
         varietals={mockVarietals}
-        geminiTastingNotes="Known across the Finger Lakes for world-class Dry Riesling."
       />
     );
 
@@ -41,27 +34,28 @@ describe('WineryVarietalsTab Unit Tests', () => {
     expect(screen.getAllByRole('slider')).toHaveLength(4); // 2 sliders per card x 2 cards
   });
 
-  it('hides Gemini tasting notes when ai_enabled is false (default)', () => {
-    useUserStore.setState({ user: { id: 'test-user', ai_enabled: false } });
+  it('detects common varietals from reviews when varietals prop is not provided', () => {
+    const reviews = [
+      { text: 'They have an incredible Ice Wine and Dry Riesling here.' }
+    ];
     render(
       <WineryVarietalsTab
-        varietals={mockVarietals}
-        geminiTastingNotes="Known across the Finger Lakes for world-class Dry Riesling."
+        reviews={reviews}
       />
     );
 
-    expect(screen.queryByText(/Known across the Finger Lakes for world-class Dry Riesling/)).not.toBeInTheDocument();
+    expect(screen.getByText('Ice Wine')).toBeInTheDocument();
+    expect(screen.getByText('Dry Riesling')).toBeInTheDocument();
   });
 
-  it('renders Gemini tasting notes when ai_enabled is true', () => {
-    useUserStore.setState({ user: { id: 'test-user', ai_enabled: true } });
+  it('falls back to default Riesling card when no varietals or matching reviews exist', () => {
     render(
       <WineryVarietalsTab
-        varietals={mockVarietals}
-        geminiTastingNotes="Known across the Finger Lakes for world-class Dry Riesling."
+        reviews={[]}
       />
     );
 
-    expect(screen.getByText(/Known across the Finger Lakes for world-class Dry Riesling/)).toBeInTheDocument();
+    expect(screen.getByText('Riesling')).toBeInTheDocument();
+    expect(screen.getByText(/Signature Finger Lakes white wine/)).toBeInTheDocument();
   });
 });

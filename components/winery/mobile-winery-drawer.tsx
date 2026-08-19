@@ -120,7 +120,6 @@ export function MobileWineryDrawer({
         return (
           <WineryVarietalsTab 
             varietals={winery.varietals ?? undefined} 
-            geminiTastingNotes={winery.generative_summary ?? undefined} 
             reviews={winery.reviews} 
           />
         );
