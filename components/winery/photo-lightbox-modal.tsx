@@ -1,3 +1,4 @@
+import React from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { Winery } from "@/lib/types";
@@ -20,24 +21,33 @@ export function PhotoLightboxModal({
     return null;
   }
 
+  const handleClose = (e: React.SyntheticEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onClose();
+  };
+
   return createPortal(
     <div
       className="fixed inset-0 z-[200] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 pointer-events-auto"
       data-testid="photo-lightbox-modal"
-      onPointerDown={(e) => {
+      onClick={(e) => {
         if (e.target === e.currentTarget) {
-          onClose();
+          handleClose(e);
         }
       }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onPointerUp={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
+      onTouchEnd={(e) => e.stopPropagation()}
     >
       <button
         type="button"
         data-testid="close-lightbox-button"
-        onPointerDown={(e) => {
-          e.stopPropagation();
-          onClose();
-        }}
-        className="absolute top-6 right-6 z-[210] p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors"
+        onClick={handleClose}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
+        className="absolute top-6 right-6 z-[210] p-2.5 rounded-full bg-black/60 text-white hover:bg-black/80 transition-colors cursor-pointer"
         aria-label="Close Lightbox"
       >
         <X className="w-5 h-5" />

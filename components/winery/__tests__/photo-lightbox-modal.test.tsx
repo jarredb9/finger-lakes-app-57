@@ -87,7 +87,7 @@ describe('PhotoLightboxModal', () => {
     );
 
     const closeBtn = screen.getByTestId('close-lightbox-button');
-    fireEvent.pointerDown(closeBtn);
+    fireEvent.click(closeBtn);
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 
@@ -101,7 +101,7 @@ describe('PhotoLightboxModal', () => {
     );
 
     const modal = screen.getByTestId('photo-lightbox-modal');
-    fireEvent.pointerDown(modal);
+    fireEvent.click(modal);
     expect(mockOnClose).toHaveBeenCalledTimes(1);
   });
 });
