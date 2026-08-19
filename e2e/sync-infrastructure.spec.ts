@@ -104,7 +104,12 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        headers: { 'Access-Control-Allow-Origin': '*' },
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE, PATCH',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-total-count, x-skip-sw-interception',
+          'Cache-Control': 'no-store'
+        },
         body: JSON.stringify({ visit_id: 123 })
       });
     });
