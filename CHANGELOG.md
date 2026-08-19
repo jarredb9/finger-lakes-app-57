@@ -1,5 +1,38 @@
 # Changelog
 
+## [3.2.0] - 2026-07-30
+
+**Winery Modal & Details Architecture Refactoring**
+
+### ⚙ Refactoring & Architecture
+* **Modularization of WineryModal & WineryDetails**:
+    * Decomposed monolithic `winery-modal.tsx` (~990 lines) and `WineryDetails.tsx` (~743 lines) into modular sub-components and hooks located in [`components/winery/`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/).
+    * **State Extraction**: Decoupled 6 Zustand store subscriptions, visit merging/sorting, and tab navigation state into the dedicated [`use-winery-modal-state.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/use-winery-modal-state.ts) custom hook.
+    * **Responsive Layout Split**: Created dedicated presentational layout components: [`DesktopWineryModal`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/desktop-winery-modal.tsx) (desktop `Dialog` grid layout) and [`MobileWineryDrawer`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/mobile-winery-drawer.tsx) (mobile `Drawer` with multi-snap points).
+    * **Lightweight Containers**: Streamlined [`winery-modal.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery-modal.tsx) (~115 lines) into an orchestrating container and [`WineryDetails.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/WineryDetails.tsx) (~60 lines) into a view-mode switcher.
+    * **Extracted Presentational Components**:
+        * [`winery-image.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-image.tsx): Lazy image rendering component with photo caching.
+        * [`attribute-status.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/attribute-status.tsx): Status indicator badges (check/cross/help icons).
+        * [`winery-info-card.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-info-card.tsx): Operating hours, open status, and contact/directions action buttons.
+        * [`winery-amenities-list.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-amenities-list.tsx): Amenities checklist and Radix logistics accordions with Q&A triggers.
+        * [`winery-ai-insights-card.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-ai-insights-card.tsx): Gemini AI summary and neighborhood highlights block.
+        * [`hero-photo-carousel.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/hero-photo-carousel.tsx): Embla photo carousel with swipe gesture handling and indicators.
+        * [`photo-lightbox-modal.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/photo-lightbox-modal.tsx): Portal-rendered full-screen photo zoom modal.
+
+### 🐛 Bug Fixes & Improvements
+* **Carousel & Lightbox Stability**:
+    * Eliminated photo caching store mutation loop and stabilized Embla carousel initialization.
+    * Prevented photo carousel index reset on caching updates and active slide transitions.
+    * Fixed ghost click bleed-through when dismissing photo lightbox in full mobile drawer view.
+* **UI & Style Polish**:
+    * Styled range slider thumb consistently for mobile WebKit and Firefox.
+    * Improved mobile responsive width and hid redundant scrollbars in `WineryInfoCard`.
+    * Removed redundant AI tasting notes banner from varietals tab when AI features are active.
+
+### 🧪 Testing & Verification
+* Preserved 100% test ID contracts and DOM stability attributes (`data-state="loading|ready|error"`).
+* Full container verification against Playwright E2E test suite across desktop and mobile viewports.
+
 ## [3.1.0] - 2026-07-29
 
 **Winery Modal Redesign, Opt-In AI Settings & AI Varietal Extraction**
