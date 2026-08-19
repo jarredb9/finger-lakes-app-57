@@ -26,11 +26,11 @@ Extract photo carousel, lightbox portal, and custom modal state hook.
 - [x] Task: Create `components/winery/use-winery-modal-state.ts` custom hook for store selectors, visit merging/sorting, and tab state. 6456e02
 - [x] Task: Conductor - User Manual Verification 'Phase 3: WineryModal State & Carousel Modularization' (Protocol in workflow.md) 22a25b9
 
-## Phase 4: WineryModal Responsive Layout Split & Integration
+## Phase 4: WineryModal Responsive Layout Split & Integration [checkpoint: 55122d9]
 Split desktop and mobile layout renderers and update main entry point.
 
 - [x] Task: Create `components/winery/desktop-winery-modal.tsx` for desktop Dialog grid layout. 55c1ef1
 - [x] Task: Create `components/winery/mobile-winery-drawer.tsx` for mobile Drawer & snap points. 468c9b9
 - [x] Task: Refactor `components/winery-modal.tsx` into a lightweight container component (~100-150 lines). dcd05d3
 - [x] Task: Run full Playwright container test verification suite.
-- [~] Task: Conductor - User Manual Verification 'Phase 4: WineryModal Responsive Layout Split & Integration' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: WineryModal Responsive Layout Split & Integration' (Protocol in workflow.md) 55122d9
