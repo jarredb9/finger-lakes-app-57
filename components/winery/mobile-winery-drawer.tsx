@@ -277,7 +277,7 @@ export function MobileWineryDrawer({
 
         <div 
           ref={scrollContainerRef}
-          className={`flex-1 flex flex-col min-h-0 scrollbar-none ${isFull ? "overflow-y-auto pb-10" : "overflow-hidden pb-4"} flex`}
+          className={`flex-1 flex flex-col min-h-0 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ${isFull ? "overflow-y-auto pb-10" : "overflow-hidden pb-4"} flex`}
         >
           <div className="px-4 mt-2.5 space-y-2.5">
             {/* 4-Grid Quick Action Tiles */}
