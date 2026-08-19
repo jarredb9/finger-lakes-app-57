@@ -31,6 +31,6 @@ Split desktop and mobile layout renderers and update main entry point.
 
 - [x] Task: Create `components/winery/desktop-winery-modal.tsx` for desktop Dialog grid layout. 55c1ef1
 - [x] Task: Create `components/winery/mobile-winery-drawer.tsx` for mobile Drawer & snap points. 468c9b9
-- [~] Task: Refactor `components/winery-modal.tsx` into a lightweight container component (~100-150 lines).
-- [ ] Task: Run full Playwright container test verification suite.
+- [x] Task: Refactor `components/winery-modal.tsx` into a lightweight container component (~100-150 lines). dcd05d3
+- [~] Task: Run full Playwright container test verification suite.
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: WineryModal Responsive Layout Split & Integration' (Protocol in workflow.md)
