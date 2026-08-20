@@ -28,13 +28,8 @@ test.describe('DatePicker UX', () => {
         await modal.getByRole('tab', { name: /Trip/i }).click();
         const datePickerBtn = page.getByTestId('datepicker-trigger');
         await expect(datePickerBtn).toHaveAttribute('data-state', 'ready');
-        
-        // Ensure UI is settled after any animations
-        await page.waitForTimeout(1000);
+        await expect(datePickerBtn).toBeVisible();
         await datePickerBtn.click();
-        
-        // Wait for animation
-        await page.waitForTimeout(500);
 
         if (isMobile) {
             await expect(page.getByText('Select a date')).toBeVisible();
@@ -68,8 +63,6 @@ test.describe('DatePicker UX', () => {
   test('should navigate months in the calendar', async ({ page, user }) => {
     await login(page, user.email, user.password);
     await navigateToTab(page, 'Trips');
-    
-    const isMobile = page.viewportSize()!.width < 768;
 
     // Open New Trip modal
     const newTripBtn = page.getByRole('button', { name: /new trip/i });
@@ -82,13 +75,8 @@ test.describe('DatePicker UX', () => {
 
     const datePickerBtn = tripForm.getByTestId('datepicker-trigger');
     await expect(datePickerBtn).toHaveAttribute('data-state', 'ready');
-    
-    // Ensure UI is settled
-    await page.waitForTimeout(1000);
+    await expect(datePickerBtn).toBeVisible();
     await datePickerBtn.click();
-    
-    // Wait for animation
-    await page.waitForTimeout(500);
 
     const calendar = page.getByTestId('datepicker-calendar');
     await expect(calendar).toBeVisible();
@@ -106,7 +94,8 @@ test.describe('DatePicker UX', () => {
 
     // Navigate to next month
     const nextBtn = page.getByLabel(/Go to (the )?Next Month/i);
-    await nextBtn.click({ force: isMobile });
+    await expect(nextBtn).toBeVisible();
+    await nextBtn.click();
 
     await expect(async () => {
         const currentMonth = await monthLabel.innerText();
@@ -120,7 +109,8 @@ test.describe('DatePicker UX', () => {
 
     // Navigate back
     const prevBtn = page.getByLabel(/Go to (the )?Previous Month/i);
-    await prevBtn.click({ force: isMobile });
+    await expect(prevBtn).toBeVisible();
+    await prevBtn.click();
 
     await expect(async () => {
         const backMonth = await monthLabel.innerText();
