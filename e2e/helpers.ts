@@ -281,12 +281,9 @@ export async function fillLoginForm(page: Page, email: string, pass: string) {
  */
 export async function clickSignIn(page: Page) {
     const signInBtn = page.getByRole('button', { name: 'Sign In' });
-    // Use click if visible, otherwise fall back to Enter key
-    try {
-        await signInBtn.click({ force: true, timeout: 5000 });
-    } catch (e) {
-        await page.keyboard.press('Enter');
-    }
+    await expect(signInBtn).toBeVisible({ timeout: 10000 });
+    await expect(signInBtn).toBeEnabled({ timeout: 5000 });
+    await signInBtn.click();
 }
 
 /**
@@ -308,11 +305,6 @@ export async function login(page: Page, email: string, pass: string, options: { 
   const isPwa = options.isPwa || false;
   const pwaSuffix = isPwa ? '?pwa=true' : '';
 
-  // 0. REGISTRATION BUFFER (WebKit Only)
-  if (isWebKit) {
-      await page.waitForTimeout(2000);
-  }
-
   // 1. Ensure we are on the login page (with retries for slow navigation)
   await expect(async () => {
     if (!page.url().includes('/login')) {
@@ -327,8 +319,7 @@ export async function login(page: Page, email: string, pass: string, options: { 
         try { localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true'); } catch (e) {}
     }).catch(() => {});
 
-    await page.waitForLoadState('load');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   }).toPass({ intervals: [2000], timeout: 15000 });
 
   // 2. Perform Login (Atomic submission)
