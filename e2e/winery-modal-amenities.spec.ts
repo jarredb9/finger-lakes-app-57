@@ -9,7 +9,7 @@ test.describe('Winery Amenities & Q&A Reviews Consolidated Suite', () => {
       (window as any)._E2E_FULL_DRAWER = true;
     });
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
-    await login(page, user.email, user.password);
+    await login(page, user.email, user.password, { skipMapReady: true });
   });
 
   const seedAndOpenWinery = async (page: any, rawWinery: any) => {
