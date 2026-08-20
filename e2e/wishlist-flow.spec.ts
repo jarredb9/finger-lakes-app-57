@@ -29,26 +29,22 @@ test.describe('Wishlist Flow', () => {
     
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('rpc/toggle_wishlist') && resp.status() === 200),
-        wishlistBtn.click({ force: true })
+        wishlistBtn.click()
     ]);
     
     // Check UI update (label change)
     await expect(wishlistBtn).toHaveText(/On List/i, { timeout: 10000 });
     await expectWineryStatusInStore(page, 'Mock Winery One', 'wishlist', true);
 
-    await page.waitForTimeout(1000);
-
     // 2. Wishlist Toggle OFF
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('rpc/toggle_wishlist') && resp.status() === 200),
-        wishlistBtn.click({ force: true })
+        wishlistBtn.click()
     ]);
 
     // Check UI update back to "Wishlist"
     await expect(wishlistBtn).toHaveText(/Wishlist/i, { timeout: 10000 });
     await expectWineryStatusInStore(page, 'Mock Winery One', 'wishlist', false);
-
-    await page.waitForTimeout(1000);
 
     // 3. Favorite Toggle ON
     const favoriteBtn = modal.getByTestId('favorite-button');
@@ -56,7 +52,7 @@ test.describe('Wishlist Flow', () => {
     
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('rpc/toggle_favorite') && resp.status() === 200),
-        favoriteBtn.click({ force: true })
+        favoriteBtn.click()
     ]);
 
     // Verify UI reflects favorite status
@@ -64,12 +60,10 @@ test.describe('Wishlist Flow', () => {
     await expect(favoriteBtn.locator('svg')).toHaveClass(/fill-primary/);
     await expectWineryStatusInStore(page, 'Mock Winery One', 'favorite', true);
 
-    await page.waitForTimeout(1000);
-
     // 4. Favorite Toggle OFF
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('rpc/toggle_favorite') && resp.status() === 200),
-        favoriteBtn.click({ force: true })
+        favoriteBtn.click()
     ]);
 
     // Verify UI reflects non-favorite status

@@ -37,9 +37,9 @@ export function WineryWeatherWidget({ latitude, longitude, className = '' }: Win
 
   if (loading) {
     return (
-      <div data-testid="winery-weather-widget" className={`animate-pulse flex items-center gap-2 text-xs text-muted-foreground ${className}`}>
+      <div data-testid="winery-weather-widget" className={`animate-pulse flex items-center gap-1.5 text-xs font-medium text-foreground/80 bg-muted/30 border border-border/40 rounded-full px-3 py-1 w-fit backdrop-blur-sm ${className}`}>
         <div className="h-4 w-4 rounded-full bg-muted"></div>
-        <div className="h-4 w-28 bg-muted rounded"></div>
+        <div className="h-4 w-24 bg-muted rounded"></div>
       </div>
     );
   }

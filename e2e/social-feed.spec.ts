@@ -7,19 +7,24 @@ import {
     openWineryDetails, 
     logVisit, 
     closeWineryModal, 
-    ensureProfileReady
+    ensureProfileReady,
+    ensureSidebarExpanded,
+    waitForSignal
 } from './helpers';
 
 test.describe('Social Activity Feed Flow', () => {
-  test("User B can see User A's visit in the social feed", async ({ browser, user: userA, user2: userB }) => {
+  test("User B can see User A's visit in the social feed", async ({ browser, user: userA, user2: userB, viewport, userAgent }) => {
     test.setTimeout(90000);
     
     try {
       // 1. Contexts
-      const contextA = await browser.newContext();
-      const contextB = await browser.newContext();
+      const contextA = await browser.newContext({ viewport, userAgent });
+      const contextB = await browser.newContext({ viewport, userAgent });
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
+
+      await pageA.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+      await pageB.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
 
       const sharedState = createDefaultMockState();
       const managerA = new MockMapsManager(pageA, sharedState);
@@ -73,8 +78,9 @@ test.describe('Social Activity Feed Flow', () => {
         await openWineryDetails(pageA, 'Mock Winery One');
 
         const logBtn = pageA.getByTestId('log-visit-button');
+        await expect(logBtn).toBeVisible({ timeout: 10000 });
         await logBtn.scrollIntoViewIfNeeded();
-        await logBtn.click({ force: true });
+        await logBtn.click();
 
         await logVisit(pageA, { review: reviewText, rating: 5 });
         await closeWineryModal(pageA);
@@ -85,34 +91,13 @@ test.describe('Social Activity Feed Flow', () => {
 
       // 4. User B verifies the feed
       await test.step('User B verifies feed', async () => {
+        await navigateToTab(pageB, 'Friends');
+        await ensureSidebarExpanded(pageB);
+        await waitForSignal(pageB, 'friend-activity-feed', 'ready', 15000);
+
         const sidebarB = getSidebarContainer(pageB);
         const feedItem = sidebarB.locator('[data-testid="friend-activity-item"]', { hasText: reviewText }).first();
-        
-        await expect(async () => {
-            console.log('[DIAGNOSTIC] User B checking feed...');
-            await navigateToTab(pageB, 'Friends');
-            
-            // Proactive store sync
-            await pageB.evaluate(async () => {
-                const store = (window as any).useFriendStore?.getState();
-                if (store) {
-                    console.log('[DIAGNOSTIC] [BROWSER] Triggering fetchFriendActivityFeed for User B');
-                    await store.fetchFriendActivityFeed();
-                }
-            });
-
-            const browserFeed = await pageB.evaluate(() => {
-                return (window as any).useFriendStore?.getState().friendActivityFeed;
-            });
-            console.log(`[DIAGNOSTIC] User B Store Activity Feed Count: ${browserFeed?.length || 0}`);
-            if (browserFeed?.length > 0) {
-                console.log(`[DIAGNOSTIC] First item in User B feed: ${JSON.stringify(browserFeed[0])}`);
-            }
-
-            await expect(feedItem).toBeVisible({ timeout: 5000 });
-        }).toPass({ timeout: 20000, intervals: [3000] });
-
-        // Verify name matches (our mock uses 'Test User' by default in log_visit, let's check if it's visible)
+        await expect(feedItem).toBeVisible({ timeout: 10000 });
         await expect(feedItem).toContainText(reviewText);
       });
 
@@ -123,3 +108,4 @@ test.describe('Social Activity Feed Flow', () => {
     }
   });
 });
+

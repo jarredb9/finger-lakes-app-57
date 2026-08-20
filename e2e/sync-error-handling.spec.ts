@@ -41,16 +41,14 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
     expect(initialQueue[1].status).toBe('pending');
 
     // 3. Mock network: First fails, Second succeeds
-    // Define routes BEFORE setting offline(false) to catch early sync attempts
+    // Define routes on both context and page BEFORE setting offline(false)
     let callCount = 0;
-    await context.route(/.*\/rpc\/log_visit.*/, async (route) => {
+    const rpcHandler = async (route: any) => {
       callCount++;
       const postData = route.request().postDataJSON();
-      console.log(`[DIAGNOSTIC] Intercepted log_visit RPC. Rating: ${postData?.p_visit_data?.rating}, Count: ${callCount}`);
       
       // Use the rating to distinguish
       if (postData?.p_visit_data?.rating === 1) {
-        console.log('[DIAGNOSTIC] Fulfilling with 500 Error');
         await route.fulfill({
           status: 500,
           contentType: 'application/json',
@@ -58,7 +56,6 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
           body: JSON.stringify({ error: 'Database error' })
         });
       } else {
-        console.log('[DIAGNOSTIC] Fulfilling with 200 Success');
         await route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -66,60 +63,53 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
           body: JSON.stringify({ visit_id: 123 })
         });
       }
-    });
+    };
+    await context.route(/.*\/rpc\/log_visit.*/, rpcHandler);
+    await page.route(/.*\/rpc\/log_visit.*/, rpcHandler);
 
-    console.log('[DIAGNOSTIC] Setting network ONLINE');
     await context.setOffline(false);
     
     // Wait for auth to stabilize to prevent middleware redirects
-    console.log('[DIAGNOSTIC] Waiting for auth stability...');
     await page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 10000 }).catch(() => null);
-    await page.waitForTimeout(1000);
 
     // 4. Wait for Sync to complete
-    console.log('[DIAGNOSTIC] Starting sync check loop...');
     await expect(async () => {
       const state = await page.evaluate(() => {
-          const sStore = (window as any).useSyncStore;
-          if (!sStore) return null;
-          const sState = sStore.getState();
-          return {
-            isSyncing: (window as any).SyncService.isSyncing,
-            queue: sState.queue,
-            isInitialized: sState.isInitialized
-          };
+        const sStore = (window as any).useSyncStore;
+        if (!sStore) return null;
+        const sState = sStore.getState();
+        return {
+          isSyncing: (window as any).SyncService?.isSyncing,
+          queue: sState.queue,
+          isInitialized: sState.isInitialized
+        };
       });
       
       if (!state || !state.isInitialized) {
-          throw new Error('SyncStore not initialized or not exposed');
+        throw new Error('SyncStore not initialized or not exposed');
       }
 
       const { isSyncing, queue } = state;
-      console.log(`[DIAGNOSTIC] Sync State - isSyncing: ${isSyncing}, Queue Length: ${queue.length}`);
       
       // We expect one item to be synced (removed) and one to be marked as error
       if (!isSyncing && queue.length === 1 && queue[0].status === 'error') {
         return true;
       }
       
-      // If not syncing and still have 2 items, try to trigger it manually once if it's not already running
+      // If not syncing and still have 2 items, trigger sync
       if (!isSyncing && queue.length === 2) {
-          console.log('[DIAGNOSTIC] Manual sync trigger fallback');
-          await page.evaluate(() => (window as any).SyncService.sync()).catch(() => {});
+        await page.evaluate(() => (window as any).SyncService.sync()).catch(() => {});
       }
       
       throw new Error(`Sync not complete. Queue: ${JSON.stringify(queue.map((i: any) => ({id: i.id, status: i.status})))}`);
-    }).toPass({ timeout: 20000, intervals: [2000] });
+    }).toPass({ timeout: 20000, intervals: [1000] });
 
     // 5. Verify final state before reload
     const finalQueueState = await page.evaluate(() => (window as any).useSyncStore.getState().queue);
     expect(finalQueueState.length).toBe(1);
     expect(finalQueueState[0].status).toBe('error');
 
-    // 6. Wait for IDB persistence to settle
-    await page.waitForTimeout(1000);
-
-    // 7. Reload and verify persistence
+    // 6. Reload and verify persistence across browser restart
     await page.reload();
     await page.waitForFunction(() => (window as any).useSyncStore?.getState().isInitialized);
 
@@ -127,10 +117,11 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
     expect(rehydratedQueue.length).toBe(1);
     expect(rehydratedQueue[0].status).toBe('error');
     
-    // 8. Ensure SyncService skips the error item on subsequent sync
+    // 7. Ensure SyncService skips the error item on subsequent sync
     await context.unroute(/.*\/rpc\/log_visit.*/);
+    await page.unroute(/.*\/rpc\/log_visit.*/);
     let retryCallCount = 0;
-    await context.route(/.*\/rpc\/log_visit.*/, async (route) => {
+    const retryHandler = async (route: any) => {
       retryCallCount++;
       await route.fulfill({
         status: 200,
@@ -138,16 +129,15 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
         headers: { 'Access-Control-Allow-Origin': '*' },
         body: JSON.stringify({ visit_id: 456 })
       });
-    });
+    };
+    await context.route(/.*\/rpc\/log_visit.*/, retryHandler);
+    await page.route(/.*\/rpc\/log_visit.*/, retryHandler);
 
     await page.evaluate(async () => {
-      // @ts-ignore
-      await window.SyncService.sync();
+      await (window as any).SyncService.sync();
     });
 
-    // Wait a bit to ensure it doesn't sync
-    await new Promise(r => setTimeout(r, 2000));
-    
+    // Verify queue remains in error state and RPC was not triggered for permanent error item
     const queueAfterRetry = await page.evaluate(() => (window as any).useSyncStore.getState().queue);
     expect(queueAfterRetry.length).toBe(1);
     expect(queueAfterRetry[0].status).toBe('error');

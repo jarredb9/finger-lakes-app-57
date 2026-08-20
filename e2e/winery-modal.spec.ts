@@ -12,7 +12,7 @@ test.describe('Winery Modal Consolidated Suite', () => {
       (window as any)._E2E_SKIP_DETAILS_MOCK = true;
     });
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
-    await login(page, user.email, user.password);
+    await login(page, user.email, user.password, { skipMapReady: true });
   });
 
   const seedWineryAndOpenModal = async (page: any, wineryId = 3, name = 'The Phantom Cellar', options: { fullDrawer?: boolean } = {}) => {
@@ -91,7 +91,6 @@ test.describe('Winery Modal Consolidated Suite', () => {
       await page.mouse.down();
       await page.mouse.move(startX, startY - 200, { steps: 10 });
       await page.mouse.up();
-      await page.waitForTimeout(400);
 
       await expect(drawer).toBeVisible();
     });
