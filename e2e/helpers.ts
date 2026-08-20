@@ -260,7 +260,9 @@ export async function ensureSidebarExpanded(page: Page) {
     const isMiniMode = await expandBtn.isVisible().catch(() => false);
     
     if (isMiniMode) {
-        await expandBtn.click({ force: true });
+        await expandBtn.click();
+        const minimizeBtn = page.getByRole('button', { name: 'Minimize to half screen' });
+        await expect(minimizeBtn).toBeVisible({ timeout: 5000 }).catch(() => {});
         await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
     }
 }
