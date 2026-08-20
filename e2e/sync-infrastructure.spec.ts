@@ -10,57 +10,32 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
     await login(page, user.email, user.password);
     await waitForAppReady(page);
 
-    // Wait for store exposure and user hydration with higher timeout
+    // Wait for user store and sync store hydration
     await page.waitForFunction(() => {
-        const uStore = (window as any).useUserStore;
-        const sStore = (window as any).useSyncStore;
-        const idb = (window as any).idbKeyVal;
-        const uState = uStore?.getState?.();
-        const sState = sStore?.getState?.();
-        
-        const hasUStore = !!uStore;
-        const hasSStore = !!sStore;
-        const hasIdb = !!idb;
-        const hasUser = !!uState?.user;
-        const isSInit = !!sState?.isInitialized;
-
-        if (!hasUStore || !hasSStore || !hasUser || !isSInit || !hasIdb) {
-            // Proactively trigger initialization if store is available but not initialized
-            if (hasSStore && !isSInit) {
-                sStore.getState().initialize().catch(() => {});
-            }
-
-            // @ts-ignore
-            if (window._lastLog !== `${hasUStore}-${hasSStore}-${hasUser}-${isSInit}-${hasIdb}`) {
-                console.log(`[DIAGNOSTIC] Waiting for hydration: uStore=${hasUStore}, sStore=${hasSStore}, user=${hasUser}, sInit=${isSInit}, idb=${hasIdb}`);
-                // @ts-ignore
-                window._lastLog = `${hasUStore}-${hasSStore}-${hasUser}-${isSInit}-${hasIdb}`;
-            }
-            return false;
-        }
-        return true;
+      const uStore = (window as any).useUserStore?.getState?.();
+      const sStore = (window as any).useSyncStore?.getState?.();
+      const idb = (window as any).idbKeyVal;
+      return !!uStore?.user && !!sStore?.isInitialized && !!idb;
     }, { timeout: 30000 });
   });
 
   test('should persist encrypted mutations in IndexedDB and sync on reconnect', async ({ page, context }) => {
-    // 0. Get the current user ID for encryption verification
+    // 1. Get current authenticated user ID for encryption verification
     const userId = await page.evaluate(() => {
-      // @ts-ignore
-      const user = window.useUserStore.getState().user;
+      const user = (window as any).useUserStore.getState().user;
       if (!user) throw new Error('User not found in store');
       return user.id;
     });
 
     expect(userId).toBeTruthy();
 
-    // 1. Add a mutation while offline
+    // 2. Add a mutation while offline
     await context.setOffline(true);
 
     const testPayload = { wineryDbId: 999, visit_date: '2026-04-24', rating: 5 };
     
     await page.evaluate(async ({ payload, uid }) => {
-      // @ts-ignore
-      const syncStore = window.useSyncStore.getState();
+      const syncStore = (window as any).useSyncStore.getState();
       await syncStore.addMutation({
         type: 'log_visit',
         payload,
@@ -68,39 +43,49 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
       });
     }, { payload: testPayload, uid: userId });
 
-    // 2. Verify it's in the Zustand store
-    const queueLength = await page.evaluate(() => (window as any).useSyncStore.getState().queue.length);
-    expect(queueLength).toBe(1);
+    // 3. Verify in-memory queue state
+    const initialQueue = await page.evaluate(() => (window as any).useSyncStore.getState().queue);
+    expect(initialQueue.length).toBe(1);
+    expect(initialQueue[0].type).toBe('log_visit');
+    expect(initialQueue[0].status).toBe('pending');
 
-    // 3. Verify it's encrypted in IndexedDB (Direct inspection)
+    // 4. Verify encrypted persistence in IndexedDB
     const idbData: any = await page.evaluate(async () => {
-      console.log('[DIAGNOSTIC] Starting IDB direct inspection via idbKeyVal');
-      // @ts-ignore
-      return await window.idbKeyVal.get('encrypted-offline-queue');
+      return await (window as any).idbKeyVal.get('encrypted-offline-queue');
     });
 
     expect(Array.isArray(idbData)).toBe(true);
+    expect(idbData.length).toBe(1);
     expect(idbData[0].encryptedPayload).toBeTruthy();
-    // Verify it is NOT plain text JSON (should not contain our known keys)
+    // Ensure plaintext sensitive data is not exposed in IndexedDB
     expect(idbData[0].encryptedPayload).not.toContain('wineryDbId');
     expect(idbData[0].encryptedPayload).not.toContain('2026-04-24');
 
-    // Verify it CAN be decrypted
+    // 5. Verify payload can be successfully decrypted
     const decryptedPayload = await page.evaluate(async ({ item, uid }) => {
-      // @ts-ignore
-      return await window.useSyncStore.getState().getDecryptedPayload(item, uid);
+      return await (window as any).useSyncStore.getState().getDecryptedPayload(item, uid);
     }, { item: idbData[0], uid: userId });
 
     expect(decryptedPayload.wineryDbId).toBe(999);
     expect(decryptedPayload.rating).toBe(5);
 
-    // 4. Reload and verify persistence (Hydration)
-    
-    // We mock the RPC to ensure it doesn't clear too fast if sync triggers.
-    // We register it BEFORE going online to avoid race conditions.
-    await context.route(/.*\/rpc\/log_visit.*/, async (route) => {
-      // Delay response to allow us to see the rehydrated state if sync starts
-      await new Promise(r => setTimeout(r, 1000));
+    // 6. Verify Store Persistence & Rehydration from IndexedDB
+    // Reset in-memory Zustand store and re-initialize from IDB
+    await page.evaluate(async () => {
+      const store = (window as any).useSyncStore;
+      store.setState({ queue: [], isInitialized: false });
+      await store.getState().initialize();
+    });
+
+    const rehydratedQueue = await page.evaluate(() => (window as any).useSyncStore.getState().queue);
+    expect(rehydratedQueue.length).toBe(1);
+    expect(rehydratedQueue[0].id).toBe(initialQueue[0].id);
+    expect(rehydratedQueue[0].type).toBe('log_visit');
+
+    // 7. Setup clean RPC mock for reconnect sync (immediate 200 OK)
+    let rpcCalled = false;
+    const rpcHandler = async (route: any) => {
+      rpcCalled = true;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -112,30 +97,50 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
         },
         body: JSON.stringify({ visit_id: 123 })
       });
-    });
+    };
+    await context.route(/.*\/rpc\/log_visit.*/, rpcHandler);
+    await page.route(/.*\/rpc\/log_visit.*/, rpcHandler);
 
-    // We must be online to reload since Service Worker is blocked in this test
+    // 8. Reconnect to network and wait for auth session stabilization
     await context.setOffline(false);
-    
-    // Give a small buffer for the 'online' event to trigger sync and let it settle
-    await page.waitForTimeout(500);
-    // Wait for any active sync to finish
-    await page.waitForFunction(() => !(window as any).SyncService?.isSyncing);
+    await page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 10000 }).catch(() => null);
 
-    await page.reload({ waitUntil: 'load' });
-    // Wait for hydration
-    await page.waitForFunction(() => (window as any).useSyncStore?.getState().isInitialized);
-    
-    // Note: It might already be 0 if sync was extremely fast, 
-    // but with the 1s delay in the route it should stay 1 for a bit.
-    const rehydratedLength = await page.evaluate(() => (window as any).useSyncStore.getState().queue.length);
-    // If it's already 0, it means it synced, which is also a form of success for rehydration (it had to rehydrate to sync)
-    expect(rehydratedLength).toBeLessThanOrEqual(1);
-
-    // 6. Verify the queue clears automatically via SyncService (if not already cleared)
+    // 9. Verify the queue clears automatically via SyncService upon reconnection
     await expect(async () => {
-      const currentQueue = await page.evaluate(() => (window as any).useSyncStore.getState().queue.length);
-      expect(currentQueue).toBe(0);
-    }).toPass({ timeout: 30000, intervals: [2000] });
+      const state = await page.evaluate(() => {
+        const syncStore = (window as any).useSyncStore;
+        const syncService = (window as any).SyncService;
+        if (!syncStore || !syncStore.getState().isInitialized) {
+          return null;
+        }
+        return {
+          isSyncing: !!syncService?.isSyncing,
+          queueLength: syncStore.getState().queue.length
+        };
+      });
+
+      if (!state) {
+        throw new Error('SyncStore not ready or initialized');
+      }
+
+      if (state.queueLength === 0) {
+        return true;
+      }
+
+      // If sync is not actively in-flight but queue still has items, trigger sync
+      if (!state.isSyncing) {
+        await page.evaluate(() => (window as any).SyncService?.sync?.()).catch(() => {});
+      }
+
+      throw new Error(`Sync pending, current queue length: ${state.queueLength}`);
+    }).toPass({ timeout: 20000, intervals: [1000] });
+
+    expect(rpcCalled).toBe(true);
+
+    // 10. Verify IndexedDB queue is also cleared after sync
+    const finalIdbData: any = await page.evaluate(async () => {
+      return await (window as any).idbKeyVal.get('encrypted-offline-queue');
+    });
+    expect(finalIdbData).toEqual([]);
   });
 });

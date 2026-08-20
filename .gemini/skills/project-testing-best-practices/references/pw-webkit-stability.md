@@ -136,4 +136,39 @@ Middleware matchers that exclude files with dots (`.*\\..*`) will accidentally b
 '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|svg|css)$).*)'
 ```
 
+### 15. The No-Delay Route Interception Rule (Frame Lifecycle Crashes)
+Delaying route fulfillments with `setTimeout` while a page reloads, unloads, or navigates causes WebKit's `NetworkProcess` to crash with `WebKit encountered an internal error` when Playwright fulfills an aborted request handle on a dying context.
+- **Incorrect:**
+```typescript
+await context.route(/.*\/rpc\/.*/, async (route) => {
+  await new Promise(r => setTimeout(r, 1000)); // CRASHES WebKit on reload!
+  await route.fulfill({ status: 200, ... });
+});
+```
+- **Standard:** ALWAYS fulfill or abort route handlers immediately without artificial delays.
+
+### 16. The Online Network Stabilization Rule (`setOffline(false)`)
+Toggling `context.setOffline(false)` synchronously emits the DOM `online` event in WebKit, but WebKit's underlying socket pool requires brief latency to re-open connections. Immediate unrouted requests in this window fail with `TypeError: Load failed`.
+- **Standard Protocol for Network Reconnection:**
+  1. **Dual-Channel Interception:** Register route mocks on both `context.route` and `page.route` *before* going online.
+  2. **Session Ping:** Await auth stabilization:
+     ```typescript
+     await context.setOffline(false);
+     await page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 10000 }).catch(() => null);
+     ```
+  3. **Self-Healing Sync Polling:** Use `expect(...).toPass()` to monitor queue clearance and re-trigger `SyncService.sync()` if idle.
+
+### 17. The Deterministic IDB Hydration Rule
+Attempting full browser page reloads across network transitions to verify IndexedDB persistence introduces race conditions with app boot routines (e.g. `AuthProvider` auto-sync).
+- **Standard:** Verify IndexedDB persistence and store rehydration by resetting the in-memory Zustand store and re-invoking `.initialize()` while remaining offline:
+```typescript
+await page.evaluate(async () => {
+  const store = (window as any).useSyncStore;
+  store.setState({ queue: [], isInitialized: false });
+  await store.getState().initialize();
+});
+const hydratedQueue = await page.evaluate(() => (window as any).useSyncStore.getState().queue);
+expect(hydratedQueue.length).toBe(1);
+```
+
 Reference: [WebKit Fetch Limitations](https://webkit.org/blog/12193/js-fetch-api-updates/)
