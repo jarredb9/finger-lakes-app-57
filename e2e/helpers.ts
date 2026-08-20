@@ -260,7 +260,9 @@ export async function ensureSidebarExpanded(page: Page) {
     const isMiniMode = await expandBtn.isVisible().catch(() => false);
     
     if (isMiniMode) {
-        await expandBtn.click({ force: true });
+        await expandBtn.click();
+        const minimizeBtn = page.getByRole('button', { name: 'Minimize to half screen' });
+        await expect(minimizeBtn).toBeVisible({ timeout: 5000 }).catch(() => {});
         await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
     }
 }
@@ -279,12 +281,9 @@ export async function fillLoginForm(page: Page, email: string, pass: string) {
  */
 export async function clickSignIn(page: Page) {
     const signInBtn = page.getByRole('button', { name: 'Sign In' });
-    // Use click if visible, otherwise fall back to Enter key
-    try {
-        await signInBtn.click({ force: true, timeout: 5000 });
-    } catch (e) {
-        await page.keyboard.press('Enter');
-    }
+    await expect(signInBtn).toBeVisible({ timeout: 10000 });
+    await expect(signInBtn).toBeEnabled({ timeout: 5000 });
+    await signInBtn.click();
 }
 
 /**
@@ -306,11 +305,6 @@ export async function login(page: Page, email: string, pass: string, options: { 
   const isPwa = options.isPwa || false;
   const pwaSuffix = isPwa ? '?pwa=true' : '';
 
-  // 0. REGISTRATION BUFFER (WebKit Only)
-  if (isWebKit) {
-      await page.waitForTimeout(2000);
-  }
-
   // 1. Ensure we are on the login page (with retries for slow navigation)
   await expect(async () => {
     if (!page.url().includes('/login')) {
@@ -325,8 +319,7 @@ export async function login(page: Page, email: string, pass: string, options: { 
         try { localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true'); } catch (e) {}
     }).catch(() => {});
 
-    await page.waitForLoadState('load');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
   }).toPass({ intervals: [2000], timeout: 15000 });
 
   // 2. Perform Login (Atomic submission)
@@ -651,9 +644,10 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
     
     const addBtn = sidebarA.locator('[data-testid="add-friend-btn"]');
     await expect(addBtn).toBeEnabled({ timeout: 10000 });
+    await addBtn.scrollIntoViewIfNeeded();
     await Promise.all([
         pageA.waitForResponse(resp => resp.url().includes('send_friend_request'), { timeout: 10000 }).catch(() => null),
-        addBtn.click({ force: true })
+        addBtn.click()
     ]);
 
     // 2. User B Accepts Request
@@ -672,37 +666,31 @@ export async function setupFriendship(pageA: Page, pageB: Page, user1Email: stri
         const sidebarB = getSidebarContainer(pageB);
         const friendsCard = sidebarB.locator('[data-testid="my-friends-card"]');
         const requestsCard = sidebarB.locator('[data-testid="friend-requests-card"]');
-        const rowId = `[data-testid="request-row-${user1Email}"]`;
+        const friendRow = friendsCard.locator(`[data-testid="friend-row-${user1Email}"]`);
 
         // Already friends check
-        if (await friendsCard.locator(`text="${user1Email}"`).isVisible()) {
+        if (await friendRow.isVisible()) {
             return;
         }
 
-        // Check visibility
-        if (!(await requestsCard.locator(rowId).isVisible())) {
+        const requestRow = requestsCard.locator(`[data-testid="request-row-${user1Email}"]`).first();
+        if (!(await requestRow.isVisible())) {
             await refreshFriendsStore(pageB);
-            
-            // Small buffer for UI to update
-            await pageB.waitForTimeout(1000);
         }
 
-        const requestRow = pageB.locator(rowId).first();
         if (await requestRow.isVisible()) {
             const acceptBtn = requestRow.locator('[data-testid="accept-request-btn"]');
+            await acceptBtn.scrollIntoViewIfNeeded();
             await Promise.all([
                 pageB.waitForResponse(resp => resp.url().includes('respond_to_friend_request'), { timeout: 10000 }).catch(() => null),
-                acceptBtn.click({ force: true })
+                acceptBtn.click()
             ]);
             await refreshFriendsStore(pageB);
         }
 
         // Wait for User B to see User A as a friend
-        await expect(friendsCard.locator(`text="${user1Email}"`)).toBeVisible({ timeout: 15000 });
-    }).toPass({ timeout: 60000, intervals: [5000] });
-
-    // Settlement buffer for WebKit container sync
-    await pageA.waitForTimeout(1000);
+        await expect(friendRow).toBeVisible({ timeout: 15000 });
+    }).toPass({ timeout: 60000, intervals: [3000] });
 }
 
 export async function waitForToast(page: Page, message: string | RegExp) {
@@ -833,9 +821,13 @@ export async function selectPrivacyOption(page: Page, optionName: 'Public' | 'Fr
     await navigateToSettings(page);
     const container = page.getByTestId('settings-page-container');
     const privacySelect = container.locator('[data-testid="privacy-select"]').first();
-    await privacySelect.click({ force: true });
-    const option = page.locator('[role="option"], div').filter({ hasText: new RegExp(`^${optionName}$`) }).last();
-    await option.click({ force: true });
+    await expect(privacySelect).toBeVisible({ timeout: 10000 });
+    await privacySelect.scrollIntoViewIfNeeded();
+    await privacySelect.click();
+    const option = page.locator('[role="option"]').filter({ hasText: new RegExp(`^${optionName}$`) }).last();
+    await expect(option).toBeVisible({ timeout: 5000 });
+    await option.scrollIntoViewIfNeeded();
+    await option.click();
     
     const expectedLevel = optionName.toLowerCase().replace(' ', '_') as 'public' | 'friends_only' | 'private';
     
@@ -953,11 +945,11 @@ export async function removeFriend(page: Page, email: string) {
         const friendsCard = sidebar.locator('[data-testid="my-friends-card"]');
         const sentCard = sidebar.locator('[data-testid="sent-requests-card"]');
         
-        let friendRow = friendsCard.locator(`[data-testid="friend-row-${email}"], .flex.items-center:has-text("${email}")`).first();
+        let friendRow = friendsCard.locator(`[data-testid="friend-row-${email}"]`).first();
         let isFriend = await friendRow.isVisible();
         
         if (!isFriend) {
-            friendRow = sentCard.locator(`.flex.items-center:has-text("${email}")`).first();
+            friendRow = sentCard.locator('div').filter({ hasText: email }).first();
             if (!(await friendRow.isVisible())) {
                 await refreshFriendsStore(page);
                 await navigateToTab(page, 'Friends');
@@ -966,10 +958,10 @@ export async function removeFriend(page: Page, email: string) {
                 // Re-check
                 const friendsCardUpdate = sidebar.locator('[data-testid="my-friends-card"]');
                 const sentCardUpdate = sidebar.locator('[data-testid="sent-requests-card"]');
-                isFriend = await friendsCardUpdate.locator(`[data-testid="friend-row-${email}"], .flex.items-center:has-text("${email}")`).first().isVisible();
+                isFriend = await friendsCardUpdate.locator(`[data-testid="friend-row-${email}"]`).first().isVisible();
                 friendRow = isFriend 
-                    ? friendsCardUpdate.locator(`[data-testid="friend-row-${email}"], .flex.items-center:has-text("${email}")`).first()
-                    : sentCardUpdate.locator(`.flex.items-center:has-text("${email}")`).first();
+                    ? friendsCardUpdate.locator(`[data-testid="friend-row-${email}"]`).first()
+                    : sentCardUpdate.locator('div').filter({ hasText: email }).first();
             }
         }
 
@@ -977,22 +969,21 @@ export async function removeFriend(page: Page, email: string) {
              return; // Already removed
         }
 
-        const removeBtn = friendRow.locator('button[aria-label="Remove friend"], [data-testid="remove-friend-btn"], [data-testid="cancel-request-btn"]').first();
+        const removeBtn = friendRow.locator('[data-testid="remove-friend-btn"], [data-testid="cancel-request-btn"]').first();
         if (await removeBtn.isVisible()) {
-            await removeBtn.click({ force: true });
+            await removeBtn.scrollIntoViewIfNeeded();
+            await removeBtn.click();
 
             // Handle AlertDialog only if it was an accepted friend
             if (isFriend) {
-                const confirmBtn = page.locator('button:has-text("Remove"), [data-testid="confirm-remove-btn"]').filter({ visible: true }).first();
-                await confirmBtn.waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-                if (await confirmBtn.isVisible()) {
-                    await confirmBtn.click({ force: true });
-                }
+                const confirmBtn = page.locator('[data-testid="confirm-remove-btn"]').filter({ visible: true }).first();
+                await expect(confirmBtn).toBeVisible({ timeout: 5000 });
+                await confirmBtn.click();
             }
         }
 
-        await expect(sidebar.locator(`text="${email}"`)).not.toBeVisible({ timeout: 10000 });
-    }).toPass({ timeout: 45000, intervals: [5000] });
+        await expect(friendsCard.locator(`[data-testid="friend-row-${email}"]`)).not.toBeVisible({ timeout: 10000 });
+    }).toPass({ timeout: 45000, intervals: [3000] });
 }
 
 /**

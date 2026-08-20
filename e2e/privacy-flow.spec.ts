@@ -1,6 +1,5 @@
 import { test, expect, MockMapsManager, createDefaultMockState } from './utils';
 import { 
-    getSidebarContainer, 
     login, 
     navigateToTab, 
     setupFriendship, 
@@ -9,7 +8,10 @@ import {
     logVisit, 
     closeWineryModal,
     selectPrivacyOption,
-    ensureSidebarExpanded
+    ensureSidebarExpanded,
+    waitForSignal,
+    getSidebarContainer,
+    refreshFriendsStore
 } from './helpers';
 
 test.describe('Privacy and Profile Flow', () => {
@@ -57,48 +59,40 @@ test.describe('Privacy and Profile Flow', () => {
         await openWineryDetails(pageA, 'Mock Winery One');
         
         // Log Public Visit
-        const logBtn = pageA.getByTestId('log-visit-button');
+        const logBtn = pageA.getByTestId('log-visit-button').first();
+        await expect(logBtn).toBeVisible({ timeout: 10000 });
         await logBtn.scrollIntoViewIfNeeded();
-        await expect(async () => {
-            const isModalOpen = await pageA.evaluate(() => (window as any).useUIStore?.getState().isModalOpen);
-            if (!isModalOpen) {
-                await logBtn.click({ force: true });
-                throw new Error("Modal not open yet");
-            }
-        }).toPass({ timeout: 10000, intervals: [1000] });
+        await logBtn.click();
         await logVisit(pageA, { review: 'This is a public review' });
 
         // Log Private Visit
         // Wait for any toast to disappear if it might block the next button
         await expect(pageA.locator('[role="status"], [role="alert"]')).not.toBeVisible({ timeout: 10000 }).catch(() => null);
+        await expect(logBtn).toBeVisible({ timeout: 10000 });
         await logBtn.scrollIntoViewIfNeeded();
-        
-        await expect(async () => {
-            const isModalOpen = await pageA.evaluate(() => (window as any).useUIStore?.getState().isModalOpen);
-            if (!isModalOpen) {
-                await logBtn.click({ force: true });
-                throw new Error("Modal not open yet");
-            }
-        }).toPass({ timeout: 10000, intervals: [1000] });
-        
+        await logBtn.click();
         await logVisit(pageA, { review: 'This is a private review', isPrivate: true });
 
         await closeWineryModal(pageA);
       });
 
-      // 5. User B views User A's profile
+      // 5. User B views User A's profile via Friends tab
       await test.step('User B views User A profile', async () => {
         await navigateToTab(pageB, 'Friends');
         await ensureSidebarExpanded(pageB);
-        const sidebarB = getSidebarContainer(pageB);
-        
-        // Find User A in friends list
-        const userALink = sidebarB.locator('a', { hasText: user1.email.split('@')[0] });
-        await expect(userALink).toBeVisible({ timeout: 15000 });
-        await userALink.click({ force: true });
+        await refreshFriendsStore(pageB);
 
-        // Verify on profile page
+        const sidebarB = getSidebarContainer(pageB);
+        const friendRow = sidebarB.locator(`[data-testid="friend-row-${user1.email}"]`).first();
+        await expect(friendRow).toBeVisible({ timeout: 15000 });
+
+        const friendLink = friendRow.locator('a').first();
+        await friendLink.scrollIntoViewIfNeeded();
+        await friendLink.click();
+
+        // Verify navigation and page readiness
         await expect(pageB).toHaveURL(new RegExp(`/friends/${user1.id}`));
+        await waitForSignal(pageB, 'friend-profile-container', 'ready', 15000);
         
         // Check visits visibility: Public should be visible, Private should not
         await expect(pageB.getByText('This is a public review')).toBeVisible({ timeout: 10000 });
