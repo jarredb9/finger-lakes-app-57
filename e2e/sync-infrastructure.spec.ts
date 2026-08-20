@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, clearServiceWorkers, waitForAppReady } from './helpers';
+import { loginProgrammatic, clearServiceWorkers, waitForAppReady } from './helpers';
 
 test.describe('Sync Infrastructure (Phase 2)', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -7,7 +7,7 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
     await clearServiceWorkers(page);
     mockMaps.useRealVisits();
     
-    await login(page, user.email, user.password);
+    await loginProgrammatic(page, user.email, user.password);
     await waitForAppReady(page);
 
     // Wait for user store and sync store hydration
