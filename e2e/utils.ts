@@ -1177,6 +1177,23 @@ export class MockMapsManager {
         });
     });
 
+    // 12. Open-Meteo Weather API Handler
+    await this.page.context().route(/api\.open-meteo\.com\/v1\/forecast/, async (route) => {
+        await route.fulfill({
+            status: 200,
+            contentType: 'application/json',
+            headers: { 'Access-Control-Allow-Origin': '*' },
+            body: JSON.stringify({
+                current: {
+                    temperature_2m: 72,
+                    relative_humidity_2m: 50,
+                    weather_code: 1,
+                    wind_speed_10m: 5
+                }
+            })
+        });
+    });
+
     this.mocksRegistered = true;
   }
 
