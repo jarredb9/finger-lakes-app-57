@@ -128,7 +128,7 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
 
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
             {/* Mobile View: Card List */}
-            <div className="md:hidden space-y-4">
+            <div className="lg:hidden space-y-4">
                 <div className="flex flex-col gap-2">
                     <div className="relative">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -226,7 +226,7 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
             </div>
 
             {/* Desktop View: Data Table */}
-            <div className="hidden md:block">
+            <div className="hidden lg:block">
                 <div className="overflow-x-auto">
                     <DataTable columns={columns as any} data={visits} onRowClick={handleRowClick} />
                 </div>

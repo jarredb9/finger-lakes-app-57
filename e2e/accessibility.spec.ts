@@ -32,10 +32,10 @@ test.describe('Accessibility (A11y)', () => {
 
   test('winery details modal should be accessible', async ({ page, user, mockMaps }) => {
     const viewport = page.viewportSize();
-    const isMobile = viewport && viewport.width < 768;
+    const isMobile = Boolean(viewport && viewport.width < 1024);
     
     if (isMobile) {
-        test.skip(true, 'Skipping modal A11y scan on mobile due to visibility constraints in the interactive sheet');
+        test.skip(true, 'Skipping modal A11y scan on mobile/tablet due to drawer visibility constraints');
     }
 
     // mockMaps is auto-initialized by the fixture

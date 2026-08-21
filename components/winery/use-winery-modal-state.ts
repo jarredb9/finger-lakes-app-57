@@ -45,11 +45,11 @@ export function useWineryModalState() {
 
   const [activeTab, setActiveTab] = useState<WineryModalTab>("community");
   const effectiveActiveTab: WineryModalTab = !isAIEnabled && activeTab === "ai_insights" ? "community" : activeTab;
-  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 768 : false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 1024 : false);
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768);
+      setIsMobile(window.innerWidth < 1024);
     };
     handleResize();
     window.addEventListener("resize", handleResize);

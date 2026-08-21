@@ -21,13 +21,13 @@ test.describe('PWA Offline Functionality', () => {
     await expect(page.getByText('Offline: Map detail limited')).toBeVisible({ timeout: 10000 });
 
     await navigateToTab(page, 'Explore');
-    if (page.viewportSize()?.width && page.viewportSize()!.width < 768) {
+    if (page.viewportSize()?.width && page.viewportSize()!.width < 1024) {
         await page.getByRole('button', { name: 'Map' }).click();
     }
 
     await expect(page.getByTestId('map-container')).toBeVisible();
     
-    if (page.viewportSize()?.width && page.viewportSize()!.width < 768) {
+    if (page.viewportSize()?.width && page.viewportSize()!.width < 1024) {
         await navigateToTab(page, 'Explore');
     }
 
