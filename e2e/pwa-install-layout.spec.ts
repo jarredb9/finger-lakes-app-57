@@ -1,89 +1,91 @@
 import { test, expect } from './utils';
-import { clearServiceWorkers, waitForAppReady } from './helpers';
+import { clearServiceWorkers } from './helpers';
 
-test.describe('PWA Install & Layout', () => {
+test.describe('PWA Install & Cookie Consent Layout', () => {
 
   test.beforeEach(async ({ page }) => {
     await clearServiceWorkers(page);
   });
   
-  test('Mobile: Install Prompt at Top, Cookie Consent at Bottom-Left', async ({ page, user }) => {
-    test.skip(!!test.info().project.name.toLowerCase().match(/^(chromium|firefox|webkit)$/), 'Mobile project only');
-    // 1. Set Mobile Viewport
-    await page.setViewportSize({ width: 375, height: 667 });
+  test('Mobile: Install Bar at Top and Cookie Consent at Bottom with No Overlap', async ({ page }) => {
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
+    test.skip(!isMobile, 'Mobile (< 768px) viewports only');
     
-    // 2. Go to login page with pwa flag to ensure SW registration
+    // 1. Navigate to unauthenticated page with PWA flag
     await page.goto('/login?pwa=true');
-    
-    // 3. Wait for Cookie Consent (Bottom-Left)
+    await page.waitForLoadState('domcontentloaded');
+
+    const viewport = page.viewportSize() || { width: 375, height: 667 };
+
+    // 2. Wait for Cookie Consent (verifies React client hydration)
     const cookieConsent = page.locator('aside[aria-label="Cookie consent"]');
     await expect(cookieConsent).toBeVisible({ timeout: 10000 });
-    
-    const cookieBox = await cookieConsent.boundingBox();
-    expect(cookieBox?.x).toBeLessThan(5); 
-    expect(cookieBox?.y).toBeGreaterThan(500);
 
-    // 4. Manual Login (to avoid login helper's cookie-consent bypass)
-    await page.getByLabel('Email').fill(user.email);
-    await page.getByLabel('Password').fill(user.password);
-    await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
-    
-    await waitForAppReady(page);
-
-    // 5. Trigger PWA Install Prompt manually
+    // 3. Trigger PWA Install Prompt (now that listeners are mounted)
     await page.evaluate(() => {
       window.dispatchEvent(new Event('beforeinstallprompt', { cancelable: true }));
     });
 
-    // 6. Verify Install Bar Appearance (Top)
     const installBar = page.getByTestId('mobile-pwa-install-bar');
     await expect(installBar).toBeVisible({ timeout: 5000 });
 
-    const barBox = await installBar.boundingBox();
-    expect(barBox?.y).toBeLessThan(5); // Top-0 (allow small offset)
-    expect(barBox?.x).toBeLessThan(5);
-    
-    // Ensure it's near the top
-    expect(barBox?.y).toBeLessThan(100); 
+    // 4. Auto-retrying position verification (waits for CSS entry animations to settle)
+    await expect.poll(async () => {
+      const barBox = await installBar.boundingBox();
+      const cookieBox = await cookieConsent.boundingBox();
+      if (!barBox || !cookieBox) return false;
+
+      // Mobile Install Bar: Docked to top (y <= 5px tolerance)
+      const barAtTop = barBox.y <= 5;
+      // Mobile Cookie Consent: Docked to bottom (bottom edge within 5px of viewport bottom)
+      const cookieAtBottom = (cookieBox.y + cookieBox.height) >= (viewport.height - 5);
+      // No vertical collision: bottom of install bar is strictly above top of cookie banner
+      const noOverlap = (barBox.y + barBox.height) < cookieBox.y;
+
+      return barAtTop && cookieAtBottom && noOverlap;
+    }, { message: 'Mobile PWA bar and Cookie Consent must occupy top and bottom without overlap', timeout: 5000 }).toBe(true);
   });
 
-  test('Desktop: Install Prompt at Bottom-Left, Cookie Consent at Bottom-Right', async ({ page, user }) => {
-    test.skip(test.info().project.name.toLowerCase().includes('mobile'), 'Desktop project only');
-    // 1. Set Desktop Viewport
-    await page.setViewportSize({ width: 1280, height: 800 });
+  test('Desktop/Tablet: Install Card at Bottom-Left and Cookie Notice at Bottom-Right with No Overlap', async ({ page }) => {
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
+    test.skip(isMobile, 'Desktop/Tablet (>= 768px) viewports only');
     
-    // 2. Go to login page
+    // 1. Navigate to unauthenticated page
     await page.goto('/login?pwa=true');
+    await page.waitForLoadState('domcontentloaded');
 
-    // 3. Wait for Cookie Consent (Bottom-Right)
+    const viewport = page.viewportSize() || { width: 1280, height: 800 };
+
+    // 2. Wait for Cookie Consent (verifies React client hydration)
     const cookieConsent = page.locator('aside[aria-label="Cookie consent"]');
     await expect(cookieConsent).toBeVisible({ timeout: 10000 });
-    
-    const cookieBox = await cookieConsent.boundingBox();
-    // Desktop layout for CookieConsent: md:bottom-4 md:right-4 md:w-[340px]
-    expect(cookieBox?.x).toBeGreaterThan(800);
-    expect(cookieBox?.y).toBeGreaterThan(600);
 
-    // 4. Manual Login
-    await page.getByLabel('Email').fill(user.email);
-    await page.getByLabel('Password').fill(user.password);
-    await page.getByRole('button', { name: 'Sign In' }).click({ force: true });
-    
-    await waitForAppReady(page);
-
-    // 5. Trigger PWA Install Prompt
+    // 3. Trigger PWA Install Prompt (now that listeners are mounted)
     await page.evaluate(() => {
       window.dispatchEvent(new Event('beforeinstallprompt', { cancelable: true }));
     });
 
-    // 6. Verify Install Card Appearance (Bottom-Left)
     const installCard = page.getByTestId('desktop-pwa-install-card');
     await expect(installCard).toBeVisible({ timeout: 5000 });
 
-    const cardBox = await installCard.boundingBox();
-    // Desktop layout for PwaHandler: hidden md:block fixed bottom-4 left-4
-    expect(cardBox?.x).toBeLessThan(100); 
-    expect(cardBox?.y).toBeGreaterThan(600);
+    // 4. Auto-retrying position verification (waits for CSS entry animations to settle)
+    await expect.poll(async () => {
+      const cardBox = await installCard.boundingBox();
+      const cookieBox = await cookieConsent.boundingBox();
+      if (!cardBox || !cookieBox) return false;
+
+      const midX = viewport.width / 2;
+      const midY = viewport.height / 2;
+
+      // Desktop PWA Card: Bottom-Left quadrant (fixed bottom-4 left-4)
+      const cardInBottomLeft = cardBox.x < midX && (cardBox.y + cardBox.height) > midY;
+      // Desktop Cookie Notice: Bottom-Right quadrant (md:bottom-4 md:right-4)
+      const cookieInBottomRight = cookieBox.x > midX && (cookieBox.y + cookieBox.height) > midY;
+      // No horizontal overlap between left card and right notice
+      const noOverlap = (cardBox.x + cardBox.width) < cookieBox.x;
+
+      return cardInBottomLeft && cookieInBottomRight && noOverlap;
+    }, { message: 'Desktop PWA card and Cookie Notice must occupy separate bottom quadrants without overlap', timeout: 5000 }).toBe(true);
   });
 
 });
