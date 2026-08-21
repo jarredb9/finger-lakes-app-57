@@ -40,25 +40,33 @@ If navigation is strictly required, you MUST verify the "Interaction Readiness" 
 - **Gate:** Use `expect(page.locator('body')).toHaveAttribute('data-hydrated', 'true')` or `waitForSignal(page, 'container-id', 'ready')` before the first click.
 
 ### 4. Click & Navigation Race Conditions (toPass Anti-Pattern)
-Do **NOT** wrap both a click interaction that initiates a page navigation and the subsequent page transition check (e.g. `page.waitForURL`) inside a single `toPass` retry loop.
-- **Problem:** If navigation takes longer than the interval/timeout, `toPass` retries and clicks the button a second time. This can cause double API requests, double navigation transitions, or target DOM element detachment errors when elements unmount during navigation.
-- **Standard:** Trigger the click exactly once, and then await the page transition check outside of any `toPass` blocks.
+Do **NOT** wrap both a click interaction that initiates a page navigation (e.g. login submit, tab click) and the subsequent page transition check inside a single `toPass` retry loop.
+- **Problem:** If navigation takes longer than the retry interval, `toPass` retries and performs the interaction a second time. This can cause duplicate API requests, cancel ongoing client-side transitions, or trigger severe context-destruction deadlocks (e.g. `page.evaluate()` hanging for 30s in Firefox when called during page teardown).
+- **Standard:** Trigger the interaction exactly once, and await the URL/DOM transition deterministically.
 
 **Incorrect:**
 ```typescript
 await expect(async () => {
-    await tripCard.getByTestId('view-trip-details-btn').click({ force: true });
-    await page.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' });
+    await submitLoginForm(page, email, pass);
+    await page.waitForTimeout(500);
+    const user = await page.evaluate(() => useUserStore.getState().user);
+    if (!user) throw new Error('Still waiting');
 }).toPass({ timeout: 20000, intervals: [2000] });
 ```
 
 **Correct:**
 ```typescript
-await tripCard.getByTestId('view-trip-details-btn').click({ force: true });
-await page.waitForURL(/.*\/trips\/\d+/, { timeout: 10000, waitUntil: 'domcontentloaded' });
+await submitLoginForm(page, email, pass);
+await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15000, waitUntil: 'commit' });
+await waitForAppReady(page);
 ```
 
-### 5. Why this is Senior-Level:
+### 5. Next.js App Router SPA Navigation (`waitUntil: 'commit'`)
+Next.js App Router client navigation (`router.push`) updates session history via `history.pushState` without firing a full document `load` event.
+- **Problem:** Playwright's `page.waitForURL` defaults `waitUntil` to `'load'`. When waiting for a client-side route change, the assertion may wait indefinitely for a window `load` event that never fires.
+- **Standard:** Always specify `{ waitUntil: 'commit' }` when awaiting URL transitions initiated by client-side router pushes.
+
+### 6. Why this is Senior-Level:
 1.  **Resilience:** Your tests no longer break when the Sidebar, Header, or Bottom Nav are refactored.
 2.  **Debugging:** When a test fails, you know the failure is in the *feature logic*, not in the "Login" infrastructure.
 3.  **Developer Experience:** Running a 5-second test suite makes for a 10x faster development loop.
