@@ -99,7 +99,6 @@ export async function clearServiceWorkers(page: Page) {
     await page.addInitScript(() => {
         (window as any)._E2E_ENABLE_REAL_SYNC = true;
         window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
-        window.localStorage.setItem('cookie-consent', 'true');
     });
 
     // 4. Navigate to /login to clear the actual app origin storage without triggering auth redirects
@@ -137,7 +136,6 @@ export async function clearServiceWorkers(page: Page) {
                 // Standard LocalStorage/SessionStorage cleanup
                 window.localStorage.clear();
                 window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
-                window.localStorage.setItem('cookie-consent', 'true');
                 window.sessionStorage.clear();
             } catch (e) {}
         });
