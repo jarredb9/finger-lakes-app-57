@@ -1502,14 +1502,40 @@ export class MockMapsManager {
   // }
 
   async failTrips() {
+    const commonHeaders = { 
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE, PATCH',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-total-count, x-skip-sw-interception',
+      'Access-Control-Max-Age': '86400'
+    };
     await this.page.context().route(/\/rest\/v1\/trips/, async (route) => {
-      await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Database Connection Failed' }) });
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+      await route.fulfill({ status: 500, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ message: 'Database Connection Failed' }) });
     });
   }
 
   async failLogin() {
+    const commonHeaders = { 
+      'Cache-Control': 'no-store, no-cache, must-revalidate',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE, PATCH',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-total-count, x-skip-sw-interception',
+      'Access-Control-Max-Age': '86400'
+    };
     await this.page.context().route('**/auth/v1/token**', async (route) => {
-      await route.fulfill({ status: 400, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ error: 'invalid_grant', error_description: 'Invalid login credentials' }) });
+      if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+      await route.fulfill({
+        status: 400,
+        contentType: 'application/json',
+        headers: commonHeaders,
+        body: JSON.stringify({
+          error: 'invalid_grant',
+          error_description: 'Invalid login credentials',
+          message: 'Invalid login credentials',
+          msg: 'Invalid login credentials'
+        })
+      });
     });
   }
 

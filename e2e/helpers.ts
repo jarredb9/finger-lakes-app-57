@@ -74,10 +74,10 @@ export function getTabTrigger(page: Page, tabName: 'Explore' | 'Trips' | 'Friend
 export async function dismissCookieConsent(page: Page) {
     const banner = page.locator('[aria-label="Cookie consent"]');
     try {
-        if (await banner.isVisible({ timeout: 2000 })) {
+        if (await banner.isVisible()) {
             const btn = banner.getByRole('button', { name: /Got it/i });
             if (await btn.isVisible()) {
-                await btn.click({ force: true });
+                await btn.click();
                 await expect(banner).not.toBeVisible({ timeout: 5000 });
             }
         }
@@ -87,19 +87,22 @@ export async function dismissCookieConsent(page: Page) {
  * Clears service workers and related caches for a fresh test state.
  */
 export async function clearServiceWorkers(page: Page) {
-    // 1. Navigate to about:blank first to ensure all app-level IndexedDB connections are closed.
+    // 1. Clear cookies across context
+    await page.context().clearCookies().catch(() => {});
+
+    // 2. Navigate to about:blank first to ensure all app-level IndexedDB connections are closed.
     // This prevents deleteDatabase calls from being 'blocked' by open connections.
     await page.goto('about:blank').catch(() => {});
 
-    // 2. Proactively set flags that MUST survive across the cleanup navigations
+    // 3. Proactively set flags that MUST survive across the cleanup navigations
     // We add them as init script for the NEXT navigation (to /)
     await page.addInitScript(() => {
         (window as any)._E2E_ENABLE_REAL_SYNC = true;
         window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
+        window.localStorage.setItem('cookie-consent', 'true');
     });
 
-    // 3. Clear storage on about:blank origin first (though usually blank has no storage)
-    // Then navigate to /login to clear the actual app origin storage without triggering auth redirects
+    // 4. Navigate to /login to clear the actual app origin storage without triggering auth redirects
     await page.goto('/login').catch(() => {});
     await page.waitForLoadState('domcontentloaded');
 
@@ -134,6 +137,7 @@ export async function clearServiceWorkers(page: Page) {
                 // Standard LocalStorage/SessionStorage cleanup
                 window.localStorage.clear();
                 window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
+                window.localStorage.setItem('cookie-consent', 'true');
                 window.sessionStorage.clear();
             } catch (e) {}
         });
@@ -141,7 +145,10 @@ export async function clearServiceWorkers(page: Page) {
         // Ignore execution context destruction during cleanup navigations
     }
 
-    // 4. Navigate back to about:blank to ENSURE all connections are closed after cleanup
+    // 5. Clear cookies again to ensure any set during /login navigation are removed
+    await page.context().clearCookies().catch(() => {});
+
+    // 6. Navigate back to about:blank to ENSURE all connections are closed after cleanup
     // so the deletions can actually finish before the next test step starts.
     await page.goto('about:blank').catch(() => {});
 }
@@ -298,6 +305,7 @@ export async function login(page: Page, email: string, pass: string, options: { 
   await page.addInitScript(() => {
     (window as any)._E2E_ENABLE_REAL_SYNC = true;
     window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
+    window.localStorage.setItem('cookie-consent', 'true');
   });
 
   const isMobile = page.viewportSize()?.width! < 768;
@@ -305,91 +313,49 @@ export async function login(page: Page, email: string, pass: string, options: { 
   const isPwa = options.isPwa || false;
   const pwaSuffix = isPwa ? '?pwa=true' : '';
 
-  // 1. Ensure we are on the login page and client hydration has completed
-  await expect(async () => {
-    if (!page.url().includes('/login')) {
-        await page.goto(`/login${pwaSuffix}`);
-    } else if (isPwa && !page.url().includes('pwa=true')) {
-        await page.goto(`/login${pwaSuffix}`);
-    }
+  // 1. Ensure we are on the login page
+  if (!page.url().includes('/login')) {
+    await page.goto(`/login${pwaSuffix}`);
+  } else if (isPwa && !page.url().includes('pwa=true')) {
+    await page.goto(`/login${pwaSuffix}`);
+  }
 
-    // Enable real sync after we are on the domain
-    await page.evaluate(() => {
-        (window as any)._E2E_ENABLE_REAL_SYNC = true;
-        try { localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true'); } catch (e) {}
-    }).catch(() => {});
+  await page.waitForLoadState('domcontentloaded');
 
-    await page.waitForLoadState('domcontentloaded');
+  // Dismiss cookie consent if visible
+  await dismissCookieConsent(page);
 
-    // Ensure client-side React hydration has completed (stores/exposer mounted)
-    const isHydrated = await page.evaluate(() => {
-        return (window as any)._STORES_EXPOSED === true || typeof (window as any).useUserStore !== 'undefined';
-    }).catch(() => false);
-    if (!isHydrated) {
-        throw new Error('Waiting for client hydration on /login');
-    }
-  }).toPass({ intervals: [1000], timeout: 15000 });
+  // 2. Perform Login once (no nested action retry loops)
+  await submitLoginForm(page, email, pass);
 
-  // 2. Perform Login and Wait for Transition (Self-healing retry loop)
-  await expect(async () => {
-    const hasUser = await page.evaluate(() => {
-        try {
-            return !!(window as any).useUserStore?.getState().user;
-        } catch (e) { return false; }
-    }).catch(() => false);
+  // 3. Wait deterministically for client-side navigation away from /login
+  await page.waitForURL(
+    (url) => !url.pathname.includes('/login') && !url.pathname.includes('/signup'),
+    { timeout: 20000, waitUntil: 'commit' }
+  );
 
-    if (hasUser && !page.url().includes('/login') && !page.url().includes('/signup')) {
-        return;
-    }
-
-    // Always dismiss cookie consent if it appears before submission
-    await dismissCookieConsent(page);
-    await submitLoginForm(page, email, pass);
-
-    // Give a short pause for the auth request & redirect to initiate
-    await page.waitForTimeout(500);
-
-    const checkUser = await page.evaluate(() => {
-        try {
-            return !!(window as any).useUserStore?.getState().user;
-        } catch (e) { return false; }
-    }).catch(() => false);
-
-    if (checkUser && !page.url().includes('/login') && !page.url().includes('/signup')) {
-        return;
-    }
-    
-    // Check for explicit error message on login page
-    const error = await page.locator('[role="alert"]').first().textContent({ timeout: 1000 }).catch(() => null);
-    if (error && (error.toLowerCase().includes('invalid') || error.toLowerCase().includes('error'))) {
-        throw new Error(`Login failed with error: ${error}`);
-    }
-
-    throw new Error('Still waiting for login transition');
-  }).toPass({ intervals: [2000], timeout: 30000 });
-
+  // 4. Wait for app ready
   await waitForAppReady(page);
 
   // Final check for cookie consent after app is ready
   await dismissCookieConsent(page);
-  
-  await page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 15000 }).catch(() => null);
 
   if (!options.skipMapReady) {
     // Note: get_map_markers is bypassed in E2E mode at the store level
-    
     await expect(async () => {
       const isHydrated = await page.evaluate(() => {
-          try {
-              const u = (window as any).useUserStore?.getState().user;
-              const w = (window as any).useWineryDataStore?.persist?.hasHydrated();
-              const v = (window as any).useVisitStore?.persist?.hasHydrated();
-              const t = (window as any).useTripStore?.persist?.hasHydrated();
-              return !!(u && w && v && t);
-          } catch (e) { return false; }
+        try {
+          const u = (window as any).useUserStore?.getState().user;
+          const w = (window as any).useWineryDataStore?.persist?.hasHydrated();
+          const v = (window as any).useVisitStore?.persist?.hasHydrated();
+          const t = (window as any).useTripStore?.persist?.hasHydrated();
+          return !!(u && w && v && t);
+        } catch (e) {
+          return false;
+        }
       }).catch(() => false);
       if (!isHydrated) throw new Error('Stores not hydrated');
-    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
+    }).toPass({ timeout: 15000, intervals: [500, 1000] });
 
     await waitForMapReady(page);
   }

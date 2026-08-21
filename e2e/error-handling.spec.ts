@@ -65,7 +65,7 @@ test.describe('Error Handling (Unhappy Path)', () => {
 
     // 2. Attempt login
     await page.goto('/login');
-    await page.waitForLoadState('networkidle');
+    await expect(page.getByLabel('Email')).toBeVisible({ timeout: 10000 });
 
     await submitLoginForm(page, 'fail@example.com', 'wrongpassword');
 
