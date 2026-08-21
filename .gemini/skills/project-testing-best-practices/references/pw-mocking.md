@@ -52,7 +52,33 @@ Multi-user coordination tests (e.g., Social Feed, Trip Invites) often rely on th
 - **Standard:** Tests requiring multi-context shared state MUST use `initDefaultMocks({ forceMocks: true })`.
 - **Rationale:** This prevents environment-level flags (like `E2E_REAL_DATA=true` in container environments) from bypassing the mock layer. Bypassing the mock layer for one user but not the other leads to a "split-brain" failure where data is committed to the real DB but read from an empty mock.
 
-### 4. Why this is Senior-Level:
+### 7. CORS & OPTIONS Preflight for Custom Error Mocks
+When injecting network-level errors (400, 500) on REST or Auth endpoints via `page.route` / `page.context().route`, browsers first send an HTTP `OPTIONS` preflight request.
+- **Problem:** If the route handler fulfills all requests with 400/500 indiscriminately, browser CORS preflight check fails with `TypeError: Failed to fetch`, masking the expected error payload and crashing the application's catch block.
+- **Standard:** Always check `route.request().method() === 'OPTIONS'` and fulfill with `status: 204` and full CORS headers before fulfilling the error response.
+
+```typescript
+const commonHeaders = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE, PATCH',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey',
+};
+
+await page.context().route('**/auth/v1/token**', async (route) => {
+  if (route.request().method() === 'OPTIONS') {
+    return route.fulfill({ status: 204, headers: commonHeaders });
+  }
+  await route.fulfill({
+    status: 400,
+    contentType: 'application/json',
+    headers: commonHeaders,
+    body: JSON.stringify({ error: 'invalid_grant', error_description: 'Invalid credentials' }),
+  });
+});
+```
+
+### 8. Why this is Senior-Level:
 1.  **Zero Drift:** You catch backend changes in your frontend tests immediately.
 2.  **Predictability:** You eliminate 90% of "400 Bad Request" errors in E2E tests.
 3.  **Efficiency:** You spend less time debugging "Why is this field undefined" because TypeScript told you 10 minutes ago.
