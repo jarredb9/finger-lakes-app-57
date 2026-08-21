@@ -28,8 +28,8 @@ export async function waitForSignal(page: Page, testId: string, state: 'ready' |
 /**
  * Waits for the application to be fully loaded and hydrated.
  */
-export async function waitForAppReady(page: Page) {
-    const isMobile = page.viewportSize()?.width! < 768;
+export async function waitForAppReady(page: Page, options: { skipMapReady?: boolean } = {}) {
+    const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
     
     // First ensure the core shell or the page content is visible
     // For mobile, the navigation bar is a reliable indicator that the shell is ready
@@ -46,12 +46,14 @@ export async function waitForAppReady(page: Page) {
     }
 
     // Then wait for the primary feature container to be ready if we're on a main page
-    if (page.url().endsWith('/') || page.url().includes('?')) {
-        await waitForSignal(page, 'map-container', /ready|error/).catch(() => null);
-    } else if (page.url().includes('/trips/')) {
-        await waitForSignal(page, 'trip-details-card', /ready|error/).catch(() => null);
-    } else if (page.url().includes('/trips')) {
-        await waitForSignal(page, 'trip-list-container', /ready|error/).catch(() => null);
+    if (!options.skipMapReady) {
+        if (page.url().endsWith('/') || page.url().includes('?')) {
+            await waitForSignal(page, 'map-container', /ready|error/, 5000).catch(() => null);
+        } else if (page.url().includes('/trips/')) {
+            await waitForSignal(page, 'trip-details-card', /ready|error/, 5000).catch(() => null);
+        } else if (page.url().includes('/trips')) {
+            await waitForSignal(page, 'trip-list-container', /ready|error/, 5000).catch(() => null);
+        }
     }
 }
 
@@ -59,7 +61,7 @@ export async function waitForAppReady(page: Page) {
  * Gets the tab trigger locator for both desktop and mobile.
  */
 export function getTabTrigger(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
-    const isMobile = page.viewportSize()!.width < 768;
+    const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
     if (isMobile) {
         // Special case for 'Explore' which maps to 'Search' icon button on mobile
         const id = tabName === 'Explore' ? 'explore' : tabName.toLowerCase();
@@ -189,7 +191,7 @@ export async function waitForMapReady(page: Page) {
 }
 
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
-  const isMobile = page.viewportSize()!.width < 768;
+  const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
   const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
 
   // Ensure sidebar is open on desktop if we are navigating
@@ -198,11 +200,8 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
       const isSidebarOpenStore = await page.evaluate(() => (window as any).useUIStore?.getState().isSidebarOpen);
       if (!isSidebarOpenStore) {
           const openBtn = page.getByRole('button', { name: /Open sidebar/i });
-          if (await openBtn.isVisible()) {
-              await openBtn.click({ force: true });
-          } else {
-              // Fallback: set store state directly if button is missing/hidden but we need it open
-              await page.evaluate(() => (window as any).useUIStore?.getState().setSidebarOpen(true));
+          if (await openBtn.isVisible().catch(() => false)) {
+              await openBtn.click();
           }
       }
       // Wait for sidebar visually
@@ -254,7 +253,7 @@ export async function navigateToSettings(page: Page) {
 }
 
 export async function ensureSidebarExpanded(page: Page) {
-    const isMobile = page.viewportSize()!.width < 768;
+    const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
     if (!isMobile) return;
     
     const sidebar = getSidebarContainer(page);
@@ -306,7 +305,7 @@ export async function login(page: Page, email: string, pass: string, options: { 
     window.localStorage.setItem('cookie-consent', 'true');
   });
 
-  const isMobile = page.viewportSize()?.width! < 768;
+  const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
   const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
   const isPwa = options.isPwa || false;
   const pwaSuffix = isPwa ? '?pwa=true' : '';
@@ -332,8 +331,8 @@ export async function login(page: Page, email: string, pass: string, options: { 
     { timeout: 20000, waitUntil: 'commit' }
   );
 
-  // 4. Wait for app ready
-  await waitForAppReady(page);
+  // 4. Wait for app ready (respecting options.skipMapReady)
+  await waitForAppReady(page, options);
 
   // Final check for cookie consent after app is ready
   await dismissCookieConsent(page);
@@ -423,7 +422,7 @@ export async function loginProgrammatic(
 
   // Navigate to target route with session cookies active
   await page.goto(targetRoute);
-  await waitForAppReady(page);
+  await waitForAppReady(page, options);
   await dismissCookieConsent(page);
 
   if (!options.skipMapReady) {
@@ -476,7 +475,7 @@ export async function openWineryDetails(page: Page, wineryName: string, options:
     if (options.fullDrawer) {
         await page.evaluate(() => { (window as any)._E2E_FULL_DRAWER = true; });
     }
-    const isMobile = page.viewportSize() ? page.viewportSize()!.width < 768 : false;
+    const isMobile = page.viewportSize() ? page.viewportSize()!.width < 1024 : false;
     if (isMobile) {
         await ensureSidebarExpanded(page);
     }

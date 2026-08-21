@@ -43,7 +43,7 @@ test.describe('Visual Regression Testing', () => {
 
   test('winery modal visual baseline', async ({ page, user, mockMaps }) => {
     const viewport = page.viewportSize();
-    const isMobile = viewport && viewport.width < 768;
+    const isMobile = Boolean(viewport && viewport.width < 1024);
 
     await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     await login(page, user.email, user.password);

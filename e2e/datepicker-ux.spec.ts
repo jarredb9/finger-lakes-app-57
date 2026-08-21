@@ -14,7 +14,7 @@ test.describe('DatePicker UX', () => {
     await login(page, user.email, user.password);
     await navigateToTab(page, 'Explore');
 
-    const isMobile = page.viewportSize()!.width < 768;
+    const isMobile = page.viewportSize()!.width < 1024;
 
     await test.step('Open Winery Modal', async () => {
         if (isMobile) {

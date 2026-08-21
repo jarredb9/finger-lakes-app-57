@@ -8,8 +8,8 @@ test.describe('PWA Install & Cookie Consent Layout', () => {
   });
   
   test('Mobile: Install Bar at Top and Cookie Consent at Bottom with No Overlap', async ({ page }) => {
-    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
-    test.skip(!isMobile, 'Mobile (< 768px) viewports only');
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 1024;
+    test.skip(!isMobile, 'Mobile/Tablet (< 1024px) viewports only');
     
     // 1. Navigate to unauthenticated page with PWA flag
     await page.goto('/login?pwa=true');
@@ -47,8 +47,8 @@ test.describe('PWA Install & Cookie Consent Layout', () => {
   });
 
   test('Desktop/Tablet: Install Card at Bottom-Left and Cookie Notice at Bottom-Right with No Overlap', async ({ page }) => {
-    const isMobile = (page.viewportSize()?.width ?? 1280) < 768;
-    test.skip(isMobile, 'Desktop/Tablet (>= 768px) viewports only');
+    const isMobile = (page.viewportSize()?.width ?? 1280) < 1024;
+    test.skip(isMobile, 'Desktop (>= 1024px) viewports only');
     
     // 1. Navigate to unauthenticated page
     await page.goto('/login?pwa=true');

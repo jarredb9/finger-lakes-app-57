@@ -22,7 +22,7 @@ test.describe('Runtime & Performance Audit', () => {
 
     // 4. Wait for the map/wineries to load
     const viewport = page.viewportSize();
-    const isMobile = viewport && viewport.width < 768;
+    const isMobile = Boolean(viewport && viewport.width < 1024);
     
     if (isMobile) {
         const exploreBtn = page.getByRole('button', { name: 'Explore' });

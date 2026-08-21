@@ -22,7 +22,7 @@ test('authenticated user can reach the app', async ({ page }) => {
   await waitForAppReady(page);
   
   // Verify core UI presence (Desktop or Mobile)
-  const isMobile = page.viewportSize()?.width! < 768;
+  const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
   if (isMobile) {
     await expect(page.getByTestId('mobile-nav-bar')).toBeVisible();
   } else {

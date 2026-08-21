@@ -100,7 +100,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
     return (
         <div 
-            className="flex h-screen w-screen overflow-hidden flex-col md:flex-row relative"
+            className="flex h-screen w-screen overflow-hidden flex-col lg:flex-row relative"
             data-hydrated={mounted}
         >
             <h1 className="sr-only">Winery Visit Planner and Tracker</h1>
@@ -110,7 +110,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
             {/* Desktop Sidebar */}
             {isMobile === false && (
-                <div className="hidden md:flex flex-col border-r bg-background w-[400px] relative">
+                <div className="hidden lg:flex flex-col border-r bg-background w-[400px] relative">
                     <div className="flex-1 overflow-hidden">
                         <div data-testid="desktop-sidebar-container" className="w-[400px] h-full">
                             <AppSidebar
@@ -129,7 +129,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
                 {/* Mobile User Avatar (Floating Top Right) */}
                 {isMobile === true && isStreetViewActive === false && (
-                    <div className="md:hidden absolute top-4 right-4 z-10">
+                    <div className="lg:hidden absolute top-4 right-4 z-10">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <div
@@ -202,7 +202,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             {isMobile === true && isStreetViewActive === false && (
                 <div
                     data-testid="mobile-nav-bar"
-                    className="md:hidden fixed bottom-4 left-4 right-4 max-w-lg mx-auto rounded-2xl border backdrop-blur-md shadow-lg bg-background/80 flex items-center justify-around z-50 pb-safe h-auto min-h-16 px-2 py-1"
+                    className="lg:hidden fixed bottom-4 left-4 right-4 max-w-lg mx-auto rounded-2xl border backdrop-blur-md shadow-lg bg-background/80 flex items-center justify-around z-50 pb-safe h-auto min-h-16 px-2 py-1"
                 >
                     <Button
                         variant="ghost"

@@ -122,7 +122,7 @@ export function AppSidebar({
         </div>
 
         {/* User Avatar Dropdown - Visible on Desktop, hidden on mobile (handled by AppShell) */}
-        <div className="hidden md:block">
+        <div className="hidden lg:block">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="User menu">
