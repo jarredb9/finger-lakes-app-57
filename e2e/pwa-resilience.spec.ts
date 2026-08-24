@@ -111,27 +111,56 @@ test.describe('PWA Resilience & Offline Integrity', () => {
     // 5. Verify Encryption (Read from IDB directly)
     const isEncrypted = await page.evaluate(async () => {
         return new Promise((resolve) => {
-            const request = indexedDB.open('keyval-store');
-            request.onsuccess = (event: any) => {
-                const db = event.target.result;
-                const transaction = db.transaction(['keyval'], 'readonly');
-                const store = transaction.objectStore('keyval');
-                const getRequest = store.get('encrypted-offline-queue');
-                getRequest.onsuccess = () => {
-                    const val = getRequest.result;
-                    if (Array.isArray(val) && val.length > 0) {
-                        const firstItem = val[0];
-                        if (typeof firstItem.encryptedPayload === 'string' && firstItem.encryptedPayload.length > 50) {
-                            resolve(true);
-                        } else {
+            const timeout = setTimeout(() => {
+                resolve(false);
+            }, 5000);
+
+            try {
+                const request = indexedDB.open('keyval-store');
+                request.onblocked = () => {
+                    clearTimeout(timeout);
+                    resolve(false);
+                };
+                request.onerror = () => {
+                    clearTimeout(timeout);
+                    resolve(false);
+                };
+                request.onsuccess = (event: any) => {
+                    const db = event.target.result;
+                    try {
+                        const transaction = db.transaction(['keyval'], 'readonly');
+                        const store = transaction.objectStore('keyval');
+                        const getRequest = store.get('encrypted-offline-queue');
+                        getRequest.onsuccess = () => {
+                            clearTimeout(timeout);
+                            const val = getRequest.result;
+                            db.close();
+                            if (Array.isArray(val) && val.length > 0) {
+                                const firstItem = val[0];
+                                if (typeof firstItem.encryptedPayload === 'string' && firstItem.encryptedPayload.length > 50) {
+                                    resolve(true);
+                                } else {
+                                    resolve(false);
+                                }
+                            } else {
+                                resolve(false);
+                            }
+                        };
+                        getRequest.onerror = () => {
+                            clearTimeout(timeout);
+                            db.close();
                             resolve(false);
-                        }
-                    } else {
+                        };
+                    } catch (e) {
+                        clearTimeout(timeout);
+                        db.close();
                         resolve(false);
                     }
                 };
-            };
-            request.onerror = () => resolve(false);
+            } catch (e) {
+                clearTimeout(timeout);
+                resolve(false);
+            }
         });
     });
     expect(isEncrypted).toBe(true);
