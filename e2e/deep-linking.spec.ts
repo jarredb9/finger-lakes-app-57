@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, waitForAppReady, submitLoginForm, clearServiceWorkers } from './helpers';
+import { login, waitForAppReady, submitLoginForm, clearServiceWorkers, waitForSignal } from './helpers';
 
 test.describe('Deep Linking & Redirection', () => {
   const commonHeaders = { 
@@ -11,50 +11,45 @@ test.describe('Deep Linking & Redirection', () => {
   };
 
   test.beforeEach(async ({ page, context, user }) => {
-    // 1. CRITICAL: Clear SW and state to prevent cross-test interference in WebKit
+    // 1. Clear SW and cookies for clean session state
     await clearServiceWorkers(page);
     await page.addInitScript(() => {
       window.localStorage.setItem('cookie-consent', 'true');
       (window as any)._DIAGNOSTIC_LOGGING = true;
     });
 
-    // 2. Airtight Mock: Register on BOTH context and page with broad glob matching
-    // This ensures that even if WebKit re-registers a SW or redirects, the mock persists.
+    // 2. Airtight Mock: Register RPC handler on both context and page
     const tripDetailsHandler = async (route: any) => {
-        const method = route.request().method();
-        if (method === 'OPTIONS') {
-            return route.fulfill({ status: 204, headers: commonHeaders });
-        }
+      const method = route.request().method();
+      if (method === 'OPTIONS') {
+        return route.fulfill({ status: 204, headers: commonHeaders });
+      }
 
-        // Determine which trip to return based on the request body or URL
-        const payload = route.request().postDataJSON();
-        const tripId = payload?.p_trip_id || 123;
-        const tripName = tripId === 999 ? 'Deep Link Trip' : 'Redirected Trip';
+      const payload = route.request().postDataJSON();
+      const tripId = payload?.p_trip_id || 123;
+      const tripName = tripId === 999 ? 'Deep Link Trip' : 'Redirected Trip';
 
-        console.log(`[DIAGNOSTIC] Intercepted get_trip_details for trip ${tripId} (${method})`);
-        
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          headers: commonHeaders,
-          body: JSON.stringify({
-              id: tripId,
-              name: tripName,
-              trip_date: new Date().toISOString().split('T')[0],
-              user_id: user.id,
-              members: [{
-                  id: user.id,
-                  name: 'Test User',
-                  email: user.email,
-                  role: 'owner',
-                  status: 'joined'
-              }],
-              wineries: []
-          }),
-        });
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: commonHeaders,
+        body: JSON.stringify({
+          id: tripId,
+          name: tripName,
+          trip_date: new Date().toISOString().split('T')[0],
+          user_id: user.id,
+          members: [{
+            id: user.id,
+            name: 'Test User',
+            email: user.email,
+            role: 'owner',
+            status: 'joined'
+          }],
+          wineries: []
+        }),
+      });
     };
 
-    // Use broad glob patterns for maximum compatibility with WebKit's URL reporting
     await context.route('**/rpc/get_trip_details*', tripDetailsHandler);
     await page.route('**/rpc/get_trip_details*', tripDetailsHandler);
   });
@@ -62,123 +57,49 @@ test.describe('Deep Linking & Redirection', () => {
   test('should redirect to login when accessing trip detail unauthenticated, then redirect back after login', async ({ page, user }) => {
     const tripId = '123';
 
-    // 1. Try to access a trip page directly
+    // 1. Unauthenticated direct access
     await page.goto(`/trips/${tripId}`);
 
-    // 2. Expect redirect to login with redirectTo param
-    await page.waitForURL(new RegExp(`.*\\/login\\?redirectTo=.*trips.*${tripId}`));
+    // 2. Expect redirect to login with redirectTo query param
+    await page.waitForURL(new RegExp(`.*\\/login\\?redirectTo=.*trips.*${tripId}`), { waitUntil: 'commit', timeout: 15000 });
 
-    // 3. Perform login
+    // 3. Authenticate
     await submitLoginForm(page, user.email, user.password);
 
-    // 4. Expect to be redirected back to the trip page
-    await page.waitForURL(new RegExp(`.*\\/trips\\/${tripId}`), { timeout: 15000 });
-    
-    // 5. Verify hydration and content
+    // 4. Expect client redirect back to trip page
+    await page.waitForURL(new RegExp(`.*\\/trips\\/${tripId}`), { waitUntil: 'commit', timeout: 15000 });
     await waitForAppReady(page);
-    await expect(page).toHaveURL(new RegExp(`.*\\/trips\\/${tripId}`));
 
-    // 5. Robust verification of content
-    const tripName = 'Redirected Trip';
-    await expect(async () => {
-        // Check for loading skeleton
-        const skeleton = page.getByTestId('trip-details-skeleton');
-        if (await skeleton.isVisible()) {
-            console.log(`[DIAGNOSTIC] Loading skeleton still visible for trip ${tripId}`);
-            // Poke the store if needed
-            await page.evaluate(async (id) => {
-                const store = (window as any).useTripStore?.getState();
-                if (store && !store.isLoading) await store.fetchTripById(id);
-            }, tripId);
-            throw new Error('Loading skeleton still visible');
-        }
-
-        // Check for error alert
-        const alertError = page.locator('[role="alert"]').first();
-        if (await alertError.isVisible()) {
-            const errorText = await alertError.innerText();
-            if (errorText.includes('Error Loading Trip')) {
-                console.log(`[DIAGNOSTIC] Error alert seen: ${errorText}`);
-                await page.evaluate(async (id) => {
-                    const store = (window as any).useTripStore?.getState();
-                    if (store) await store.fetchTripById(id);
-                }, tripId);
-                throw new Error(`Trip Error Alert: ${errorText}`);
-            }
-        }
-
-        // Check for Not Found
-        if (await page.getByText('Trip Not Found').isVisible()) {
-            console.log(`[DIAGNOSTIC] 'Trip Not Found' seen for ${tripId}`);
-            await page.evaluate(async (id) => {
-                const store = (window as any).useTripStore?.getState();
-                if (store) await store.fetchTripById(id);
-            }, tripId);
-            throw new Error('Trip Not Found');
-        }
-
-        await expect(page.getByText(tripName)).toBeVisible({ timeout: 2000 });
-    }).toPass({ timeout: 15000, intervals: [2000] });
+    // 5. Verify Content Rendered
+    await expect(page.getByTestId('trip-details-skeleton')).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Redirected Trip')).toBeVisible({ timeout: 10000 });
   });
 
   test('should handle navigation from a direct trip link back to the map', async ({ page, user }) => {
     const tripId = 999;
 
-    // 1. Login first
+    // 1. Authenticate first
     await login(page, user.email, user.password);
     
-    // 2. Navigate directly
+    // 2. Navigate directly to trip
     await page.goto(`/trips/${tripId}`);
-    
     await waitForAppReady(page);
 
-    // 3. Verify content robustly
-    const tripName = 'Deep Link Trip';
-    await expect(async () => {
-        // Check for loading skeleton
-        const skeleton = page.getByTestId('trip-details-skeleton');
-        if (await skeleton.isVisible()) {
-            console.log(`[DIAGNOSTIC] Loading skeleton still visible for trip ${tripId}`);
-            // Poke the store if needed
-            await page.evaluate(async (id) => {
-                const store = (window as any).useTripStore?.getState();
-                if (store && !store.isLoading) await store.fetchTripById(id);
-            }, String(tripId));
-            throw new Error('Loading skeleton still visible');
-        }
+    // 3. Verify Trip Details rendered
+    await expect(page.getByTestId('trip-details-skeleton')).not.toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Deep Link Trip')).toBeVisible({ timeout: 10000 });
 
-        // Check for error alert
-        const alertError = page.locator('[role="alert"]').first();
-        if (await alertError.isVisible()) {
-            const errorText = await alertError.innerText();
-            if (errorText.includes('Error Loading Trip')) {
-                console.log(`[DIAGNOSTIC] Error alert seen: ${errorText}`);
-                await page.evaluate(async (id) => {
-                    const store = (window as any).useTripStore?.getState();
-                    if (store) await store.fetchTripById(id);
-                }, String(tripId));
-                throw new Error(`Trip Error Alert: ${errorText}`);
-            }
-        }
-
-        // Check for Not Found
-        if (await page.getByText('Trip Not Found').isVisible()) {
-            console.log(`[DIAGNOSTIC] 'Trip Not Found' seen for ${tripId}`);
-            await page.evaluate(async (id) => {
-                const store = (window as any).useTripStore?.getState();
-                if (store) await store.fetchTripById(id);
-            }, String(tripId));
-            throw new Error('Trip Not Found');
-        }
-
-        await expect(page.getByText(tripName)).toBeVisible({ timeout: 2000 });
-    }).toPass({ timeout: 15000, intervals: [2000] });
-
-    // 4. Back to Map
+    // 4. Navigate Back to Map (native click, no force: true)
     const backToMapLink = page.getByRole('link', { name: 'Back to Map' });
-    await backToMapLink.click({ force: true });
+    await expect(backToMapLink).toBeVisible({ timeout: 5000 });
+    await backToMapLink.click();
 
-    // 5. Verify Homepage
+    // 5. Deterministically wait for client-side navigation commit and app hydration
+    await page.waitForURL((url) => url.pathname === '/', { waitUntil: 'commit', timeout: 15000 });
+    await waitForAppReady(page);
+    await waitForSignal(page, 'map-container', 'ready', 15000);
+
+    // 6. Verify Homepage & Map Container
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByTestId('map-container')).toBeVisible();
   });

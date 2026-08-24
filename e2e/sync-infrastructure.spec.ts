@@ -1,22 +1,25 @@
 import { test, expect } from './utils';
-import { loginProgrammatic, clearServiceWorkers, waitForAppReady } from './helpers';
+import { login, clearServiceWorkers } from './helpers';
 
 test.describe('Sync Infrastructure (Phase 2)', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
-    // Ensure fresh start
+    // 1. Ensure fresh start
     await clearServiceWorkers(page);
     mockMaps.useRealVisits();
     
-    await loginProgrammatic(page, user.email, user.password);
-    await waitForAppReady(page);
+    // 2. Standardized UI login
+    await login(page, user.email, user.password);
 
-    // Wait for user store and sync store hydration
-    await page.waitForFunction(() => {
-      const uStore = (window as any).useUserStore?.getState?.();
-      const sStore = (window as any).useSyncStore?.getState?.();
-      const idb = (window as any).idbKeyVal;
-      return !!uStore?.user && !!sStore?.isInitialized && !!idb;
-    }, { timeout: 30000 });
+    // 3. Fast hydration check for User store, Sync store, and IDB
+    await expect(async () => {
+      const isReady = await page.evaluate(() => {
+        const uStore = (window as any).useUserStore?.getState?.();
+        const sStore = (window as any).useSyncStore?.getState?.();
+        const idb = (window as any).idbKeyVal;
+        return !!uStore?.user && !!sStore?.isInitialized && !!idb;
+      }).catch(() => false);
+      if (!isReady) throw new Error('Waiting for stores and IDB initialization');
+    }).toPass({ timeout: 10000, intervals: [500] });
   });
 
   test('should persist encrypted mutations in IndexedDB and sync on reconnect', async ({ page, context }) => {
@@ -82,28 +85,32 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
     expect(rehydratedQueue[0].id).toBe(initialQueue[0].id);
     expect(rehydratedQueue[0].type).toBe('log_visit');
 
-    // 7. Setup clean RPC mock for reconnect sync (immediate 200 OK)
+    // 7. Setup clean RPC mock for reconnect sync (immediate 200 OK with CORS preflight handling)
     let rpcCalled = false;
+    const corsHeaders = {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE, PATCH',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-total-count, x-skip-sw-interception',
+      'Cache-Control': 'no-store'
+    };
+
     const rpcHandler = async (route: any) => {
+      if (route.request().method() === 'OPTIONS') {
+        return route.fulfill({ status: 204, headers: corsHeaders });
+      }
       rpcCalled = true;
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'POST, GET, OPTIONS, DELETE, PATCH',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-client-info, apikey, x-total-count, x-skip-sw-interception',
-          'Cache-Control': 'no-store'
-        },
+        headers: corsHeaders,
         body: JSON.stringify({ visit_id: 123 })
       });
     };
     await context.route(/.*\/rpc\/log_visit.*/, rpcHandler);
     await page.route(/.*\/rpc\/log_visit.*/, rpcHandler);
 
-    // 8. Reconnect to network and wait for auth session stabilization
+    // 8. Reconnect to network
     await context.setOffline(false);
-    await page.waitForResponse(resp => resp.url().includes('/auth/v1/user'), { timeout: 10000 }).catch(() => null);
 
     // 9. Verify the queue clears automatically via SyncService upon reconnection
     await expect(async () => {
@@ -133,7 +140,7 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
       }
 
       throw new Error(`Sync pending, current queue length: ${state.queueLength}`);
-    }).toPass({ timeout: 20000, intervals: [1000] });
+    }).toPass({ timeout: 15000, intervals: [500] });
 
     expect(rpcCalled).toBe(true);
 

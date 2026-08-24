@@ -15,6 +15,7 @@
 - **Storage:** Supabase Storage (for visit photos)
 
 ## Tooling & Infrastructure
+- **Runtime:** Node.js 24 (LTS)
 - **Language:** TypeScript (including Deno for backend Edge Function logic)
 - **Testing (Unit):** Jest + React Testing Library (Frontend); Deno Testing (Backend)
 - **Testing (E2E):** Playwright (cross-browser coverage with stable `data-state` verification)

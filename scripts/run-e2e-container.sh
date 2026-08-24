@@ -133,6 +133,7 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     --security-opt label=disable \
     --security-opt seccomp=unconfined \
     -w /work \
+    -e CI="$CI" \
     -e IS_E2E=true \
     -e NEXT_PUBLIC_IS_E2E=true \
     -e NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \

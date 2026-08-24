@@ -1,5 +1,25 @@
 # Changelog
 
+## [3.3.0] - 2026-08-24
+
+**Node.js 24 LTS Migration & Testing Infrastructure Modernization**
+
+### ⚙ Infrastructure & Tooling
+* **Node.js 24 LTS Runtime Migration**:
+    * Upgraded runtime engine constraint in [`package.json`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/package.json) to `"engines": { "node": "24.x" }`.
+    * Upgraded `@types/node` devDependency to `^24.13.3`.
+    * Updated `.nvmrc` to `24`.
+    * Updated `.github/workflows/ci.yml` and `.github/workflows/debug-pwa.yml` to use `node-version: '24'` across all jobs (`build`, `e2e-tests`, `merge-reports`, `deploy`).
+    * Updated `conductor/tech-stack.md` and testing stability guidelines to document Node.js 24 LTS.
+
+### 🧪 Testing & Reliability
+* **Jest Unit Suite Stabilization**:
+    * Standardized [`hooks/__tests__/use-places-autocomplete-session.test.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/__tests__/use-places-autocomplete-session.test.ts) to handle asynchronous session token resolution deterministically under Node.js 24 microtask scheduling.
+* **Playwright E2E Hardening**:
+    * **Visual Regression Tests**: Enhanced [`e2e/visual.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/visual.spec.ts) with pre-navigation animation/transition suppression and deterministic font-loading readiness (`document.fonts.ready`).
+    * **Trip Sharing & Collaboration**: Refactored [`e2e/trip-sharing.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/trip-sharing.spec.ts) to adhere to atomic state injection and collaboration verification standards.
+    * **Deep Linking & Sync Flow**: Upgraded [`e2e/deep-linking.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/deep-linking.spec.ts) and [`e2e/sync-infrastructure.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/sync-infrastructure.spec.ts) with proper CORS preflight handling and robust navigation commit wait patterns.
+
 ## [3.2.0] - 2026-07-30
 
 **Winery Modal & Details Architecture Refactoring**

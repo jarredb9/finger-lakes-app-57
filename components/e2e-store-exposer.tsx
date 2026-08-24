@@ -18,9 +18,6 @@ export function E2EStoreExposer() {
   useEffect(() => {
     // Expose stores - we assume gating happens at the component rendering level in layout.tsx
     if (typeof window !== 'undefined') {
-      // @ts-ignore
-      if (window._STORES_EXPOSED) return;
-
       (window as any).useWineryDataStore = useWineryDataStore;
       (window as any).useWineryStore = useWineryStore;
       (window as any).useUIStore = useUIStore;
@@ -32,7 +29,9 @@ export function E2EStoreExposer() {
       (window as any).useSyncStore = useSyncStore;
       (window as any).SyncService = SyncService;
       (window as any).createSupabaseClient = createClient;
-      (window as any).supabase = createClient();
+      if (!(window as any).supabase) {
+        (window as any).supabase = createClient();
+      }
       (window as any).idbKeyVal = { get: idbGet, set: idbSet };
       
       // @ts-ignore

@@ -119,7 +119,7 @@ if ('serviceWorker' in navigator) {
 ### 13. The SW Quota Purge Rule
 Aggressive document and tile caching in WebKit can trigger `QuotaExceededError` even if the device has space.
 - **Standard:** Every `ExpirationPlugin` in `sw.ts` MUST set `purgeOnQuotaError: true`.
-- **CRITICAL:** Build-time analysis of this property requires **Node.js 20.x**. Using other versions may trigger a `TypeError (length of undefined)` during the Serwist build phase.
+- **CRITICAL:** Build-time analysis of this property requires **Node.js 24.x**. Using other versions may trigger a `TypeError (length of undefined)` during the Serwist build phase.
 - **Implementation:**
 ```typescript
 new ExpirationPlugin({
