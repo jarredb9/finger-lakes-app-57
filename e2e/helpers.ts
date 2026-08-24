@@ -538,7 +538,7 @@ export async function closeShareDialog(page: Page) {
     if (isOpen) {
         const closeBtn = dialog.getByRole('button', { name: /Close/i });
         if (await closeBtn.isVisible({ timeout: 2000 })) {
-            await closeBtn.click({ force: true });
+            await closeBtn.click();
         } else {
             await page.keyboard.press('Escape');
         }
