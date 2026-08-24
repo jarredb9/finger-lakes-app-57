@@ -11,9 +11,9 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Environment & Engine Configuration' (Protocol in workflow.md)
 
 ## Phase 2: Dependency Auditing & Compatibility Remediation
-- [ ] Task: Audit Dependency Graph & Engine Constraints under Node 24
-    - [ ] Run `npm install` and audit direct/transitive packages for deprecation warnings or engine conflicts
-    - [ ] Verify native module bindings (e.g. `sharp` override) and ABI compatibility under Node 24
+- [x] Task: Audit Dependency Graph & Engine Constraints under Node 24 (ec58196)
+    - [x] Run `npm install` and audit direct/transitive packages for deprecation warnings or engine conflicts
+    - [x] Verify native module bindings (e.g. `sharp` override) and ABI compatibility under Node 24
 - [ ] Task: Verify Type Definitions & Remediate Incompatibilities
     - [ ] Run `npm run type-check` with `@types/node@24`
     - [ ] Apply targeted patch bumps or `package.json` overrides for any incompatible transitive packages
