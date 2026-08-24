@@ -21,3 +21,7 @@ export function createClient() {
 
   return client;
 }
+
+if (typeof window !== 'undefined' && (process.env.NEXT_PUBLIC_IS_E2E === 'true' || process.env.NODE_ENV !== 'production')) {
+  (window as any).createSupabaseClient = createClient;
+}

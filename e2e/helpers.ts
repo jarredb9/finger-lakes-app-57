@@ -166,9 +166,8 @@ export async function refreshFriendsStore(page: Page) {
 
 export async function waitForMapReady(page: Page) {
     const mapContainer = page.locator('[data-testid="map-container"]');
-    await expect(mapContainer).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
     
-    // Attempt manual bounds injection if it's missing (helps stabilize mocks)
+    // Proactively initialize bounds if missing (helps stabilize mocks and unblocks search)
     await page.evaluate(() => {
         // @ts-ignore
         if (window.useMapStore && !window.useMapStore.getState().bounds) {
@@ -181,6 +180,8 @@ export async function waitForMapReady(page: Page) {
         }
     }).catch(() => {});
 
+    await expect(mapContainer).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
+
     await expect(async () => {
         const hasBounds = await page.evaluate(() => {
             // @ts-ignore
@@ -192,7 +193,6 @@ export async function waitForMapReady(page: Page) {
 
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
   const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
-  const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
 
   // Ensure sidebar is open on desktop if we are navigating
   if (!isMobile) {
@@ -213,12 +213,13 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
 
   const tab = getTabTrigger(page, tabName);
   await expect(tab).toBeVisible({ timeout: 15000 });
+  await expect(tab).toBeEnabled({ timeout: 5000 });
   
   // Use toPass for the click and initial signal to handle hydration race conditions
   await expect(async () => {
       const currentTab = await page.evaluate(() => (window as any).useUIStore?.getState().activeTab);
       if (currentTab?.toLowerCase() !== tabName.toLowerCase()) {
-          await tab.click({ force: true });
+          await tab.click();
       }
       
       const containerIdMap = {
@@ -237,12 +238,6 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
 
       await waitForSignal(page, containerIdMap[tabName], /ready|error/, 5000);
   }).toPass({ timeout: 15000, intervals: [2000] });
-
-  // WebKit/Safari needs more time for global mocks to settle 
-  // before the first search trigger happens during navigation to Explore
-  if (isWebKit && tabName === 'Explore') {
-      await page.waitForTimeout(1000);
-  }
 }
 
 export async function navigateToSettings(page: Page) {
@@ -306,7 +301,6 @@ export async function login(page: Page, email: string, pass: string, options: { 
   });
 
   const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
-  const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
   const isPwa = options.isPwa || false;
   const pwaSuffix = isPwa ? '?pwa=true' : '';
 
@@ -352,23 +346,18 @@ export async function login(page: Page, email: string, pass: string, options: { 
         }
       }).catch(() => false);
       if (!isHydrated) throw new Error('Stores not hydrated');
-    }).toPass({ timeout: 15000, intervals: [500, 1000] });
+    }).toPass({ timeout: 10000, intervals: [500, 1000] });
 
     await waitForMapReady(page);
   }
 
   if (isMobile) {
-    if (!options.skipMapReady) {
-      await waitForMapReady(page); 
-    }
-    if (isWebKit) await page.waitForTimeout(500); 
     await navigateToTab(page, 'Explore');
   }
 }
 
 /**
- * Fast-path programmatic authentication for non-auth tests.
- * Signs in via Supabase client directly in browser context and navigates to target route.
+ * @deprecated Use login() instead. Retained for backwards compatibility.
  */
 export async function loginProgrammatic(
   page: Page,
@@ -376,73 +365,7 @@ export async function loginProgrammatic(
   pass: string,
   options: { skipMapReady?: boolean; isPwa?: boolean; redirectTo?: string } = {}
 ) {
-  await page.addInitScript(() => {
-    (window as any)._E2E_ENABLE_REAL_SYNC = true;
-    window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
-  });
-
-  const isPwa = options.isPwa || false;
-  const pwaSuffix = isPwa ? '?pwa=true' : '';
-  const targetRoute = (options.redirectTo || '/') + pwaSuffix;
-
-  // Navigate to login to get on-domain client context
-  if (!page.url().includes('/login')) {
-    await page.goto(`/login${pwaSuffix}`);
-  }
-
-  // Ensure Supabase client is available in browser context
-  await expect(async () => {
-    const ready = await page.evaluate(() => {
-      return (
-        typeof (window as any).supabase !== 'undefined' ||
-        typeof (window as any).createSupabaseClient !== 'undefined'
-      );
-    }).catch(() => false);
-    if (!ready) throw new Error('Waiting for Supabase client initialization in browser context');
-  }).toPass({ intervals: [500], timeout: 10000 });
-
-  // Execute signInWithPassword programmatically (cookies are written to document.cookie by @supabase/ssr)
-  const authResult = await page.evaluate(
-    async ({ email, pass }) => {
-      const client = (window as any).supabase || (window as any).createSupabaseClient?.();
-      if (!client) throw new Error('Supabase client not available');
-      const { data, error } = await client.auth.signInWithPassword({
-        email,
-        password: pass,
-      });
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    { email, pass }
-  );
-
-  if (!authResult?.user) {
-    throw new Error('Programmatic login failed: No user returned from Supabase auth');
-  }
-
-  // Navigate to target route with session cookies active
-  await page.goto(targetRoute);
-  await waitForAppReady(page, options);
-  await dismissCookieConsent(page);
-
-  if (!options.skipMapReady) {
-    await expect(async () => {
-      const isHydrated = await page.evaluate(() => {
-        try {
-          const u = (window as any).useUserStore?.getState().user;
-          const w = (window as any).useWineryDataStore?.persist?.hasHydrated();
-          const v = (window as any).useVisitStore?.persist?.hasHydrated();
-          const t = (window as any).useTripStore?.persist?.hasHydrated();
-          return !!(u && w && v && t);
-        } catch (e) {
-          return false;
-        }
-      }).catch(() => false);
-      if (!isHydrated) throw new Error('Stores not hydrated');
-    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
-
-    await waitForMapReady(page);
-  }
+  return login(page, email, pass, options);
 }
 
 // ==========================================
@@ -605,7 +528,7 @@ export async function closeShareDialog(page: Page) {
     if (isOpen) {
         const closeBtn = dialog.getByRole('button', { name: /Close/i });
         if (await closeBtn.isVisible({ timeout: 2000 })) {
-            await closeBtn.click({ force: true });
+            await closeBtn.click();
         } else {
             await page.keyboard.press('Escape');
         }

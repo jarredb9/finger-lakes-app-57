@@ -108,31 +108,14 @@ test.describe('PWA Resilience & Offline Integrity', () => {
     const queueLengthAfterHydration = await page.evaluate(() => (window as any).useSyncStore.getState().queue.length);
     expect(queueLengthAfterHydration).toBe(1);
 
-    // 5. Verify Encryption (Read from IDB directly)
+    // 5. Verify Encryption (Read from IDB directly via idbKeyVal storage abstraction)
     const isEncrypted = await page.evaluate(async () => {
-        return new Promise((resolve) => {
-            const request = indexedDB.open('keyval-store');
-            request.onsuccess = (event: any) => {
-                const db = event.target.result;
-                const transaction = db.transaction(['keyval'], 'readonly');
-                const store = transaction.objectStore('keyval');
-                const getRequest = store.get('encrypted-offline-queue');
-                getRequest.onsuccess = () => {
-                    const val = getRequest.result;
-                    if (Array.isArray(val) && val.length > 0) {
-                        const firstItem = val[0];
-                        if (typeof firstItem.encryptedPayload === 'string' && firstItem.encryptedPayload.length > 50) {
-                            resolve(true);
-                        } else {
-                            resolve(false);
-                        }
-                    } else {
-                        resolve(false);
-                    }
-                };
-            };
-            request.onerror = () => resolve(false);
-        });
+        const val = await (window as any).idbKeyVal.get('encrypted-offline-queue');
+        if (Array.isArray(val) && val.length > 0) {
+            const firstItem = val[0];
+            return typeof firstItem?.encryptedPayload === 'string' && firstItem.encryptedPayload.length > 50;
+        }
+        return false;
     });
     expect(isEncrypted).toBe(true);
 
