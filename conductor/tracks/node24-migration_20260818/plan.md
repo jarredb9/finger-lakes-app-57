@@ -14,9 +14,9 @@
 - [x] Task: Audit Dependency Graph & Engine Constraints under Node 24 (ec58196)
     - [x] Run `npm install` and audit direct/transitive packages for deprecation warnings or engine conflicts
     - [x] Verify native module bindings (e.g. `sharp` override) and ABI compatibility under Node 24
-- [ ] Task: Verify Type Definitions & Remediate Incompatibilities
-    - [ ] Run `npm run type-check` with `@types/node@24`
-    - [ ] Apply targeted patch bumps or `package.json` overrides for any incompatible transitive packages
+- [x] Task: Verify Type Definitions & Remediate Incompatibilities (4aa666b)
+    - [x] Run `npm run type-check` with `@types/node@24`
+    - [x] Apply targeted patch bumps or `package.json` overrides for any incompatible transitive packages
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Dependency Auditing & Compatibility Remediation' (Protocol in workflow.md)
 
 ## Phase 3: Build & Test Suite Execution
