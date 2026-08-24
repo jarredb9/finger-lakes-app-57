@@ -45,8 +45,8 @@ describe("usePlacesAutocompleteSession", () => {
     const { result } = renderHook(() => usePlacesAutocompleteSession());
     await waitFor(() => {
       expect(mockPlaces.AutocompleteSessionToken).toHaveBeenCalled();
+      expect(result.current.sessionToken).toBe(mockTokenInstance);
     });
-    expect(result.current.sessionToken).toBe(mockTokenInstance);
   });
 
   it("should fetch suggestions successfully", async () => {
