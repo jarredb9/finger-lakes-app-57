@@ -10,14 +10,14 @@
     - [x] Update `.gemini/skills/project-testing-best-practices/references/pw-webkit-stability.md` rule 13 for Node.js 24
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Environment & Engine Configuration' (Protocol in workflow.md)
 
-## Phase 2: Dependency Auditing & Compatibility Remediation
+## Phase 2: Dependency Auditing & Compatibility Remediation [checkpoint: 0ae22e8]
 - [x] Task: Audit Dependency Graph & Engine Constraints under Node 24 (ec58196)
     - [x] Run `npm install` and audit direct/transitive packages for deprecation warnings or engine conflicts
     - [x] Verify native module bindings (e.g. `sharp` override) and ABI compatibility under Node 24
 - [x] Task: Verify Type Definitions & Remediate Incompatibilities (4aa666b)
     - [x] Run `npm run type-check` with `@types/node@24`
     - [x] Apply targeted patch bumps or `package.json` overrides for any incompatible transitive packages
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Dependency Auditing & Compatibility Remediation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Dependency Auditing & Compatibility Remediation' (Protocol in workflow.md)
 
 ## Phase 3: Build & Test Suite Execution
 - [ ] Task: Verify Jest Unit Test Suite under Node 24
