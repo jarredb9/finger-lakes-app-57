@@ -3,10 +3,10 @@ import { login, navigateToTab } from './helpers';
 
 test.describe('Signal-Based Synchronization', () => {
   test.beforeEach(async ({ page, mockMaps, user }) => {
-    // Standard setup with mock data
-    await mockMaps.initDefaultMocks();
-    // Use the login helper
-    await login(page, user.email, user.password);
+    // Standard setup with mock data linked to test user
+    await mockMaps.initDefaultMocks({ currentUserId: user.id });
+    // Use the login helper with skipMapReady to allow isolated container signal verification
+    await login(page, user.email, user.password, { skipMapReady: true });
   });
 
   test('TripList should have data-state="ready" after loading', async ({ page }) => {
