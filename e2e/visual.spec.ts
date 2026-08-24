@@ -3,18 +3,54 @@ import { getSidebarContainer, login, navigateToTab } from './helpers';
 
 test.describe('Visual Regression Testing', () => {
 
-  test.beforeEach(({}, testInfo) => {
+  test.beforeEach(async ({ page }, testInfo) => {
     // Run visual tests across desktop (chromium), mobile drawer (Mobile Chrome), and tablet (Mobile Safari (Tablet))
     const allowedProjects = ['chromium', 'Mobile Chrome', 'Mobile Safari (Tablet)'];
     test.skip(!allowedProjects.includes(testInfo.project.name), 'Visual tests run on chromium, Mobile Chrome, and Mobile Safari (Tablet)');
+
+    // Reduce motion natively in browser
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+
+    // Neutralize all CSS animations, transitions, and layout jitter globally before navigation
+    await page.addInitScript(() => {
+      const injectStyles = () => {
+        if (document.getElementById('__visual-test-overrides')) return;
+        const style = document.createElement('style');
+        style.id = '__visual-test-overrides';
+        style.textContent = `
+          *, *::before, *::after {
+            -webkit-transition-duration: 0s !important;
+            transition-duration: 0s !important;
+            -webkit-animation-duration: 0s !important;
+            animation-duration: 0s !important;
+            -webkit-animation-delay: 0s !important;
+            animation-delay: 0s !important;
+          }
+          [data-testid="trip-badge"] { display: none !important; }
+          [data-testid*="winery-modal"] h2 {
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+            max-width: 320px !important;
+          }
+        `;
+        (document.head || document.documentElement).appendChild(style);
+      };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', injectStyles);
+      } else {
+        injectStyles();
+      }
+    });
   });
 
   test('login page visual baseline', async ({ page }) => {
     await page.goto('/login');
     // Pre-emptively dismiss cookie banner using init script if not already set by helper
-    // (Helper already does this, but for clarity:)
     await page.evaluate(() => window.localStorage.setItem('cookie-consent', 'true'));
     await page.reload();
+    await page.evaluate(() => document.fonts.ready);
 
     await expect(page).toHaveScreenshot('login-page.png', {
         maxDiffPixelRatio: 0.05 // Allow slight rendering differences
@@ -31,11 +67,12 @@ test.describe('Visual Regression Testing', () => {
     // Wait for content to render
     const sidebar = getSidebarContainer(page);
     await expect(sidebar.getByText('Wineries in View')).toBeVisible();
+    await page.evaluate(() => document.fonts.ready);
     
     await expect(page).toHaveScreenshot('dashboard-main.png', {
         mask: [
             page.locator('[data-testid="user-avatar"]'), 
-            page.locator('text=/Trip \d+/') 
+            page.locator('text=/Trip \\d+/') 
         ],
         maxDiffPixelRatio: 0.05
     });
@@ -58,18 +95,7 @@ test.describe('Visual Regression Testing', () => {
       const drawer = page.getByTestId('winery-modal-drawer');
       await expect(drawer).toBeVisible();
       await expect(drawer).toHaveAttribute('data-state', 'ready');
-
-      // Stabilize dynamic content and disable all CSS/JS transitions
-      await page.addStyleTag({ content: `
-          *, *::before, *::after {
-            -webkit-transition: none !important;
-            transition: none !important;
-            -webkit-animation: none !important;
-            animation: none !important;
-          }
-          [data-testid="trip-badge"] { display: none !important; }
-          [data-testid*="winery-modal"] h2 { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 240px !important; }
-      ` });
+      await page.evaluate(() => document.fonts.ready);
 
       // 1. Peek Snap State (~300px)
       await expect(drawer).toHaveScreenshot('winery-modal-mobile-peek.png', {
@@ -84,7 +110,6 @@ test.describe('Visual Regression Testing', () => {
       // 2. Half Snap State (~520px) - Click title card to snap
       await drawer.getByText('Mock Winery One').last().click();
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-      await page.waitForTimeout(300);
       await expect(drawer).toHaveScreenshot('winery-modal-mobile-half.png', {
           mask: [
               drawer.locator('.text-muted-foreground'),
@@ -97,7 +122,6 @@ test.describe('Visual Regression Testing', () => {
       // 3. Full Snap State (100%) - Click title card to snap
       await drawer.getByText('Mock Winery One').last().click();
       await page.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
-      await page.waitForTimeout(300);
       await expect(drawer).toHaveScreenshot('winery-modal-mobile-full.png', {
           mask: [
               drawer.locator('.text-muted-foreground'),
@@ -110,18 +134,7 @@ test.describe('Visual Regression Testing', () => {
       const modal = page.getByRole('dialog');
       await expect(modal).toBeVisible();
       await expect(modal).toHaveAttribute('data-state', 'ready');
-
-      // Stabilize layout and disable transitions
-      await page.addStyleTag({ content: `
-          *, *::before, *::after {
-            -webkit-transition: none !important;
-            transition: none !important;
-            -webkit-animation: none !important;
-            animation: none !important;
-          }
-          [data-testid="trip-badge"] { display: none !important; }
-          [data-testid*="winery-modal"] h2 { white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important; max-width: 320px !important; }
-      ` });
+      await page.evaluate(() => document.fonts.ready);
 
       await expect(modal).toHaveScreenshot('winery-modal.png', {
           mask: [
@@ -135,3 +148,4 @@ test.describe('Visual Regression Testing', () => {
     }
   });
 });
+
