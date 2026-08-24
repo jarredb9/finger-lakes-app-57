@@ -166,9 +166,8 @@ export async function refreshFriendsStore(page: Page) {
 
 export async function waitForMapReady(page: Page) {
     const mapContainer = page.locator('[data-testid="map-container"]');
-    await expect(mapContainer).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
     
-    // Attempt manual bounds injection if it's missing (helps stabilize mocks)
+    // Proactively initialize bounds if missing (helps stabilize mocks and unblocks search)
     await page.evaluate(() => {
         // @ts-ignore
         if (window.useMapStore && !window.useMapStore.getState().bounds) {
@@ -181,6 +180,8 @@ export async function waitForMapReady(page: Page) {
         }
     }).catch(() => {});
 
+    await expect(mapContainer).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
+
     await expect(async () => {
         const hasBounds = await page.evaluate(() => {
             // @ts-ignore
@@ -192,7 +193,6 @@ export async function waitForMapReady(page: Page) {
 
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
   const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
-  const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
 
   // Ensure sidebar is open on desktop if we are navigating
   if (!isMobile) {
@@ -213,12 +213,13 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
 
   const tab = getTabTrigger(page, tabName);
   await expect(tab).toBeVisible({ timeout: 15000 });
+  await expect(tab).toBeEnabled({ timeout: 5000 });
   
   // Use toPass for the click and initial signal to handle hydration race conditions
   await expect(async () => {
       const currentTab = await page.evaluate(() => (window as any).useUIStore?.getState().activeTab);
       if (currentTab?.toLowerCase() !== tabName.toLowerCase()) {
-          await tab.click({ force: true });
+          await tab.click();
       }
       
       const containerIdMap = {
@@ -237,12 +238,6 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
 
       await waitForSignal(page, containerIdMap[tabName], /ready|error/, 5000);
   }).toPass({ timeout: 15000, intervals: [2000] });
-
-  // WebKit/Safari needs more time for global mocks to settle 
-  // before the first search trigger happens during navigation to Explore
-  if (isWebKit && tabName === 'Explore') {
-      await page.waitForTimeout(1000);
-  }
 }
 
 export async function navigateToSettings(page: Page) {
@@ -306,7 +301,6 @@ export async function login(page: Page, email: string, pass: string, options: { 
   });
 
   const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
-  const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
   const isPwa = options.isPwa || false;
   const pwaSuffix = isPwa ? '?pwa=true' : '';
 
@@ -352,16 +346,12 @@ export async function login(page: Page, email: string, pass: string, options: { 
         }
       }).catch(() => false);
       if (!isHydrated) throw new Error('Stores not hydrated');
-    }).toPass({ timeout: 15000, intervals: [500, 1000] });
+    }).toPass({ timeout: 10000, intervals: [500, 1000] });
 
     await waitForMapReady(page);
   }
 
   if (isMobile) {
-    if (!options.skipMapReady) {
-      await waitForMapReady(page); 
-    }
-    if (isWebKit) await page.waitForTimeout(500); 
     await navigateToTab(page, 'Explore');
   }
 }
