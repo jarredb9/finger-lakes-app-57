@@ -5,9 +5,9 @@
     - [x] Update `package.json` with `"engines": { "node": "24.x" }` and `@types/node` to `^24.13.3`
     - [x] Update `.nvmrc` to `24`
     - [x] Update `.github/workflows/ci.yml` `node-version` to `'24'` across all jobs (`build`, `e2e-tests`, `merge-reports`, `deploy`)
-- [ ] Task: Update Project Documentation & Testing Guidelines
-    - [ ] Update `conductor/tech-stack.md` to document Node.js 24 LTS tooling runtime
-    - [ ] Update `.gemini/skills/project-testing-best-practices/references/pw-webkit-stability.md` rule 13 for Node.js 24
+- [x] Task: Update Project Documentation & Testing Guidelines (050214c)
+    - [x] Update `conductor/tech-stack.md` to document Node.js 24 LTS tooling runtime
+    - [x] Update `.gemini/skills/project-testing-best-practices/references/pw-webkit-stability.md` rule 13 for Node.js 24
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Environment & Engine Configuration' (Protocol in workflow.md)
 
 ## Phase 2: Dependency Auditing & Compatibility Remediation
