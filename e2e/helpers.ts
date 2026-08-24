@@ -367,8 +367,7 @@ export async function login(page: Page, email: string, pass: string, options: { 
 }
 
 /**
- * Fast-path programmatic authentication for non-auth tests.
- * Signs in via Supabase client directly in browser context and navigates to target route.
+ * @deprecated Use login() instead. Retained for backwards compatibility.
  */
 export async function loginProgrammatic(
   page: Page,
@@ -376,73 +375,7 @@ export async function loginProgrammatic(
   pass: string,
   options: { skipMapReady?: boolean; isPwa?: boolean; redirectTo?: string } = {}
 ) {
-  await page.addInitScript(() => {
-    (window as any)._E2E_ENABLE_REAL_SYNC = true;
-    window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
-  });
-
-  const isPwa = options.isPwa || false;
-  const pwaSuffix = isPwa ? '?pwa=true' : '';
-  const targetRoute = (options.redirectTo || '/') + pwaSuffix;
-
-  // Navigate to login to get on-domain client context
-  if (!page.url().includes('/login')) {
-    await page.goto(`/login${pwaSuffix}`);
-  }
-
-  // Ensure Supabase client is available in browser context
-  await expect(async () => {
-    const ready = await page.evaluate(() => {
-      return (
-        typeof (window as any).supabase !== 'undefined' ||
-        typeof (window as any).createSupabaseClient !== 'undefined'
-      );
-    }).catch(() => false);
-    if (!ready) throw new Error('Waiting for Supabase client initialization in browser context');
-  }).toPass({ intervals: [500], timeout: 10000 });
-
-  // Execute signInWithPassword programmatically (cookies are written to document.cookie by @supabase/ssr)
-  const authResult = await page.evaluate(
-    async ({ email, pass }) => {
-      const client = (window as any).supabase || (window as any).createSupabaseClient?.();
-      if (!client) throw new Error('Supabase client not available');
-      const { data, error } = await client.auth.signInWithPassword({
-        email,
-        password: pass,
-      });
-      if (error) throw new Error(error.message);
-      return data;
-    },
-    { email, pass }
-  );
-
-  if (!authResult?.user) {
-    throw new Error('Programmatic login failed: No user returned from Supabase auth');
-  }
-
-  // Navigate to target route with session cookies active
-  await page.goto(targetRoute);
-  await waitForAppReady(page, options);
-  await dismissCookieConsent(page);
-
-  if (!options.skipMapReady) {
-    await expect(async () => {
-      const isHydrated = await page.evaluate(() => {
-        try {
-          const u = (window as any).useUserStore?.getState().user;
-          const w = (window as any).useWineryDataStore?.persist?.hasHydrated();
-          const v = (window as any).useVisitStore?.persist?.hasHydrated();
-          const t = (window as any).useTripStore?.persist?.hasHydrated();
-          return !!(u && w && v && t);
-        } catch (e) {
-          return false;
-        }
-      }).catch(() => false);
-      if (!isHydrated) throw new Error('Stores not hydrated');
-    }).toPass({ timeout: 15000, intervals: [1000, 2000] });
-
-    await waitForMapReady(page);
-  }
+  return login(page, email, pass, options);
 }
 
 // ==========================================
