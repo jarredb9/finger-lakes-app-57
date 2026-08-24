@@ -19,11 +19,11 @@
     - [x] Apply targeted patch bumps or `package.json` overrides for any incompatible transitive packages
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Dependency Auditing & Compatibility Remediation' (Protocol in workflow.md)
 
-## Phase 3: Build & Test Suite Execution
+## Phase 3: Build & Test Suite Execution [checkpoint: dfc47f9]
 - [x] Task: Verify Jest Unit Test Suite under Node 24 (9ae1299)
     - [x] Run Jest unit test suite (`npm run test`) and verify 100% test pass rate
 - [x] Task: Verify Production Build & Serwist PWA Compilation (72ad902)
     - [x] Run `npm run build` to verify Next.js 16 Webpack build and `@serwist/next` service worker generation
 - [x] Task: Verify E2E Playwright Suite in Container (4d46441)
     - [x] Run containerized Playwright verification (`./scripts/run-e2e-container.sh webkit e2e/smoke.spec.ts`)
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Build & Test Suite Execution' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Build & Test Suite Execution' (Protocol in workflow.md)
