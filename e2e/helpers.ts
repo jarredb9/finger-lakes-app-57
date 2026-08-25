@@ -499,14 +499,14 @@ export async function openWineryModalState(
         (window as any).useUIStore?.getState().openWineryModal(id);
     }, wineryIdOrData);
 
-    const modal = page.locator('[data-testid*="winery-modal"], [role="dialog"], [data-testid="winery-modal-drawer"]').first();
-    await waitForSignal(page, 'winery-modal', 'ready', 15000);
+    const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
+    await expect(modal).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
     await expect(modal).toBeVisible({ timeout: 15000 });
 }
 
 
 export async function closeWineryModal(page: Page) {
-    const modal = page.locator('[data-testid*="winery-modal"]').first();
+    const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"]').first();
     
     const isOpen = await page.evaluate(() => {
         // @ts-ignore

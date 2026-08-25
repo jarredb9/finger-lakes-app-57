@@ -124,15 +124,6 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                 </div>
             )}
 
-            {/* Tablet Floating Drawer */}
-            {isTablet && isStreetViewActive === false && (
-                <TabletFloatingDrawer
-                    user={user}
-                    activeTab={activeTab}
-                    onTabChange={(val) => setActiveTab(val as any)}
-                />
-            )}
-
             {/* Main Map Area */}
             <div className="flex-1 relative w-full h-full">
                 <WineryMap className={isMobile && isMobileSheetOpen ? "sheet-open" : "sheet-closed"} />
@@ -207,6 +198,15 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                     </div>
                 )}
             </div>
+
+            {/* Tablet Floating Drawer */}
+            {isTablet && isStreetViewActive === false && (
+                <TabletFloatingDrawer
+                    user={user}
+                    activeTab={activeTab}
+                    onTabChange={(val) => setActiveTab(val as any)}
+                />
+            )}
 
             {/* Mobile Navigation Bar */}
             {isMobile && isStreetViewActive === false && (

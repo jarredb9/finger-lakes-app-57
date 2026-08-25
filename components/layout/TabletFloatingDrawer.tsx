@@ -60,7 +60,7 @@ export function TabletFloatingDrawer({
         data-testid="tablet-floating-drawer"
         data-state="collapsed"
         className={cn(
-          "absolute top-4 left-4 z-20 flex items-center gap-2 bg-background/95 backdrop-blur-md shadow-xl rounded-full border border-border px-3 py-1.5 h-12 select-none cursor-pointer hover:bg-background/90 transition-all",
+          "absolute top-4 left-4 z-40 flex items-center gap-2 bg-background/95 backdrop-blur-md shadow-xl rounded-full border border-border px-3 py-1.5 h-12 select-none cursor-pointer hover:bg-background/90 transition-all",
           className
         )}
         onClick={() => handleToggle(false)}
@@ -103,7 +103,7 @@ export function TabletFloatingDrawer({
       data-testid="tablet-floating-drawer"
       data-state="expanded"
       className={cn(
-        "absolute top-4 left-4 bottom-4 w-[380px] z-20 flex flex-col bg-background/95 backdrop-blur-md shadow-2xl rounded-2xl border border-border overflow-hidden transition-all duration-300",
+        "absolute top-4 left-4 bottom-4 w-[380px] z-40 flex flex-col bg-background/95 backdrop-blur-md shadow-2xl rounded-2xl border border-border overflow-hidden transition-all duration-300",
         className
       )}
     >
