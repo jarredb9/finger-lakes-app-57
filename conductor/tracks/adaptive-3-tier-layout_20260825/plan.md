@@ -19,13 +19,13 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Tablet Floating Drawer Component & Collapsible State' (Protocol in workflow.md) (b86a299)
 
 ## Phase 3: Responsive Winery Details & Touch Target Standardization
-- [ ] Task: Write unit tests for responsive winery modal state and touch target styling
-    - [ ] Create tests for `useWineryModalState` tier adaptation and `map-controls.tsx` minimum 44px touch target sizing
-- [ ] Task: Update `useWineryModalState` and winery modal components for 3-tier layout
-    - [ ] Update `components/winery/use-winery-modal-state.ts` to support tier-aware presentation (`MobileWineryDrawer` on mobile, non-blocking floating sheet/drawer on tablet, `DesktopWineryModal` on desktop)
-    - [ ] Update `components/winery-modal.tsx` to render the floating sheet variant on tablet viewports
-- [ ] Task: Standardize touch targets in `components/map/map-controls.tsx`
-    - [ ] Ensure filter chips, map style toggles, search inputs, and map action buttons enforce `min-h-[44px] min-w-[44px]` and `px-3 py-2` on mobile/tablet tiers
+- [x] Task: Write unit tests for responsive winery modal state and touch target styling (40200e0)
+    - [x] Create tests for `useWineryModalState` tier adaptation and `map-controls.tsx` minimum 44px touch target sizing
+- [x] Task: Update `useWineryModalState` and winery modal components for 3-tier layout (40200e0)
+    - [x] Update `components/winery/use-winery-modal-state.ts` to support tier-aware presentation (`MobileWineryDrawer` on mobile, non-blocking floating sheet/drawer on tablet, `DesktopWineryModal` on desktop)
+    - [x] Update `components/winery-modal.tsx` to render the floating sheet variant on tablet viewports
+- [x] Task: Standardize touch targets in `components/map/map-controls.tsx` (40200e0)
+    - [x] Ensure filter chips, map style toggles, search inputs, and map action buttons enforce `min-h-[44px] min-w-[44px]` and `px-3 py-2` on mobile/tablet tiers
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Responsive Winery Details & Touch Target Standardization' (Protocol in workflow.md)
 
 ## Phase 4: App Shell Integration & E2E Verification
