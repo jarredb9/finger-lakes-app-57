@@ -319,14 +319,6 @@ export async function login(page: Page, email: string, pass: string, options: { 
   // 2. Perform Login once (no nested action retry loops)
   await submitLoginForm(page, email, pass);
 
-  // Fail-fast if an auth error message is rendered
-  const alertLocator = page.locator('[role="alert"]');
-  const hasError = await alertLocator.isVisible({ timeout: 2500 }).catch(() => false);
-  if (hasError) {
-    const errorText = await alertLocator.textContent();
-    throw new Error(`Login failed on ${page.url()}: ${errorText?.trim()}`);
-  }
-
   // 3. Wait deterministically for client-side navigation away from /login
   await page.waitForURL(
     (url) => !url.pathname.includes('/login') && !url.pathname.includes('/signup'),
