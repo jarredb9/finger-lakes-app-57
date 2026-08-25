@@ -38,3 +38,7 @@
     - [x] Test desktop tier (≥ 1024px): 400px split-pane sidebar and desktop modal dialog
     - [x] Verify hydration stability and state preservation during viewport resizing
 - [x] Task: Conductor - User Manual Verification 'Phase 4: App Shell Integration & E2E Verification' (Protocol in workflow.md) (e30ee96)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions (4de900d)
+
