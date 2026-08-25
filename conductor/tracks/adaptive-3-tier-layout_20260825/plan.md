@@ -28,7 +28,7 @@
     - [x] Ensure filter chips, map style toggles, search inputs, and map action buttons enforce `min-h-[44px] min-w-[44px]` and `px-3 py-2` on mobile/tablet tiers
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Responsive Winery Details & Touch Target Standardization' (Protocol in workflow.md) (11fd4e8)
 
-## Phase 4: App Shell Integration & E2E Verification
+## Phase 4: App Shell Integration & E2E Verification [checkpoint: e30ee96]
 - [x] Task: Update `components/app-shell.tsx` with 3-tier conditional rendering (b54d82e)
     - [x] Integrate `useLayoutTier` in `app-shell.tsx` to mount `InteractiveBottomSheet` (mobile), `TabletFloatingDrawer` (tablet), or `desktop-sidebar-container` (desktop) while maintaining DOM stability and `data-state` contracts
     - [x] Ensure map canvas remains 100% full-screen in mobile and tablet tiers and flex-1 in desktop tier
@@ -37,4 +37,4 @@
     - [x] Test tablet portrait tier (768px - 1024px e.g. iPad 810×1080): full-screen map, floating drawer expansion/minimization, floating winery details, and 44px touch targets
     - [x] Test desktop tier (≥ 1024px): 400px split-pane sidebar and desktop modal dialog
     - [x] Verify hydration stability and state preservation during viewport resizing
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: App Shell Integration & E2E Verification' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: App Shell Integration & E2E Verification' (Protocol in workflow.md) (e30ee96)
