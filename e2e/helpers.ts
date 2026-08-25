@@ -216,7 +216,7 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
   await expect(tab).toBeEnabled({ timeout: 5000 });
   
   const containerIdMap = {
-      'Explore': isMobile ? 'interactive-bottom-sheet' : 'map-container',
+      'Explore': 'map-container',
       'Trips': 'trip-list-container',
       'Friends': 'friend-activity-feed',
       'History': 'visit-history-container'
@@ -235,8 +235,8 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
           await tab.click();
       }
       
-      // On mobile, wait for sheet to be visible first
-      if (isMobile) {
+      // On mobile, wait for drawer sheet to be visible for sidebar tabs
+      if (isMobile && tabName !== 'Explore') {
           const sheet = page.locator('[data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"]').first();
           await expect(sheet).toBeVisible({ timeout: 5000 });
           await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 5000 });

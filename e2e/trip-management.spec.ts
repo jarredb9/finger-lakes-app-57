@@ -8,21 +8,26 @@ import {
     expectTripInStore,
     expectTripDeletedFromStore,
     waitForSignal,
-    waitForAppReady
+    waitForAppReady,
+    clearServiceWorkers
 } from './helpers';
 
 test.describe('Trip Management Flow', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
+    await page.addInitScript(() => {
+      (window as any)._E2E_FULL_DRAWER = true;
+    });
+    await clearServiceWorkers(page);
+
     // Re-initialize mocks with the actual user ID to ensure isOwner works
     await mockMaps.useRealVisits();
-    await mockMaps.useRealTrips(); // Standard for management/sharing tests
+    await mockMaps.useRealTrips();
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
-    await login(page, user.email, user.password);
+    await login(page, user.email, user.password, { skipMapReady: true });
   });
 
   test('User can create, rename, and delete a trip', async ({ page }) => {
     test.setTimeout(180000);
-    const sidebar = getSidebarContainer(page);
     
     // 1. Navigate to Trips
     await navigateToTab(page, 'Trips');
@@ -31,13 +36,21 @@ test.describe('Trip Management Flow', () => {
     // Use signal-based synchronization
     await waitForSignal(page, 'trip-list-container', 'ready');
     
-    // 2. Create New Trip directly
+    // 2. Open Create Trip Dialog (Self-healing & resilient without force: true)
     const uniqueTripName = `Mgmt Trip ${Date.now()}`;
-    const newTripBtn = sidebar.getByRole('button', { name: 'New Trip' });
-    await newTripBtn.click({ force: true });
-    
-    // Wait for form to be ready
-    await waitForSignal(page, 'trip-form-card', 'ready');
+    await expect(async () => {
+        const tripForm = page.getByTestId('trip-form-card');
+        if (!(await tripForm.isVisible())) {
+            const activeSidebar = getSidebarContainer(page);
+            const newTripBtn = activeSidebar.getByRole('button', { name: /New Trip/i }).first();
+            await expect(newTripBtn).toBeVisible({ timeout: 3000 });
+            await newTripBtn.click();
+        }
+        await expect(tripForm).toBeVisible({ timeout: 5000 });
+        await expect(tripForm).toHaveAttribute('data-state', 'ready', { timeout: 5000 });
+    }).toPass({ timeout: 20000, intervals: [1000] });
+
+    // Fill form
     const tripForm = page.getByTestId('trip-form-card');
     await tripForm.getByTestId('trip-name-input').fill(uniqueTripName);
     
@@ -45,19 +58,16 @@ test.describe('Trip Management Flow', () => {
     const submitBtn = tripForm.getByTestId('create-trip-submit-btn');
     await expect(submitBtn).toBeEnabled({ timeout: 10000 });
 
-    // Small buffer for mobile to ensure React Hook Form has processed the fill
-    await page.waitForTimeout(500);
-
     // Save and wait for the RPC response
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('rpc/create_trip') && resp.status() >= 200 && resp.status() < 300),
-        submitBtn.click({ force: true })
+        submitBtn.click()
     ]);
     
     await expectTripInStore(page, uniqueTripName);
     
     // Ensure the dialog is gone before checking the sidebar
-    await expect(page.getByRole('dialog')).not.toBeVisible();
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 });
 
     // Re-fetch sidebar after navigation/dialog closure for stability
     const activeSidebar = getSidebarContainer(page);
@@ -77,95 +87,29 @@ test.describe('Trip Management Flow', () => {
 
     // 3. Rename Trip
     const viewDetailsBtn = tripCard.getByTestId('view-trip-details-btn');
-    await viewDetailsBtn.click({ force: true });
+    await viewDetailsBtn.click();
     
     // 4. On the details page
     await expect(page).toHaveURL(new RegExp(`/trips/${tripId}`), { timeout: 15000 });
     await waitForSignal(page, 'trip-details-card', 'ready');
-    
-    try {
-        await expect(async () => {
-            // Check for Next.js error page
-            const errorPage = page.locator('#__next_error__');
-            if (await errorPage.isVisible()) {
-                const errorTitle = await page.locator('h2, h1').first().innerText().catch(() => 'No title');
-                const errorMsg = await page.locator('p').first().innerText().catch(() => 'No message');
-                console.log(`[DIAGNOSTIC] Next.js ERROR PAGE: ${errorTitle} - ${errorMsg}`);
-                throw new Error(`Next.js Error Page: ${errorTitle}`);
-            }
-
-            // Check for our custom error states
-            const alertError = page.locator('ol li[role="alert"]').first();
-            if (await alertError.isVisible()) {
-                const errorText = await alertError.innerText();
-                const isRealError = errorText.includes('Error Loading Trip') || errorText.includes('Access denied');
-                
-                if (isRealError) {
-                    console.log(`[DIAGNOSTIC] REAL TRIP ERROR ALERT SEEN: ${errorText}`);
-                    // Proactive retry: refresh the store if it failed
-                    await page.evaluate(async (id) => {
-                        const store = (window as any).useTripStore?.getState();
-                        if (store) await store.fetchTripById(id);
-                    }, tripId);
-                    throw new Error(`Trip Error Alert: ${errorText}`);
-                }
-            }
-
-            const notFoundTitle = page.getByText('Trip Not Found');
-            if (await notFoundTitle.isVisible()) {
-                console.log(`[DIAGNOSTIC] 'Trip Not Found' state seen for ID: ${tripId}`);
-                
-                // Proactive retry: refresh the store
-                await page.evaluate(async (id) => {
-                    const store = (window as any).useTripStore?.getState();
-                    if (store) await store.fetchTripById(id);
-                }, tripId);
-                
-                throw new Error('Trip Not Found state active');
-            }
-
-            // Ensure no skeleton is visible
-            const skeleton = page.getByTestId('trip-details-skeleton');
-            const isSkeletonVisible = await skeleton.isVisible();
-            
-            if (isSkeletonVisible) {
-                console.log(`[DIAGNOSTIC] Loading skeleton still visible for trip ${tripId}`);
-                
-                // If it's been too long, try to poke the store
-                await page.evaluate(async (id) => {
-                    const store = (window as any).useTripStore?.getState();
-                    if (store && !store.isLoading) await store.fetchTripById(id);
-                }, tripId);
-                
-                throw new Error('Loading skeleton still visible');
-            }
-            
-            // Find title in main area
-            const mainContent = page.locator('main');
-            const title = mainContent.getByText(uniqueTripName, { exact: false }).first();
-            await expect(title).toBeVisible({ timeout: 2000 });
-        }).toPass({ timeout: 30000, intervals: [3000] });
-    } catch (e) {
-        console.log(`[DIAGNOSTIC] FAILED to find trip name. Dumping page content...`);
-        const content = await page.content();
-        console.log(content.substring(0, 2000));
-        throw e;
-    }
+    await expect(page.locator('main').getByText(uniqueTripName, { exact: false }).first()).toBeVisible({ timeout: 15000 });
     
     const editTripBtn = page.getByLabel('Edit Trip');
     await expect(editTripBtn).toBeVisible({ timeout: 15000 });
-    await editTripBtn.click({ force: true });
+    await editTripBtn.click();
     
     // Rename
     const editNameInput = page.getByPlaceholder('Trip Name');
-    await expect(editNameInput).toBeVisible();
+    await expect(editNameInput).toBeVisible({ timeout: 5000 });
     const renamedTripName = `Renamed ${uniqueTripName}`;
     await editNameInput.fill(renamedTripName);
     
     // Click "Save" button
+    const saveBtn = page.getByRole('button', { name: /Save/i }).first();
+    await expect(saveBtn).toBeEnabled({ timeout: 5000 });
     await Promise.all([
         page.waitForResponse(resp => resp.status() < 300 && (resp.url().includes('trips') || resp.url().includes('rpc'))),
-        page.getByRole('button', { name: /Save/i }).first().click({ force: true })
+        saveBtn.click()
     ]);
     
     await expectTripInStore(page, renamedTripName);
@@ -173,23 +117,14 @@ test.describe('Trip Management Flow', () => {
     // Verify name changed on page
     await expect(page.getByText(renamedTripName, { exact: false }).first()).toBeVisible({ timeout: 10000 });
     
-    // Wait for any toasts to clear before clicking "Back to Map" on mobile 
-    // as it can be covered by the top-aligned toast viewport
-    const toast = page.locator('ol li[role="status"], ol li[role="alert"]').first();
-    if (await toast.isVisible()) {
-        await expect(toast).not.toBeVisible({ timeout: 10000 });
-    }
-
     // Navigate back to trips to verify deletion
     await page.goto('/');
     await waitForAppReady(page);
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);
     
-    // Re-fetch sidebar again for stability
-    const finalSidebar = getSidebarContainer(page);
-
     // 5. Delete Trip
+    const finalSidebar = getSidebarContainer(page);
     const updatedTripCard = finalSidebar.getByTestId('trip-card').filter({ hasText: renamedTripName }).first();
     
     await expect(async () => {
@@ -205,29 +140,25 @@ test.describe('Trip Management Flow', () => {
     
     const deleteBtn = updatedTripCard.getByTestId('delete-trip-btn');
     
-    // Firefox Stability: Use toPass for the whole deletion sequence to handle flaky dialogs/clicks
     await expect(async () => {
         const dialog = page.locator('[role="alertdialog"]');
         if (!(await dialog.isVisible())) {
-            await deleteBtn.click({ force: true });
+            await deleteBtn.click();
             await expect(dialog).toBeVisible({ timeout: 5000 });
         }
         
         const confirmBtn = page.getByTestId('confirm-delete-trip-btn');
         await expect(confirmBtn).toBeVisible({ timeout: 5000 });
-        
-        // Firefox needs a tiny bit of breathing room for the event listener to attach to the dialog button
-        await page.waitForTimeout(500);
 
         await Promise.all([
             page.waitForResponse(resp => (resp.url().includes('delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')) && resp.status() < 300, { timeout: 15000 }),
-            confirmBtn.click({ force: true })
+            confirmBtn.click()
         ]);
-    }).toPass({ timeout: 45000, intervals: [2000] });
+    }).toPass({ timeout: 30000, intervals: [2000] });
     
     await expectTripDeletedFromStore(page, renamedTripName);
     
-    // Verify deleted from UI
-    await expect(sidebar.getByText(renamedTripName)).not.toBeVisible({ timeout: 10000 });
+    // Verify deleted from UI using fresh container lookup
+    await expect(finalSidebar.getByText(renamedTripName)).not.toBeVisible({ timeout: 10000 });
   });
 });

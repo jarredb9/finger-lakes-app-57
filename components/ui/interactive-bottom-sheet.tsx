@@ -13,6 +13,7 @@ interface InteractiveBottomSheetProps extends Omit<React.HTMLAttributes<HTMLDivE
   onModeChange: (mode: SheetMode) => void;
   title: React.ReactNode;
   children: React.ReactNode;
+  "data-testid"?: string;
 }
 
 export function InteractiveBottomSheet({
@@ -23,6 +24,7 @@ export function InteractiveBottomSheet({
   title,
   children,
   className,
+  "data-testid": testId,
   ...props
 }: InteractiveBottomSheetProps) {
   const [isStable, setIsStable] = useState(!isOpen);
@@ -101,8 +103,8 @@ export function InteractiveBottomSheet({
         <div
           onTransitionEnd={handleTransitionEnd}
           data-state={isStable ? "stable" : "animating"}
-          data-testid="interactive-bottom-sheet"
           {...props}
+          data-testid={testId || "interactive-bottom-sheet"}
           className={cn(
             "fixed bottom-24 left-0 right-0 z-40 bg-background border-t rounded-t-[15px] shadow-[0_-8px_30px_rgba(0,0,0,0.12)] flex flex-col",
             "transition-transform duration-300 ease-out will-change-transform",
