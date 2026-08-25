@@ -51,16 +51,8 @@ export function useLayoutTier(options: UseLayoutTierOptions = {}): LayoutTierSta
   const tabletBreakpoint = options.tabletBreakpoint ?? DEFAULT_TABLET_BREAKPOINT;
   const desktopBreakpoint = options.desktopBreakpoint ?? DEFAULT_DESKTOP_BREAKPOINT;
 
-  const [tier, setTier] = React.useState<LayoutTier>(() => {
-    if (typeof window !== 'undefined') {
-      return resolveLayoutTier(window.innerWidth, tabletBreakpoint, desktopBreakpoint);
-    }
-    return 'desktop';
-  });
-
-  const [isTouch, setIsTouch] = React.useState<boolean>(() => {
-    return detectTouchCapability();
-  });
+  const [tier, setTier] = React.useState<LayoutTier>('desktop');
+  const [isTouch, setIsTouch] = React.useState<boolean>(false);
 
   React.useEffect(() => {
     const handleResize = () => {
