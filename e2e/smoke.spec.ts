@@ -12,8 +12,14 @@ test('unauthenticated user is redirected to login', async ({ page }) => {
 });
 
 test('authenticated user can reach the app', async ({ page }) => {
-  const email = process.env.TEST_USER_EMAIL || 'tester@mail.com';
-  const password = process.env.TEST_USER_PASSWORD || 'password';
+  const rawEmail = process.env.TEST_USER_EMAIL || 'tester@mail.com';
+  const rawPassword = process.env.TEST_USER_PASSWORD || 'password';
+
+  const email = rawEmail.trim().replace(/^["']|["']$/g, '');
+  const password = rawPassword.trim().replace(/^["']|["']$/g, '');
+
+  const maskedEmail = email ? email.replace(/(^.{2})(.*)(@.*)$/, '$1***$3') : '(empty)';
+  console.log(`[Smoke Test] Authenticating user: ${maskedEmail}`);
 
   // We use a static test user.
   // The login helper handles hydration guards and wait logic.

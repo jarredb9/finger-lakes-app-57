@@ -6,7 +6,13 @@ import { defineConfig, devices } from '@playwright/test';
  */
 import dotenv from 'dotenv';
 import path from 'path';
-dotenv.config({ path: path.resolve(__dirname, '.env.local') });
+import fs from 'fs';
+
+const isLive = process.env.E2E_REAL_DATA === 'true' || !!process.env.BASE_URL;
+const envFile = isLive && fs.existsSync(path.resolve(__dirname, '.env.local.production'))
+  ? '.env.local.production'
+  : '.env.local';
+dotenv.config({ path: path.resolve(__dirname, envFile) });
 
 /**
  * See https://playwright.dev/docs/test-configuration.

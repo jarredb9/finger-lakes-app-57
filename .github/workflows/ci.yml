@@ -193,7 +193,7 @@ jobs:
     name: Deploy to Production
     needs: [build, e2e-tests]
     if: ${{ (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && github.ref == 'refs/heads/main' }}
-    environment: production
+    environment: Production
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -241,6 +241,6 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL }}
-          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD }}
-          BASE_URL: ${{ secrets.PRODUCTION_APP_URL || 'https://v0-fingerlakes-winery-app.vercel.app' }}
+          TEST_USER_EMAIL: ${{ secrets.TEST_USER_EMAIL || vars.TEST_USER_EMAIL }}
+          TEST_USER_PASSWORD: ${{ secrets.TEST_USER_PASSWORD || vars.TEST_USER_PASSWORD }}
+          BASE_URL: ${{ secrets.PRODUCTION_APP_URL || vars.PRODUCTION_APP_URL || 'https://v0-fingerlakes-winery-app.vercel.app' }}

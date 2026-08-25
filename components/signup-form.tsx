@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Info, AlertTriangle, Loader2 } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
+import { useMounted } from "@/hooks/use-mounted"
 
 export default function SignupForm() {
   const [error, setError] = useState("")
@@ -18,14 +19,17 @@ export default function SignupForm() {
   const [userEmail, setUserEmail] = useState("")
   const [loading, setLoading] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const isHydrated = useMounted()
   const router = useRouter()
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setLoading(true)
     setError("")
     setSuccess("")
     setNeedsConfirmation(false)
 
+    const formData = new FormData(e.currentTarget)
     const name = formData.get("name") as string
     const email = formData.get("email") as string
     const password = formData.get("password") as string
@@ -115,7 +119,7 @@ export default function SignupForm() {
         <CardTitle>Create Account</CardTitle>
         <CardDescription>Sign up to start tracking your winery visits</CardDescription>
       </CardHeader>
-      <form action={handleSubmit}>
+      <form onSubmit={handleSubmit} data-hydrated={isHydrated}>
         <CardContent className="space-y-4">
           {error && (
             <Alert variant="destructive">
