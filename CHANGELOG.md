@@ -1,5 +1,32 @@
 # Changelog
 
+## [3.4.0] - 2026-08-25
+
+**Adaptive 3-Tier Layout Architecture (Mobile, Tablet, Desktop)**
+
+### 🚀 Features
+* **Unified Layout Tier Hook (`useLayoutTier`)**:
+    * Implemented reactive breakpoint resolver in [`hooks/use-layout-tier.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-layout-tier.ts) establishing dynamic tier classifications: `mobile` (< 768px), `tablet` (768px – 1023px), and `desktop` (≥ 1024px).
+    * Exported configurable breakpoint constants (`DEFAULT_TABLET_BREAKPOINT = 768`, `DEFAULT_DESKTOP_BREAKPOINT = 1024`, `LAYOUT_BREAKPOINTS`).
+    * Added touch-capability detection (`isTouch`) and SSR hydration safety guarantees to eliminate layout shift and client-side mismatch warnings.
+* **Tablet Floating Drawer (`TabletFloatingDrawer`)**:
+    * Built elevated glassmorphic floating overlay card in [`components/layout/TabletFloatingDrawer.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/layout/TabletFloatingDrawer.tsx) (`absolute top-4 left-4 bottom-4 w-[380px] z-20`) preserving 100% full-screen map canvas.
+    * Implemented dual-state ergonomics: an expanded card containing search results, filter controls, and trip planner tabs, and a collapsible floating pill bar (`h-12`) with search query indicators, active filter badge counters, and expand triggers.
+* **Responsive Winery Details & 3-Tier Presentation**:
+    * Created [`TabletWinerySheet`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/tablet-winery-sheet.tsx) providing a non-blocking floating overlay card on tablet viewports that preserves full map context.
+    * Updated [`use-winery-modal-state.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/use-winery-modal-state.ts) and [`winery-modal.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery-modal.tsx) to route presentation seamlessly across all 3 tiers: `MobileWineryDrawer` (mobile bottom drawer with multi-snap points), `TabletWinerySheet` (tablet floating card), and `DesktopWineryModal` (desktop centered dialog).
+* **Touch Target Standardization (WCAG 2.5.5 & Apple HIG)**:
+    * Standardized all interactive map controls in [`components/map/map-controls.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-controls.tsx) (search inputs, submit buttons, filter toggles, attribute chips, trip selects) to enforce minimum 44×44px touch targets (`min-h-[44px] min-w-[44px]`) and standardized padding (`px-3 py-2`) on mobile and tablet touch tiers.
+* **3-Tier App Shell Orchestration**:
+    * Updated [`components/app-shell.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-shell.tsx) to orchestrate layout rendering per tier while maintaining strict DOM stability and `data-state` contracts (`ready | loading | error`).
+    * Replaced dynamic SSR import with direct import for `WineryModal` to prevent React 19 Suspense instrumentation errors.
+
+### 🧪 Testing & Verification
+* **Unit & Component Test Suites**:
+    * Added comprehensive unit test suites in [`hooks/__tests__/use-layout-tier.test.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/__tests__/use-layout-tier.test.ts), [`components/__tests__/TabletFloatingDrawer.test.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/__tests__/TabletFloatingDrawer.test.tsx), [`components/__tests__/map-controls.test.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/__tests__/map-controls.test.tsx), and [`components/__tests__/app-shell.test.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/__tests__/app-shell.test.tsx).
+* **Playwright E2E Verification**:
+    * Created [`e2e/responsive-layout.spec.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/e2e/responsive-layout.spec.ts) verifying layout contracts, drawer toggling, non-blocking map canvas interactions, and modal presentation across Mobile (390px), Tablet Portrait (810×1080 iPad), Desktop (1280px), and dynamic viewport resize transitions.
+
 ## [3.3.0] - 2026-08-24
 
 **Node.js 24 LTS Migration & Testing Infrastructure Modernization**
