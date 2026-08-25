@@ -7,6 +7,7 @@ import { useMapStore } from "@/lib/stores/mapStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useToast } from "@/hooks/use-toast";
 import { useAIFeaturesEnabled } from "@/hooks/use-ai-features";
+import { useLayoutTier } from "@/hooks/use-layout-tier";
 import { Visit } from "@/lib/types";
 import { shallow } from "zustand/shallow";
 
@@ -42,19 +43,10 @@ export function useWineryModalState() {
 
   const { map } = useMapStore();
   const isAIEnabled = useAIFeaturesEnabled();
+  const { tier, isMobile, isTablet, isDesktop, isTouch } = useLayoutTier();
 
   const [activeTab, setActiveTab] = useState<WineryModalTab>("community");
   const effectiveActiveTab: WineryModalTab = !isAIEnabled && activeTab === "ai_insights" ? "community" : activeTab;
-  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" ? window.innerWidth < 1024 : false);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
-    handleResize();
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
 
   const activeWinery = useWineryDataStore((state) => {
     if (!activeWineryId) return null;
@@ -238,7 +230,11 @@ export function useWineryModalState() {
     loadingWineryId,
     isLoading,
     isStreetViewActive,
+    tier,
     isMobile,
+    isTablet,
+    isDesktop,
+    isTouch,
     isAIEnabled,
     lightboxPhoto,
     setLightboxPhoto,

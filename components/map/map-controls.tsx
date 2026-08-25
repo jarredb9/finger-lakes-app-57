@@ -68,10 +68,16 @@ export function MapControls({
               placeholder="City or region..."
               value={searchLocation}
               onChange={(e) => setSearchLocation(e.target.value)}
-              className="flex-1 h-9"
+              className="flex-1 min-h-[44px] px-3 py-2 text-sm"
               aria-label="Search location"
             />
-            <Button type="submit" size="icon" className="h-9 w-9" disabled={isSearching} aria-label="Submit search">
+            <Button
+              type="submit"
+              size="icon"
+              className="min-h-[44px] min-w-[44px] h-11 w-11 shrink-0"
+              disabled={isSearching}
+              aria-label="Submit search"
+            >
               {isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />}
             </Button>
           </form>
@@ -82,11 +88,11 @@ export function MapControls({
             size="sm" 
             onClick={handleManualSearchArea} 
             disabled={isSearching} 
-            className="flex-1 h-8 text-xs"
+            className="flex-1 min-h-[44px] px-3 py-2 text-xs"
           >
-            <MapPin className="mr-2 w-3 h-3" /> Search This Area
+            <MapPin className="mr-2 w-3.5 h-3.5" /> Search This Area
           </Button>
-          <div className="flex items-center gap-2 px-2 bg-muted/50 rounded-md border h-8">
+          <div className="flex items-center gap-2 px-3 bg-muted/50 rounded-md border min-h-[44px]">
             <Switch 
                 id="auto-search" 
                 checked={autoSearch} 
@@ -114,7 +120,7 @@ export function MapControls({
           <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Filter Wineries</span>
           {selectedTrip ? (
             <div className="flex items-center">
-              <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer" onClick={() => setSelectedTrip(null)}>
+              <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer min-h-[44px] px-3 py-2" onClick={() => setSelectedTrip(null)}>
                 Viewing: {selectedTrip.name} <XCircle className="w-3 h-3 ml-1" />
               </Badge>
             </div>
@@ -123,14 +129,14 @@ export function MapControls({
               type="multiple" 
               value={filter.filter(f => ["all", "visited", "favorites", "wantToGo", "notVisited"].includes(f))} 
               onValueChange={(vals) => handleFilterChange([...vals, ...filter.filter(f => !["all", "visited", "favorites", "wantToGo", "notVisited"].includes(f))])} 
-              className="justify-start flex-wrap gap-1" 
+              className="justify-start flex-wrap gap-1.5" 
               size="sm"
             >
-              <ToggleGroupItem value="all" className="text-xs h-6 px-2">All</ToggleGroupItem>
-              <ToggleGroupItem value="visited" className="text-xs h-6 px-2">Visited</ToggleGroupItem>
-              <ToggleGroupItem value="favorites" className="text-xs h-6 px-2">Favorites</ToggleGroupItem>
-              <ToggleGroupItem value="wantToGo" className="text-xs h-6 px-2">Want</ToggleGroupItem>
-              <ToggleGroupItem value="notVisited" className="text-xs h-6 px-2">New</ToggleGroupItem>
+              <ToggleGroupItem value="all" className="text-xs min-h-[44px] px-3 py-2">All</ToggleGroupItem>
+              <ToggleGroupItem value="visited" className="text-xs min-h-[44px] px-3 py-2">Visited</ToggleGroupItem>
+              <ToggleGroupItem value="favorites" className="text-xs min-h-[44px] px-3 py-2">Favorites</ToggleGroupItem>
+              <ToggleGroupItem value="wantToGo" className="text-xs min-h-[44px] px-3 py-2">Want</ToggleGroupItem>
+              <ToggleGroupItem value="notVisited" className="text-xs min-h-[44px] px-3 py-2">New</ToggleGroupItem>
             </ToggleGroup>
           )}
         </div>
@@ -141,19 +147,19 @@ export function MapControls({
             type="multiple" 
             value={filter.filter(f => ["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"].includes(f))} 
             onValueChange={(vals) => handleFilterChange([...filter.filter(f => !["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"].includes(f)), ...vals])} 
-            className="justify-start flex-wrap gap-1" 
+            className="justify-start flex-wrap gap-1.5" 
             size="sm"
           >
-            <ToggleGroupItem value="allowsDogs" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+            <ToggleGroupItem value="allowsDogs" className="text-xs min-h-[44px] px-3 py-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
               🐾 Dog Friendly
             </ToggleGroupItem>
-            <ToggleGroupItem value="goodForChildren" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+            <ToggleGroupItem value="goodForChildren" className="text-xs min-h-[44px] px-3 py-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
               👶 Kid Friendly
             </ToggleGroupItem>
-            <ToggleGroupItem value="outdoorSeating" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+            <ToggleGroupItem value="outdoorSeating" className="text-xs min-h-[44px] px-3 py-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
               ☀️ Outdoor Seating
             </ToggleGroupItem>
-            <ToggleGroupItem value="hasEvCharging" className="text-[11px] h-6 px-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
+            <ToggleGroupItem value="hasEvCharging" className="text-xs min-h-[44px] px-3 py-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
               ⚡ EV Charging
             </ToggleGroupItem>
           </ToggleGroup>
@@ -165,7 +171,7 @@ export function MapControls({
             <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Trip Overlay</span>
           </div>
           <Select value={selectedTrip?.id?.toString() || "none"} onValueChange={handleTripSelect}>
-            <SelectTrigger className="w-full h-8 text-xs">
+            <SelectTrigger className="w-full min-h-[44px] px-3 py-2 text-xs">
               <SelectValue placeholder="Show a trip..." />
             </SelectTrigger>
             <SelectContent>
