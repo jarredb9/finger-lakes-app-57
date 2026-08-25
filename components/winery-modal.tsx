@@ -2,6 +2,7 @@
 import { useWineryModalState } from "./winery/use-winery-modal-state";
 import { DesktopWineryModal } from "./winery/desktop-winery-modal";
 import { MobileWineryDrawer } from "./winery/mobile-winery-drawer";
+import { TabletWinerySheet } from "./winery/tablet-winery-sheet";
 
 export function WineryModal() {
   const {
@@ -11,6 +12,7 @@ export function WineryModal() {
     isLoading,
     isStreetViewActive,
     isMobile,
+    isTablet,
     isAIEnabled,
     lightboxPhoto,
     setLightboxPhoto,
@@ -70,6 +72,16 @@ export function WineryModal() {
         isMobile={isMobile}
         snapPoint={snapPoint}
         setSnapPoint={setSnapPoint}
+        {...commonProps}
+      />
+    );
+  }
+
+  if (isTablet) {
+    return (
+      <TabletWinerySheet
+        isOpen={isWineryModalOpen}
+        onClose={closeWineryModal}
         {...commonProps}
       />
     );
