@@ -285,6 +285,7 @@ export function TabletWinerySheet({
     <>
       <div
         data-testid="tablet-winery-sheet"
+        data-state={isLoading ? "loading" : "ready"}
         className="fixed top-4 right-4 bottom-4 w-[420px] max-w-[calc(100vw-420px)] z-30 flex flex-col bg-background/95 backdrop-blur-md shadow-2xl rounded-2xl border border-border overflow-hidden animate-in fade-in slide-in-from-right-4 duration-300"
       >
         {/* Floating Close Button */}
