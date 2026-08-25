@@ -32,9 +32,9 @@
 - [x] Task: Update `components/app-shell.tsx` with 3-tier conditional rendering (b54d82e)
     - [x] Integrate `useLayoutTier` in `app-shell.tsx` to mount `InteractiveBottomSheet` (mobile), `TabletFloatingDrawer` (tablet), or `desktop-sidebar-container` (desktop) while maintaining DOM stability and `data-state` contracts
     - [x] Ensure map canvas remains 100% full-screen in mobile and tablet tiers and flex-1 in desktop tier
-- [ ] Task: Write comprehensive Playwright E2E suite in `e2e/responsive-layout.spec.ts`
-    - [ ] Test mobile tier layout (< 768px): bottom navigation, bottom sheet drawer, and mobile winery drawer
-    - [ ] Test tablet portrait tier (768px - 1024px e.g. iPad 810×1080): full-screen map, floating drawer expansion/minimization, floating winery details, and 44px touch targets
-    - [ ] Test desktop tier (≥ 1024px): 400px split-pane sidebar and desktop modal dialog
-    - [ ] Verify hydration stability and state preservation during viewport resizing
+- [x] Task: Write comprehensive Playwright E2E suite in `e2e/responsive-layout.spec.ts` (3fdeaff)
+    - [x] Test mobile tier layout (< 768px): bottom navigation, bottom sheet drawer, and mobile winery drawer
+    - [x] Test tablet portrait tier (768px - 1024px e.g. iPad 810×1080): full-screen map, floating drawer expansion/minimization, floating winery details, and 44px touch targets
+    - [x] Test desktop tier (≥ 1024px): 400px split-pane sidebar and desktop modal dialog
+    - [x] Verify hydration stability and state preservation during viewport resizing
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: App Shell Integration & E2E Verification' (Protocol in workflow.md)
