@@ -13,12 +13,16 @@ This track introduces an **Adaptive 3-Tier Layout Architecture** that dynamicall
 ## 2. Functional Requirements
 
 ### 2.1 Unified Layout Tier Hook (`hooks/use-layout-tier.ts`)
-- Implement `useLayoutTier()` with SSR-safe hydration resilience.
+- Centralized Breakpoint Variables:
+  - `DEFAULT_TABLET_BREAKPOINT = 768` (lower bound for tablet tier)
+  - `DEFAULT_DESKTOP_BREAKPOINT = 1024` (lower bound for desktop tier)
+  - `LAYOUT_BREAKPOINTS` configuration constant
+- Implement `useLayoutTier(options?: { tabletBreakpoint?: number; desktopBreakpoint?: number })` with SSR-safe hydration resilience.
 - Provide reactive properties:
   - `tier: 'mobile' | 'tablet' | 'desktop'`
-  - `isMobile: boolean` (`< 768px`)
-  - `isTablet: boolean` (`>= 768px && < 1024px`)
-  - `isDesktop: boolean` (`>= 1024px`)
+  - `isMobile: boolean` (`< tabletBreakpoint`, default `< 768px`)
+  - `isTablet: boolean` (`>= tabletBreakpoint && < desktopBreakpoint`, default `768px – 1023px`)
+  - `isDesktop: boolean` (`>= desktopBreakpoint`, default `≥ 1024px`)
   - `isTouch: boolean` (touch-tier / pointer detection indicator)
 - Ensure zero hydration layout flash or layout shift.
 
