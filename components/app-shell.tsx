@@ -9,7 +9,6 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
 import { Map as MapIcon, CalendarDays, Search, Users, User as UserIcon, LogOut, FileText, Settings, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import dynamic from "next/dynamic";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
     DropdownMenu,
@@ -32,10 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useLayoutTier } from "@/hooks/use-layout-tier";
 import { useMounted } from "@/hooks/use-mounted";
 import { TabletFloatingDrawer } from "@/components/layout/TabletFloatingDrawer";
-
-const WineryModal = dynamic(() => import("@/components/winery-modal").then((mod) => mod.WineryModal), {
-    ssr: false,
-});
+import { WineryModal } from "@/components/winery-modal";
 
 interface AppShellProps {
     user: AuthenticatedUser;
