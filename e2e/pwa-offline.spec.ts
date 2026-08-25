@@ -70,7 +70,7 @@ test.describe('PWA Offline Functionality', () => {
 
     await openWineryDetails(page, 'Vineyard of Illusion');
 
-    const modal = page.locator('[data-testid*="winery-modal"]').first();
+    const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
     await expect(modal).toBeVisible();
 
     await context.setOffline(true);

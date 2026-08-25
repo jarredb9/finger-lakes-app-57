@@ -79,8 +79,9 @@ test.describe('Visual Regression Testing', () => {
   });
 
   test('winery modal visual baseline', async ({ page, user, mockMaps }) => {
-    const viewport = page.viewportSize();
-    const isMobile = Boolean(viewport && viewport.width < 1024);
+    const width = page.viewportSize()?.width ?? 1280;
+    const isMobile = width < 768;
+    const isTablet = width >= 768 && width < 1024;
 
     await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     await login(page, user.email, user.password);
@@ -126,6 +127,20 @@ test.describe('Visual Regression Testing', () => {
           mask: [
               drawer.locator('.text-muted-foreground'),
               drawer.locator('[data-testid="winery-weather-widget"]')
+          ],
+          maxDiffPixelRatio: 0.10,
+          animations: 'disabled'
+      });
+    } else if (isTablet) {
+      const sheet = page.getByTestId('tablet-winery-sheet');
+      await expect(sheet).toBeVisible();
+      await expect(sheet).toHaveAttribute('data-state', 'ready');
+      await page.evaluate(() => document.fonts.ready);
+
+      await expect(sheet).toHaveScreenshot('winery-modal-tablet.png', {
+          mask: [
+              sheet.locator('.text-muted-foreground'),
+              sheet.locator('[data-testid="winery-weather-widget"]')
           ],
           maxDiffPixelRatio: 0.10,
           animations: 'disabled'

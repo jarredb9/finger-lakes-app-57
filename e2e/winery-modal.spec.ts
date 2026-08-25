@@ -65,6 +65,15 @@ test.describe('Winery Modal Consolidated Suite', () => {
       await expect(dialog.getByTestId('modal-left-column')).toBeVisible();
       await expect(dialog.getByTestId('modal-right-column')).toBeVisible();
     });
+
+    test('renders as a Floating Sheet on tablet viewports', async ({ page }) => {
+      await page.setViewportSize({ width: 810, height: 1080 });
+      await seedWineryAndOpenModal(page);
+
+      const sheet = page.getByTestId('tablet-winery-sheet');
+      await expect(sheet).toBeVisible();
+      await expect(sheet).toHaveAttribute('data-state', 'ready');
+    });
   });
 
   test.describe('Mobile Snap Drawer Gestures & Peek Bar', () => {
@@ -100,7 +109,7 @@ test.describe('Winery Modal Consolidated Suite', () => {
     test('switches across tabs and respects AI features preference (default OFF vs ON)', async ({ page }) => {
       await seedWineryAndOpenModal(page, 3, 'The Phantom Cellar', { fullDrawer: true });
 
-      const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
+      const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
       await expect(modal).toBeVisible();
 
       const communityTab = modal.getByRole('tab', { name: /Community/i });
@@ -144,7 +153,7 @@ test.describe('Winery Modal Consolidated Suite', () => {
     test('Share button and Route Navigation popover (Google Maps & Waze)', async ({ page }) => {
       await seedWineryAndOpenModal(page);
 
-      const modal = page.getByTestId('winery-modal-dialog').or(page.getByTestId('winery-modal-drawer'));
+      const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
       await expect(modal.getByTestId('share-button')).toBeVisible();
 
       const routeButton = modal.getByTestId('route-from-current').first();
