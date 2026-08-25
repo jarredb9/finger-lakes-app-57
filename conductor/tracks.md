@@ -21,7 +21,7 @@
 | **ai-settings-toggle_20260728** | User AI Features Opt-In Toggle & Extensible Capability System | [x] Archived | [Plan](./archive/ai-settings-toggle_20260728/plan.md) |
 | **refactor-winery-modal-details_20260730** | Refactor WineryModal & WineryDetails Modular Decomposition | [x] Archived | [Plan](./archive/refactor-winery-modal-details_20260730/plan.md) |
 | **node24-migration_20260818** | Node.js 24 Migration & Infrastructure Modernization | [x] Archived | [Plan](./archive/node24-migration_20260818/plan.md) |
-| **adaptive-3-tier-layout_20260825** | Adaptive 3-Tier Layout Architecture | ⚪ Ready | [Plan](./tracks/adaptive-3-tier-layout_20260825/plan.md) |
+| **adaptive-3-tier-layout_20260825** | Adaptive 3-Tier Layout Architecture | [x] Complete | [Plan](./tracks/adaptive-3-tier-layout_20260825/plan.md) |
 
 ---
 
@@ -63,7 +63,7 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 
 ---
 
-- [ ] **Track: Adaptive 3-Tier Layout Architecture (Mobile Bottom Sheet, Tablet Floating Drawer, Desktop Split Pane)**
+- [x] **Track: Adaptive 3-Tier Layout Architecture (Mobile Bottom Sheet, Tablet Floating Drawer, Desktop Split Pane)**
 *Link: [./tracks/adaptive-3-tier-layout_20260825/](./tracks/adaptive-3-tier-layout_20260825/)*
 
 
