@@ -270,6 +270,12 @@ export async function ensureSidebarExpanded(page: Page) {
  * Fills the login form fields.
  */
 export async function fillLoginForm(page: Page, email: string, pass: string) {
+    const form = page.locator('form');
+    await expect(form).toBeVisible({ timeout: 10000 });
+    const hasHydratedAttr = await form.getAttribute('data-hydrated').catch(() => null);
+    if (hasHydratedAttr !== null) {
+        await expect(form).toHaveAttribute('data-hydrated', 'true', { timeout: 10000 });
+    }
     await expect(page.getByLabel('Email')).toBeVisible({ timeout: 10000 });
     await page.getByLabel('Email').fill(email);
     await page.getByLabel('Password').fill(pass);
@@ -312,6 +318,7 @@ export async function login(page: Page, email: string, pass: string, options: { 
   }
 
   await page.waitForLoadState('domcontentloaded');
+  await page.waitForLoadState('networkidle').catch(() => {});
 
   // Dismiss cookie consent if visible
   await dismissCookieConsent(page);
@@ -320,10 +327,18 @@ export async function login(page: Page, email: string, pass: string, options: { 
   await submitLoginForm(page, email, pass);
 
   // 3. Wait deterministically for client-side navigation away from /login
-  await page.waitForURL(
-    (url) => !url.pathname.includes('/login') && !url.pathname.includes('/signup'),
-    { timeout: 20000, waitUntil: 'commit' }
-  );
+  try {
+    await page.waitForURL(
+      (url) => !url.pathname.includes('/login') && !url.pathname.includes('/signup'),
+      { timeout: 20000 }
+    );
+  } catch (navError) {
+    const errorAlert = await page.locator('form [role="alert"]').textContent().catch(() => null);
+    if (errorAlert) {
+      throw new Error(`Login failed on ${page.url()} with form error: "${errorAlert.trim()}" (Email: ${email})`);
+    }
+    throw navError;
+  }
 
   // 4. Wait for app ready (respecting options.skipMapReady)
   await waitForAppReady(page, options);

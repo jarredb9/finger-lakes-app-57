@@ -10,18 +10,22 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
 import { createClient } from "@/utils/supabase/client"
+import { useMounted } from "@/hooks/use-mounted"
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
   const [error, setError] = useState<string | null>(null)
   const [isPending, setIsPending] = useState(false)
+  const isHydrated = useMounted()
   const router = useRouter()
 
-  async function handleSubmit(formData: FormData) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setIsPending(true)
     setError(null)
 
-    const email = formData.get("email") as string
-    const password = formData.get("password") as string
+    const formData = new FormData(e.currentTarget)
+    const email = ((formData.get("email") as string) || "").trim()
+    const password = (formData.get("password") as string) || ""
 
     if (!email || !password) {
       setError("Please enter both email and password")
@@ -58,7 +62,7 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         <CardTitle><h1 className="text-2xl font-bold">Sign In</h1></CardTitle>
         <CardDescription>Enter your credentials to access your account</CardDescription>
       </CardHeader>
-      <form action={handleSubmit}>
+      <form onSubmit={handleSubmit} data-hydrated={isHydrated}>
         <CardContent className="space-y-4">
           {error && (
             <Alert variant="destructive">

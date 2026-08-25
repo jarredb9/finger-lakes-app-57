@@ -61,6 +61,11 @@ else
     EXTRA_OPTS+=( "--user" "$(id -u):$(id -g)" )
 fi
 
+# Capture any caller-provided overrides before sourcing env files
+ORIG_TEST_USER_EMAIL="$TEST_USER_EMAIL"
+ORIG_TEST_USER_PASSWORD="$TEST_USER_PASSWORD"
+ORIG_BASE_URL="$BASE_URL"
+
 if [ "$USE_LIVE" = true ]; then
     echo "🌍 Using LIVE database..."
     if [ -f .env.local.production ]; then
@@ -82,6 +87,11 @@ else
     fi
     E2E_REAL_DATA="false"
 fi
+
+# Re-apply caller-provided overrides
+if [ -n "$ORIG_TEST_USER_EMAIL" ]; then TEST_USER_EMAIL="$ORIG_TEST_USER_EMAIL"; fi
+if [ -n "$ORIG_TEST_USER_PASSWORD" ]; then TEST_USER_PASSWORD="$ORIG_TEST_USER_PASSWORD"; fi
+if [ -n "$ORIG_BASE_URL" ]; then BASE_URL="$ORIG_BASE_URL"; fi
 
 if [ "$SHOULD_BUILD" = true ]; then
     echo "🏗️  Forcing a fresh production build and clearing isolated storage..."
