@@ -10,12 +10,12 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Foundation & Reactive Breakpoint Hook' (Protocol in workflow.md) (fdac56d)
 
 ## Phase 2: Tablet Floating Drawer Component & Collapsible State
-- [ ] Task: Write unit and component tests for `TabletFloatingDrawer`
-    - [ ] Create test suite in `__tests__/components/TabletFloatingDrawer.test.tsx` testing expanded state, collapsed pill bar state, badge counters, and search summary rendering
-- [ ] Task: Implement `TabletFloatingDrawer` in `components/layout/TabletFloatingDrawer.tsx`
-    - [ ] Build glassmorphic floating overlay card with absolute positioning (`top-4 left-4 bottom-4 w-[380px] z-20`)
-    - [ ] Implement collapsible floating pill state with toggle trigger, active filter indicator badges, and search input synchronization
-    - [ ] Embed wineries list, trip planner, and filter controls within the expanded state
+- [x] Task: Write unit and component tests for `TabletFloatingDrawer` (110e8a9)
+    - [x] Create test suite in `components/__tests__/TabletFloatingDrawer.test.tsx` testing expanded state, collapsed pill bar state, badge counters, and search summary rendering
+- [x] Task: Implement `TabletFloatingDrawer` in `components/layout/TabletFloatingDrawer.tsx` (110e8a9)
+    - [x] Build glassmorphic floating overlay card with absolute positioning (`top-4 left-4 bottom-4 w-[380px] z-20`)
+    - [x] Implement collapsible floating pill state with toggle trigger, active filter indicator badges, and search input synchronization
+    - [x] Embed wineries list, trip planner, and filter controls within the expanded state
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Tablet Floating Drawer Component & Collapsible State' (Protocol in workflow.md)
 
 ## Phase 3: Responsive Winery Details & Touch Target Standardization
