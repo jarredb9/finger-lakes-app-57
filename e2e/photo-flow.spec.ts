@@ -89,7 +89,7 @@ test.describe('Photo Management Workflow', () => {
     await expectVisitInStore(page, { date: today });
 
     // 3. Verify Photo is visible in the UI (Winery Modal) and has a valid server URL
-    const wineryModal = page.locator('[data-testid*="winery-modal"]').first();
+    const wineryModal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
     const visitsTab = wineryModal.getByRole('tab', { name: /Visits/i });
     
     const isMobile = (page.viewportSize()?.width ?? 1024) < 640;

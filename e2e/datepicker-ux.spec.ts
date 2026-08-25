@@ -14,7 +14,8 @@ test.describe('DatePicker UX', () => {
     await login(page, user.email, user.password);
     await navigateToTab(page, 'Explore');
 
-    const isMobile = page.viewportSize()!.width < 1024;
+    const width = page.viewportSize()?.width ?? 1280;
+    const isMobile = width < 768;
 
     await test.step('Open Winery Modal', async () => {
         if (isMobile) {
@@ -24,7 +25,7 @@ test.describe('DatePicker UX', () => {
     });
 
     await test.step('Open DatePicker', async () => {
-        const modal = page.getByRole('dialog');
+        const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
         await modal.getByRole('tab', { name: /Trip/i }).click();
         const datePickerBtn = page.getByTestId('datepicker-trigger');
         await expect(datePickerBtn).toHaveAttribute('data-state', 'ready');

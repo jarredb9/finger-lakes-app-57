@@ -10,7 +10,7 @@ import { Trip, VisitWithWinery } from '@/lib/types';
 // ==========================================
 
 export function getSidebarContainer(page: Page): Locator {
-  return page.locator('[data-testid="desktop-sidebar-container"], [data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"], [data-testid="app-sidebar"], [data-testid="trip-list-container"]').filter({ visible: true }).first();
+  return page.locator('[data-testid="desktop-sidebar-container"], [data-testid="tablet-floating-drawer"], [data-testid="mobile-sidebar-container"], [data-testid="interactive-bottom-sheet"], [data-testid="app-sidebar"], [data-testid="trip-list-container"]').filter({ visible: true }).first();
 }
 
 /**
@@ -29,12 +29,16 @@ export async function waitForSignal(page: Page, testId: string, state: 'ready' |
  * Waits for the application to be fully loaded and hydrated.
  */
 export async function waitForAppReady(page: Page, options: { skipMapReady?: boolean } = {}) {
-    const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
+    const width = page.viewportSize()?.width ?? 1280;
+    const isMobile = width < 768;
+    const isTablet = width >= 768 && width < 1024;
     
     // First ensure the core shell or the page content is visible
     // For mobile, the navigation bar is a reliable indicator that the shell is ready
     const shellSelector = isMobile 
       ? '[data-testid="mobile-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"], [data-testid="trip-details-skeleton"], [data-testid="mobile-nav-explore"], [data-testid="app-sidebar"]' 
+      : isTablet
+      ? '[data-testid="tablet-floating-drawer"], [data-testid="app-sidebar"], [data-testid="settings-page-container"], [data-testid="trip-details-card"], [data-testid="trip-details-skeleton"]'
       : '[data-testid="desktop-sidebar-container"], [data-testid="settings-page-container"], [data-testid="trip-details-card"], [data-testid="trip-details-skeleton"]';
     
     await expect(page.locator(shellSelector).first()).toBeVisible({ timeout: 25000 });
@@ -58,16 +62,17 @@ export async function waitForAppReady(page: Page, options: { skipMapReady?: bool
 }
 
 /**
- * Gets the tab trigger locator for both desktop and mobile.
+ * Gets the tab trigger locator for desktop, tablet, and mobile.
  */
 export function getTabTrigger(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
-    const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
-    if (isMobile) {
+    const width = page.viewportSize()?.width ?? 1280;
+    if (width < 768) {
         // Special case for 'Explore' which maps to 'Search' icon button on mobile
         const id = tabName === 'Explore' ? 'explore' : tabName.toLowerCase();
         return page.getByTestId(`mobile-nav-${id}`).first();
     }
-    return page.locator('[data-testid="desktop-sidebar-container"]').locator('[role="tab"]').filter({ hasText: tabName }).first();
+    // For Tablet (768-1023) and Desktop (>=1024)
+    return page.locator('[data-testid="desktop-sidebar-container"], [data-testid="tablet-floating-drawer"], [data-testid="app-sidebar"]').locator('[role="tab"]').filter({ hasText: tabName }).first();
 }
 
 /**
@@ -192,10 +197,13 @@ export async function waitForMapReady(page: Page) {
 }
 
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
-  const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
+  const width = page.viewportSize()?.width ?? 1280;
+  const isMobile = width < 768;
+  const isTablet = width >= 768 && width < 1024;
+  const isDesktop = width >= 1024;
 
   // Ensure sidebar is open on desktop if we are navigating
-  if (!isMobile) {
+  if (isDesktop) {
       // Check store state for sidebar
       const isSidebarOpenStore = await page.evaluate(() => (window as any).useUIStore?.getState().isSidebarOpen);
       if (!isSidebarOpenStore) {
@@ -206,6 +214,16 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
       }
       // Wait for sidebar visually
       await expect(page.locator('[data-testid="desktop-sidebar-container"]')).toBeVisible({ timeout: 5000 });
+  } else if (isTablet) {
+      // Ensure tablet drawer is expanded if collapsed
+      const drawer = page.getByTestId('tablet-floating-drawer');
+      if (await drawer.isVisible().catch(() => false)) {
+          const state = await drawer.getAttribute('data-state');
+          if (state === 'collapsed') {
+              await page.getByTestId('tablet-drawer-expand-button').click();
+              await expect(drawer).toHaveAttribute('data-state', 'expanded', { timeout: 5000 });
+          }
+      }
   } else {
       // Dismiss overlays that block navigation on mobile
       await dismissCookieConsent(page);
@@ -254,21 +272,33 @@ export async function navigateToSettings(page: Page) {
 }
 
 export async function ensureSidebarExpanded(page: Page) {
-    const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
-    if (!isMobile) return;
+    const width = page.viewportSize()?.width ?? 1280;
+    if (width >= 1024) return;
     
-    const sidebar = getSidebarContainer(page);
-    await expect(sidebar).toBeVisible({ timeout: 10000 });
-    await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
-
-    const expandBtn = page.getByRole('button', { name: 'Expand to full screen' });
-    const isMiniMode = await expandBtn.isVisible().catch(() => false);
-    
-    if (isMiniMode) {
-        await expandBtn.click();
-        const minimizeBtn = page.getByRole('button', { name: 'Minimize to half screen' });
-        await expect(minimizeBtn).toBeVisible({ timeout: 5000 }).catch(() => {});
+    if (width < 768) {
+        const sidebar = getSidebarContainer(page);
+        await expect(sidebar).toBeVisible({ timeout: 10000 });
         await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+
+        const expandBtn = page.getByRole('button', { name: 'Expand to full screen' });
+        const isMiniMode = await expandBtn.isVisible().catch(() => false);
+        
+        if (isMiniMode) {
+            await expandBtn.click();
+            const minimizeBtn = page.getByRole('button', { name: 'Minimize to half screen' });
+            await expect(minimizeBtn).toBeVisible({ timeout: 5000 }).catch(() => {});
+            await expect(sidebar).toHaveAttribute('data-state', 'stable', { timeout: 10000 });
+        }
+    } else {
+        // Tablet Tier (768 - 1023px)
+        const drawer = page.getByTestId('tablet-floating-drawer');
+        await expect(drawer).toBeVisible({ timeout: 10000 });
+        const state = await drawer.getAttribute('data-state');
+        if (state === 'collapsed') {
+            const expandBtn = page.getByTestId('tablet-drawer-expand-button');
+            await expandBtn.click();
+            await expect(drawer).toHaveAttribute('data-state', 'expanded', { timeout: 5000 });
+        }
     }
 }
 
@@ -312,7 +342,8 @@ export async function login(page: Page, email: string, pass: string, options: { 
     window.localStorage.setItem('cookie-consent', 'true');
   });
 
-  const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
+  const width = page.viewportSize()?.width ?? 1280;
+  const isMobile = width < 768;
   const isPwa = options.isPwa || false;
   const pwaSuffix = isPwa ? '?pwa=true' : '';
 
@@ -419,7 +450,8 @@ export async function openWineryDetails(page: Page, wineryName: string, options:
     if (options.fullDrawer) {
         await page.evaluate(() => { (window as any)._E2E_FULL_DRAWER = true; });
     }
-    const isMobile = page.viewportSize() ? page.viewportSize()!.width < 1024 : false;
+    const width = page.viewportSize()?.width ?? 1280;
+    const isMobile = width < 768;
     if (isMobile) {
         await ensureSidebarExpanded(page);
     }
@@ -461,7 +493,7 @@ export async function openWineryDetails(page: Page, wineryName: string, options:
         await wineryItem.click();
     }
     
-    const modal = page.locator('[data-testid*="winery-modal"]').first();
+    const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
     await waitForSignal(page, 'winery-modal', 'ready', 15000);
     await expect(modal).toBeVisible();
 

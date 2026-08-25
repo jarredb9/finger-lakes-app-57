@@ -48,7 +48,7 @@ test.describe('PWA Assets & Sync', () => {
     await ensureSidebarExpanded(page);
     await openWineryDetails(page, 'Vineyard of Illusion');
 
-    const modal = page.locator('[data-testid*="winery-modal"]').first();
+    const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
     await expect(modal.getByText('Vineyard of Illusion').first()).toBeVisible();
 
     // 2. Go Offline

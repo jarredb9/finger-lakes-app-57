@@ -33,7 +33,7 @@ test.describe('Winery Amenities & Q&A Reviews Consolidated Suite', () => {
       ]
     });
 
-    const modal = page.getByRole('dialog').or(page.getByTestId('winery-modal-drawer'));
+    const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
     await expect(modal).toBeVisible();
 
     const amenitiesTab = modal.getByRole('tab', { name: /Amenities/i });
@@ -60,7 +60,7 @@ test.describe('Winery Amenities & Q&A Reviews Consolidated Suite', () => {
       reviews: []
     });
 
-    const modal = page.getByRole('dialog').or(page.getByTestId('winery-modal-drawer'));
+    const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
     await expect(modal).toBeVisible();
 
     const amenitiesTab = modal.getByRole('tab', { name: /Amenities/i });
@@ -91,7 +91,7 @@ test.describe('Winery Amenities & Q&A Reviews Consolidated Suite', () => {
       ]
     });
 
-    const modal = page.getByRole('dialog').or(page.getByTestId('winery-modal-drawer'));
+    const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
     await expect(modal).toBeVisible();
 
     const amenitiesTab = modal.getByRole('tab', { name: /Amenities/i });
@@ -142,7 +142,7 @@ test.describe('Winery Amenities & Q&A Reviews Consolidated Suite', () => {
       ]
     });
 
-    const modal = page.getByRole('dialog').or(page.getByTestId('winery-modal-drawer'));
+    const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
     await expect(modal).toBeVisible();
 
     const amenitiesTab = modal.getByRole('tab', { name: /Amenities/i });

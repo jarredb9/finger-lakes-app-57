@@ -20,7 +20,7 @@ test.describe('Wishlist Flow', () => {
     await navigateToTab(page, 'Explore');
     await openWineryDetails(page, 'Mock Winery One');
 
-    const modal = page.locator('[role="dialog"], [data-testid*="winery-modal"]').first();
+    const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
 
     // 1. Wishlist Toggle ON
     const wishlistBtn = modal.getByTestId('wishlist-button');
