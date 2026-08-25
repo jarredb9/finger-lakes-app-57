@@ -215,19 +215,25 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
   await expect(tab).toBeVisible({ timeout: 15000 });
   await expect(tab).toBeEnabled({ timeout: 5000 });
   
+  const containerIdMap = {
+      'Explore': isMobile ? 'interactive-bottom-sheet' : 'map-container',
+      'Trips': 'trip-list-container',
+      'Friends': 'friend-activity-feed',
+      'History': 'visit-history-container'
+  };
+
   // Use toPass for the click and initial signal to handle hydration race conditions
   await expect(async () => {
-      const currentTab = await page.evaluate(() => (window as any).useUIStore?.getState().activeTab);
-      if (currentTab?.toLowerCase() !== tabName.toLowerCase()) {
+      // Inspect DOM state to check if tab is already selected before clicking
+      const isAlreadyActive = await tab.evaluate((el) => {
+          return el.getAttribute('aria-selected') === 'true' ||
+                 el.getAttribute('data-state') === 'active' ||
+                 el.classList.contains('bg-primary/10');
+      }).catch(() => false);
+
+      if (!isAlreadyActive) {
           await tab.click();
       }
-      
-      const containerIdMap = {
-          'Explore': 'map-container',
-          'Trips': 'trip-list-container',
-          'Friends': 'friend-activity-feed',
-          'History': 'visit-history-container'
-      };
       
       // On mobile, wait for sheet to be visible first
       if (isMobile) {
@@ -236,7 +242,7 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
           await expect(sheet).toHaveAttribute('data-state', 'stable', { timeout: 5000 });
       }
 
-      await waitForSignal(page, containerIdMap[tabName], /ready|error/, 5000);
+      await waitForSignal(page, containerIdMap[tabName], /ready|error|stable/, 5000);
   }).toPass({ timeout: 15000, intervals: [2000] });
 }
 
@@ -366,7 +372,7 @@ export async function login(page: Page, email: string, pass: string, options: { 
     await waitForMapReady(page);
   }
 
-  if (isMobile) {
+  if (isMobile && !options.skipMapReady) {
     await navigateToTab(page, 'Explore');
   }
 }
