@@ -1,0 +1,8 @@
+{
+  "track_id": "adaptive-3-tier-layout_20260825",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-08-25T13:20:00Z",
+  "updated_at": "2026-08-25T13:20:00Z",
+  "description": "Adaptive 3-Tier Layout Architecture (Mobile Bottom Sheet, Tablet Floating Drawer, Desktop Split Pane)"
+}
