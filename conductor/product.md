@@ -27,6 +27,7 @@ This is a Next.js web application designed for planning and tracking visits to w
 - **Granular Privacy Controls:** Dedicated settings to control profile and activity visibility (Public, Friends Only, Private).
 - **Social Features:** Collaboration with friends, sharing winery adventures, and personalized recommendations based on friend activity.
 - **Offline-First Resilience:** Robust offline data integrity with encrypted mutation queuing and binary reconstitution for reliable use in low-connectivity areas.
+- **Adaptive 3-Tier Layout Architecture:** Dynamically adapts UI presentation across Mobile (< 768px: bottom navigation & drawer), Tablet Portrait (768px–1024px: elevated collapsible glassmorphic floating drawer & sheet), and Desktop (≥ 1024px: persistent 400px split-pane sidebar & modal dialog) while preserving WebGL map context and state.
 
 ## Future Vision
 - **Mobile Apps:** Development of native iOS and Android applications for an optimized on-the-go experience.

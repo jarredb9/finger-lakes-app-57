@@ -6,6 +6,7 @@
 - **State Management:** Zustand (for global UI and data caching)
 - **Styling:** Tailwind CSS (v4) with CSS-native configuration
 - **Components:** Radix UI primitives (via shadcn/ui)
+- **Responsive Architecture:** Adaptive 3-tier layout engine with reactive breakpoint evaluation (`useLayoutTier`), glassmorphic overlays, and touch-target standardization (WCAG 2.5.5 / Apple HIG).
 
 ## Backend & Services
 - **Database:** PostgreSQL (managed by Supabase)
