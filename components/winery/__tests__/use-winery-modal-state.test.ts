@@ -109,4 +109,36 @@ describe('useWineryModalState', () => {
     expect(result.current.lightboxPhoto).toBeNull();
     expect(useUIStore.getState().isWineryModalOpen).toBe(false);
   });
+
+  it('provides reactive 3-tier layout resolution (mobile, tablet, desktop)', () => {
+    Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 375 });
+    const { result, rerender } = renderHook(() => useWineryModalState());
+
+    expect(result.current.tier).toBe('mobile');
+    expect(result.current.isMobile).toBe(true);
+    expect(result.current.isTablet).toBe(false);
+    expect(result.current.isDesktop).toBe(false);
+
+    act(() => {
+      Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 810 });
+      window.dispatchEvent(new Event('resize'));
+    });
+    rerender();
+
+    expect(result.current.tier).toBe('tablet');
+    expect(result.current.isMobile).toBe(false);
+    expect(result.current.isTablet).toBe(true);
+    expect(result.current.isDesktop).toBe(false);
+
+    act(() => {
+      Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1280 });
+      window.dispatchEvent(new Event('resize'));
+    });
+    rerender();
+
+    expect(result.current.tier).toBe('desktop');
+    expect(result.current.isMobile).toBe(false);
+    expect(result.current.isTablet).toBe(false);
+    expect(result.current.isDesktop).toBe(true);
+  });
 });

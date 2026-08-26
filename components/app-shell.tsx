@@ -9,7 +9,6 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
 import { Map as MapIcon, CalendarDays, Search, Users, User as UserIcon, LogOut, FileText, Settings, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import dynamic from "next/dynamic";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
     DropdownMenu,
@@ -29,12 +28,10 @@ import { OfflineIndicator } from "@/components/offline-indicator";
 import { Download, RefreshCw } from "lucide-react";
 import { usePwa } from "@/hooks/use-pwa";
 import { useToast } from "@/hooks/use-toast";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useLayoutTier } from "@/hooks/use-layout-tier";
 import { useMounted } from "@/hooks/use-mounted";
-
-const WineryModal = dynamic(() => import("@/components/winery-modal").then((mod) => mod.WineryModal), {
-    ssr: false,
-});
+import { TabletFloatingDrawer } from "@/components/layout/TabletFloatingDrawer";
+import { WineryModal } from "@/components/winery-modal";
 
 interface AppShellProps {
     user: AuthenticatedUser;
@@ -42,7 +39,7 @@ interface AppShellProps {
 }
 
 function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
-    const isMobile = useIsMobile();
+    const { isMobile, isTablet, isDesktop } = useLayoutTier();
     const isStreetViewActive = useMapStore(state => state.isStreetViewActive);
     const [activeTab, setActiveTab] = useState<"explore" | "trips" | "friends" | "history">(initialTab);
     const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(initialTab !== "explore");
@@ -109,8 +106,8 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             <VisitHistoryModal />
 
             {/* Desktop Sidebar */}
-            {isMobile === false && (
-                <div className="hidden lg:flex flex-col border-r bg-background w-[400px] relative">
+            {isDesktop && (
+                <div className="hidden lg:flex flex-col border-r bg-background w-[400px] relative shrink-0">
                     <div className="flex-1 overflow-hidden">
                         <div data-testid="desktop-sidebar-container" className="w-[400px] h-full">
                             <AppSidebar
@@ -125,10 +122,10 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
             {/* Main Map Area */}
             <div className="flex-1 relative w-full h-full">
-                <WineryMap className={isMobileSheetOpen ? "sheet-open" : "sheet-closed"} />
+                <WineryMap className={isMobile && isMobileSheetOpen ? "sheet-open" : "sheet-closed"} />
 
                 {/* Mobile User Avatar (Floating Top Right) */}
-                {isMobile === true && isStreetViewActive === false && (
+                {isMobile && isStreetViewActive === false && (
                     <div className="lg:hidden absolute top-4 right-4 z-10">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -198,8 +195,17 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                 )}
             </div>
 
+            {/* Tablet Floating Drawer */}
+            {isTablet && isStreetViewActive === false && (
+                <TabletFloatingDrawer
+                    user={user}
+                    activeTab={activeTab}
+                    onTabChange={(val) => setActiveTab(val as any)}
+                />
+            )}
+
             {/* Mobile Navigation Bar */}
-            {isMobile === true && isStreetViewActive === false && (
+            {isMobile && isStreetViewActive === false && (
                 <div
                     data-testid="mobile-nav-bar"
                     className="lg:hidden fixed bottom-4 left-4 right-4 max-w-lg mx-auto rounded-2xl border backdrop-blur-md shadow-lg bg-background/80 flex items-center justify-around z-50 pb-safe h-auto min-h-16 px-2 py-1"
@@ -273,7 +279,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             )}
 
             {/* Custom Mobile Bottom Sheet */}
-            {isMobile === true && isStreetViewActive === false && (
+            {isMobile && isStreetViewActive === false && (
                 <InteractiveBottomSheet
                     data-testid="mobile-sidebar-container"
                     isOpen={isMobileSheetOpen}

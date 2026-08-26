@@ -27,10 +27,12 @@ test('authenticated user can reach the app', async ({ page }) => {
   
   await waitForAppReady(page);
   
-  // Verify core UI presence (Desktop or Mobile)
-  const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
-  if (isMobile) {
+  // Verify core UI presence across 3 tiers (Mobile, Tablet, Desktop)
+  const width = page.viewportSize()?.width ?? 1280;
+  if (width < 768) {
     await expect(page.getByTestId('mobile-nav-bar')).toBeVisible();
+  } else if (width < 1024) {
+    await expect(page.getByTestId('tablet-floating-drawer')).toBeVisible();
   } else {
     await expect(page.getByTestId('desktop-sidebar-container')).toBeVisible();
   }

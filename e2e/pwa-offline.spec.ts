@@ -14,20 +14,22 @@ test.describe('PWA Offline Functionality', () => {
   test('should display offline indicator and allow cached navigation', async ({ page, context }) => {
     await navigateToTab(page, 'Trips');
     await waitForMapReady(page);
-    await expect(page.locator('h2:has-text("My Trips")').locator('visible=true')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'My Trips' })).toBeVisible();
 
     await context.setOffline(true);
     // Primary offline indicator (Updated text)
     await expect(page.getByText('Offline: Map detail limited')).toBeVisible({ timeout: 10000 });
 
     await navigateToTab(page, 'Explore');
-    if (page.viewportSize()?.width && page.viewportSize()!.width < 1024) {
+    const width = page.viewportSize()?.width ?? 1280;
+    const isMobile = width < 768;
+    if (isMobile) {
         await page.getByRole('button', { name: 'Map' }).click();
     }
 
     await expect(page.getByTestId('map-container')).toBeVisible();
     
-    if (page.viewportSize()?.width && page.viewportSize()!.width < 1024) {
+    if (isMobile) {
         await navigateToTab(page, 'Explore');
     }
 
@@ -70,7 +72,7 @@ test.describe('PWA Offline Functionality', () => {
 
     await openWineryDetails(page, 'Vineyard of Illusion');
 
-    const modal = page.locator('[data-testid*="winery-modal"]').first();
+    const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
     await expect(modal).toBeVisible();
 
     await context.setOffline(true);
@@ -89,7 +91,7 @@ test.describe('PWA Offline Functionality', () => {
     await context.route(/.*get_paginated_visits.*/, blockHandler);
     await page.route(/.*get_paginated_visits.*/, blockHandler);
 
-    await page.getByTestId('log-visit-button').click({ force: true });
+    await page.getByTestId('log-visit-button').click();
     await page.getByLabel('Visit Date').fill('2025-01-01');
     await logVisit(page, { review: 'Offline note test' });
     
@@ -98,12 +100,12 @@ test.describe('PWA Offline Functionality', () => {
     await expect(visitsTab).toBeVisible({ timeout: 10000 });
     await visitsTab.click();
     
-    await expect(page.getByText('Offline note test').locator('visible=true')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Offline note test')).toBeVisible({ timeout: 10000 });
 
     await closeWineryModal(page);
     await navigateToTab(page, 'History');
     
-    await expect(page.getByText('Vineyard of Illusion').locator('visible=true')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Offline note test').locator('visible=true')).toBeVisible();
+    await expect(page.getByText('Vineyard of Illusion')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText('Offline note test')).toBeVisible();
   });
 });
