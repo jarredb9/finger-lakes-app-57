@@ -5,9 +5,9 @@
     - [x] Create `lib/utils/__tests__/places-mapper.test.ts`
     - [x] Test normalization of SDK place objects, formatted predictions, highlights, and fallback properties
     - [x] Test defensive coordinate resolution (handling both SDK `place.location.lat()` methods and mock/property-based `place.location.latitude`)
-- [ ] Task: (TDD Green) Implement pure Places SDK normalizer helper
-    - [ ] Implement `mapSdkPlaceToV1Place(place, text)` in `lib/utils/places-mapper.ts`
-    - [ ] Verify `places-mapper.test.ts` passes
+- [x] Task: (TDD Green) Implement pure Places SDK normalizer helper [cd7c825]
+    - [x] Implement `mapSdkPlaceToV1Place(place, text)` in `lib/utils/places-mapper.ts`
+    - [x] Verify `places-mapper.test.ts` passes
 - [ ] Task: (TDD Red) Write failing tests for combobox keyboard hook
     - [ ] Create `hooks/__tests__/use-combobox-keyboard.test.ts`
     - [ ] Test ArrowUp, ArrowDown, Enter selection, Escape dismissal, and outside-click handling
