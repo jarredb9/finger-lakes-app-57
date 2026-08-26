@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { login, navigateToTab, openWineryDetails, ensureSidebarExpanded, clearServiceWorkers } from './helpers';
+import { login, navigateToTab, openWineryModalState, clearServiceWorkers } from './helpers';
 
 test.describe('DatePicker UX', () => {
   test.beforeEach(async ({ page, mockMaps }) => {
@@ -11,58 +11,64 @@ test.describe('DatePicker UX', () => {
   });
 
   test('should open picker and close on date selection', async ({ page, user }) => {
-    await login(page, user.email, user.password);
-    await navigateToTab(page, 'Explore');
+    await login(page, user.email, user.password, { skipMapReady: true });
 
-    const width = page.viewportSize()?.width ?? 1280;
-    const isMobile = width < 768;
+    const isMobileOrTablet = (page.viewportSize()?.width ?? 1280) < 1024;
 
     await test.step('Open Winery Modal', async () => {
-        if (isMobile) {
-            await ensureSidebarExpanded(page);
+      const winery = {
+        id: 1,
+        google_place_id: 'place_1',
+        name: 'Mock Winery One',
+        address: '123 Seneca Trail, Dundee, NY',
+        latitude: 42.52,
+        longitude: -76.95,
+        rating: 4.8,
+        user_rating_count: 124,
+        enrichment_tier: 'enriched',
+        opening_hours: {
+          open_now: true,
+          weekday_text: ['Monday: 10:00 AM – 5:00 PM']
         }
-        await openWineryDetails(page, 'Mock Winery One');
+      };
+      await openWineryModalState(page, winery, { fullDrawer: true });
     });
 
     await test.step('Open DatePicker', async () => {
-        const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
-        await modal.getByRole('tab', { name: /Trip/i }).click();
-        const datePickerBtn = page.getByTestId('datepicker-trigger');
-        await expect(datePickerBtn).toHaveAttribute('data-state', 'ready');
-        await expect(datePickerBtn).toBeVisible();
-        await datePickerBtn.click();
+      const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
+      await modal.getByRole('tab', { name: /Trip/i }).click();
+      const datePickerBtn = page.getByTestId('datepicker-trigger');
+      await expect(datePickerBtn).toHaveAttribute('data-state', 'ready');
+      await expect(datePickerBtn).toBeVisible();
+      await datePickerBtn.click();
 
-        if (isMobile) {
-            await expect(page.getByText('Select a date')).toBeVisible();
-        }
-        
-        const calendar = page.getByTestId('datepicker-calendar');
-        await expect(calendar).toBeVisible();
-        await expect(calendar.getByRole('grid')).toBeVisible();
+      if (isMobileOrTablet) {
+        await expect(page.getByText('Select a date')).toBeVisible();
+      }
+      
+      const calendar = page.getByTestId('datepicker-calendar');
+      await expect(calendar).toBeVisible();
+      await expect(calendar.getByRole('grid')).toBeVisible();
     });
 
     await test.step('Select Date and Verify Auto-Close', async () => {
-        const calendar = page.getByTestId('datepicker-calendar');
-        // Select today's date (or at least a valid cell)
-        // DayPicker v9 uses full date strings for accessible names
-        const todayCell = calendar.getByRole('gridcell', { name: /1/ }).first();
-        await todayCell.click();
+      const calendar = page.getByTestId('datepicker-calendar');
+      // Select today's date (or at least a valid cell)
+      // DayPicker v9 uses full date strings for accessible names
+      const todayCell = calendar.getByRole('gridcell', { name: /1/ }).first();
+      await todayCell.click();
 
-        // Picker should close
-        if (isMobile) {
-            await expect(page.getByText('Select a date')).not.toBeVisible();
-        } else {
-            await expect(page.getByTestId('datepicker-calendar')).not.toBeVisible();
-        }
-        
-        // Button should show selected date
-        const datePickerBtn = page.getByTestId('datepicker-trigger');
-        await expect(datePickerBtn).toBeVisible();
+      // Picker should close
+      await expect(page.getByTestId('datepicker-calendar')).not.toBeVisible();
+      
+      // Button should show selected date
+      const datePickerBtn = page.getByTestId('datepicker-trigger');
+      await expect(datePickerBtn).toBeVisible();
     });
   });
 
   test('should navigate months in the calendar', async ({ page, user }) => {
-    await login(page, user.email, user.password);
+    await login(page, user.email, user.password, { skipMapReady: true });
     await navigateToTab(page, 'Trips');
 
     // Open New Trip modal
