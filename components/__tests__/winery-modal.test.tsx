@@ -105,7 +105,7 @@ describe('WineryModal Redesign', () => {
   });
 
   describe('Responsive Rendering', () => {
-    it('renders a Drawer component on mobile viewports (< sm)', () => {
+    it('renders a Drawer component on mobile viewports (< 768px)', () => {
       // Mock window.matchMedia for mobile viewport
       Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 375 });
       window.dispatchEvent(new Event('resize'));
@@ -118,7 +118,17 @@ describe('WineryModal Redesign', () => {
       expect(drawer).toBeInTheDocument();
     });
 
-    it('renders a Dialog component on desktop viewports (>= sm)', () => {
+    it('renders a floating sheet on tablet viewports (768px - 1023px)', () => {
+      Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 810 });
+      window.dispatchEvent(new Event('resize'));
+
+      render(<WineryModal />);
+
+      const tabletSheet = screen.queryByTestId('tablet-winery-sheet');
+      expect(tabletSheet).toBeInTheDocument();
+    });
+
+    it('renders a Dialog component on desktop viewports (>= 1024px)', () => {
       Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1024 });
       window.dispatchEvent(new Event('resize'));
 
