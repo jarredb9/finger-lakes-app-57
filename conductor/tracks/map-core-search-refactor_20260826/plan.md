@@ -14,9 +14,9 @@
 - [x] Task: (TDD Green) Implement combobox keyboard hook [03da67e]
     - [x] Implement `hooks/use-combobox-keyboard.ts`
     - [x] Verify `use-combobox-keyboard.test.ts` passes
-- [ ] Task: (TDD Red) Write failing tests for Autocomplete Suggestions List
-    - [ ] Create `components/__tests__/PlaceAutocompleteSuggestionsList.test.tsx`
-    - [ ] Test rendering suggestions, active highlighting, empty state, and keyboard index selection
+- [x] Task: (TDD Red) Write failing tests for Autocomplete Suggestions List [78ad2d3]
+    - [x] Create `components/__tests__/PlaceAutocompleteSuggestionsList.test.tsx`
+    - [x] Test rendering suggestions, active highlighting, empty state, and keyboard index selection
 - [ ] Task: (TDD Green) Implement PlaceAutocompleteSuggestionsList component
     - [ ] Implement `components/PlaceAutocompleteSuggestionsList.tsx`
     - [ ] Verify `PlaceAutocompleteSuggestionsList.test.tsx` passes
