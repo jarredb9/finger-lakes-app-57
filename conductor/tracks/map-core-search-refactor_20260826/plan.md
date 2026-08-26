@@ -8,9 +8,9 @@
 - [x] Task: (TDD Green) Implement pure Places SDK normalizer helper [cd7c825]
     - [x] Implement `mapSdkPlaceToV1Place(place, text)` in `lib/utils/places-mapper.ts`
     - [x] Verify `places-mapper.test.ts` passes
-- [ ] Task: (TDD Red) Write failing tests for combobox keyboard hook
-    - [ ] Create `hooks/__tests__/use-combobox-keyboard.test.ts`
-    - [ ] Test ArrowUp, ArrowDown, Enter selection, Escape dismissal, and outside-click handling
+- [x] Task: (TDD Red) Write failing tests for combobox keyboard hook [e86c55f]
+    - [x] Create `hooks/__tests__/use-combobox-keyboard.test.ts`
+    - [x] Test ArrowUp, ArrowDown, Enter selection, Escape dismissal, and outside-click handling
 - [ ] Task: (TDD Green) Implement combobox keyboard hook
     - [ ] Implement `hooks/use-combobox-keyboard.ts`
     - [ ] Verify `use-combobox-keyboard.test.ts` passes
