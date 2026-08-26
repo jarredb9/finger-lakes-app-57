@@ -11,9 +11,9 @@
 - [x] Task: (TDD Red) Write failing tests for combobox keyboard hook [e86c55f]
     - [x] Create `hooks/__tests__/use-combobox-keyboard.test.ts`
     - [x] Test ArrowUp, ArrowDown, Enter selection, Escape dismissal, and outside-click handling
-- [ ] Task: (TDD Green) Implement combobox keyboard hook
-    - [ ] Implement `hooks/use-combobox-keyboard.ts`
-    - [ ] Verify `use-combobox-keyboard.test.ts` passes
+- [x] Task: (TDD Green) Implement combobox keyboard hook [03da67e]
+    - [x] Implement `hooks/use-combobox-keyboard.ts`
+    - [x] Verify `use-combobox-keyboard.test.ts` passes
 - [ ] Task: (TDD Red) Write failing tests for Autocomplete Suggestions List
     - [ ] Create `components/__tests__/PlaceAutocompleteSuggestionsList.test.tsx`
     - [ ] Test rendering suggestions, active highlighting, empty state, and keyboard index selection
