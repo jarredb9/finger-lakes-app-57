@@ -20,9 +20,9 @@
 - [x] Task: (TDD Green) Implement PlaceAutocompleteSuggestionsList component [6475db7]
     - [x] Implement `components/PlaceAutocompleteSuggestionsList.tsx`
     - [x] Verify `PlaceAutocompleteSuggestionsList.test.tsx` passes
-- [ ] Task: Refactor and integrate PlaceAutocomplete component
-    - [ ] Update `components/PlaceAutocomplete.tsx` to compose `places-mapper`, `useComboboxKeyboard`, and `PlaceAutocompleteSuggestionsList`
-    - [ ] Update existing `components/__tests__/PlaceAutocomplete.test.tsx` and ensure 100% pass rate
+- [x] Task: Refactor and integrate PlaceAutocomplete component [f0fe4dd]
+    - [x] Update `components/PlaceAutocomplete.tsx` to compose `places-mapper`, `useComboboxKeyboard`, and `PlaceAutocompleteSuggestionsList`
+    - [x] Update existing `components/__tests__/PlaceAutocomplete.test.tsx` and ensure 100% pass rate
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Search Autocomplete Decoupling & Pure Mappers' (Protocol in workflow.md)
 
 ## Phase 2: Map Controls & Search Bar Decomposition (Strict TDD)
