@@ -494,7 +494,7 @@ export async function openWineryDetails(page: Page, wineryName: string, options:
     }
     
     const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
-    await waitForSignal(page, 'winery-modal', 'ready', 15000);
+    await expect(modal).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
     await expect(modal).toBeVisible();
 
     if (isMobile) {
