@@ -1,10 +1,10 @@
 # Implementation Plan: Map Core, Search Autocomplete & Controls Decoupling Refactor (Strict TDD & E2E Alignment)
 
 ## Phase 1: Search Autocomplete Decoupling & Pure Mappers (Strict TDD)
-- [ ] Task: (TDD Red) Write failing unit tests for Places SDK response normalizer
-    - [ ] Create `lib/utils/__tests__/places-mapper.test.ts`
-    - [ ] Test normalization of SDK place objects, formatted predictions, highlights, and fallback properties
-    - [ ] Test defensive coordinate resolution (handling both SDK `place.location.lat()` methods and mock/property-based `place.location.latitude`)
+- [x] Task: (TDD Red) Write failing unit tests for Places SDK response normalizer [26c4eaa]
+    - [x] Create `lib/utils/__tests__/places-mapper.test.ts`
+    - [x] Test normalization of SDK place objects, formatted predictions, highlights, and fallback properties
+    - [x] Test defensive coordinate resolution (handling both SDK `place.location.lat()` methods and mock/property-based `place.location.latitude`)
 - [ ] Task: (TDD Green) Implement pure Places SDK normalizer helper
     - [ ] Implement `mapSdkPlaceToV1Place(place, text)` in `lib/utils/places-mapper.ts`
     - [ ] Verify `places-mapper.test.ts` passes
