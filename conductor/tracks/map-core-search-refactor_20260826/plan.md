@@ -4,6 +4,7 @@
 - [ ] Task: (TDD Red) Write failing unit tests for Places SDK response normalizer
     - [ ] Create `lib/utils/__tests__/places-mapper.test.ts`
     - [ ] Test normalization of SDK place objects, formatted predictions, highlights, and fallback properties
+    - [ ] Test defensive coordinate resolution (handling both SDK `place.location.lat()` methods and mock/property-based `place.location.latitude`)
 - [ ] Task: (TDD Green) Implement pure Places SDK normalizer helper
     - [ ] Implement `mapSdkPlaceToV1Place(place, text)` in `lib/utils/places-mapper.ts`
     - [ ] Verify `places-mapper.test.ts` passes
@@ -28,13 +29,13 @@
 - [ ] Task: (TDD Red) Write failing tests for MapSearchBar and MapFilterToggles
     - [ ] Create `components/map/__tests__/map-search-bar.test.tsx`
     - [ ] Create `components/map/__tests__/map-filter-toggles.test.tsx`
-    - [ ] Test search input debouncing, clear actions, filter toggling, and accessibility
+    - [ ] Test search input debouncing, clear actions, filter toggling, and accessibility as pure presentational components
 - [ ] Task: (TDD Green) Implement MapSearchBar and MapFilterToggles components
-    - [ ] Implement `components/map/map-search-bar.tsx`
-    - [ ] Implement `components/map/map-filter-toggles.tsx`
+    - [ ] Implement `components/map/map-search-bar.tsx` (pure presentational)
+    - [ ] Implement `components/map/map-filter-toggles.tsx` (pure presentational)
     - [ ] Verify unit tests pass
 - [ ] Task: Refactor MapControls component and store wiring
-    - [ ] Refactor `components/map/map-controls.tsx` to compose new subcomponents and eliminate 11-prop drilling
+    - [ ] Refactor `components/map/map-controls.tsx` as a container consuming `useWineryMapContext()` and `useTripStore` to compose new subcomponents and eliminate 11-prop drilling from `app-sidebar.tsx`
     - [ ] Update `components/__tests__/map-controls.test.tsx` to reflect decoupled architecture
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Map Controls & Search Bar Decomposition' (Protocol in workflow.md)
 
@@ -54,6 +55,7 @@
 - [ ] Task: (TDD Red) Write failing unit tests for Mapbox layers and Google Map Adapter
     - [ ] Create `lib/maps/__tests__/mapbox-layers.test.ts`
     - [ ] Create `lib/maps/__tests__/google-map-adapter.test.ts`
+    - [ ] Test `GoogleMapAdapter` methods including `openStreetView(lat, lng)` API contract
 - [ ] Task: (TDD Green) Implement Mapbox layers and Google Map Adapter
     - [ ] Implement `lib/maps/mapbox-layers.ts`
     - [ ] Implement `lib/maps/google-map-adapter.ts`
@@ -61,13 +63,15 @@
 - [ ] Task: (TDD Red) Write failing tests for Street View hook and Google Map Fallback
     - [ ] Create `hooks/__tests__/use-street-view-panorama.test.ts`
     - [ ] Create `components/map/__tests__/google-map-fallback.test.tsx`
+    - [ ] Test panorama visibility listeners, store synchronization, and fallback DOM stability
 - [ ] Task: (TDD Green) Implement Street View hook and Google Map Fallback component
     - [ ] Implement `hooks/use-street-view-panorama.ts`
     - [ ] Implement `components/map/google-map-fallback.tsx`
     - [ ] Verify hook and fallback component unit tests pass
 - [ ] Task: Refactor MapView into a lightweight container component
     - [ ] Refactor `components/map/MapView.tsx` (<200 LOC) integrating extracted layers, fallback, and panorama hook
-    - [ ] Verify container presentational structure and DOM stability
+    - [ ] Ensure `openStreetView` is bound to the Mapbox `mapRef` stored in `useMapStore` for modal consumer compatibility (`use-winery-modal-state.ts`)
+    - [ ] Verify container presentational structure and DOM stability (`data-state="ready|loading|error"`)
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Map Core, Adapters, Fallback & Panorama Lifecycle' (Protocol in workflow.md)
 
 ## Phase 5: E2E Test Suite Alignment & Atomic Verification
