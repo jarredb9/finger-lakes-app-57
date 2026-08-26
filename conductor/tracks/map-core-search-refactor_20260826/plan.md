@@ -17,9 +17,9 @@
 - [x] Task: (TDD Red) Write failing tests for Autocomplete Suggestions List [78ad2d3]
     - [x] Create `components/__tests__/PlaceAutocompleteSuggestionsList.test.tsx`
     - [x] Test rendering suggestions, active highlighting, empty state, and keyboard index selection
-- [ ] Task: (TDD Green) Implement PlaceAutocompleteSuggestionsList component
-    - [ ] Implement `components/PlaceAutocompleteSuggestionsList.tsx`
-    - [ ] Verify `PlaceAutocompleteSuggestionsList.test.tsx` passes
+- [x] Task: (TDD Green) Implement PlaceAutocompleteSuggestionsList component [6475db7]
+    - [x] Implement `components/PlaceAutocompleteSuggestionsList.tsx`
+    - [x] Verify `PlaceAutocompleteSuggestionsList.test.tsx` passes
 - [ ] Task: Refactor and integrate PlaceAutocomplete component
     - [ ] Update `components/PlaceAutocomplete.tsx` to compose `places-mapper`, `useComboboxKeyboard`, and `PlaceAutocompleteSuggestionsList`
     - [ ] Update existing `components/__tests__/PlaceAutocomplete.test.tsx` and ensure 100% pass rate
