@@ -22,7 +22,7 @@
 | **refactor-winery-modal-details_20260730** | Refactor WineryModal & WineryDetails Modular Decomposition | [x] Archived | [Plan](./archive/refactor-winery-modal-details_20260730/plan.md) |
 | **node24-migration_20260818** | Node.js 24 Migration & Infrastructure Modernization | [x] Archived | [Plan](./archive/node24-migration_20260818/plan.md) |
 | **adaptive-3-tier-layout_20260825** | Adaptive 3-Tier Layout Architecture | [x] Archived | [Plan](./archive/adaptive-3-tier-layout_20260825/plan.md) |
-| **map-core-search-refactor_20260826** | Map Core, Search Autocomplete & Controls Decoupling Refactor | [ ] New | [Plan](./tracks/map-core-search-refactor_20260826/plan.md) |
+| **map-core-search-refactor_20260826** | Map Core, Search Autocomplete & Controls Decoupling Refactor | [~] In Progress | [Plan](./tracks/map-core-search-refactor_20260826/plan.md) |
 
 ---
 
@@ -69,5 +69,5 @@ Implement Advanced Markers and PostGIS-powered Region Guides.
 
 ---
 
-- [ ] **Track: Prerequisite refactoring slice: Map Core, Search Autocomplete, Map Controls & Legend Decoupling (Issue #31)**
+- [~] **Track: Prerequisite refactoring slice: Map Core, Search Autocomplete, Map Controls & Legend Decoupling (Issue #31)**
 *Link: [./tracks/map-core-search-refactor_20260826/](./tracks/map-core-search-refactor_20260826/)*
