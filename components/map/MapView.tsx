@@ -192,7 +192,10 @@ const MapView = memo(({
       <div
         ref={streetViewContainerRef}
         className="absolute inset-0 z-50 bg-background"
-        style={{ display: isStreetViewActive ? "block" : "none" }}
+        style={{
+          visibility: isStreetViewActive ? "visible" : "hidden",
+          pointerEvents: isStreetViewActive ? "auto" : "none",
+        }}
       />
       <Map
         ref={mapRef}
