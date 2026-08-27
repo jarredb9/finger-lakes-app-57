@@ -64,11 +64,11 @@
     - [x] Create `hooks/__tests__/use-street-view-panorama.test.ts`
     - [x] Create `components/map/__tests__/google-map-fallback.test.tsx`
     - [x] Test panorama visibility listeners, store synchronization, and fallback DOM stability
-- [~] Task: (TDD Green) Implement Street View hook and Google Map Fallback component
-    - [ ] Implement `hooks/use-street-view-panorama.ts`
-    - [ ] Implement `components/map/google-map-fallback.tsx`
-    - [ ] Verify hook and fallback component unit tests pass
-- [ ] Task: Refactor MapView into a lightweight container component
+- [x] Task: (TDD Green) Implement Street View hook and Google Map Fallback component [3c948c1]
+    - [x] Implement `hooks/use-street-view-panorama.ts`
+    - [x] Implement `components/map/google-map-fallback.tsx`
+    - [x] Verify hook and fallback component unit tests pass
+- [~] Task: Refactor MapView into a lightweight container component
     - [ ] Refactor `components/map/MapView.tsx` (<200 LOC) integrating extracted layers, fallback, and panorama hook
     - [ ] Ensure `openStreetView` is bound to the Mapbox `mapRef` stored in `useMapStore` for modal consumer compatibility (`use-winery-modal-state.ts`)
     - [ ] Verify container presentational structure and DOM stability (`data-state="ready|loading|error"`)
