@@ -1,6 +1,6 @@
 # Implementation Plan: Map Core, Search Autocomplete & Controls Decoupling Refactor (Strict TDD & E2E Alignment)
 
-## Phase 1: Search Autocomplete Decoupling & Pure Mappers (Strict TDD)
+## Phase 1: Search Autocomplete Decoupling & Pure Mappers (Strict TDD) [checkpoint: 6badd0a]
 - [x] Task: (TDD Red) Write failing unit tests for Places SDK response normalizer [26c4eaa]
     - [x] Create `lib/utils/__tests__/places-mapper.test.ts`
     - [x] Test normalization of SDK place objects, formatted predictions, highlights, and fallback properties
@@ -23,7 +23,7 @@
 - [x] Task: Refactor and integrate PlaceAutocomplete component [f0fe4dd]
     - [x] Update `components/PlaceAutocomplete.tsx` to compose `places-mapper`, `useComboboxKeyboard`, and `PlaceAutocompleteSuggestionsList`
     - [x] Update existing `components/__tests__/PlaceAutocomplete.test.tsx` and ensure 100% pass rate
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Search Autocomplete Decoupling & Pure Mappers' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Search Autocomplete Decoupling & Pure Mappers' (Protocol in workflow.md) [6badd0a]
 
 ## Phase 2: Map Controls & Search Bar Decomposition (Strict TDD)
 - [ ] Task: (TDD Red) Write failing tests for MapSearchBar and MapFilterToggles
