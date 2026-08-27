@@ -39,7 +39,7 @@
     - [x] Update `components/__tests__/map-controls.test.tsx` to reflect decoupled architecture
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Map Controls & Search Bar Decomposition' (Protocol in workflow.md) [87f4483]
 
-## Phase 3: Map Symbology & Legend Decoupling (Strict TDD)
+## Phase 3: Map Symbology & Legend Decoupling (Strict TDD) [checkpoint: ae83fb6]
 - [x] Task: (TDD Red) Write failing tests for MapLegendPopover [4b838ae]
     - [x] Create `components/map/__tests__/map-legend-popover.test.tsx`
     - [x] Test popover trigger, legend symbology items, and accessible tooltips
@@ -49,7 +49,7 @@
 - [x] Task: Refactor AppSidebar to consume MapLegendPopover [853506c]
     - [x] Refactor `components/app-sidebar.tsx` to import and render `MapLegendPopover`
     - [x] Run sidebar unit tests to verify zero regressions
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Map Symbology & Legend Decoupling' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Map Symbology & Legend Decoupling' (Protocol in workflow.md) [ae83fb6]
 
 ## Phase 4: Map Core, Adapters, Fallback & Panorama Lifecycle (Strict TDD)
 - [ ] Task: (TDD Red) Write failing unit tests for Mapbox layers and Google Map Adapter
