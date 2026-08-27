@@ -1,4 +1,4 @@
-import { useRef, useCallback } from "react";
+import { useRef, useCallback, useEffect } from "react";
 import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
 import { useMapStore } from "@/lib/stores/mapStore";
 
@@ -8,6 +8,8 @@ export function useStreetViewPanorama() {
   const panoramaRef = useRef<any>(null);
 
   const openStreetView = useCallback(async (lat: number, lng: number) => {
+    useMapStore.getState().setIsStreetViewActive(true);
+
     const streetViewLib = await getGoogleLibrary("streetView");
     if (!containerRef.current) return;
 
@@ -27,8 +29,26 @@ export function useStreetViewPanorama() {
       panoramaRef.current.setPosition({ lat, lng });
       panoramaRef.current.setVisible(true);
     }
-    useMapStore.getState().setIsStreetViewActive(true);
+
+    if (typeof window !== "undefined" && (window as any).google?.maps?.event && panoramaRef.current) {
+      requestAnimationFrame(() => {
+        (window as any).google.maps.event.trigger(panoramaRef.current, "resize");
+      });
+    }
   }, []);
+
+  useEffect(() => {
+    if (
+      isStreetViewActive &&
+      panoramaRef.current &&
+      typeof window !== "undefined" &&
+      (window as any).google?.maps?.event
+    ) {
+      requestAnimationFrame(() => {
+        (window as any).google.maps.event.trigger(panoramaRef.current, "resize");
+      });
+    }
+  }, [isStreetViewActive]);
 
   return {
     containerRef,
