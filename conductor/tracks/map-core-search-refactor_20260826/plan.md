@@ -52,11 +52,11 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Map Symbology & Legend Decoupling' (Protocol in workflow.md) [ae83fb6]
 
 ## Phase 4: Map Core, Adapters, Fallback & Panorama Lifecycle (Strict TDD)
-- [ ] Task: (TDD Red) Write failing unit tests for Mapbox layers and Google Map Adapter
-    - [ ] Create `lib/maps/__tests__/mapbox-layers.test.ts`
-    - [ ] Create `lib/maps/__tests__/google-map-adapter.test.ts`
-    - [ ] Test `GoogleMapAdapter` methods including `openStreetView(lat, lng)` API contract
-- [ ] Task: (TDD Green) Implement Mapbox layers and Google Map Adapter
+- [x] Task: (TDD Red) Write failing unit tests for Mapbox layers and Google Map Adapter [f5a4786]
+    - [x] Create `lib/maps/__tests__/mapbox-layers.test.ts`
+    - [x] Create `lib/maps/__tests__/google-map-adapter.test.ts`
+    - [x] Test `GoogleMapAdapter` methods including `openStreetView(lat, lng)` API contract
+- [~] Task: (TDD Green) Implement Mapbox layers and Google Map Adapter
     - [ ] Implement `lib/maps/mapbox-layers.ts`
     - [ ] Implement `lib/maps/google-map-adapter.ts`
     - [ ] Verify layer and adapter unit tests pass
