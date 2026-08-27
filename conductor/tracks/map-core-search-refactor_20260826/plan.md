@@ -60,11 +60,11 @@
     - [x] Implement `lib/maps/mapbox-layers.ts`
     - [x] Implement `lib/maps/google-map-adapter.ts`
     - [x] Verify layer and adapter unit tests pass
-- [~] Task: (TDD Red) Write failing tests for Street View hook and Google Map Fallback
-    - [ ] Create `hooks/__tests__/use-street-view-panorama.test.ts`
-    - [ ] Create `components/map/__tests__/google-map-fallback.test.tsx`
-    - [ ] Test panorama visibility listeners, store synchronization, and fallback DOM stability
-- [ ] Task: (TDD Green) Implement Street View hook and Google Map Fallback component
+- [x] Task: (TDD Red) Write failing tests for Street View hook and Google Map Fallback [61fba2a]
+    - [x] Create `hooks/__tests__/use-street-view-panorama.test.ts`
+    - [x] Create `components/map/__tests__/google-map-fallback.test.tsx`
+    - [x] Test panorama visibility listeners, store synchronization, and fallback DOM stability
+- [~] Task: (TDD Green) Implement Street View hook and Google Map Fallback component
     - [ ] Implement `hooks/use-street-view-panorama.ts`
     - [ ] Implement `components/map/google-map-fallback.tsx`
     - [ ] Verify hook and fallback component unit tests pass
