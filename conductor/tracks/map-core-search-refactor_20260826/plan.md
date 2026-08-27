@@ -26,10 +26,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Search Autocomplete Decoupling & Pure Mappers' (Protocol in workflow.md) [6badd0a]
 
 ## Phase 2: Map Controls & Search Bar Decomposition (Strict TDD)
-- [ ] Task: (TDD Red) Write failing tests for MapSearchBar and MapFilterToggles
-    - [ ] Create `components/map/__tests__/map-search-bar.test.tsx`
-    - [ ] Create `components/map/__tests__/map-filter-toggles.test.tsx`
-    - [ ] Test search input debouncing, clear actions, filter toggling, and accessibility as pure presentational components
+- [x] Task: (TDD Red) Write failing tests for MapSearchBar and MapFilterToggles [78b6d8f]
+    - [x] Create `components/map/__tests__/map-search-bar.test.tsx`
+    - [x] Create `components/map/__tests__/map-filter-toggles.test.tsx`
+    - [x] Test search input debouncing, clear actions, filter toggling, and accessibility as pure presentational components
 - [ ] Task: (TDD Green) Implement MapSearchBar and MapFilterToggles components
     - [ ] Implement `components/map/map-search-bar.tsx` (pure presentational)
     - [ ] Implement `components/map/map-filter-toggles.tsx` (pure presentational)
