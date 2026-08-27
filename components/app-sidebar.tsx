@@ -12,11 +12,11 @@ import TripList from "@/components/trip-list";
 import { List } from "lucide-react";
 import { cn } from "@/lib/utils";
 import GlobalVisitHistory from "@/components/global-visit-history"; // Import GlobalVisitHistory
-import { MapPin, Route, History, Info, Users, LogOut, User as UserIcon, FileText, Settings } from "lucide-react";
+import { MapPin, Route, History, Users, LogOut, User as UserIcon, FileText, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import FriendsManager from "@/components/friends-manager";
 import { MapControls } from "@/components/map/map-controls";
+import { MapLegendPopover } from "@/components/map/map-legend-popover";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
@@ -216,40 +216,7 @@ export function AppSidebar({
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold">Wineries in View</h3>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground">
-                        <Info className="w-3 h-3 mr-1" /> Legend
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56" align="end">
-                      <div className="space-y-2">
-                        <h4 className="font-semibold text-sm">Map Legend</h4>
-                        <div className="grid gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-[#f17e3a] border border-[#d26e32]" />
-                            <span className="text-xs text-muted-foreground">Trip Stop</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-[#FBBF24] border border-[#F59E0B]" />
-                            <span className="text-xs text-muted-foreground">Favorite</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-[#9333ea] border border-[#7e22ce]" />
-                            <span className="text-xs text-muted-foreground">Want to Go</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-[#10B981] border border-[#059669]" />
-                            <span className="text-xs text-muted-foreground">Visited</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-3 h-3 rounded-full bg-[#3B82F6] border border-[#2563EB]" />
-                            <span className="text-xs text-muted-foreground">Discovered</span>
-                          </div>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                  <MapLegendPopover />
                 </div>
                 <WinerySearchResults
                   listResultsInView={listResultsInView}
