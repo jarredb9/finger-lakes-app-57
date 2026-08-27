@@ -34,9 +34,9 @@
     - [x] Implement `components/map/map-search-bar.tsx` (pure presentational)
     - [x] Implement `components/map/map-filter-toggles.tsx` (pure presentational)
     - [x] Verify unit tests pass
-- [ ] Task: Refactor MapControls component and store wiring
-    - [ ] Refactor `components/map/map-controls.tsx` as a container consuming `useWineryMapContext()` and `useTripStore` to compose new subcomponents and eliminate 11-prop drilling from `app-sidebar.tsx`
-    - [ ] Update `components/__tests__/map-controls.test.tsx` to reflect decoupled architecture
+- [x] Task: Refactor MapControls component and store wiring [87fd1a0]
+    - [x] Refactor `components/map/map-controls.tsx` as a container consuming `useWineryMapContext()` and `useTripStore` to compose new subcomponents and eliminate 11-prop drilling from `app-sidebar.tsx`
+    - [x] Update `components/__tests__/map-controls.test.tsx` to reflect decoupled architecture
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Map Controls & Search Bar Decomposition' (Protocol in workflow.md)
 
 ## Phase 3: Map Symbology & Legend Decoupling (Strict TDD)
