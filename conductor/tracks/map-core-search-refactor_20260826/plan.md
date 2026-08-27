@@ -56,11 +56,11 @@
     - [x] Create `lib/maps/__tests__/mapbox-layers.test.ts`
     - [x] Create `lib/maps/__tests__/google-map-adapter.test.ts`
     - [x] Test `GoogleMapAdapter` methods including `openStreetView(lat, lng)` API contract
-- [~] Task: (TDD Green) Implement Mapbox layers and Google Map Adapter
-    - [ ] Implement `lib/maps/mapbox-layers.ts`
-    - [ ] Implement `lib/maps/google-map-adapter.ts`
-    - [ ] Verify layer and adapter unit tests pass
-- [ ] Task: (TDD Red) Write failing tests for Street View hook and Google Map Fallback
+- [x] Task: (TDD Green) Implement Mapbox layers and Google Map Adapter [22f3c94]
+    - [x] Implement `lib/maps/mapbox-layers.ts`
+    - [x] Implement `lib/maps/google-map-adapter.ts`
+    - [x] Verify layer and adapter unit tests pass
+- [~] Task: (TDD Red) Write failing tests for Street View hook and Google Map Fallback
     - [ ] Create `hooks/__tests__/use-street-view-panorama.test.ts`
     - [ ] Create `components/map/__tests__/google-map-fallback.test.tsx`
     - [ ] Test panorama visibility listeners, store synchronization, and fallback DOM stability
