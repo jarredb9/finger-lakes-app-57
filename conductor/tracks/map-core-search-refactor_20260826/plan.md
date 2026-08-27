@@ -43,9 +43,9 @@
 - [x] Task: (TDD Red) Write failing tests for MapLegendPopover [4b838ae]
     - [x] Create `components/map/__tests__/map-legend-popover.test.tsx`
     - [x] Test popover trigger, legend symbology items, and accessible tooltips
-- [ ] Task: (TDD Green) Implement MapLegendPopover component
-    - [ ] Implement `components/map/map-legend-popover.tsx`
-    - [ ] Verify `map-legend-popover.test.tsx` passes
+- [x] Task: (TDD Green) Implement MapLegendPopover component [91dd16e]
+    - [x] Implement `components/map/map-legend-popover.tsx`
+    - [x] Verify `map-legend-popover.test.tsx` passes
 - [ ] Task: Refactor AppSidebar to consume MapLegendPopover
     - [ ] Refactor `components/app-sidebar.tsx` to import and render `MapLegendPopover`
     - [ ] Run sidebar unit tests to verify zero regressions
