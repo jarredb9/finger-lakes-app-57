@@ -25,7 +25,7 @@
     - [x] Update existing `components/__tests__/PlaceAutocomplete.test.tsx` and ensure 100% pass rate
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Search Autocomplete Decoupling & Pure Mappers' (Protocol in workflow.md) [6badd0a]
 
-## Phase 2: Map Controls & Search Bar Decomposition (Strict TDD)
+## Phase 2: Map Controls & Search Bar Decomposition (Strict TDD) [checkpoint: 87f4483]
 - [x] Task: (TDD Red) Write failing tests for MapSearchBar and MapFilterToggles [78b6d8f]
     - [x] Create `components/map/__tests__/map-search-bar.test.tsx`
     - [x] Create `components/map/__tests__/map-filter-toggles.test.tsx`
@@ -37,7 +37,7 @@
 - [x] Task: Refactor MapControls component and store wiring [87fd1a0]
     - [x] Refactor `components/map/map-controls.tsx` as a container consuming `useWineryMapContext()` and `useTripStore` to compose new subcomponents and eliminate 11-prop drilling from `app-sidebar.tsx`
     - [x] Update `components/__tests__/map-controls.test.tsx` to reflect decoupled architecture
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Map Controls & Search Bar Decomposition' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Map Controls & Search Bar Decomposition' (Protocol in workflow.md) [87f4483]
 
 ## Phase 3: Map Symbology & Legend Decoupling (Strict TDD)
 - [ ] Task: (TDD Red) Write failing tests for MapLegendPopover
