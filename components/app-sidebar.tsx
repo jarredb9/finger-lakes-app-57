@@ -45,16 +45,6 @@ export function AppSidebar({
     listResultsInView,
     isSearching,
     handleOpenModal,
-    hitApiLimit,
-    searchLocation,
-    setSearchLocation,
-    autoSearch,
-    setAutoSearch,
-    handleSearchSubmit,
-    handleManualSearchArea,
-    filter,
-    handleFilterChange,
-    handlePlaceSelect,
   } = useWineryMapContext();
 
   const { setVisitHistoryModalOpen, isHydrated } = useUIStore();
@@ -91,7 +81,7 @@ export function AppSidebar({
         <GlobalVisitHistory isActive={activeTab === 'history'} />
       </div>
     </div>
-  ), [setVisitHistoryModalOpen, activeTab]); // Added activeTab dependency
+  ), [setVisitHistoryModalOpen, activeTab, isHydrated]); // Added activeTab and isHydrated dependencies
 
   const friendsContent = useMemo(() => (
     <div className="p-4 space-y-4">
@@ -219,19 +209,7 @@ export function AppSidebar({
           <TabsContent value="explore" className="m-0 h-full data-[state=active]:flex flex-col">
             <div className="p-4 space-y-4 pb-20">
 
-              <MapControls
-                searchLocation={searchLocation}
-                setSearchLocation={setSearchLocation}
-                isSearching={isSearching}
-                handleSearchSubmit={handleSearchSubmit}
-                handleManualSearchArea={handleManualSearchArea}
-                autoSearch={autoSearch}
-                setAutoSearch={setAutoSearch}
-                hitApiLimit={hitApiLimit}
-                filter={filter}
-                handleFilterChange={handleFilterChange}
-                handlePlaceSelect={handlePlaceSelect}
-              />
+              <MapControls />
 
               <Separator />
 
