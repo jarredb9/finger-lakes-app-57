@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MapControls } from '../map/map-controls';
+import { MapControls } from '../map-controls';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useWineryMapContext } from '@/components/winery-map-context';
 import { Trip } from '@/lib/types';
