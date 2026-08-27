@@ -84,6 +84,10 @@ describe("GoogleMapFallback Component", () => {
     expect(screen.getByTestId("google-map-fallback")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /outdoors/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /streets/i })).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(mockMapsLib.Map).toHaveBeenCalled();
+    });
   });
 
   it("initializes Google Map and registers adapter with useMapStore", async () => {
