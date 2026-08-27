@@ -148,7 +148,7 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
         )}
       </div>
       {tripDate && (
-        <>
+        <div className="space-y-4">
           <div className="space-y-2">
             <Label>Choose a trip or create a new one:</Label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -160,7 +160,7 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
                   </label>
                 </div>
               ))}
-              <div className="flex items-center gap-2 p-3 border rounded-lg bg-white" data-testid="new-trip-option">
+              <div key="new-trip-option" className="flex items-center gap-2 p-3 border rounded-lg bg-white" data-testid="new-trip-option">
                 <Checkbox id="new-trip" checked={selectedTrips.has("new")} onCheckedChange={handleToggleNewTrip} data-testid="new-trip-checkbox" />
                 <label htmlFor="new-trip" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                   Create a new trip...
@@ -169,12 +169,12 @@ export default function TripPlannerSection({ winery, onClose }: TripPlannerSecti
             </div>
           </div>
           {selectedTrips.size > 0 && (
-            <div className="space-y-2">
+            <div key="trip-details-inputs" className="space-y-2">
               {selectedTrips.has("new") && <Input placeholder="New trip name..." value={newTripName} onChange={(e) => setNewTripName(e.target.value)} data-testid="new-trip-name-input" />}
               <Textarea placeholder="Add notes for this visit..." value={addTripNotes} onChange={(e) => setAddTripNotes(e.target.value)} data-testid="trip-notes-input" />
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

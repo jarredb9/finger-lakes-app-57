@@ -36,7 +36,7 @@ export function DatePicker({ date, onSelect }: DatePickerProps) {
                 <DrawerTrigger asChild>
                     <Button variant="outline" className="w-full justify-start text-left font-normal" data-testid="datepicker-trigger" data-state="ready">
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date ? date.toLocaleDateString() : <span>Pick a date</span>}
+                        <span>{date ? date.toLocaleDateString() : "Pick a date"}</span>
                     </Button>
                 </DrawerTrigger>
                 <DrawerContent data-testid="datepicker-drawer-content">
@@ -62,7 +62,7 @@ export function DatePicker({ date, onSelect }: DatePickerProps) {
             <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal" data-testid="datepicker-trigger" data-state="ready">
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? date.toLocaleDateString() : <span>Pick a date</span>}
+                    <span>{date ? date.toLocaleDateString() : "Pick a date"}</span>
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" data-state="ready" data-testid="datepicker-calendar">
