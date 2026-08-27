@@ -68,11 +68,11 @@
     - [x] Implement `hooks/use-street-view-panorama.ts`
     - [x] Implement `components/map/google-map-fallback.tsx`
     - [x] Verify hook and fallback component unit tests pass
-- [~] Task: Refactor MapView into a lightweight container component
-    - [ ] Refactor `components/map/MapView.tsx` (<200 LOC) integrating extracted layers, fallback, and panorama hook
-    - [ ] Ensure `openStreetView` is bound to the Mapbox `mapRef` stored in `useMapStore` for modal consumer compatibility (`use-winery-modal-state.ts`)
-    - [ ] Verify container presentational structure and DOM stability (`data-state="ready|loading|error"`)
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Map Core, Adapters, Fallback & Panorama Lifecycle' (Protocol in workflow.md)
+- [x] Task: Refactor MapView into a lightweight container component [44e9f5c]
+    - [x] Refactor `components/map/MapView.tsx` (<200 LOC) integrating extracted layers, fallback, and panorama hook
+    - [x] Ensure `openStreetView` is bound to the Mapbox `mapRef` stored in `useMapStore` for modal consumer compatibility (`use-winery-modal-state.ts`)
+    - [x] Verify container presentational structure and DOM stability (`data-state="ready|loading|error"`)
+- [~] Task: Conductor - User Manual Verification 'Phase 4: Map Core, Adapters, Fallback & Panorama Lifecycle' (Protocol in workflow.md)
 
 ## Phase 5: E2E Test Suite Alignment & Atomic Verification
 - [ ] Task: Audit and update all affected Playwright E2E test suites
