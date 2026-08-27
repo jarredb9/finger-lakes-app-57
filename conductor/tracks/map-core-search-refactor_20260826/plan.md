@@ -40,9 +40,9 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Map Controls & Search Bar Decomposition' (Protocol in workflow.md) [87f4483]
 
 ## Phase 3: Map Symbology & Legend Decoupling (Strict TDD)
-- [ ] Task: (TDD Red) Write failing tests for MapLegendPopover
-    - [ ] Create `components/map/__tests__/map-legend-popover.test.tsx`
-    - [ ] Test popover trigger, legend symbology items, and accessible tooltips
+- [x] Task: (TDD Red) Write failing tests for MapLegendPopover [4b838ae]
+    - [x] Create `components/map/__tests__/map-legend-popover.test.tsx`
+    - [x] Test popover trigger, legend symbology items, and accessible tooltips
 - [ ] Task: (TDD Green) Implement MapLegendPopover component
     - [ ] Implement `components/map/map-legend-popover.tsx`
     - [ ] Verify `map-legend-popover.test.tsx` passes
