@@ -46,9 +46,9 @@
 - [x] Task: (TDD Green) Implement MapLegendPopover component [91dd16e]
     - [x] Implement `components/map/map-legend-popover.tsx`
     - [x] Verify `map-legend-popover.test.tsx` passes
-- [ ] Task: Refactor AppSidebar to consume MapLegendPopover
-    - [ ] Refactor `components/app-sidebar.tsx` to import and render `MapLegendPopover`
-    - [ ] Run sidebar unit tests to verify zero regressions
+- [x] Task: Refactor AppSidebar to consume MapLegendPopover [853506c]
+    - [x] Refactor `components/app-sidebar.tsx` to import and render `MapLegendPopover`
+    - [x] Run sidebar unit tests to verify zero regressions
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Map Symbology & Legend Decoupling' (Protocol in workflow.md)
 
 ## Phase 4: Map Core, Adapters, Fallback & Panorama Lifecycle (Strict TDD)
