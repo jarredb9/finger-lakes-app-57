@@ -30,10 +30,10 @@
     - [x] Create `components/map/__tests__/map-search-bar.test.tsx`
     - [x] Create `components/map/__tests__/map-filter-toggles.test.tsx`
     - [x] Test search input debouncing, clear actions, filter toggling, and accessibility as pure presentational components
-- [ ] Task: (TDD Green) Implement MapSearchBar and MapFilterToggles components
-    - [ ] Implement `components/map/map-search-bar.tsx` (pure presentational)
-    - [ ] Implement `components/map/map-filter-toggles.tsx` (pure presentational)
-    - [ ] Verify unit tests pass
+- [x] Task: (TDD Green) Implement MapSearchBar and MapFilterToggles components [e4bc76b]
+    - [x] Implement `components/map/map-search-bar.tsx` (pure presentational)
+    - [x] Implement `components/map/map-filter-toggles.tsx` (pure presentational)
+    - [x] Verify unit tests pass
 - [ ] Task: Refactor MapControls component and store wiring
     - [ ] Refactor `components/map/map-controls.tsx` as a container consuming `useWineryMapContext()` and `useTripStore` to compose new subcomponents and eliminate 11-prop drilling from `app-sidebar.tsx`
     - [ ] Update `components/__tests__/map-controls.test.tsx` to reflect decoupled architecture
