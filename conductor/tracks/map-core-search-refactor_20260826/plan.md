@@ -37,6 +37,7 @@
 - [x] Task: Refactor MapControls component and store wiring [87fd1a0]
     - [x] Refactor `components/map/map-controls.tsx` as a container consuming `useWineryMapContext()` and `useTripStore` to compose new subcomponents and eliminate 11-prop drilling from `app-sidebar.tsx`
     - [x] Update `components/__tests__/map-controls.test.tsx` to reflect decoupled architecture
+- [x] Task: Apply review suggestions (Standardize formatDateLocal in MapFilterToggles) [8325ed4]
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Map Controls & Search Bar Decomposition' (Protocol in workflow.md) [87f4483]
 
 ## Phase 3: Map Symbology & Legend Decoupling (Strict TDD) [checkpoint: ae83fb6]
