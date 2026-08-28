@@ -100,10 +100,10 @@
 - [x] Task: (TDD Green) Implement MobileNavBar component [50e2467]
     - [x] Implement `components/layout/MobileNavBar.tsx` (colocating `useFriendStore` and handling navigation tab clicks)
     - [x] Verify `MobileNavBar.test.tsx` passes
-- [~] Task: Refactor AppShell to consume MobileNavBar
-    - [ ] Refactor `components/app-shell.tsx` (<160 LOC) to delegate mobile navigation to `MobileNavBar`
-    - [ ] Remove `useFriendStore` subscription from `AppShellContent`
-    - [ ] Update and verify `components/__tests__/app-shell.test.tsx` and related suites
+- [x] Task: Refactor AppShell to consume MobileNavBar [e7ca332]
+    - [x] Refactor `components/app-shell.tsx` (<160 LOC) to delegate mobile navigation to `MobileNavBar`
+    - [x] Remove `useFriendStore` subscription from `AppShellContent`
+    - [x] Update and verify `components/__tests__/app-shell.test.tsx` and related suites
 - [ ] Task: Conductor - User Manual Verification 'Phase 3.2: Mobile Navigation Bar Modular Decomposition' (Protocol in workflow.md)
 
 ## Phase 5: E2E Test Suite Alignment & Atomic Verification
