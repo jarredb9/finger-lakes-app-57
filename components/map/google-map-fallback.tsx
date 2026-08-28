@@ -69,7 +69,7 @@ export function GoogleMapFallback({
       setMap(adapter as any);
 
       // Apply initial style
-      gmap.setMapTypeId(mapStyle === "outdoors" ? "terrain" : "roadmap");
+      gmap.setMapTypeId("roadmap");
     }
 
     initMap();
@@ -113,8 +113,15 @@ export function GoogleMapFallback({
     const gmap = mapAdapter.gmap;
     let active = true;
 
-    // Clear old markers
-    markersRef.current.forEach((m) => m.setMap && m.setMap(null));
+    // Clear old markers (supporting both AdvancedMarkerElement and legacy Marker)
+    markersRef.current.forEach((m) => {
+      if (typeof m.setMap === "function") {
+        m.setMap(null);
+      }
+      if ("map" in m) {
+        m.map = null;
+      }
+    });
     markersRef.current = [];
 
     allWineries.forEach(async (winery) => {
@@ -162,6 +169,15 @@ export function GoogleMapFallback({
 
     return () => {
       active = false;
+      markersRef.current.forEach((m) => {
+        if (typeof m.setMap === "function") {
+          m.setMap(null);
+        }
+        if ("map" in m) {
+          m.map = null;
+        }
+      });
+      markersRef.current = [];
     };
   }, [mapAdapter, allWineries, onMarkerClick]);
 
