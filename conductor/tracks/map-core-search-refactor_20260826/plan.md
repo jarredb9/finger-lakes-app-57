@@ -51,7 +51,7 @@
     - [x] Run sidebar unit tests to verify zero regressions
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Map Symbology & Legend Decoupling' (Protocol in workflow.md) [ae83fb6]
 
-## Phase 4: Map Core, Adapters, Fallback & Panorama Lifecycle (Strict TDD)
+## Phase 4: Map Core, Adapters, Fallback & Street View Launcher (Strict TDD)
 - [x] Task: (TDD Red) Write failing unit tests for Mapbox layers and Google Map Adapter [f5a4786]
     - [x] Create `lib/maps/__tests__/mapbox-layers.test.ts`
     - [x] Create `lib/maps/__tests__/google-map-adapter.test.ts`
@@ -63,16 +63,16 @@
 - [x] Task: (TDD Red) Write failing tests for Street View hook and Google Map Fallback [61fba2a]
     - [x] Create `hooks/__tests__/use-street-view-panorama.test.ts`
     - [x] Create `components/map/__tests__/google-map-fallback.test.tsx`
-    - [x] Test panorama visibility listeners, store synchronization, and fallback DOM stability
+    - [x] Test Street View universal URL launching, store synchronization, and fallback DOM stability
 - [x] Task: (TDD Green) Implement Street View hook and Google Map Fallback component [3c948c1]
-    - [x] Implement `hooks/use-street-view-panorama.ts`
+    - [x] Implement `hooks/use-street-view-panorama.ts` (Universal URL launcher with zero quota / GPU overhead)
     - [x] Implement `components/map/google-map-fallback.tsx`
     - [x] Verify hook and fallback component unit tests pass
 - [x] Task: Refactor MapView into a lightweight container component [44e9f5c]
     - [x] Refactor `components/map/MapView.tsx` (<200 LOC) integrating extracted layers, fallback, and panorama hook
     - [x] Ensure `openStreetView` is bound to the Mapbox `mapRef` stored in `useMapStore` for modal consumer compatibility (`use-winery-modal-state.ts`)
     - [x] Verify container presentational structure and DOM stability (`data-state="ready|loading|error"`)
-- [~] Task: Conductor - User Manual Verification 'Phase 4: Map Core, Adapters, Fallback & Panorama Lifecycle' (Protocol in workflow.md)
+- [~] Task: Conductor - User Manual Verification 'Phase 4: Map Core, Adapters, Fallback & Street View Launcher' (Protocol in workflow.md)
 
 ## Phase 5: E2E Test Suite Alignment & Atomic Verification
 - [ ] Task: Audit and update all affected Playwright E2E test suites
