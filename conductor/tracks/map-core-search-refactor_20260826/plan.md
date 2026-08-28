@@ -72,6 +72,7 @@
     - [x] Refactor `components/map/MapView.tsx` (<200 LOC) integrating extracted layers, fallback, and panorama hook
     - [x] Ensure `openStreetView` is bound to the Mapbox `mapRef` stored in `useMapStore` for modal consumer compatibility (`use-winery-modal-state.ts`)
     - [x] Verify container presentational structure and DOM stability (`data-state="ready|loading|error"`)
+- [x] Task: Apply review suggestions [1123de3]
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Map Core, Adapters, Fallback & Street View Launcher' (Protocol in workflow.md) [81a71fe]
 
 ## Phase 5: E2E Test Suite Alignment & Atomic Verification
