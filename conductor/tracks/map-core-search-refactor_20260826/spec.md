@@ -33,6 +33,11 @@ This track executes a focused prerequisite refactoring slice on 4 core map and s
 - Extract tab content subcomponents ([components/sidebar/explore-tab-content.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/sidebar/explore-tab-content.tsx) and [components/sidebar/history-tab-content.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/sidebar/history-tab-content.tsx)) to colocate `useWineryMapContext` and `useUIStore` state subscriptions, eliminating full sidebar re-renders during map viewport changes.
 - Refactor `AppSidebar.tsx` into a lightweight layout and tab orchestrator (<80 LOC).
 
+### 5. Mobile Navigation Bar Modular Decomposition (`components/app-shell.tsx`)
+- Extract mobile bottom navigation bar from [components/app-shell.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-shell.tsx) into [components/layout/MobileNavBar.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/layout/MobileNavBar.tsx).
+- Colocate `useFriendStore` badge count subscription within `MobileNavBar` to prevent `AppShell` root re-renders on realtime social updates.
+- Complete 3-tier layout symmetry (`AppSidebar` for Desktop, `TabletFloatingDrawer` for Tablet, `MobileNavBar` + `InteractiveBottomSheet` for Mobile).
+
 ## Non-Functional Requirements & Coding Standards
 - **Zero Regression:** All existing map navigation, marker selection, place search, fallback, and Street View modal actions must continue working seamlessly.
 - **Container / Presentational Separation:** UI components remain focused on presentation; pure utilities and custom hooks encapsulate logic.
@@ -55,5 +60,6 @@ This track executes a focused prerequisite refactoring slice on 4 core map and s
 - [ ] `MapLegendPopover` is isolated in `components/map/map-legend-popover.tsx`.
 - [ ] `AppSidebar.tsx` is decomposed into a lightweight tab orchestrator (<80 LOC), colocating map context in `ExploreTabContent` and history modal state in `HistoryTabContent`.
 - [ ] `UserNav` is extracted into `components/nav/user-nav.tsx` and shared across `AppSidebar` and `AppShell`.
+- [ ] `MobileNavBar.tsx` is extracted into `components/layout/MobileNavBar.tsx`, colocating friend request badge store subscriptions.
 - [ ] Unit tests for `lib/utils/places-mapper.ts`, extracted hooks, and subcomponents pass with 100% success.
 - [ ] Containerized Playwright E2E test suites (`smoke.spec.ts`, `accessibility.spec.ts`, `responsive-layout.spec.ts`) pass with 0 regressions.
