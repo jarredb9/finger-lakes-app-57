@@ -77,11 +77,11 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Map Core, Adapters, Fallback & Street View Launcher' (Protocol in workflow.md) [81a71fe]
 
 ## Phase 3.1: AppSidebar & UserNav Modular Decomposition (Strict TDD)
-- [ ] Task: (TDD Red) Write failing unit tests for UserNav, ExploreTabContent, and HistoryTabContent
-    - [ ] Create `components/nav/__tests__/user-nav.test.tsx`
-    - [ ] Create `components/sidebar/__tests__/explore-tab-content.test.tsx`
-    - [ ] Create `components/sidebar/__tests__/history-tab-content.test.tsx`
-    - [ ] Test UserNav menu items, PWA triggers, ExploreTabContent search result rendering, and HistoryTabContent modal toggle
+- [x] Task: (TDD Red) Write failing unit tests for UserNav, ExploreTabContent, and HistoryTabContent [71a117e]
+    - [x] Create `components/nav/__tests__/user-nav.test.tsx`
+    - [x] Create `components/sidebar/__tests__/explore-tab-content.test.tsx`
+    - [x] Create `components/sidebar/__tests__/history-tab-content.test.tsx`
+    - [x] Test UserNav menu items, PWA triggers, ExploreTabContent search result rendering, and HistoryTabContent modal toggle
 - [ ] Task: (TDD Green) Implement UserNav, ExploreTabContent, and HistoryTabContent components
     - [ ] Implement `components/nav/user-nav.tsx`
     - [ ] Implement `components/sidebar/explore-tab-content.tsx` (colocating `useWineryMapContext`)
