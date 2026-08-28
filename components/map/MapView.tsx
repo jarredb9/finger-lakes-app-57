@@ -250,4 +250,5 @@ const MapView = memo(({
 
 MapView.displayName = "MapView";
 
+export { MapView };
 export default MapView;

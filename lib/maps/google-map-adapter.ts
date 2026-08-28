@@ -4,8 +4,8 @@
  * the Google Map instance as if it were a Mapbox map instance.
  */
 export class GoogleMapAdapter {
-  public gmap: any;
-  private listeners = new globalThis.Map<string, any[]>();
+  readonly gmap: any;
+  private readonly listeners = new globalThis.Map<string, any[]>();
 
   constructor(gmap: any) {
     this.gmap = gmap;
