@@ -76,7 +76,7 @@
 - [x] Task: Apply review suggestions [1123de3]
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Map Core, Adapters, Fallback & Street View Launcher' (Protocol in workflow.md) [81a71fe]
 
-## Phase 3.1: AppSidebar & UserNav Modular Decomposition (Strict TDD)
+## Phase 3.1: AppSidebar & UserNav Modular Decomposition (Strict TDD) [checkpoint: fb1e0cf]
 - [x] Task: (TDD Red) Write failing unit tests for UserNav, ExploreTabContent, and HistoryTabContent [71a117e]
     - [x] Create `components/nav/__tests__/user-nav.test.tsx`
     - [x] Create `components/sidebar/__tests__/explore-tab-content.test.tsx`
@@ -91,7 +91,7 @@
     - [x] Refactor `components/app-sidebar.tsx` (<80 LOC) as a clean tab orchestrator
     - [x] Refactor `components/app-shell.tsx` to consume shared `UserNav` for mobile floating avatar menu
     - [x] Update and verify `components/__tests__/app-sidebar.test.tsx` and all unit test suites
-- [ ] Task: Conductor - User Manual Verification 'Phase 3.1: AppSidebar & UserNav Modular Decomposition' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3.1: AppSidebar & UserNav Modular Decomposition' (Protocol in workflow.md) [fb1e0cf]
 
 ## Phase 5: E2E Test Suite Alignment & Atomic Verification
 - [ ] Task: Audit and update all affected Playwright E2E test suites
