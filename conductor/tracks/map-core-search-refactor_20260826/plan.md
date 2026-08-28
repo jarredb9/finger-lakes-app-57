@@ -94,10 +94,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3.1: AppSidebar & UserNav Modular Decomposition' (Protocol in workflow.md) [fb1e0cf]
 
 ## Phase 3.2: Mobile Navigation Bar Modular Decomposition (Strict TDD)
-- [ ] Task: (TDD Red) Write failing unit tests for MobileNavBar
-    - [ ] Create `components/layout/__tests__/MobileNavBar.test.tsx`
-    - [ ] Test rendering 5 navigation buttons, active tab states, friend request badge counts, and sheet open/mode toggles
-- [ ] Task: (TDD Green) Implement MobileNavBar component
+- [x] Task: (TDD Red) Write failing unit tests for MobileNavBar [2efa0cf]
+    - [x] Create `components/layout/__tests__/MobileNavBar.test.tsx`
+    - [x] Test rendering 5 navigation buttons, active tab states, friend request badge counts, and sheet open/mode toggles
+- [~] Task: (TDD Green) Implement MobileNavBar component
     - [ ] Implement `components/layout/MobileNavBar.tsx` (colocating `useFriendStore` and handling navigation tab clicks)
     - [ ] Verify `MobileNavBar.test.tsx` passes
 - [ ] Task: Refactor AppShell to consume MobileNavBar
