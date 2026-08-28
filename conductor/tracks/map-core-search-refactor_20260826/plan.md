@@ -97,10 +97,10 @@
 - [x] Task: (TDD Red) Write failing unit tests for MobileNavBar [2efa0cf]
     - [x] Create `components/layout/__tests__/MobileNavBar.test.tsx`
     - [x] Test rendering 5 navigation buttons, active tab states, friend request badge counts, and sheet open/mode toggles
-- [~] Task: (TDD Green) Implement MobileNavBar component
-    - [ ] Implement `components/layout/MobileNavBar.tsx` (colocating `useFriendStore` and handling navigation tab clicks)
-    - [ ] Verify `MobileNavBar.test.tsx` passes
-- [ ] Task: Refactor AppShell to consume MobileNavBar
+- [x] Task: (TDD Green) Implement MobileNavBar component [50e2467]
+    - [x] Implement `components/layout/MobileNavBar.tsx` (colocating `useFriendStore` and handling navigation tab clicks)
+    - [x] Verify `MobileNavBar.test.tsx` passes
+- [~] Task: Refactor AppShell to consume MobileNavBar
     - [ ] Refactor `components/app-shell.tsx` (<160 LOC) to delegate mobile navigation to `MobileNavBar`
     - [ ] Remove `useFriendStore` subscription from `AppShellContent`
     - [ ] Update and verify `components/__tests__/app-shell.test.tsx` and related suites
