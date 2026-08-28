@@ -170,7 +170,7 @@ export async function refreshFriendsStore(page: Page) {
 // ==========================================
 
 export async function waitForMapReady(page: Page) {
-    const mapContainer = page.locator('[data-testid="map-container"]');
+    const mapContainer = page.locator('[data-testid="map-container"]').first();
     
     // Proactively initialize bounds if missing (helps stabilize mocks and unblocks search)
     await page.evaluate(() => {

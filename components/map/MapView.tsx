@@ -157,7 +157,7 @@ const MapView = memo(({
   if (!mounted) {
     return (
       <div
-        data-testid="map-container"
+        data-testid="map-view-canvas"
         data-state="loading"
         className="h-full w-full bg-muted animate-pulse"
       />
@@ -167,7 +167,7 @@ const MapView = memo(({
   const isSupported = mapboxgl.supported();
   if (!isSupported) {
     return (
-      <div data-testid="map-container" data-state="ready" className="relative h-full w-full">
+      <div data-testid="map-view-canvas" data-state="ready" className="relative h-full w-full">
         <GoogleMapFallback
           discoveredWineries={discoveredWineries}
           visitedWineries={visitedWineries}
@@ -183,7 +183,7 @@ const MapView = memo(({
 
   return (
     <div
-      data-testid="map-container"
+      data-testid="map-view-canvas"
       data-state="ready"
       className="relative h-full w-full bg-muted"
     >
