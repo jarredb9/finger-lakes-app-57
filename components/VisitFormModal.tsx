@@ -69,10 +69,6 @@ export function VisitFormModal() {
 
     const isThisModalOpen = isModalOpen && !!activeVisitWinery;
 
-    if (isModalOpen || !!activeVisitWinery) {
-        console.log(`[DIAGNOSTIC] VisitFormModal: isModalOpen=${isModalOpen}, activeVisitWinery=${JSON.stringify(activeVisitWinery)}, mounted=${mounted}, isThisModalOpen=${isThisModalOpen}`);
-    }
-
     if (!mounted) return null;
 
     const modalRoot = document.getElementById("modal-root");
