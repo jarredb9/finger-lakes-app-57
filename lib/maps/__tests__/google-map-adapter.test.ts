@@ -2,17 +2,9 @@ import { GoogleMapAdapter } from "../google-map-adapter";
 
 describe("GoogleMapAdapter", () => {
   let mockGmap: any;
-  let mockPanorama: any;
   let mockBounds: any;
 
   beforeEach(() => {
-    mockPanorama = {
-      setPosition: jest.fn(),
-      setVisible: jest.fn(),
-      getVisible: jest.fn().mockReturnValue(false),
-      addListener: jest.fn(),
-    };
-
     mockBounds = {
       getNorthEast: jest.fn().mockReturnValue({ lat: () => 43.0, lng: () => -76.0 }),
       getSouthWest: jest.fn().mockReturnValue({ lat: () => 42.0, lng: () => -77.0 }),
@@ -35,7 +27,6 @@ describe("GoogleMapAdapter", () => {
           handler,
         };
       }),
-      getStreetView: jest.fn().mockReturnValue(mockPanorama),
     };
 
     (window as any).google = {
@@ -47,6 +38,8 @@ describe("GoogleMapAdapter", () => {
         })),
       },
     };
+
+    window.open = jest.fn();
   });
 
   describe("Zoom methods", () => {
@@ -175,19 +168,15 @@ describe("GoogleMapAdapter", () => {
   });
 
   describe("openStreetView", () => {
-    it("updates street view position and sets visible to true", () => {
+    it("opens Google Maps Street View Universal URL in a new tab", () => {
       const adapter = new GoogleMapAdapter(mockGmap);
       adapter.openStreetView(42.6105, -76.8456);
 
-      expect(mockGmap.getStreetView).toHaveBeenCalled();
-      expect(mockPanorama.setPosition).toHaveBeenCalledWith({ lat: 42.6105, lng: -76.8456 });
-      expect(mockPanorama.setVisible).toHaveBeenCalledWith(true);
-    });
-
-    it("handles null panorama without throwing", () => {
-      mockGmap.getStreetView.mockReturnValue(null);
-      const adapter = new GoogleMapAdapter(mockGmap);
-      expect(() => adapter.openStreetView(42.6105, -76.8456)).not.toThrow();
+      expect(window.open).toHaveBeenCalledWith(
+        "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=42.6105,-76.8456",
+        "_blank",
+        "noopener,noreferrer"
+      );
     });
   });
 });

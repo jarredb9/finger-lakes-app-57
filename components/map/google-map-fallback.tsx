@@ -70,13 +70,6 @@ export function GoogleMapFallback({
 
       // Apply initial style
       gmap.setMapTypeId(mapStyle === "outdoors" ? "terrain" : "roadmap");
-
-      const panorama = gmap.getStreetView ? gmap.getStreetView() : null;
-      if (panorama) {
-        panorama.addListener("visible_changed", () => {
-          useMapStore.getState().setIsStreetViewActive(panorama.getVisible());
-        });
-      }
     }
 
     initMap();
@@ -86,7 +79,6 @@ export function GoogleMapFallback({
       mapRef.current = null;
       setMapAdapter(null);
       setMap(null);
-      useMapStore.getState().setIsStreetViewActive(false);
     };
   }, [setMap]);
 

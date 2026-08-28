@@ -99,10 +99,9 @@ export class GoogleMapAdapter {
   }
 
   openStreetView(lat: number, lng: number): void {
-    const panorama = this.gmap?.getStreetView ? this.gmap.getStreetView() : null;
-    if (panorama) {
-      panorama.setPosition({ lat, lng });
-      panorama.setVisible(true);
+    if (typeof window !== "undefined") {
+      const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+      window.open(url, "_blank", "noopener,noreferrer");
     }
   }
 }
