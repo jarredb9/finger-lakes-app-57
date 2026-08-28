@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Trip } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, formatDateLocal } from "@/lib/utils";
 
 const CATEGORY_KEYS = ["all", "visited", "favorites", "wantToGo", "notVisited"];
 const ATTRIBUTE_KEYS = ["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"];
@@ -150,7 +150,7 @@ export function MapFilterToggles({
               .filter((trip) => !!trip.id)
               .map((trip) => (
                 <SelectItem key={trip.id} value={trip.id.toString()}>
-                  {trip.name} ({new Date(trip.trip_date + "T00:00:00").toLocaleDateString()})
+                  {trip.name} ({formatDateLocal(new Date(trip.trip_date + "T00:00:00"))})
                 </SelectItem>
               ))}
           </SelectContent>
