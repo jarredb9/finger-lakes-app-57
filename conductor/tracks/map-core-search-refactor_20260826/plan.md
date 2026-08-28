@@ -106,7 +106,7 @@
     - [x] Update and verify `components/__tests__/app-shell.test.tsx` and related suites
 - [x] Task: Conductor - User Manual Verification 'Phase 3.2: Mobile Navigation Bar Modular Decomposition' (Protocol in workflow.md) [72f560f]
 
-## Phase 5: E2E Test Suite Alignment & Atomic Verification
+## Phase 5: E2E Test Suite Alignment & Atomic Verification [checkpoint: 8d1badb]
 - [x] Task: Audit and update all affected Playwright E2E test suites [f1078a3]
     - [x] Update and verify `e2e/smoke.spec.ts` (Core map loading & search)
     - [x] Update and verify `e2e/accessibility.spec.ts` (Map controls & autocomplete keyboard navigation)
@@ -119,4 +119,4 @@
     - [x] Run `./scripts/run-e2e-container.sh chromium e2e/responsive-layout.spec.ts`
     - [x] Resolve testing failures in `./scripts/run-e2e-container.sh "mobile safari" e2e/pwa-offline.spec.ts`
     - [x] Run full Jest unit suite `npm test` (>80% coverage on new modules)
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: E2E Test Suite Alignment & Atomic Verification' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: E2E Test Suite Alignment & Atomic Verification' (Protocol in workflow.md) [8d1badb]
