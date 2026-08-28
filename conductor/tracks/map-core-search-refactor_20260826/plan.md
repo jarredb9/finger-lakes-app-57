@@ -94,12 +94,12 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3.1: AppSidebar & UserNav Modular Decomposition' (Protocol in workflow.md) [fb1e0cf]
 
 ## Phase 5: E2E Test Suite Alignment & Atomic Verification
-- [ ] Task: Audit and update all affected Playwright E2E test suites
-    - [ ] Update and verify `e2e/smoke.spec.ts` (Core map loading & search)
-    - [ ] Update and verify `e2e/accessibility.spec.ts` (Map controls & autocomplete keyboard navigation)
-    - [ ] Update and verify `e2e/responsive-layout.spec.ts` (Map search bar & filter toggles on mobile/tablet/desktop)
-    - [ ] Update and verify `e2e/mobile-nav-drawer.spec.ts` (Sidebar legend popover interaction)
-    - [ ] Update and verify `e2e/error-handling.spec.ts` & `e2e/pwa-offline.spec.ts` (Map container error and offline states)
+- [x] Task: Audit and update all affected Playwright E2E test suites [f1078a3]
+    - [x] Update and verify `e2e/smoke.spec.ts` (Core map loading & search)
+    - [x] Update and verify `e2e/accessibility.spec.ts` (Map controls & autocomplete keyboard navigation)
+    - [x] Update and verify `e2e/responsive-layout.spec.ts` (Map search bar & filter toggles on mobile/tablet/desktop)
+    - [x] Update and verify `e2e/mobile-nav-drawer.spec.ts` (Sidebar legend popover interaction)
+    - [x] Update and verify `e2e/error-handling.spec.ts` & `e2e/pwa-offline.spec.ts` (Map container error and offline states)
 - [ ] Task: Execute full containerized Playwright regression suite
     - [ ] Run `./scripts/run-e2e-container.sh chromium e2e/smoke.spec.ts`
     - [ ] Run `./scripts/run-e2e-container.sh chromium e2e/accessibility.spec.ts`
