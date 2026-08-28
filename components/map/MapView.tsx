@@ -46,8 +46,7 @@ const MapView = memo(({
   const [mapStyle, setMapStyle] = useState<"streets" | "outdoors">("streets");
   const [cursor, setCursor] = useState<string>("");
 
-  const { containerRef: streetViewContainerRef, isStreetViewActive, openStreetView } =
-    useStreetViewPanorama();
+  const { openStreetView } = useStreetViewPanorama();
 
   // Sync map instance with mapStore and attach openStreetView contract
   const handleMapLoad = useCallback(() => {
@@ -188,15 +187,6 @@ const MapView = memo(({
       data-state="ready"
       className="relative h-full w-full bg-muted"
     >
-      {/* Street View Panorama Container */}
-      <div
-        ref={streetViewContainerRef}
-        className="absolute inset-0 z-50 bg-background"
-        style={{
-          visibility: isStreetViewActive ? "visible" : "hidden",
-          pointerEvents: isStreetViewActive ? "auto" : "none",
-        }}
-      />
       <Map
         ref={mapRef}
         onLoad={handleMapLoad}
