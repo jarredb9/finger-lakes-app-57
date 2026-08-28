@@ -37,7 +37,12 @@ describe('Privacy Refactor Integration Tests', () => {
       if (createError || !user) throw createError;
 
       const client = createClient(supabaseUrl!, anonKey!, {
-        auth: { persistSession: false }
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false,
+          storageKey: `auth-${crypto.randomUUID()}`
+        }
       });
       const { error: signInError } = await client.auth.signInWithPassword({ email, password });
       if (signInError) throw signInError;
