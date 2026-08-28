@@ -113,9 +113,10 @@
     - [x] Update and verify `e2e/responsive-layout.spec.ts` (Map search bar & filter toggles on mobile/tablet/desktop)
     - [x] Update and verify `e2e/mobile-nav-drawer.spec.ts` (Sidebar legend popover interaction)
     - [x] Update and verify `e2e/error-handling.spec.ts` & `e2e/pwa-offline.spec.ts` (Map container error and offline states)
-- [~] Task: Execute full containerized Playwright regression suite
-    - [ ] Run `./scripts/run-e2e-container.sh chromium e2e/smoke.spec.ts`
-    - [ ] Run `./scripts/run-e2e-container.sh chromium e2e/accessibility.spec.ts`
-    - [ ] Run `./scripts/run-e2e-container.sh chromium e2e/responsive-layout.spec.ts`
-    - [ ] Run full Jest unit suite `npm test` (>80% coverage on new modules)
+- [x] Task: Execute full containerized Playwright regression suite [4088084]
+    - [x] Run `./scripts/run-e2e-container.sh chromium e2e/smoke.spec.ts`
+    - [x] Run `./scripts/run-e2e-container.sh chromium e2e/accessibility.spec.ts`
+    - [x] Run `./scripts/run-e2e-container.sh chromium e2e/responsive-layout.spec.ts`
+    - [x] Resolve testing failures in `./scripts/run-e2e-container.sh "mobile safari" e2e/pwa-offline.spec.ts`
+    - [x] Run full Jest unit suite `npm test` (>80% coverage on new modules)
 - [ ] Task: Conductor - User Manual Verification 'Phase 5: E2E Test Suite Alignment & Atomic Verification' (Protocol in workflow.md)
