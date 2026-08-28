@@ -26,6 +26,11 @@ describe('UserNav Component', () => {
   const mockInstallApp = jest.fn();
   const mockUpdateApp = jest.fn();
 
+  const openDropdown = (trigger: HTMLElement) => {
+    fireEvent.pointerDown(trigger, { pointerType: 'mouse', button: 0 });
+    fireEvent.keyDown(trigger, { key: 'Enter', code: 'Enter' });
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockedUseToast.mockReturnValue({
@@ -48,7 +53,7 @@ describe('UserNav Component', () => {
     const trigger = screen.getByRole('button', { name: /user menu|user profile/i });
     expect(trigger).toBeInTheDocument();
 
-    fireEvent.click(trigger);
+    openDropdown(trigger);
 
     expect(screen.getByText('Seneca Sommelier')).toBeInTheDocument();
     expect(screen.getByText('sommelier@fingerlakes.com')).toBeInTheDocument();
@@ -73,7 +78,7 @@ describe('UserNav Component', () => {
     const customTrigger = screen.getByTestId('custom-avatar-trigger');
     expect(customTrigger).toBeInTheDocument();
 
-    fireEvent.click(customTrigger);
+    openDropdown(customTrigger);
     expect(screen.getByText('Seneca Sommelier')).toBeInTheDocument();
   });
 
@@ -87,7 +92,8 @@ describe('UserNav Component', () => {
     });
 
     render(<UserNav user={mockUser} />);
-    fireEvent.click(screen.getByRole('button', { name: /user menu|user profile/i }));
+    const trigger = screen.getByRole('button', { name: /user menu|user profile/i });
+    openDropdown(trigger);
 
     const installItem = screen.getByRole('menuitem', { name: /install app/i });
     expect(installItem).toBeInTheDocument();
@@ -107,7 +113,8 @@ describe('UserNav Component', () => {
     });
 
     render(<UserNav user={mockUser} />);
-    fireEvent.click(screen.getByRole('button', { name: /user menu|user profile/i }));
+    const trigger = screen.getByRole('button', { name: /user menu|user profile/i });
+    openDropdown(trigger);
 
     const addToHomeScreenItem = screen.getByRole('menuitem', { name: /add to home screen/i });
     expect(addToHomeScreenItem).toBeInTheDocument();
@@ -130,7 +137,8 @@ describe('UserNav Component', () => {
     });
 
     render(<UserNav user={mockUser} />);
-    fireEvent.click(screen.getByRole('button', { name: /user menu|user profile/i }));
+    const trigger = screen.getByRole('button', { name: /user menu|user profile/i });
+    openDropdown(trigger);
 
     const updateItem = screen.getByRole('menuitem', { name: /update available/i });
     expect(updateItem).toBeInTheDocument();
