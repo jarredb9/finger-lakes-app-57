@@ -87,10 +87,10 @@
     - [x] Implement `components/sidebar/explore-tab-content.tsx` (colocating `useWineryMapContext`)
     - [x] Implement `components/sidebar/history-tab-content.tsx` (colocating `useUIStore`)
     - [x] Verify subcomponent unit tests pass
-- [ ] Task: Refactor AppSidebar and AppShell to consume extracted components
-    - [ ] Refactor `components/app-sidebar.tsx` (<80 LOC) as a clean tab orchestrator
-    - [ ] Refactor `components/app-shell.tsx` to consume shared `UserNav` for mobile floating avatar menu
-    - [ ] Update and verify `components/__tests__/app-sidebar.test.tsx` and all unit test suites
+- [x] Task: Refactor AppSidebar and AppShell to consume extracted components [3de9bc0]
+    - [x] Refactor `components/app-sidebar.tsx` (<80 LOC) as a clean tab orchestrator
+    - [x] Refactor `components/app-shell.tsx` to consume shared `UserNav` for mobile floating avatar menu
+    - [x] Update and verify `components/__tests__/app-sidebar.test.tsx` and all unit test suites
 - [ ] Task: Conductor - User Manual Verification 'Phase 3.1: AppSidebar & UserNav Modular Decomposition' (Protocol in workflow.md)
 
 ## Phase 5: E2E Test Suite Alignment & Atomic Verification
