@@ -44,7 +44,6 @@ export function FriendPhoto({ photoPath, alt }: FriendPhotoProps) {
     return (
       <div className="flex items-center justify-center w-full h-full bg-muted">
         <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-        <img src="" alt={alt} className="hidden" aria-hidden="false" />
       </div>
     );
   }
@@ -53,7 +52,6 @@ export function FriendPhoto({ photoPath, alt }: FriendPhotoProps) {
     return (
       <div className="flex items-center justify-center w-full h-full bg-muted text-[10px] text-center text-red-500 p-1">
         Unavailable
-        <img src="" alt={alt} className="hidden" aria-hidden="false" />
       </div>
     );
   }

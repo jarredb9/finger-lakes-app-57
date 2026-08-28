@@ -24,13 +24,14 @@ test.describe('PWA Offline Functionality', () => {
     const width = page.viewportSize()?.width ?? 1280;
     const isMobile = width < 768;
     if (isMobile) {
-        await page.getByRole('button', { name: 'Map' }).click();
+        await page.getByTestId('mobile-nav-map').click();
     }
 
     await expect(page.getByTestId('map-container')).toBeVisible();
     
     if (isMobile) {
         await navigateToTab(page, 'Explore');
+        await ensureSidebarExpanded(page);
     }
 
     await page.getByRole('button', { name: 'Visited' }).click();

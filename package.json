@@ -1,6 +1,6 @@
 {
   "name": "winery-visit-planner",
-  "version": "3.4.0",
+  "version": "3.5.0",
   "private": true,
   "engines": {
     "node": "24.x"
@@ -23,6 +23,7 @@
     "test:functions": "deno test --allow-all --config supabase/functions/deno.json supabase/functions/",
     "db:start": "/sbin/restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && export GOOGLE_MAPS_API_KEY=$(grep NEXT_PUBLIC_GOOGLE_MAPS_API_KEY .env.local .env 2>/dev/null | head -n 1 | cut -d '=' -f2- | tr -d '\"'\\r) && export GEMINI_API_KEY=$(grep -E '^GEMINI_API_KEY=' .env.local .env 2>/dev/null | head -n 1 | cut -d '=' -f2- | tr -d '\"'\\r) && (sed -i \"s|^GEMINI_API_KEY=.*|GEMINI_API_KEY=$GEMINI_API_KEY|\" ./supabase/functions/.env 2>/dev/null || true) && npx supabase start",
     "db:stop": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase stop",
+    "db:restart": "npm run db:stop && npm run db:start",
     "db:reset": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase db reset",
     "db:status": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase status",
     "db:lint": "export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase db lint --level error --schema public",
