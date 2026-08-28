@@ -82,11 +82,11 @@
     - [x] Create `components/sidebar/__tests__/explore-tab-content.test.tsx`
     - [x] Create `components/sidebar/__tests__/history-tab-content.test.tsx`
     - [x] Test UserNav menu items, PWA triggers, ExploreTabContent search result rendering, and HistoryTabContent modal toggle
-- [ ] Task: (TDD Green) Implement UserNav, ExploreTabContent, and HistoryTabContent components
-    - [ ] Implement `components/nav/user-nav.tsx`
-    - [ ] Implement `components/sidebar/explore-tab-content.tsx` (colocating `useWineryMapContext`)
-    - [ ] Implement `components/sidebar/history-tab-content.tsx` (colocating `useUIStore`)
-    - [ ] Verify subcomponent unit tests pass
+- [x] Task: (TDD Green) Implement UserNav, ExploreTabContent, and HistoryTabContent components [6bd42b1]
+    - [x] Implement `components/nav/user-nav.tsx`
+    - [x] Implement `components/sidebar/explore-tab-content.tsx` (colocating `useWineryMapContext`)
+    - [x] Implement `components/sidebar/history-tab-content.tsx` (colocating `useUIStore`)
+    - [x] Verify subcomponent unit tests pass
 - [ ] Task: Refactor AppSidebar and AppShell to consume extracted components
     - [ ] Refactor `components/app-sidebar.tsx` (<80 LOC) as a clean tab orchestrator
     - [ ] Refactor `components/app-shell.tsx` to consume shared `UserNav` for mobile floating avatar menu
