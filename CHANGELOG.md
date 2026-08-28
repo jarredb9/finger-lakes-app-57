@@ -1,5 +1,55 @@
 # Changelog
 
+## [3.5.0] - 2026-08-28
+
+**Map Core, Search Autocomplete & Controls Decoupling Refactor**
+
+### 🚀 Features
+* **Universal Google Maps Street View Launcher**:
+    * Updated Street View trigger to launch native Google Maps Universal URLs (`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint={lat},{lng}`) directly in external browser tabs on desktop or deep-link to the native Google Maps app on mobile/tablet devices, providing zero API rate-limiting/charges and full hardware-accelerated 360° panoramas.
+* **Accessible Autocomplete Keyboard Navigation**:
+    * Enabled standard combobox keyboard controls in winery/place search inputs (ArrowDown/ArrowUp navigation, Enter selection, Escape dismissal, and click-outside closing).
+* **Unified User Profile & Navigation Menu (`UserNav`)**:
+    * Integrated a unified user profile dropdown menu for both desktop sidebar and mobile floating user avatar, providing direct navigation to Settings, Terms of Service, Privacy Policy, and PWA Install / Update actions.
+
+### ⚙ Refactoring & Architecture
+* **Search Autocomplete Decoupling & Pure Mappers**:
+    * Extracted pure Places SDK normalizer `mapSdkPlaceToV1Place(place, text)` with defensive coordinate extractors (`extractLatitude`, `extractLongitude`) in [`lib/utils/places-mapper.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/places-mapper.ts) supporting both SDK `lat()` methods and property-based coordinates (`place.location.latitude`).
+    * Created reusable keyboard navigation hook [`useComboboxKeyboard`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-combobox-keyboard.ts) to manage combobox interactions independently from UI rendering.
+    * Extracted pure presentational [`PlaceAutocompleteSuggestionsList`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/PlaceAutocompleteSuggestionsList.tsx) component.
+    * Refactored [`PlaceAutocomplete.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/PlaceAutocomplete.tsx) to compose the pure normalizer, keyboard hook, and suggestion list.
+* **Map Controls & Search Bar Decomposition**:
+    * Extracted pure presentational [`MapSearchBar`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-search-bar.tsx) (search input, debouncing, clear action, auto/manual search toggles, and API warning banners).
+    * Extracted pure presentational [`MapFilterToggles`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-filter-toggles.tsx) (category chips, attribute toggles, and trip overlay selector).
+    * Refactored [`MapControls`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-controls.tsx) into a container consuming `useWineryMapContext` and `useTripStore`, eliminating 11-prop drilling from `app-sidebar.tsx`.
+* **Map Symbology, Sidebar Tabs & Navigation Modularization**:
+    * Extracted [`MapLegendPopover`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-legend-popover.tsx) rendering map pin symbology definitions in an isolated popover.
+    * Extracted [`ExploreTabContent`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/sidebar/explore-tab-content.tsx) and [`HistoryTabContent`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/sidebar/history-tab-content.tsx), colocating map and UI store subscriptions to eliminate full sidebar re-renders during map camera/viewport updates.
+    * Streamlined [`AppSidebar.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-sidebar.tsx) into a lightweight layout and tab orchestrator (<80 LOC).
+* **Mobile Navigation Bar Decomposition**:
+    * Extracted [`MobileNavBar`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/layout/MobileNavBar.tsx) for mobile bottom navigation, colocating `useFriendStore` badge count subscriptions to prevent root `AppShell` re-renders on social updates.
+* **Map Core, Layer Configuration & Fallback Adapters**:
+    * Extracted Mapbox layer definitions (`clusterLayer`, `clusterCountLayer`, `unclusteredPointLayer`, `MAP_STYLES`, `PIN_COLORS`) into [`lib/maps/mapbox-layers.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/maps/mapbox-layers.ts).
+    * Extracted [`GoogleMapAdapter`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/maps/google-map-adapter.ts) providing a Mapbox-compatible interface for fallback maps.
+    * Extracted [`GoogleMapFallback`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/google-map-fallback.tsx) with isolated marker lifecycle and bounds management.
+    * Implemented [`useStreetViewPanorama`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-street-view-panorama.ts) hook managing Street View state and actions.
+    * Refactored [`MapView.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/MapView.tsx) into a lightweight container component preserving strict DOM stability (`data-state="ready|loading"`).
+
+### 🐛 Bug Fixes & Stabilization
+* **Defensive Pointer Capture Patch**:
+    * Implemented [`initPointerCaptureDefensivePatch`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/utils/pointer-capture-patch.ts) guarding against `releasePointerCapture` DOM exceptions during synthetic touch event simulation.
+* **Date & Calendar Interaction Polish**:
+    * Resolved DOM removeChild errors in DatePicker during calendar date selections and trip creation.
+    * Standardized date formatting with `formatDateLocal` across map filter toggles and trip select dropdowns.
+* **Q&A Word Boundary Matcher**:
+    * Enforced regex word boundaries (`\bkeyword\b`) in `WineryQnA` to prevent false positive review snippet matching.
+
+### 🧪 Testing & Verification
+* **Unit & Component Testing**:
+    * Added comprehensive unit test suites across all new utilities, hooks, and presentational components (108 test suites, 493 tests passing, 100% pass rate).
+* **Playwright E2E Alignment**:
+    * Updated Playwright E2E helper selectors and container test scripts (`scripts/run-e2e-container.sh`) to support Mobile Safari and Mobile Chrome execution targets.
+
 ## [3.4.0] - 2026-08-25
 
 **Adaptive 3-Tier Layout Architecture (Mobile, Tablet, Desktop)**
