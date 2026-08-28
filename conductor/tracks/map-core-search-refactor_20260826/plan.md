@@ -93,6 +93,19 @@
     - [x] Update and verify `components/__tests__/app-sidebar.test.tsx` and all unit test suites
 - [x] Task: Conductor - User Manual Verification 'Phase 3.1: AppSidebar & UserNav Modular Decomposition' (Protocol in workflow.md) [fb1e0cf]
 
+## Phase 3.2: Mobile Navigation Bar Modular Decomposition (Strict TDD)
+- [ ] Task: (TDD Red) Write failing unit tests for MobileNavBar
+    - [ ] Create `components/layout/__tests__/MobileNavBar.test.tsx`
+    - [ ] Test rendering 5 navigation buttons, active tab states, friend request badge counts, and sheet open/mode toggles
+- [ ] Task: (TDD Green) Implement MobileNavBar component
+    - [ ] Implement `components/layout/MobileNavBar.tsx` (colocating `useFriendStore` and handling navigation tab clicks)
+    - [ ] Verify `MobileNavBar.test.tsx` passes
+- [ ] Task: Refactor AppShell to consume MobileNavBar
+    - [ ] Refactor `components/app-shell.tsx` (<160 LOC) to delegate mobile navigation to `MobileNavBar`
+    - [ ] Remove `useFriendStore` subscription from `AppShellContent`
+    - [ ] Update and verify `components/__tests__/app-shell.test.tsx` and related suites
+- [ ] Task: Conductor - User Manual Verification 'Phase 3.2: Mobile Navigation Bar Modular Decomposition' (Protocol in workflow.md)
+
 ## Phase 5: E2E Test Suite Alignment & Atomic Verification
 - [x] Task: Audit and update all affected Playwright E2E test suites [f1078a3]
     - [x] Update and verify `e2e/smoke.spec.ts` (Core map loading & search)
@@ -100,7 +113,7 @@
     - [x] Update and verify `e2e/responsive-layout.spec.ts` (Map search bar & filter toggles on mobile/tablet/desktop)
     - [x] Update and verify `e2e/mobile-nav-drawer.spec.ts` (Sidebar legend popover interaction)
     - [x] Update and verify `e2e/error-handling.spec.ts` & `e2e/pwa-offline.spec.ts` (Map container error and offline states)
-- [ ] Task: Execute full containerized Playwright regression suite
+- [~] Task: Execute full containerized Playwright regression suite
     - [ ] Run `./scripts/run-e2e-container.sh chromium e2e/smoke.spec.ts`
     - [ ] Run `./scripts/run-e2e-container.sh chromium e2e/accessibility.spec.ts`
     - [ ] Run `./scripts/run-e2e-container.sh chromium e2e/responsive-layout.spec.ts`
