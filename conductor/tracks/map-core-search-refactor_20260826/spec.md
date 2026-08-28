@@ -9,8 +9,9 @@ This track executes a focused prerequisite refactoring slice on 4 core map and s
 - Extract Mapbox layer definitions (`clusterLayer`, `clusterCountLayer`, `unclusteredPointLayer`) into [lib/maps/mapbox-layers.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/maps/mapbox-layers.ts).
 - Extract Google Maps JS API adapter logic into [lib/maps/google-map-adapter.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/maps/google-map-adapter.ts).
 - Extract Google Map Fallback marker rendering & interaction into [components/map/google-map-fallback.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/google-map-fallback.tsx).
-- Extract Street View Panorama lifecycle into custom hook [hooks/use-street-view-panorama.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-street-view-panorama.ts).
-  - **Street View Contract Preservation:** Preserve `map.openStreetView(lat, lng)` on the map instance registered in `useMapStore` (both Mapbox and `GoogleMapAdapter`) as required by consumers like `use-winery-modal-state.ts`, while keeping `isStreetViewActive` state synchronized.
+- Extract Street View launcher into custom hook [hooks/use-street-view-panorama.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/hooks/use-street-view-panorama.ts).
+  - **Street View Universal URL Architecture (Free & High Reliability):** Rather than loading heavy in-app WebGL panorama canvases (which incur $7/1k Dynamic Street View API charges, trigger 429 burst rate limits, and cause 502/black screens on rural coordinates without dedicated GPUs), Street View triggers Google Maps Universal URLs (`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint={lat},{lng}`). This opens directly in an external tab on Desktop or deep-links to the native Google Maps app on Mobile/Tablet with $0.00 API cost and full hardware acceleration.
+  - **Street View Contract Preservation:** Preserve `map.openStreetView(lat, lng)` on the map instance registered in `useMapStore` (both Mapbox and `GoogleMapAdapter`) as required by consumers like `use-winery-modal-state.ts`.
 - Reduce `MapView.tsx` to a clean container component orchestrating Mapbox / Fallback without god-component bloat, maintaining DOM stability (`data-state="ready|loading|error"`).
 
 ### 2. Search Autocomplete Engine (`components/PlaceAutocomplete.tsx`)
