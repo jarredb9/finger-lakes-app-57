@@ -93,7 +93,7 @@
     - [x] Update and verify `components/__tests__/app-sidebar.test.tsx` and all unit test suites
 - [x] Task: Conductor - User Manual Verification 'Phase 3.1: AppSidebar & UserNav Modular Decomposition' (Protocol in workflow.md) [fb1e0cf]
 
-## Phase 3.2: Mobile Navigation Bar Modular Decomposition (Strict TDD)
+## Phase 3.2: Mobile Navigation Bar Modular Decomposition (Strict TDD) [checkpoint: 72f560f]
 - [x] Task: (TDD Red) Write failing unit tests for MobileNavBar [2efa0cf]
     - [x] Create `components/layout/__tests__/MobileNavBar.test.tsx`
     - [x] Test rendering 5 navigation buttons, active tab states, friend request badge counts, and sheet open/mode toggles
@@ -104,7 +104,7 @@
     - [x] Refactor `components/app-shell.tsx` (<160 LOC) to delegate mobile navigation to `MobileNavBar`
     - [x] Remove `useFriendStore` subscription from `AppShellContent`
     - [x] Update and verify `components/__tests__/app-shell.test.tsx` and related suites
-- [ ] Task: Conductor - User Manual Verification 'Phase 3.2: Mobile Navigation Bar Modular Decomposition' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3.2: Mobile Navigation Bar Modular Decomposition' (Protocol in workflow.md) [72f560f]
 
 ## Phase 5: E2E Test Suite Alignment & Atomic Verification
 - [x] Task: Audit and update all affected Playwright E2E test suites [f1078a3]
