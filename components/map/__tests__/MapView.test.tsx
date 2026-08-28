@@ -79,7 +79,7 @@ describe("MapView Container Component", () => {
       />
     );
 
-    const mapContainer = screen.getByTestId("map-container");
+    const mapContainer = screen.getByTestId("map-view-canvas");
     expect(mapContainer).toBeInTheDocument();
     expect(mapContainer).toHaveAttribute("data-state", "ready");
     expect(screen.getByTestId("mapbox-map")).toBeInTheDocument();
@@ -103,7 +103,7 @@ describe("MapView Container Component", () => {
       />
     );
 
-    const mapContainer = screen.getByTestId("map-container");
+    const mapContainer = screen.getByTestId("map-view-canvas");
     expect(mapContainer).toBeInTheDocument();
     expect(mapContainer).toHaveAttribute("data-state", "ready");
     expect(screen.getByTestId("google-map-fallback-stub")).toBeInTheDocument();
