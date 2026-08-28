@@ -106,7 +106,12 @@ if [ "$PROJECT_ARG" == "all" ]; then
     shift
     TEST_CMD="npx playwright test $*"
 else
-    PROJECT="${PROJECT_ARG:-webkit}"
+    case "$PROJECT_ARG" in
+        mobile-safari|"Mobile Safari") PROJECT="Mobile Safari" ;;
+        mobile-chrome|"Mobile Chrome") PROJECT="Mobile Chrome" ;;
+        tablet-safari|"Mobile Safari (Tablet)") PROJECT="Mobile Safari (Tablet)" ;;
+        *) PROJECT="${PROJECT_ARG:-webkit}" ;;
+    esac
     echo "🌐 Project: $PROJECT"
     # Shift to get remaining args
     shift

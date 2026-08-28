@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, within, waitFor } from '@testing-library/react';
 import { WineryModal } from '../winery-modal';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
 import { useUIStore } from '@/lib/stores/uiStore';
@@ -79,7 +79,7 @@ function setupStores() {
         name: 'Alice',
         rating: 4,
         user_review: 'Great Riesling selection!',
-        photos: ['photo1.jpg', 'photo2.jpg'],
+        photos: ['blob:http://localhost:3000/photo1.jpg', 'blob:http://localhost:3000/photo2.jpg'],
       },
     ],
     friendsActivity: {
@@ -141,7 +141,7 @@ describe('WineryModal Redesign', () => {
   });
 
   describe('WineryCommunityTab consolidation', () => {
-    it('renders a consolidated WineryCommunityTab merging friend avatars and review details', () => {
+    it('renders a consolidated WineryCommunityTab merging friend avatars and review details', async () => {
       render(<WineryModal />);
 
       // After the redesign, FriendActivity and FriendRatings should be merged
@@ -157,8 +157,10 @@ describe('WineryModal Redesign', () => {
       expect(within(communityTab).getByText('Great Riesling selection!')).toBeInTheDocument();
 
       // Should contain uploaded photos from friend reviews
-      const photos = within(communityTab).getAllByRole('img');
-      expect(photos.length).toBeGreaterThan(0);
+      await waitFor(() => {
+        const photos = within(communityTab).getAllByRole('img');
+        expect(photos.length).toBeGreaterThan(0);
+      });
     });
   });
 
