@@ -1,190 +1,87 @@
 "use client";
 
 import { FormEvent } from "react";
-import { Search, Loader2, MapPin, XCircle, Clock, AlertTriangle } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useWineryMapContext } from "@/components/winery-map-context";
 import { useTripStore } from "@/lib/stores/tripStore";
-import { PlaceAutocomplete } from "@/components/PlaceAutocomplete";
-import { Winery } from "@/lib/types";
+import { MapSearchBar } from "./map-search-bar";
+import { MapFilterToggles } from "./map-filter-toggles";
+import { Winery, Trip } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
-interface MapControlsProps {
-  searchLocation: string;
-  setSearchLocation: (value: string) => void;
-  isSearching: boolean;
-  handleSearchSubmit: (e: FormEvent) => void;
-  handleManualSearchArea: () => void;
-  autoSearch: boolean;
-  setAutoSearch: (value: boolean) => void;
-  hitApiLimit: boolean;
-  filter: string[];
-  handleFilterChange: (value: string[]) => void;
+export interface MapControlsProps {
+  searchLocation?: string;
+  setSearchLocation?: (value: string) => void;
+  isSearching?: boolean;
+  handleSearchSubmit?: (e: FormEvent) => void;
+  handleManualSearchArea?: () => void;
+  autoSearch?: boolean;
+  setAutoSearch?: (value: boolean) => void;
+  hitApiLimit?: boolean;
+  filter?: string[];
+  handleFilterChange?: (value: string[]) => void;
   handlePlaceSelect?: (winery: Winery, sdkPlace: google.maps.places.Place) => void;
+  selectedTrip?: Trip | null;
+  setSelectedTrip?: (trip: Trip | null) => void;
+  upcomingTrips?: Trip[];
+  handleTripSelect?: (tripId: string) => void;
+  className?: string;
 }
 
-export function MapControls({
-  searchLocation,
-  setSearchLocation,
-  isSearching,
-  handleSearchSubmit,
-  handleManualSearchArea,
-  autoSearch,
-  setAutoSearch,
-  hitApiLimit,
-  filter,
-  handleFilterChange,
-  handlePlaceSelect,
-}: MapControlsProps) {
-  const { upcomingTrips = [], fetchTripById, selectedTrip, setSelectedTrip } = useTripStore();
+export function MapControls(props: MapControlsProps = {}) {
+  const contextValue = useWineryMapContext();
+  const tripStore = useTripStore();
+
+  const searchLocation = props.searchLocation ?? contextValue.searchLocation ?? "";
+  const setSearchLocation = props.setSearchLocation ?? contextValue.setSearchLocation;
+  const isSearching = props.isSearching ?? contextValue.isSearching ?? false;
+  const handleSearchSubmit = props.handleSearchSubmit ?? contextValue.handleSearchSubmit;
+  const handleManualSearchArea = props.handleManualSearchArea ?? contextValue.handleManualSearchArea;
+  const autoSearch = props.autoSearch ?? contextValue.autoSearch ?? false;
+  const setAutoSearch = props.setAutoSearch ?? contextValue.setAutoSearch;
+  const hitApiLimit = props.hitApiLimit ?? contextValue.hitApiLimit ?? false;
+  const filter = props.filter ?? contextValue.filter ?? ["all"];
+  const handleFilterChange = props.handleFilterChange ?? contextValue.handleFilterChange ?? (() => {});
+  const handlePlaceSelect = props.handlePlaceSelect ?? contextValue.handlePlaceSelect;
+
+  const upcomingTrips = props.upcomingTrips ?? tripStore.upcomingTrips ?? [];
+  const selectedTrip = props.selectedTrip !== undefined ? props.selectedTrip : tripStore.selectedTrip;
+  const setSelectedTrip = props.setSelectedTrip ?? tripStore.setSelectedTrip;
 
   const handleTripSelect = async (tripId: string) => {
-    if (tripId === "none") {
-      setSelectedTrip(null);
+    if (props.handleTripSelect) {
+      props.handleTripSelect(tripId);
       return;
     }
-    await fetchTripById(tripId);
+    if (tripId === "none") {
+      setSelectedTrip?.(null);
+      return;
+    }
+    await tripStore.fetchTripById(tripId);
     const updatedTrip = useTripStore.getState().trips.find((t) => t.id.toString() === tripId);
-    if (updatedTrip) setSelectedTrip(updatedTrip);
+    if (updatedTrip) setSelectedTrip?.(updatedTrip);
   };
 
   return (
-    <div className="space-y-3">
-      {/* Search Bar & Controls */}
-      <div className="flex flex-col gap-2">
-        {handlePlaceSelect ? (
-          <PlaceAutocomplete
-            placeholder="Search city, region, or winery..."
-            onPlaceSelect={handlePlaceSelect}
-            className="w-full"
-          />
-        ) : (
-          <form onSubmit={handleSearchSubmit} className="flex gap-2">
-            <Input
-              placeholder="City or region..."
-              value={searchLocation}
-              onChange={(e) => setSearchLocation(e.target.value)}
-              className="flex-1 min-h-[44px] px-3 py-2 text-sm"
-              aria-label="Search location"
-            />
-            <Button
-              type="submit"
-              size="icon"
-              className="min-h-[44px] min-w-[44px] h-11 w-11 shrink-0"
-              disabled={isSearching}
-              aria-label="Submit search"
-            >
-              {isSearching ? <Loader2 className="animate-spin w-4 h-4" /> : <Search className="w-4 h-4" />}
-            </Button>
-          </form>
-        )}
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleManualSearchArea} 
-            disabled={isSearching} 
-            className="flex-1 min-h-[44px] px-3 py-2 text-xs"
-          >
-            <MapPin className="mr-2 w-3.5 h-3.5" /> Search This Area
-          </Button>
-          <div className="flex items-center gap-2 px-3 bg-muted/50 rounded-md border min-h-[44px]">
-            <Switch 
-                id="auto-search" 
-                checked={autoSearch} 
-                onCheckedChange={setAutoSearch} 
-                className="scale-75" 
-            />
-            <Label htmlFor="auto-search" className="text-[10px] font-medium cursor-pointer uppercase text-muted-foreground">
-                Auto
-            </Label>
-          </div>
-        </div>
-      </div>
-
-      {/* API Limit Warning */}
-      {hitApiLimit && (
-        <div role="alert" className="flex items-center gap-3 w-full rounded-lg border px-4 bg-yellow-50 border-yellow-200 text-yellow-800 py-2">
-            <AlertTriangle className="h-4 w-4 text-yellow-600 shrink-0" />
-            <span className="text-xs leading-relaxed">Zoom in to see more results.</span>
-        </div>
-      )}
-
-      {/* Filters & Overlays */}
-      <div className="space-y-2">
-        <div className="space-y-1">
-          <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Filter Wineries</span>
-          {selectedTrip ? (
-            <div className="flex items-center">
-              <Badge className="bg-[#f17e3a] hover:bg-[#f17e3a] cursor-pointer min-h-[44px] px-3 py-2" onClick={() => setSelectedTrip(null)}>
-                Viewing: {selectedTrip.name} <XCircle className="w-3 h-3 ml-1" />
-              </Badge>
-            </div>
-          ) : (
-            <ToggleGroup 
-              type="multiple" 
-              value={filter.filter(f => ["all", "visited", "favorites", "wantToGo", "notVisited"].includes(f))} 
-              onValueChange={(vals) => handleFilterChange([...vals, ...filter.filter(f => !["all", "visited", "favorites", "wantToGo", "notVisited"].includes(f))])} 
-              className="justify-start flex-wrap gap-1.5" 
-              size="sm"
-            >
-              <ToggleGroupItem value="all" className="text-xs min-h-[44px] px-3 py-2">All</ToggleGroupItem>
-              <ToggleGroupItem value="visited" className="text-xs min-h-[44px] px-3 py-2">Visited</ToggleGroupItem>
-              <ToggleGroupItem value="favorites" className="text-xs min-h-[44px] px-3 py-2">Favorites</ToggleGroupItem>
-              <ToggleGroupItem value="wantToGo" className="text-xs min-h-[44px] px-3 py-2">Want</ToggleGroupItem>
-              <ToggleGroupItem value="notVisited" className="text-xs min-h-[44px] px-3 py-2">New</ToggleGroupItem>
-            </ToggleGroup>
-          )}
-        </div>
-
-        <div className="space-y-1.5 pt-1 border-t border-muted/30">
-          <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider block">Attributes</span>
-          <ToggleGroup 
-            type="multiple" 
-            value={filter.filter(f => ["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"].includes(f))} 
-            onValueChange={(vals) => handleFilterChange([...filter.filter(f => !["allowsDogs", "goodForChildren", "outdoorSeating", "hasEvCharging"].includes(f)), ...vals])} 
-            className="justify-start flex-wrap gap-1.5" 
-            size="sm"
-          >
-            <ToggleGroupItem value="allowsDogs" className="text-xs min-h-[44px] px-3 py-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
-              🐾 Dog Friendly
-            </ToggleGroupItem>
-            <ToggleGroupItem value="goodForChildren" className="text-xs min-h-[44px] px-3 py-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
-              👶 Kid Friendly
-            </ToggleGroupItem>
-            <ToggleGroupItem value="outdoorSeating" className="text-xs min-h-[44px] px-3 py-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
-              ☀️ Outdoor Seating
-            </ToggleGroupItem>
-            <ToggleGroupItem value="hasEvCharging" className="text-xs min-h-[44px] px-3 py-2 rounded-full border border-muted-foreground/20 data-[state=on]:bg-primary/10 data-[state=on]:text-primary data-[state=on]:border-primary/30 transition-all duration-200">
-              ⚡ EV Charging
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-
-        <div className="space-y-1 pt-1">
-          <div className="flex items-center gap-2">
-            <Clock className="w-3 h-3 text-muted-foreground" />
-            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-wider">Trip Overlay</span>
-          </div>
-          <Select value={selectedTrip?.id?.toString() || "none"} onValueChange={handleTripSelect}>
-            <SelectTrigger className="w-full min-h-[44px] px-3 py-2 text-xs">
-              <SelectValue placeholder="Show a trip..." />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              {upcomingTrips.filter((trip) => !!trip.id).map((trip) => (
-                <SelectItem key={trip.id} value={trip.id.toString()}>
-                  {trip.name} ({new Date(trip.trip_date + "T00:00:00").toLocaleDateString()})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
+    <div className={cn("space-y-3", props.className)}>
+      <MapSearchBar
+        searchLocation={searchLocation}
+        setSearchLocation={setSearchLocation}
+        isSearching={isSearching}
+        handleSearchSubmit={handleSearchSubmit}
+        handleManualSearchArea={handleManualSearchArea}
+        autoSearch={autoSearch}
+        setAutoSearch={setAutoSearch}
+        hitApiLimit={hitApiLimit}
+        handlePlaceSelect={handlePlaceSelect}
+      />
+      <MapFilterToggles
+        filter={filter}
+        handleFilterChange={handleFilterChange}
+        selectedTrip={selectedTrip}
+        setSelectedTrip={setSelectedTrip}
+        upcomingTrips={upcomingTrips}
+        handleTripSelect={handleTripSelect}
+      />
     </div>
   );
 }

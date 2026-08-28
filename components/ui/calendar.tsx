@@ -13,6 +13,13 @@ import { buttonVariants } from '@/components/ui/button'
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
 
+function CalendarChevron({ orientation, ...props }: React.ComponentProps<typeof ChevronLeftIcon> & { orientation?: string }) {
+  if (orientation === 'left') {
+    return <ChevronLeftIcon className="h-4 w-4" {...props} />
+  }
+  return <ChevronRightIcon className="h-4 w-4" {...props} />
+}
+
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
   return (
     <DayPicker
@@ -54,12 +61,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }: C
         ...classNames,
       }}
       components={{
-        Chevron: (props) => {
-          if (props.orientation === 'left') {
-            return <ChevronLeftIcon className="h-4 w-4" />
-          }
-          return <ChevronRightIcon className="h-4 w-4" />
-        }
+        Chevron: CalendarChevron,
       }}
       {...props}
     />

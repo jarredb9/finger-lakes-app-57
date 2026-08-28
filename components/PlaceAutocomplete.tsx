@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef, KeyboardEvent } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { usePlacesAutocompleteSession } from "@/hooks/use-places-autocomplete-session";
 import { standardizeWineryData } from "@/lib/utils/winery";
+import { mapSdkPlaceToV1Place } from "@/lib/utils/places-mapper";
+import { useComboboxKeyboard } from "@/hooks/use-combobox-keyboard";
+import { PlaceAutocompleteSuggestionsList } from "@/components/PlaceAutocompleteSuggestionsList";
 import { Winery } from "@/lib/types";
-import { GoogleAttribution } from "./GoogleAttribution";
 
 interface PlaceAutocompleteProps {
   placeholder?: string;
@@ -27,11 +29,10 @@ export function PlaceAutocomplete({
 }: PlaceAutocompleteProps) {
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const {
     suggestions,
     isLoading: isAutocompleteLoading,
@@ -63,20 +64,11 @@ export function PlaceAutocomplete({
     return () => clearTimeout(timer);
   }, [inputValue, includedPrimaryTypes, locationBias, fetchSuggestions, setSuggestions]);
 
-  // Click outside listener to close dropdown
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handleSelectSuggestion = async (suggestion: google.maps.places.AutocompleteSuggestion) => {
+  const handleSelectSuggestion = async (
+    suggestion: google.maps.places.AutocompleteSuggestion
+  ) => {
     if (!suggestion.placePrediction) return;
-    
+
     // Dismiss virtual keyboard on suggestion select
     if (document.activeElement instanceof HTMLElement) {
       document.activeElement.blur();
@@ -90,81 +82,7 @@ export function PlaceAutocomplete({
     try {
       const place = await fetchPlaceDetails(suggestion);
       if (place) {
-        // Map SDK Place to GoogleV1Place shape
-        const placeAny = place as any;
-        const lat = place.location ? place.location.lat() : 0;
-        const lng = place.location ? place.location.lng() : 0;
-
-        const v1Place: any = {
-          google_place_id: place.id,
-          name: place.displayName || text,
-          address: place.formattedAddress || "",
-          latitude: lat,
-          longitude: lng,
-          phone: placeAny.nationalPhoneNumber || placeAny.internationalPhoneNumber || null,
-          website: placeAny.websiteUri || null,
-          google_rating: placeAny.rating || null,
-          user_rating_count: placeAny.userRatingCount || null,
-          allows_dogs: placeAny.allowsDogs ?? null,
-          serves_wine: placeAny.servesWine ?? null,
-          good_for_children: placeAny.isGoodForChildren ?? null,
-          outdoor_seating: placeAny.hasOutdoorSeating ?? null,
-          enrichment_tier: "enriched",
-          last_enriched_at: new Date().toISOString(),
-        };
-
-        if (placeAny.photos && placeAny.photos.length > 0) {
-          v1Place.primary_photo_reference = placeAny.photos[0].name;
-          v1Place.photo_references = placeAny.photos.map((p: any) => p.name);
-        }
-
-        const extractSummary = (summary: any) => {
-          if (!summary) return null;
-          if (typeof summary === 'string') return { overview: { text: summary } };
-          if (summary.overview?.text) return { overview: { text: summary.overview.text } };
-          if (summary.text) return { overview: { text: summary.text } };
-          return null;
-        };
-
-        const genSummary = extractSummary(placeAny.generativeSummary);
-        if (genSummary) v1Place.generative_summary = genSummary;
-
-        const neighSummary = extractSummary(placeAny.neighborhoodSummary);
-        if (neighSummary) v1Place.neighborhood_summary = neighSummary;
-
-        const editSummary = extractSummary(placeAny.editorialSummary);
-        if (editSummary) v1Place.editorial_summary = editSummary;
-
-        if (placeAny.parkingOptions) {
-          v1Place.parking_options = placeAny.parkingOptions;
-        }
-
-        if (placeAny.evChargeOptions) {
-          v1Place.ev_charge_options = placeAny.evChargeOptions;
-          v1Place.has_ev_charging = (placeAny.evChargeOptions.connectorCount || 0) > 0;
-        } else if (placeAny.parkingOptions?.hasEvChargingStations !== undefined) {
-          v1Place.has_ev_charging = placeAny.parkingOptions.hasEvChargingStations;
-        }
-
-        if (placeAny.accessibilityOptions) {
-          // Map JS API accessibility options to REST API shape for consistency
-          v1Place.accessibility_options = {
-            wheelchairAccessibleEntrance: placeAny.accessibilityOptions.hasWheelchairAccessibleEntrance ?? null,
-            wheelchairAccessibleParking: placeAny.accessibilityOptions.hasWheelchairAccessibleParking ?? null,
-            wheelchairAccessibleRestroom: placeAny.accessibilityOptions.hasWheelchairAccessibleRestroom ?? null,
-            wheelchairAccessibleSeating: placeAny.accessibilityOptions.hasWheelchairAccessibleSeating ?? null,
-          };
-          v1Place.accessibility_flags = v1Place.accessibility_options;
-        }
-
-        if (placeAny.regularOpeningHours) {
-          v1Place.opening_hours = placeAny.regularOpeningHours;
-        }
-
-        if (placeAny.reviews) {
-          v1Place.reviews = placeAny.reviews;
-        }
-
+        const v1Place = mapSdkPlaceToV1Place(place, text);
         const winery = standardizeWineryData(v1Place);
         if (winery) {
           onPlaceSelect(winery, place);
@@ -178,28 +96,13 @@ export function PlaceAutocomplete({
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (!isOpen || suggestions.length === 0) return;
-
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      setActiveSuggestionIndex((prev) => 
-        prev < suggestions.length - 1 ? prev + 1 : 0
-      );
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      setActiveSuggestionIndex((prev) => 
-        prev > 0 ? prev - 1 : suggestions.length - 1
-      );
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (activeSuggestionIndex >= 0 && activeSuggestionIndex < suggestions.length) {
-        handleSelectSuggestion(suggestions[activeSuggestionIndex]);
-      }
-    } else if (e.key === "Escape") {
-      setIsOpen(false);
-    }
-  };
+  const { activeIndex, handleKeyDown } = useComboboxKeyboard({
+    items: suggestions,
+    isOpen,
+    onOpenChange: setIsOpen,
+    onSelect: handleSelectSuggestion,
+    containerRef,
+  });
 
   const handleClear = () => {
     setInputValue("");
@@ -243,43 +146,12 @@ export function PlaceAutocomplete({
         )}
       </div>
 
-      {isOpen && suggestions.length > 0 && (
-        <div 
-          className="absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none animate-in fade-in-0 zoom-in-95 duration-100"
-          data-testid="place-autocomplete-results"
-        >
-          {suggestions.map((suggestion, index) => {
-            const prediction = suggestion.placePrediction;
-            if (!prediction) return null;
-            
-            const isSelected = index === activeSuggestionIndex;
-            const primaryText = prediction.mainText?.text || "";
-            const secondaryText = prediction.secondaryText?.text || "";
-
-            return (
-              <button
-                key={prediction.toPlace().id || index}
-                type="button"
-                onClick={() => handleSelectSuggestion(suggestion)}
-                className={`w-full text-left px-3 py-2 rounded-sm text-sm transition-colors flex flex-col gap-0.5 ${
-                  isSelected 
-                    ? "bg-accent text-accent-foreground" 
-                    : "hover:bg-muted/70 text-foreground"
-                }`}
-                data-testid={`autocomplete-option-${index}`}
-              >
-                <span className="font-medium text-foreground">{primaryText}</span>
-                {secondaryText && (
-                  <span className="text-xs text-muted-foreground">{secondaryText}</span>
-                )}
-              </button>
-            );
-          })}
-          <div className="px-3 py-1.5 border-t mt-1 bg-muted/20">
-            <GoogleAttribution variant="powered-by" />
-          </div>
-        </div>
-      )}
+      <PlaceAutocompleteSuggestionsList
+        suggestions={suggestions}
+        isOpen={isOpen}
+        activeIndex={activeIndex}
+        onSelectSuggestion={handleSelectSuggestion}
+      />
     </div>
   );
 }

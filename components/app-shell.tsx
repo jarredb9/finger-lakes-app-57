@@ -6,51 +6,33 @@ import { WineryMapProvider } from "@/components/winery-map-context";
 import { MapProvider } from "react-map-gl/mapbox";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
-import { Button } from "@/components/ui/button";
-import { Map as MapIcon, CalendarDays, Search, Users, User as UserIcon, LogOut, FileText, Settings, Clock } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { User as UserIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import Link from "next/link";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { InteractiveBottomSheet, SheetMode } from "@/components/ui/interactive-bottom-sheet";
-import { useFriendStore } from "@/lib/stores/friendStore";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { VisitHistoryModal } from "@/components/visit-history-modal";
 import { OfflineIndicator } from "@/components/offline-indicator";
-import { Download, RefreshCw } from "lucide-react";
-import { usePwa } from "@/hooks/use-pwa";
-import { useToast } from "@/hooks/use-toast";
 import { useLayoutTier } from "@/hooks/use-layout-tier";
 import { useMounted } from "@/hooks/use-mounted";
 import { TabletFloatingDrawer } from "@/components/layout/TabletFloatingDrawer";
+import { MobileNavBar, NavTab } from "@/components/layout/MobileNavBar";
 import { WineryModal } from "@/components/winery-modal";
+import { UserNav } from "@/components/nav/user-nav";
 
 interface AppShellProps {
     user: AuthenticatedUser;
-    initialTab?: "explore" | "trips" | "friends" | "history";
+    initialTab?: NavTab;
 }
 
 function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
     const { isMobile, isTablet, isDesktop } = useLayoutTier();
     const isStreetViewActive = useMapStore(state => state.isStreetViewActive);
-    const [activeTab, setActiveTab] = useState<"explore" | "trips" | "friends" | "history">(initialTab);
+    const [activeTab, setActiveTab] = useState<NavTab>(initialTab);
     const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(initialTab !== "explore");
     const [sheetMode, setSheetMode] = useState<SheetMode>("mini");
-    const { friendRequests = [] } = useFriendStore();
-    const { isInstallable, isStandalone, installApp, isUpdateAvailable, updateApp } = usePwa();
-    const { toast } = useToast();
     const setHydrated = useUIStore(state => state.setHydrated);
     const mounted = useMounted();
-
-    const friendRequestCount = friendRequests?.length || 0;
 
     useEffect(() => {
         if (mounted) {
@@ -59,7 +41,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
     }, [mounted, setHydrated]);
 
     // Handle mobile nav click
-    const handleMobileNav = (tab: "explore" | "trips" | "friends" | "history") => {
+    const handleMobileNav = (tab: NavTab) => {
         if (activeTab === tab && isMobileSheetOpen) {
             // Toggle size if clicking same tab
             setSheetMode(prev => prev === "mini" ? "full" : "mini");
@@ -70,8 +52,6 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
         }
     };
 
-
-
     const getSheetTitle = () => {
         switch (activeTab) {
             case "explore": return "Explore Wineries";
@@ -79,19 +59,6 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             case "friends": return "Friends & Activity";
             case "history": return "Visit History";
             default: return "Menu";
-        }
-    };
-
-    const handleInstallClick = (e: React.MouseEvent) => {
-        e.preventDefault(); // Prevent menu from closing immediately if you want
-        if (isInstallable) {
-            installApp();
-        } else {
-            toast({
-                title: "Install Instructions",
-                description: "To install, tap your browser's Share/Menu button and select 'Add to Home Screen'.",
-                duration: 5000,
-            });
         }
     };
 
@@ -127,8 +94,9 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                 {/* Mobile User Avatar (Floating Top Right) */}
                 {isMobile && isStreetViewActive === false && (
                     <div className="lg:hidden absolute top-4 right-4 z-10">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                        <UserNav
+                            user={user}
+                            trigger={
                                 <div
                                     className="bg-background/80 backdrop-blur-xs p-1 rounded-full shadow-xs border cursor-pointer hover:bg-background/90 transition-colors"
                                     role="button"
@@ -139,58 +107,8 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                                         <AvatarFallback>{user.name?.charAt(0) || <UserIcon className="h-4 w-4" />}</AvatarFallback>
                                     </Avatar>
                                 </div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56">
-                                <DropdownMenuLabel>
-                                    <div className="flex flex-col space-y-1">
-                                        <p className="text-sm font-medium leading-none">{user.name}</p>
-                                        <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                                    </div>
-                                </DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                
-                                <DropdownMenuItem asChild>
-                                    <Link href="/settings" className="w-full cursor-pointer flex items-center">
-                                        <Settings className="mr-2 h-4 w-4" />
-                                        <span>Settings</span>
-                                    </Link>
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem asChild>
-                                    <Link href="/privacy" className="w-full cursor-pointer flex items-center">
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        <span>Privacy Policy</span>
-                                    </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                    <Link href="/terms" className="w-full cursor-pointer flex items-center">
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        <span>Terms of Service</span>
-                                    </Link>
-                                </DropdownMenuItem>
-                                {(isInstallable || isUpdateAvailable) && <DropdownMenuSeparator />}
-
-                                {!isStandalone && (
-                                    <DropdownMenuItem onClick={handleInstallClick} className="cursor-pointer">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        <span>{isInstallable ? "Install App" : "Add to Home Screen"}</span>
-                                    </DropdownMenuItem>
-                                )}
-                                {isUpdateAvailable && (
-                                    <DropdownMenuItem onClick={updateApp} className="cursor-pointer text-blue-600 focus:text-blue-600">
-                                        <RefreshCw className="mr-2 h-4 w-4" />
-                                        <span>Update Available</span>
-                                    </DropdownMenuItem>
-                                )}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem asChild>
-                                    <Link href="/logout" className="w-full cursor-pointer flex items-center text-red-600 focus:text-red-600">
-                                        <LogOut className="mr-2 h-4 w-4" />
-                                        <span>Log out</span>
-                                    </Link>
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                            }
+                        />
                     </div>
                 )}
             </div>
@@ -206,76 +124,12 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
 
             {/* Mobile Navigation Bar */}
             {isMobile && isStreetViewActive === false && (
-                <div
-                    data-testid="mobile-nav-bar"
-                    className="lg:hidden fixed bottom-4 left-4 right-4 max-w-lg mx-auto rounded-2xl border backdrop-blur-md shadow-lg bg-background/80 flex items-center justify-around z-50 pb-safe h-auto min-h-16 px-2 py-1"
-                >
-                    <Button
-                        variant="ghost"
-                        data-testid="mobile-nav-map"
-                        className={cn(
-                            "flex flex-col gap-1 h-auto w-16 px-3 py-1.5 transition-all duration-300 rounded-xl",
-                            !isMobileSheetOpen ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50"
-                        )}
-                        onClick={() => setIsMobileSheetOpen(false)}
-                    >
-                        <MapIcon className={cn("h-5 w-5 transition-transform duration-300", !isMobileSheetOpen && "scale-110")} />
-                        <span className="text-[10px]">Map</span>
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        data-testid="mobile-nav-explore"
-                        className={cn(
-                            "flex flex-col gap-1 h-auto w-16 px-3 py-1.5 transition-all duration-300 rounded-xl",
-                            activeTab === "explore" && isMobileSheetOpen ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50"
-                        )}
-                        onClick={() => handleMobileNav("explore")}
-                    >
-                        <Search className={cn("h-5 w-5 transition-transform duration-300", activeTab === "explore" && isMobileSheetOpen && "scale-110")} />
-                        <span className="text-[10px]">Explore</span>
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        data-testid="mobile-nav-trips"
-                        className={cn(
-                            "flex flex-col gap-1 h-auto w-16 px-3 py-1.5 transition-all duration-300 rounded-xl",
-                            activeTab === "trips" && isMobileSheetOpen ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50"
-                        )}
-                        onClick={() => handleMobileNav("trips")}
-                    >
-                        <CalendarDays className={cn("h-5 w-5 transition-transform duration-300", activeTab === "trips" && isMobileSheetOpen && "scale-110")} />
-                        <span className="text-[10px]">Trips</span>
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        data-testid="mobile-nav-friends"
-                        className={cn(
-                            "flex flex-col gap-1 h-auto w-16 relative px-3 py-1.5 transition-all duration-300 rounded-xl",
-                            activeTab === "friends" && isMobileSheetOpen ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50"
-                        )}
-                        onClick={() => handleMobileNav("friends")}
-                    >
-                        <Users className={cn("h-5 w-5 transition-transform duration-300", activeTab === "friends" && isMobileSheetOpen && "scale-110")} />
-                        <span className="text-[10px]">Friends</span>
-                        {friendRequestCount > 0 && (
-                            <span className="absolute top-1 right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                                {friendRequestCount}
-                            </span>
-                        )}
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        data-testid="mobile-nav-history"
-                        className={cn(
-                            "flex flex-col gap-1 h-auto w-16 px-3 py-1.5 transition-all duration-300 rounded-xl",
-                            activeTab === "history" && isMobileSheetOpen ? "bg-primary/10 text-primary font-medium" : "text-muted-foreground hover:bg-muted/50"
-                        )}
-                        onClick={() => handleMobileNav("history")}
-                    >
-                        <Clock className={cn("h-5 w-5 transition-transform duration-300", activeTab === "history" && isMobileSheetOpen && "scale-110")} />
-                        <span className="text-[10px]">History</span>
-                    </Button>
-                </div>
+                <MobileNavBar
+                    activeTab={activeTab}
+                    isMobileSheetOpen={isMobileSheetOpen}
+                    onTabSelect={handleMobileNav}
+                    onMapSelect={() => setIsMobileSheetOpen(false)}
+                />
             )}
 
             {/* Custom Mobile Bottom Sheet */}

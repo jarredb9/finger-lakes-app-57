@@ -18,7 +18,7 @@ test.describe('Accessibility (A11y)', () => {
 
     // Scan the main app shell
     const accessibilityScanResults = await new AxeBuilder({ page })
-      .exclude('.gm-style') // Exclude Google Maps
+      .exclude('.gm-style, .mapboxgl-map, [data-testid="map-view-canvas"]') // Exclude third-party Map canvas
       .disableRules([
         'color-contrast', // Allow minor contrast issues in Radix/Shadcn components
         'heading-order',  // Allow non-sequential headings in complex UI
