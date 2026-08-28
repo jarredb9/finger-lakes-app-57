@@ -75,6 +75,23 @@
 - [x] Task: Apply review suggestions [1123de3]
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Map Core, Adapters, Fallback & Street View Launcher' (Protocol in workflow.md) [81a71fe]
 
+## Phase 3.1: AppSidebar & UserNav Modular Decomposition (Strict TDD)
+- [ ] Task: (TDD Red) Write failing unit tests for UserNav, ExploreTabContent, and HistoryTabContent
+    - [ ] Create `components/nav/__tests__/user-nav.test.tsx`
+    - [ ] Create `components/sidebar/__tests__/explore-tab-content.test.tsx`
+    - [ ] Create `components/sidebar/__tests__/history-tab-content.test.tsx`
+    - [ ] Test UserNav menu items, PWA triggers, ExploreTabContent search result rendering, and HistoryTabContent modal toggle
+- [ ] Task: (TDD Green) Implement UserNav, ExploreTabContent, and HistoryTabContent components
+    - [ ] Implement `components/nav/user-nav.tsx`
+    - [ ] Implement `components/sidebar/explore-tab-content.tsx` (colocating `useWineryMapContext`)
+    - [ ] Implement `components/sidebar/history-tab-content.tsx` (colocating `useUIStore`)
+    - [ ] Verify subcomponent unit tests pass
+- [ ] Task: Refactor AppSidebar and AppShell to consume extracted components
+    - [ ] Refactor `components/app-sidebar.tsx` (<80 LOC) as a clean tab orchestrator
+    - [ ] Refactor `components/app-shell.tsx` to consume shared `UserNav` for mobile floating avatar menu
+    - [ ] Update and verify `components/__tests__/app-sidebar.test.tsx` and all unit test suites
+- [ ] Task: Conductor - User Manual Verification 'Phase 3.1: AppSidebar & UserNav Modular Decomposition' (Protocol in workflow.md)
+
 ## Phase 5: E2E Test Suite Alignment & Atomic Verification
 - [ ] Task: Audit and update all affected Playwright E2E test suites
     - [ ] Update and verify `e2e/smoke.spec.ts` (Core map loading & search)

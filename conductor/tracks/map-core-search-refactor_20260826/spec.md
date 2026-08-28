@@ -27,9 +27,11 @@ This track executes a focused prerequisite refactoring slice on 4 core map and s
 - Keep subcomponents pure and presentational (props-driven) to allow straightforward unit testing without store mocks.
 - Use `MapControls` as the container connecting to `useWineryMapContext()` / `useTripStore` to eliminate the 11-prop drilling from [components/app-sidebar.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-sidebar.tsx).
 
-### 4. Map Symbology & Legend (`components/app-sidebar.tsx`)
+### 4. Map Symbology, Legend & AppSidebar Decomposition (`components/app-sidebar.tsx`, `components/app-shell.tsx`)
 - Extract `MapLegendPopover` from [components/app-sidebar.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/app-sidebar.tsx) into [components/map/map-legend-popover.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/map/map-legend-popover.tsx).
-- Decouple marker symbology from sidebar layout logic.
+- Extract shared user navigation menu into [components/nav/user-nav.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/nav/user-nav.tsx) (consumed by both `AppSidebar` desktop and `AppShell` mobile floating avatar), consolidating PWA install/update hooks and navigation links.
+- Extract tab content subcomponents ([components/sidebar/explore-tab-content.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/sidebar/explore-tab-content.tsx) and [components/sidebar/history-tab-content.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/sidebar/history-tab-content.tsx)) to colocate `useWineryMapContext` and `useUIStore` state subscriptions, eliminating full sidebar re-renders during map viewport changes.
+- Refactor `AppSidebar.tsx` into a lightweight layout and tab orchestrator (<80 LOC).
 
 ## Non-Functional Requirements & Coding Standards
 - **Zero Regression:** All existing map navigation, marker selection, place search, fallback, and Street View modal actions must continue working seamlessly.
@@ -51,5 +53,7 @@ This track executes a focused prerequisite refactoring slice on 4 core map and s
 - [ ] `places-mapper.ts` handles SDK method (`.lat()`) and property-based coordinates defensively, outputting valid objects for `standardizeWineryData`.
 - [ ] `map-controls.tsx` is cleanly decomposed into presentational `MapSearchBar` and `MapFilterToggles`, eliminating 11-prop drilling from `app-sidebar.tsx`.
 - [ ] `MapLegendPopover` is isolated in `components/map/map-legend-popover.tsx`.
+- [ ] `AppSidebar.tsx` is decomposed into a lightweight tab orchestrator (<80 LOC), colocating map context in `ExploreTabContent` and history modal state in `HistoryTabContent`.
+- [ ] `UserNav` is extracted into `components/nav/user-nav.tsx` and shared across `AppSidebar` and `AppShell`.
 - [ ] Unit tests for `lib/utils/places-mapper.ts`, extracted hooks, and subcomponents pass with 100% success.
 - [ ] Containerized Playwright E2E test suites (`smoke.spec.ts`, `accessibility.spec.ts`, `responsive-layout.spec.ts`) pass with 0 regressions.
