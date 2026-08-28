@@ -7,31 +7,20 @@ import { MapProvider } from "react-map-gl/mapbox";
 import WineryMap from "@/components/WineryMap";
 import { AppSidebar } from "@/components/app-sidebar";
 import { Button } from "@/components/ui/button";
-import { Map as MapIcon, CalendarDays, Search, Users, User as UserIcon, LogOut, FileText, Settings, Clock } from "lucide-react";
+import { Map as MapIcon, CalendarDays, Search, Users, User as UserIcon, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import Link from "next/link";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { InteractiveBottomSheet, SheetMode } from "@/components/ui/interactive-bottom-sheet";
 import { useFriendStore } from "@/lib/stores/friendStore";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { VisitHistoryModal } from "@/components/visit-history-modal";
 import { OfflineIndicator } from "@/components/offline-indicator";
-import { Download, RefreshCw } from "lucide-react";
-import { usePwa } from "@/hooks/use-pwa";
-import { useToast } from "@/hooks/use-toast";
 import { useLayoutTier } from "@/hooks/use-layout-tier";
 import { useMounted } from "@/hooks/use-mounted";
 import { TabletFloatingDrawer } from "@/components/layout/TabletFloatingDrawer";
 import { WineryModal } from "@/components/winery-modal";
+import { UserNav } from "@/components/nav/user-nav";
 
 interface AppShellProps {
     user: AuthenticatedUser;
@@ -45,8 +34,6 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
     const [isMobileSheetOpen, setIsMobileSheetOpen] = useState(initialTab !== "explore");
     const [sheetMode, setSheetMode] = useState<SheetMode>("mini");
     const { friendRequests = [] } = useFriendStore();
-    const { isInstallable, isStandalone, installApp, isUpdateAvailable, updateApp } = usePwa();
-    const { toast } = useToast();
     const setHydrated = useUIStore(state => state.setHydrated);
     const mounted = useMounted();
 
@@ -70,8 +57,6 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
         }
     };
 
-
-
     const getSheetTitle = () => {
         switch (activeTab) {
             case "explore": return "Explore Wineries";
@@ -79,19 +64,6 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
             case "friends": return "Friends & Activity";
             case "history": return "Visit History";
             default: return "Menu";
-        }
-    };
-
-    const handleInstallClick = (e: React.MouseEvent) => {
-        e.preventDefault(); // Prevent menu from closing immediately if you want
-        if (isInstallable) {
-            installApp();
-        } else {
-            toast({
-                title: "Install Instructions",
-                description: "To install, tap your browser's Share/Menu button and select 'Add to Home Screen'.",
-                duration: 5000,
-            });
         }
     };
 
@@ -127,8 +99,9 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                 {/* Mobile User Avatar (Floating Top Right) */}
                 {isMobile && isStreetViewActive === false && (
                     <div className="lg:hidden absolute top-4 right-4 z-10">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
+                        <UserNav
+                            user={user}
+                            trigger={
                                 <div
                                     className="bg-background/80 backdrop-blur-xs p-1 rounded-full shadow-xs border cursor-pointer hover:bg-background/90 transition-colors"
                                     role="button"
@@ -139,58 +112,8 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
                                         <AvatarFallback>{user.name?.charAt(0) || <UserIcon className="h-4 w-4" />}</AvatarFallback>
                                     </Avatar>
                                 </div>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-56">
-                                <DropdownMenuLabel>
-                                    <div className="flex flex-col space-y-1">
-                                        <p className="text-sm font-medium leading-none">{user.name}</p>
-                                        <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                                    </div>
-                                </DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                
-                                <DropdownMenuItem asChild>
-                                    <Link href="/settings" className="w-full cursor-pointer flex items-center">
-                                        <Settings className="mr-2 h-4 w-4" />
-                                        <span>Settings</span>
-                                    </Link>
-                                </DropdownMenuItem>
-
-                                <DropdownMenuItem asChild>
-                                    <Link href="/privacy" className="w-full cursor-pointer flex items-center">
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        <span>Privacy Policy</span>
-                                    </Link>
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                    <Link href="/terms" className="w-full cursor-pointer flex items-center">
-                                        <FileText className="mr-2 h-4 w-4" />
-                                        <span>Terms of Service</span>
-                                    </Link>
-                                </DropdownMenuItem>
-                                {(isInstallable || isUpdateAvailable) && <DropdownMenuSeparator />}
-
-                                {!isStandalone && (
-                                    <DropdownMenuItem onClick={handleInstallClick} className="cursor-pointer">
-                                        <Download className="mr-2 h-4 w-4" />
-                                        <span>{isInstallable ? "Install App" : "Add to Home Screen"}</span>
-                                    </DropdownMenuItem>
-                                )}
-                                {isUpdateAvailable && (
-                                    <DropdownMenuItem onClick={updateApp} className="cursor-pointer text-blue-600 focus:text-blue-600">
-                                        <RefreshCw className="mr-2 h-4 w-4" />
-                                        <span>Update Available</span>
-                                    </DropdownMenuItem>
-                                )}
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem asChild>
-                                    <Link href="/logout" className="w-full cursor-pointer flex items-center text-red-600 focus:text-red-600">
-                                        <LogOut className="mr-2 h-4 w-4" />
-                                        <span>Log out</span>
-                                    </Link>
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                            }
+                        />
                     </div>
                 )}
             </div>

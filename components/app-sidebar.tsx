@@ -1,31 +1,19 @@
 "use client";
 
-import { useMemo } from "react";
-import Link from "next/link";
 import Image from "next/image";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Separator } from "@/components/ui/separator";
 import { AuthenticatedUser } from "@/lib/types";
-import { useWineryMapContext } from "@/components/winery-map-context";
-import WinerySearchResults from "@/components/map/WinerySearchResults";
 import TripList from "@/components/trip-list";
-import { List } from "lucide-react";
 import { cn } from "@/lib/utils";
-import GlobalVisitHistory from "@/components/global-visit-history"; // Import GlobalVisitHistory
-import { MapPin, Route, History, Users, LogOut, User as UserIcon, FileText, Settings } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { MapPin, Route, History, Users } from "lucide-react";
 import FriendsManager from "@/components/friends-manager";
-import { MapControls } from "@/components/map/map-controls";
-import { MapLegendPopover } from "@/components/map/map-legend-popover";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Download, RefreshCw } from "lucide-react";
-import { usePwa } from "@/hooks/use-pwa";
-import { useToast } from "@/hooks/use-toast";
+import { UserNav } from "@/components/nav/user-nav";
+import { ExploreTabContent } from "@/components/sidebar/explore-tab-content";
+import { HistoryTabContent } from "@/components/sidebar/history-tab-content";
 
-interface AppSidebarProps {
+export interface AppSidebarProps {
   user: AuthenticatedUser;
   className?: string;
   activeTab?: string;
@@ -40,70 +28,12 @@ export function AppSidebar({
   onTabChange,
   hideTabs = false,
 }: AppSidebarProps) {
-
-  const {
-    listResultsInView,
-    isSearching,
-    handleOpenModal,
-  } = useWineryMapContext();
-
-  const { setVisitHistoryModalOpen, isHydrated } = useUIStore();
-  const { friendRequests = [] } = useFriendStore();
-
-  const friendRequestCount = friendRequests?.length || 0;
-
-  const { isInstallable, isStandalone, installApp, isUpdateAvailable, updateApp } = usePwa();
-  const { toast } = useToast();
-
-  // Memoize expensive tab contents
-  const tripsContent = useMemo(() => (
-    <div className="p-4 space-y-6">
-      <TripList user={user} onExploreClick={() => onTabChange?.("explore")} />
-    </div>
-  ), [user, onTabChange]);
-
-  const historyContent = useMemo(() => (
-    <div className="flex flex-col flex-1 overflow-y-auto"> {/* Changed div to flex-col and overflow-y-auto */}
-      <div className="p-4 flex items-center justify-between shrink-0"> {/* Flex for title and button */}
-        <h3 className="text-lg font-semibold">My Visit History</h3>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setVisitHistoryModalOpen(true)}
-          className="gap-2 shrink-0"
-          disabled={!isHydrated}
-        >
-          <List className="w-4 h-4" />
-          View as Table
-        </Button>
-      </div>
-      <div className="p-4 space-y-4 flex-1 overflow-y-auto"> {/* Added p-4 here for padding, flex-1 for content */}
-        <GlobalVisitHistory isActive={activeTab === 'history'} />
-      </div>
-    </div>
-  ), [setVisitHistoryModalOpen, activeTab, isHydrated]); // Added activeTab and isHydrated dependencies
-
-  const friendsContent = useMemo(() => (
-    <div className="p-4 space-y-4">
-      <FriendsManager />
-    </div>
-  ), []);
-
-  const handleInstallClick = (e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent menu from closing immediately if you want
-    if (isInstallable) {
-      installApp();
-    } else {
-      toast({
-        title: "Install Instructions",
-        description: "To install, tap your browser's Share/Menu button and select 'Add to Home Screen'.",
-        duration: 5000,
-      });
-    }
-  };
+  const isHydrated = useUIStore((state) => state.isHydrated);
+  const friendRequests = useFriendStore((state) => state.friendRequests) || [];
+  const friendRequestCount = friendRequests.length;
 
   return (
-    <div data-testid="app-sidebar" className={`flex flex-col h-full bg-white dark:bg-zinc-950 border-r ${className || ''}`}>
+    <div data-testid="app-sidebar" className={cn("flex flex-col h-full bg-white dark:bg-zinc-950 border-r", className)}>
       {/* Branding Header & User Avatar */}
       <div className="p-4 border-b flex items-center justify-between shrink-0">
         <div className="flex items-center gap-3">
@@ -111,68 +41,8 @@ export function AppSidebar({
           <h1 className="text-lg font-bold tracking-tight">Winery Tracker</h1>
         </div>
 
-        {/* User Avatar Dropdown - Visible on Desktop, hidden on mobile (handled by AppShell) */}
-        <div className="hidden lg:block">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="User menu">
-                <Avatar className="h-8 w-8 border">
-                  <AvatarImage src="/placeholder-user.jpg" alt={user.name || "User avatar"} />
-                  <AvatarFallback>{user.name?.charAt(0) || <UserIcon className="h-4 w-4" />}</AvatarFallback>
-                </Avatar>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>
-                <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user.name}</p>
-                  <p className="text-xs leading-none text-muted-foreground">{user.email}</p>
-                </div>
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              
-              <DropdownMenuItem asChild>
-                <Link href="/settings" className="w-full cursor-pointer flex items-center">
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Settings</span>
-                </Link>
-              </DropdownMenuItem>
-
-              <DropdownMenuItem asChild>
-                <Link href="/privacy" className="w-full cursor-pointer flex items-center">
-                  <FileText className="mr-2 h-4 w-4" />
-                  <span>Privacy Policy</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/terms" className="w-full cursor-pointer flex items-center">
-                  <FileText className="mr-2 h-4 w-4" />
-                  <span>Terms of Service</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-
-              {!isStandalone && (
-                <DropdownMenuItem onClick={handleInstallClick} className="cursor-pointer">
-                  <Download className="mr-2 h-4 w-4" />
-                  <span>{isInstallable ? "Install App" : "Add to Home Screen"}</span>
-                </DropdownMenuItem>
-              )}
-              {isUpdateAvailable && (
-                <DropdownMenuItem onClick={updateApp} className="cursor-pointer text-blue-600 focus:text-blue-600">
-                  <RefreshCw className="mr-2 h-4 w-4" />
-                  <span>Update Available</span>
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem asChild>
-                <Link href="/logout" className="w-full cursor-pointer flex items-center text-red-600 focus:text-red-600">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        {/* User Avatar Dropdown - Desktop */}
+        <UserNav user={user} className="hidden lg:block" />
       </div>
 
       {/* Navigation Tabs */}
@@ -207,36 +77,23 @@ export function AppSidebar({
 
         <div className="flex-1 overflow-y-auto">
           <TabsContent value="explore" className="m-0 h-full data-[state=active]:flex flex-col">
-            <div className="p-4 space-y-4 pb-20">
-
-              <MapControls />
-
-              <Separator />
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">Wineries in View</h3>
-                  <MapLegendPopover />
-                </div>
-                <WinerySearchResults
-                  listResultsInView={listResultsInView}
-                  isSearching={isSearching}
-                  handleOpenModal={handleOpenModal}
-                />
-              </div>
-            </div>
+            <ExploreTabContent />
           </TabsContent>
 
           <TabsContent value="trips" className="m-0 pb-20">
-            {tripsContent}
+            <div className="p-4 space-y-6">
+              <TripList user={user} onExploreClick={() => onTabChange?.("explore")} />
+            </div>
           </TabsContent>
 
           <TabsContent value="history" className="m-0 pb-20">
-            {historyContent}
+            <HistoryTabContent isActive={activeTab === "history"} />
           </TabsContent>
 
           <TabsContent value="friends" className="m-0 pb-20">
-            {friendsContent}
+            <div className="p-4 space-y-4">
+              <FriendsManager />
+            </div>
           </TabsContent>
         </div>
       </Tabs>
