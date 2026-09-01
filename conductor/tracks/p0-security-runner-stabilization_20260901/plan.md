@@ -1,0 +1,46 @@
+# Implementation Plan: P0 Security Hotfixes, Production Safety & Test Runner Stabilization
+
+## Phase 1: Database RLS & Security Definer Hardening
+
+- [ ] Task: Write Failing Tests for Database Policies and Privileges (Red Phase)
+    - [ ] Create test cases asserting rejection of direct updates to `public.wineries` by authenticated non-service-role clients
+    - [ ] Create test cases asserting anonymous and non-service-role execution denial on `bulk_upsert_wineries` RPC
+    - [ ] Run test cases against local database to confirm failure (Red Phase)
+- [ ] Task: Implement Database Migration for RLS and Security Definers (Green Phase)
+    - [ ] Create migration file `supabase/migrations/20260902000000_p0_security_fixes.sql`
+    - [ ] Drop policy `"Authenticated users can update wineries"` from `public.wineries`
+    - [ ] Revoke execute privileges on `bulk_upsert_wineries(jsonb[])` from `PUBLIC` and grant to `service_role`
+    - [ ] Set explicit `search_path = public, vault, extensions, pg_temp` on `handle_activity_ledger_notification`
+    - [ ] Apply migration locally via `npm run db:start` and verify tests pass (Green Phase)
+    - [ ] Run `npm run db:lint` and `npm run db:check-types:local` to ensure 0 lint warnings and valid types
+- [ ] Task: Conductor - User Manual Verification 'Phase 1: Database RLS & Security Definer Hardening' (Protocol in workflow.md)
+
+## Phase 2: Middleware Routing & Route Protection
+
+- [ ] Task: Write Failing Tests for Middleware and Endpoint Hardening (Red Phase)
+    - [ ] Write unit tests for `proxy.ts` verifying cookie preservation on redirects
+    - [ ] Write unit tests verifying `/privacy`, `/terms`, `/workbox-*.js`, and `/worker-*.js` bypass auth redirects
+    - [ ] Write unit tests for `/api/auth/confirm-user` verifying 404 in production and secret validation in dev
+    - [ ] Run middleware and route tests to confirm red state
+- [ ] Task: Implement Middleware Updates and Auth Endpoint Security (Green Phase)
+    - [ ] Update `proxy.ts` to copy cookies across redirects using `response.cookies.getAll()`
+    - [ ] Add `/privacy` and `/terms` to `publicRoutes` in `proxy.ts`
+    - [ ] Add pattern matching for `/workbox-` and `/worker-` assets in `proxy.ts`
+    - [ ] Update `app/api/auth/confirm-user/route.ts` with production 404 guard and dev shared-secret validation
+    - [ ] Re-run tests to confirm all pass (Green Phase)
+- [ ] Task: Conductor - User Manual Verification 'Phase 2: Middleware Routing & Route Protection' (Protocol in workflow.md)
+
+## Phase 3: State Sync Bugfix & Test Runner Stabilization
+
+- [ ] Task: Write Failing Tests for TripStore Error Handling and Test Runners (Red Phase)
+    - [ ] Add unit test in `lib/stores/__tests__/tripStore.test.ts` asserting no empty `{}` mutation is queued on multi-trip failure
+    - [ ] Add unit test verifying `e2e/utils.ts` can be imported without throwing when `NEXT_PUBLIC_SUPABASE_URL` is unset
+    - [ ] Run unit tests to confirm red state
+- [ ] Task: Implement TripStore Fix and Test Runner Hardening (Green Phase)
+    - [ ] Fix catch block in `lib/stores/tripStore.ts` to prevent enqueueing empty `{}` mutations and check `isNetworkError`
+    - [ ] Segregate live database tests to `*.integration.test.ts` (`supabase-rpc-idempotency.integration.test.ts`, `supabase-rpc.integration.test.ts`, `privacy-refactor.integration.test.ts`)
+    - [ ] Update `jest.config.mjs` to exclude `*.integration.test.ts` and add `npm run test:integration` script to `package.json`
+    - [ ] Convert `e2e/utils.ts` to use lazy `getAdminClient()` getter
+    - [ ] Remove legacy CommonJS `node-fetch@2` polyfill from `jest.setup.ts`
+    - [ ] Run `CI=true npm test` to verify fast offline execution in < 60s
+- [ ] Task: Conductor - User Manual Verification 'Phase 3: State Sync Bugfix & Test Runner Stabilization' (Protocol in workflow.md)
