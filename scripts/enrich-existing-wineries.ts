@@ -25,7 +25,7 @@ async function enrichWineries() {
   const { data: wineries, error } = await supabase
     .from('wineries')
     .select('google_place_id, name, enrichment_tier')
-    .or('enrichment_tier.eq.basic,enrichment_tier.is.null');
+    .or('enrichment_tier.eq.basic,enrichment_tier.is.null,google_rating.eq.0,last_enriched_at.is.null');
 
   if (error) {
     console.error('❌ Error querying wineries:', error.message);

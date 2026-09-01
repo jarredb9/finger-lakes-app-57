@@ -234,7 +234,7 @@ export const standardizeWineryData = (
   const sourceWebsite = isGoogleWinery(source) ? source.website : isRawDbWinery(source) ? source.website : (isMapMarkerRpc(source) ? (source as any).website : isWineryDetailsRpc(source) ? (source as any).website : source.website);
   const website = mergeField(sourceWebsite, existing?.website);
 
-  const sourceRating = isGoogleWinery(source) 
+  const rawRating = isGoogleWinery(source) 
     ? (source.rating || source.google_rating) 
     : isRawDbWinery(source) 
         ? source.google_rating 
@@ -243,16 +243,28 @@ export const standardizeWineryData = (
             : isWineryDetailsRpc(source) 
                 ? ((source as any).google_rating ?? (source as any).rating) 
                 : source.rating);
-  const rating = mergeField(sourceRating, existing?.rating);
+  const parsedRating = typeof rawRating === 'number' && rawRating > 0 
+    ? rawRating 
+    : (typeof rawRating === 'string' && Number(rawRating) > 0 ? Number(rawRating) : null);
+  const sanitizedExistingRating = typeof existing?.rating === 'number' && existing.rating > 0 
+    ? existing.rating 
+    : (typeof existing?.rating === 'string' && Number(existing.rating) > 0 ? Number(existing.rating) : null);
+  const rating = mergeField(parsedRating, sanitizedExistingRating);
 
-  const sourceUserRatingCount = isGoogleWinery(source) 
+  const rawUserRatingCount = isGoogleWinery(source) 
     ? source.userRatingCount 
     : isRawDbWinery(source) 
         ? (source as any).user_rating_count 
         : (isWineryDetailsRpc(source) 
             ? ((source as any).user_rating_count ?? (source as any).userRatingCount) 
             : (source.userRatingCount ?? (source as any).user_rating_count ?? null));
-  const userRatingCount = mergeField(sourceUserRatingCount, existing?.userRatingCount);
+  const parsedUserRatingCount = typeof rawUserRatingCount === 'number' && rawUserRatingCount > 0 
+    ? rawUserRatingCount 
+    : (typeof rawUserRatingCount === 'string' && Number(rawUserRatingCount) > 0 ? Number(rawUserRatingCount) : null);
+  const sanitizedExistingRatingCount = typeof existing?.userRatingCount === 'number' && existing.userRatingCount > 0 
+    ? existing.userRatingCount 
+    : (typeof existing?.userRatingCount === 'string' && Number(existing.userRatingCount) > 0 ? Number(existing.userRatingCount) : null);
+  const userRatingCount = mergeField(parsedUserRatingCount, sanitizedExistingRatingCount);
 
   // Handle openingHours more carefully to avoid overwriting with null if missing from source
   const sourceOpeningHoursRaw = isGoogleWinery(source) 

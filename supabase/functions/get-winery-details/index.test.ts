@@ -2,6 +2,7 @@ import { assertEquals } from "std/testing/asserts.ts";
 import { handler } from "./index.ts";
 import { mockDenoEnv, mockFetch } from "../_shared/testing-helpers.ts";
 import { normalizeGooglePlaceV1 } from "../_shared/normalization.ts";
+import { shouldEnrich } from "../_shared/enrichment.ts";
 
 Deno.test("get-winery-details - successful fetch (lazy enrichment)", async () => {
   const envStub = mockDenoEnv({
@@ -118,4 +119,45 @@ Deno.test("normalizeGooglePlaceV1 - maps rating and userRatingCount correctly", 
   assertEquals(normalized.google_rating, 4.5);
   assertEquals(normalized.user_rating_count, 150);
 });
+
+Deno.test("normalizeGooglePlaceV1 - normalizes zero and undefined rating to null", () => {
+  const placeWithoutRating = {
+    id: "ChIJunrated",
+    displayName: { text: "Unrated Winery" },
+    formattedAddress: "456 Test St",
+    location: { latitude: 42.2, longitude: -76.2 },
+  };
+  const normalized1 = normalizeGooglePlaceV1(placeWithoutRating, 'basic');
+  assertEquals(normalized1.google_rating, null);
+  assertEquals(normalized1.user_rating_count, null);
+
+  const placeWithZero = {
+    ...placeWithoutRating,
+    rating: 0,
+    userRatingCount: 0,
+  };
+  const normalized2 = normalizeGooglePlaceV1(placeWithZero, 'basic');
+  assertEquals(normalized2.google_rating, null);
+  assertEquals(normalized2.user_rating_count, null);
+});
+
+Deno.test("shouldEnrich - respects freshness for unrated wineries with null ratings", () => {
+  const freshUnratedWinery = {
+    enrichment_tier: 'enriched',
+    reviews: [],
+    user_rating_count: null,
+    google_rating: null,
+    generative_summary: 'AI summary',
+    primary_photo_reference: 'photo_ref_123',
+    last_enriched_at: new Date().toISOString(),
+  };
+  assertEquals(shouldEnrich(freshUnratedWinery), false);
+
+  const corruptedWineryWithZero = {
+    ...freshUnratedWinery,
+    google_rating: 0,
+  };
+  assertEquals(shouldEnrich(corruptedWineryWithZero), true);
+});
+
 

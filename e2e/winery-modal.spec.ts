@@ -74,6 +74,40 @@ test.describe('Winery Modal Consolidated Suite', () => {
       await expect(sheet).toBeVisible();
       await expect(sheet).toHaveAttribute('data-state', 'ready');
     });
+
+    test('renders without rating badge and without leading zero in address when winery is unrated', async ({ page }) => {
+      await page.setViewportSize({ width: 1280, height: 900 });
+      const unratedWinery = {
+        id: 99,
+        google_place_id: 'place_unrated_99',
+        name: 'Unrated Cellars',
+        address: '456 Keuka Lake Rd, Penn Yan, NY',
+        latitude: 42.66,
+        longitude: -77.05,
+        rating: 0,
+        user_rating_count: 0,
+        enrichment_tier: 'enriched',
+        opening_hours: {
+          open_now: true,
+          weekday_text: ['Monday: 10:00 AM – 5:00 PM']
+        }
+      };
+      await openWineryModalState(page, unratedWinery);
+
+      const dialog = page.getByTestId('winery-modal-dialog');
+      await expect(dialog).toBeVisible();
+
+      // Ensure no rating star badge is displayed in the title overlay (only favorite button star exists)
+      const ratingBadgeStar = dialog.locator('svg.lucide-star.fill-foreground');
+      await expect(ratingBadgeStar).toHaveCount(0);
+      await expect(dialog.getByTestId('favorite-button').locator('svg.lucide-star')).toBeVisible();
+
+      // Verify the address does NOT have a leading "0" from JSX coercion
+      const addressSpan = dialog.locator('span.text-balance');
+      await expect(addressSpan).toBeVisible();
+      const rawText = await addressSpan.innerText();
+      expect(rawText.startsWith('0')).toBe(false);
+    });
   });
 
   test.describe('Mobile Snap Drawer Gestures & Peek Bar', () => {

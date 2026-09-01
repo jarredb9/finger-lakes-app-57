@@ -22,6 +22,14 @@ describe('WineryUIStore: ensureWineryDetails', () => {
       })
     }));
 
+    jest.doMock('@/lib/utils', () => {
+      const actual = jest.requireActual('@/lib/utils');
+      return {
+        ...actual,
+        invokeFunction: (...args: any[]) => mockInvoke(...args),
+      };
+    });
+
     // Re-import stores to pick up the new mock
     useWineryStore = require('../wineryStore').useWineryStore;
     useWineryDataStore = require('../wineryDataStore').useWineryDataStore;
@@ -49,6 +57,83 @@ describe('WineryUIStore: ensureWineryDetails', () => {
 
     expect(result).toEqual(winery);
     expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it('triggers background revalidation (Stale-While-Revalidate) when cached winery is older than 30 days', async () => {
+    const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+    const staleWinery: Winery = {
+      ...createMockWinery(),
+      openingHours: { weekday_text: ['Mon: Open'] },
+      userVisited: false,
+      enrichment_tier: 'enriched',
+      last_enriched_at: fortyDaysAgo,
+      reviews: [{ author_name: 'Tester', rating: 5, text: 'Great!', time: 12345, relative_time_description: 'today' }],
+      userRatingCount: 10,
+      generative_summary: 'Great winery summary',
+      vibe_tags: ['Dog Friendly']
+    };
+    
+    useWineryDataStore.setState({ persistentWineries: [staleWinery] });
+
+    // ensureWineryDetails should return the stale data immediately for snappy UI
+    const result = await useWineryStore.getState().ensureWineryDetails(staleWinery.id);
+    expect(result).toEqual(staleWinery);
+
+    // And fire background revalidation to get-winery-details
+    expect(mockInvoke).toHaveBeenCalledWith('get-winery-details', { body: { placeId: staleWinery.id } });
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+
+    // Calling it again while in-flight should NOT trigger duplicate background calls
+    await useWineryStore.getState().ensureWineryDetails(staleWinery.id);
+    expect(mockInvoke).toHaveBeenCalledTimes(1);
+  });
+
+  it('bypasses early cache return and fetches fresh details if cached winery has rating of 0', async () => {
+    const zeroRatingWinery: Winery = {
+      ...createMockWinery(),
+      rating: 0,
+      dbId: 456 as WineryDbId,
+      openingHours: { weekday_text: ['Mon: Open'] },
+      userVisited: false,
+      enrichment_tier: 'enriched',
+      reviews: [{ author_name: 'Tester', rating: 5, text: 'Great!', time: 12345, relative_time_description: 'today' }],
+      userRatingCount: 10,
+      generative_summary: 'Great winery summary',
+      vibe_tags: ['Dog Friendly']
+    };
+    
+    useWineryDataStore.setState({ persistentWineries: [zeroRatingWinery] });
+
+    mockRpc.mockResolvedValueOnce({
+      data: [{
+        ...zeroRatingWinery,
+        google_rating: 4.8
+      }],
+      error: null
+    });
+
+    await useWineryStore.getState().ensureWineryDetails(zeroRatingWinery.id);
+
+    // Should fetch from DB because rating: 0 is treated as corrupted/invalid
+    expect(mockRpc).toHaveBeenCalledWith('get_winery_details_by_id', { p_winery_id: 456 });
+  });
+
+  it('resolves targetDbId directly from numeric placeId string when winery is not in local cache', async () => {
+    useWineryDataStore.setState({ persistentWineries: [] });
+
+    mockRpc.mockResolvedValueOnce({
+      data: [{
+        ...createMockWinery(),
+        id: 789,
+        google_place_id: 'place_mock_789'
+      }],
+      error: null
+    });
+
+    await useWineryStore.getState().ensureWineryDetails('789');
+
+    expect(mockRpc).toHaveBeenCalledWith('get_winery_details_by_id', { p_winery_id: 789 });
   });
 
   it('FORCES fetch if userVisited is true but visits are missing (Ghost State)', async () => {

@@ -143,4 +143,16 @@ describe('DesktopWineryModal', () => {
     fireEvent.click(amenitiesTab);
     expect(defaultProps.setActiveTab).toHaveBeenCalledWith('amenities');
   });
+
+  it('does not render rating badge or leading 0 in address when winery rating is 0 or null', () => {
+    const unratedWinery = {
+      ...mockWinery,
+      rating: 0,
+      address: '123 Wine Trail, Geneva, NY',
+    };
+    render(<DesktopWineryModal {...defaultProps} winery={unratedWinery} />);
+
+    expect(screen.queryByText('0')).not.toBeInTheDocument();
+    expect(screen.getByText('123 Wine Trail, Geneva, NY')).toBeInTheDocument();
+  });
 });
