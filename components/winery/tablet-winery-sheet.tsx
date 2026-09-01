@@ -196,7 +196,7 @@ export function TabletWinerySheet({
               {winery.name}
             </h2>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              {winery.rating && (
+              {typeof winery.rating === 'number' && winery.rating > 0 && (
                 <div className="flex items-center gap-1 font-semibold text-foreground">
                   <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                   <span>{winery.rating}</span>

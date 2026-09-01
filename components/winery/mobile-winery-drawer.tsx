@@ -217,7 +217,7 @@ export function MobileWineryDrawer({
             <div className="flex-1 min-w-0 text-left">
               <h2 className="text-lg sm:text-xl font-bold text-foreground leading-tight truncate">{winery.name}</h2>
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground font-medium mt-0.5">
-                {winery.rating && (
+                {typeof winery.rating === 'number' && winery.rating > 0 && (
                   <div className="flex items-center gap-1">
                     <Star className="w-3.5 h-3.5 fill-foreground text-foreground" />
                     <span className="text-foreground font-semibold">{winery.rating}</span>

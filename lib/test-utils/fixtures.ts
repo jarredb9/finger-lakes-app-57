@@ -39,6 +39,7 @@ export const createMockWinery = (overrides: Partial<Winery> = {}): Winery => ({
   cached_photos: null,
   parking_options: null,
   accessibility_options: null,
+  last_enriched_at: new Date().toISOString(),
   ...overrides,
 });
 

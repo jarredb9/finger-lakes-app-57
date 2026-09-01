@@ -197,7 +197,7 @@ export function DesktopWineryModal({
             <div className="-mt-12 mx-auto relative z-10 bg-background/70 backdrop-blur-xl border border-white/20 dark:border-white/10 rounded-2xl p-4 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex flex-col items-center gap-1.5 text-center w-[92%] max-w-sm">
               <h2 className="text-xl md:text-2xl font-bold text-foreground leading-tight text-balance break-words w-full line-clamp-2">{winery.name}</h2>
               <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs md:text-[13px] text-muted-foreground font-medium w-full">
-                {winery.rating && (
+                {typeof winery.rating === 'number' && winery.rating > 0 && (
                   <div className="flex items-center gap-1 shrink-0">
                     <Star className="w-3.5 h-3.5 md:w-4 md:h-4 fill-foreground text-foreground" />
                     <span className="text-foreground">{winery.rating}</span>

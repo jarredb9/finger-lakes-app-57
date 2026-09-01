@@ -192,4 +192,54 @@ describe('standardizeWineryData', () => {
     });
     expect(wineryWithExplicit?.parking_options?.freeParking).toBe(false); // Explicit overrides derivation
   });
+
+  it('normalizes rating 0 and non-positive rating values to null', () => {
+    const wineryWithZero = standardizeWineryData({
+      id: 'mock_place_zero',
+      name: 'Zero Rating Winery',
+      latitude: 42,
+      longitude: -76,
+      rating: 0,
+      userRatingCount: 0,
+    });
+    expect(wineryWithZero?.rating).toBeFalsy();
+    expect(wineryWithZero?.userRatingCount).toBeFalsy();
+
+    const wineryWithNegative = standardizeWineryData({
+      id: 'mock_place_neg',
+      name: 'Negative Rating Winery',
+      latitude: 42,
+      longitude: -76,
+      rating: -1,
+    });
+    expect(wineryWithNegative?.rating).toBeFalsy();
+
+    const wineryWithValid = standardizeWineryData({
+      id: 'mock_place_valid',
+      name: 'Valid Rating Winery',
+      latitude: 42,
+      longitude: -76,
+      rating: 4.8,
+      userRatingCount: 200,
+    });
+    expect(wineryWithValid?.rating).toBe(4.8);
+    expect(wineryWithValid?.userRatingCount).toBe(200);
+
+    // Merging with existing winery that had corrupted 0 rating
+    const existingCorrupted = {
+      ...wineryWithValid!,
+      rating: 0,
+      userRatingCount: 0,
+    };
+    const mergedUnrated = standardizeWineryData({
+      id: 'mock_place_valid',
+      name: 'Valid Rating Winery',
+      latitude: 42,
+      longitude: -76,
+      rating: null,
+      userRatingCount: null,
+    }, existingCorrupted);
+    expect(mergedUnrated?.rating).toBeNull();
+    expect(mergedUnrated?.userRatingCount).toBeNull();
+  });
 });

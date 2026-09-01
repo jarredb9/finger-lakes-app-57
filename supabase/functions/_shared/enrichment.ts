@@ -36,11 +36,14 @@ export function shouldEnrich(winery: any): boolean {
     if (!firstReview.author_name && firstReview.authorAttribution) return true;
   }
 
-  // Auto-heal if user_rating_count is missing (newly added field)
-  if (winery.user_rating_count === null || winery.user_rating_count === undefined) return true;
+  // Auto-heal if user_rating_count is missing (undefined)
+  if (winery.user_rating_count === undefined) return true;
 
   // Auto-heal if critical enrichment data is missing despite being in 'enriched' tier
   if (!winery.generative_summary || !winery.primary_photo_reference) return true;
+
+  // Auto-heal if google_rating was corrupted to 0 by legacy normalization
+  if (winery.google_rating === 0) return true;
   
   return isStale(winery.last_enriched_at);
 }

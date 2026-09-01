@@ -82,8 +82,8 @@ export function mapSdkPlaceToV1Place(
       place.phone ||
       null,
     website: place.websiteUri || place.website || null,
-    google_rating: place.rating ?? place.google_rating ?? null,
-    user_rating_count: place.userRatingCount ?? place.user_rating_count ?? null,
+    google_rating: (typeof place.rating === 'number' && place.rating > 0) ? place.rating : ((typeof place.google_rating === 'number' && place.google_rating > 0) ? place.google_rating : null),
+    user_rating_count: (typeof place.userRatingCount === 'number' && place.userRatingCount > 0) ? place.userRatingCount : ((typeof place.user_rating_count === 'number' && place.user_rating_count > 0) ? place.user_rating_count : null),
     allows_dogs: place.allowsDogs ?? place.allows_dogs ?? null,
     serves_wine: place.servesWine ?? place.serves_wine ?? null,
     good_for_children:

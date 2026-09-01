@@ -92,7 +92,7 @@ export const handler = async (req: Request): Promise<Response> => {
     const clientWineries = dbWineries.map((w: any) => ({
       ...w,
       id: w.google_place_id,
-      rating: w.google_rating,
+      rating: typeof w.google_rating === 'number' && w.google_rating > 0 ? w.google_rating : null,
       generative_summary: w.generative_summary?.overview?.text || null,
       neighborhood_summary: w.neighborhood_summary?.overview?.text || null,
     }));

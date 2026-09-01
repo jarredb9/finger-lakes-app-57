@@ -41,8 +41,8 @@ export function normalizeGooglePlaceV1(place: any, tier: 'basic' | 'enriched' = 
     longitude: place.location?.longitude ?? 0,
     phone: place.internationalPhoneNumber || null,
     website: place.websiteUri || null,
-    google_rating: typeof place.rating === 'number' ? place.rating : 0,
-    user_rating_count: typeof place.userRatingCount === 'number' ? place.userRatingCount : 0,
+    google_rating: typeof place.rating === 'number' && place.rating > 0 ? place.rating : null,
+    user_rating_count: typeof place.userRatingCount === 'number' && place.userRatingCount > 0 ? place.userRatingCount : null,
     opening_hours: place.regularOpeningHours || null,
     reviews: place.reviews ? place.reviews.map((r: any) => ({
       author_name: r.authorAttribution?.displayName || 'Anonymous',

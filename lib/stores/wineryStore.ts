@@ -45,6 +45,8 @@ interface WineryUIState {
   reset: () => void;
 }
 
+const inFlightRevalidations = new Set<string>();
+
 export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
   loadingWineryId: null,
 
@@ -84,17 +86,55 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
         }
     }
 
+    // Helper to determine staleness (> 30 days)
+    const isStaleRecord = (lastEnrichedAt?: string | null): boolean => {
+      if (!lastEnrichedAt) return true;
+      const lastDate = new Date(lastEnrichedAt);
+      if (isNaN(lastDate.getTime())) return true;
+      const diffDays = Math.ceil(Math.abs(Date.now() - lastDate.getTime()) / (1000 * 60 * 60 * 24));
+      return diffDays > 30;
+    };
+
+    // Helper to fire background revalidation without blocking UI
+    const revalidateInBackground = (targetPlaceId: GooglePlaceId) => {
+      if (/^\d+$/.test(targetPlaceId) || inFlightRevalidations.has(targetPlaceId)) return;
+      // @ts-ignore
+      const skipDetailsMock = typeof window !== 'undefined' && window._E2E_SKIP_DETAILS_MOCK;
+      if (process.env.NEXT_PUBLIC_IS_E2E === 'true' && shouldMockWineries() && !skipDetailsMock) return;
+
+      inFlightRevalidations.add(targetPlaceId);
+      invokeFunction('get-winery-details', { body: { placeId: targetPlaceId } })
+        .then(({ data: googleData, error: functionError }) => {
+          if (!functionError && googleData) {
+            const currentExisting = useWineryDataStore.getState().getWinery(targetPlaceId);
+            const standardized = standardizeWineryData(googleData, currentExisting || undefined);
+            if (standardized) {
+              useWineryDataStore.getState().upsertWinery(standardized);
+            }
+          }
+        })
+        .catch((err) => console.error("[ensureWineryDetails] Background revalidation failed:", err))
+        .finally(() => {
+          inFlightRevalidations.delete(targetPlaceId);
+        });
+    };
+
     // Optimization: Return cached details if we have them
     // We check for enrichment_tier 'enriched' or 'full' AND presence of reviews/hours/generative_summary/vibe_tags
     const isEnriched = (existing?.enrichment_tier === 'enriched' || existing?.enrichment_tier === 'full') && 
                        (existing?.reviews !== undefined && existing?.reviews !== null && Array.isArray(existing.reviews)) &&
                        (existing?.openingHours !== undefined && existing?.openingHours !== null && existing.openingHours.weekday_text && existing.openingHours.weekday_text.length > 0) &&
-                       (existing?.userRatingCount !== undefined && existing?.userRatingCount !== null) &&
+                       (existing?.userRatingCount !== undefined) &&
                        (existing?.generative_summary !== undefined && existing?.generative_summary !== null) &&
                        (existing?.vibe_tags !== undefined && existing?.vibe_tags !== null && Array.isArray(existing.vibe_tags) && existing.vibe_tags.length > 0);
     const hasMissingVisits = existing?.userVisited && (!existing.visits || existing.visits.length === 0);
+    const hasZeroRating = existing?.rating === 0;
 
-    if (existing && isEnriched && !hasMissingVisits) {
+    if (existing && isEnriched && !hasMissingVisits && !hasZeroRating) {
+        if (isStaleRecord(existing.last_enriched_at)) {
+            // Stale-While-Revalidate: Return current cached data immediately, revalidate in background
+            revalidateInBackground(placeId);
+        }
         return existing;
     }
 
@@ -104,9 +144,25 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
         const supabase = createClient();
         let dbData = null;
 
-        // 1. Try DB details
-        if (existing?.dbId) {
-            const { data } = await supabase.rpc('get_winery_details_by_id', { p_winery_id: existing.dbId });
+        // 1. Try DB details (resolving dbId by google_place_id if not yet in client cache)
+        let targetDbId = existing?.dbId;
+        if (!targetDbId && placeId) {
+            if (/^\d+$/.test(placeId)) {
+                targetDbId = Number(placeId) as WineryDbId;
+            } else {
+                const { data: idRow } = await supabase
+                    .from('wineries')
+                    .select('id')
+                    .eq('google_place_id', placeId)
+                    .maybeSingle();
+                if (idRow?.id) {
+                    targetDbId = Number(idRow.id) as WineryDbId;
+                }
+            }
+        }
+
+        if (targetDbId) {
+            const { data } = await supabase.rpc('get_winery_details_by_id', { p_winery_id: targetDbId });
             if (data && data.length > 0) dbData = data[0];
         }
 
@@ -116,16 +172,21 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
             if (standardized) {
                 dataStore.upsertWinery(standardized);
                 
-                // Optimization: If DB data is already fully enriched (including AI generative_summary and vibe_tags), return early.
+                // Optimization: If DB data is already fully enriched, check staleness
                 const dbIsEnriched = dbData.enrichment_tier === 'enriched' &&
                                     dbData.opening_hours && 
-                                    dbData.user_rating_count !== null && 
+                                    dbData.user_rating_count !== undefined && 
                                     Array.isArray(dbData.reviews) &&
                                     dbData.generative_summary &&
                                     Array.isArray(dbData.vibe_tags) && dbData.vibe_tags.length > 0;
+                const dbHasZeroRating = dbData.google_rating === 0;
 
-                if (dbIsEnriched) {
+                if (dbIsEnriched && !dbHasZeroRating) {
                     set({ loadingWineryId: null });
+                    if (isStaleRecord(dbData.last_enriched_at)) {
+                        // Stale-While-Revalidate: Return standardized immediately, revalidate in background
+                        revalidateInBackground(placeId);
+                    }
                     return standardized;
                 }
             }
@@ -144,7 +205,8 @@ export const useWineryStore = createWithEqualityFn<WineryUIState>((set) => ({
             });
 
             if (!functionError && googleData) {
-                const standardized = standardizeWineryData(googleData, existing || undefined);
+                const currentExisting = dataStore.getWinery(placeId);
+                const standardized = standardizeWineryData(googleData, currentExisting || existing || undefined);
                 if (standardized) {
                     dataStore.upsertWinery(standardized);
                     set({ loadingWineryId: null });
