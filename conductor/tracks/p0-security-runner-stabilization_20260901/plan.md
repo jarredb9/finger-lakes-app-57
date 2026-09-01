@@ -1,6 +1,6 @@
 # Implementation Plan: P0 Security Hotfixes, Production Safety & Test Runner Stabilization
 
-## Phase 1: Database RLS & Security Definer Hardening
+## Phase 1: Database RLS & Security Definer Hardening [checkpoint: 464dc00]
 
 - [x] Task: Write Failing Tests for Database Policies and Privileges (Red Phase) [47d34e5]
     - [x] Create test cases asserting rejection of direct updates to `public.wineries` by authenticated non-service-role clients
@@ -13,7 +13,7 @@
     - [x] Set explicit `search_path = public, vault, extensions, pg_temp` on `handle_activity_ledger_notification`
     - [x] Apply migration locally via `npm run db:start` and verify tests pass (Green Phase)
     - [x] Run `npm run db:lint` and `npm run db:check-types:local` to ensure 0 lint warnings and valid types
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Database RLS & Security Definer Hardening' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Database RLS & Security Definer Hardening' (Protocol in workflow.md)
 
 ## Phase 2: Middleware Routing & Route Protection
 
