@@ -2,10 +2,10 @@
 
 ## Phase 1: Database RLS & Security Definer Hardening
 
-- [ ] Task: Write Failing Tests for Database Policies and Privileges (Red Phase)
-    - [ ] Create test cases asserting rejection of direct updates to `public.wineries` by authenticated non-service-role clients
-    - [ ] Create test cases asserting anonymous and non-service-role execution denial on `bulk_upsert_wineries` RPC
-    - [ ] Run test cases against local database to confirm failure (Red Phase)
+- [x] Task: Write Failing Tests for Database Policies and Privileges (Red Phase) [47d34e5]
+    - [x] Create test cases asserting rejection of direct updates to `public.wineries` by authenticated non-service-role clients
+    - [x] Create test cases asserting anonymous and non-service-role execution denial on `bulk_upsert_wineries` RPC
+    - [x] Run test cases against local database to confirm failure (Red Phase)
 - [ ] Task: Implement Database Migration for RLS and Security Definers (Green Phase)
     - [ ] Create migration file `supabase/migrations/20260902000000_p0_security_fixes.sql`
     - [ ] Drop policy `"Authenticated users can update wineries"` from `public.wineries`
