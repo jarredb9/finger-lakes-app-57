@@ -6,13 +6,13 @@
     - [x] Create test cases asserting rejection of direct updates to `public.wineries` by authenticated non-service-role clients
     - [x] Create test cases asserting anonymous and non-service-role execution denial on `bulk_upsert_wineries` RPC
     - [x] Run test cases against local database to confirm failure (Red Phase)
-- [ ] Task: Implement Database Migration for RLS and Security Definers (Green Phase)
-    - [ ] Create migration file `supabase/migrations/20260902000000_p0_security_fixes.sql`
-    - [ ] Drop policy `"Authenticated users can update wineries"` from `public.wineries`
-    - [ ] Revoke execute privileges on `bulk_upsert_wineries(jsonb[])` from `PUBLIC` and grant to `service_role`
-    - [ ] Set explicit `search_path = public, vault, extensions, pg_temp` on `handle_activity_ledger_notification`
-    - [ ] Apply migration locally via `npm run db:start` and verify tests pass (Green Phase)
-    - [ ] Run `npm run db:lint` and `npm run db:check-types:local` to ensure 0 lint warnings and valid types
+- [x] Task: Implement Database Migration for RLS and Security Definers (Green Phase) [4a46201]
+    - [x] Create migration file `supabase/migrations/20260902000000_p0_security_fixes.sql`
+    - [x] Drop policy `"Authenticated users can update wineries"` from `public.wineries`
+    - [x] Revoke execute privileges on `bulk_upsert_wineries(jsonb[])` from `PUBLIC` and grant to `service_role`
+    - [x] Set explicit `search_path = public, vault, extensions, pg_temp` on `handle_activity_ledger_notification`
+    - [x] Apply migration locally via `npm run db:start` and verify tests pass (Green Phase)
+    - [x] Run `npm run db:lint` and `npm run db:check-types:local` to ensure 0 lint warnings and valid types
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Database RLS & Security Definer Hardening' (Protocol in workflow.md)
 
 ## Phase 2: Middleware Routing & Route Protection
