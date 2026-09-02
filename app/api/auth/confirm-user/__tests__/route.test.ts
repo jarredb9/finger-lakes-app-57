@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { POST } from '../route';
+import { GET, POST } from '../route';
 import { createAdminClient } from '@/utils/supabase/admin';
 
 jest.mock('@/utils/supabase/admin', () => ({
@@ -111,6 +111,54 @@ describe('POST /api/auth/confirm-user (BE-01)', () => {
       expect(mockUpdateUserById).toHaveBeenCalledWith('target@example.com', {
         email_confirm: true,
       });
+    });
+  });
+
+  describe('GET /api/auth/confirm-user', () => {
+    it('returns 404 disabled endpoint in production mode', async () => {
+      (process.env as any).NODE_ENV = 'production';
+      process.env.INTERNAL_API_SECRET = 'correct-secret';
+
+      const request = new NextRequest('https://example.com/api/auth/confirm-user', {
+        method: 'GET',
+        headers: {
+          'x-internal-secret': 'correct-secret',
+        },
+      });
+
+      const response = await GET(request);
+      expect(response.status).toBe(404);
+      const data = await response.json();
+      expect(data.error).toBe('Endpoint disabled');
+    });
+
+    it('rejects GET requests without valid secret in dev mode', async () => {
+      (process.env as any).NODE_ENV = 'development';
+      process.env.INTERNAL_API_SECRET = 'test-secret-token';
+
+      const request = new NextRequest('https://example.com/api/auth/confirm-user', {
+        method: 'GET',
+      });
+
+      const response = await GET(request);
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 200 OK for GET requests with valid secret in dev mode', async () => {
+      (process.env as any).NODE_ENV = 'development';
+      process.env.INTERNAL_API_SECRET = 'test-secret-token';
+
+      const request = new NextRequest('https://example.com/api/auth/confirm-user', {
+        method: 'GET',
+        headers: {
+          'x-internal-secret': 'test-secret-token',
+        },
+      });
+
+      const response = await GET(request);
+      expect(response.status).toBe(200);
+      const data = await response.json();
+      expect(data.status).toBe('ok');
     });
   });
 });
