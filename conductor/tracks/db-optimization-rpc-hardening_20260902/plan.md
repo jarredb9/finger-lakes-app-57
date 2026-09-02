@@ -33,10 +33,10 @@
 
 ## Phase 3: Security Configuration, Webhook Parameterization & Edge Function Cleanup
 
-- [ ] Task: Write Failing Tests for Parameterized Webhook and Edge Function Suite (Red Phase)
-    - [ ] Add Deno / Edge Function tests in `supabase/functions/tests/` asserting dynamic webhook URL resolution
-    - [ ] Verify orphaned Edge Function `update-gemini-summary` removal does not break `enrich-winery` imports
-    - [ ] Run test suite to verify initial status
+- [x] Task: Write Failing Tests for Parameterized Webhook and Edge Function Suite (Red Phase) [58cba3f]
+    - [x] Add Deno / Edge Function tests in `supabase/functions/tests/` asserting dynamic webhook URL resolution
+    - [x] Verify orphaned Edge Function `update-gemini-summary` removal does not break `enrich-winery` imports
+    - [x] Run test suite to verify initial status
 - [ ] Task: Implement Webhook Parameterization and Prune Orphaned Edge Function (Green Phase)
     - [ ] Create migration `supabase/migrations/20260902120000_parameterize_notification_webhook.sql` replacing hardcoded Supabase project URL and service secret with `current_setting('app.settings.supabase_url', true)`
     - [ ] Delete orphaned directory `supabase/functions/update-gemini-summary/`
