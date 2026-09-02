@@ -44,3 +44,6 @@
     - [x] Remove legacy CommonJS `node-fetch@2` polyfill from `jest.setup.ts`
     - [x] Run `CI=true npm test` to verify fast offline execution in < 60s
 - [x] Task: Conductor - User Manual Verification 'Phase 3: State Sync Bugfix & Test Runner Stabilization' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions [0f88302]
