@@ -6,15 +6,15 @@
     - [x] Add integration test asserting `get_map_markers` RPC query plan uses hash joins without per-row subqueries
     - [x] Add integration test asserting `visits` visibility filtering inlines without PL/pgSQL function overhead
     - [x] Run integration tests against local database to confirm failure or baseline execution
-- [ ] Task: Implement Database Migration for Covering Indexes and Query Inlining (Green Phase)
-    - [ ] Create migration file `supabase/migrations/20260902100000_indexes_and_query_optimization.sql`
-    - [ ] Add covering indexes on `visits(user_id)`, `visits(winery_id)`, `visits(winery_id, user_id)`, `trip_wineries(winery_id)`, `trip_members(user_id)`, `follows(following_id)`, and `wineries(name)`
-    - [ ] Add composite index on `activity_ledger(activity_type, object_id)`
-    - [ ] Rewrite `get_map_markers` RPC using pre-filtered hash joins and `SET search_path = public, pg_temp`
-    - [ ] Refactor `is_visible_to_viewer` to `LANGUAGE sql STABLE` or inline RLS `USING` predicates
-    - [ ] Apply migration locally via `npm run db:start` and verify query plans with `EXPLAIN ANALYZE`
-    - [ ] Run `npm run db:lint` and `npm run db:gen-types` to ensure schema integrity and update types
-    - [ ] Run `npm run db:check-types:local` to verify TypeScript type definitions
+- [x] Task: Implement Database Migration for Covering Indexes and Query Inlining (Green Phase) [72fa017]
+    - [x] Create migration file `supabase/migrations/20260902100000_indexes_and_query_optimization.sql`
+    - [x] Add covering indexes on `visits(user_id)`, `visits(winery_id)`, `visits(winery_id, user_id)`, `trip_wineries(winery_id)`, `trip_members(user_id)`, `follows(following_id)`, and `wineries(name)`
+    - [x] Add composite index on `activity_ledger(activity_type, object_id)`
+    - [x] Rewrite `get_map_markers` RPC using pre-filtered hash joins and `SET search_path = public, pg_temp`
+    - [x] Refactor `is_visible_to_viewer` to `LANGUAGE sql STABLE` or inline RLS `USING` predicates
+    - [x] Apply migration locally via `npm run db:start` and verify query plans with `EXPLAIN ANALYZE`
+    - [x] Run `npm run db:lint` and `npm run db:gen-types` to ensure schema integrity and update types
+    - [x] Run `npm run db:check-types:local` to verify TypeScript type definitions
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Relational Indexes, Query Inlining & Idempotent Migrations' (Protocol in workflow.md)
 
 ## Phase 2: RPC Consolidation & Winery Service Optimization
