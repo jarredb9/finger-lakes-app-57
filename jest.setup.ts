@@ -36,48 +36,54 @@ beforeEach(() => {
   useWineryStore.getState().reset?.();
 
   // Ensure modal-root exists for Portals
-  let modalRoot = document.getElementById('modal-root');
-  if (!modalRoot) {
-    modalRoot = document.createElement('div');
-    modalRoot.setAttribute('id', 'modal-root');
-    document.body.appendChild(modalRoot);
-  } else {
-    modalRoot.innerHTML = '';
+  if (typeof document !== 'undefined') {
+    let modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) {
+      modalRoot = document.createElement('div');
+      modalRoot.setAttribute('id', 'modal-root');
+      document.body.appendChild(modalRoot);
+    } else {
+      modalRoot.innerHTML = '';
+    }
   }
 });
 
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder as any;
 
-// Polyfill Request, Response, Headers for Next.js App Router tests in JSDOM
-// Next.js 14+ relies on these globals for server components/actions.
-if (typeof global.fetch === 'undefined') {
-  global.fetch = require('node-fetch');
-}
+// Expose Node 24 native Web Fetch & Streams APIs (fetch, Request, Response, Headers, FormData, Streams)
+// to JSDOM global context directly from Node's root execution context
 if (typeof global.Request === 'undefined') {
-  global.Request = (require('node-fetch').Request) as any;
-}
-if (typeof global.Response === 'undefined') {
-  global.Response = (require('node-fetch').Response) as any;
-}
-if (typeof global.Headers === 'undefined') {
-  global.Headers = (require('node-fetch').Headers) as any;
+  const vm = require('node:vm');
+  const nodeGlobals = vm.runInThisContext('globalThis');
+  global.fetch = nodeGlobals.fetch;
+  global.Request = nodeGlobals.Request;
+  global.Response = nodeGlobals.Response;
+  global.Headers = nodeGlobals.Headers;
+  global.FormData = nodeGlobals.FormData;
+  if (typeof global.ReadableStream === 'undefined') {
+    global.ReadableStream = nodeGlobals.ReadableStream;
+    global.WritableStream = nodeGlobals.WritableStream;
+    global.TransformStream = nodeGlobals.TransformStream;
+  }
 }
 
 // Polyfill matchMedia for JSDOM
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(), // Deprecated
-    removeListener: jest.fn(), // Deprecated
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
-});
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: jest.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: jest.fn(), // Deprecated
+      removeListener: jest.fn(), // Deprecated
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    })),
+  });
+}
 
 // Mock the 'next/cache' functions that are used by server actions
 jest.mock('next/cache', () => ({

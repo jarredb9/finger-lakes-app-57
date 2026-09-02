@@ -6,6 +6,8 @@ const createJestConfig = nextJest({
   dir: './',
 })
  
+const isIntegration = process.env.TEST_TYPE === 'integration';
+
 // Add any custom config to be passed to Jest
 const config = {
   coverageProvider: 'v8',
@@ -15,7 +17,13 @@ const config = {
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/$1',
   },
-  testPathIgnorePatterns: ['<rootDir>/e2e/', '<rootDir>/node_modules/', '<rootDir>/supabase/'],
+  testPathIgnorePatterns: [
+    '<rootDir>/e2e/',
+    '<rootDir>/node_modules/',
+    '<rootDir>/supabase/',
+    ...(isIntegration ? [] : ['\\.integration\\.test\\.']),
+  ],
+  ...(isIntegration ? { testMatch: ['**/*.integration.test.[jt]s?(x)'] } : {}),
 }
  
 // createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
