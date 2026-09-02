@@ -24,4 +24,4 @@
 | **adaptive-3-tier-layout_20260825** | Adaptive 3-Tier Layout Architecture | [x] Archived | [Plan](./archive/adaptive-3-tier-layout_20260825/plan.md) |
 | **map-core-search-refactor_20260826** | Map Core, Search Autocomplete & Controls Decoupling Refactor | [x] Archived | [Plan](./archive/map-core-search-refactor_20260826/plan.md) |
 | **p0-security-runner-stabilization_20260901** | P0 Security Hotfixes, Production Safety & Test Runner Stabilization | [x] Archived | [Plan](./archive/p0-security-runner-stabilization_20260901/plan.md) |
-| **db-optimization-rpc-hardening_20260902** | Database Performance Optimization, RPC Hardening & Schema Integrity | [x] Complete | [Plan](./tracks/db-optimization-rpc-hardening_20260902/plan.md) |
+| **db-optimization-rpc-hardening_20260902** | Database Performance Optimization, RPC Hardening & Schema Integrity | [x] Archived | [Plan](./archive/db-optimization-rpc-hardening_20260902/plan.md) |
