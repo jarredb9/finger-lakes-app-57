@@ -53,14 +53,28 @@ export type MapMarker = MapMarkerRpc;
 export type TripDetails = Trip;
 export type VisitItem = VisitWithWinery;
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
 
-if (!supabaseUrl || !serviceRoleKey) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for test utils');
+let adminClient: ReturnType<typeof createClient<Database>> | null = null;
+
+export function getAdminClient(): ReturnType<typeof createClient<Database>> {
+  if (adminClient) return adminClient;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!url || !serviceRoleKey) {
+    throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY for test utils');
+  }
+
+  adminClient = createClient<Database>(url, serviceRoleKey);
+  return adminClient;
 }
 
-export const supabase = createClient(supabaseUrl, serviceRoleKey);
+export const supabase = new Proxy({} as ReturnType<typeof createClient<Database>>, {
+  get(_target, prop) {
+    return (getAdminClient() as any)[prop];
+  }
+});
 
 export interface TestUser {
   id: string;

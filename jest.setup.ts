@@ -51,30 +51,21 @@ beforeEach(() => {
 global.TextEncoder = TextEncoder;
 global.TextDecoder = TextDecoder as any;
 
-// Polyfill Request, Response, Headers for Next.js App Router tests in JSDOM
-// Next.js 14+ relies on these globals for server components/actions.
-if (typeof global.fetch === 'undefined') {
-  global.fetch = require('node-fetch');
-}
+// Expose Node 24 native Web Fetch & Streams APIs (fetch, Request, Response, Headers, FormData, Streams)
+// to JSDOM global context directly from Node's root execution context
 if (typeof global.Request === 'undefined') {
-  global.Request = (require('node-fetch').Request) as any;
-}
-if (typeof global.Response === 'undefined') {
-  global.Response = (require('node-fetch').Response) as any;
-}
-if (typeof (global.Response as any).json === 'undefined') {
-  (global.Response as any).json = (data: any, init?: any) => {
-    return new (global.Response as any)(JSON.stringify(data), {
-      ...init,
-      headers: {
-        'content-type': 'application/json',
-        ...(init?.headers || {}),
-      },
-    });
-  };
-}
-if (typeof global.Headers === 'undefined') {
-  global.Headers = (require('node-fetch').Headers) as any;
+  const vm = require('node:vm');
+  const nodeGlobals = vm.runInThisContext('globalThis');
+  global.fetch = nodeGlobals.fetch;
+  global.Request = nodeGlobals.Request;
+  global.Response = nodeGlobals.Response;
+  global.Headers = nodeGlobals.Headers;
+  global.FormData = nodeGlobals.FormData;
+  if (typeof global.ReadableStream === 'undefined') {
+    global.ReadableStream = nodeGlobals.ReadableStream;
+    global.WritableStream = nodeGlobals.WritableStream;
+    global.TransformStream = nodeGlobals.TransformStream;
+  }
 }
 
 // Polyfill matchMedia for JSDOM
