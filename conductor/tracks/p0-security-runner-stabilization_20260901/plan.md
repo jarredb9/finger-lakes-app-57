@@ -22,12 +22,12 @@
     - [x] Write unit tests verifying `/privacy`, `/terms`, `/workbox-*.js`, and `/worker-*.js` bypass auth redirects
     - [x] Write unit tests for `/api/auth/confirm-user` verifying 404 in production and secret validation in dev
     - [x] Run middleware and route tests to confirm red state
-- [ ] Task: Implement Middleware Updates and Auth Endpoint Security (Green Phase)
-    - [ ] Update `proxy.ts` to copy cookies across redirects using `response.cookies.getAll()`
-    - [ ] Add `/privacy` and `/terms` to `publicRoutes` in `proxy.ts`
-    - [ ] Add pattern matching for `/workbox-` and `/worker-` assets in `proxy.ts`
-    - [ ] Update `app/api/auth/confirm-user/route.ts` with production 404 guard and dev shared-secret validation
-    - [ ] Re-run tests to confirm all pass (Green Phase)
+- [x] Task: Implement Middleware Updates and Auth Endpoint Security (Green Phase) [3d217b4]
+    - [x] Update `proxy.ts` to copy cookies across redirects using `response.cookies.getAll()`
+    - [x] Add `/privacy` and `/terms` to `publicRoutes` in `proxy.ts`
+    - [x] Add pattern matching for `/workbox-` and `/worker-` assets in `proxy.ts`
+    - [x] Update `app/api/auth/confirm-user/route.ts` with production 404 guard and dev shared-secret validation
+    - [x] Re-run tests to confirm all pass (Green Phase)
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Middleware Routing & Route Protection' (Protocol in workflow.md)
 
 ## Phase 3: State Sync Bugfix & Test Runner Stabilization
