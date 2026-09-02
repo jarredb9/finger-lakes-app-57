@@ -17,7 +17,7 @@
     - [x] Run `npm run db:check-types:local` to verify TypeScript type definitions
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Relational Indexes, Query Inlining & Idempotent Migrations' (Protocol in workflow.md) [55a4de4]
 
-## Phase 2: RPC Consolidation & Winery Service Optimization
+## Phase 2: RPC Consolidation & Winery Service Optimization [checkpoint: 64a5bb1]
 
 - [x] Task: Write Failing Tests for Single-Roundtrip Toggles and Places API Route (Red Phase) [5d63044]
     - [x] Create unit tests in `lib/services/__tests__/wineryService.test.ts` verifying `toggle_favorite` makes a single RPC call without secondary upsert
@@ -29,7 +29,7 @@
     - [x] Update `app/api/wineries/route.ts` to call Places API (New) V1 and properly await database upsert or use Next.js `after()`
     - [x] Run `npm run db:gen-types` and verify `npm run db:check-types:local`
     - [x] Re-run unit and integration tests to confirm green state
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: RPC Consolidation & Winery Service Optimization' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: RPC Consolidation & Winery Service Optimization' (Protocol in workflow.md) [64a5bb1]
 
 ## Phase 3: Security Configuration, Webhook Parameterization & Edge Function Cleanup
 
