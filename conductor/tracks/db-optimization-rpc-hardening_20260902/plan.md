@@ -23,12 +23,12 @@
     - [x] Create unit tests in `lib/services/__tests__/wineryService.test.ts` verifying `toggle_favorite` makes a single RPC call without secondary upsert
     - [x] Create tests in `app/api/wineries/__tests__/route.test.ts` verifying Places API (New) V1 payload handling and awaited database upsert
     - [x] Run unit tests to confirm red state
-- [ ] Task: Implement RPC Update, Service Optimization, and Route Modernization (Green Phase)
-    - [ ] Create migration `supabase/migrations/20260902110000_toggle_favorite_composite_return.sql` updating `toggle_favorite` to return `jsonb` with `is_favorite` and `winery_id`
-    - [ ] Update `lib/services/wineryService.ts` to consume single RPC response and remove redundant `ensureInDb` upsert
-    - [ ] Update `app/api/wineries/route.ts` to call Places API (New) V1 and properly await database upsert or use Next.js `after()`
-    - [ ] Run `npm run db:gen-types` and verify `npm run db:check-types:local`
-    - [ ] Re-run unit and integration tests to confirm green state
+- [x] Task: Implement RPC Update, Service Optimization, and Route Modernization (Green Phase) [3ac2968]
+    - [x] Create migration `supabase/migrations/20260902110000_toggle_favorite_composite_return.sql` updating `toggle_favorite` to return `jsonb` with `is_favorite` and `winery_id`
+    - [x] Update `lib/services/wineryService.ts` to consume single RPC response and remove redundant `ensureInDb` upsert
+    - [x] Update `app/api/wineries/route.ts` to call Places API (New) V1 and properly await database upsert or use Next.js `after()`
+    - [x] Run `npm run db:gen-types` and verify `npm run db:check-types:local`
+    - [x] Re-run unit and integration tests to confirm green state
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: RPC Consolidation & Winery Service Optimization' (Protocol in workflow.md)
 
 ## Phase 3: Security Configuration, Webhook Parameterization & Edge Function Cleanup
