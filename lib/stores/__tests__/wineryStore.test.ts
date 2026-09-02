@@ -244,4 +244,45 @@ describe('WineryUIStore: fetchWineryData', () => {
     expect(consoleSpy).toHaveBeenCalledWith('Failed to fetch map markers:', expect.any(Error));
     consoleSpy.mockRestore();
   });
+
+  describe('Canonical useWineryStore State Consolidation (ST-02 & ST-03)', () => {
+    it('manages persistentWineries directly in useWineryStore state', () => {
+      const winery = createMockWinery({ id: 'winery-reactivity-1' as any, name: 'Reactivity Winery' });
+
+      expect(useWineryStore.getState().persistentWineries).toBeDefined();
+
+      useWineryStore.getState().upsertWinery(winery);
+
+      const updated = useWineryStore.getState().persistentWineries.find((w: any) => w.id === 'winery-reactivity-1');
+      expect(updated).toBeDefined();
+      expect(updated?.name).toBe('Reactivity Winery');
+    });
+
+    it('strips duplicate visits array from winery cache (ST-03 single source of truth in visitStore)', () => {
+      const mockVisit = createMockVisit({ id: 101 as any, winery_id: 50 as WineryDbId });
+      const wineryWithDuplicateVisits = createMockWinery({
+        id: 'winery-with-visits' as any,
+        name: 'Winery With Embedded Visits',
+        visits: [mockVisit],
+        userVisited: true,
+      });
+
+      useWineryStore.getState().upsertWinery(wineryWithDuplicateVisits);
+
+      const stored = useWineryStore.getState().persistentWineries.find((w: any) => w.id === 'winery-with-visits');
+      expect(stored).toBeDefined();
+      expect(stored?.visits).toEqual([]);
+      expect(stored?.userVisited).toBe(true);
+    });
+
+    it('supports direct bulkUpsertWineries and getWinery on useWineryStore', () => {
+      const w1 = createMockWinery({ id: 'bulk-1' as any, name: 'Bulk 1' });
+      const w2 = createMockWinery({ id: 'bulk-2' as any, name: 'Bulk 2' });
+
+      useWineryStore.getState().bulkUpsertWineries([w1, w2]);
+
+      expect(useWineryStore.getState().getWinery('bulk-1')).toBeDefined();
+      expect(useWineryStore.getState().getWinery('bulk-2')?.name).toBe('Bulk 2');
+    });
+  });
 });

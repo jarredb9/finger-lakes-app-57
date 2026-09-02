@@ -242,4 +242,60 @@ describe('standardizeWineryData', () => {
     expect(mergedUnrated?.rating).toBeNull();
     expect(mergedUnrated?.userRatingCount).toBeNull();
   });
+
+  it('clears existing visits when source explicitly sets camelCase userVisited to false (ST-06)', () => {
+    const existingWinery: Winery = {
+      ...createMockWinery(),
+      userVisited: true,
+      visits: [createMockVisitWithWinery()],
+    };
+
+    const camelCaseUpdate = {
+      id: existingWinery.id,
+      name: existingWinery.name,
+      latitude: existingWinery.latitude,
+      longitude: existingWinery.longitude,
+      userVisited: false,
+    };
+
+    const result = standardizeWineryData(camelCaseUpdate, existingWinery);
+
+    expect(result).not.toBeNull();
+    expect(result?.userVisited).toBe(false);
+    expect(result?.visits).toEqual([]);
+  });
+
+  it('strictly coerces relational trip_id to a number upon standardization (ST-04)', () => {
+    const sourceWithStringTripId = {
+      id: 'ChIJ_mock_winery_id',
+      name: 'Winery with string tripId',
+      latitude: 42.5,
+      longitude: -76.5,
+      trip_id: '105' as any,
+    };
+
+    const result = standardizeWineryData(sourceWithStringTripId);
+
+    expect(result?.trip_id).toBe(105);
+    expect(typeof result?.trip_id).toBe('number');
+  });
+
+  it('standardizes place from Google location object with direct latitude/longitude properties (ST-05)', () => {
+    const googlePlaceLike = {
+      id: 'ChIJ_place_with_direct_coords',
+      displayName: 'Direct Coords Winery',
+      formattedAddress: '123 Main St',
+      location: {
+        latitude: 42.88,
+        longitude: -76.99,
+      },
+    };
+
+    const result = standardizeWineryData(googlePlaceLike);
+
+    expect(result).not.toBeNull();
+    expect(result?.latitude).toBe(42.88);
+    expect(result?.longitude).toBe(-76.99);
+  });
 });
+
