@@ -1,7 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/utils/supabase/auth-helper';
 
-const publicRoutes = ['/login', '/signup', '/forgot-password', '/reset-password', '/auth/callback', '/api/auth/forgot-password', '/api/auth/reset-password', '/api/auth/confirm-user', '/site.webmanifest', '/sw.js'];
+const publicRoutes = [
+  '/login',
+  '/signup',
+  '/forgot-password',
+  '/reset-password',
+  '/auth/callback',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/auth/confirm-user',
+  '/site.webmanifest',
+  '/sw.js',
+  '/privacy',
+  '/terms',
+];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -9,8 +22,12 @@ export async function proxy(request: NextRequest) {
   // Handle session update for all routes
   const { response, user } = await updateSession(request);
 
-  // Skip auth check for public routes
-  if (publicRoutes.includes(pathname)) {
+  // Skip auth check for public routes and Serwist runtime chunks (/workbox-*, /worker-*)
+  if (
+    publicRoutes.includes(pathname) ||
+    pathname.startsWith('/workbox-') ||
+    pathname.startsWith('/worker-')
+  ) {
     return response;
   }
 
@@ -36,7 +53,11 @@ export async function proxy(request: NextRequest) {
     // Redirect to login if no user and not a public route
     const url = new URL('/login', request.url);
     url.searchParams.set('redirectTo', pathname);
-    return NextResponse.redirect(url);
+    const redirectResponse = NextResponse.redirect(url);
+    response.cookies.getAll().forEach((cookie) => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, cookie);
+    });
+    return redirectResponse;
   }
 
   return response;

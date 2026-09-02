@@ -60,6 +60,17 @@ if (typeof global.Request === 'undefined') {
 if (typeof global.Response === 'undefined') {
   global.Response = (require('node-fetch').Response) as any;
 }
+if (typeof (global.Response as any).json === 'undefined') {
+  (global.Response as any).json = (data: any, init?: any) => {
+    return new (global.Response as any)(JSON.stringify(data), {
+      ...init,
+      headers: {
+        'content-type': 'application/json',
+        ...(init?.headers || {}),
+      },
+    });
+  };
+}
 if (typeof global.Headers === 'undefined') {
   global.Headers = (require('node-fetch').Headers) as any;
 }

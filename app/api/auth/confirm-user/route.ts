@@ -1,7 +1,39 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAdminClient } from "@/utils/supabase/admin"
 
+export async function GET(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Endpoint disabled' }, { status: 404 })
+  }
+
+  const internalSecret = process.env.INTERNAL_API_SECRET
+  const providedSecret = request.headers.get('x-internal-secret')
+
+  if (!internalSecret || providedSecret !== internalSecret) {
+    return NextResponse.json(
+      { error: 'Unauthorized: missing or invalid internal secret' },
+      { status: 401 }
+    )
+  }
+
+  return NextResponse.json({ status: 'ok', message: 'Endpoint active in non-production mode' })
+}
+
 export async function POST(request: NextRequest) {
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json({ error: 'Endpoint disabled' }, { status: 404 })
+  }
+
+  const internalSecret = process.env.INTERNAL_API_SECRET
+  const providedSecret = request.headers.get('x-internal-secret')
+
+  if (!internalSecret || providedSecret !== internalSecret) {
+    return NextResponse.json(
+      { error: 'Unauthorized: missing or invalid internal secret' },
+      { status: 401 }
+    )
+  }
+
   try {
     const { email } = await request.json()
 
