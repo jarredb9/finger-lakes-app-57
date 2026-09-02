@@ -1068,9 +1068,9 @@ export type Database = {
         Args: { p_target_email: string }
         Returns: undefined
       }
-      toggle_favorite: { Args: { p_winery_data: Json }; Returns: boolean }
+      toggle_favorite: { Args: { p_winery_data: Json }; Returns: Json }
       toggle_favorite_privacy: { Args: { p_winery_id: number }; Returns: Json }
-      toggle_wishlist: { Args: { p_winery_data: Json }; Returns: boolean }
+      toggle_wishlist: { Args: { p_winery_data: Json }; Returns: Json }
       toggle_wishlist_privacy: { Args: { p_winery_id: number }; Returns: Json }
       update_profile_privacy: {
         Args: { p_privacy_level: Database["public"]["Enums"]["privacy_level"] }

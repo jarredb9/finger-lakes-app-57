@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get("query");
     const supabase = await createClient();
 
-    // If a search query is provided, use Google Places API
+    // If a search query is provided, use Google Places API (New) V1
     if (query) {
         const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
         if (!apiKey) {
@@ -20,42 +20,52 @@ export async function GET(request: NextRequest) {
         }
         // Append "winery" to the query to improve search relevance, mirroring the trip-form implementation.
         const enhancedQuery = `${query} winery`;
-        const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(enhancedQuery)}&type=winery&key=${apiKey}`;
+        const url = 'https://places.googleapis.com/v1/places:searchText';
 
         try {
-            const response = await fetch(url);
-            const data = await response.json();
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Goog-Api-Key': apiKey,
+                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating',
+                },
+                body: JSON.stringify({ textQuery: enhancedQuery }),
+            });
 
-            if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
-                console.error('[API] /api/wineries: Google Places API returned non-OK status:', data.status, data.error_message);
-                return NextResponse.json({ error: 'Failed to fetch from Google Places API', details: data.status }, { status: 500 });
+            if (!response.ok) {
+                console.error('[API] /api/wineries: Google Places API (New) returned non-OK status:', response.status);
+                return NextResponse.json({ error: 'Failed to fetch from Google Places API', details: response.status }, { status: response.status });
             }
 
-            const searchResults = data.results.map((place: any) => ({
-                id: place.place_id,
-                name: place.name,
-                address: place.formatted_address,
-                latitude: place.geometry.location.lat,
-                longitude: place.geometry.location.lng,
+            const data = await response.json();
+            const places = data.places || [];
+
+            const searchResults = places.map((place: any) => ({
+                id: place.id,
+                name: place.displayName?.text,
+                address: place.formattedAddress,
+                latitude: place.location?.latitude,
+                longitude: place.location?.longitude,
                 rating: place.rating,
             }));
 
             // CACHING STRATEGY:
-            // Silently upsert these results into our database so future "details" calls 
-            // and map loads can be served from our own cache.
-            (async () => {
+            // Await upsert into our database cache so future "details" calls 
+            // and map loads can be served reliably from our own cache.
+            if (searchResults.length > 0 && process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY) {
                 try {
                     const supabaseAdmin = createAdminClient(
-                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                        process.env.SUPABASE_SERVICE_ROLE_KEY!
+                        process.env.NEXT_PUBLIC_SUPABASE_URL,
+                        process.env.SUPABASE_SERVICE_ROLE_KEY
                     );
 
-                    const dbWineries = data.results.map((place: any) => ({
-                        google_place_id: place.place_id,
-                        name: place.name,
-                        address: place.formatted_address,
-                        latitude: place.geometry.location.lat,
-                        longitude: place.geometry.location.lng,
+                    const dbWineries = places.map((place: any) => ({
+                        google_place_id: place.id,
+                        name: place.displayName?.text,
+                        address: place.formattedAddress,
+                        latitude: place.location?.latitude,
+                        longitude: place.location?.longitude,
                         google_rating: place.rating,
                     }));
 
@@ -69,7 +79,7 @@ export async function GET(request: NextRequest) {
                 } catch (cacheError) {
                     console.error('[API] /api/wineries: Background cache error:', cacheError);
                 }
-            })();
+            }
 
             return NextResponse.json(searchResults);
 
