@@ -31,7 +31,7 @@
     - [x] Re-run unit and integration tests to confirm green state
 - [x] Task: Conductor - User Manual Verification 'Phase 2: RPC Consolidation & Winery Service Optimization' (Protocol in workflow.md) [64a5bb1]
 
-## Phase 3: Security Configuration, Webhook Parameterization & Edge Function Cleanup
+## Phase 3: Security Configuration, Webhook Parameterization & Edge Function Cleanup [checkpoint: b82e585]
 
 - [x] Task: Write Failing Tests for Parameterized Webhook and Edge Function Suite (Red Phase) [58cba3f]
     - [x] Add Deno / Edge Function tests in `supabase/functions/tests/` asserting dynamic webhook URL resolution
@@ -44,4 +44,4 @@
     - [x] Run `npm run test:functions` to verify Edge Function test suite passes
     - [x] Run `npm run db:lint` and `npm run db:check-types:local`
     - [x] Run `CI=true npm test` to confirm zero regressions across entire project
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Security Configuration, Webhook Parameterization & Edge Function Cleanup' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Security Configuration, Webhook Parameterization & Edge Function Cleanup' (Protocol in workflow.md) [b82e585]
