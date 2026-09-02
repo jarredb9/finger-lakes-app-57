@@ -25,4 +25,4 @@
 | **map-core-search-refactor_20260826** | Map Core, Search Autocomplete & Controls Decoupling Refactor | [x] Archived | [Plan](./archive/map-core-search-refactor_20260826/plan.md) |
 | **p0-security-runner-stabilization_20260901** | P0 Security Hotfixes, Production Safety & Test Runner Stabilization | [x] Archived | [Plan](./archive/p0-security-runner-stabilization_20260901/plan.md) |
 | **db-optimization-rpc-hardening_20260902** | Database Performance Optimization, RPC Hardening & Schema Integrity | [x] Archived | [Plan](./archive/db-optimization-rpc-hardening_20260902/plan.md) |
-| **state-consolidation-invariants_20260901** | Zustand 5 State Consolidation, Domain Invariants & Sync Integrity | ⚪ In Progress | [Plan](./tracks/state-consolidation-invariants_20260901/plan.md) |
+| **state-consolidation-invariants_20260901** | Zustand 5 State Consolidation, Domain Invariants & Sync Integrity | [~] In Progress | [Plan](./tracks/state-consolidation-invariants_20260901/plan.md) |
