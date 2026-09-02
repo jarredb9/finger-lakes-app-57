@@ -5,10 +5,10 @@ Establishing a unified Zustand 5 state architecture adhering strictly to `AGENTS
 ## Phase 1: Winery Store Unification & Domain Invariants
 Focus: Consolidate split-brain winery stores, establish single source of truth for visits, normalize relational IDs, standardize map click events, and fix ghost visit purge.
 
-- [ ] Task: Write failing unit tests for canonical winery store, ghost visit purge, and numeric ID normalization
-    - [ ] Unit tests for `wineryStore` verifying caching, reactivity, and full deprecation of `wineryDataStore`
-    - [ ] Unit tests in `lib/utils/__tests__/winery.test.ts` for camelCase `userVisited: false` ghost visit purge and coordinate access
-    - [ ] Unit tests for relational ID normalization `Number(id)` on store ingress
+- [x] Task: Write failing unit tests for canonical winery store, ghost visit purge, and numeric ID normalization 3db0e73
+    - [x] Unit tests for `wineryStore` verifying caching, reactivity, and full deprecation of `wineryDataStore`
+    - [x] Unit tests in `lib/utils/__tests__/winery.test.ts` for camelCase `userVisited: false` ghost visit purge and coordinate access
+    - [x] Unit tests for relational ID normalization `Number(id)` on store ingress
 - [ ] Task: Update winery data standardizer and map click handlers
     - [ ] Update `lib/utils/winery.ts` to check `user_visited === false || userVisited === false` and clear `visits`
     - [ ] Update `hooks/use-winery-map.ts` and `components/map/map-container.tsx` to pass place clicks through `standardizeWineryData` and remove `.lat()`/`.lng()` calls
