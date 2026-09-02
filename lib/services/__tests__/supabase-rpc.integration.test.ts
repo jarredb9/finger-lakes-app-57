@@ -277,4 +277,76 @@ describe('Supabase RPC Integration Tests', () => {
         await adminClient.from('follows').delete().eq('follower_id', user1.id).eq('following_id', user2.id);
       });
     });
+
+    describe('Security & Privilege Hardening', () => {
+      const anonClient = createClient(supabaseUrl!, anonKey!, {
+        auth: { persistSession: false }
+      });
+
+      it('should reject direct updates to public.wineries by authenticated non-service-role clients', async () => {
+        const testPlaceId = `test-winery-${crypto.randomUUID()}`;
+        createdWineryIds.push(testPlaceId);
+
+        // 1. Insert via adminClient
+        const { error: insertError } = await adminClient.from('wineries').insert({
+          google_place_id: testPlaceId,
+          name: 'Original Secure Winery',
+          address: '123 Safe Path',
+          latitude: 42.5,
+          longitude: -77.0
+        });
+        expect(insertError).toBeNull();
+
+        // 2. Authenticated user1 attempts direct update
+        const { error: updateError } = await user1.client
+          .from('wineries')
+          .update({ name: 'Tampered By Authenticated User' })
+          .eq('google_place_id', testPlaceId);
+
+        // Expect rejection via 42501 permission denied
+        expect(updateError).not.toBeNull();
+        expect(updateError?.code).toBe('42501');
+
+        // 3. Verify winery name was not modified
+        const { data: winery } = await adminClient
+          .from('wineries')
+          .select('name')
+          .eq('google_place_id', testPlaceId)
+          .single();
+        expect(winery?.name).toBe('Original Secure Winery');
+      });
+
+      it('should deny execution of bulk_upsert_wineries RPC to anonymous and non-service-role clients', async () => {
+        const payload = [{
+          google_place_id: `test-bulk-${crypto.randomUUID()}`,
+          name: 'Malicious Bulk Winery',
+          address: '404 Danger Rd',
+          latitude: 42.0,
+          longitude: -77.0
+        }];
+
+        // 1. Anonymous client attempt
+        const { error: anonError } = await anonClient.rpc('bulk_upsert_wineries', {
+          p_wineries_data: payload
+        });
+        expect(anonError).not.toBeNull();
+        expect(anonError?.code).toBe('42501');
+
+        // 2. Authenticated user attempt
+        const { error: authError } = await user1.client.rpc('bulk_upsert_wineries', {
+          p_wineries_data: payload
+        });
+        expect(authError).not.toBeNull();
+        expect(authError?.code).toBe('42501');
+
+        // 3. Service role client execution should succeed
+        const { error: serviceError } = await adminClient.rpc('bulk_upsert_wineries', {
+          p_wineries_data: payload
+        });
+        expect(serviceError).toBeNull();
+
+        // Cleanup
+        createdWineryIds.push(payload[0].google_place_id);
+      });
+    });
 });

@@ -9,7 +9,7 @@ import { WineryService } from '@/lib/services/wineryService';
 import { createClient } from '@/utils/supabase/client';
 import { RealtimeChannel } from '@supabase/supabase-js';
 import { formatDateLocal, getTodayLocal } from '@/lib/utils';
-import { enqueueIfOffline, handleSyncError } from './sync-utils';
+import { enqueueIfOffline, handleSyncError, isNetworkError } from './sync-utils';
 import { idbStorage } from './idb-persist-storage';
 
 interface TripState {
@@ -964,8 +964,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
         } catch (error) {
             // Handle Multi-Trip Sync Error
-            const handled = await handleSyncError(error, 'log_visit', user?.id, {});
-            if (handled && user) {
+            if (isNetworkError(error) && user) {
                 for (const tripId of Array.from(selectedTrips)) {
                   if (tripId === 'new') {
                     await useSyncStore.getState().addMutation({
