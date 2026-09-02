@@ -1,6 +1,6 @@
 # Implementation Plan: Database Performance Optimization, RPC Hardening & Schema Integrity
 
-## Phase 1: Relational Indexes, Query Inlining & Idempotent Migrations
+## Phase 1: Relational Indexes, Query Inlining & Idempotent Migrations [checkpoint: 55a4de4]
 
 - [x] Task: Write Failing Tests for Query Execution and RLS Inlining (Red Phase) [ea8927d]
     - [x] Add integration test asserting `get_map_markers` RPC query plan uses hash joins without per-row subqueries
@@ -15,7 +15,7 @@
     - [x] Apply migration locally via `npm run db:start` and verify query plans with `EXPLAIN ANALYZE`
     - [x] Run `npm run db:lint` and `npm run db:gen-types` to ensure schema integrity and update types
     - [x] Run `npm run db:check-types:local` to verify TypeScript type definitions
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Relational Indexes, Query Inlining & Idempotent Migrations' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Relational Indexes, Query Inlining & Idempotent Migrations' (Protocol in workflow.md) [55a4de4]
 
 ## Phase 2: RPC Consolidation & Winery Service Optimization
 
