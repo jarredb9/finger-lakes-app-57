@@ -58,7 +58,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54
 let adminClient: ReturnType<typeof createClient<Database>> | null = null;
 
 export function getAdminClient(): ReturnType<typeof createClient<Database>> {
-  if (adminClient) return adminClient;
+  if (adminClient) {
+    return adminClient;
+  }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
