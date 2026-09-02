@@ -12,10 +12,10 @@ Focus: Consolidate split-brain winery stores, establish single source of truth f
 - [x] Task: Update winery data standardizer and map click handlers dd05d44
     - [x] Update `lib/utils/winery.ts` to check `user_visited === false || userVisited === false` and clear `visits`
     - [x] Update `hooks/use-winery-map.ts` and `components/map/map-container.tsx` to pass place clicks through `standardizeWineryData` and remove `.lat()`/`.lng()` calls
-- [ ] Task: Consolidate `wineryDataStore.ts` into canonical `wineryStore.ts`
-    - [ ] Merge persistent caching and reactive state into `lib/stores/wineryStore.ts`
-    - [ ] Migrate all consumer components (`use-winery-modal-state.ts`, etc.) from `wineryDataStore` to `wineryStore`
-    - [ ] Delete `lib/stores/wineryDataStore.ts`
+- [x] Task: Consolidate `wineryDataStore.ts` into canonical `wineryStore.ts` 5321e75
+    - [x] Merge persistent caching and reactive state into `lib/stores/wineryStore.ts`
+    - [x] Migrate all consumer components (`use-winery-modal-state.ts`, etc.) from `wineryDataStore` to `wineryStore`
+    - [x] Delete `lib/stores/wineryDataStore.ts`
 - [ ] Task: Enforce single source of truth for visits in `visitStore.ts`
     - [ ] Strip duplicated visit caches from winery objects so wineries reference visit IDs only
     - [ ] Enforce `Number(id)` normalization across ingress in `visitStore`, `tripStore`, `wineryStore`, and `lib/types.ts`
