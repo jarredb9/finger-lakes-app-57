@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useMap } from "react-map-gl/mapbox";
-import { Winery, GooglePlaceId } from "@/lib/types";
+import { Winery } from "@/lib/types";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useMapStore } from "@/lib/stores/mapStore";
@@ -12,6 +12,7 @@ import { useWinerySearch } from "./use-winery-search";
 import { useWineryFilter } from "./use-winery-filter";
 import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
 import { isCoordinateInBounds, getCoordinatesFromBounds } from "@/lib/utils/map-utils";
+import { standardizeWineryData } from "@/lib/utils/winery";
 
 export function useWineryMap(userId: string) {
   const {
@@ -156,14 +157,16 @@ export function useWineryMap(userId: string) {
       await placeDetails.fetchFields({ fields: ["displayName", "formattedAddress", "location"] });
       if (!placeDetails.location) return;
 
-      const newWinery: Winery = {
-        id: e.placeId as GooglePlaceId,
-        name: placeDetails.displayName || "Unnamed Location",
-        address: placeDetails.formattedAddress || "N/A",
-        latitude: placeDetails.location.lat(),
-        longitude: placeDetails.location.lng(),
-      };
-      setProposedWinery(newWinery);
+      const newWinery = standardizeWineryData({
+        id: e.placeId,
+        displayName: placeDetails.displayName || "Unnamed Location",
+        formattedAddress: placeDetails.formattedAddress || "N/A",
+        location: placeDetails.location,
+      });
+
+      if (newWinery) {
+        setProposedWinery(newWinery);
+      }
     } catch (err) {
       console.error("Error fetching place details on click:", err);
     }
