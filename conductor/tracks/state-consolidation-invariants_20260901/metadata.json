@@ -1,0 +1,8 @@
+{
+  "track_id": "state-consolidation-invariants_20260901",
+  "type": "refactor",
+  "status": "new",
+  "created_at": "2026-09-02T12:44:00Z",
+  "updated_at": "2026-09-02T12:44:00Z",
+  "description": "Zustand 5 State Consolidation, Domain Invariants & Sync Integrity"
+}
