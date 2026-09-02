@@ -23,13 +23,6 @@ describe('tripStore sync locking', () => {
         getState: jest.fn(() => ({
           ensureWineryDetails: jest.fn().mockResolvedValue({}),
           updateWinery: jest.fn(),
-        })),
-      },
-    }));
-
-    jest.doMock('@/lib/stores/wineryDataStore', () => ({
-      useWineryDataStore: {
-        getState: jest.fn(() => ({
           upsertWinery: jest.fn(),
         })),
       },

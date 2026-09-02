@@ -31,13 +31,6 @@ describe('visitStore SyncStore integration', () => {
           optimisticallyUpdateVisit: jest.fn(),
           revertOptimisticUpdate: jest.fn(),
           getWineries: jest.fn(() => []),
-        })),
-      },
-    }));
-
-    jest.doMock('@/lib/stores/wineryDataStore', () => ({
-      useWineryDataStore: {
-        getState: jest.fn(() => ({
           upsertWinery: jest.fn(),
         })),
       },

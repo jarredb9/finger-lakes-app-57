@@ -3,7 +3,7 @@ import { createMockWinery, createMockVisit, createMockMapMarkerRpc } from '@/lib
 import { WineryDbId, GooglePlaceId } from '@/lib/types';
 
 describe('WineryDataStore', () => {
-  let useWineryDataStore: any;
+  let useWineryStore: any;
   let mockRpc: any;
 
   beforeEach(() => {
@@ -36,8 +36,8 @@ describe('WineryDataStore', () => {
     }));
 
     // Re-require store
-    useWineryDataStore = require('../wineryDataStore').useWineryDataStore;
-    useWineryDataStore.getState().reset();
+    useWineryStore = require('../wineryStore').useWineryStore;
+    useWineryStore.getState().reset();
   });
 
   afterEach(() => {
@@ -57,7 +57,7 @@ describe('WineryDataStore', () => {
 
     // Manually seed the store (simulating persistence or previous navigation)
     act(() => {
-      useWineryDataStore.setState({ persistentWineries: [existingWinery] });
+      useWineryStore.setState({ persistentWineries: [existingWinery] });
     });
 
     // 2. Setup RPC Mock (Returns "Fresh" Map Marker without visits)
@@ -78,19 +78,19 @@ describe('WineryDataStore', () => {
 
     // 3. Trigger Hydration
     act(() => {
-      useWineryDataStore.getState().hydrateWineries([freshMarker]);
+      useWineryStore.getState().hydrateWineries([freshMarker]);
     });
 
     // 4. Assertions
-    const updatedWineries = useWineryDataStore.getState().persistentWineries;
+    const updatedWineries = useWineryStore.getState().persistentWineries;
     const updatedWinery = updatedWineries.find((w: any) => w.id === 'ch-test-winery');
 
     expect(updatedWinery).toBeDefined();
     // Verify updates from marker applied
     expect(updatedWinery?.name).toBe('Rich Winery (Updated)'); 
-    // Verify RICH DATA PRESERVED
-    expect(updatedWinery?.visits).toHaveLength(1);
-    expect(updatedWinery?.visits?.[0].user_review).toBe('Preserve me!');
+    // ST-03: visits array is stripped from winery cache (single source of truth in visitStore)
+    expect(updatedWinery?.visits).toEqual([]);
+    expect(updatedWinery?.userVisited).toBe(true);
     expect(updatedWinery?.reviews).toHaveLength(1);
   });
 
@@ -121,7 +121,7 @@ describe('WineryDataStore', () => {
     };
 
     act(() => {
-      useWineryDataStore.setState({ persistentWineries: [existingWinery] });
+      useWineryStore.setState({ persistentWineries: [existingWinery] });
     });
 
     // 2. Prepare basic/partial marker updates
@@ -145,10 +145,10 @@ describe('WineryDataStore', () => {
 
     // Test upsertWinery
     act(() => {
-      useWineryDataStore.getState().upsertWinery(basicUpdate);
+      useWineryStore.getState().upsertWinery(basicUpdate);
     });
 
-    let updatedWineries = useWineryDataStore.getState().persistentWineries;
+    let updatedWineries = useWineryStore.getState().persistentWineries;
     let updatedWinery = updatedWineries.find((w: any) => w.id === 'winery-1');
     expect(updatedWinery.name).toBe('Enriched Winery (Updated)');
     expect(updatedWinery.phone).toBe('123-456-7890');
@@ -164,14 +164,14 @@ describe('WineryDataStore', () => {
 
     // Reset and test bulkUpsertWineries
     act(() => {
-      useWineryDataStore.setState({ persistentWineries: [existingWinery] });
+      useWineryStore.setState({ persistentWineries: [existingWinery] });
     });
 
     act(() => {
-      useWineryDataStore.getState().bulkUpsertWineries([basicUpdate]);
+      useWineryStore.getState().bulkUpsertWineries([basicUpdate]);
     });
 
-    updatedWineries = useWineryDataStore.getState().persistentWineries;
+    updatedWineries = useWineryStore.getState().persistentWineries;
     updatedWinery = updatedWineries.find((w: any) => w.id === 'winery-1');
     expect(updatedWinery.name).toBe('Enriched Winery (Updated)');
     expect(updatedWinery.phone).toBe('123-456-7890');

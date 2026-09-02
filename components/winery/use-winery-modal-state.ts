@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useVisitStore } from "@/lib/stores/visitStore";
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useToast } from "@/hooks/use-toast";
@@ -48,14 +47,14 @@ export function useWineryModalState() {
   const [activeTab, setActiveTab] = useState<WineryModalTab>("community");
   const effectiveActiveTab: WineryModalTab = !isAIEnabled && activeTab === "ai_insights" ? "community" : activeTab;
 
-  const activeWinery = useWineryDataStore((state) => {
+  const activeWinery = useWineryStore((state) => {
     if (!activeWineryId) return null;
     return (
       state.persistentWineries.find(
         (w) =>
           w.id === activeWineryId ||
           String(w.dbId) === String(activeWineryId) ||
-          w.googleId === activeWineryId
+          (w as any).googleId === activeWineryId
       ) || null
     );
   });
@@ -79,11 +78,7 @@ export function useWineryModalState() {
 
   const isLoading = loadingWineryId === activeWineryId;
 
-  const wineryVisits = activeWinery?.visits || [];
-  const visits = [
-    ...storeVisits,
-    ...wineryVisits.filter(wv => !storeVisits.some(sv => String(sv.id) === String(wv.id)))
-  ].sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+  const visits = [...storeVisits].sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const visitHistoryRef = useRef<HTMLDivElement>(null);

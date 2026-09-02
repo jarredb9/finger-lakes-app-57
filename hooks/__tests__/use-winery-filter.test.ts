@@ -1,7 +1,7 @@
 import { renderHook, act } from "@testing-library/react";
 import { useWineryFilter } from "../use-winery-filter";
 import { useMapStore } from "@/lib/stores/mapStore";
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
+import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { createMockWinery } from "@/lib/test-utils/fixtures";
 import { GooglePlaceId } from "@/lib/types";
@@ -21,7 +21,7 @@ describe("useWineryFilter", () => {
       bounds: mockBounds as any,
     });
 
-    useWineryDataStore.setState({
+    useWineryStore.setState({
       persistentWineries: [],
     });
 
@@ -34,7 +34,7 @@ describe("useWineryFilter", () => {
     const winery1 = createMockWinery({ id: "w1" as GooglePlaceId, isFavorite: true });
     const winery2 = createMockWinery({ id: "w2" as GooglePlaceId, userVisited: true });
     
-    useWineryDataStore.setState({
+    useWineryStore.setState({
       persistentWineries: [winery1, winery2],
     });
 
@@ -49,7 +49,7 @@ describe("useWineryFilter", () => {
     const winery1 = createMockWinery({ id: "w1" as GooglePlaceId, isFavorite: true });
     const winery2 = createMockWinery({ id: "w2" as GooglePlaceId, userVisited: true });
     
-    useWineryDataStore.setState({
+    useWineryStore.setState({
       persistentWineries: [winery1, winery2],
     });
     
@@ -68,7 +68,7 @@ describe("useWineryFilter", () => {
     const notDogFriendly = createMockWinery({ id: "w2" as GooglePlaceId, allows_dogs: false });
     const unknownDog = createMockWinery({ id: "w3" as GooglePlaceId, allows_dogs: null });
 
-    useWineryDataStore.setState({
+    useWineryStore.setState({
       persistentWineries: [dogFriendly, notDogFriendly, unknownDog],
     });
 
@@ -87,7 +87,7 @@ describe("useWineryFilter", () => {
     const favNoDog = createMockWinery({ id: "w2" as GooglePlaceId, isFavorite: true, allows_dogs: false });
     const dogNoFav = createMockWinery({ id: "w3" as GooglePlaceId, isFavorite: false, allows_dogs: true });
 
-    useWineryDataStore.setState({
+    useWineryStore.setState({
       persistentWineries: [favDog, favNoDog, dogNoFav],
     });
 
@@ -128,7 +128,7 @@ describe("useWineryFilter", () => {
     const winery1 = createMockWinery({ id: "w1" as GooglePlaceId, isFavorite: true, allows_dogs: true });
     const winery2 = createMockWinery({ id: "w2" as GooglePlaceId, isFavorite: true, allows_dogs: false });
     
-    useWineryDataStore.setState({
+    useWineryStore.setState({
       persistentWineries: [winery1, winery2],
     });
     

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useMapStore } from "@/lib/stores/mapStore";
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
+import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useToast } from "@/hooks/use-toast";
 import { Winery } from "@/lib/types";
 import { isE2E, shouldMockWineries } from "@/lib/stores/e2e-utils";
@@ -20,7 +20,7 @@ export function useWinerySearch() {
     setLastSearchedZoom,
     setError,
   } = useMapStore();
-  const { bulkUpsertWineries } = useWineryDataStore();
+  const { bulkUpsertWineries } = useWineryStore();
   const { toast } = useToast();
   const [places, setPlaces] = useState<any>(null);
   const [geocoder, setGeocoder] = useState<any>(null);
@@ -52,7 +52,7 @@ export function useWinerySearch() {
 
         if (searchBounds) {
           setIsSearching(true);
-          const { persistentWineries } = useWineryDataStore.getState();
+          const { persistentWineries } = useWineryStore.getState();
           
           const localResults = persistentWineries.filter(w => 
             isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, searchBounds)
@@ -136,7 +136,7 @@ export function useWinerySearch() {
 
       // E2E BYPASS FOR SEARCH
       if (isE2E() && shouldMockWineries()) {
-        const { persistentWineries } = useWineryDataStore.getState();
+        const { persistentWineries } = useWineryStore.getState();
         
         const localResults = persistentWineries.filter(w => 
           isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, finalSearchBounds)

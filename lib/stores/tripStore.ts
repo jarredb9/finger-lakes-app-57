@@ -2,7 +2,6 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { Trip, Winery, WineryDbId } from '@/lib/types';
 import { useWineryStore } from './wineryStore';
-import { useWineryDataStore } from './wineryDataStore';
 import { useSyncStore } from './syncStore';
 import { TripService } from '@/lib/services/tripService';
 import { WineryService } from '@/lib/services/wineryService';
@@ -943,7 +942,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
             }
 
             if (finalWineryDbId && finalWineryDbId !== winery.dbId) {
-                useWineryDataStore.getState().upsertWinery({ ...winery, dbId: finalWineryDbId as WineryDbId });
+                useWineryStore.getState().upsertWinery({ ...winery, dbId: finalWineryDbId as WineryDbId });
             }
 
             if (badgeTripId && badgeTripName) {
@@ -1088,7 +1087,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
 
                  const wineryDbIdResult = (data as any)?.winery_id;
                  if (wineryDbIdResult && wineryDbIdResult !== winery.dbId) {
-                     useWineryDataStore.getState().upsertWinery({ ...winery, dbId: wineryDbIdResult as WineryDbId });
+                     useWineryStore.getState().upsertWinery({ ...winery, dbId: wineryDbIdResult as WineryDbId });
                  }
             }
             set(state => ({

@@ -1,6 +1,5 @@
 "use client";
 
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useVisitStore } from "@/lib/stores/visitStore";
@@ -18,7 +17,7 @@ export function E2EStoreExposer() {
   useEffect(() => {
     // Expose stores - we assume gating happens at the component rendering level in layout.tsx
     if (typeof window !== 'undefined') {
-      (window as any).useWineryDataStore = useWineryDataStore;
+      (window as any).useWineryDataStore = useWineryStore;
       (window as any).useWineryStore = useWineryStore;
       (window as any).useUIStore = useUIStore;
       (window as any).useVisitStore = useVisitStore;

@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useMap } from "react-map-gl/mapbox";
 import { Winery } from "@/lib/types";
 import { useWineryStore } from "@/lib/stores/wineryStore";
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useUIStore } from "@/lib/stores/uiStore";
@@ -28,7 +27,7 @@ export function useWineryMap(userId: string) {
     error: mapError,
   } = useMapStore();
 
-  const { error: dataError, isLoading: dataLoading } = useWineryDataStore();
+  const { error: dataError, isLoading: dataLoading } = useWineryStore();
   const { error: tripError, fetchUpcomingTrips, selectedTrip, isLoading: tripLoading } = useTripStore();
   const isLoading = dataLoading || isSearching || tripLoading;
   const error = dataError || mapError || tripError;
@@ -182,7 +181,7 @@ export function useWineryMap(userId: string) {
 
   const handleOpenModal = useCallback(async (winery: Winery) => {
     if (winery) {
-      useWineryDataStore.getState().upsertWinery(winery);
+      useWineryStore.getState().upsertWinery(winery);
       openWineryModal(winery.id);
       ensureWineryDetails(winery.id);
     }
@@ -208,7 +207,7 @@ export function useWineryMap(userId: string) {
       }
 
       // 2. Save/upsert to store & database with full enriched fields
-      const dbId = await useWineryDataStore.getState().upsertEnrichedWinery(winery);
+      const dbId = await useWineryStore.getState().upsertEnrichedWinery(winery);
       const wineryWithDbId = { ...winery, dbId };
       
       // 3. Open details modal with a small delay (150ms) to allow keyboard collapse and viewport stabilization

@@ -2,7 +2,7 @@ import { act } from 'react-dom/test-utils';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
 
 describe('Privacy Refactor Store Logic', () => {
-  let useWineryDataStore: any;
+  let useWineryStore: any;
   let useVisitStore: any;
   let mockRpc: jest.Mock;
   let mockFrom: jest.Mock;
@@ -49,10 +49,10 @@ describe('Privacy Refactor Store Logic', () => {
     }));
 
     // Require stores after mocks
-    useWineryDataStore = require('../wineryDataStore').useWineryDataStore;
+    useWineryStore = require('../wineryStore').useWineryStore;
     useVisitStore = require('../visitStore').useVisitStore;
 
-    useWineryDataStore.getState().reset();
+    useWineryStore.getState().reset();
     useVisitStore.getState().reset();
   });
 
@@ -61,14 +61,14 @@ describe('Privacy Refactor Store Logic', () => {
       const winery = createMockWinery({ dbId: 101 as any, isFavorite: true, favoriteIsPrivate: false });
       
       act(() => {
-        useWineryDataStore.getState().upsertWinery(winery);
+        useWineryStore.getState().upsertWinery(winery);
       });
 
       await act(async () => {
-        await useWineryDataStore.getState().toggleFavoritePrivacy(winery.id);
+        await useWineryStore.getState().toggleFavoritePrivacy(winery.id);
       });
 
-      const updated = useWineryDataStore.getState().getWinery(winery.id);
+      const updated = useWineryStore.getState().getWinery(winery.id);
       expect(updated!.favoriteIsPrivate).toBe(true);
       expect(mockRpc).toHaveBeenCalledWith('toggle_favorite_privacy', { p_winery_id: 101 });
     });
@@ -77,14 +77,14 @@ describe('Privacy Refactor Store Logic', () => {
       const winery = createMockWinery({ dbId: 101 as any, onWishlist: true, wishlistIsPrivate: false });
       
       act(() => {
-        useWineryDataStore.getState().upsertWinery(winery);
+        useWineryStore.getState().upsertWinery(winery);
       });
 
       await act(async () => {
-        await useWineryDataStore.getState().toggleWishlistPrivacy(winery.id);
+        await useWineryStore.getState().toggleWishlistPrivacy(winery.id);
       });
 
-      const updated = useWineryDataStore.getState().getWinery(winery.id);
+      const updated = useWineryStore.getState().getWinery(winery.id);
       expect(updated!.wishlistIsPrivate).toBe(true);
       expect(mockRpc).toHaveBeenCalledWith('toggle_wishlist_privacy', { p_winery_id: 101 });
     });

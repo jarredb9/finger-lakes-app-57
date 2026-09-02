@@ -2,14 +2,14 @@
 
 import { useMemo } from "react";
 import { useMapStore } from "@/lib/stores/mapStore";
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
+import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { Winery } from "@/lib/types";
 import { isCoordinateInBounds } from "@/lib/utils/map-utils";
 
 export function useWineryFilter() {
   const { searchResults = [], filter = ['all'], bounds, setFilter } = useMapStore();
-  const persistentWineries = useWineryDataStore((state) => state.persistentWineries);
+  const persistentWineries = useWineryStore((state) => state.persistentWineries);
   const { selectedTrip } = useTripStore();
 
   const mapWineries = useMemo(() => {
