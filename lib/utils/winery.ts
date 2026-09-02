@@ -162,8 +162,8 @@ export const standardizeWineryData = (
   // 2. Resolve DB ID
   let resolvedDbId: number | undefined;
   
-  if (typeof source.dbId === 'number') {
-      resolvedDbId = source.dbId;
+  if (source.dbId !== undefined && source.dbId !== null && !isNaN(Number(source.dbId))) {
+      resolvedDbId = Number(source.dbId);
   } else if (typeof source.id === 'number') {
       resolvedDbId = source.id;
   } else if (typeof source.id === 'string' && /^\d+$/.test(source.id)) {
@@ -171,11 +171,11 @@ export const standardizeWineryData = (
   } else if (isRawDbWinery(source) && typeof (source as DbWinery).id === 'number') {
       resolvedDbId = (source as DbWinery).id;
   } else {
-      resolvedDbId = typeof existing?.dbId === 'number' ? existing.dbId : undefined;
+      resolvedDbId = (existing?.dbId !== undefined && existing?.dbId !== null && !isNaN(Number(existing.dbId))) ? Number(existing.dbId) : undefined;
   }
 
-  // Final fallback to avoid NaN
-  if (resolvedDbId !== undefined && isNaN(resolvedDbId)) {
+  // Final fallback to avoid NaN or non-positive
+  if (resolvedDbId !== undefined && (isNaN(resolvedDbId) || resolvedDbId <= 0)) {
       resolvedDbId = undefined;
   }
 
@@ -187,11 +187,14 @@ export const standardizeWineryData = (
 
   if (source.location && typeof source.location.latitude === 'number' && typeof source.location.longitude === 'number') {
     // V1 / GoogleV1Place structure
-    lat = source.location.latitude;
-    lng = source.location.longitude;
+    lat = Number(source.location.latitude);
+    lng = Number(source.location.longitude);
+  } else if (source.location && (typeof source.location.lat === 'function' || typeof source.location.latitude === 'number')) {
+    lat = Number(typeof source.location.latitude === 'number' ? source.location.latitude : (typeof source.location.lat === 'function' ? source.location.lat() : source.location.lat));
+    lng = Number(typeof source.location.longitude === 'number' ? source.location.longitude : (typeof source.location.lng === 'function' ? source.location.lng() : source.location.lng));
   } else if (isGoogleWinery(source) && source.geometry?.location) {
-    lat = typeof source.geometry.location.lat === 'function' ? source.geometry.location.lat() : source.geometry.location.lat;
-    lng = typeof source.geometry.location.lng === 'function' ? source.geometry.location.lng() : source.geometry.location.lng;
+    lat = Number(typeof source.geometry.location.lat === 'function' ? source.geometry.location.lat() : source.geometry.location.lat);
+    lng = Number(typeof source.geometry.location.lng === 'function' ? source.geometry.location.lng() : source.geometry.location.lng);
   } else if ('latitude' in source && 'longitude' in source && (source.latitude !== null && source.longitude !== null)) {
     lat = Number(source.latitude);
     lng = Number(source.longitude);
@@ -224,8 +227,9 @@ export const standardizeWineryData = (
   };
 
   // Conditionally access properties using type guards
-  const name = source.name || existing?.name || 'Unknown Winery';
-  const address = isGoogleWinery(source) ? (source.formatted_address || source.address) : source.address;
+  const rawName = source.name || (typeof source.displayName === 'object' ? source.displayName?.text : source.displayName) || existing?.name;
+  const name = rawName || 'Unknown Winery';
+  const address = isGoogleWinery(source) ? (source.formatted_address || source.address) : (source.formattedAddress || source.address);
   
   // Resolve fields from source, preserving existing data if source is null/undefined (Merge Guard)
   const sourcePhone = isGoogleWinery(source) ? (source.international_phone_number || source.phone) : isRawDbWinery(source) ? source.phone : (isMapMarkerRpc(source) ? (source as any).phone : isWineryDetailsRpc(source) ? (source as any).phone : source.phone);
@@ -379,13 +383,22 @@ export const standardizeWineryData = (
   // from persisting in the local cache after a deletion sync.
   let visits = (isWineryDetailsRpc(source) && source.visits) ? source.visits : (source.visits || existing?.visits || []);
   
-  if ('user_visited' in source && source.user_visited === false) {
+  if (
+    ('user_visited' in source && source.user_visited === false) ||
+    ('userVisited' in source && source.userVisited === false) ||
+    source.user_visited === false ||
+    source.userVisited === false
+  ) {
       visits = [];
   }
 
-  const trip_id = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_id) ? source.trip_info[0].trip_id : (source.trip_id || existing?.trip_id);
-  const trip_name = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_name) ? source.trip_info[0].trip_name : (source.trip_name || existing?.trip_name);
-  const trip_date = (isWineryDetailsRpc(source) && source.trip_info?.[0]?.trip_date) ? source.trip_info[0].trip_date : (source.trip_date || existing?.trip_date);
+  const rawTripInfo = (source as any).trip_info?.[0];
+  const rawTripId = rawTripInfo?.trip_id !== undefined ? rawTripInfo.trip_id : (source.trip_id !== undefined ? source.trip_id : existing?.trip_id);
+  const trip_id = (rawTripId !== undefined && rawTripId !== null && !isNaN(Number(rawTripId))) 
+    ? Number(rawTripId) 
+    : undefined;
+  const trip_name = rawTripInfo?.trip_name !== undefined ? rawTripInfo.trip_name : (source.trip_name || existing?.trip_name);
+  const trip_date = rawTripInfo?.trip_date !== undefined ? rawTripInfo.trip_date : (source.trip_date || existing?.trip_date);
   
   // Construct the Standard Object
   const standardized: Winery = {
