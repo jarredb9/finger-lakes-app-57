@@ -1,15 +1,11 @@
-import { WineryService } from '../wineryService';
-import { createClient } from '@/utils/supabase/client';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
 
 jest.mock('@/utils/supabase/client');
 
 describe('WineryService - Single Roundtrip RPC Hardening (BE-10)', () => {
-  const mockRpc = jest.fn();
-  const mockSupabase = {
-    rpc: mockRpc,
-    from: jest.fn(),
-  };
+  let WineryService: typeof import('../wineryService').WineryService;
+  let mockRpc: jest.Mock;
+  let mockSupabase: any;
 
   const mockWinery = createMockWinery({
     id: 'place_12345' as any,
@@ -21,7 +17,15 @@ describe('WineryService - Single Roundtrip RPC Hardening (BE-10)', () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    jest.resetModules();
+    const { createClient } = require('@/utils/supabase/client');
+    WineryService = require('../wineryService').WineryService;
+
+    mockRpc = jest.fn();
+    mockSupabase = {
+      rpc: mockRpc,
+      from: jest.fn(),
+    };
     (createClient as jest.Mock).mockReturnValue(mockSupabase);
   });
 
