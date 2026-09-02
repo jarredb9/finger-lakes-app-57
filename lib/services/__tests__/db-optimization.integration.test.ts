@@ -207,4 +207,32 @@ describe('Phase 1: Relational Indexes, Query Inlining & Idempotent Migrations', 
       expect(ownerIds).toContain(privVisit.id);
     });
   });
+
+  describe('Phase 3: Webhook Parameterization & Edge Function Cleanup (BE-12, BE-13)', () => {
+    it('handle_activity_ledger_notification should not contain hardcoded production URL or secrets', () => {
+      const src = runSql(
+        `SELECT prosrc FROM pg_proc WHERE proname = 'handle_activity_ledger_notification' AND pronamespace = 'public'::regnamespace;`
+      );
+      expect(src).not.toContain('jfsxclrdxmvftxacjuqf');
+      expect(src).toContain('app.settings.supabase_url');
+    });
+
+    it('handle_visits_gemini_summary trigger and function should be dropped', () => {
+      const funcCount = runSql(
+        `SELECT count(*) FROM pg_proc WHERE proname = 'handle_visits_gemini_summary' AND pronamespace = 'public'::regnamespace;`
+      );
+      expect(funcCount).toBe('0');
+
+      const trigCount = runSql(
+        `SELECT count(*) FROM pg_trigger WHERE tgname = 'tr_visits_gemini_summary';`
+      );
+      expect(trigCount).toBe('0');
+    });
+
+    it('orphaned Edge Function update-gemini-summary directory should be removed', () => {
+      const fs = require('fs');
+      const dirPath = path.resolve(process.cwd(), 'supabase/functions/update-gemini-summary');
+      expect(fs.existsSync(dirPath)).toBe(false);
+    });
+  });
 });
