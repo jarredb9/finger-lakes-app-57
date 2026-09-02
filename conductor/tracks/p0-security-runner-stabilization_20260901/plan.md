@@ -36,11 +36,11 @@
     - [x] Add unit test in `lib/stores/__tests__/tripStore.test.ts` asserting no empty `{}` mutation is queued on multi-trip failure
     - [x] Add unit test verifying `e2e/utils.ts` can be imported without throwing when `NEXT_PUBLIC_SUPABASE_URL` is unset
     - [x] Run unit tests to confirm red state
-- [ ] Task: Implement TripStore Fix and Test Runner Hardening (Green Phase)
-    - [ ] Fix catch block in `lib/stores/tripStore.ts` to prevent enqueueing empty `{}` mutations and check `isNetworkError`
-    - [ ] Segregate live database tests to `*.integration.test.ts` (`supabase-rpc-idempotency.integration.test.ts`, `supabase-rpc.integration.test.ts`, `privacy-refactor.integration.test.ts`)
-    - [ ] Update `jest.config.mjs` to exclude `*.integration.test.ts` and add `npm run test:integration` script to `package.json`
-    - [ ] Convert `e2e/utils.ts` to use lazy `getAdminClient()` getter
-    - [ ] Remove legacy CommonJS `node-fetch@2` polyfill from `jest.setup.ts`
-    - [ ] Run `CI=true npm test` to verify fast offline execution in < 60s
+- [x] Task: Implement TripStore Fix and Test Runner Hardening (Green Phase) [f29c04f]
+    - [x] Fix catch block in `lib/stores/tripStore.ts` to prevent enqueueing empty `{}` mutations and check `isNetworkError`
+    - [x] Segregate live database tests to `*.integration.test.ts` (`supabase-rpc-idempotency.integration.test.ts`, `supabase-rpc.integration.test.ts`, `privacy-refactor.integration.test.ts`)
+    - [x] Update `jest.config.mjs` to exclude `*.integration.test.ts` and add `npm run test:integration` script to `package.json`
+    - [x] Convert `e2e/utils.ts` to use lazy `getAdminClient()` getter
+    - [x] Remove legacy CommonJS `node-fetch@2` polyfill from `jest.setup.ts`
+    - [x] Run `CI=true npm test` to verify fast offline execution in < 60s
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: State Sync Bugfix & Test Runner Stabilization' (Protocol in workflow.md)
