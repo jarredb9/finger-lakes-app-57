@@ -77,43 +77,54 @@ export const WineryService = {
 
   /**
    * Toggles the favorite status of a winery.
-   * Internally ensures the winery exists in the DB first.
+   * Consumes composite RPC response in a single network roundtrip (BE-10).
    */
   toggleFavorite: async (winery: Winery): Promise<{ isFavorite: boolean; dbId: WineryDbId | null }> => {
     const supabase = createClient();
     
     const rpcWineryData = WineryService.getRpcData(winery);
 
-    const { data: isFavorite, error } = await supabase.rpc('toggle_favorite', { 
+    const { data, error } = await supabase.rpc('toggle_favorite', { 
         p_winery_data: rpcWineryData 
     });
 
     if (error) throw error;
 
-    // After a successful toggle, we MUST get the dbId to keep the store in sync
-    const dbId = await WineryService.ensureInDb(winery);
-    
-    return { isFavorite: !!isFavorite, dbId };
+    const payload = data as { is_favorite?: boolean; winery_id?: number } | boolean | null;
+    const isFavorite = typeof payload === 'object' && payload !== null && 'is_favorite' in payload
+      ? !!payload.is_favorite
+      : !!payload;
+    const dbId = typeof payload === 'object' && payload !== null && 'winery_id' in payload && payload.winery_id
+      ? (Number(payload.winery_id) as WineryDbId)
+      : null;
+
+    return { isFavorite, dbId };
   },
 
   /**
    * Toggles the wishlist status of a winery.
-   * Internally ensures the winery exists in the DB first.
+   * Consumes composite RPC response in a single network roundtrip (BE-10).
    */
   toggleWishlist: async (winery: Winery): Promise<{ onWishlist: boolean; dbId: WineryDbId | null }> => {
     const supabase = createClient();
     
     const rpcWineryData = WineryService.getRpcData(winery);
 
-    const { data: onWishlist, error } = await supabase.rpc('toggle_wishlist', { 
+    const { data, error } = await supabase.rpc('toggle_wishlist', { 
         p_winery_data: rpcWineryData 
     });
 
     if (error) throw error;
 
-    const dbId = await WineryService.ensureInDb(winery);
-    
-    return { onWishlist: !!onWishlist, dbId };
+    const payload = data as { on_wishlist?: boolean; winery_id?: number } | boolean | null;
+    const onWishlist = typeof payload === 'object' && payload !== null && 'on_wishlist' in payload
+      ? !!payload.on_wishlist
+      : !!payload;
+    const dbId = typeof payload === 'object' && payload !== null && 'winery_id' in payload && payload.winery_id
+      ? (Number(payload.winery_id) as WineryDbId)
+      : null;
+
+    return { onWishlist, dbId };
   },
 
   /**
