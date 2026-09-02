@@ -2,10 +2,10 @@
 
 ## Phase 1: Relational Indexes, Query Inlining & Idempotent Migrations
 
-- [ ] Task: Write Failing Tests for Query Execution and RLS Inlining (Red Phase)
-    - [ ] Add integration test asserting `get_map_markers` RPC query plan uses hash joins without per-row subqueries
-    - [ ] Add integration test asserting `visits` visibility filtering inlines without PL/pgSQL function overhead
-    - [ ] Run integration tests against local database to confirm failure or baseline execution
+- [x] Task: Write Failing Tests for Query Execution and RLS Inlining (Red Phase) [ea8927d]
+    - [x] Add integration test asserting `get_map_markers` RPC query plan uses hash joins without per-row subqueries
+    - [x] Add integration test asserting `visits` visibility filtering inlines without PL/pgSQL function overhead
+    - [x] Run integration tests against local database to confirm failure or baseline execution
 - [ ] Task: Implement Database Migration for Covering Indexes and Query Inlining (Green Phase)
     - [ ] Create migration file `supabase/migrations/20260902100000_indexes_and_query_optimization.sql`
     - [ ] Add covering indexes on `visits(user_id)`, `visits(winery_id)`, `visits(winery_id, user_id)`, `trip_wineries(winery_id)`, `trip_members(user_id)`, `follows(following_id)`, and `wineries(name)`
