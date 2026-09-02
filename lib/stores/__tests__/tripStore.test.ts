@@ -116,4 +116,54 @@ describe('tripStore', () => {
       expect(state.tripsForDate).toHaveLength(0);
     });
   });
+
+  describe('addWineryToTrips network failure (ST-07)', () => {
+    it('does not enqueue empty {} or log_visit mutation on multi-trip network failure', async () => {
+      jest.resetModules();
+      const mockAddMutation = jest.fn().mockResolvedValue(undefined);
+      jest.doMock('@/lib/stores/syncStore', () => ({
+        useSyncStore: {
+          getState: jest.fn(() => ({
+            addMutation: mockAddMutation,
+            queue: [],
+            initialize: jest.fn(),
+          })),
+        },
+      }));
+
+      const mockRpc = jest.fn().mockRejectedValue(new Error('Failed to fetch'));
+      jest.doMock('@/utils/supabase/client', () => ({
+        createClient: jest.fn(() => ({
+          rpc: mockRpc,
+          auth: {
+            getSession: jest.fn().mockResolvedValue({
+              data: { session: { user: { id: 'user-test-123' } } },
+              error: null,
+            }),
+          },
+        })),
+      }));
+
+      const freshTripStore = require('../tripStore').useTripStore;
+      const mockWinery = { id: 'winery-1', dbId: 10, name: 'Seneca Estate' };
+
+      await act(async () => {
+        await freshTripStore.getState().addWineryToTrips(mockWinery as any, new Date('2026-09-02T12:00:00Z'), new Set(['456']), 'New Trip', 'Note');
+      });
+
+      // Valid update_trip mutation SHOULD be enqueued
+      expect(mockAddMutation).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'update_trip',
+        userId: 'user-test-123',
+      }));
+
+      // Corrupting empty {} and log_visit mutations MUST NOT be enqueued
+      expect(mockAddMutation).not.toHaveBeenCalledWith(expect.objectContaining({
+        type: 'log_visit',
+      }));
+      expect(mockAddMutation).not.toHaveBeenCalledWith(expect.objectContaining({
+        payload: {},
+      }));
+    });
+  });
 });

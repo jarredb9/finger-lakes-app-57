@@ -36,13 +36,15 @@ beforeEach(() => {
   useWineryStore.getState().reset?.();
 
   // Ensure modal-root exists for Portals
-  let modalRoot = document.getElementById('modal-root');
-  if (!modalRoot) {
-    modalRoot = document.createElement('div');
-    modalRoot.setAttribute('id', 'modal-root');
-    document.body.appendChild(modalRoot);
-  } else {
-    modalRoot.innerHTML = '';
+  if (typeof document !== 'undefined') {
+    let modalRoot = document.getElementById('modal-root');
+    if (!modalRoot) {
+      modalRoot = document.createElement('div');
+      modalRoot.setAttribute('id', 'modal-root');
+      document.body.appendChild(modalRoot);
+    } else {
+      modalRoot.innerHTML = '';
+    }
   }
 });
 
@@ -76,19 +78,21 @@ if (typeof global.Headers === 'undefined') {
 }
 
 // Polyfill matchMedia for JSDOM
-Object.defineProperty(window, 'matchMedia', {
-  writable: true,
-  value: jest.fn().mockImplementation(query => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addListener: jest.fn(), // Deprecated
-    removeListener: jest.fn(), // Deprecated
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
-  })),
-});
+if (typeof window !== 'undefined') {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: jest.fn().mockImplementation(query => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: jest.fn(), // Deprecated
+      removeListener: jest.fn(), // Deprecated
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    })),
+  });
+}
 
 // Mock the 'next/cache' functions that are used by server actions
 jest.mock('next/cache', () => ({
