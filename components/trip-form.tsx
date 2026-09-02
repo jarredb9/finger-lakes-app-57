@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useTripStore } from "@/lib/stores/tripStore"; 
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
+import { useWineryStore } from "@/lib/stores/wineryStore";
 import { DatePicker } from "./DatePicker";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -54,7 +54,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
 
   const { toast } = useToast();
   const { createTrip } = useTripStore();
-  const { ensureInDb, upsertWinery } = useWineryDataStore();
+  const { ensureInDb, upsertWinery } = useWineryStore();
   
   // Initialize form
   const form = useForm<TripFormValues>({

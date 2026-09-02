@@ -135,9 +135,6 @@ describe('UserStore Logic', () => {
     jest.doMock('../wineryStore', () => ({
       useWineryStore: { getState: () => ({ reset: mockGenericReset }) }
     }));
-    jest.doMock('../wineryDataStore', () => ({
-      useWineryDataStore: { getState: () => ({ reset: mockGenericReset }) }
-    }));
     jest.doMock('../mapStore', () => ({
       useMapStore: { getState: () => ({ reset: mockGenericReset }) }
     }));
@@ -153,6 +150,6 @@ describe('UserStore Logic', () => {
     });
 
     expect(mockSyncReset).toHaveBeenCalled();
-    expect(mockGenericReset).toHaveBeenCalledTimes(7); // Remaining 7 stores (UserStore itself is reset via get().reset())
+    expect(mockGenericReset).toHaveBeenCalledTimes(6); // Remaining 6 stores (UserStore itself is reset via get().reset())
   });
 });

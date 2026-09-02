@@ -4,7 +4,6 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import { Winery, Visit, VisitWithWinery, GooglePlaceId, WineryDbId } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { useWineryStore } from './wineryStore';
-import { useWineryDataStore } from './wineryDataStore';
 import { WineryService } from '@/lib/services/wineryService';
 import { useSyncStore } from './syncStore';
 import { stabilizePhotos, Base64Photo, isBase64Photo, base64ToFile } from '@/lib/utils/sync-helpers';
@@ -259,9 +258,9 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           const finishedNow = Date.now();
           get().setLastActionTimestamp(String(visitId), finishedNow);
           
-          // Update wineryDataStore with the new dbId if we didn't have it
+          // Update wineryStore with the new dbId if we didn't have it
           if (wineryDbId && wineryDbId !== winery.dbId) {
-              useWineryDataStore.getState().upsertWinery({ ...winery, dbId: wineryDbId as WineryDbId });
+              useWineryStore.getState().upsertWinery({ ...winery, dbId: wineryDbId as WineryDbId });
           }
 
           const finalVisit: VisitWithWinery = { 

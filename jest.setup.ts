@@ -8,7 +8,6 @@ import { useMapStore } from './lib/stores/mapStore';
 import { useTripStore } from './lib/stores/tripStore';
 import { useUserStore } from './lib/stores/userStore';
 import { useVisitStore } from './lib/stores/visitStore';
-import { useWineryDataStore } from './lib/stores/wineryDataStore';
 import { useWineryStore } from './lib/stores/wineryStore';
 
 // Load env vars from .env.local
@@ -32,7 +31,6 @@ beforeEach(() => {
   useTripStore.getState().reset?.();
   useUserStore.getState().reset?.();
   useVisitStore.getState().reset?.();
-  useWineryDataStore.getState().reset?.();
   useWineryStore.getState().reset?.();
 
   // Ensure modal-root exists for Portals

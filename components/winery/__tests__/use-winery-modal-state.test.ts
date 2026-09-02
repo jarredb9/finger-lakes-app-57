@@ -1,12 +1,11 @@
 import { renderHook, act } from '@testing-library/react';
 import { useWineryModalState } from '../use-winery-modal-state';
 import { useUIStore } from '@/lib/stores/uiStore';
-import { useWineryDataStore } from '@/lib/stores/wineryDataStore';
 import { useVisitStore } from '@/lib/stores/visitStore';
 import { useWineryStore } from '@/lib/stores/wineryStore';
 import { useMapStore } from '@/lib/stores/mapStore';
 import { useTripStore } from '@/lib/stores/tripStore';
-import { createMockWinery, createMockVisit, createMockVisitWithWinery } from '@/lib/test-utils/fixtures';
+import { createMockWinery, createMockVisitWithWinery } from '@/lib/test-utils/fixtures';
 import { GooglePlaceId } from '@/lib/types';
 
 jest.mock('@/hooks/use-toast', () => ({
@@ -23,9 +22,7 @@ describe('useWineryModalState', () => {
   const mockWinery1 = createMockWinery({
     id: 'winery-1' as GooglePlaceId,
     name: 'Heron Hill Winery',
-    visits: [
-      createMockVisit({ id: 'v1', visit_date: '2025-01-01', user_review: 'First' }),
-    ],
+    userVisited: true,
   });
 
   beforeEach(() => {
@@ -34,16 +31,15 @@ describe('useWineryModalState', () => {
       isWineryModalOpen: true,
       activeWineryId: 'winery-1',
     });
-    useWineryDataStore.setState({
+    useWineryStore.setState({
       persistentWineries: [mockWinery1],
+      loadingWineryId: null,
     });
     useVisitStore.setState({
       visits: [
-        createMockVisitWithWinery({ id: 'v2', wineryId: 'winery-1' as GooglePlaceId, visit_date: '2025-06-01', user_review: 'Second' }),
+        createMockVisitWithWinery({ id: 'v1' as any, wineryId: 'winery-1' as GooglePlaceId, visit_date: '2025-01-01', user_review: 'First' }),
+        createMockVisitWithWinery({ id: 'v2' as any, wineryId: 'winery-1' as GooglePlaceId, visit_date: '2025-06-01', user_review: 'Second' }),
       ],
-    });
-    useWineryStore.setState({
-      loadingWineryId: null,
     });
     useMapStore.setState({
       isStreetViewActive: false,

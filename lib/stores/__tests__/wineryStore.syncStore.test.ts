@@ -3,7 +3,7 @@ import { createMockWinery } from '@/lib/test-utils/fixtures';
 import { GooglePlaceId, WineryDbId } from '@/lib/types';
 
 describe('wineryDataStore SyncStore integration', () => {
-  let useWineryDataStore: any;
+  let useWineryStore: any;
   let useSyncStore: any;
 
   beforeEach(() => {
@@ -47,10 +47,10 @@ describe('wineryDataStore SyncStore integration', () => {
       writable: true,
     });
 
-    useWineryDataStore = require('../wineryDataStore').useWineryDataStore;
+    useWineryStore = require('../wineryStore').useWineryStore;
     useSyncStore = require('@/lib/stores/syncStore').useSyncStore;
     
-    useWineryDataStore.getState().reset();
+    useWineryStore.getState().reset();
   });
 
   afterEach(() => {
@@ -59,10 +59,10 @@ describe('wineryDataStore SyncStore integration', () => {
 
   it('should enqueue toggle_favorite mutation in SyncStore when offline', async () => {
     const winery = createMockWinery({ id: 'w1' as GooglePlaceId, dbId: 101 as WineryDbId, name: 'Test Winery' });
-    useWineryDataStore.setState({ persistentWineries: [winery] });
+    useWineryStore.setState({ persistentWineries: [winery] });
 
     await act(async () => {
-      await useWineryDataStore.getState().toggleFavorite('w1');
+      await useWineryStore.getState().toggleFavorite('w1');
     });
 
     const addMutation = useSyncStore.getState().addMutation;
@@ -78,10 +78,10 @@ describe('wineryDataStore SyncStore integration', () => {
 
   it('should enqueue toggle_wishlist mutation in SyncStore when offline', async () => {
     const winery = createMockWinery({ id: 'w1' as GooglePlaceId, dbId: 101 as WineryDbId, name: 'Test Winery' });
-    useWineryDataStore.setState({ persistentWineries: [winery] });
+    useWineryStore.setState({ persistentWineries: [winery] });
 
     await act(async () => {
-      await useWineryDataStore.getState().toggleWishlist('w1');
+      await useWineryStore.getState().toggleWishlist('w1');
     });
 
     const addMutation = useSyncStore.getState().addMutation;
@@ -97,10 +97,10 @@ describe('wineryDataStore SyncStore integration', () => {
 
   it('should enqueue toggle_favorite_privacy mutation in SyncStore when offline', async () => {
     const winery = createMockWinery({ id: 'w1' as GooglePlaceId, dbId: 101 as WineryDbId, name: 'Test Winery' });
-    useWineryDataStore.setState({ persistentWineries: [winery] });
+    useWineryStore.setState({ persistentWineries: [winery] });
 
     await act(async () => {
-      await useWineryDataStore.getState().toggleFavoritePrivacy('w1');
+      await useWineryStore.getState().toggleFavoritePrivacy('w1');
     });
 
     const addMutation = useSyncStore.getState().addMutation;
@@ -116,10 +116,10 @@ describe('wineryDataStore SyncStore integration', () => {
 
   it('should enqueue toggle_wishlist_privacy mutation in SyncStore when offline', async () => {
     const winery = createMockWinery({ id: 'w1' as GooglePlaceId, dbId: 101 as WineryDbId, name: 'Test Winery' });
-    useWineryDataStore.setState({ persistentWineries: [winery] });
+    useWineryStore.setState({ persistentWineries: [winery] });
 
     await act(async () => {
-      await useWineryDataStore.getState().toggleWishlistPrivacy('w1');
+      await useWineryStore.getState().toggleWishlistPrivacy('w1');
     });
 
     const addMutation = useSyncStore.getState().addMutation;
