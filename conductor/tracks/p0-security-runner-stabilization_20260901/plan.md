@@ -32,10 +32,10 @@
 
 ## Phase 3: State Sync Bugfix & Test Runner Stabilization
 
-- [ ] Task: Write Failing Tests for TripStore Error Handling and Test Runners (Red Phase)
-    - [ ] Add unit test in `lib/stores/__tests__/tripStore.test.ts` asserting no empty `{}` mutation is queued on multi-trip failure
-    - [ ] Add unit test verifying `e2e/utils.ts` can be imported without throwing when `NEXT_PUBLIC_SUPABASE_URL` is unset
-    - [ ] Run unit tests to confirm red state
+- [x] Task: Write Failing Tests for TripStore Error Handling and Test Runners (Red Phase) [01c30e2]
+    - [x] Add unit test in `lib/stores/__tests__/tripStore.test.ts` asserting no empty `{}` mutation is queued on multi-trip failure
+    - [x] Add unit test verifying `e2e/utils.ts` can be imported without throwing when `NEXT_PUBLIC_SUPABASE_URL` is unset
+    - [x] Run unit tests to confirm red state
 - [ ] Task: Implement TripStore Fix and Test Runner Hardening (Green Phase)
     - [ ] Fix catch block in `lib/stores/tripStore.ts` to prevent enqueueing empty `{}` mutations and check `isNetworkError`
     - [ ] Segregate live database tests to `*.integration.test.ts` (`supabase-rpc-idempotency.integration.test.ts`, `supabase-rpc.integration.test.ts`, `privacy-refactor.integration.test.ts`)
