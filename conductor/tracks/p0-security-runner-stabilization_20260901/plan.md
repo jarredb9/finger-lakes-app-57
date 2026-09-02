@@ -17,11 +17,11 @@
 
 ## Phase 2: Middleware Routing & Route Protection
 
-- [ ] Task: Write Failing Tests for Middleware and Endpoint Hardening (Red Phase)
-    - [ ] Write unit tests for `proxy.ts` verifying cookie preservation on redirects
-    - [ ] Write unit tests verifying `/privacy`, `/terms`, `/workbox-*.js`, and `/worker-*.js` bypass auth redirects
-    - [ ] Write unit tests for `/api/auth/confirm-user` verifying 404 in production and secret validation in dev
-    - [ ] Run middleware and route tests to confirm red state
+- [x] Task: Write Failing Tests for Middleware and Endpoint Hardening (Red Phase) [0b0bd9c]
+    - [x] Write unit tests for `proxy.ts` verifying cookie preservation on redirects
+    - [x] Write unit tests verifying `/privacy`, `/terms`, `/workbox-*.js`, and `/worker-*.js` bypass auth redirects
+    - [x] Write unit tests for `/api/auth/confirm-user` verifying 404 in production and secret validation in dev
+    - [x] Run middleware and route tests to confirm red state
 - [ ] Task: Implement Middleware Updates and Auth Endpoint Security (Green Phase)
     - [ ] Update `proxy.ts` to copy cookies across redirects using `response.cookies.getAll()`
     - [ ] Add `/privacy` and `/terms` to `publicRoutes` in `proxy.ts`
