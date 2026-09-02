@@ -15,7 +15,7 @@
     - [x] Run `npm run db:lint` and `npm run db:check-types:local` to ensure 0 lint warnings and valid types
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Database RLS & Security Definer Hardening' (Protocol in workflow.md)
 
-## Phase 2: Middleware Routing & Route Protection
+## Phase 2: Middleware Routing & Route Protection [checkpoint: a4bbce3]
 
 - [x] Task: Write Failing Tests for Middleware and Endpoint Hardening (Red Phase) [0b0bd9c]
     - [x] Write unit tests for `proxy.ts` verifying cookie preservation on redirects
@@ -28,7 +28,7 @@
     - [x] Add pattern matching for `/workbox-` and `/worker-` assets in `proxy.ts`
     - [x] Update `app/api/auth/confirm-user/route.ts` with production 404 guard and dev shared-secret validation
     - [x] Re-run tests to confirm all pass (Green Phase)
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Middleware Routing & Route Protection' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Middleware Routing & Route Protection' (Protocol in workflow.md)
 
 ## Phase 3: State Sync Bugfix & Test Runner Stabilization
 
