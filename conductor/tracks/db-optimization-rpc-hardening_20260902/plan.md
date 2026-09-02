@@ -19,10 +19,10 @@
 
 ## Phase 2: RPC Consolidation & Winery Service Optimization
 
-- [ ] Task: Write Failing Tests for Single-Roundtrip Toggles and Places API Route (Red Phase)
-    - [ ] Create unit tests in `lib/services/__tests__/wineryService.test.ts` verifying `toggle_favorite` makes a single RPC call without secondary upsert
-    - [ ] Create tests in `app/api/wineries/__tests__/route.test.ts` verifying Places API (New) V1 payload handling and awaited database upsert
-    - [ ] Run unit tests to confirm red state
+- [x] Task: Write Failing Tests for Single-Roundtrip Toggles and Places API Route (Red Phase) [5d63044]
+    - [x] Create unit tests in `lib/services/__tests__/wineryService.test.ts` verifying `toggle_favorite` makes a single RPC call without secondary upsert
+    - [x] Create tests in `app/api/wineries/__tests__/route.test.ts` verifying Places API (New) V1 payload handling and awaited database upsert
+    - [x] Run unit tests to confirm red state
 - [ ] Task: Implement RPC Update, Service Optimization, and Route Modernization (Green Phase)
     - [ ] Create migration `supabase/migrations/20260902110000_toggle_favorite_composite_return.sql` updating `toggle_favorite` to return `jsonb` with `is_favorite` and `winery_id`
     - [ ] Update `lib/services/wineryService.ts` to consume single RPC response and remove redundant `ensureInDb` upsert
