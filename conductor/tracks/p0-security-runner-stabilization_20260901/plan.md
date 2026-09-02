@@ -30,7 +30,7 @@
     - [x] Re-run tests to confirm all pass (Green Phase)
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Middleware Routing & Route Protection' (Protocol in workflow.md)
 
-## Phase 3: State Sync Bugfix & Test Runner Stabilization
+## Phase 3: State Sync Bugfix & Test Runner Stabilization [checkpoint: 427c943]
 
 - [x] Task: Write Failing Tests for TripStore Error Handling and Test Runners (Red Phase) [01c30e2]
     - [x] Add unit test in `lib/stores/__tests__/tripStore.test.ts` asserting no empty `{}` mutation is queued on multi-trip failure
@@ -43,4 +43,4 @@
     - [x] Convert `e2e/utils.ts` to use lazy `getAdminClient()` getter
     - [x] Remove legacy CommonJS `node-fetch@2` polyfill from `jest.setup.ts`
     - [x] Run `CI=true npm test` to verify fast offline execution in < 60s
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: State Sync Bugfix & Test Runner Stabilization' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: State Sync Bugfix & Test Runner Stabilization' (Protocol in workflow.md)
