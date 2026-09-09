@@ -79,6 +79,7 @@ export interface SyncItem {
   createdAt: string;
   userId: string; // To ensure multi-user isolation on the same device
   status?: SyncStatus;
+  nextRetryAt?: number;
 }
 
 // Derived Interfaces (Frontend Models)
