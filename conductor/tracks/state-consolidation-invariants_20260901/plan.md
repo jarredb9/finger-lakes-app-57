@@ -46,12 +46,12 @@ Focus: Decompose `tripStore.ts` and `visitStore.ts` into composable slices (< 30
 ## Phase 3: Offline Sync Resilience, DLQ & Channel Cleanup
 Focus: Implement exponential backoff with jitter on 5xx errors, an IndexedDB Dead Letter Queue for 4xx errors, optimistic concurrency control, atomic transactions, and Realtime channel teardown.
 
-- [ ] Task: Write failing unit tests for offline sync backoff, DLQ, concurrency control, and channel cleanup
-    - [ ] Unit tests in `lib/services/__tests__/syncService.test.ts` for exponential backoff with jitter on 5xx errors
-    - [ ] Unit tests for routing 4xx errors to IndexedDB Dead Letter Queue (DLQ)
-    - [ ] Unit tests for optimistic concurrency control (`updated_at` check on reconnect)
-    - [ ] Unit tests for Realtime channel unsubscription on `store.reset()` and logout
-    - [ ] Unit tests for atomic multi-key persistence in `idb-persist-storage.ts`
+- [x] Task: Write failing unit tests for offline sync backoff, DLQ, concurrency control, and channel cleanup 6a47b39
+    - [x] Unit tests in `lib/services/__tests__/syncService.test.ts` for exponential backoff with jitter on 5xx errors
+    - [x] Unit tests for routing 4xx errors to IndexedDB Dead Letter Queue (DLQ)
+    - [x] Unit tests for optimistic concurrency control (`updated_at` check on reconnect)
+    - [x] Unit tests for Realtime channel unsubscription on `store.reset()` and logout
+    - [x] Unit tests for atomic multi-key persistence in `idb-persist-storage.ts`
 - [ ] Task: Implement sync resilience and Dead Letter Queue in `syncService.ts`
     - [ ] Implement exponential backoff with jitter (1s, 2s, 4s... max 60s) for 5xx network errors
     - [ ] Create IndexedDB DLQ store with 7-day retention for unrecoverable 4xx mutation errors
