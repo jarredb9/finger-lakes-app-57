@@ -44,20 +44,12 @@ jest.mock("@/hooks/use-toast", () => ({
 }));
 
 describe("useWinerySearch", () => {
-  let mockMap: any;
   let mockPlaces: any;
   let mockGeocoder: any;
   let mockSupabase: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    mockMap = {
-      getZoom: jest.fn().mockReturnValue(10),
-      fitBounds: jest.fn(),
-      setCenter: jest.fn(),
-      setZoom: jest.fn(),
-    };
 
     mockPlaces = {
       Place: {
@@ -98,7 +90,6 @@ describe("useWinerySearch", () => {
 
     // Initial store state
     useMapStore.setState({
-      map: mockMap,
       isSearching: false,
       searchResults: [],
       error: null,

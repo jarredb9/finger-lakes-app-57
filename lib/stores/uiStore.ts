@@ -1,7 +1,13 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { persist } from 'zustand/middleware';
-import { ReactNode } from 'react';
 import { Winery, Visit } from '@/lib/types';
+
+export type ModalType = 'visit_form' | 'winery_notes' | 'share' | null;
+
+export interface ActiveModal {
+  type: ModalType;
+  props?: Record<string, any>;
+}
 
 interface Notification {
   id: number;
@@ -16,7 +22,7 @@ interface UIState {
   theme: 'light' | 'dark';
   notifications: Notification[];
   isModalOpen: boolean;
-  modalContent: ReactNode | null;
+  activeModal: ActiveModal | null;
   modalTitle: string;
   modalDescription: string;
   isVisitHistoryModalOpen: boolean;
@@ -31,7 +37,7 @@ interface UIState {
   editingVisit: Visit | null;
   activeNoteWineryDbId: number | null;
   activeNoteInitialValue: string;
-  onNoteSave: ((wineryDbId: number, notes: string) => void) | null;
+  activeNoteTripId: string | null;
 
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
@@ -41,12 +47,12 @@ interface UIState {
   setTheme: (theme: 'light' | 'dark') => void;
   addNotification: (message: string, type: 'success' | 'error' | 'info') => void;
   removeNotification: (id: number) => void;
-  openModal: (content: ReactNode, title?: string, description?: string) => void;
+  openModal: (type?: ModalType, props?: Record<string, any>, title?: string, description?: string) => void;
   closeModal: () => void;
   
   openVisitForm: (winery: Winery, editingVisit?: Visit | null) => void;
   closeVisitForm: () => void;
-  openWineryNoteEditor: (wineryDbId: number, initialNotes: string, onSave: (wineryDbId: number, notes: string) => void) => void;
+  openWineryNoteEditor: (wineryDbId: number, initialNotes: string, tripId?: string | number | null) => void;
   closeWineryNoteEditor: () => void;
 
   openShareDialog: (tripId: string, tripName: string) => void;
@@ -64,7 +70,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
       theme: 'light',
       notifications: [],
       isModalOpen: false,
-      modalContent: null,
+      activeModal: null,
       modalTitle: '',
       modalDescription: '',
       isVisitHistoryModalOpen: false,
@@ -78,7 +84,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
       editingVisit: null,
       activeNoteWineryDbId: null,
       activeNoteInitialValue: '',
-      onNoteSave: null,
+      activeNoteTripId: null,
 
       toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
       setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
@@ -89,29 +95,25 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         returnToVisitHistory: returnToHistory
       }),
       closeWineryModal: () => set((state) => {
-        // If the flag is set, open the history modal when closing the winery modal
-        if (state.returnToVisitHistory) {
-          return { 
-            isWineryModalOpen: false, 
-            activeWineryId: null, 
-            returnToVisitHistory: false, 
-            isVisitHistoryModalOpen: true,
-            activeVisitWinery: null,
-            editingVisit: null,
-            activeNoteWineryDbId: null,
-            activeNoteInitialValue: '',
-            onNoteSave: null
-          };
-        }
-        return { 
+        const base = {
           isWineryModalOpen: false, 
           activeWineryId: null,
+          activeModal: null,
           activeVisitWinery: null,
           editingVisit: null,
           activeNoteWineryDbId: null,
           activeNoteInitialValue: '',
-          onNoteSave: null
+          activeNoteTripId: null,
         };
+        // If the flag is set, open the history modal when closing the winery modal
+        if (state.returnToVisitHistory) {
+          return { 
+            ...base,
+            returnToVisitHistory: false, 
+            isVisitHistoryModalOpen: true,
+          };
+        }
+        return base;
       }),
       setTheme: (theme) => set({ theme }),
       addNotification: (message, type) =>
@@ -122,20 +124,26 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         set((state) => ({
           notifications: state.notifications.filter((n) => n.id !== id),
         })),
-      openModal: (content, title = '', description = '') => set({ isModalOpen: true, modalContent: content, modalTitle: title, modalDescription: description }),
+      openModal: (type = null, props = {}, title = '', description = '') => set({ 
+        isModalOpen: true, 
+        activeModal: type ? { type, props } : null, 
+        modalTitle: title, 
+        modalDescription: description 
+      }),
       closeModal: () => set({ 
         isModalOpen: false, 
-        modalContent: null, 
+        activeModal: null, 
         modalTitle: '', 
         modalDescription: '',
         activeVisitWinery: null,
         editingVisit: null,
         activeNoteWineryDbId: null,
         activeNoteInitialValue: '',
-        onNoteSave: null
+        activeNoteTripId: null,
       }),
 
       openVisitForm: (winery, editingVisit = null) => set({
+        activeModal: { type: 'visit_form', props: { winery, editingVisit } },
         activeVisitWinery: winery,
         editingVisit: editingVisit,
         isModalOpen: true,
@@ -144,40 +152,48 @@ export const useUIStore = createWithEqualityFn<UIState>()(
       }),
       closeVisitForm: () => set({
         isModalOpen: false,
-        modalContent: null,
+        activeModal: null,
         modalTitle: '',
         modalDescription: '',
         activeVisitWinery: null,
         editingVisit: null,
         activeNoteWineryDbId: null,
         activeNoteInitialValue: '',
-        onNoteSave: null
+        activeNoteTripId: null,
       }),
 
-      openWineryNoteEditor: (wineryDbId, initialNotes, onSave) => set({
-        activeNoteWineryDbId: wineryDbId,
-        activeNoteInitialValue: initialNotes,
-        onNoteSave: onSave,
-        isModalOpen: true,
-        modalTitle: 'Winery Notes',
-        modalDescription: 'Add private notes for this winery'
-      }),
+      openWineryNoteEditor: (wineryDbId, initialNotes, tripId) => {
+        const tripIdStr = tripId && typeof tripId !== 'function' ? String(tripId) : null;
+        set({
+          activeModal: {
+            type: 'winery_notes',
+            props: { wineryDbId, initialNotes, tripId: tripIdStr }
+          },
+          activeNoteWineryDbId: wineryDbId,
+          activeNoteInitialValue: initialNotes,
+          activeNoteTripId: tripIdStr,
+          isModalOpen: true,
+          modalTitle: 'Winery Notes',
+          modalDescription: 'Add private notes for this winery'
+        });
+      },
       closeWineryNoteEditor: () => set({
         isModalOpen: false,
-        modalContent: null,
+        activeModal: null,
         modalTitle: '',
         modalDescription: '',
         activeVisitWinery: null,
         editingVisit: null,
         activeNoteWineryDbId: null,
         activeNoteInitialValue: '',
-        onNoteSave: null
+        activeNoteTripId: null,
       }),
 
       openShareDialog: (tripId, tripName) => set({ 
         isShareDialogOpen: true, 
         shareTripId: tripId, 
-        shareTripName: tripName 
+        shareTripName: tripName,
+        activeModal: { type: 'share', props: { tripId, tripName } }
       }),
       closeShareDialog: () => {
         if (typeof window !== 'undefined' && (window as any).useTripStore) {
@@ -186,7 +202,8 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         set({ 
           isShareDialogOpen: false, 
           shareTripId: null, 
-          shareTripName: null 
+          shareTripName: null,
+          activeModal: null,
         });
       },
       setHydrated: (isHydrated) => set({ isHydrated }),
@@ -197,7 +214,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         theme: 'light',
         notifications: [],
         isModalOpen: false,
-        modalContent: null,
+        activeModal: null,
         modalTitle: '',
         modalDescription: '',
         isVisitHistoryModalOpen: false,
@@ -210,7 +227,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         editingVisit: null,
         activeNoteWineryDbId: null,
         activeNoteInitialValue: '',
-        onNoteSave: null,
+        activeNoteTripId: null,
       }),
     }),
     {

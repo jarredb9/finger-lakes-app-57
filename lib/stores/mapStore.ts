@@ -1,12 +1,50 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { Winery } from '@/lib/types';
+import { getCoordinatesFromBounds } from '@/lib/utils/map-utils';
 
-interface MapState {
-  map: any | null;
+export interface SerializableBounds {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+export function sanitizeBounds(bounds: any): SerializableBounds | null {
+  if (!bounds) return null;
+
+  if (
+    typeof bounds.north === 'number' &&
+    typeof bounds.south === 'number' &&
+    typeof bounds.east === 'number' &&
+    typeof bounds.west === 'number' &&
+    typeof bounds.getNorthEast === 'undefined'
+  ) {
+    return {
+      north: bounds.north,
+      south: bounds.south,
+      east: bounds.east,
+      west: bounds.west,
+    };
+  }
+
+  const coords = getCoordinatesFromBounds(bounds);
+  if (coords) {
+    return {
+      north: coords.neLat,
+      south: coords.swLat,
+      east: coords.neLng,
+      west: coords.swLng,
+    };
+  }
+
+  return null;
+}
+
+export interface MapState {
   center: { lat: number; lng: number };
   zoom: number;
-  bounds: any | null;
-  lastSearchedBounds: any | null;
+  bounds: SerializableBounds | null;
+  lastSearchedBounds: SerializableBounds | null;
   lastSearchedZoom: number | null;
   isSearching: boolean;
   hitApiLimit: boolean;
@@ -16,7 +54,6 @@ interface MapState {
   searchLocation: string;
   error: string | null;
   isStreetViewActive: boolean;
-  setMap: (map: any | null) => void;
   setCenter: (center: { lat: number; lng: number }) => void;
   setZoom: (zoom: number) => void;
   setBounds: (bounds: any | null) => void;
@@ -34,7 +71,6 @@ interface MapState {
 }
 
 export const useMapStore = createWithEqualityFn<MapState>((set) => ({
-  map: null,
   center: { lat: 42.7, lng: -76.9 },
   zoom: 9,
   bounds: null,
@@ -48,11 +84,10 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   searchLocation: "",
   error: null,
   isStreetViewActive: false,
-  setMap: (map) => set({ map }),
   setCenter: (center) => set({ center }),
   setZoom: (zoom) => set({ zoom }),
-  setBounds: (bounds) => set({ bounds }),
-  setLastSearchedBounds: (bounds) => set({ lastSearchedBounds: bounds }),
+  setBounds: (bounds) => set({ bounds: sanitizeBounds(bounds) }),
+  setLastSearchedBounds: (bounds) => set({ lastSearchedBounds: sanitizeBounds(bounds) }),
   setLastSearchedZoom: (zoom) => set({ lastSearchedZoom: zoom }),
   setIsSearching: (isSearching) => set({ isSearching }),
   setHitApiLimit: (hitApiLimit) => set({ hitApiLimit }),
@@ -63,7 +98,6 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   setError: (error) => set({ error }),
   setIsStreetViewActive: (active) => set({ isStreetViewActive: active }),
   reset: () => set({
-    map: null,
     center: { lat: 42.7, lng: -76.9 },
     zoom: 9,
     bounds: null,

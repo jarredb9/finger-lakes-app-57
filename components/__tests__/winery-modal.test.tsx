@@ -91,7 +91,6 @@ function setupStores() {
   });
   useMapStore.setState({
     isStreetViewActive: false,
-    map: null,
   });
   Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1024 });
   window.dispatchEvent(new Event('resize'));
