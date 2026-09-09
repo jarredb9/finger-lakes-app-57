@@ -72,6 +72,7 @@ export function useWineryModalState() {
 
   const loadingWineryId = useWineryStore((state) => state.loadingWineryId);
   const deleteVisitAction = useVisitStore((state) => state.deleteVisit);
+  const fetchVisitsForWinery = useVisitStore((state) => state.fetchVisitsForWinery);
 
   const activeDbId = activeWinery?.dbId ? Number(activeWinery.dbId) : null;
   const visits = useVisitStore(
@@ -87,6 +88,12 @@ export function useWineryModalState() {
         .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
     })
   );
+
+  useEffect(() => {
+    if (isWineryModalOpen && activeWineryId && activeWinery?.userVisited && visits.length === 0) {
+      fetchVisitsForWinery(activeWineryId);
+    }
+  }, [isWineryModalOpen, activeWineryId, activeWinery?.userVisited, visits.length, fetchVisitsForWinery]);
 
   const isLoading = loadingWineryId === activeWineryId;
 
