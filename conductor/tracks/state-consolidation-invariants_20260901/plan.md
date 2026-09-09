@@ -16,9 +16,9 @@ Focus: Consolidate split-brain winery stores, establish single source of truth f
     - [x] Merge persistent caching and reactive state into `lib/stores/wineryStore.ts`
     - [x] Migrate all consumer components (`use-winery-modal-state.ts`, etc.) from `wineryDataStore` to `wineryStore`
     - [x] Delete `lib/stores/wineryDataStore.ts`
-- [ ] Task: Enforce single source of truth for visits in `visitStore.ts`
-    - [ ] Strip duplicated visit caches from winery objects so wineries reference visit IDs only
-    - [ ] Enforce `Number(id)` normalization across ingress in `visitStore`, `tripStore`, `wineryStore`, and `lib/types.ts`
+- [x] Task: Enforce single source of truth for visits in `visitStore.ts` 09c6130
+    - [x] Strip duplicated visit caches from winery objects so wineries reference visit IDs only
+    - [x] Enforce `Number(id)` normalization across ingress in `visitStore`, `tripStore`, `wineryStore`, and `lib/types.ts`
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Winery Store Unification & Domain Invariants' (Protocol in workflow.md)
 
 ## Phase 2: Monolithic Store Decomposition & Store Serializability
