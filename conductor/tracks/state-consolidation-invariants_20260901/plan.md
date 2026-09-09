@@ -2,7 +2,7 @@
 
 Establishing a unified Zustand 5 state architecture adhering strictly to `AGENTS.md` domain invariants, decomposing monolithic stores, hardening offline sync resilience, and eliminating memory leaks.
 
-## Phase 1: Winery Store Unification & Domain Invariants
+## Phase 1: Winery Store Unification & Domain Invariants [checkpoint: fc74800]
 Focus: Consolidate split-brain winery stores, establish single source of truth for visits, normalize relational IDs, standardize map click events, and fix ghost visit purge.
 
 - [x] Task: Write failing unit tests for canonical winery store, ghost visit purge, and numeric ID normalization 3db0e73
@@ -20,7 +20,7 @@ Focus: Consolidate split-brain winery stores, establish single source of truth f
     - [x] Fully decouple winery entities from visits by stripping duplicate visit caches and removing redundant `visit_ids` from `Winery`
     - [x] Implement on-demand visit hydration (`fetchVisitsForWinery`) in `visitStore` and connect modal state
     - [x] Enforce `Number(id)` normalization across ingress in `visitStore`, `tripStore`, `wineryStore`, and `lib/types.ts`
-- [~] Task: Conductor - User Manual Verification 'Phase 1: Winery Store Unification & Domain Invariants' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Winery Store Unification & Domain Invariants' (Protocol in workflow.md)
 
 ## Phase 2: Monolithic Store Decomposition & Store Serializability
 Focus: Decompose `tripStore.ts` and `visitStore.ts` into composable slices (< 300 lines each), enforce store serializability, and isolate action timestamps.
@@ -62,3 +62,7 @@ Focus: Implement exponential backoff with jitter on 5xx errors, an IndexedDB Dea
 - [ ] Task: Convert component store subscriptions to fine-grained selectors and `useShallow`
     - [ ] Audit and refactor whole-store subscriptions in `components/map/`, `components/trip-card.tsx`, etc. to fine-grained selectors and `useShallow`
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Offline Sync Resilience, DLQ & Channel Cleanup' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Apply review suggestions d453846
+
