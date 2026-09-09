@@ -30,11 +30,11 @@ Focus: Decompose `tripStore.ts` and `visitStore.ts` into composable slices (< 30
     - [x] Unit tests covering `visitStore` slice boundaries
     - [x] Unit tests verifying `mapStore` and `uiStore` serializability (rejecting DOM instances/React nodes)
     - [x] Unit tests verifying `lastActionTimestamps` is excluded from persistence hydration
-- [ ] Task: Decompose `tripStore.ts` into modular slices
-    - [ ] Create `lib/stores/slices/tripDataSlice.ts` (< 300 lines)
-    - [ ] Create `lib/stores/slices/tripUISlice.ts` (< 300 lines)
-    - [ ] Create `lib/stores/slices/tripRealtimeSlice.ts` (< 300 lines)
-    - [ ] Compose slices into unified `tripStore.ts` (preserving `(window as any).useTripStore` backwards compatibility until Proposal 05) and exclude `lastActionTimestamps` from IndexedDB `partialize`
+- [x] Task: Decompose `tripStore.ts` into modular slices 950351a
+    - [x] Create `lib/stores/slices/tripDataSlice.ts` (< 300 lines)
+    - [x] Create `lib/stores/slices/tripUISlice.ts` (< 300 lines)
+    - [x] Create `lib/stores/slices/tripRealtimeSlice.ts` (< 300 lines)
+    - [x] Compose slices into unified `tripStore.ts` (preserving `(window as any).useTripStore` backwards compatibility until Proposal 05) and exclude `lastActionTimestamps` from IndexedDB `partialize`
 - [ ] Task: Decompose `visitStore.ts` into modular slices
     - [ ] Create modular slices for visit data, UI, and sync operations (< 300 lines each)
     - [ ] Compose slices into unified `visitStore.ts`
