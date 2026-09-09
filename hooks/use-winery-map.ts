@@ -33,10 +33,15 @@ export function useWineryMap(userId: string) {
   const { fetchWineryData, ensureWineryDetails, getWineries } = useWineryStore();
   const { openWineryModal } = useUIStore();
   const { executeSearch } = useWinerySearch();
+  const executeSearchRef = useRef(executeSearch);
+  useEffect(() => {
+    executeSearchRef.current = executeSearch;
+  }, [executeSearch]);
   const { mapWineries, listResultsInView, filter, handleFilterChange } = useWineryFilter();
 
   const [proposedWinery, setProposedWinery] = useState<Winery | null>(null);
-  const { current: mapInstance } = useMap();
+  const maps = useMap();
+  const mapInstance = maps?.current || (maps as Record<string, any>)?.default || (maps ? Object.values(maps)[0] : undefined);
   const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [places, setPlaces] = useState<any>(null);
 
@@ -77,66 +82,68 @@ export function useWineryMap(userId: string) {
     if (!mapInstance) return;
     
     const handleMapMovement = () => {
-      const currentBounds = mapInstance.getBounds();
-      if (currentBounds) {
-        setBounds(currentBounds);
-      }
+      try {
+        const currentBounds = typeof mapInstance.getBounds === "function" ? mapInstance.getBounds() : null;
+        if (currentBounds) {
+          setBounds(currentBounds);
+        }
 
-      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
-      
-      debounceTimeoutRef.current = setTimeout(() => {
-        const state = useMapStore.getState();
-        const hasSearched = !!state.lastSearchedBounds;
-
-        // Trigger search if autoSearch is on OR if this is the first search (initial load)
-        if (!state.autoSearch && hasSearched) return;
+        if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
         
-        if (!currentBounds) return;
+        debounceTimeoutRef.current = setTimeout(() => {
+          const state = useMapStore.getState();
+          const hasSearched = !!state.lastSearchedBounds;
 
-        const lastSearched = state.lastSearchedBounds;
-        const lastSearchedZoom = state.lastSearchedZoom;
-        const hitApiLimit = state.hitApiLimit;
-        const currentZoom = typeof mapInstance.getZoom === "function" ? mapInstance.getZoom() : (mapInstance as any).zoom;
-
-        if (lastSearched) {
-          const ne = currentBounds.getNorthEast();
-          const sw = currentBounds.getSouthWest();
-          const neLat = typeof ne.lat === "function" ? ne.lat() : ne.lat ?? ne[1];
-          const neLng = typeof ne.lng === "function" ? ne.lng() : ne.lng ?? ne[0];
-          const swLat = typeof sw.lat === "function" ? sw.lat() : sw.lat ?? sw[1];
-          const swLng = typeof sw.lng === "function" ? sw.lng() : sw.lng ?? sw[0];
-
-          const isContained = isCoordinateInBounds({ latitude: neLat, longitude: neLng }, lastSearched) && 
-                              isCoordinateInBounds({ latitude: swLat, longitude: swLng }, lastSearched);
+          // Trigger search if autoSearch is on OR if this is the first search (initial load)
+          if (!state.autoSearch && hasSearched) return;
           
-          // If we are fully contained in the last search area AND we didn't hit the API limit,
-          // we normally skip. HOWEVER, if we zoomed in AT ALL, we should search again
-          // because Google Places hides results at lower zoom levels.
-          if (isContained && !hitApiLimit) {
-            if (currentZoom && lastSearchedZoom && (currentZoom > lastSearchedZoom)) {
-                 // Force search: Zoomed in.
-            } else {
-                 return;
+          if (!currentBounds) return;
+
+          const lastSearched = state.lastSearchedBounds;
+          const lastSearchedZoom = state.lastSearchedZoom;
+          const hitApiLimit = state.hitApiLimit;
+          const currentZoom = typeof mapInstance.getZoom === "function" ? mapInstance.getZoom() : (mapInstance as any).zoom;
+
+          if (lastSearched) {
+            const coords = getCoordinatesFromBounds(currentBounds);
+            if (coords) {
+              const isContained = isCoordinateInBounds({ latitude: coords.neLat, longitude: coords.neLng }, lastSearched) && 
+                                  isCoordinateInBounds({ latitude: coords.swLat, longitude: coords.swLng }, lastSearched);
+              
+              // If we are fully contained in the last search area AND we didn't hit the API limit,
+              // we normally skip. HOWEVER, if we zoomed in AT ALL, we should search again
+              // because Google Places hides results at lower zoom levels.
+              if (isContained && !hitApiLimit) {
+                if (currentZoom && lastSearchedZoom && (currentZoom > lastSearchedZoom)) {
+                     // Force search: Zoomed in.
+                } else {
+                     return;
+                }
+              }
             }
           }
-        }
-        
-        executeSearch(undefined, currentBounds);
+          
+          executeSearchRef.current(undefined, currentBounds);
 
-      }, 750);
+        }, 750);
+      } catch (err) {
+        console.error("Error during map movement handler:", err);
+      }
     };
 
     if (typeof mapInstance.on === "function") {
       mapInstance.on("moveend", handleMapMovement);
+      mapInstance.on("load", handleMapMovement);
       // Trigger initial search/bounds population immediately upon map mount/availability
       handleMapMovement();
       return () => {
         mapInstance.off("moveend", handleMapMovement);
+        mapInstance.off("load", handleMapMovement);
         if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       };
     }
     return () => {};
-  }, [mapInstance, executeSearch, setBounds]);
+  }, [mapInstance, setBounds]);
 
   const handleMapClick = useCallback(async (e: any) => {
     if (!places || !e.placeId) return;
@@ -182,50 +189,51 @@ export function useWineryMap(userId: string) {
   }, [openWineryModal, ensureWineryDetails]);
 
   const handlePlaceSelect = useCallback(async (winery: Winery, sdkPlace: any) => {
-    if (!mapInstance) return;
-    
-    // Check if it is a winery (or vineyard, tasting room, etc.)
-    const wineryTypes = ['winery', 'vineyard', 'food', 'establishment', 'point_of_interest'];
-    const isWineryType = sdkPlace.types?.some((t: string) => wineryTypes.includes(t)) || 
-         winery.name.toLowerCase().includes('winery') || 
-         winery.name.toLowerCase().includes('vineyard') || 
-         winery.name.toLowerCase().includes('cellar');
+    // Check if it is a region/city/locality
+    const isRegionOrLocality = sdkPlace?.types?.some((t: string) =>
+      ['locality', 'sublocality', 'administrative_area_level_1', 'administrative_area_level_2', 'postal_code', 'neighborhood'].includes(t)
+    );
 
-    if (isWineryType) {
-      // 1. Center on winery
-      if (typeof mapInstance.flyTo === "function") {
-        mapInstance.flyTo({ center: [winery.longitude, winery.latitude], zoom: 16 });
-      } else if (typeof (mapInstance as any).setCenter === "function") {
-        (mapInstance as any).setCenter({ lat: winery.latitude, lng: winery.longitude });
-        (mapInstance as any).setZoom(16);
-      }
+    if (!isRegionOrLocality) {
+      // 1. Immediately store winery and open details modal without waiting on remote DB
+      useWineryStore.getState().upsertWinery(winery);
+      openWineryModal(winery.id);
 
-      // 2. Save/upsert to store & database with full enriched fields
-      const dbId = await useWineryStore.getState().upsertEnrichedWinery(winery);
-      const wineryWithDbId = { ...winery, dbId };
-      
-      // 3. Open details modal with a small delay (150ms) to allow keyboard collapse and viewport stabilization
-      setTimeout(() => {
-        openWineryModal(winery.id);
-        ensureWineryDetails(winery.id);
-      }, 150);
-
-      // 4. Add to search results so it displays on the map immediately
-      const { setSearchResults } = useMapStore.getState();
-      const currentResults = useMapStore.getState().searchResults;
+      // 2. Add to search results so it displays on the map immediately
+      const { setSearchResults, searchResults: currentResults } = useMapStore.getState();
       if (!currentResults.some(w => w.id === winery.id)) {
-        setSearchResults([wineryWithDbId, ...currentResults]);
+        setSearchResults([winery, ...currentResults]);
       }
+
+      // 3. Center on winery if map is available
+      if (mapInstance) {
+        if (typeof mapInstance.flyTo === "function") {
+          mapInstance.flyTo({ center: [winery.longitude, winery.latitude], zoom: 16 });
+        } else if (typeof (mapInstance as any).setCenter === "function") {
+          (mapInstance as any).setCenter({ lat: winery.latitude, lng: winery.longitude });
+          (mapInstance as any).setZoom(16);
+        }
+      }
+
+      // 4. Fetch enriched details in the background and update search results once ready
+      ensureWineryDetails(winery.id).then((enriched) => {
+        if (enriched) {
+          const state = useMapStore.getState();
+          state.setSearchResults(state.searchResults.map(w => w.id === winery.id ? enriched : w));
+        }
+      }).catch((err) => {
+        console.error("Failed to fetch winery details:", err);
+      });
     } else {
       // It's a region/city/locality
       setSearchLocation(winery.name);
       
       if (sdkPlace.viewport) {
         const coords = getCoordinatesFromBounds(sdkPlace.viewport);
-        if (coords && typeof mapInstance.fitBounds === "function") {
+        if (coords && mapInstance && typeof mapInstance.fitBounds === "function") {
           mapInstance.fitBounds([[coords.swLng, coords.swLat], [coords.neLng, coords.neLat]], { padding: 50 });
         }
-      } else {
+      } else if (mapInstance) {
         if (typeof mapInstance.flyTo === "function") {
           mapInstance.flyTo({ center: [winery.longitude, winery.latitude], zoom: 13 });
         } else if (typeof (mapInstance as any).setCenter === "function") {
@@ -237,7 +245,11 @@ export function useWineryMap(userId: string) {
       // Clear last search bounds to force a search in the new area
       useMapStore.getState().setLastSearchedBounds(null);
       // Execute text search for wineries in this new area
-      executeSearch(undefined, mapInstance.getBounds() || undefined);
+      if (mapInstance && typeof mapInstance.getBounds === "function") {
+        executeSearch(undefined, mapInstance.getBounds() || undefined);
+      } else {
+        executeSearch(winery.name);
+      }
     }
   }, [mapInstance, openWineryModal, ensureWineryDetails, setSearchLocation, executeSearch]);
 

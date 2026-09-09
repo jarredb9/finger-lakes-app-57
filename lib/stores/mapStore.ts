@@ -70,7 +70,7 @@ export interface MapState {
   reset: () => void;
 }
 
-export const useMapStore = createWithEqualityFn<MapState>((set) => ({
+export const useMapStore = createWithEqualityFn<MapState>((set, get) => ({
   center: { lat: 42.7, lng: -76.9 },
   zoom: 9,
   bounds: null,
@@ -86,8 +86,36 @@ export const useMapStore = createWithEqualityFn<MapState>((set) => ({
   isStreetViewActive: false,
   setCenter: (center) => set({ center }),
   setZoom: (zoom) => set({ zoom }),
-  setBounds: (bounds) => set({ bounds: sanitizeBounds(bounds) }),
-  setLastSearchedBounds: (bounds) => set({ lastSearchedBounds: sanitizeBounds(bounds) }),
+  setBounds: (bounds) => {
+    const sanitized = sanitizeBounds(bounds);
+    const current = get().bounds;
+    if (
+      current && sanitized &&
+      current.north === sanitized.north &&
+      current.south === sanitized.south &&
+      current.east === sanitized.east &&
+      current.west === sanitized.west
+    ) {
+      return;
+    }
+    if (!current && !sanitized) return;
+    set({ bounds: sanitized });
+  },
+  setLastSearchedBounds: (bounds) => {
+    const sanitized = sanitizeBounds(bounds);
+    const current = get().lastSearchedBounds;
+    if (
+      current && sanitized &&
+      current.north === sanitized.north &&
+      current.south === sanitized.south &&
+      current.east === sanitized.east &&
+      current.west === sanitized.west
+    ) {
+      return;
+    }
+    if (!current && !sanitized) return;
+    set({ lastSearchedBounds: sanitized });
+  },
   setLastSearchedZoom: (zoom) => set({ lastSearchedZoom: zoom }),
   setIsSearching: (isSearching) => set({ isSearching }),
   setHitApiLimit: (hitApiLimit) => set({ hitApiLimit }),

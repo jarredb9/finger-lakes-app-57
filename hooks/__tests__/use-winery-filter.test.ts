@@ -45,6 +45,21 @@ describe("useWineryFilter", () => {
     expect(result.current.listResultsInView).toContainEqual(winery2);
   });
 
+  it("should return wineries even if bounds is not yet initialized (graceful fallback)", () => {
+    const winery1 = createMockWinery({ id: "w1" as GooglePlaceId });
+    useWineryStore.setState({
+      persistentWineries: [winery1],
+    });
+    useMapStore.setState({
+      bounds: null,
+    });
+
+    const { result } = renderHook(() => useWineryFilter());
+
+    expect(result.current.listResultsInView).toHaveLength(1);
+    expect(result.current.listResultsInView[0].id).toBe("w1");
+  });
+
   it("should filter by category 'favorites'", () => {
     const winery1 = createMockWinery({ id: "w1" as GooglePlaceId, isFavorite: true });
     const winery2 = createMockWinery({ id: "w2" as GooglePlaceId, userVisited: true });

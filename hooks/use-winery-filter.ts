@@ -69,10 +69,10 @@ export function useWineryFilter() {
   ]);
 
   const listResultsInView = useMemo(() => {
-    if (selectedTrip || !bounds) return [];
+    if (selectedTrip) return [];
 
     // When a search has been performed, the results list should ONLY show those results
-    // that are within the current map bounds.
+    // that are within the current map bounds (or all search results if bounds not yet set).
     if (searchResults.length > 0) {
         let results = searchResults;
         if (filter.includes("allowsDogs")) {
@@ -87,6 +87,7 @@ export function useWineryFilter() {
         if (filter.includes("hasEvCharging")) {
           results = results.filter((w) => w.has_ev_charging === true);
         }
+        if (!bounds) return results;
         return results.filter(
             (w) => w && w.latitude && w.longitude && isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, bounds)
         );
@@ -140,6 +141,8 @@ export function useWineryFilter() {
     const uniqueWineries = Array.from(
         new Map(wineriesToFilter.map(w => [w.id, w])).values()
     );
+
+    if (!bounds) return uniqueWineries;
 
     return uniqueWineries.filter(
       (w) => w && w.latitude && w.longitude && isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, bounds)
