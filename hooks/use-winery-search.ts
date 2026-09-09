@@ -20,7 +20,8 @@ export function useWinerySearch() {
     setLastSearchedZoom,
     setError,
   } = useMapStore();
-  const { current: mapInstance } = useMap();
+  const maps = useMap();
+  const mapInstance = maps?.current || (maps as Record<string, any>)?.default || (maps ? Object.values(maps)[0] : undefined);
   const { bulkUpsertWineries } = useWineryStore();
   const { toast } = useToast();
   const [places, setPlaces] = useState<any>(null);
@@ -66,7 +67,6 @@ export function useWinerySearch() {
         }
       }
 
-      if (!places || !geocoder) return;
       if (useMapStore.getState().isSearching) return;
 
       setIsSearching(true);
@@ -79,8 +79,26 @@ export function useWinerySearch() {
       let finalSearchBounds: any;
       
       if (locationText) {
+        let activeGeocoder = geocoder;
+        if (!activeGeocoder) {
+          try {
+            const geoLib = await getGoogleLibrary("geocoding");
+            if (geoLib && typeof window !== "undefined" && window.google?.maps) {
+              activeGeocoder = new window.google.maps.Geocoder();
+              setGeocoder(activeGeocoder);
+            }
+          } catch (e) {
+            console.error("Failed to load geocoder:", e);
+          }
+        }
+        if (!activeGeocoder) {
+          toast({ variant: "destructive", description: "Could not find that location." });
+          setIsSearching(false);
+          return;
+        }
+
         try {
-          const { results } = await geocoder.geocode({ address: locationText });
+          const { results } = await activeGeocoder.geocode({ address: locationText });
           if (results && results.length > 0) {
             const geometry = results[0].geometry;
             if (geometry.viewport) {

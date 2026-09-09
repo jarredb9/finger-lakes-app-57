@@ -109,8 +109,8 @@ jest.mock('react-map-gl/mapbox', () => {
     Source: ({ children }: any) => children || null,
     Layer: () => null,
     MapProvider: ({ children }: any) => children,
-    useMap: () => ({
-      current: {
+    useMap: () => {
+      const mockMap = {
         getBounds: jest.fn().mockReturnValue({
           getNorthEast: () => ({ lat: () => 42.9, lng: () => -76.3 }),
           getSouthWest: () => ({ lat: () => 42.2, lng: () => -77.2 }),
@@ -122,8 +122,12 @@ jest.mock('react-map-gl/mapbox', () => {
         on: jest.fn(),
         off: jest.fn(),
         flyTo: jest.fn(),
-      }
-    }),
+      };
+      return {
+        current: mockMap,
+        default: mockMap,
+      };
+    },
   };
 }, { virtual: true });
 
@@ -136,8 +140,8 @@ jest.mock('react-map-gl', () => {
     Source: ({ children }: any) => children || null,
     Layer: () => null,
     MapProvider: ({ children }: any) => children,
-    useMap: () => ({
-      current: {
+    useMap: () => {
+      const mockMap = {
         getBounds: jest.fn().mockReturnValue({
           getNorthEast: () => ({ lat: () => 42.9, lng: () => -76.3 }),
           getSouthWest: () => ({ lat: () => 42.2, lng: () => -77.2 }),
@@ -149,8 +153,12 @@ jest.mock('react-map-gl', () => {
         on: jest.fn(),
         off: jest.fn(),
         flyTo: jest.fn(),
-      }
-    }),
+      };
+      return {
+        current: mockMap,
+        default: mockMap,
+      };
+    },
   };
 }, { virtual: true });
 

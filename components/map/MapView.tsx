@@ -173,6 +173,7 @@ const MapView = memo(({
     >
       <Map
         ref={mapRef}
+        id="default"
         onLoad={handleMapLoad}
         initialViewState={{
           latitude: 42.7,
