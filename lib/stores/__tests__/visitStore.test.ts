@@ -236,6 +236,77 @@ describe('VisitStore Offline Logic', () => {
       expect(updated.user_review).toBe('Updated review');
       expect(updated.rating).toBe(5);
     });
+
+    it('hydrates and dedupes visits into visitStore via hydrateVisits', () => {
+      const initialVisit = {
+        id: 100,
+        user_id: 'user-123',
+        visit_date: '2026-05-01',
+        user_review: 'Initial',
+        rating: 4,
+        photos: [],
+        winery_id: 20,
+        wineryId: 'place-montezuma',
+        wineries: { id: 20, google_place_id: 'place-montezuma', name: 'Montezuma Winery', address: '', latitude: 42, longitude: -76 }
+      };
+      useVisitStore.setState({ visits: [initialVisit] });
+
+      useVisitStore.getState().hydrateVisits(
+        [
+          { id: '100', user_review: 'Duplicate' }, // duplicate
+          { id: '101', visit_date: '2026-06-01', user_review: 'New visit', rating: 5, winery_id: '20' }
+        ],
+        { id: 20, google_place_id: 'place-montezuma', name: 'Montezuma Winery' }
+      );
+
+      const visits = useVisitStore.getState().visits;
+      expect(visits).toHaveLength(2);
+      const newVisit = visits.find((v: any) => v.id === 101);
+      expect(newVisit).toBeDefined();
+      expect(newVisit?.user_review).toBe('New visit');
+      expect(typeof newVisit?.id).toBe('number');
+      expect(newVisit?.winery_id).toBe(20);
+    });
+
+    it('fetches and hydrates visits for a winery on demand via fetchVisitsForWinery', async () => {
+      useVisitStore.setState({ visits: [] });
+
+      mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            id: 10,
+            google_place_id: 'ChIJ-montezuma',
+            name: 'Montezuma Winery',
+            address: '2981 US-20',
+            latitude: 42.9,
+            longitude: -76.7,
+            visits: [
+              {
+                id: 55,
+                visit_date: '2026-07-04',
+                user_review: 'Great tasting',
+                rating: 5,
+                photos: [],
+              }
+            ]
+          }
+        ],
+        error: null,
+      });
+
+      const visits = await useVisitStore.getState().fetchVisitsForWinery(10);
+      expect(visits).toHaveLength(1);
+      expect(visits[0].id).toBe(55);
+      expect(visits[0].user_review).toBe('Great tasting');
+      expect(mockRpc).toHaveBeenCalledWith('get_winery_details_by_id', { p_winery_id: 10 });
+
+      // Calling again should return cached in-memory visits without secondary RPC call
+      mockRpc.mockClear();
+      const cached = await useVisitStore.getState().fetchVisitsForWinery(10);
+      expect(cached).toHaveLength(1);
+      expect(mockRpc).not.toHaveBeenCalled();
+    });
   });
 });
+
 

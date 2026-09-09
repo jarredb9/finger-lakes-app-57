@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import { useMap } from "react-map-gl/mapbox";
 import { Winery } from "@/lib/types";
 import { useWineryStore } from "@/lib/stores/wineryStore";
+import { useVisitStore } from "@/lib/stores/visitStore";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useUIStore } from "@/lib/stores/uiStore";
@@ -54,6 +55,7 @@ export function useWineryMap(userId: string) {
     if (userId) {
       fetchWineryData(userId);
       fetchUpcomingTrips();
+      useVisitStore.getState().fetchVisits(1, true);
     }
   }, [userId, fetchWineryData, fetchUpcomingTrips]);
 

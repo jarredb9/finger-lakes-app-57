@@ -51,7 +51,6 @@ export interface WineryDetailsRpc {
   is_favorite_private?: boolean;
   on_wishlist_private?: boolean;
   visits: Visit[]; // Assuming this RPC also returns visits
-  visit_ids?: number[];
   trip_info?: any; // Optional as it's not always returned
 }
 
@@ -64,7 +63,6 @@ export interface DbWineryWithUserData extends DbWinery {
   is_favorite_private?: boolean;
   on_wishlist_private?: boolean;
   visits?: Visit[]; // Visits can be included
-  visit_ids?: number[];
   trip_id?: number;
   trip_name?: string;
   trip_date?: string;
@@ -158,8 +156,7 @@ export interface Winery {
   favoriteIsPrivate?: boolean;
   wishlistIsPrivate?: boolean;
   
-  visits?: Visit[]; // Deprecated: stripped from store cache (ST-03); use visitStore
-  visit_ids?: number[]; // ST-03: wineries reference visit IDs only
+  visits?: Visit[]; // Deprecated: stripped from store cache (ST-03); visitStore is the sole source of truth
   
   // Trip context (derived)
   trip_id?: number;

@@ -264,7 +264,6 @@ describe('WineryUIStore: fetchWineryData', () => {
       const stored = useWineryStore.getState().persistentWineries.find((w: any) => w.id === 'winery-with-visits');
       expect(stored).toBeDefined();
       expect(stored?.visits).toEqual([]);
-      expect(stored?.visit_ids).toEqual([101]);
       expect(stored?.userVisited).toBe(true);
     });
 
