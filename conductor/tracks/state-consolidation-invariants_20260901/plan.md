@@ -43,7 +43,7 @@ Focus: Decompose `tripStore.ts` and `visitStore.ts` into composable slices (< 30
     - [x] Refactor `uiStore.ts` to store serializable modal identifiers instead of `ReactNode` JSX elements
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Monolithic Store Decomposition & Store Serializability' (Protocol in workflow.md)
 
-## Phase 3: Offline Sync Resilience, DLQ & Channel Cleanup
+## Phase 3: Offline Sync Resilience, DLQ & Channel Cleanup [checkpoint: daa52ec9]
 Focus: Implement exponential backoff with jitter on 5xx errors, an IndexedDB Dead Letter Queue for 4xx errors, optimistic concurrency control, atomic transactions, and Realtime channel teardown.
 
 - [x] Task: Write failing unit tests for offline sync backoff, DLQ, concurrency control, and channel cleanup 6a47b39
@@ -59,7 +59,7 @@ Focus: Implement exponential backoff with jitter on 5xx errors, an IndexedDB Dea
 - [x] Task: Implement atomic persistence and Realtime channel teardown 92543be
     - [x] Wrap multi-key write batches in single `readwrite` IndexedDB transactions in `idb-persist-storage.ts`
     - [x] Add teardown logic in `store.reset()` across `tripStore`, `visitStore`, and `socialStore` to cleanly close Realtime WebSocket channels on logout
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Offline Sync Resilience, DLQ & Channel Cleanup' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Offline Sync Resilience, DLQ & Channel Cleanup' (Protocol in workflow.md) daa52ec9
 
 ## Phase 4: Component Store Subscriptions & Selector Hygiene
 Focus: Eliminate re-render cascades across UI components by migrating whole-store subscriptions to atomic selectors and `useShallow` (ST-10).
