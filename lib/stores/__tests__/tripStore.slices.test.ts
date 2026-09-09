@@ -63,10 +63,11 @@ describe('ST-01: tripStore Slice Decomposition & Lifecycle', () => {
   describe('composed tripStore integration and channel cleanup', () => {
     let useTripStore: any;
 
-    beforeEach(async () => {
+    beforeEach(() => {
       jest.clearAllMocks();
-      const mod = await import('../tripStore');
-      useTripStore = mod.useTripStore;
+      jest.isolateModules(() => {
+        useTripStore = require('../tripStore').useTripStore;
+      });
       act(() => {
         useTripStore.getState().reset();
       });

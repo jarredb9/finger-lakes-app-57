@@ -63,10 +63,11 @@ describe('ST-01: visitStore Slice Decomposition & Lifecycle', () => {
   describe('composed visitStore integration and channel cleanup', () => {
     let useVisitStore: any;
 
-    beforeEach(async () => {
+    beforeEach(() => {
       jest.clearAllMocks();
-      const mod = await import('../visitStore');
-      useVisitStore = mod.useVisitStore;
+      jest.isolateModules(() => {
+        useVisitStore = require('../visitStore').useVisitStore;
+      });
       act(() => {
         useVisitStore.getState().reset();
       });
