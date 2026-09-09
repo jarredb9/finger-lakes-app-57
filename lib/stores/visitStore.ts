@@ -73,14 +73,18 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       },
 
       hydrateVisits: (rawVisits, wineryMeta) => {
-        if (!Array.isArray(rawVisits) || rawVisits.length === 0) return;
+        if (!Array.isArray(rawVisits) || rawVisits.length === 0) {
+          return;
+        }
         set((state) => {
           const existingIds = new Set(state.visits.map((v) => String(v.id)));
           const newNormalized: VisitWithWinery[] = [];
           for (const raw of rawVisits) {
             const rawId = raw.id ?? raw.visit_id;
             const normalizedId = typeof rawId === 'number' ? rawId : (!isNaN(Number(rawId)) ? Number(rawId) : rawId);
-            if (existingIds.has(String(normalizedId))) continue;
+            if (existingIds.has(String(normalizedId))) {
+              continue;
+            }
 
             const wineryDbId = Number(raw.winery_id ?? wineryMeta?.id ?? 0) as WineryDbId;
             const googlePlaceId = (raw.google_place_id ?? raw.wineryId ?? wineryMeta?.google_place_id ?? wineryMeta?.id) as GooglePlaceId;
@@ -109,14 +113,18 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             existingIds.add(String(normalizedId));
           }
 
-          if (newNormalized.length === 0) return state;
+          if (newNormalized.length === 0) {
+            return state;
+          }
           return { visits: [...newNormalized, ...state.visits] };
         });
       },
 
       fetchVisitsForWinery: async (wineryIdentifier) => {
         const inMemory = get().getVisitsByWinery(wineryIdentifier);
-        if (inMemory.length > 0) return inMemory;
+        if (inMemory.length > 0) {
+          return inMemory;
+        }
 
         try {
           const supabase = createClient();
@@ -135,7 +143,9 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
             }
           }
 
-          if (!targetDbId) return [];
+          if (!targetDbId) {
+            return [];
+          }
 
           const { data, error } = await supabase.rpc('get_winery_details_by_id', { p_winery_id: targetDbId });
           if (!error && data && data.length > 0) {
