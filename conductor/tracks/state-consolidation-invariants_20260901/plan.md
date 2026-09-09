@@ -25,11 +25,11 @@ Focus: Consolidate split-brain winery stores, establish single source of truth f
 ## Phase 2: Monolithic Store Decomposition & Store Serializability
 Focus: Decompose `tripStore.ts` and `visitStore.ts` into composable slices (< 300 lines each), enforce store serializability, and isolate action timestamps.
 
-- [ ] Task: Write failing unit tests for store slice decomposition, serializability, and action timestamps
-    - [ ] Unit tests covering `tripStore` sliced architecture (`dataSlice`, `uiSlice`, `realtimeSlice`)
-    - [ ] Unit tests covering `visitStore` slice boundaries
-    - [ ] Unit tests verifying `mapStore` and `uiStore` serializability (rejecting DOM instances/React nodes)
-    - [ ] Unit tests verifying `lastActionTimestamps` is excluded from persistence hydration
+- [x] Task: Write failing unit tests for store slice decomposition, serializability, and action timestamps 9521531
+    - [x] Unit tests covering `tripStore` sliced architecture (`dataSlice`, `uiSlice`, `realtimeSlice`)
+    - [x] Unit tests covering `visitStore` slice boundaries
+    - [x] Unit tests verifying `mapStore` and `uiStore` serializability (rejecting DOM instances/React nodes)
+    - [x] Unit tests verifying `lastActionTimestamps` is excluded from persistence hydration
 - [ ] Task: Decompose `tripStore.ts` into modular slices
     - [ ] Create `lib/stores/slices/tripDataSlice.ts` (< 300 lines)
     - [ ] Create `lib/stores/slices/tripUISlice.ts` (< 300 lines)
