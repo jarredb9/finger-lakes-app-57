@@ -22,7 +22,7 @@ Focus: Consolidate split-brain winery stores, establish single source of truth f
     - [x] Enforce `Number(id)` normalization across ingress in `visitStore`, `tripStore`, `wineryStore`, and `lib/types.ts`
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Winery Store Unification & Domain Invariants' (Protocol in workflow.md)
 
-## Phase 2: Monolithic Store Decomposition & Store Serializability
+## Phase 2: Monolithic Store Decomposition & Store Serializability [checkpoint: 727139f]
 Focus: Decompose `tripStore.ts` and `visitStore.ts` into composable slices (< 300 lines each), enforce store serializability, and isolate action timestamps.
 
 - [x] Task: Write failing unit tests for store slice decomposition, serializability, and action timestamps 9521531
@@ -41,7 +41,7 @@ Focus: Decompose `tripStore.ts` and `visitStore.ts` into composable slices (< 30
 - [x] Task: Clean up store serializability in `mapStore.ts` and `uiStore.ts` c4478638
     - [x] Refactor `mapStore.ts` to remove map SDK DOM instances (delegate to React refs/context)
     - [x] Refactor `uiStore.ts` to store serializable modal identifiers instead of `ReactNode` JSX elements
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Monolithic Store Decomposition & Store Serializability' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Monolithic Store Decomposition & Store Serializability' (Protocol in workflow.md)
 
 ## Phase 3: Offline Sync Resilience, DLQ & Channel Cleanup
 Focus: Implement exponential backoff with jitter on 5xx errors, an IndexedDB Dead Letter Queue for 4xx errors, optimistic concurrency control, atomic transactions, and Realtime channel teardown.
