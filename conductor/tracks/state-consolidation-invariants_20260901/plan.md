@@ -38,9 +38,9 @@ Focus: Decompose `tripStore.ts` and `visitStore.ts` into composable slices (< 30
 - [x] Task: Decompose `visitStore.ts` into modular slices 1797739
     - [x] Create modular slices for visit data, UI, and sync operations (< 300 lines each)
     - [x] Compose slices into unified `visitStore.ts`
-- [ ] Task: Clean up store serializability in `mapStore.ts` and `uiStore.ts`
-    - [ ] Refactor `mapStore.ts` to remove map SDK DOM instances (delegate to React refs/context)
-    - [ ] Refactor `uiStore.ts` to store serializable modal identifiers instead of `ReactNode` JSX elements
+- [x] Task: Clean up store serializability in `mapStore.ts` and `uiStore.ts` c4478638
+    - [x] Refactor `mapStore.ts` to remove map SDK DOM instances (delegate to React refs/context)
+    - [x] Refactor `uiStore.ts` to store serializable modal identifiers instead of `ReactNode` JSX elements
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Monolithic Store Decomposition & Store Serializability' (Protocol in workflow.md)
 
 ## Phase 3: Offline Sync Resilience, DLQ & Channel Cleanup
@@ -59,9 +59,14 @@ Focus: Implement exponential backoff with jitter on 5xx errors, an IndexedDB Dea
 - [ ] Task: Implement atomic persistence and Realtime channel teardown
     - [ ] Wrap multi-key write batches in single `readwrite` IndexedDB transactions in `idb-persist-storage.ts`
     - [ ] Add teardown logic in `store.reset()` across `tripStore`, `visitStore`, and `socialStore` to cleanly close Realtime WebSocket channels on logout
-- [ ] Task: Convert component store subscriptions to fine-grained selectors and `useShallow`
-    - [ ] Audit and refactor whole-store subscriptions in `components/map/`, `components/trip-card.tsx`, etc. to fine-grained selectors and `useShallow`
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Offline Sync Resilience, DLQ & Channel Cleanup' (Protocol in workflow.md)
+
+## Phase 4: Component Store Subscriptions & Selector Hygiene
+Focus: Eliminate re-render cascades across UI components by migrating whole-store subscriptions to atomic selectors and `useShallow` (ST-10).
+
+- [ ] Task: Write component unit tests asserting selective re-rendering and shallow equality
+- [ ] Task: Refactor store subscriptions in `components/map/` and `components/trip-card.tsx` to fine-grained selectors and `useShallow`
+- [ ] Task: Conductor - User Manual Verification 'Phase 4: Component Store Subscriptions & Selector Hygiene' (Protocol in workflow.md)
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions d453846
