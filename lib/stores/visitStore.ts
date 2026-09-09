@@ -3,6 +3,7 @@ import { shallow } from 'zustand/shallow';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { idbStorage } from './idb-persist-storage';
 import { VisitDataSlice, createVisitDataSlice } from './slices/visitDataSlice';
+import { resetVisitInitState } from './slices/visitInitHelpers';
 import { VisitUISlice, createVisitUISlice } from './slices/visitUISlice';
 import { VisitRealtimeSlice, createVisitRealtimeSlice } from './slices/visitRealtimeSlice';
 
@@ -18,6 +19,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       ...createVisitRealtimeSlice(set, get, store),
 
       reset: () => {
+        resetVisitInitState();
         // ST-11: Teardown Realtime WebSocket subscription cleanly on reset/logout
         const { subscription } = get();
         if (subscription) {

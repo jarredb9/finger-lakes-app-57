@@ -2,6 +2,7 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { idbStorage } from './idb-persist-storage';
 import { TripDataSlice, createTripDataSlice } from './slices/tripDataSlice';
+import { resetTripInitState } from './slices/tripInitHelpers';
 import { TripUISlice, createTripUISlice } from './slices/tripUISlice';
 import { TripRealtimeSlice, createTripRealtimeSlice } from './slices/tripRealtimeSlice';
 
@@ -17,6 +18,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
       ...createTripRealtimeSlice(set, get, store),
 
       reset: () => {
+        resetTripInitState();
         // ST-11: Teardown Realtime WebSocket subscription cleanly on reset/logout
         const { subscription } = get();
         if (subscription) {

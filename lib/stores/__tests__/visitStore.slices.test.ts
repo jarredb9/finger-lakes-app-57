@@ -15,6 +15,10 @@ describe('ST-01: visitStore Slice Decomposition & Lifecycle', () => {
       'visitDataSlice.ts',
       'visitUISlice.ts',
       'visitRealtimeSlice.ts',
+      'visitDataHelpers.ts',
+      'visitFetchHelpers.ts',
+      'visitMutationHelpers.ts',
+      'visitInitHelpers.ts',
     ];
 
     test.each(requiredSlices)('%s exists and is under 300 lines', (filename) => {

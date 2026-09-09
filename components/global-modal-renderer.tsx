@@ -1,10 +1,14 @@
 "use client";
 
-import { useUIStore } from "@/lib/stores/uiStore";
+import { useUIStore, UIState } from "@/lib/stores/uiStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
+type UIStoreWithLegacy = UIState & {
+  modalContent?: React.ReactNode;
+};
+
 export function GlobalModalRenderer() {
-  const store = useUIStore() as any;
+  const store = useUIStore() as UIStoreWithLegacy;
   const { 
     isModalOpen, 
     activeModal, 

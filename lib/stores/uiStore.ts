@@ -15,7 +15,7 @@ interface Notification {
   type: 'success' | 'error' | 'info';
 }
 
-interface UIState {
+export interface UIState {
   isSidebarOpen: boolean;
   isWineryModalOpen: boolean;
   activeWineryId: string | null;

@@ -15,6 +15,13 @@ describe('ST-01: tripStore Slice Decomposition & Lifecycle', () => {
       'tripDataSlice.ts',
       'tripUISlice.ts',
       'tripRealtimeSlice.ts',
+      'tripDataHelpers.ts',
+      'tripFetchHelpers.ts',
+      'tripMutationHelpers.ts',
+      'tripWineryHelpers.ts',
+      'tripPlanningHelpers.ts',
+      'tripNoteHelpers.ts',
+      'tripInitHelpers.ts',
     ];
 
     test.each(requiredSlices)('%s exists and is under 300 lines', (filename) => {
