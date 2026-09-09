@@ -127,6 +127,10 @@ export default function TripCard({ trip }: { trip: Trip }) {
     }
   };
 
+  const handleOpenWineryNoteEditor = (wineryDbId: number, notes: string) => {
+    openWineryNoteEditor(wineryDbId, notes, trip.id);
+  };
+
   return (
     <>
       <TripCardPresentational
@@ -143,7 +147,7 @@ export default function TripCard({ trip }: { trip: Trip }) {
         onRemoveWineryFromTrip={handleRemoveWineryFromTrip}
         onSaveWineryNote={handleSaveWineryNote}
         onOpenShareDialog={openShareDialog}
-        onOpenWineryNoteEditor={openWineryNoteEditor}
+        onOpenWineryNoteEditor={handleOpenWineryNoteEditor}
         onExportToMaps={handleExportToMaps}
         searchResults={searchResults}
         isSearching={isSearching}

@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useVisitStore } from "@/lib/stores/visitStore";
-import { useMapStore } from "@/lib/stores/mapStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useToast } from "@/hooks/use-toast";
 import { useAIFeaturesEnabled } from "@/hooks/use-ai-features";
 import { useLayoutTier } from "@/hooks/use-layout-tier";
+import { useStreetViewPanorama } from "@/hooks/use-street-view-panorama";
 import { Visit } from "@/lib/types";
 import { shallow } from "zustand/shallow";
 import { useShallow } from "zustand/react/shallow";
@@ -41,7 +41,7 @@ export function useWineryModalState() {
     }
   }
 
-  const { map } = useMapStore();
+  const { isStreetViewActive, openStreetView } = useStreetViewPanorama();
   const isAIEnabled = useAIFeaturesEnabled();
   const { tier, isMobile, isTablet, isDesktop, isTouch } = useLayoutTier();
 
@@ -145,17 +145,9 @@ export function useWineryModalState() {
     return undefined;
   }, [visits.length, isWineryModalOpen, isLoading]);
 
-  const isStreetViewActive = useMapStore((state) => state.isStreetViewActive);
-
   const handleStreetViewClick = () => {
     if (!activeWinery) return;
-
-    if (map && typeof map.openStreetView === "function") {
-      map.openStreetView(activeWinery.latitude, activeWinery.longitude);
-    } else {
-      const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${activeWinery.latitude},${activeWinery.longitude}`;
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
+    openStreetView(activeWinery.latitude, activeWinery.longitude);
   };
 
   const handleWishlistToggle = async () => {

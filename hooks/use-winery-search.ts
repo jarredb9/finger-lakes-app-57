@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useMap } from "react-map-gl/mapbox";
 import { useMapStore } from "@/lib/stores/mapStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useToast } from "@/hooks/use-toast";
@@ -12,7 +13,6 @@ import { isCoordinateInBounds, getCoordinatesFromBounds } from "@/lib/utils/map-
 
 export function useWinerySearch() {
   const {
-    map,
     setIsSearching,
     setSearchResults,
     setHitApiLimit,
@@ -20,6 +20,7 @@ export function useWinerySearch() {
     setLastSearchedZoom,
     setError,
   } = useMapStore();
+  const { current: mapInstance } = useMap();
   const { bulkUpsertWineries } = useWineryStore();
   const { toast } = useToast();
   const [places, setPlaces] = useState<any>(null);
@@ -85,19 +86,19 @@ export function useWinerySearch() {
             if (geometry.viewport) {
               finalSearchBounds = geometry.viewport;
               const coords = getCoordinatesFromBounds(finalSearchBounds);
-              if (coords && map) {
-                if (typeof map.fitBounds === 'function') {
-                  map.fitBounds([[coords.swLng, coords.swLat], [coords.neLng, coords.neLat]], { padding: 50 });
+              if (coords && mapInstance) {
+                if (typeof mapInstance.fitBounds === 'function') {
+                  mapInstance.fitBounds([[coords.swLng, coords.swLat], [coords.neLng, coords.neLat]], { padding: 50 });
                 }
               }
             } else if (geometry.location) {
               const point = geometry.location;
-              if (map) {
-                if (typeof map.flyTo === 'function') {
-                  map.flyTo({ center: [point.lng(), point.lat()], zoom: 13 });
-                } else if (typeof map.setCenter === 'function') {
-                  map.setCenter({ lat: point.lat(), lng: point.lng() });
-                  map.setZoom(13);
+              if (mapInstance) {
+                if (typeof mapInstance.flyTo === 'function') {
+                  mapInstance.flyTo({ center: [point.lng(), point.lat()], zoom: 13 });
+                } else if (typeof (mapInstance as any).setCenter === 'function') {
+                  (mapInstance as any).setCenter({ lat: point.lat(), lng: point.lng() });
+                  (mapInstance as any).setZoom(13);
                 }
               }
               const offset = 0.05;
@@ -129,8 +130,8 @@ export function useWinerySearch() {
       }
 
       setLastSearchedBounds(finalSearchBounds);
-      if (map) {
-        const zoom = typeof map.getZoom === 'function' ? map.getZoom() : map.zoom;
+      if (mapInstance) {
+        const zoom = typeof mapInstance.getZoom === 'function' ? mapInstance.getZoom() : (mapInstance as any).zoom;
         setLastSearchedZoom(zoom ?? null);
       }
 
@@ -193,7 +194,7 @@ export function useWinerySearch() {
       }
     },
     [
-      map, 
+      mapInstance, 
       places, 
       geocoder, 
       toast,

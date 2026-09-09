@@ -109,7 +109,7 @@ describe("MapView Container Component", () => {
     expect(screen.getByTestId("google-map-fallback-stub")).toBeInTheDocument();
   });
 
-  it("attaches openStreetView contract to map instance and syncs with useMapStore on load", () => {
+  it("triggers map onLoad cleanly without polluting useMapStore with map instances (ST-12)", () => {
     render(
       <MapView
         discoveredWineries={[sampleWinery]}
@@ -124,9 +124,9 @@ describe("MapView Container Component", () => {
     const onLoadBtn = screen.getByTestId("trigger-onload-btn");
     fireEvent.click(onLoadBtn);
 
-    const registeredMap = useMapStore.getState().map;
-    expect(registeredMap).not.toBeNull();
-    expect(typeof registeredMap.openStreetView).toBe("function");
+    const state = useMapStore.getState() as any;
+    expect(state.map).toBeUndefined();
+    expect(state.setMap).toBeUndefined();
   });
 
   it("toggles map styles using style switcher buttons", () => {

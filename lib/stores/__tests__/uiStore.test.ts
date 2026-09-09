@@ -24,7 +24,7 @@ describe('uiStore', () => {
 
   it('should reset singleton modal state when closeWineryModal is called', () => {
     useUIStore.getState().openVisitForm(mockWinery, mockVisit);
-    useUIStore.getState().openWineryNoteEditor(101, 'notes', () => {});
+    useUIStore.getState().openWineryNoteEditor(101, 'notes', 'trip-123');
     
     useUIStore.getState().closeWineryModal();
     
@@ -33,7 +33,8 @@ describe('uiStore', () => {
     expect(state.editingVisit).toBeNull();
     expect(state.activeNoteWineryDbId).toBeNull();
     expect(state.activeNoteInitialValue).toBe('');
-    expect(state.onNoteSave).toBeNull();
+    expect(state.activeModal).toBeNull();
+    expect((state as any).onNoteSave).toBeUndefined();
   });
 
   it('should reset singleton modal state when closeModal is called', () => {
@@ -44,6 +45,7 @@ describe('uiStore', () => {
     const state = useUIStore.getState();
     expect(state.activeVisitWinery).toBeNull();
     expect(state.editingVisit).toBeNull();
+    expect(state.activeModal).toBeNull();
   });
 
   it('should reset singleton modal state when closeVisitForm is called', () => {
@@ -54,15 +56,37 @@ describe('uiStore', () => {
     const state = useUIStore.getState();
     expect(state.activeVisitWinery).toBeNull();
     expect(state.editingVisit).toBeNull();
+    expect(state.activeModal).toBeNull();
   });
 
   it('should reset singleton modal state when closeWineryNoteEditor is called', () => {
-    useUIStore.getState().openWineryNoteEditor(101, 'notes', () => {});
+    useUIStore.getState().openWineryNoteEditor(101, 'notes', 'trip-123');
     
     useUIStore.getState().closeWineryNoteEditor();
     
     const state = useUIStore.getState();
     expect(state.activeNoteWineryDbId).toBeNull();
-    expect(state.onNoteSave).toBeNull();
+    expect(state.activeModal).toBeNull();
+    expect((state as any).onNoteSave).toBeUndefined();
+  });
+
+  it('should correctly set activeModal for visit_form, winery_notes, and share', () => {
+    useUIStore.getState().openVisitForm(mockWinery, mockVisit);
+    expect(useUIStore.getState().activeModal).toEqual({
+      type: 'visit_form',
+      props: { winery: mockWinery, editingVisit: mockVisit },
+    });
+
+    useUIStore.getState().openWineryNoteEditor(101, 'notes', 'trip-123');
+    expect(useUIStore.getState().activeModal).toEqual({
+      type: 'winery_notes',
+      props: { wineryDbId: 101, initialNotes: 'notes', tripId: 'trip-123' },
+    });
+
+    useUIStore.getState().openShareDialog('trip-123', 'My FLX Trip');
+    expect(useUIStore.getState().activeModal).toEqual({
+      type: 'share',
+      props: { tripId: 'trip-123', tripName: 'My FLX Trip' },
+    });
   });
 });

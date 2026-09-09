@@ -35,19 +35,11 @@ jest.mock("@/hooks/use-toast", () => ({
 };
 
 describe("useWinerySearch (Edge Function Integration)", () => {
-  let mockMap: any;
   let mockPlaces: any;
   let mockGeocoder: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
-    mockMap = {
-      getZoom: jest.fn().mockReturnValue(10),
-      fitBounds: jest.fn(),
-      setCenter: jest.fn(),
-      setZoom: jest.fn(),
-    };
 
     mockPlaces = {
       Place: {
@@ -78,7 +70,6 @@ describe("useWinerySearch (Edge Function Integration)", () => {
 
     // Initial store state
     useMapStore.setState({
-      map: mockMap,
       isSearching: false,
       searchResults: [],
       error: null,

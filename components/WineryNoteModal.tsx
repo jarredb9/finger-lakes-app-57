@@ -3,6 +3,7 @@
 import { createPortal } from "react-dom";
 import { useState } from "react";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useTripStore } from "@/lib/stores/tripStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -34,29 +35,36 @@ function NoteEditor({ initialValue, onSave, onCancel }: NoteEditorProps) {
 }
 
 export function WineryNoteModal() {
+    const store = useUIStore() as any;
     const { 
         isModalOpen, 
         activeNoteWineryDbId, 
         activeNoteInitialValue, 
-        onNoteSave, 
+        activeNoteTripId,
+        activeModal,
         closeWineryNoteEditor,
         modalTitle,
         modalDescription
-    } = useUIStore();
+    } = store;
     
     const mounted = useMounted();
 
-    const isThisModalOpen = isModalOpen && activeNoteWineryDbId !== null;
+    const isThisModalOpen = (isModalOpen && activeNoteWineryDbId !== null) || activeModal?.type === 'winery_notes';
 
     const handleClose = () => {
         closeWineryNoteEditor();
     };
 
-    const handleSave = (value: string) => {
-        if (activeNoteWineryDbId !== null && onNoteSave) {
-            onNoteSave(activeNoteWineryDbId, value);
-            closeWineryNoteEditor();
+    const handleSave = async (value: string) => {
+        const wineryDbId = activeNoteWineryDbId ?? activeModal?.props?.wineryDbId;
+        const tripId = activeNoteTripId ?? activeModal?.props?.tripId;
+
+        if (typeof store.onNoteSave === 'function') {
+            store.onNoteSave(wineryDbId, value);
+        } else if (tripId && wineryDbId) {
+            await useTripStore.getState().saveWineryNote(tripId.toString(), wineryDbId, value);
         }
+        closeWineryNoteEditor();
     };
 
     if (!mounted) return null;

@@ -16,8 +16,6 @@ import { standardizeWineryData } from "@/lib/utils/winery";
 
 export function useWineryMap(userId: string) {
   const {
-    setMap,
-    map,
     hitApiLimit,
     isSearching,
     searchLocation,
@@ -60,13 +58,7 @@ export function useWineryMap(userId: string) {
   }, [userId, fetchWineryData, fetchUpcomingTrips]);
 
   useEffect(() => {
-    if (mapInstance) {
-      setMap(mapInstance);
-    }
-  }, [mapInstance, setMap]);
-
-  useEffect(() => {
-    if (map && selectedTrip?.wineries?.length) {
+    if (mapInstance && selectedTrip?.wineries?.length) {
       let minLat = 90, maxLat = -90, minLng = 180, maxLng = -180;
       selectedTrip.wineries.forEach((winery) => {
         if (winery.latitude < minLat) minLat = winery.latitude;
@@ -74,18 +66,18 @@ export function useWineryMap(userId: string) {
         if (winery.longitude < minLng) minLng = winery.longitude;
         if (winery.longitude > maxLng) maxLng = winery.longitude;
       });
-      if (typeof map.fitBounds === "function") {
-        map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 50, duration: 1000 });
+      if (typeof mapInstance.fitBounds === "function") {
+        mapInstance.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 50, duration: 1000 });
       }
     }
-  }, [map, selectedTrip]);
+  }, [mapInstance, selectedTrip]);
 
   // Debounced search on map movement
   useEffect(() => {
-    if (!map) return;
+    if (!mapInstance) return;
     
     const handleMapMovement = () => {
-      const currentBounds = map.getBounds();
+      const currentBounds = mapInstance.getBounds();
       if (currentBounds) {
         setBounds(currentBounds);
       }
@@ -104,7 +96,7 @@ export function useWineryMap(userId: string) {
         const lastSearched = state.lastSearchedBounds;
         const lastSearchedZoom = state.lastSearchedZoom;
         const hitApiLimit = state.hitApiLimit;
-        const currentZoom = typeof map.getZoom === "function" ? map.getZoom() : map.zoom;
+        const currentZoom = typeof mapInstance.getZoom === "function" ? mapInstance.getZoom() : (mapInstance as any).zoom;
 
         if (lastSearched) {
           const ne = currentBounds.getNorthEast();
@@ -134,17 +126,17 @@ export function useWineryMap(userId: string) {
       }, 750);
     };
 
-    if (typeof map.on === "function") {
-      map.on("moveend", handleMapMovement);
+    if (typeof mapInstance.on === "function") {
+      mapInstance.on("moveend", handleMapMovement);
       // Trigger initial search/bounds population immediately upon map mount/availability
       handleMapMovement();
       return () => {
-        map.off("moveend", handleMapMovement);
+        mapInstance.off("moveend", handleMapMovement);
         if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       };
     }
     return () => {};
-  }, [map, executeSearch, setBounds]);
+  }, [mapInstance, executeSearch, setBounds]);
 
   const handleMapClick = useCallback(async (e: any) => {
     if (!places || !e.placeId) return;
@@ -174,12 +166,12 @@ export function useWineryMap(userId: string) {
   }, [places, getWineries]);
 
   useEffect(() => {
-    if (!map || typeof map.on !== "function") return;
-    map.on("click", handleMapClick);
+    if (!mapInstance || typeof mapInstance.on !== "function") return;
+    mapInstance.on("click", handleMapClick);
     return () => {
-      map.off("click", handleMapClick);
+      mapInstance.off("click", handleMapClick);
     };
-  }, [map, handleMapClick]);
+  }, [mapInstance, handleMapClick]);
 
   const handleOpenModal = useCallback(async (winery: Winery) => {
     if (winery) {
@@ -190,7 +182,7 @@ export function useWineryMap(userId: string) {
   }, [openWineryModal, ensureWineryDetails]);
 
   const handlePlaceSelect = useCallback(async (winery: Winery, sdkPlace: any) => {
-    if (!map) return;
+    if (!mapInstance) return;
     
     // Check if it is a winery (or vineyard, tasting room, etc.)
     const wineryTypes = ['winery', 'vineyard', 'food', 'establishment', 'point_of_interest'];
@@ -201,11 +193,11 @@ export function useWineryMap(userId: string) {
 
     if (isWineryType) {
       // 1. Center on winery
-      if (typeof map.flyTo === "function") {
-        map.flyTo({ center: [winery.longitude, winery.latitude], zoom: 16 });
-      } else if (typeof map.setCenter === "function") {
-        map.setCenter({ lat: winery.latitude, lng: winery.longitude });
-        map.setZoom(16);
+      if (typeof mapInstance.flyTo === "function") {
+        mapInstance.flyTo({ center: [winery.longitude, winery.latitude], zoom: 16 });
+      } else if (typeof (mapInstance as any).setCenter === "function") {
+        (mapInstance as any).setCenter({ lat: winery.latitude, lng: winery.longitude });
+        (mapInstance as any).setZoom(16);
       }
 
       // 2. Save/upsert to store & database with full enriched fields
@@ -230,24 +222,24 @@ export function useWineryMap(userId: string) {
       
       if (sdkPlace.viewport) {
         const coords = getCoordinatesFromBounds(sdkPlace.viewport);
-        if (coords && typeof map.fitBounds === "function") {
-          map.fitBounds([[coords.swLng, coords.swLat], [coords.neLng, coords.neLat]], { padding: 50 });
+        if (coords && typeof mapInstance.fitBounds === "function") {
+          mapInstance.fitBounds([[coords.swLng, coords.swLat], [coords.neLng, coords.neLat]], { padding: 50 });
         }
       } else {
-        if (typeof map.flyTo === "function") {
-          map.flyTo({ center: [winery.longitude, winery.latitude], zoom: 13 });
-        } else if (typeof map.setCenter === "function") {
-          map.setCenter({ lat: winery.latitude, lng: winery.longitude });
-          map.setZoom(13);
+        if (typeof mapInstance.flyTo === "function") {
+          mapInstance.flyTo({ center: [winery.longitude, winery.latitude], zoom: 13 });
+        } else if (typeof (mapInstance as any).setCenter === "function") {
+          (mapInstance as any).setCenter({ lat: winery.latitude, lng: winery.longitude });
+          (mapInstance as any).setZoom(13);
         }
       }
       
       // Clear last search bounds to force a search in the new area
       useMapStore.getState().setLastSearchedBounds(null);
       // Execute text search for wineries in this new area
-      executeSearch(undefined, map.getBounds() || undefined);
+      executeSearch(undefined, mapInstance.getBounds() || undefined);
     }
-  }, [map, openWineryModal, ensureWineryDetails, setSearchLocation, executeSearch]);
+  }, [mapInstance, openWineryModal, ensureWineryDetails, setSearchLocation, executeSearch]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -258,9 +250,9 @@ export function useWineryMap(userId: string) {
   };
 
   const handleManualSearchArea = () => {
-    if (map) {
+    if (mapInstance) {
       useMapStore.getState().setLastSearchedBounds(null);
-      executeSearch(undefined, map.getBounds());
+      executeSearch(undefined, mapInstance.getBounds());
     }
   };
 
