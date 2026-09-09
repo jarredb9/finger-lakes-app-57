@@ -1147,7 +1147,7 @@ export const useTripStore = createWithEqualityFn<TripState>()(
                   if (item.type === 'create_trip') {
                       const payload = await syncStore.getDecryptedPayload<any>(item, user.id);
                       pendingTrips.push({
-                          id: payload.tempId || item.id,
+                          id: (payload.tempId && !isNaN(Number(payload.tempId))) ? Number(payload.tempId) : -Date.now(),
                           user_id: user.id,
                           name: payload.name,
                           trip_date: payload.trip_date,

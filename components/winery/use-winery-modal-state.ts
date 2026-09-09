@@ -9,6 +9,7 @@ import { useAIFeaturesEnabled } from "@/hooks/use-ai-features";
 import { useLayoutTier } from "@/hooks/use-layout-tier";
 import { Visit } from "@/lib/types";
 import { shallow } from "zustand/shallow";
+import { useShallow } from "zustand/react/shallow";
 
 export type WineryModalTab = "community" | "amenities" | "ai_insights" | "varietals" | "visits" | "trip";
 
@@ -70,15 +71,24 @@ export function useWineryModalState() {
   );
 
   const loadingWineryId = useWineryStore((state) => state.loadingWineryId);
-  const { deleteVisit: deleteVisitAction } = useVisitStore();
+  const deleteVisitAction = useVisitStore((state) => state.deleteVisit);
 
-  const storeVisits = useVisitStore((state) =>
-    activeWineryId ? state.visits.filter(v => v.wineryId === activeWineryId || v.wineries?.google_place_id === activeWineryId) : []
+  const activeDbId = activeWinery?.dbId ? Number(activeWinery.dbId) : null;
+  const visits = useVisitStore(
+    useShallow((state) => {
+      if (!activeWineryId) return [];
+      return state.visits
+        .filter(
+          (v) =>
+            v.wineryId === activeWineryId ||
+            v.wineries?.google_place_id === activeWineryId ||
+            (activeDbId !== null && (Number(v.winery_id) === activeDbId || Number(v.wineries?.id) === activeDbId))
+        )
+        .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+    })
   );
 
   const isLoading = loadingWineryId === activeWineryId;
-
-  const visits = [...storeVisits].sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const visitHistoryRef = useRef<HTMLDivElement>(null);

@@ -77,13 +77,8 @@ describe('visitStore sync locking', () => {
     const visitId = 'v1';
     const visitData = { rating: 4 };
     
-    // Setup state so updateVisit finds the visit
-    const mockWinery = createMockWinery({ visits: [createMockVisit({ id: visitId } as any)] });
-    const { useWineryStore } = require('@/lib/stores/wineryStore');
-    useWineryStore.getState.mockReturnValue({
-        ...useWineryStore.getState(),
-        getWineries: () => [mockWinery]
-    });
+    // Setup state so updateVisit finds the visit in visitStore (ST-03 single source of truth)
+    useVisitStore.setState({ visits: [createMockVisit({ id: visitId } as any)] });
 
     await act(async () => {
       await useVisitStore.getState().updateVisit(visitId, visitData, [], []);

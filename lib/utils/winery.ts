@@ -392,6 +392,22 @@ export const standardizeWineryData = (
       visits = [];
   }
 
+  const rawVisitIds = source.visit_ids || existing?.visit_ids;
+  let visit_ids: number[] = Array.isArray(rawVisitIds)
+    ? rawVisitIds.map(Number).filter((id: number) => !isNaN(id))
+    : (Array.isArray(visits)
+        ? visits.map((v: any) => Number(v.id || v.visit_id)).filter((id: number) => !isNaN(id))
+        : []);
+
+  if (
+    ('user_visited' in source && source.user_visited === false) ||
+    ('userVisited' in source && source.userVisited === false) ||
+    source.user_visited === false ||
+    source.userVisited === false
+  ) {
+      visit_ids = [];
+  }
+
   const rawTripInfo = (source as any).trip_info?.[0];
   const rawTripId = rawTripInfo?.trip_id !== undefined ? rawTripInfo.trip_id : (source.trip_id !== undefined ? source.trip_id : existing?.trip_id);
   const trip_id = (rawTripId !== undefined && rawTripId !== null && !isNaN(Number(rawTripId))) 
@@ -427,6 +443,7 @@ export const standardizeWineryData = (
     
     // Arrays (Preserve)
     visits: visits,
+    visit_ids: visit_ids,
     
     // Trip Context
     trip_id: trip_id,
