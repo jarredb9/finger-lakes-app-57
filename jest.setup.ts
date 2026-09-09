@@ -20,6 +20,7 @@ jest.mock('idb-keyval', () => ({
   del: jest.fn().mockResolvedValue(undefined),
   clear: jest.fn().mockResolvedValue(undefined),
   keys: jest.fn().mockResolvedValue([]),
+  setMany: jest.fn().mockResolvedValue(undefined),
 }));
 
 // Reset all Zustand stores before each test to prevent state bleed

@@ -126,14 +126,17 @@ export const SyncService = {
   async purgeExpiredDLQ(): Promise<void> {
     await this.initDLQ();
     const now = Date.now();
+    const initialCount = this.dlqEntries.length;
     this.dlqEntries = this.dlqEntries.filter(entry => {
       const expiry = new Date(entry.expiresAt).getTime();
       return expiry > now;
     });
-    try {
-      await idbSet(DLQ_IDB_KEY, this.dlqEntries);
-    } catch (err) {
-      console.warn('[SyncService] Failed to persist pruned DLQ to IndexedDB:', err);
+    if (this.dlqEntries.length !== initialCount) {
+      try {
+        await idbSet(DLQ_IDB_KEY, this.dlqEntries);
+      } catch (err) {
+        console.warn('[SyncService] Failed to persist pruned DLQ to IndexedDB:', err);
+      }
     }
   },
 
@@ -213,13 +216,6 @@ export const SyncService = {
     const isDiagnostic = process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_IS_E2E === 'true';
 
     try {
-      // Purge expired DLQ entries (> 7 days)
-      try {
-        await this.purgeExpiredDLQ();
-      } catch (purgeErr) {
-        if (isDiagnostic) console.warn('[SyncService] Failed to purge expired DLQ entries:', purgeErr);
-      }
-
       // 1. Wait for store initialization
       const syncStore = useSyncStore.getState();
       if (!syncStore.isInitialized) {
@@ -246,6 +242,13 @@ export const SyncService = {
         return;
       }
       if (isDiagnostic) console.log(`[SyncService] Authenticated as ${user.id}. Processing queue...`);
+
+      // Purge expired DLQ entries (> 7 days)
+      try {
+        await this.purgeExpiredDLQ();
+      } catch (purgeErr) {
+        if (isDiagnostic) console.warn('[SyncService] Failed to purge expired DLQ entries:', purgeErr);
+      }
 
       for (const queueItem of queue) {
         // Re-read item from store state to get current status

@@ -1,14 +1,8 @@
 import { idbStorage } from '../idb-persist-storage';
 import { checkAndCleanupQuota, isQuotaError } from '@/lib/utils/quota';
+import { setMany as idbSetMany } from 'idb-keyval';
 
-const mockSetMany = jest.fn();
-
-jest.mock('idb-keyval', () => ({
-  get: jest.fn(),
-  set: jest.fn(),
-  del: jest.fn(),
-  setMany: (...args: any[]) => mockSetMany(...args),
-}));
+const mockSetMany = idbSetMany as unknown as jest.Mock;
 
 jest.mock('@/lib/utils/quota', () => ({
   checkAndCleanupQuota: jest.fn().mockResolvedValue(undefined),
