@@ -35,9 +35,9 @@ Focus: Decompose `tripStore.ts` and `visitStore.ts` into composable slices (< 30
     - [x] Create `lib/stores/slices/tripUISlice.ts` (< 300 lines)
     - [x] Create `lib/stores/slices/tripRealtimeSlice.ts` (< 300 lines)
     - [x] Compose slices into unified `tripStore.ts` (preserving `(window as any).useTripStore` backwards compatibility until Proposal 05) and exclude `lastActionTimestamps` from IndexedDB `partialize`
-- [ ] Task: Decompose `visitStore.ts` into modular slices
-    - [ ] Create modular slices for visit data, UI, and sync operations (< 300 lines each)
-    - [ ] Compose slices into unified `visitStore.ts`
+- [x] Task: Decompose `visitStore.ts` into modular slices 1797739
+    - [x] Create modular slices for visit data, UI, and sync operations (< 300 lines each)
+    - [x] Compose slices into unified `visitStore.ts`
 - [ ] Task: Clean up store serializability in `mapStore.ts` and `uiStore.ts`
     - [ ] Refactor `mapStore.ts` to remove map SDK DOM instances (delegate to React refs/context)
     - [ ] Refactor `uiStore.ts` to store serializable modal identifiers instead of `ReactNode` JSX elements
