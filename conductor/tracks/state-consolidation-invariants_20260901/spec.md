@@ -29,10 +29,12 @@ This track covers the 12 remaining tech debt findings from Issue #37:
    - Direct cutover: Merge all data caching, reactive filtering, and selection logic into [wineryStore.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/stores/wineryStore.ts).
    - Update all consumer components and hooks to use `useWineryStore`.
    - Delete [wineryDataStore.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/stores/wineryDataStore.ts) cleanly.
-2. **Single Source of Truth for Visits (ST-03)**:
-   - Make [visitStore.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/stores/visitStore.ts) the sole owner of visit state and queries.
-   - Strip duplicate `visits` arrays from winery caches; wineries reference visit IDs only.
-   - Refactor [use-winery-modal-state.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/use-winery-modal-state.ts) to query visits from `visitStore`.
+2. **Single Source of Truth for Visits (ST-03 - Pure Normalized Store Architecture)**:
+   - Make [visitStore.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/stores/visitStore.ts) the sole owner of visit state and queries, following standard 3NF normalized store design.
+   - Fully decouple `Winery` entities from visit storage: `Winery` retains `userVisited: boolean` for map markers, badges, and filters, but strips both `visits: []` and redundant child pointer arrays (`visit_ids`) to eliminate split-brain synchronization and pagination impedance mismatch.
+   - Visits reference parent wineries via foreign keys (`winery_id` / `wineryId`).
+   - Add targeted winery visit hydration (`fetchVisitsForWinery` in `visitStore`) and ingest visits from `get_winery_details_by_id` into `visitStore` on demand.
+   - Refactor [use-winery-modal-state.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/use-winery-modal-state.ts) to query and hydrate visits strictly through `visitStore`.
 3. **Numeric Relational ID Invariant (ST-04)**:
    - Coerce all incoming relational IDs (`trip_id`, `winery_id`, `user_id`) to `Number(id)` on ingress in all stores and utility helpers.
    - Update TypeScript interfaces in [lib/types.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/types.ts) to type IDs consistently, keeping optimistic client temp IDs explicit.
