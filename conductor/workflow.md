@@ -11,13 +11,9 @@
 
 ## Task Workflow
 
-**EFFICIENCY MANDATE:** You MUST follow the **Context Efficiency Protocol** in `GEMINI.md` for ALL steps below. Any research taking >2 tool calls, any task touching >2 files, or any command with high-volume output (E2E tests, builds, coverage) MUST be delegated to a sub-agent.
-
 All tasks follow a strict lifecycle:
 
 ### Standard Task Workflow
-
-0. **Delegated Discovery (MANDATORY):** Before performing any research, selecting a task, or **investigating a test failure**, you MUST invoke a sub-agent (e.g., `codebase_investigator`) to audit the current state. The sub-agent provides the "Zero-Leakage Summary" and code proposals.
 
 **DATABASE MANDATE:** For any task involving database schema changes (DDL), you MUST develop the migration locally. You are FORBIDDEN from applying migrations to the remote/production project (`jfsxclrdxmvftxacjuqf`) during the implementation phase. Remote application is reserved for the final deployment process after PR approval.
 
@@ -27,19 +23,16 @@ All tasks follow a strict lifecycle:
 
 3. **Write Failing Tests (Red Phase):**
    - Create a new test file or add cases to an existing one.
-   - **Verification:** Delegate test execution to a sub-agent. **FORBIDDEN:** Do NOT run `./scripts/run-e2e-container.sh` in the main session.
-   - **CRITICAL:** Confirm that the tests fail as expected. This is the "Red" phase of TDD. Do not proceed until you have documented the failure.
-   - **Implementation:** Write the test code in the main session (if <3 files).
+   - Write unit tests that clearly define the expected behavior and acceptance criteria for the task.
+   - **CRITICAL:** Run the tests and confirm that they fail as expected. This is the "Red" phase of TDD. Do not proceed until you have documented the failure.
 
 4. **Implement to Pass Tests (Green Phase):**
    - Write the minimum amount of application code necessary to make the failing tests pass.
-   - **Action:** Apply the code fix in the main session using the sub-agent's proposal.
-   - **Verification:** Delegate the re-run of tests to a sub-agent.
-   - **CRITICAL:** Confirm that all tests now pass. This is the "Green" phase.
+   - Run the test suite again and confirm that all tests now pass. This is the "Green" phase.
 
 5. **Refactor (Optional but Recommended):**
    - With the safety of passing tests, refactor the implementation code and the test code to improve clarity, remove duplication, and enhance performance without changing the external behavior.
-   - **Verification:** Delegate re-running tests to a sub-agent to ensure they still pass after refactoring.
+   - Rerun tests to ensure they still pass after refactoring.
 
 6. **Verify Coverage:** Run coverage reports using the project's chosen tools. For example, in a Python project, this might look like:
    ```bash
@@ -330,17 +323,6 @@ A task is complete when:
 ### Post-Deployment
 1. Monitor analytics
 2. Check error logs
-3. Gather user feedback
-4. Plan next iteration
-
-## Continuous Improvement
-
-- Review workflow weekly
-- Update based on pain points
-- Document lessons learned
-- Optimize for user happiness
-- Keep things simple and maintainable
-ror logs
 3. Gather user feedback
 4. Plan next iteration
 
