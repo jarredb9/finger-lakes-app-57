@@ -149,60 +149,66 @@ export async function initializeVisitStoreHelper(
   if (visitInitPromise) return visitInitPromise;
 
   visitInitPromise = (async () => {
-    const syncStore = useSyncStore.getState();
-    if (!syncStore.isInitialized) {
-      await syncStore.initialize();
-    }
-
-    const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const queue = useSyncStore.getState().queue;
-    const pendingVisits: VisitWithWinery[] = [];
-
-    for (const item of queue) {
-      if (item.type === 'log_visit') {
-        try {
-          const payload = await syncStore.getDecryptedPayload<any>(item, user.id);
-          pendingVisits.push({
-            id: payload.tempId || item.id,
-            user_id: user.id,
-            visit_date: payload.visit_date,
-            rating: payload.rating,
-            user_review: payload.user_review,
-            is_private: payload.is_private || false,
-            photos: (payload.photos || []).map((p: any) => isBase64Photo(p) ? `data:${p.type};base64,${p.base64}` : p),
-            wineryName: payload.wineryName,
-            wineryId: payload.wineryId,
-            syncStatus: 'pending',
-            wineries: {
-              id: Number(payload.wineryDbId || 0) as WineryDbId,
-              google_place_id: payload.wineryId,
-              name: payload.wineryName,
-              address: payload.wineryAddress,
-              latitude: payload.latitude || 0,
-              longitude: payload.longitude || 0,
-            }
-          });
-        } catch (e) {
-          console.error('[VisitStore] Failed to decrypt pending visit:', e);
-        }
+    try {
+      const syncStore = useSyncStore.getState();
+      if (!syncStore.isInitialized) {
+        await syncStore.initialize();
       }
-    }
 
-    if (pendingVisits.length > 0) {
-      set(state => {
-        const newVisits = [...state.visits];
-        for (const pv of pendingVisits) {
-          if (!newVisits.find(v => v.id === pv.id)) {
-            newVisits.unshift(pv);
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const queue = useSyncStore.getState().queue;
+      const pendingVisits: VisitWithWinery[] = [];
+
+      for (const item of queue) {
+        if (item.type === 'log_visit') {
+          try {
+            const payload = await syncStore.getDecryptedPayload<any>(item, user.id);
+            pendingVisits.push({
+              id: payload.tempId || item.id,
+              user_id: user.id,
+              visit_date: payload.visit_date,
+              rating: payload.rating,
+              user_review: payload.user_review,
+              is_private: payload.is_private || false,
+              photos: (payload.photos || []).map((p: any) => isBase64Photo(p) ? `data:${p.type};base64,${p.base64}` : p),
+              wineryName: payload.wineryName,
+              wineryId: payload.wineryId,
+              syncStatus: 'pending',
+              wineries: {
+                id: Number(payload.wineryDbId || 0) as WineryDbId,
+                google_place_id: payload.wineryId,
+                name: payload.wineryName,
+                address: payload.wineryAddress,
+                latitude: payload.latitude || 0,
+                longitude: payload.longitude || 0,
+              }
+            });
+          } catch (e) {
+            console.error('[VisitStore] Failed to decrypt pending visit:', e);
           }
         }
-        return { visits: newVisits };
-      });
+      }
+
+      if (pendingVisits.length > 0) {
+        set(state => {
+          const newVisits = [...state.visits];
+          for (const pv of pendingVisits) {
+            if (!newVisits.find(v => v.id === pv.id)) {
+              newVisits.unshift(pv);
+            }
+          }
+          return { visits: newVisits };
+        });
+      }
+      isVisitStoreInitialized = true;
+    } finally {
+      if (!isVisitStoreInitialized) {
+        visitInitPromise = null;
+      }
     }
-    isVisitStoreInitialized = true;
   })();
 
   return visitInitPromise;
