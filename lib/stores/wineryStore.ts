@@ -270,7 +270,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
 
               if (Array.isArray(dbData.visits) && dbData.visits.length > 0) {
                 try {
-                  const { useVisitStore } = require('./visitStore');
+                  const { useVisitStore } = await import('./visitStore');
                   useVisitStore.getState().hydrateVisits?.(dbData.visits, dbData);
                 } catch {}
               }
@@ -328,7 +328,9 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
         const wineryId = typeof target === 'string' ? target : target.id;
         const original = get().persistentWineries;
         const winery = original.find(w => w.id === wineryId);
-        if (!winery) return;
+        if (!winery) {
+          return;
+        }
 
         const nextState = !winery.isFavorite;
 
@@ -373,7 +375,9 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
         const wineryId = typeof target === 'string' ? target : target.id;
         const original = get().persistentWineries;
         const winery = original.find(w => w.id === wineryId);
-        if (!winery) return;
+        if (!winery) {
+          return;
+        }
 
         const nextState = !winery.onWishlist;
 
@@ -417,7 +421,9 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
       toggleFavoritePrivacy: async (wineryId) => {
         const original = get().persistentWineries;
         const winery = original.find(w => w.id === wineryId);
-        if (!winery) return;
+        if (!winery) {
+          return;
+        }
 
         set({
           persistentWineries: original.map(w => w.id === wineryId ? { ...w, favoriteIsPrivate: !w.favoriteIsPrivate } : w),
@@ -454,7 +460,9 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
       toggleWishlistPrivacy: async (wineryId) => {
         const original = get().persistentWineries;
         const winery = original.find(w => w.id === wineryId);
-        if (!winery) return;
+        if (!winery) {
+          return;
+        }
 
         set({
           persistentWineries: original.map(w => w.id === wineryId ? { ...w, wishlistIsPrivate: !w.wishlistIsPrivate } : w),
