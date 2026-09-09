@@ -2,7 +2,7 @@
 
 import { createPortal } from "react-dom";
 import { useState } from "react";
-import { useUIStore } from "@/lib/stores/uiStore";
+import { useUIStore, UIState } from "@/lib/stores/uiStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,8 +34,12 @@ function NoteEditor({ initialValue, onSave, onCancel }: NoteEditorProps) {
     );
 }
 
+type UIStoreWithLegacy = UIState & {
+    onNoteSave?: (wineryDbId: number, notes: string) => void;
+};
+
 export function WineryNoteModal() {
-    const store = useUIStore() as any;
+    const store = useUIStore() as UIStoreWithLegacy;
     const { 
         isModalOpen, 
         activeNoteWineryDbId, 
