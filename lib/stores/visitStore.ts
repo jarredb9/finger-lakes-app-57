@@ -25,6 +25,7 @@ interface VisitState {
   page: number;
   totalPages: number;
   hasMore: boolean;
+  getVisitsByWinery: (wineryIdentifier: number | string) => VisitWithWinery[];
   fetchVisits: (page?: number, refresh?: boolean) => Promise<void>;
   subscribeToVisitUpdates: () => void;
   unsubscribeFromVisitUpdates: () => void;
@@ -57,6 +58,18 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
       totalPages: 1,
       hasMore: false,
 
+      getVisitsByWinery: (wineryIdentifier) => {
+        const numericId = typeof wineryIdentifier === 'number' 
+          ? wineryIdentifier 
+          : (!isNaN(Number(wineryIdentifier)) && /^\d+$/.test(String(wineryIdentifier).trim()) ? Number(wineryIdentifier) : null);
+        const stringId = String(wineryIdentifier);
+        return get().visits.filter((v) =>
+          (numericId !== null && (Number(v.winery_id) === numericId || Number(v.wineries?.id) === numericId)) ||
+          v.wineryId === stringId ||
+          v.wineries?.google_place_id === stringId
+        ).sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+      },
+
       fetchVisits: async (pageNumber = 1, refresh = false) => {
         set({ isLoading: true, error: null });
         const supabase = createClient();
@@ -69,7 +82,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           if (error) throw error;
 
           const fetchedVisits: VisitWithWinery[] = (data || []).map((v: any) => ({
-            id: v.visit_id,
+            id: typeof v.visit_id === 'number' ? v.visit_id : (!isNaN(Number(v.visit_id)) ? Number(v.visit_id) : v.visit_id),
             user_id: v.user_id,
             visit_date: v.visit_date,
             user_review: v.user_review,
@@ -309,8 +322,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
         const supabase = createClient();
         const { optimisticallyUpdateVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
 
-        const winery = useWineryStore.getState().getWineries().find(w => w.visits?.some(v => String(v.id) === String(visitId)));
-        const originalVisit = winery?.visits?.find(v => String(v.id) === String(visitId));
+        const originalVisit = get().visits.find(v => String(v.id) === String(visitId));
         if (!originalVisit) throw new Error("Original visit not found.");
 
         const existingPhotos = originalVisit.photos || [];
@@ -380,9 +392,13 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           }
 
           const finalVisit: VisitWithWinery = {
+              ...originalVisit,
               ...updatedVisit,
-              wineryName: updatedVisit.winery_name,
-              wineryId: updatedVisit.google_place_id,
+              id: !isNaN(Number(updatedVisit.id ?? updatedVisit.visit_id ?? visitId))
+                ? Number(updatedVisit.id ?? updatedVisit.visit_id ?? visitId)
+                : (updatedVisit.id ?? updatedVisit.visit_id ?? visitId),
+              wineryName: updatedVisit.winery_name || originalVisit.wineryName,
+              wineryId: updatedVisit.google_place_id || originalVisit.wineryId,
               syncStatus: 'synced'
           };
 

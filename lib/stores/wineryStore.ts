@@ -56,10 +56,16 @@ const inFlightRevalidations = new Set<string>();
 
 const sanitizeWineryForCache = (winery: Winery): Winery => {
   // ST-03: Strip duplicated visit array from winery cache; visitStore is single source of truth
+  const visit_ids: number[] = Array.isArray(winery.visit_ids)
+    ? winery.visit_ids.map(Number).filter(id => !isNaN(id))
+    : (Array.isArray(winery.visits)
+        ? winery.visits.map(v => Number(v.id)).filter(id => !isNaN(id))
+        : []);
   return {
     ...winery,
     visits: [],
-    userVisited: winery.userVisited ?? (Array.isArray(winery.visits) && winery.visits.length > 0),
+    visit_ids,
+    userVisited: winery.userVisited ?? (visit_ids.length > 0 || (Array.isArray(winery.visits) && winery.visits.length > 0)),
   };
 };
 
