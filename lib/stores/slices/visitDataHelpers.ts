@@ -1,0 +1,640 @@
+import { Winery, Visit, VisitWithWinery, GooglePlaceId, WineryDbId } from '@/lib/types';
+import { createClient } from '@/utils/supabase/client';
+import { useWineryStore } from '../wineryStore';
+import { WineryService } from '@/lib/services/wineryService';
+import { useSyncStore } from '../syncStore';
+import { stabilizePhotos, Base64Photo, isBase64Photo, base64ToFile } from '@/lib/utils/sync-helpers';
+import { fileToBase64 } from '@/lib/utils/binary';
+import { enqueueIfOffline, handleSyncError } from '../sync-utils';
+import type { StoreApi } from 'zustand';
+import type { VisitState } from '../visitStore';
+
+type GetVisitState = StoreApi<VisitState>['getState'];
+type SetVisitState = StoreApi<VisitState>['setState'];
+
+export const VISITS_PER_PAGE = 10;
+
+export function getVisitsByWineryHelper(
+  get: GetVisitState,
+  wineryIdentifier: number | string
+): VisitWithWinery[] {
+  const numericId = typeof wineryIdentifier === 'number' 
+    ? wineryIdentifier 
+    : (!isNaN(Number(wineryIdentifier)) && /^\d+$/.test(String(wineryIdentifier).trim()) ? Number(wineryIdentifier) : null);
+  const stringId = String(wineryIdentifier);
+  return get().visits.filter((v) =>
+    (numericId !== null && (Number(v.winery_id) === numericId || Number(v.wineries?.id) === numericId)) ||
+    v.wineryId === stringId ||
+    v.wineries?.google_place_id === stringId
+  ).sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+}
+
+export function hydrateVisitsHelper(
+  set: SetVisitState,
+  rawVisits: any[],
+  wineryMeta?: any
+): void {
+  if (!Array.isArray(rawVisits) || rawVisits.length === 0) {
+    return;
+  }
+  set((state) => {
+    const existingIds = new Set(state.visits.map((v) => String(v.id)));
+    const newNormalized: VisitWithWinery[] = [];
+    for (const raw of rawVisits) {
+      const rawId = raw.id ?? raw.visit_id;
+      const normalizedId = typeof rawId === 'number' ? rawId : (!isNaN(Number(rawId)) ? Number(rawId) : rawId);
+      if (existingIds.has(String(normalizedId))) {
+        continue;
+      }
+
+      const wineryDbId = Number(raw.winery_id ?? wineryMeta?.id ?? 0) as WineryDbId;
+      const googlePlaceId = (raw.google_place_id ?? raw.wineryId ?? wineryMeta?.google_place_id ?? wineryMeta?.id) as GooglePlaceId;
+
+      newNormalized.push({
+        id: normalizedId,
+        user_id: raw.user_id,
+        visit_date: raw.visit_date,
+        user_review: raw.user_review || '',
+        rating: raw.rating || 5,
+        photos: raw.photos || [],
+        is_private: raw.is_private || false,
+        winery_id: wineryDbId,
+        wineryName: raw.winery_name ?? wineryMeta?.name ?? '',
+        wineryId: googlePlaceId,
+        syncStatus: 'synced',
+        wineries: {
+          id: wineryDbId,
+          google_place_id: googlePlaceId,
+          name: raw.winery_name ?? wineryMeta?.name ?? '',
+          address: raw.winery_address ?? wineryMeta?.address ?? '',
+          latitude: Number(raw.latitude ?? wineryMeta?.latitude ?? 0),
+          longitude: Number(raw.longitude ?? wineryMeta?.longitude ?? 0),
+        },
+      });
+      existingIds.add(String(normalizedId));
+    }
+
+    if (newNormalized.length === 0) {
+      return state;
+    }
+    return { visits: [...newNormalized, ...state.visits] };
+  });
+}
+
+export async function fetchVisitsForWineryHelper(
+  get: GetVisitState,
+  wineryIdentifier: number | string
+): Promise<VisitWithWinery[]> {
+  const inMemory = get().getVisitsByWinery(wineryIdentifier);
+  if (inMemory.length > 0) {
+    return inMemory;
+  }
+
+  try {
+    const supabase = createClient();
+    let targetDbId: number | null = typeof wineryIdentifier === 'number'
+      ? wineryIdentifier
+      : (!isNaN(Number(wineryIdentifier)) && /^\d+$/.test(String(wineryIdentifier).trim()) ? Number(wineryIdentifier) : null);
+
+    if (!targetDbId) {
+      const { data: wineryRow } = await supabase
+        .from('wineries')
+        .select('id')
+        .eq('google_place_id', String(wineryIdentifier))
+        .maybeSingle();
+      if (wineryRow?.id) {
+        targetDbId = Number(wineryRow.id);
+      }
+    }
+
+    if (!targetDbId) {
+      return [];
+    }
+
+    const { data, error } = await supabase.rpc('get_winery_details_by_id', { p_winery_id: targetDbId });
+    if (!error && data && data.length > 0) {
+      const dbWinery = data[0];
+      if (Array.isArray(dbWinery.visits) && dbWinery.visits.length > 0) {
+        get().hydrateVisits(dbWinery.visits, dbWinery);
+      }
+    }
+  } catch (err) {
+    console.error('[visitStore] fetchVisitsForWinery failed:', err);
+  }
+
+  return get().getVisitsByWinery(wineryIdentifier);
+}
+
+export async function fetchVisitsHelper(
+  set: SetVisitState,
+  pageNumber = 1,
+  refresh = false
+): Promise<void> {
+  set({ isLoading: true, error: null });
+  const supabase = createClient();
+  try {
+    const { data, error, count } = await supabase.rpc('get_paginated_visits_with_winery_and_friends', {
+      p_page_number: pageNumber,
+      p_page_size: VISITS_PER_PAGE
+    });
+
+    if (error) throw error;
+
+    const fetchedVisits: VisitWithWinery[] = (data || []).map((v: any) => ({
+      id: typeof v.visit_id === 'number' ? v.visit_id : (!isNaN(Number(v.visit_id)) ? Number(v.visit_id) : v.visit_id),
+      user_id: v.user_id,
+      visit_date: v.visit_date,
+      user_review: v.user_review,
+      rating: v.rating,
+      photos: v.photos,
+      winery_id: Number(v.winery_id) as WineryDbId,
+      wineryName: v.winery_name,
+      wineryId: v.google_place_id as GooglePlaceId,
+      friend_visits: v.friend_visits,
+      syncStatus: 'synced',
+      wineries: {
+        id: Number(v.winery_id) as WineryDbId,
+        google_place_id: v.google_place_id as GooglePlaceId,
+        name: v.winery_name,
+        address: v.winery_address,
+        latitude: Number(v.latitude),
+        longitude: Number(v.longitude),
+      }
+    }));
+
+    set(state => ({
+      visits: refresh || pageNumber === 1 ? fetchedVisits : [...state.visits, ...fetchedVisits],
+      page: pageNumber,
+      totalPages: Math.ceil((count || 0) / VISITS_PER_PAGE),
+      hasMore: fetchedVisits.length === VISITS_PER_PAGE,
+      isLoading: false,
+      error: null
+    }));
+
+  } catch (error: any) {
+    console.error("Failed to fetch visits:", error);
+    set({ isLoading: false, error: error.message || "Failed to fetch visits" });
+  }
+}
+
+export async function saveVisitHelper(
+  get: GetVisitState,
+  set: SetVisitState,
+  winery: Winery,
+  visitData: { visit_date: string; user_review: string; rating: number; photos: (File | Base64Photo)[]; is_private?: boolean }
+): Promise<void> {
+  const idempotencyKey = crypto.randomUUID();
+  set({ isSavingVisit: true });
+  const supabase = createClient();
+  const { addVisitToWinery, replaceVisit } = useWineryStore.getState();
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("User not authenticated.");
+  const user = session.user;
+
+  const tempId = `temp-${Date.now()}`;
+  const tempVisit: VisitWithWinery = {
+    id: tempId,
+    user_id: user.id,
+    visit_date: visitData.visit_date,
+    rating: visitData.rating,
+    user_review: visitData.user_review,
+    is_private: visitData.is_private || false,
+    photos: visitData.photos.map(p => isBase64Photo(p) ? `data:${p.type};base64,${p.base64}` : URL.createObjectURL(p as File)),
+    wineryName: winery.name,
+    wineryId: winery.id,
+    syncStatus: 'pending',
+    wineries: {
+      id: Number(winery.dbId || 0) as WineryDbId,
+      google_place_id: winery.id,
+      name: winery.name,
+      address: winery.address,
+      latitude: winery.latitude,
+      longitude: winery.longitude,
+    }
+  };
+
+  addVisitToWinery(winery.id, tempVisit);
+  const now = Date.now();
+  set(state => ({ visits: [tempVisit, ...state.visits], lastActionTimestamp: now }));
+  get().setLastActionTimestamp(tempId, now);
+
+  const syncPayload = {
+    wineryId: winery.id,
+    wineryDbId: winery.dbId,
+    wineryName: winery.name,
+    wineryAddress: winery.address,
+    latitude: winery.latitude,
+    longitude: winery.longitude,
+    visit_date: visitData.visit_date,
+    user_review: visitData.user_review,
+    rating: visitData.rating,
+    photos: await stabilizePhotos(visitData.photos),
+    is_private: visitData.is_private,
+    tempId
+  };
+
+  if (await enqueueIfOffline('log_visit', user.id, syncPayload, idempotencyKey)) {
+    set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
+    return;
+  }
+
+  let uploadedPaths: string[] = [];
+  const folderUuid = crypto.randomUUID();
+
+  try {
+    if (visitData.photos.length > 0) {
+      const uploadPromises = visitData.photos.map(async (photo) => {
+        const file = isBase64Photo(photo) ? base64ToFile(photo.base64, photo.type, photo.name) : (photo as File);
+        const fileName = `${Date.now()}-${file.name}`;
+        const filePath = `${user.id}/${folderUuid}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file, { upsert: true });
+        if (uploadError) throw uploadError;
+        return filePath;
+      });
+
+      uploadedPaths = await Promise.all(uploadPromises);
+    }
+
+    const rpcWineryData = WineryService.getRpcData(winery);
+
+    const rpcVisitData = {
+      visit_date: visitData.visit_date,
+      user_review: visitData.user_review,
+      rating: visitData.rating > 0 ? visitData.rating : 1,
+      photos: uploadedPaths,
+      is_private: visitData.is_private || false,
+    };
+
+    const { data: rpcResult, error: rpcError } = await supabase.rpc('log_visit', {
+      p_winery_data: rpcWineryData,
+      p_visit_data: rpcVisitData,
+      p_idempotency_key: idempotencyKey,
+    });
+
+    if (rpcError) {
+      console.error('Failed to save visit:', rpcError);
+      throw rpcError;
+    }
+    
+    const visitId = rpcResult.visit_id;
+    const wineryDbId = rpcResult.winery_id;
+    const finishedNow = Date.now();
+    get().setLastActionTimestamp(String(visitId), finishedNow);
+    
+    if (wineryDbId && wineryDbId !== winery.dbId) {
+      useWineryStore.getState().upsertWinery({ ...winery, dbId: wineryDbId as WineryDbId });
+    }
+
+    const finalVisit: VisitWithWinery = { 
+      ...tempVisit, 
+      id: visitId, 
+      photos: uploadedPaths,
+      syncStatus: 'synced',
+      wineries: {
+        ...tempVisit.wineries,
+        id: Number(wineryDbId) as WineryDbId
+      }
+    };
+
+    replaceVisit(winery.id, tempId, finalVisit);
+    set(state => ({
+      visits: state.visits.map(v => String(v.id) === tempId ? finalVisit : v),
+      lastActionTimestamp: finishedNow
+    }));
+
+  } catch (error) {
+    if (await handleSyncError(error, 'log_visit', user.id, syncPayload, idempotencyKey)) {
+      set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
+      return;
+    }
+
+    console.error("Failed to save visit, marking as error:", error);
+    
+    if (uploadedPaths.length > 0) {
+      await supabase.storage.from('visit-photos').remove(uploadedPaths);
+    }
+
+    set(state => ({ 
+      visits: state.visits.map(v => String(v.id) === tempId ? { ...v, syncStatus: 'error' as const } : v),
+      lastActionTimestamp: Date.now()
+    }));
+    
+    throw error;
+  } finally {
+    set({ isSavingVisit: false });
+  }
+}
+
+export async function updateVisitHelper(
+  get: GetVisitState,
+  set: SetVisitState,
+  visitId: string,
+  visitData: Partial<Visit> & { is_private?: boolean },
+  newPhotos: (File | Base64Photo)[] = [],
+  photosToDelete: string[] = []
+): Promise<void> {
+  const idempotencyKey = crypto.randomUUID();
+  set({ isSavingVisit: true });
+  const supabase = createClient();
+  const { optimisticallyUpdateVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
+
+  const originalVisit = get().visits.find(v => String(v.id) === String(visitId));
+  if (!originalVisit) throw new Error("Original visit not found.");
+
+  const existingPhotos = originalVisit.photos || [];
+  const newOptimisticPhotos = existingPhotos.filter(p => !photosToDelete.includes(p));
+  
+  optimisticallyUpdateVisit(visitId, { ...visitData, photos: newOptimisticPhotos });
+  const now = Date.now();
+  set(state => ({
+    visits: state.visits.map(v => String(v.id) === String(visitId) ? { ...v, ...visitData, photos: newOptimisticPhotos, syncStatus: 'pending' as const } : v),
+    lastActionTimestamp: now
+  }));
+  get().setLastActionTimestamp(String(visitId), now);
+
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("User not authenticated.");
+  const user = session.user;
+
+  const syncPayload = {
+    visitId,
+    visitData,
+    newPhotos: await stabilizePhotos(newPhotos),
+    photosToDelete
+  };
+
+  if (await enqueueIfOffline('update_visit', user.id, syncPayload, idempotencyKey)) {
+    set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
+    return;
+  }
+
+  try {
+    let newPhotoPaths: string[] = [];
+    if (newPhotos.length > 0) {
+      const uploadPromises = newPhotos.map(async (photo) => {
+        const file = isBase64Photo(photo) ? base64ToFile(photo.base64, photo.type, photo.name) : (photo as File);
+        const fileName = `${Date.now()}-${file.name}`;
+        const filePath = `${user.id}/${visitId}/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage.from('visit-photos').upload(filePath, file, { upsert: true });
+        if (uploadError) throw uploadError;
+        return filePath;
+      });
+      newPhotoPaths = (await Promise.all(uploadPromises)).filter((p): p is string => p !== null);
+    }
+
+    const finalPhotoPaths = [...newOptimisticPhotos, ...newPhotoPaths];
+    const { data: updatedVisit, error } = await supabase.rpc('update_visit', {
+      p_visit_id: parseInt(visitId),
+      p_visit_data: { 
+        ...visitData, 
+        rating: (visitData.rating && visitData.rating > 0) ? visitData.rating : (originalVisit.rating || 5),
+        photos: finalPhotoPaths, 
+        is_private: visitData.is_private 
+      },
+      p_idempotency_key: idempotencyKey
+    });
+
+    if (error) {
+      console.error('Failed to update visit:', error);
+      throw error;
+    }
+
+    if (photosToDelete.length > 0) {
+      const { error: removeError } = await supabase.storage.from('visit-photos').remove(photosToDelete);
+      if (removeError) {
+        console.warn('Failed to remove deleted photos from storage:', removeError);
+      }
+    }
+
+    const finalVisit: VisitWithWinery = {
+      ...originalVisit,
+      ...updatedVisit,
+      id: !isNaN(Number(updatedVisit.id ?? updatedVisit.visit_id ?? visitId))
+        ? Number(updatedVisit.id ?? updatedVisit.visit_id ?? visitId)
+        : (updatedVisit.id ?? updatedVisit.visit_id ?? visitId),
+      wineryName: updatedVisit.winery_name || originalVisit.wineryName,
+      wineryId: updatedVisit.google_place_id || originalVisit.wineryId,
+      syncStatus: 'synced'
+    };
+
+    confirmOptimisticUpdate(finalVisit);
+    const finishedNow = Date.now();
+    set(state => ({
+      visits: state.visits.map(v => String(v.id) === String(visitId) ? finalVisit : v),
+      lastActionTimestamp: finishedNow
+    }));
+    get().setLastActionTimestamp(String(visitId), finishedNow);
+
+  } catch (error) {
+    if (await handleSyncError(error, 'update_visit', user.id, syncPayload, idempotencyKey)) {
+      set({ isSavingVisit: false, lastActionTimestamp: Date.now() });
+      return;
+    }
+    console.error("Failed to update visit, marking as error:", error);
+    revertOptimisticUpdate();
+    set(state => ({
+      visits: state.visits.map(v => String(v.id) === String(visitId) ? { ...v, syncStatus: 'error' as const } : v),
+      lastActionTimestamp: Date.now()
+    }));
+    get().fetchVisits(get().page, true);
+    throw error;
+  } finally {
+    set({ isSavingVisit: false });
+  }
+}
+
+export async function deleteVisitHelper(
+  get: GetVisitState,
+  set: SetVisitState,
+  visitId: string
+): Promise<void> {
+  const { optimisticallyDeleteVisit, revertOptimisticUpdate, confirmOptimisticUpdate } = useWineryStore.getState();
+  const supabase = createClient();
+  
+  optimisticallyDeleteVisit(visitId);
+  const originalVisits = get().visits;
+  const now = Date.now();
+  set(state => ({
+    visits: state.visits.filter(v => String(v.id) !== String(visitId)),
+    lastActionTimestamp: now
+  }));
+  get().setLastActionTimestamp(String(visitId), now);
+
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+  const syncPayload = { visitId };
+
+  if (await enqueueIfOffline('delete_visit', user?.id, syncPayload)) {
+    set({ lastActionTimestamp: Date.now() });
+    return;
+  }
+
+  try {
+    const { error } = await supabase.rpc('delete_visit', { p_visit_id: parseInt(visitId) });
+    if (error) throw error;
+    
+    confirmOptimisticUpdate();
+    set({ lastActionTimestamp: Date.now() });
+  } catch (error) {
+    if (await handleSyncError(error, 'delete_visit', user?.id, syncPayload)) {
+      set({ lastActionTimestamp: Date.now() });
+      return;
+    }
+
+    console.error("Failed to delete visit, marking as error:", error);
+    revertOptimisticUpdate();
+    const revertedVisits = originalVisits.map(v => 
+      String(v.id) === String(visitId) ? { ...v, syncStatus: 'error' as const } : v
+    );
+    set({ visits: revertedVisits, lastActionTimestamp: Date.now() });
+    throw error;
+  }
+}
+
+export async function injectVisitWithPhotosHelper(
+  set: SetVisitState,
+  winery: Winery,
+  visitData: { visit_date: string; user_review: string; rating: number; photos: (File | Base64Photo)[] }
+): Promise<void> {
+  const { addVisitToWinery } = useWineryStore.getState();
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.user) throw new Error("User not authenticated.");
+  
+  const tempId = `temp-inject-${Date.now()}`;
+  const previewUrls: string[] = [];
+  const queuePhotos: Base64Photo[] = [];
+
+  for (const p of visitData.photos) {
+    if (isBase64Photo(p)) {
+      previewUrls.push(`data:${p.type};base64,${p.base64}`);
+      queuePhotos.push(p);
+    } else {
+      const file = p as File;
+      previewUrls.push(URL.createObjectURL(file));
+      const base64DataUrl = await fileToBase64(file);
+      queuePhotos.push({
+        __isBase64: true,
+        base64: base64DataUrl.split(',')[1],
+        name: file.name,
+        type: file.type
+      });
+    }
+  }
+
+  const tempVisit: VisitWithWinery = {
+    id: tempId,
+    user_id: session.user.id,
+    visit_date: visitData.visit_date,
+    rating: visitData.rating,
+    user_review: visitData.user_review,
+    photos: previewUrls,
+    wineryName: winery.name,
+    wineryId: winery.id,
+    wineries: {
+      id: Number(winery.dbId || 0) as WineryDbId,
+      google_place_id: winery.id,
+      name: winery.name,
+      address: winery.address,
+      latitude: winery.latitude,
+      longitude: winery.longitude,
+    }
+  };
+
+  addVisitToWinery(winery.id, tempVisit);
+  set(state => ({ visits: [tempVisit, ...state.visits] }));
+
+  await useSyncStore.getState().addMutation({
+    type: 'log_visit',
+    userId: session.user.id,
+    payload: {
+      wineryId: winery.id,
+      wineryDbId: winery.dbId,
+      wineryName: winery.name,
+      wineryAddress: winery.address,
+      latitude: winery.latitude,
+      longitude: winery.longitude,
+      visit_date: visitData.visit_date,
+      user_review: visitData.user_review,
+      rating: visitData.rating,
+      photos: queuePhotos,
+      tempId
+    }
+  });
+  
+  set({ lastActionTimestamp: Date.now() });
+}
+
+export async function initializeVisitStoreHelper(
+  get: GetVisitState,
+  set: SetVisitState
+): Promise<void> {
+  // @ts-ignore
+  if (get()._initialized) return;
+  // @ts-ignore
+  if (get()._initPromise) return get()._initPromise;
+
+  const initPromise = (async () => {
+    const syncStore = useSyncStore.getState();
+    if (!syncStore.isInitialized) {
+      await syncStore.initialize();
+    }
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const queue = useSyncStore.getState().queue;
+    const pendingVisits: VisitWithWinery[] = [];
+
+    for (const item of queue) {
+      if (item.type === 'log_visit') {
+        try {
+          const payload = await syncStore.getDecryptedPayload<any>(item, user.id);
+          pendingVisits.push({
+            id: payload.tempId || item.id,
+            user_id: user.id,
+            visit_date: payload.visit_date,
+            rating: payload.rating,
+            user_review: payload.user_review,
+            is_private: payload.is_private || false,
+            photos: (payload.photos || []).map((p: any) => isBase64Photo(p) ? `data:${p.type};base64,${p.base64}` : p),
+            wineryName: payload.wineryName,
+            wineryId: payload.wineryId,
+            syncStatus: 'pending',
+            wineries: {
+              id: Number(payload.wineryDbId || 0) as WineryDbId,
+              google_place_id: payload.wineryId,
+              name: payload.wineryName,
+              address: payload.wineryAddress,
+              latitude: payload.latitude || 0,
+              longitude: payload.longitude || 0,
+            }
+          });
+        } catch (e) {
+          console.error('[VisitStore] Failed to decrypt pending visit:', e);
+        }
+      }
+    }
+
+    if (pendingVisits.length > 0) {
+      set(state => {
+        const newVisits = [...state.visits];
+        for (const pv of pendingVisits) {
+          if (!newVisits.find(v => v.id === pv.id)) {
+            newVisits.unshift(pv);
+          }
+        }
+        return { visits: newVisits, _initialized: true } as any;
+      });
+    } else {
+      set({ _initialized: true } as any);
+    }
+  })();
+
+  set({ _initPromise: initPromise } as any);
+  return initPromise;
+}
