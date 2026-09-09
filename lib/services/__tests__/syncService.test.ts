@@ -5,6 +5,30 @@ import { createClient } from '@/utils/supabase/client';
 // Mock dependencies
 jest.mock('@/lib/stores/syncStore');
 jest.mock('@/utils/supabase/client');
+jest.mock('@/lib/stores/tripStore', () => ({
+  useTripStore: {
+    getState: jest.fn(() => ({
+      fetchTrips: jest.fn(),
+      fetchUpcomingTrips: jest.fn(),
+    })),
+  },
+}));
+jest.mock('@/lib/stores/visitStore', () => ({
+  useVisitStore: {
+    getState: jest.fn(() => ({
+      fetchVisits: jest.fn(),
+    })),
+  },
+}));
+jest.mock('@/lib/stores/friendStore', () => ({
+  useFriendStore: {
+    getState: jest.fn(() => ({
+      fetchFriends: jest.fn(),
+      fetchRequests: jest.fn(),
+      fetchFriendActivityFeed: jest.fn(),
+    })),
+  },
+}));
 jest.mock('@/lib/utils/crypto', () => ({
   encrypt: jest.fn((p) => Promise.resolve(`encrypted-${JSON.stringify(p)}`)),
   decrypt: jest.fn((p) => Promise.resolve(JSON.parse(p.replace('encrypted-', '')))),
@@ -250,5 +274,319 @@ describe('SyncService', () => {
     
     expect(syncSpy).toHaveBeenCalled();
     syncSpy.mockRestore();
+  });
+
+  describe('ST-09: Exponential backoff with jitter on 5xx errors', () => {
+    it('calculates exponential backoff delay with jitter (1s, 2s, 4s... max 60s)', () => {
+      expect(typeof (SyncService as any).calculateBackoff).toBe('function');
+      
+      const delay1 = (SyncService as any).calculateBackoff(1);
+      const delay2 = (SyncService as any).calculateBackoff(2);
+      const delay3 = (SyncService as any).calculateBackoff(3);
+      const delay4 = (SyncService as any).calculateBackoff(4);
+      const delay10 = (SyncService as any).calculateBackoff(10);
+
+      // Base: 1s, 2s, 4s, 8s ... max 60s
+      // With jitter (±20%), values must be within expected bounds
+      expect(delay1).toBeGreaterThanOrEqual(800);
+      expect(delay1).toBeLessThanOrEqual(1500);
+
+      expect(delay2).toBeGreaterThanOrEqual(1600);
+      expect(delay2).toBeLessThanOrEqual(3000);
+
+      expect(delay3).toBeGreaterThanOrEqual(3200);
+      expect(delay3).toBeLessThanOrEqual(6000);
+
+      expect(delay4).toBeGreaterThanOrEqual(6400);
+      expect(delay4).toBeLessThanOrEqual(12000);
+
+      // Capped at 60s (60,000 ms)
+      expect(delay10).toBeLessThanOrEqual(60000);
+    });
+
+    it('produces varied jitter results across multiple calls for the same attempt', () => {
+      const results = new Set<number>();
+      for (let i = 0; i < 10; i++) {
+        results.add((SyncService as any).calculateBackoff(3));
+      }
+      // With jitter, not all 10 values should be identical
+      expect(results.size).toBeGreaterThan(1);
+    });
+
+    it('applies exponential backoff on 5xx errors without marking mutation as permanent error', async () => {
+      const mockMutation = {
+        id: 'sync-5xx-1',
+        type: 'log_visit',
+        encryptedPayload: 'encrypted-{"visit_date":"2023-01-01","rating":5}',
+        userId: 'test-user-id',
+        status: 'pending',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue({ visit_date: '2023-01-01', rating: 5 }),
+      };
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      // Mock 503 Service Unavailable
+      mockSupabase.rpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Service Unavailable', status: 503 },
+      });
+
+      await SyncService.sync();
+
+      // Mutation must NOT be marked as permanent error or removed from queue
+      expect(mockSyncStore.updateMutationStatus).not.toHaveBeenCalledWith('sync-5xx-1', 'error');
+      expect(mockSyncStore.removeMutation).not.toHaveBeenCalledWith('sync-5xx-1');
+      // Must record or schedule next retry backoff
+      expect((SyncService as any).getBackoffDelay?.('sync-5xx-1') ?? (mockMutation as any).nextRetryAt).toBeDefined();
+    });
+
+    it('defers replaying mutations that are still within their backoff window', async () => {
+      const mockMutation = {
+        id: 'sync-5xx-waiting',
+        type: 'log_visit',
+        encryptedPayload: 'encrypted-{}',
+        userId: 'test-user-id',
+        status: 'pending',
+        nextRetryAt: Date.now() + 30000, // In backoff window for 30s
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn(),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue({}),
+      };
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      await SyncService.sync();
+
+      // Should not invoke RPC because item is currently in backoff
+      expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('ST-09: Dead Letter Queue (DLQ) for 4xx errors', () => {
+    it('routes 4xx client errors to the DLQ and removes them from the active sync queue', async () => {
+      const mockMutation = {
+        id: 'sync-4xx-1',
+        type: 'log_visit',
+        encryptedPayload: 'encrypted-{"invalid":"payload"}',
+        userId: 'test-user-id',
+        status: 'pending',
+        createdAt: '2026-09-01T12:00:00.000Z',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue({ invalid: 'payload' }),
+      };
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      // Mock 400 Bad Request
+      mockSupabase.rpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Bad Request: invalid payload', status: 400 },
+      });
+
+      await SyncService.sync();
+
+      // Must be removed from active sync queue to unblock progression
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-4xx-1');
+
+      // Must route to DLQ store with 7-day retention metadata
+      const dlqEntries = await (SyncService as any).getDLQEntries?.();
+      expect(dlqEntries).toBeDefined();
+      const routedItem = dlqEntries.find((e: any) => e.mutationId === 'sync-4xx-1' || e.id === 'sync-4xx-1');
+      expect(routedItem).toBeDefined();
+      expect(routedItem.error.status).toBe(400);
+      // 7-day retention window
+      const expectedExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).getTime();
+      expect(Math.abs(new Date(routedItem.expiresAt).getTime() - expectedExpiry)).toBeLessThan(5000);
+    });
+
+    it('unblocks subsequent mutations when a prior mutation encounters a 4xx error', async () => {
+      const badMutation = {
+        id: 'sync-422-bad',
+        type: 'log_visit',
+        encryptedPayload: 'encrypted-{}',
+        userId: 'test-user-id',
+      };
+      const goodMutation = {
+        id: 'sync-good-2',
+        type: 'delete_trip',
+        encryptedPayload: 'encrypted-{"tripId":"999"}',
+        userId: 'test-user-id',
+      };
+
+      const mockSyncStore = {
+        queue: [badMutation, goodMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockImplementation(async (item) => {
+          if (item.id === 'sync-422-bad') return {};
+          return { tripId: '999' };
+        }),
+      };
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      // Mutation 1 fails with 422 Unprocessable Entity
+      mockSupabase.rpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Unprocessable Entity', status: 422 },
+      });
+      // Mutation 2 succeeds
+      mockSupabase.rpc.mockResolvedValueOnce({ data: { success: true }, error: null });
+
+      await SyncService.sync();
+
+      // Both mutations must be dequeued: bad to DLQ, good successfully synced
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-422-bad');
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-good-2');
+    });
+
+    it('purges DLQ entries older than 7 days retention period', async () => {
+      expect(typeof (SyncService as any).purgeExpiredDLQ).toBe('function');
+
+      const expiredDate = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString();
+      const freshDate = new Date().toISOString();
+
+      await (SyncService as any).seedDLQ?.([
+        { id: 'expired-1', failedAt: expiredDate, expiresAt: new Date(Date.now() - 1000).toISOString() },
+        { id: 'fresh-1', failedAt: freshDate, expiresAt: new Date(Date.now() + 6 * 24 * 60 * 60 * 1000).toISOString() },
+      ]);
+
+      await (SyncService as any).purgeExpiredDLQ();
+
+      const dlqEntries = await (SyncService as any).getDLQEntries?.();
+      expect(dlqEntries.find((e: any) => e.id === 'expired-1')).toBeUndefined();
+      expect(dlqEntries.find((e: any) => e.id === 'fresh-1')).toBeDefined();
+    });
+  });
+
+  describe('ST-08: Optimistic Concurrency Control on Replay', () => {
+    it('aborts local replay when remote record has a newer updated_at timestamp (Server Wins)', async () => {
+      const clientMutationTimestamp = '2026-09-01T10:00:00.000Z';
+      const serverNewerTimestamp = '2026-09-01T12:00:00.000Z';
+
+      const mockMutation = {
+        id: 'sync-occ-trip',
+        type: 'update_trip',
+        encryptedPayload: `encrypted-{"tripId":"123","updates":{"name":"Stale Local Edit"},"clientUpdatedAt":"${clientMutationTimestamp}"}`,
+        userId: 'test-user-id',
+        createdAt: clientMutationTimestamp,
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue({
+          tripId: '123',
+          updates: { name: 'Stale Local Edit' },
+          clientUpdatedAt: clientMutationTimestamp,
+        }),
+      };
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      const mockUpdate = jest.fn().mockReturnThis();
+      const mockEq = jest.fn().mockResolvedValue({ error: null });
+      const mockSingle = jest.fn().mockResolvedValue({
+        data: { id: 123, updated_at: serverNewerTimestamp },
+        error: null,
+      });
+
+      mockSupabase.from = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: mockSingle,
+          }),
+        }),
+        update: mockUpdate,
+        eq: mockEq,
+      });
+
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      await SyncService.sync();
+
+      // Remote is newer: update MUST NOT be applied
+      expect(mockUpdate).not.toHaveBeenCalled();
+      // Warning or telemetry logged
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[OCC]'),
+        expect.anything()
+      );
+      // Stale mutation is cleared from the queue to prevent repetitive attempts
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-occ-trip');
+
+      warnSpy.mockRestore();
+    });
+
+    it('applies local replay when remote updated_at is older or equal to local mutation timestamp', async () => {
+      const clientMutationTimestamp = '2026-09-01T14:00:00.000Z';
+      const serverOlderTimestamp = '2026-09-01T12:00:00.000Z';
+
+      const mockMutation = {
+        id: 'sync-occ-valid',
+        type: 'update_trip',
+        encryptedPayload: `encrypted-{"tripId":"123","updates":{"name":"Valid Newer Edit"},"clientUpdatedAt":"${clientMutationTimestamp}"}`,
+        userId: 'test-user-id',
+        createdAt: clientMutationTimestamp,
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue({
+          tripId: '123',
+          updates: { name: 'Valid Newer Edit' },
+          clientUpdatedAt: clientMutationTimestamp,
+        }),
+      };
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      const mockUpdate = jest.fn().mockReturnThis();
+      const mockEq = jest.fn().mockResolvedValue({ error: null });
+      const mockSingle = jest.fn().mockResolvedValue({
+        data: { id: 123, updated_at: serverOlderTimestamp },
+        error: null,
+      });
+
+      mockSupabase.from = jest.fn().mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: mockSingle,
+          }),
+        }),
+        update: mockUpdate,
+        eq: mockEq,
+      });
+
+      await SyncService.sync();
+
+      // Remote is older: local update proceeds
+      expect(mockUpdate).toHaveBeenCalledWith({ name: 'Valid Newer Edit' });
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-occ-valid');
+    });
   });
 });
