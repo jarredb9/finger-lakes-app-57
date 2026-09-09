@@ -52,10 +52,10 @@ Focus: Implement exponential backoff with jitter on 5xx errors, an IndexedDB Dea
     - [x] Unit tests for optimistic concurrency control (`updated_at` check on reconnect)
     - [x] Unit tests for Realtime channel unsubscription on `store.reset()` and logout
     - [x] Unit tests for atomic multi-key persistence in `idb-persist-storage.ts`
-- [ ] Task: Implement sync resilience and Dead Letter Queue in `syncService.ts`
-    - [ ] Implement exponential backoff with jitter (1s, 2s, 4s... max 60s) for 5xx network errors
-    - [ ] Create IndexedDB DLQ store with 7-day retention for unrecoverable 4xx mutation errors
-    - [ ] Implement optimistic concurrency control comparing remote vs local `updated_at` timestamps on replay
+- [x] Task: Implement sync resilience and Dead Letter Queue in `syncService.ts` df5cfc9c
+    - [x] Implement exponential backoff with jitter (1s, 2s, 4s... max 60s) for 5xx network errors
+    - [x] Create IndexedDB DLQ store with 7-day retention for unrecoverable 4xx mutation errors
+    - [x] Implement optimistic concurrency control comparing remote vs local `updated_at` timestamps on replay
 - [ ] Task: Implement atomic persistence and Realtime channel teardown
     - [ ] Wrap multi-key write batches in single `readwrite` IndexedDB transactions in `idb-persist-storage.ts`
     - [ ] Add teardown logic in `store.reset()` across `tripStore`, `visitStore`, and `socialStore` to cleanly close Realtime WebSocket channels on logout
