@@ -60,10 +60,19 @@ export async function fetchWineryWeather(latitude: number, longitude: number): P
       return null;
     }
 
+    interface OpenMeteoApiResponse {
+      current?: {
+        temperature_2m?: number;
+        relative_humidity_2m?: number;
+        weather_code?: number;
+        wind_speed_10m?: number;
+      };
+    }
+
     const text = await res.text();
-    let json: any;
+    let json: OpenMeteoApiResponse;
     try {
-      json = JSON.parse(text);
+      json = JSON.parse(text) as OpenMeteoApiResponse;
     } catch {
       return null;
     }
