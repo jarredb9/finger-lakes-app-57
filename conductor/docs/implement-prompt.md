@@ -11,7 +11,7 @@ Use this for almost every task:
 ```text
 /conductor:implement @[conductor/tracks/<track_id>]
 
-Execute Phase <X>, Task <Y> only. Halt after committing.
+Execute Phase <X>, Task <Y> only. Halt after committing. Include git notes and plan.md update upon completion.
 ```
 
 *(Optional: Append the specific test path, e.g. `(target test: lib/.../myTest.test.ts)` to save 2 search tool calls).*
