@@ -3,7 +3,7 @@
 ## Frontend
 - **Framework:** Next.js 16 (App Router)
 - **Library:** React 19
-- **State Management:** Zustand (for global UI and data caching)
+- **State Management:** Zustand 5 (modular slice architecture, normalized domain invariants, atomic selectors with `useShallow`, and serializable state)
 - **Styling:** Tailwind CSS (v4) with CSS-native configuration
 - **Components:** Radix UI primitives (via shadcn/ui)
 - **Responsive Architecture:** Adaptive 3-tier layout engine with reactive breakpoint evaluation (`useLayoutTier`), glassmorphic overlays, and touch-target standardization (WCAG 2.5.5 / Apple HIG).
@@ -23,4 +23,4 @@
 - **Migrations:** Supabase Migration-First workflow with automated CI structural auditing (`db diff --linked`)
 - **Middleware:** `proxy.ts` (Next.js 16 pattern) for request-time logic and session management
 - **PWA:** @serwist/next for offline support and service workers
-- **Offline Storage:** idb-keyval with Web Crypto API (AES-GCM) for secure mutation queuing; Base64 photo persistence for cross-browser reliability
+- **Offline Storage & Resilience:** idb-keyval with Web Crypto API (AES-GCM) for secure mutation queuing; atomic multi-key `readwrite` IndexedDB transactions, exponential backoff with jitter on 5xx errors, 7-day retention Dead Letter Queue (DLQ) for 4xx errors, and optimistic concurrency control on reconnect
