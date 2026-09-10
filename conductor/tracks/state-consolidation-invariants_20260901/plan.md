@@ -65,7 +65,7 @@ Focus: Implement exponential backoff with jitter on 5xx errors, an IndexedDB Dea
 Focus: Eliminate re-render cascades across UI components by migrating whole-store subscriptions to atomic selectors and `useShallow` (ST-10).
 
 - [x] Task: Write component unit tests asserting selective re-rendering and shallow equality 11d1a3b2
-- [ ] Task: Refactor store subscriptions in `components/map/` and `components/trip-card.tsx` to fine-grained selectors and `useShallow`
+- [x] Task: Refactor store subscriptions in `components/map/` and `components/trip-card.tsx` to fine-grained selectors and `useShallow` 97a0e329
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Component Store Subscriptions & Selector Hygiene' (Protocol in workflow.md)
 
 ## Phase: Review Fixes
