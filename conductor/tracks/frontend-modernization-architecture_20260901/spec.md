@@ -3,85 +3,132 @@
 ## 1. Overview & Objectives
 This track executes the **Frontend Modernization** initiative for Milestone [v3.6.0 - Architectural Recovery & Test Reliability](https://github.com/jarredb9/finger-lakes-app-57/milestone/1), addressing parent epic [#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39) and detailed issue specifications in [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36), building directly on [04-frontend-modernization-architecture.md](file:///home/byrnesjd4821/Git/finger-lakes-app-57/conductor/proposals/04-frontend-modernization-architecture.md).
 
-The primary objectives across 5 focused, bounded phases are:
-1. **Bundle & Tooling Pruning (Phase 1)**: Prune dead and redundant dependencies (`@dnd-kit`, `recharts`, unreferenced Radix primitives), clean brittle `package.json` overrides, and make Serwist PWA production-only in `next.config.mjs` to unblock Turbopack development (`next dev --turbo`).
-2. **Map Engine Bundle Isolation & Dynamic Fallback (Phase 2)**: Isolate Mapbox GL CSS imports to map boundaries and dynamically load fallback Google Maps components via `next/dynamic` to prevent dual map engine bundle leaks.
-3. **App Router & Server Component Boundaries (Phase 3)**: Enforce proper Server/Client boundaries across `/friends/[id]` and `/forgot-password`, lift heavy modals out of root `app/layout.tsx` into a dedicated `AuthenticatedModalHost` loaded lazily via `next/dynamic({ ssr: false })`, and ensure deterministic SSR date rendering with `formatDateLocal()`.
-4. **React 19 Adherence: State Derivation & Form Actions (Phase 4)**: Standardize authentication and trip forms on React 19 `useActionState`, fix React Compiler violations (render-time `setState` and effect-based resets) via component keying, and eliminate all `react-hooks/set-state-in-effect` lint suppressions.
-5. **Service Worker Auth Hygiene & Quality Verification (Phase 5)**: Enforce network-only caching for Supabase Auth (`/auth/v1/`), bridge `userStore.logout()` to purge CacheStorage, and execute a full production quality audit.
+The primary objectives are organized into **7 tightly bounded, domain-separated phases** (each strictly capped at 3–4 tasks to guarantee single-session execution under 60 turns):
+1. **Bundle & Tooling Pruning (Phase 1 - Tooling Domain)**: Prune 7 dead dependencies and 10 unreferenced Radix primitives (retaining `@radix-ui/react-accordion`), clean brittle `package.json` overrides (`minimatch`, `glob`, `brace-expansion`, `uuid`), and make Serwist PWA production-only in `next.config.mjs` to unblock Turbopack development (`next dev --turbo`).
+2. **Map Engine Bundle Isolation & Dynamic Fallback (Phase 2 - Map Engine Domain)**: Isolate Mapbox GL CSS imports to map boundaries and dynamically load fallback Google Maps components via `next/dynamic({ ssr: false })` with DOM stability preservation (`data-testid="map-view-canvas" data-state="loading"`).
+3. **Root Layout Decoupling & Authenticated Modal Host (Phase 3 - Layout Domain / Expand-and-Contract)**: Extract heavy modal trees from root `app/layout.tsx` into a lazy `AuthenticatedModalHost` mounted in `components/app-shell.tsx` and standalone authenticated views (including `app/trips/[id]/page.tsx`), while strictly preserving `<ModalHost />` (`#modal-root`) in root `app/layout.tsx` for portal stability.
+4. **Server Component Boundaries, Route Metadata & Deterministic Dates (Phase 4 - App Router Domain)**: Enforce proper Server/Client boundaries across `/friends/[id]`, `/forgot-password`, and `/manual-confirm`; whitelist `/manual-confirm` in `proxy.ts`; export static route `Metadata`; and eliminate dynamic dates in SSR (`app/privacy`, `app/terms`, `components/VisitForm.tsx`).
+5. **React 19 Adherence: State Derivation & Compiler Compliance (Phase 5 - React 19 Domain)**: Eliminate render-time `setState` in `use-winery-modal-state.ts` via keyed component reset (`WineryModalContent key={activeWineryId}`); extract keyed subcomponents in `WineryQnA.tsx`; derive state in `use-trip-actions.ts`; adopt `useMounted()` in `trip-planner.tsx`; and eliminate all 3 `react-hooks/set-state-in-effect` ESLint suppressions across the entire repository.
+6. **React 19 Form Actions Modernization (Phase 6 - Forms Domain)**: Standardize authentication forms (`login-form.tsx`, `forgot-password-form.tsx`, `manual-confirm-form.tsx`) on React 19 Server Actions with `useActionState`; modernize `trip-form.tsx` submission with a Hybrid Client Action State pattern while preserving `react-hook-form` / Zod validation and offline Zustand store sync.
+7. **Service Worker Auth Hygiene & Production Quality Audit (Phase 7 - PWA & QA Domain)**: Enforce `NetworkOnly` caching for Supabase Auth (`/auth/v1/*`) in `app/sw.ts`; bridge `userStore.logout()` to purge `supabase-auth` and `pages` from `window.caches` with offline-resilient error shielding and `PURGE_AUTH_CACHE` SW messaging; and execute a complete production quality audit (`lint`, `type-check`, `build`).
 
 ---
 
 ## 2. Scope & Technical Findings Addressed
-- **FE-01 & FE-02 (Dependency Pruning - Phase 1)**: Remove unused libraries (`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`, and ~11 unused `@radix-ui/react-*` primitive packages).
-- **FE-03 (Map Engine Isolation - Phase 2)**: Dynamically load fallback Google Maps components and isolate Mapbox GL CSS to prevent initial bundle bloat.
-- **FE-04 (Service Worker Auth Hygiene - Phase 5)**: Enforce network-only caching for Supabase Auth (`/auth/v1/`) and purge CacheStorage upon user sign-out in [app/sw.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/app/sw.ts) bridged to `userStore.ts`.
-- **FE-06 (Turbopack Unblocking - Phase 1)**: Refactor [next.config.mjs](file:///home/byrnesjd4821/Git/finger-lakes-app-57/next.config.mjs) and scripts so Serwist activates exclusively in production (`process.env.NODE_ENV === 'production'`), allowing `next dev --turbo`.
-- **FE-07 (Server Component Auth Guard - Phase 3)**: Convert [app/friends/[id]/page.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/app/friends/[id]/page.tsx) to an async Server Component with server-side auth validation and metadata export, delegating interactive UI to a Client Component.
-- **FE-08 (React 19 Actions - Phase 4)**: Standardize authentication forms ([login-form.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/login-form.tsx), [forgot-password-form.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/forgot-password-form.tsx)) and trip CRUD forms ([trip-form.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/trip-form.tsx)) on React 19 Server Actions using `useActionState`.
-- **FE-09 (React Compiler Violations - Phase 4)**: Fix render-time `setState` calls in [use-winery-modal-state.ts](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/use-winery-modal-state.ts) and [WineryQnA.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/WineryQnA.tsx); eliminate `react-hooks/set-state-in-effect` lint suppressions by deriving state during render and using `key` props for resets.
-- **FE-10 (Deterministic SSR Dates - Phase 3)**: Enforce `formatDateLocal()` and static date constants across SSR components to eliminate client hydration mismatches.
-- **FE-11 (Root Layout Decoupling - Phase 3)**: Extract heavy modals (`VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, `GlobalModalRenderer`) from root [app/layout.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/app/layout.tsx) into a lazy `AuthenticatedModalHost`.
-- **FE-12 (Dependency Override Cleanup - Phase 1)**: Audit and prune blanket major-version overrides in `package.json#overrides`.
-- **FE-13 (Auth Page Architecture - Phase 3)**: Split [app/forgot-password/page.tsx](file:///home/byrnesjd4821/Git/finger-lakes-app-57/app/forgot-password/page.tsx) into a Server Component exporting static `Metadata` and a Client Form component.
+
+- **FE-01 & FE-02 (Dependency Pruning - Phase 1)**:
+  - Prune 7 dead libraries: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `recharts`, `react-resizable-panels`, `input-otp`, and `sonner`.
+  - Prune 10 unreferenced Radix primitives: `aspect-ratio`, `collapsible`, `context-menu`, `hover-card`, `menubar`, `navigation-menu`, `progress`, `radio-group`, `scroll-area`, and `slider`.
+  - **Critical Retention**: Explicitly retain `@radix-ui/react-accordion` (actively imported in `components/winery/winery-amenities-list.tsx:17` and `components/WineryDetails.tsx:5`).
+- **FE-03 (Map Engine Isolation - Phase 2)**:
+  - Move `import 'mapbox-gl/dist/mapbox-gl.css'` from `app/layout.tsx` into `components/map/MapView.tsx`.
+  - Dynamically load `GoogleMapFallback` via `next/dynamic({ ssr: false })` in `MapView.tsx` so `@googlemaps/js-api-loader` is only evaluated when Mapbox initialization fails, preserving DOM stability (`data-state="loading"`).
+- **FE-04 (Service Worker Auth Hygiene - Phase 7)**:
+  - Remove `StaleWhileRevalidate` matcher in `app/sw.ts` for `/auth/v1/user` and `/auth/v1/session`.
+  - Configure explicit `NetworkOnly` runtime caching strategy for all Supabase Auth requests matching `/auth/v1/*`.
+  - Implement `PURGE_AUTH_CACHE` listener in `app/sw.ts` to evict `supabase-auth` and `pages` caches upon user logout.
+  - Bridge `userStore.ts#logout` to purge `window.caches` with defensive `try/catch` wrapping around `supabase.auth.signOut()` to ensure offline logouts reset stores cleanly.
+- **FE-06 (Turbopack Unblocking - Phase 1)**:
+  - Refactor `next.config.mjs` so Serwist activates exclusively when `process.env.NODE_ENV === 'production'`, exporting plain `nextConfig` during development.
+  - Update `package.json` dev script to `"dev": "next dev --turbo"`, keeping `"build": "next build --webpack"`.
+- **FE-07 (Server Component Auth Guard - Phase 4)**:
+  - Convert `app/friends/[id]/page.tsx` to an async Server Component with server-side `getUser()` check, redirect to `/login`, and `Metadata` export, delegating interactive UI to `components/FriendProfile.tsx`.
+- **FE-08 (React 19 Actions - Phase 6)**:
+  - Standardize authentication forms (`login-form.tsx`, `forgot-password-form.tsx`, `manual-confirm-form.tsx`) on React 19 Server Actions (`app/actions/auth.ts`) using `useActionState`.
+  - Modernize `trip-form.tsx` submission with `useActionState` while preserving `react-hook-form` / Zod validation and Zustand store mutations.
+- **FE-09 (React Compiler Violations & Suppressions - Phase 5)**:
+  - In `components/winery/use-winery-modal-state.ts`, eliminate render-time `setState` calls (`prevActiveWineryId`, `snapPoint`, `lightboxPhoto`).
+  - In `components/winery-modal.tsx`, key inner content (`<WineryModalContent key={activeWineryId} />`) to reset drawer state via native React reconciliation.
+  - In `components/WineryQnA.tsx`, key review content (`<WineryQuestionReviewCard key={activeQuestionId} />`) to eliminate `useEffect` state synchronization.
+  - In `hooks/use-trip-actions.ts`, derive `currentMembers` directly and remove `selectedFriends` state and effect.
+  - In `components/trip-planner.tsx`, replace local `isMounted` state with shared `useMounted()` hook.
+  - Eliminate all 3 `react-hooks/set-state-in-effect` ESLint suppressions across the codebase.
+- **FE-10 (Deterministic SSR Dates - Phase 4)**:
+  - Replace dynamic `new Date().toLocaleDateString()` in `app/privacy/page.tsx` and `app/terms/page.tsx` with static `LAST_UPDATED` constant.
+  - Replace `new Date().toISOString().split("T")[0]` in `components/VisitForm.tsx` with `getTodayLocal()`.
+  - Standardize SSR component dates using `formatDateLocal()`.
+- **FE-11 (Root Layout Modal Decoupling - Phase 3)**:
+  - Preserve `<ModalHost />` (`#modal-root` portal container) in `app/layout.tsx`.
+  - Extract `VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, and `GlobalModalRenderer` into lazy `AuthenticatedModalHost` with `ssr: false`.
+  - Mount `AuthenticatedModalHost` inside `components/app-shell.tsx` and `app/trips/[id]/page.tsx` (where `TripCard` triggers share and winery note modals).
+- **FE-12 (Dependency Override Cleanup - Phase 1)**:
+  - Prune brittle `minimatch`, `glob`, `brace-expansion`, and redundant `uuid` overrides in `package.json#overrides`.
+  - Retain essential security and build overrides: `postcss: "^8.5.18"`, `ws: "^8.20.1"`, and `sharp: "^0.35.0"`.
+- **FE-13 (Auth Page Architecture & Proxy Routing - Phase 4)**:
+  - Split `app/forgot-password/page.tsx` into a Server Component exporting `Metadata` and a client component `components/forgot-password-form.tsx`.
+  - Split `app/manual-confirm/page.tsx` into a Server Component exporting `Metadata` and a client component `components/manual-confirm-form.tsx`.
+  - Add `'/manual-confirm'` to `publicRoutes` in `proxy.ts` to unblock unauthenticated email confirmation flows.
 
 ---
 
-## 3. Functional Requirements
+## 3. Functional Requirements by Phase
 
 ### Phase 1: Dependency Pruning, Tooling Optimization & Turbopack Unblocking
 1. **Audit & Remove Dead Packages**:
-   - Prune `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`, and unreferenced `@radix-ui/react-*` packages (`accordion`, `aspect-ratio`, `collapsible`, `context-menu`, `hover-card`, `menubar`, `navigation-menu`, `progress`, `radio-group`, `scroll-area`, `slider`) from `package.json`.
-   - Audit imports across `components/`, `app/`, and `lib/` to verify zero residual usages.
+   - Prune `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`, and the 10 unreferenced Radix packages from `package.json`.
+   - Verify zero residual imports across `app/`, `components/`, and `lib/`. Retain `@radix-ui/react-accordion`.
 2. **Clean Dependency Overrides**:
-   - Streamline `package.json` overrides to minimal required security resolutions; verify `npm install` runs cleanly without dependency conflicts.
+   - Remove `minimatch`, `glob`, `brace-expansion`, and `uuid` overrides. Verify `npm install` runs cleanly without dependency tree conflicts.
 3. **Make Serwist Production-Only & Enable Turbopack**:
-   - In `next.config.mjs`, wrap Serwist plugin activation so it only attaches when `process.env.NODE_ENV === 'production'`.
-   - Update `npm run dev` to support Turbopack (`next dev --turbo`), verifying dev startup without Serwist build hooks. Keep `npm run build` using Webpack for production PWA compilation.
+   - In `next.config.mjs`, conditionally export `withSerwist(nextConfig)` only when `process.env.NODE_ENV === 'production'`.
+   - Update `npm run dev` to `next dev --turbo`, verifying dev startup without Serwist Webpack hook errors.
 
 ### Phase 2: Map Engine Bundle Isolation & Dynamic Fallback Loading
 1. **Isolate Mapbox CSS**:
-   - Remove `import 'mapbox-gl/dist/mapbox-gl.css'` from root `app/layout.tsx`.
-   - Move Mapbox CSS imports to map-specific container components (`components/map/MapView.tsx`, `components/WineryMap.tsx`).
+   - Remove `import 'mapbox-gl/dist/mapbox-gl.css'` from `app/layout.tsx`.
+   - Move Mapbox CSS import to `components/map/MapView.tsx`.
 2. **Lazy-Load Google Maps Fallback**:
-   - Ensure the `GoogleMapFallback` loader is dynamically imported via `next/dynamic({ ssr: false })` in `MapView.tsx`.
-   - Ensure `@googlemaps/js-api-loader` is only evaluated when Mapbox initialization fails or Google Maps is explicitly requested, preserving DOM stability (`data-state="loading"`).
+   - Dynamically import `GoogleMapFallback` via `next/dynamic({ ssr: false })` in `MapView.tsx`.
+   - Ensure loading placeholder maintains DOM stability (`data-testid="map-view-canvas" data-state="loading"`).
+   - Verify `@googlemaps/js-api-loader` is never evaluated when Mapbox initializes successfully.
 
-### Phase 3: Server Component Boundaries, SSR Date Determinism & Modal Host Modularization
-1. **Authenticated Modal Host Decoupling (Expand-and-Contract)**:
-   - *(Expand)* Create `components/modals/authenticated-modal-host.tsx` dynamically importing `VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, and `GlobalModalRenderer` with `ssr: false`.
-   - *(Migrate)* Mount `AuthenticatedModalHost` inside `components/app-shell.tsx` and standalone authenticated routes (`app/settings/page.tsx`, `app/friends/[id]/page.tsx`).
-   - *(Contract)* Remove modal components and imports from root `app/layout.tsx`, ensuring public routes (`/login`, `/signup`, `/privacy`, `/terms`) mount without modal trees.
-2. **Server Auth Guard & Metadata for `/friends/[id]`**:
-   - Convert `app/friends/[id]/page.tsx` into an async Server Component.
-   - Perform server-side auth verification via `getUser()`; redirect unauthenticated users to `/login`.
-   - Export route `Metadata`.
-   - Delegate friend details presentation and interactive state to a client component (`components/friends/friend-detail-view.tsx`).
-3. **Modularize `/forgot-password` Page**:
-   - Convert `app/forgot-password/page.tsx` into a Server Component exporting route `Metadata`.
-   - Extract form interactions to a client component `components/forgot-password-form.tsx`.
-4. **Deterministic SSR Dates**:
-   - Audit `app/` and `components/` for non-deterministic `new Date().toLocaleDateString()` or dynamic timestamps rendered in Server Components.
-   - Enforce `formatDateLocal()` and static fallback date constants to guarantee 100% hydration match between SSR and client.
+### Phase 3: Root Layout Decoupling & Authenticated Modal Host
+1. **Preserve Root Portal Anchor**:
+   - Retain `<ModalHost />` (`#modal-root`) in root `app/layout.tsx`.
+2. **Authenticated Modal Host (Expand-and-Contract)**:
+   - *(Expand)* Create `components/modals/authenticated-modal-host.tsx` dynamically importing `VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, and `GlobalModalRenderer` with `{ ssr: false }`.
+   - *(Migrate)* Mount `AuthenticatedModalHost` inside `components/app-shell.tsx`, `app/trips/[id]/page.tsx`, `app/friends/[id]/page.tsx`, and `app/settings/page.tsx`.
+   - *(Contract)* Remove direct modal component imports and JSX elements from root `app/layout.tsx`.
 
-### Phase 4: React 19 Adherence: State Derivation & Form Actions
+### Phase 4: Server Component Boundaries, Route Metadata & Deterministic Dates
+1. **Server Auth Guard & Metadata for `/friends/[id]`**:
+   - Convert `app/friends/[id]/page.tsx` into an async Server Component with `await getUser()`, server redirect to `/login`, and `metadata` export.
+   - Delegate presentation to client `<FriendProfile friendId={id} />`.
+2. **Modularize Auth Pages & Whitelist `/manual-confirm`**:
+   - Convert `app/forgot-password/page.tsx` and `app/manual-confirm/page.tsx` into Server Components exporting `Metadata`.
+   - Extract forms into `components/forgot-password-form.tsx` and `components/manual-confirm-form.tsx`.
+   - Add `'/manual-confirm'` to `publicRoutes` in `proxy.ts`.
+3. **Deterministic SSR Dates**:
+   - Replace dynamic `new Date().toLocaleDateString()` in `app/privacy/page.tsx` and `app/terms/page.tsx` with static `LAST_UPDATED` constant.
+   - Replace `new Date().toISOString().split("T")[0]` in `components/VisitForm.tsx` with `getTodayLocal()`.
+
+### Phase 5: React 19 Adherence: State Derivation & Compiler Compliance
 1. **Fix React Compiler Memoization & `setState` Violations**:
-   - In `components/winery/use-winery-modal-state.ts`, eliminate direct `setState` calls in the hook execution body. Replace effect-based state synchronization with derived state and component keying (`key={activeWineryId}`).
-   - In `components/WineryQnA.tsx`, refactor question submission and state resets to eliminate render-time state modifications and `useEffect` resets by keying review sub-components on `activeQuestionId`.
-   - Remove all ESLint suppressions (`eslint-disable-next-line react-hooks/set-state-in-effect`).
-2. **Modernize Forms with React 19 `useActionState`**:
-   - Refactor authentication forms (`login-form.tsx`, `forgot-password-form.tsx`) to use React 19 Server Actions with `useActionState` and pending indicators.
-   - Refactor `trip-form.tsx` submission with `useActionState` while preserving `react-hook-form` / Zod validation and store mutations.
+   - In `components/winery/use-winery-modal-state.ts`, remove `prevActiveWineryId`, `setPrevActiveWineryId`, and render-body state setters.
+   - In `components/winery-modal.tsx`, key inner content on `activeWineryId` (`<WineryModalContent key={activeWineryId} />`) to reset state via React reconciliation.
+2. **Eliminate All `react-hooks/set-state-in-effect` Suppressions**:
+   - In `components/WineryQnA.tsx`, extract review display into `<WineryQuestionReviewCard key={activeQuestionId} />`.
+   - In `hooks/use-trip-actions.ts`, derive `currentMembers` directly and remove unused `selectedFriends` state and effect.
+   - In `components/trip-planner.tsx`, replace local `isMounted` effect with shared `useMounted()` hook.
+   - Remove all 3 ESLint suppression comments.
 
-### Phase 5: Service Worker Auth Hygiene, CacheStorage Eviction & Quality Verification
+### Phase 6: React 19 Form Actions Modernization
+1. **Auth Forms on React 19 Server Actions**:
+   - Create `app/actions/auth.ts` with Server Actions (`loginAction`, `forgotPasswordAction`, `manualConfirmAction`).
+   - Refactor `login-form.tsx`, `forgot-password-form.tsx`, and `manual-confirm-form.tsx` to use `useActionState` with native `isPending`.
+2. **Entity Forms Hybrid Client Action State**:
+   - Refactor `components/trip-form.tsx` submission with `useActionState` while preserving `react-hook-form` / Zod validation, client Zustand store mutations, and offline sync.
+
+### Phase 7: Service Worker Auth Hygiene & Production Quality Audit
 1. **Service Worker Auth Cache Eviction**:
    - In `app/sw.ts`, remove `StaleWhileRevalidate` matcher for `/auth/v1/user` and `/auth/v1/session`.
-   - Configure explicit `NetworkOnly` runtime caching strategy for all Supabase Auth requests matching `/auth/v1/*`.
-2. **Logout CacheStorage Purge Bridge**:
-   - Add a message listener in `app/sw.ts` for `{ type: 'PURGE_AUTH_CACHE' }`.
-   - Update `lib/stores/userStore.ts#logout` to purge `window.caches` (deleting `supabase-auth` and `pages`) and dispatch `PURGE_AUTH_CACHE` to `navigator.serviceWorker.controller`.
+   - Configure `NetworkOnly` runtime caching strategy for all `/auth/v1/*` requests.
+   - Add message listener in `app/sw.ts` for `{ type: 'PURGE_AUTH_CACHE' }` to delete `supabase-auth` and `pages` caches.
+2. **Offline-Resilient Logout Cache Eviction**:
+   - In `lib/stores/userStore.ts#logout`, wrap `supabase.auth.signOut()` in defensive `try/catch` to ensure offline logouts reset stores cleanly.
+   - Purge `supabase-auth` and `pages` from `window.caches` and dispatch `PURGE_AUTH_CACHE` to `navigator.serviceWorker.controller`.
 3. **Full Verification & Build Audit**:
-   - Run `npm run lint`, `npm run type-check`, and `npm run build` to verify clean compilation with zero warnings and reduced bundle chunk sizes.
+   - Execute `npm run lint`, `npm run type-check`, and `npm run build` to verify clean compilation with zero warnings and reduced bundle chunk sizes.
 
 ---
 
@@ -95,16 +142,17 @@ The primary objectives across 5 focused, bounded phases are:
 ---
 
 ## 5. Acceptance Criteria
-- [ ] Dead dependencies (`@dnd-kit`, `recharts`, unused Radix packages) removed from `package.json` with clean lockfile.
+- [ ] 7 dead libraries and 10 unused Radix packages pruned from `package.json` with clean lockfile; `@radix-ui/react-accordion` retained.
 - [ ] Dev server launches with Turbopack (`npm run dev`) with Serwist active only in production builds.
-- [ ] Mapbox CSS is isolated and Google Maps fallback loader is lazy-loaded via `next/dynamic`.
-- [ ] Root `app/layout.tsx` does not mount interactive modals on public landing or auth routes.
-- [ ] `AuthenticatedModalHost` dynamically mounts modals only across authenticated routes.
-- [ ] `app/friends/[id]/page.tsx` and `app/forgot-password/page.tsx` are Server Components exporting `Metadata`.
+- [ ] Mapbox CSS is isolated to `MapView.tsx` and Google Maps fallback loader is lazy-loaded via `next/dynamic`.
+- [ ] Root `app/layout.tsx` retains `<ModalHost />` but mounts zero feature dialogs on public landing or auth routes.
+- [ ] `AuthenticatedModalHost` dynamically mounts modals across authenticated routes, including `app/trips/[id]/page.tsx`.
+- [ ] `app/friends/[id]/page.tsx`, `app/forgot-password/page.tsx`, and `app/manual-confirm/page.tsx` are Server Components exporting `Metadata`.
+- [ ] `proxy.ts` permits unauthenticated access to `/manual-confirm`.
 - [ ] Zero hydration mismatch warnings occur across all core pages.
-- [ ] Zero `setState` calls occur during render cycles; zero `react-hooks/set-state-in-effect` lint suppressions exist.
-- [ ] Auth and trip forms use React 19 `useActionState`.
-- [ ] Service worker never caches `/auth/v1/` routes and CacheStorage is purged on logout.
+- [ ] Zero `setState` calls occur during render cycles; zero `react-hooks/set-state-in-effect` lint suppressions exist across the entire repo.
+- [ ] Auth forms use React 19 Server Actions with `useActionState`; `trip-form.tsx` uses Hybrid Client `useActionState`.
+- [ ] Service worker never caches `/auth/v1/` routes; CacheStorage (`supabase-auth`, `pages`) is purged on logout even when offline.
 - [ ] Production build (`npm run build`) completes cleanly with reduced JavaScript chunk sizes.
 
 ---
@@ -112,4 +160,4 @@ The primary objectives across 5 focused, bounded phases are:
 ## 6. Out of Scope
 - Visual redesign of winery modals or bottom drawers (covered in separate UI tracks).
 - Database migrations or Supabase DDL changes (purely frontend architecture and tooling).
-- Test infrastructure restructuring or Playwright runner container refactoring (reserved for Proposal 05 / Sprint 4 QA).
+- Test infrastructure restructuring or Playwright runner container refactoring (reserved for Sprint 4 QA).
