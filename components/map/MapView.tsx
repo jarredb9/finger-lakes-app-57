@@ -39,7 +39,7 @@ const MapView = memo(({
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
   const mounted = useMounted();
   const mapRef = useRef<MapRef>(null);
-  const { closeWineryModal } = useUIStore();
+  const closeWineryModal = useUIStore((s) => s.closeWineryModal);
   const [mapStyle, setMapStyle] = useState<"streets" | "outdoors">("streets");
   const [cursor, setCursor] = useState<string>("");
 
