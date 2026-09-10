@@ -5,6 +5,7 @@ import { Trip, Winery } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useUserStore } from "@/lib/stores/userStore";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useShallow } from "zustand/react/shallow";
 import { useToast } from "@/hooks/use-toast";
 import { useTripActions } from "@/hooks/use-trip-actions";
 import TripCardPresentational from "./TripCardPresentational";
@@ -29,9 +30,25 @@ export default function TripCard({ trip }: { trip: Trip }) {
     removeWineryFromTrip, 
     saveWineryNote,
     isSaving
-  } = useTripStore();
-  const { user, isLoading: isUserLoading } = useUserStore();
-  const { openShareDialog, openWineryNoteEditor } = useUIStore();
+  } = useTripStore(
+    useShallow((s) => ({
+      updateTrip: s.updateTrip,
+      deleteTrip: s.deleteTrip,
+      updateWineryOrder: s.updateWineryOrder,
+      toggleWineryOnTrip: s.toggleWineryOnTrip,
+      removeWineryFromTrip: s.removeWineryFromTrip,
+      saveWineryNote: s.saveWineryNote,
+      isSaving: s.isSaving,
+    }))
+  );
+  const { user, isUserLoading } = useUserStore(
+    useShallow((s) => ({
+      user: s.user,
+      isUserLoading: s.isLoading,
+    }))
+  );
+  const openShareDialog = useUIStore((s) => s.openShareDialog);
+  const openWineryNoteEditor = useUIStore((s) => s.openWineryNoteEditor);
   
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   
