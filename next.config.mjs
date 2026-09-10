@@ -1,11 +1,5 @@
 import withSerwistInit from "@serwist/next";
 
-const withSerwist = withSerwistInit({
-  swSrc: "app/sw.ts",
-  swDest: "public/sw.js",
-  disable: process.env.NODE_ENV !== "production",
-});
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   outputFileTracingRoot: process.cwd(),
@@ -20,5 +14,13 @@ const nextConfig = {
   allowedDevOrigins: ["127.0.0.1"],
 };
 
+const isProduction = process.env.NODE_ENV === "production";
 
-export default withSerwist(nextConfig);
+const finalConfig = isProduction
+  ? withSerwistInit({
+      swSrc: "app/sw.ts",
+      swDest: "public/sw.js",
+    })(nextConfig)
+  : nextConfig;
+
+export default finalConfig;

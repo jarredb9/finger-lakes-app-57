@@ -82,6 +82,7 @@ describe('Tooling & Dependency Verification (Phase 1)', () => {
     let pkgJson: {
       dependencies?: Record<string, string>;
       overrides?: Record<string, string>;
+      scripts?: Record<string, string>;
     };
 
     beforeAll(() => {
@@ -110,6 +111,12 @@ describe('Tooling & Dependency Verification (Phase 1)', () => {
       expect(overrides).toHaveProperty('postcss');
       expect(overrides).toHaveProperty('ws');
       expect(overrides).toHaveProperty('sharp');
+    });
+
+    it('asserts dev script uses Turbopack while build script uses Webpack', () => {
+      const scripts = pkgJson.scripts || {};
+      expect(scripts.dev).toBe('next dev --turbo');
+      expect(scripts.build).toBe('next build --webpack');
     });
   });
 
