@@ -13,10 +13,10 @@ Focus: Audit and prune 7 dead dependencies and 10 unreferenced Radix primitives 
     - [x] Uninstall 7 dead libraries (`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`) and 10 unreferenced Radix packages, verifying `@radix-ui/react-accordion` is retained
     - [x] Remove `minimatch`, `glob`, `brace-expansion`, and `uuid` overrides in `package.json#overrides`
     - [x] Run clean `npm install` and verify package integrity, lockfile, and clean typecheck
-- [ ] Task: Refactor `next.config.mjs` and dev scripts for Turbopack with production-only Serwist
-    - [ ] Wrap Serwist plugin activation in `next.config.mjs` so it only attaches when `process.env.NODE_ENV === 'production'`; in development, export plain `nextConfig`
-    - [ ] Update `package.json` dev script to `"dev": "next dev --turbo"` (keeping `"build": "next build --webpack"`)
-    - [ ] Verify local dev startup boots with Turbopack without Serwist Webpack hook errors
+- [x] Task: Refactor `next.config.mjs` and dev scripts for Turbopack with production-only Serwist [222408e]
+    - [x] Wrap Serwist plugin activation in `next.config.mjs` so it only attaches when `process.env.NODE_ENV === 'production'`; in development, export plain `nextConfig`
+    - [x] Update `package.json` dev script to `"dev": "next dev --turbo"` (keeping `"build": "next build --webpack"`)
+    - [x] Verify local dev startup boots with Turbopack without Serwist Webpack hook errors
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Dependency Pruning, Tooling Optimization & Turbopack Unblocking' (Protocol in workflow.md)
 
 ## Phase 2: Map Engine Bundle Isolation & Dynamic Fallback Loading
