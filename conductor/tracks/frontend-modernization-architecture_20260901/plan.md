@@ -9,10 +9,10 @@ Focus: Audit and prune 7 dead dependencies and 10 unreferenced Radix primitives 
     - [x] Add Jest tests in `lib/__tests__/tooling/dependencies.test.ts` asserting zero imports in `app/`, `components/`, or `lib/` for `@dnd-kit/*`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`, and the 10 unreferenced Radix packages (`aspect-ratio`, `collapsible`, `context-menu`, `hover-card`, `menubar`, `navigation-menu`, `progress`, `radio-group`, `scroll-area`, `slider`)
     - [x] Add tests asserting `package.json#overrides` is cleaned of brittle `minimatch`, `glob`, `brace-expansion`, and `uuid` overrides while retaining `postcss`, `ws`, and `sharp`
     - [x] Add tests asserting `next.config.mjs` exports plain `nextConfig` when `process.env.NODE_ENV !== 'production'`
-- [ ] Task: Prune dead dependencies and clean overrides in `package.json`
-    - [ ] Uninstall 7 dead libraries (`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`) and 10 unreferenced Radix packages, verifying `@radix-ui/react-accordion` is retained
-    - [ ] Remove `minimatch`, `glob`, `brace-expansion`, and `uuid` overrides in `package.json#overrides`
-    - [ ] Run clean `npm install` and verify package integrity, lockfile, and clean typecheck
+- [x] Task: Prune dead dependencies and clean overrides in `package.json` [93b084e]
+    - [x] Uninstall 7 dead libraries (`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`) and 10 unreferenced Radix packages, verifying `@radix-ui/react-accordion` is retained
+    - [x] Remove `minimatch`, `glob`, `brace-expansion`, and `uuid` overrides in `package.json#overrides`
+    - [x] Run clean `npm install` and verify package integrity, lockfile, and clean typecheck
 - [ ] Task: Refactor `next.config.mjs` and dev scripts for Turbopack with production-only Serwist
     - [ ] Wrap Serwist plugin activation in `next.config.mjs` so it only attaches when `process.env.NODE_ENV === 'production'`; in development, export plain `nextConfig`
     - [ ] Update `package.json` dev script to `"dev": "next dev --turbo"` (keeping `"build": "next build --webpack"`)
