@@ -5,10 +5,10 @@ Pruning dead dependencies and bundle bloat, unblocking Turbopack development wit
 ## Phase 1: Dependency Pruning, Tooling Optimization & Turbopack Unblocking
 Focus: Audit and prune 7 dead dependencies and 10 unreferenced Radix primitives (retaining `@radix-ui/react-accordion`), clean brittle `package.json` overrides, make Serwist production-only in `next.config.mjs`, and enable Turbopack dev.
 
-- [ ] Task: Write failing verification tests for dependency references, package overrides, and Serwist config gating
-    - [ ] Add Jest tests in `lib/__tests__/tooling/dependencies.test.ts` asserting zero imports in `app/`, `components/`, or `lib/` for `@dnd-kit/*`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`, and the 10 unreferenced Radix packages (`aspect-ratio`, `collapsible`, `context-menu`, `hover-card`, `menubar`, `navigation-menu`, `progress`, `radio-group`, `scroll-area`, `slider`)
-    - [ ] Add tests asserting `package.json#overrides` is cleaned of brittle `minimatch`, `glob`, `brace-expansion`, and `uuid` overrides while retaining `postcss`, `ws`, and `sharp`
-    - [ ] Add tests asserting `next.config.mjs` exports plain `nextConfig` when `process.env.NODE_ENV !== 'production'`
+- [x] Task: Write failing verification tests for dependency references, package overrides, and Serwist config gating [6d7eb7e]
+    - [x] Add Jest tests in `lib/__tests__/tooling/dependencies.test.ts` asserting zero imports in `app/`, `components/`, or `lib/` for `@dnd-kit/*`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`, and the 10 unreferenced Radix packages (`aspect-ratio`, `collapsible`, `context-menu`, `hover-card`, `menubar`, `navigation-menu`, `progress`, `radio-group`, `scroll-area`, `slider`)
+    - [x] Add tests asserting `package.json#overrides` is cleaned of brittle `minimatch`, `glob`, `brace-expansion`, and `uuid` overrides while retaining `postcss`, `ws`, and `sharp`
+    - [x] Add tests asserting `next.config.mjs` exports plain `nextConfig` when `process.env.NODE_ENV !== 'production'`
 - [ ] Task: Prune dead dependencies and clean overrides in `package.json`
     - [ ] Uninstall 7 dead libraries (`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `recharts`, `react-resizable-panels`, `input-otp`, `sonner`) and 10 unreferenced Radix packages, verifying `@radix-ui/react-accordion` is retained
     - [ ] Remove `minimatch`, `glob`, `brace-expansion`, and `uuid` overrides in `package.json#overrides`
