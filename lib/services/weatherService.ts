@@ -22,12 +22,25 @@ function mapWmoCodeToCondition(code: number): { condition: string; icon: string 
   return { condition: 'Lake Breeze', icon: '🌤️' };
 }
 
+export function clearWeatherCache(): void {
+  cache.clear();
+}
+
 /**
  * Fetches outdoor weather & tasting conditions from Open-Meteo API for a given winery location.
  * Implements 15-minute in-memory caching to minimize external API calls.
  */
 export async function fetchWineryWeather(latitude: number, longitude: number): Promise<WineryWeatherData | null> {
-  if (typeof latitude !== 'number' || typeof longitude !== 'number') {
+  if (
+    typeof latitude !== 'number' ||
+    typeof longitude !== 'number' ||
+    !Number.isFinite(latitude) ||
+    !Number.isFinite(longitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
     return null;
   }
 
@@ -47,7 +60,14 @@ export async function fetchWineryWeather(latitude: number, longitude: number): P
       return null;
     }
 
-    const json = await res.json();
+    const text = await res.text();
+    let json: any;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      return null;
+    }
+
     const current = json?.current;
     if (!current) {
       return null;
@@ -64,8 +84,8 @@ export async function fetchWineryWeather(latitude: number, longitude: number): P
 
     cache.set(cacheKey, { data: weatherData, timestamp: now });
     return weatherData;
-  } catch (error) {
-    console.error('Failed to fetch weather data from Open-Meteo:', error);
+  } catch {
+    // Weather is a non-essential enhancement; gracefully return null on network or parsing failure
     return null;
   }
 }
