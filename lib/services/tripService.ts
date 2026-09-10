@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/client';
 import { Trip } from '@/lib/types';
 import { getTodayLocal, formatDateLocal } from '@/lib/utils';
 import { WineryService } from './wineryService';
+import { findWineryByDbId } from '@/lib/stores/wineryStore';
 
 export const TripService = {
   async getTrips(page: number, type: 'upcoming' | 'past', limit = 6) {
@@ -251,8 +252,7 @@ export const TripService = {
 
   async addWineryToNewTrip(date: string, wineryId: number, notes: string, name: string) {
     const supabase = createClient();
-    const dataStore = (window as any).useWineryDataStore?.getState();
-    const winery = dataStore?.persistentWineries.find((w: any) => w.dbId === wineryId);
+    const winery = findWineryByDbId(wineryId);
 
     if (!winery) {
         throw new Error("Winery data not found in local store for creation.");
@@ -271,8 +271,7 @@ export const TripService = {
 
   async addWineryToExistingTrip(tripId: number, wineryId: number, notes: string | null) {
     const supabase = createClient();
-    const dataStore = (window as any).useWineryDataStore?.getState();
-    const winery = dataStore?.persistentWineries.find((w: any) => w.dbId === wineryId);
+    const winery = findWineryByDbId(wineryId);
 
     if (!winery) {
         // If not in store, we might just have the ID. 

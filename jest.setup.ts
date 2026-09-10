@@ -8,7 +8,6 @@ import { useMapStore } from './lib/stores/mapStore';
 import { useTripStore } from './lib/stores/tripStore';
 import { useUserStore } from './lib/stores/userStore';
 import { useVisitStore } from './lib/stores/visitStore';
-import { useWineryDataStore } from './lib/stores/wineryDataStore';
 import { useWineryStore } from './lib/stores/wineryStore';
 
 // Load env vars from .env.local
@@ -21,6 +20,7 @@ jest.mock('idb-keyval', () => ({
   del: jest.fn().mockResolvedValue(undefined),
   clear: jest.fn().mockResolvedValue(undefined),
   keys: jest.fn().mockResolvedValue([]),
+  setMany: jest.fn().mockResolvedValue(undefined),
 }));
 
 // Reset all Zustand stores before each test to prevent state bleed
@@ -32,7 +32,6 @@ beforeEach(() => {
   useTripStore.getState().reset?.();
   useUserStore.getState().reset?.();
   useVisitStore.getState().reset?.();
-  useWineryDataStore.getState().reset?.();
   useWineryStore.getState().reset?.();
 
   // Ensure modal-root exists for Portals
@@ -110,8 +109,8 @@ jest.mock('react-map-gl/mapbox', () => {
     Source: ({ children }: any) => children || null,
     Layer: () => null,
     MapProvider: ({ children }: any) => children,
-    useMap: () => ({
-      current: {
+    useMap: () => {
+      const mockMap = {
         getBounds: jest.fn().mockReturnValue({
           getNorthEast: () => ({ lat: () => 42.9, lng: () => -76.3 }),
           getSouthWest: () => ({ lat: () => 42.2, lng: () => -77.2 }),
@@ -123,8 +122,12 @@ jest.mock('react-map-gl/mapbox', () => {
         on: jest.fn(),
         off: jest.fn(),
         flyTo: jest.fn(),
-      }
-    }),
+      };
+      return {
+        current: mockMap,
+        default: mockMap,
+      };
+    },
   };
 }, { virtual: true });
 
@@ -137,8 +140,8 @@ jest.mock('react-map-gl', () => {
     Source: ({ children }: any) => children || null,
     Layer: () => null,
     MapProvider: ({ children }: any) => children,
-    useMap: () => ({
-      current: {
+    useMap: () => {
+      const mockMap = {
         getBounds: jest.fn().mockReturnValue({
           getNorthEast: () => ({ lat: () => 42.9, lng: () => -76.3 }),
           getSouthWest: () => ({ lat: () => 42.2, lng: () => -77.2 }),
@@ -150,8 +153,12 @@ jest.mock('react-map-gl', () => {
         on: jest.fn(),
         off: jest.fn(),
         flyTo: jest.fn(),
-      }
-    }),
+      };
+      return {
+        current: mockMap,
+        default: mockMap,
+      };
+    },
   };
 }, { virtual: true });
 

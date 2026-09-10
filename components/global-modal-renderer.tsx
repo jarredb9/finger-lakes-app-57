@@ -1,24 +1,29 @@
 "use client";
 
-import { useUIStore } from "@/lib/stores/uiStore";
+import { useUIStore, UIState } from "@/lib/stores/uiStore";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
+type UIStoreWithLegacy = UIState & {
+  modalContent?: React.ReactNode;
+};
+
 export function GlobalModalRenderer() {
+  const store = useUIStore() as UIStoreWithLegacy;
   const { 
     isModalOpen, 
-    modalContent, 
+    activeModal, 
     modalTitle, 
     modalDescription, 
     closeModal
-  } = useUIStore();
+  } = store;
 
   const handleClose = () => {
     closeModal();
   };
 
-  // This renderer ONLY handles generic modalContent.
-  // Specialized modals (VisitFormModal, WineryNoteModal) handle their own state.
-  const shouldOpen = isModalOpen && !!modalContent;
+  // This renderer handles generic dialog content via activeModal.props.content or legacy modalContent
+  const content = activeModal?.props?.content ?? store.modalContent;
+  const shouldOpen = Boolean(isModalOpen && content);
 
   return (
     <Dialog open={shouldOpen} onOpenChange={(isOpen) => !isOpen && handleClose()}>
@@ -34,7 +39,7 @@ export function GlobalModalRenderer() {
                 </DialogHeader>
             )}
             <div className="overflow-y-auto flex-1">
-              {modalContent}
+              {content}
             </div>
         </DialogContent>
     </Dialog>

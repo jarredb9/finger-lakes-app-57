@@ -8,7 +8,6 @@ import { useVisitStore } from './visitStore';
 import { useTripStore } from './tripStore';
 import { useFriendStore } from './friendStore';
 import { useWineryStore } from './wineryStore';
-import { useWineryDataStore } from './wineryDataStore';
 import { useMapStore } from './mapStore';
 import { useUIStore } from './uiStore';
 
@@ -131,12 +130,11 @@ export const useUserStore = createWithEqualityFn<UserState>((set, get) => ({
     const supabase = createClient();
     await supabase.auth.signOut();
 
-    // 2. Reset all other 8 Zustand stores
+    // 2. Reset other Zustand stores
     useVisitStore.getState().reset?.();
     useTripStore.getState().reset?.();
     useFriendStore.getState().reset?.();
     useWineryStore.getState().reset?.();
-    useWineryDataStore.getState().reset?.();
     useMapStore.getState().reset?.();
     useUIStore.getState().reset?.();
     get().reset();

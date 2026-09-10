@@ -9,13 +9,6 @@ jest.mock('../wineryStore', () => ({
   useWineryStore: {
     getState: jest.fn(() => ({
       getWineries: jest.fn(() => []),
-    })),
-  },
-}));
-
-jest.mock('../wineryDataStore', () => ({
-  useWineryDataStore: {
-    getState: jest.fn(() => ({
       upsertWinery: jest.fn(),
     })),
   },

@@ -3,7 +3,6 @@ import { Winery, WineryDbId } from '@/lib/types';
 
 describe('WineryUIStore: ensureWineryDetails', () => {
   let useWineryStore: any;
-  let useWineryDataStore: any;
   let mockRpc: jest.Mock;
   let mockInvoke: jest.Mock;
 
@@ -30,12 +29,9 @@ describe('WineryUIStore: ensureWineryDetails', () => {
       };
     });
 
-    // Re-import stores to pick up the new mock
+    // Re-import store to pick up the new mock
     useWineryStore = require('../wineryStore').useWineryStore;
-    useWineryDataStore = require('../wineryDataStore').useWineryDataStore;
-    
     useWineryStore.getState().reset();
-    useWineryDataStore.getState().reset();
   });
 
   it('returns cached details if they exist and data is consistent', async () => {
@@ -51,7 +47,7 @@ describe('WineryUIStore: ensureWineryDetails', () => {
       vibe_tags: ['Dog Friendly']
     };
     
-    useWineryDataStore.setState({ persistentWineries: [winery] });
+    useWineryStore.setState({ persistentWineries: [winery] });
 
     const result = await useWineryStore.getState().ensureWineryDetails(winery.id);
 
@@ -74,7 +70,7 @@ describe('WineryUIStore: ensureWineryDetails', () => {
       vibe_tags: ['Dog Friendly']
     };
     
-    useWineryDataStore.setState({ persistentWineries: [staleWinery] });
+    useWineryStore.setState({ persistentWineries: [staleWinery] });
 
     // ensureWineryDetails should return the stale data immediately for snappy UI
     const result = await useWineryStore.getState().ensureWineryDetails(staleWinery.id);
@@ -103,7 +99,7 @@ describe('WineryUIStore: ensureWineryDetails', () => {
       vibe_tags: ['Dog Friendly']
     };
     
-    useWineryDataStore.setState({ persistentWineries: [zeroRatingWinery] });
+    useWineryStore.setState({ persistentWineries: [zeroRatingWinery] });
 
     mockRpc.mockResolvedValueOnce({
       data: [{
@@ -120,7 +116,7 @@ describe('WineryUIStore: ensureWineryDetails', () => {
   });
 
   it('resolves targetDbId directly from numeric placeId string when winery is not in local cache', async () => {
-    useWineryDataStore.setState({ persistentWineries: [] });
+    useWineryStore.setState({ persistentWineries: [] });
 
     mockRpc.mockResolvedValueOnce({
       data: [{
@@ -145,7 +141,7 @@ describe('WineryUIStore: ensureWineryDetails', () => {
       visits: [] 
     };
     
-    useWineryDataStore.setState({ persistentWineries: [ghostWinery] });
+    useWineryStore.setState({ persistentWineries: [ghostWinery] });
 
     // Mock RPC Success
     mockRpc.mockResolvedValueOnce({ 
@@ -170,7 +166,7 @@ describe('WineryUIStore: ensureWineryDetails', () => {
       visits: undefined
     };
     
-    useWineryDataStore.setState({ persistentWineries: [ghostWinery] });
+    useWineryStore.setState({ persistentWineries: [ghostWinery] });
 
     await useWineryStore.getState().ensureWineryDetails(ghostWinery.id);
 
@@ -180,7 +176,6 @@ describe('WineryUIStore: ensureWineryDetails', () => {
 
 describe('WineryUIStore: fetchWineryData', () => {
   let useWineryStore: any;
-  let useWineryDataStore: any;
   let mockRpc: jest.Mock;
 
   beforeEach(() => {
@@ -195,13 +190,10 @@ describe('WineryUIStore: fetchWineryData', () => {
     }));
 
     useWineryStore = require('../wineryStore').useWineryStore;
-    useWineryDataStore = require('../wineryDataStore').useWineryDataStore;
-    
     useWineryStore.getState().reset();
-    useWineryDataStore.getState().reset();
   });
 
-  it('fetches map markers and hydrates them into useWineryDataStore', async () => {
+  it('fetches map markers and hydrates them into useWineryStore', async () => {
     const mockMarker = {
       id: 999,
       google_place_id: 'test-google-id',
@@ -224,7 +216,7 @@ describe('WineryUIStore: fetchWineryData', () => {
 
     expect(mockRpc).toHaveBeenCalledWith('get_map_markers', { p_user_id: 'test-user-id' });
     
-    const persistentWineries = useWineryDataStore.getState().persistentWineries;
+    const persistentWineries = useWineryStore.getState().persistentWineries;
     expect(persistentWineries).toHaveLength(1);
     expect(persistentWineries[0].id).toBe('test-google-id');
     expect(persistentWineries[0].dbId).toBe(999);
@@ -243,5 +235,46 @@ describe('WineryUIStore: fetchWineryData', () => {
 
     expect(consoleSpy).toHaveBeenCalledWith('Failed to fetch map markers:', expect.any(Error));
     consoleSpy.mockRestore();
+  });
+
+  describe('Canonical useWineryStore State Consolidation (ST-02 & ST-03)', () => {
+    it('manages persistentWineries directly in useWineryStore state', () => {
+      const winery = createMockWinery({ id: 'winery-reactivity-1' as any, name: 'Reactivity Winery' });
+
+      expect(useWineryStore.getState().persistentWineries).toBeDefined();
+
+      useWineryStore.getState().upsertWinery(winery);
+
+      const updated = useWineryStore.getState().persistentWineries.find((w: any) => w.id === 'winery-reactivity-1');
+      expect(updated).toBeDefined();
+      expect(updated?.name).toBe('Reactivity Winery');
+    });
+
+    it('strips duplicate visits array from winery cache (ST-03 single source of truth in visitStore)', () => {
+      const mockVisit = createMockVisit({ id: 101 as any, winery_id: 50 as WineryDbId });
+      const wineryWithDuplicateVisits = createMockWinery({
+        id: 'winery-with-visits' as any,
+        name: 'Winery With Embedded Visits',
+        visits: [mockVisit],
+        userVisited: true,
+      });
+
+      useWineryStore.getState().upsertWinery(wineryWithDuplicateVisits);
+
+      const stored = useWineryStore.getState().persistentWineries.find((w: any) => w.id === 'winery-with-visits');
+      expect(stored).toBeDefined();
+      expect(stored?.visits).toEqual([]);
+      expect(stored?.userVisited).toBe(true);
+    });
+
+    it('supports direct bulkUpsertWineries and getWinery on useWineryStore', () => {
+      const w1 = createMockWinery({ id: 'bulk-1' as any, dbId: 101 as any, name: 'Bulk 1' });
+      const w2 = createMockWinery({ id: 'bulk-2' as any, dbId: 102 as any, name: 'Bulk 2' });
+
+      useWineryStore.getState().bulkUpsertWineries([w1, w2]);
+
+      expect(useWineryStore.getState().getWinery('bulk-1')).toBeDefined();
+      expect(useWineryStore.getState().getWinery('bulk-2')?.name).toBe('Bulk 2');
+    });
   });
 });

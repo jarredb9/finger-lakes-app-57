@@ -2,7 +2,6 @@ import { render, screen, within, waitFor } from '@testing-library/react';
 import { WineryModal } from '../winery-modal';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
 import { useUIStore } from '@/lib/stores/uiStore';
-import { useWineryDataStore } from '@/lib/stores/wineryDataStore';
 import { useWineryStore } from '@/lib/stores/wineryStore';
 import { useVisitStore } from '@/lib/stores/visitStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
@@ -63,7 +62,7 @@ function setupStores() {
     isWineryModalOpen: true,
     activeWineryId: TEST_WINERY_ID,
   });
-  useWineryDataStore.setState({
+  useWineryStore.setState({
     persistentWineries: [mockWinery],
   });
   useWineryStore.setState({
@@ -92,7 +91,6 @@ function setupStores() {
   });
   useMapStore.setState({
     isStreetViewActive: false,
-    map: null,
   });
   Object.defineProperty(window, 'innerWidth', { writable: true, configurable: true, value: 1024 });
   window.dispatchEvent(new Event('resize'));
@@ -215,7 +213,7 @@ describe('WineryModal Redesign', () => {
         name: 'AI Tag Winery',
         vibe_tags: ['Riesling Specialist', 'Sunset Views', 'Dog Friendly'],
       });
-      useWineryDataStore.setState({ persistentWineries: [wineryWithAiTags] });
+      useWineryStore.setState({ persistentWineries: [wineryWithAiTags] });
       useUIStore.setState({ activeWineryId: TEST_WINERY_ID });
 
       render(<WineryModal />);
@@ -237,7 +235,7 @@ describe('WineryModal Redesign', () => {
         outdoor_seating: false,
         good_for_children: true,
       });
-      useWineryDataStore.setState({ persistentWineries: [wineryWithBooleans] });
+      useWineryStore.setState({ persistentWineries: [wineryWithBooleans] });
       useUIStore.setState({ activeWineryId: TEST_WINERY_ID });
 
       render(<WineryModal />);
@@ -260,7 +258,7 @@ describe('WineryModal Redesign', () => {
         outdoor_seating: false,
         good_for_children: false,
       });
-      useWineryDataStore.setState({ persistentWineries: [emptyWinery] });
+      useWineryStore.setState({ persistentWineries: [emptyWinery] });
       useUIStore.setState({ activeWineryId: TEST_WINERY_ID });
 
       render(<WineryModal />);

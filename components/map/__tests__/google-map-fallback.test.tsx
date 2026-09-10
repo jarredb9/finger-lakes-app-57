@@ -90,7 +90,7 @@ describe("GoogleMapFallback Component", () => {
     });
   });
 
-  it("initializes Google Map and registers adapter with useMapStore", async () => {
+  it("initializes Google Map correctly on mount without polluting useMapStore (ST-12)", async () => {
     render(
       <GoogleMapFallback
         discoveredWineries={[sampleWinery]}
@@ -104,7 +104,9 @@ describe("GoogleMapFallback Component", () => {
 
     await waitFor(() => {
       expect(mockMapsLib.Map).toHaveBeenCalled();
-      expect(useMapStore.getState().map).not.toBeNull();
+      const state = useMapStore.getState() as any;
+      expect(state.map).toBeUndefined();
+      expect(state.setMap).toBeUndefined();
     });
   });
 

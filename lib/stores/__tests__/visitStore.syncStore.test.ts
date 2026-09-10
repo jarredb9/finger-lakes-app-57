@@ -31,13 +31,6 @@ describe('visitStore SyncStore integration', () => {
           optimisticallyUpdateVisit: jest.fn(),
           revertOptimisticUpdate: jest.fn(),
           getWineries: jest.fn(() => []),
-        })),
-      },
-    }));
-
-    jest.doMock('@/lib/stores/wineryDataStore', () => ({
-      useWineryDataStore: {
-        getState: jest.fn(() => ({
           upsertWinery: jest.fn(),
         })),
       },
@@ -97,12 +90,8 @@ describe('visitStore SyncStore integration', () => {
     const visitId = 'v123';
     const visitData = { user_review: 'Updated review' };
     
-    // Mock wineryStore to return a winery with this visit
-    const { useWineryStore } = require('@/lib/stores/wineryStore');
-    useWineryStore.getState.mockReturnValue({
-        ...useWineryStore.getState(),
-        getWineries: () => [createMockWinery({ visits: [{ id: visitId, wineryId: 'w1' } as any] })]
-    });
+    // Set visit in visitStore (ST-03 single source of truth)
+    useVisitStore.setState({ visits: [{ id: visitId, wineryId: 'w1' } as any] });
 
     await act(async () => {
       await useVisitStore.getState().updateVisit(visitId, visitData, [], []);

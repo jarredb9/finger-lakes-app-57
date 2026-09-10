@@ -1,7 +1,7 @@
 import { act } from '@testing-library/react';
 import { useVisitStore } from '../visitStore';
 import { useTripStore } from '../tripStore';
-import { useWineryDataStore } from '../wineryDataStore';
+import { useWineryStore } from '../wineryStore';
 import { useFriendStore } from '../friendStore';
 import { createMockTrip, createMockWinery, createMockVisitWithWinery, createMockFriend, createMockFriendActivity } from '@/lib/test-utils/fixtures';
 
@@ -19,7 +19,7 @@ describe('Selective Persistence across Stores', () => {
     act(() => {
       useVisitStore.getState().reset();
       useTripStore.getState().reset();
-      useWineryDataStore.getState().reset();
+      useWineryStore.getState().reset();
       useFriendStore.getState().reset();
     });
     jest.clearAllMocks();
@@ -58,11 +58,11 @@ describe('Selective Persistence across Stores', () => {
     const manyWineries = Array.from({ length: 60 }, (_, i) => createMockWinery({ id: `w${i + 1}` as any }));
     
     act(() => {
-      useWineryDataStore.setState({ persistentWineries: manyWineries });
+      useWineryStore.setState({ persistentWineries: manyWineries });
     });
 
-    const persistOptions = (useWineryDataStore as any).persist.getOptions();
-    const partialState = persistOptions.partialize(useWineryDataStore.getState());
+    const persistOptions = (useWineryStore as any).persist.getOptions();
+    const partialState = persistOptions.partialize(useWineryStore.getState());
 
     expect(partialState.persistentWineries).toHaveLength(50);
     expect(partialState.persistentWineries[0].id).toBe('w1');

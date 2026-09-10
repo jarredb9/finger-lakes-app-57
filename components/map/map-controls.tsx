@@ -3,6 +3,7 @@
 import { FormEvent } from "react";
 import { useWineryMapContext } from "@/components/winery-map-context";
 import { useTripStore } from "@/lib/stores/tripStore";
+import { useShallow } from "zustand/react/shallow";
 import { MapSearchBar } from "./map-search-bar";
 import { MapFilterToggles } from "./map-filter-toggles";
 import { Winery, Trip } from "@/lib/types";
@@ -29,7 +30,19 @@ export interface MapControlsProps {
 
 export function MapControls(props: MapControlsProps = {}) {
   const contextValue = useWineryMapContext();
-  const tripStore = useTripStore();
+  const {
+    upcomingTrips: storeUpcomingTrips,
+    selectedTrip: storeSelectedTrip,
+    setSelectedTrip: storeSetSelectedTrip,
+    fetchTripById,
+  } = useTripStore(
+    useShallow((s) => ({
+      upcomingTrips: s.upcomingTrips,
+      selectedTrip: s.selectedTrip,
+      setSelectedTrip: s.setSelectedTrip,
+      fetchTripById: s.fetchTripById,
+    }))
+  );
 
   const searchLocation = props.searchLocation ?? contextValue.searchLocation ?? "";
   const setSearchLocation = props.setSearchLocation ?? contextValue.setSearchLocation;
@@ -43,9 +56,9 @@ export function MapControls(props: MapControlsProps = {}) {
   const handleFilterChange = props.handleFilterChange ?? contextValue.handleFilterChange ?? (() => {});
   const handlePlaceSelect = props.handlePlaceSelect ?? contextValue.handlePlaceSelect;
 
-  const upcomingTrips = props.upcomingTrips ?? tripStore.upcomingTrips ?? [];
-  const selectedTrip = props.selectedTrip !== undefined ? props.selectedTrip : tripStore.selectedTrip;
-  const setSelectedTrip = props.setSelectedTrip ?? tripStore.setSelectedTrip;
+  const upcomingTrips = props.upcomingTrips ?? storeUpcomingTrips ?? [];
+  const selectedTrip = props.selectedTrip !== undefined ? props.selectedTrip : storeSelectedTrip;
+  const setSelectedTrip = props.setSelectedTrip ?? storeSetSelectedTrip;
 
   const handleTripSelect = async (tripId: string) => {
     if (props.handleTripSelect) {
@@ -56,7 +69,7 @@ export function MapControls(props: MapControlsProps = {}) {
       setSelectedTrip?.(null);
       return;
     }
-    await tripStore.fetchTripById(tripId);
+    await fetchTripById(tripId);
     const updatedTrip = useTripStore.getState().trips.find((t) => t.id.toString() === tripId);
     if (updatedTrip) setSelectedTrip?.(updatedTrip);
   };

@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { useVisitStore } from "@/lib/stores/visitStore";
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
-import { useMapStore } from "@/lib/stores/mapStore";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useToast } from "@/hooks/use-toast";
 import { useAIFeaturesEnabled } from "@/hooks/use-ai-features";
 import { useLayoutTier } from "@/hooks/use-layout-tier";
+import { useStreetViewPanorama } from "@/hooks/use-street-view-panorama";
 import { Visit } from "@/lib/types";
 import { shallow } from "zustand/shallow";
+import { useShallow } from "zustand/react/shallow";
 
 export type WineryModalTab = "community" | "amenities" | "ai_insights" | "varietals" | "visits" | "trip";
 
@@ -41,21 +41,21 @@ export function useWineryModalState() {
     }
   }
 
-  const { map } = useMapStore();
+  const { isStreetViewActive, openStreetView } = useStreetViewPanorama();
   const isAIEnabled = useAIFeaturesEnabled();
   const { tier, isMobile, isTablet, isDesktop, isTouch } = useLayoutTier();
 
   const [activeTab, setActiveTab] = useState<WineryModalTab>("community");
   const effectiveActiveTab: WineryModalTab = !isAIEnabled && activeTab === "ai_insights" ? "community" : activeTab;
 
-  const activeWinery = useWineryDataStore((state) => {
+  const activeWinery = useWineryStore((state) => {
     if (!activeWineryId) return null;
     return (
       state.persistentWineries.find(
         (w) =>
           w.id === activeWineryId ||
           String(w.dbId) === String(activeWineryId) ||
-          w.googleId === activeWineryId
+          (w as any).googleId === activeWineryId
       ) || null
     );
   });
@@ -71,19 +71,31 @@ export function useWineryModalState() {
   );
 
   const loadingWineryId = useWineryStore((state) => state.loadingWineryId);
-  const { deleteVisit: deleteVisitAction } = useVisitStore();
+  const deleteVisitAction = useVisitStore((state) => state.deleteVisit);
+  const fetchVisitsForWinery = useVisitStore((state) => state.fetchVisitsForWinery);
 
-  const storeVisits = useVisitStore((state) =>
-    activeWineryId ? state.visits.filter(v => v.wineryId === activeWineryId || v.wineries?.google_place_id === activeWineryId) : []
+  const activeDbId = activeWinery?.dbId ? Number(activeWinery.dbId) : null;
+  const visits = useVisitStore(
+    useShallow((state) => {
+      if (!activeWineryId) return [];
+      return state.visits
+        .filter(
+          (v) =>
+            v.wineryId === activeWineryId ||
+            v.wineries?.google_place_id === activeWineryId ||
+            (activeDbId !== null && (Number(v.winery_id) === activeDbId || Number(v.wineries?.id) === activeDbId))
+        )
+        .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+    })
   );
 
-  const isLoading = loadingWineryId === activeWineryId;
+  useEffect(() => {
+    if (isWineryModalOpen && activeWineryId && activeWinery?.userVisited && visits.length === 0) {
+      fetchVisitsForWinery(activeWineryId);
+    }
+  }, [isWineryModalOpen, activeWineryId, activeWinery?.userVisited, visits.length, fetchVisitsForWinery]);
 
-  const wineryVisits = activeWinery?.visits || [];
-  const visits = [
-    ...storeVisits,
-    ...wineryVisits.filter(wv => !storeVisits.some(sv => String(sv.id) === String(wv.id)))
-  ].sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+  const isLoading = loadingWineryId === activeWineryId;
 
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const visitHistoryRef = useRef<HTMLDivElement>(null);
@@ -133,17 +145,9 @@ export function useWineryModalState() {
     return undefined;
   }, [visits.length, isWineryModalOpen, isLoading]);
 
-  const isStreetViewActive = useMapStore((state) => state.isStreetViewActive);
-
   const handleStreetViewClick = () => {
     if (!activeWinery) return;
-
-    if (map && typeof map.openStreetView === "function") {
-      map.openStreetView(activeWinery.latitude, activeWinery.longitude);
-    } else {
-      const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${activeWinery.latitude},${activeWinery.longitude}`;
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
+    openStreetView(activeWinery.latitude, activeWinery.longitude);
   };
 
   const handleWishlistToggle = async () => {
