@@ -29,7 +29,7 @@ Revise the plan to ensure optimal agent execution and prevent context blowup:
 
 Delegate the review to multiple multiple concurrent specialized research, code review, or other specialty agents to ensure a proper review is completed without main session or sub-agent context bloat. 
 ```
-
+**NOTE**: Concerd using /boost or /teamwork which auto delegates agents
 ---
 
 ## 2. Upfront Track Creation Prompt (Avoid Revisions)
