@@ -26,6 +26,8 @@ Revise the plan to ensure optimal agent execution and prevent context blowup:
 4. Bounded Phase Sizing:
    - Keep phases capped at 3–4 tasks maximum so each phase comfortably executes in a single clean agent session (<60 turns).
    - Ensure Task 1 (failing tests) explicitly covers every implementation task in that phase.
+
+Delegate the review to multiple multiple concurrent specialized research, code review, or other specialty agents to ensure a proper review is completed without main session or sub-agent context bloat. 
 ```
 
 ---
