@@ -44,7 +44,8 @@ test.describe('PWA Offline Functionality', () => {
     
     // Force winery visibility in list
     await page.evaluate(() => {
-        const dataStore = (window as any).useWineryDataStore.getState();
+        const wineryStore = (window as any).useWineryStore || (window as any).useWineryDataStore;
+        const dataStore = wineryStore.getState();
         const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
         
         if (mockWinery) {
@@ -104,9 +105,24 @@ test.describe('PWA Offline Functionality', () => {
     await expect(page.getByText('Offline note test')).toBeVisible({ timeout: 10000 });
 
     await closeWineryModal(page);
+
+    // Tier 2: Logic assertion on store state (pw-interactions.md:7)
+    const pendingVisit = await page.evaluate(() => {
+      const visits = (window as any).useVisitStore?.getState().visits || [];
+      return visits.find((v: any) => v.user_review === 'Offline note test');
+    });
+    expect(pendingVisit).toBeDefined();
+    expect(pendingVisit?.syncStatus).toBe('pending');
+
     await navigateToTab(page, 'History');
     
-    await expect(page.getByText('Vineyard of Illusion')).toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('Offline note test')).toBeVisible();
+    // Tier 1: UX assertion scoped to history container and visit card (pw-portal-encapsulation)
+    const historyContainer = page.getByTestId('visit-history-container');
+    await expect(historyContainer).toBeVisible({ timeout: 10000 });
+    await expect(historyContainer).toHaveAttribute('data-state', 'ready');
+
+    const offlineCard = historyContainer.locator('[data-testid="visit-card"]', { hasText: 'Offline note test' });
+    await expect(offlineCard).toBeVisible();
+    await expect(historyContainer.getByText('Vineyard of Illusion').first()).toBeVisible();
   });
 });

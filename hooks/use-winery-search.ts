@@ -67,6 +67,7 @@ export function useWinerySearch() {
         }
       }
 
+      if (!places || !geocoder) return;
       if (useMapStore.getState().isSearching) return;
 
       setIsSearching(true);
