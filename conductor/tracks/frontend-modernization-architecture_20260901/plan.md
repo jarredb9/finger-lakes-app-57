@@ -2,7 +2,7 @@
 
 Pruning dead dependencies and bundle bloat, unblocking Turbopack development with production-only Serwist, isolating map engines and CSS, decoupling modal trees from root layout via an Authenticated Modal Host, establishing robust Server Component boundaries with static metadata, achieving strict React 19 compiler adherence with useActionState, and hardening Service Worker auth caching.
 
-## Phase 1: Dependency Pruning, Tooling Optimization & Turbopack Unblocking
+## Phase 1: Dependency Pruning, Tooling Optimization & Turbopack Unblocking [checkpoint: 1cbfaa1]
 Focus: Audit and prune 7 dead dependencies and 10 unreferenced Radix primitives (retaining `@radix-ui/react-accordion`), clean brittle `package.json` overrides, make Serwist production-only in `next.config.mjs`, and enable Turbopack dev.
 
 - [x] Task: Write failing verification tests for dependency references, package overrides, and Serwist config gating [6d7eb7e]
@@ -17,7 +17,7 @@ Focus: Audit and prune 7 dead dependencies and 10 unreferenced Radix primitives 
     - [x] Wrap Serwist plugin activation in `next.config.mjs` so it only attaches when `process.env.NODE_ENV === 'production'`; in development, export plain `nextConfig`
     - [x] Update `package.json` dev script to `"dev": "next dev --turbo"` (keeping `"build": "next build --webpack"`)
     - [x] Verify local dev startup boots with Turbopack without Serwist Webpack hook errors
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Dependency Pruning, Tooling Optimization & Turbopack Unblocking' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Dependency Pruning, Tooling Optimization & Turbopack Unblocking' (Protocol in workflow.md) 1cbfaa1
 
 ## Phase 2: Map Engine Bundle Isolation & Dynamic Fallback Loading
 Focus: Isolate Mapbox GL CSS to map boundaries and dynamically load Google Maps fallback components via next/dynamic with DOM stability.
