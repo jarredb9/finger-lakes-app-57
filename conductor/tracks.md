@@ -26,3 +26,4 @@
 | **p0-security-runner-stabilization_20260901** | P0 Security Hotfixes, Production Safety & Test Runner Stabilization | [x] Archived | [Plan](./archive/p0-security-runner-stabilization_20260901/plan.md) |
 | **db-optimization-rpc-hardening_20260902** | Database Performance Optimization, RPC Hardening & Schema Integrity | [x] Archived | [Plan](./archive/db-optimization-rpc-hardening_20260902/plan.md) |
 | **state-consolidation-invariants_20260901** | Zustand 5 State Consolidation, Domain Invariants & Sync Integrity | [x] Archived | [Plan](./archive/state-consolidation-invariants_20260901/plan.md) |
+| **frontend-modernization-architecture_20260901** | Frontend Modernization, React 19 / App Router Architecture & Bundle Optimization | ⚪ In Progress | [Plan](./tracks/frontend-modernization-architecture_20260901/plan.md) |
