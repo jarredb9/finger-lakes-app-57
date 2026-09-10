@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useWineryDataStore } from "@/lib/stores/wineryDataStore";
+import { useWineryStore } from "@/lib/stores/wineryStore";
 import { Trash2 } from "lucide-react";
 import { useState } from "react";
 
@@ -16,7 +16,7 @@ export function DebugClientTools() {
       localStorage.removeItem('visit-storage');
       
       // 2. Clear Internal State
-      useWineryDataStore.getState().reset();
+      useWineryStore.getState().reset();
       
       setStatus("Cache cleared. Reloading...");
       

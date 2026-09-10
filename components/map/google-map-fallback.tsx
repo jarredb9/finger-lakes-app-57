@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Winery, Trip } from "@/lib/types";
-import { useMapStore } from "@/lib/stores/mapStore";
 import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
 import { GoogleMapAdapter } from "@/lib/maps/google-map-adapter";
 import { PIN_COLORS } from "@/lib/maps/mapbox-layers";
@@ -32,7 +31,6 @@ export function GoogleMapFallback({
   const mapRef = useRef<GoogleMapAdapter | null>(null);
   const [mapAdapter, setMapAdapter] = useState<GoogleMapAdapter | null>(null);
   const markersRef = useRef<any[]>([]);
-  const { setMap } = useMapStore();
   const [mapStyle, setMapStyle] = useState<"streets" | "outdoors">("streets");
 
   // Sync map type when mapStyle changes
@@ -66,7 +64,6 @@ export function GoogleMapFallback({
       const adapter = new GoogleMapAdapter(gmap);
       mapRef.current = adapter;
       setMapAdapter(adapter);
-      setMap(adapter as any);
 
       // Apply initial style
       gmap.setMapTypeId("roadmap");
@@ -78,9 +75,8 @@ export function GoogleMapFallback({
       active = false;
       mapRef.current = null;
       setMapAdapter(null);
-      setMap(null);
     };
-  }, [setMap]);
+  }, []);
 
   const allWineries = useMemo(() => {
     const all: any[] = [];

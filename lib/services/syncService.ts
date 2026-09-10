@@ -6,6 +6,48 @@ import { useVisitStore } from '@/lib/stores/visitStore';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
 import { isNetworkError } from '../stores/sync-utils';
+import { get as idbGet, set as idbSet } from 'idb-keyval';
+import { checkAndCleanupQuota, isQuotaError } from '@/lib/utils/quota';
+
+const DLQ_IDB_KEY = 'offline-mutation-dlq';
+
+export interface DLQEntry {
+  id: string;
+  mutationId: string;
+  type: string;
+  payload?: any;
+  error: {
+    message?: string;
+    status?: number;
+    details?: any;
+    [key: string]: any;
+  };
+  failedAt: string;
+  expiresAt: string;
+}
+
+function getErrorStatus(error: any): number | undefined {
+  if (!error) return undefined;
+  if (typeof error.status === 'number') return error.status;
+  if (typeof error.statusCode === 'number') return error.statusCode;
+  if (typeof error.code === 'number') return error.code;
+  if (typeof error.code === 'string') {
+    const parsed = parseInt(error.code, 10);
+    if (!isNaN(parsed) && parsed >= 400 && parsed < 600) return parsed;
+  }
+  return undefined;
+}
+
+function is4xxError(error: any): boolean {
+  const status = getErrorStatus(error);
+  return typeof status === 'number' && status >= 400 && status < 500;
+}
+
+function is5xxError(error: any): boolean {
+  const status = getErrorStatus(error);
+  if (typeof status === 'number' && status >= 500 && status < 600) return true;
+  return isNetworkError(error);
+}
 
 interface LogVisitPayload {
   wineryId: string;
@@ -30,6 +72,107 @@ interface UpdateVisitPayload {
 
 export const SyncService = {
   isSyncing: false,
+  retryAttempts: new Map<string, number>(),
+  backoffDelays: new Map<string, number>(),
+  nextRetryMap: new Map<string, number>(),
+  dlqEntries: [] as DLQEntry[],
+  dlqInitialized: false,
+
+  calculateBackoff(attempt: number): number {
+    const base = Math.min(60000, 1000 * Math.pow(2, Math.max(0, attempt - 1)));
+    const jitter = 0.8 + Math.random() * 0.4;
+    return Math.min(60000, Math.round(base * jitter));
+  },
+
+  getBackoffDelay(mutationId: string): number | undefined {
+    return this.backoffDelays.get(mutationId);
+  },
+
+  clearBackoff(mutationId: string) {
+    this.retryAttempts.delete(mutationId);
+    this.backoffDelays.delete(mutationId);
+    this.nextRetryMap.delete(mutationId);
+  },
+
+  async initDLQ(): Promise<void> {
+    if (this.dlqInitialized) return;
+    try {
+      const persisted = await idbGet(DLQ_IDB_KEY);
+      if (Array.isArray(persisted)) {
+        this.dlqEntries = persisted;
+      }
+    } catch (err) {
+      console.warn('[SyncService] Failed to load DLQ from IndexedDB:', err);
+    } finally {
+      this.dlqInitialized = true;
+    }
+  },
+
+  async getDLQEntries(): Promise<DLQEntry[]> {
+    await this.initDLQ();
+    return [...this.dlqEntries];
+  },
+
+  async seedDLQ(entries: DLQEntry[]): Promise<void> {
+    this.dlqInitialized = true;
+    this.dlqEntries = [...entries];
+    try {
+      await idbSet(DLQ_IDB_KEY, this.dlqEntries);
+    } catch (err) {
+      console.warn('[SyncService] Failed to persist seeded DLQ to IndexedDB:', err);
+    }
+  },
+
+  async purgeExpiredDLQ(): Promise<void> {
+    await this.initDLQ();
+    const now = Date.now();
+    const initialCount = this.dlqEntries.length;
+    this.dlqEntries = this.dlqEntries.filter(entry => {
+      const expiry = new Date(entry.expiresAt).getTime();
+      return expiry > now;
+    });
+    if (this.dlqEntries.length !== initialCount) {
+      try {
+        await idbSet(DLQ_IDB_KEY, this.dlqEntries);
+      } catch (err) {
+        console.warn('[SyncService] Failed to persist pruned DLQ to IndexedDB:', err);
+      }
+    }
+  },
+
+  async routeToDLQ(item: any, error: any, payload?: any): Promise<void> {
+    await this.initDLQ();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const dlqEntry: DLQEntry = {
+      id: item.id,
+      mutationId: item.id,
+      type: item.type,
+      payload: payload ?? item.encryptedPayload,
+      error: {
+        message: error?.message || 'Client error',
+        status: error?.status ?? 400,
+        details: error?.details,
+        ...(typeof error === 'object' && error !== null ? error : {}),
+      },
+      failedAt: now.toISOString(),
+      expiresAt,
+    };
+
+    this.dlqEntries.push(dlqEntry);
+    try {
+      await idbSet(DLQ_IDB_KEY, this.dlqEntries);
+    } catch (err: any) {
+      if (isQuotaError(err)) {
+        await checkAndCleanupQuota(0.8);
+        try {
+          await idbSet(DLQ_IDB_KEY, this.dlqEntries);
+        } catch {
+          // Ignore
+        }
+      }
+    }
+  },
 
   async waitForAuth(supabase: any) {
     const { data: { user } } = await supabase.auth.getUser();
@@ -100,6 +243,13 @@ export const SyncService = {
       }
       if (isDiagnostic) console.log(`[SyncService] Authenticated as ${user.id}. Processing queue...`);
 
+      // Purge expired DLQ entries (> 7 days)
+      try {
+        await this.purgeExpiredDLQ();
+      } catch (purgeErr) {
+        if (isDiagnostic) console.warn('[SyncService] Failed to purge expired DLQ entries:', purgeErr);
+      }
+
       for (const queueItem of queue) {
         // Re-read item from store state to get current status
         const item = useSyncStore.getState().queue.find(i => i.id === queueItem.id);
@@ -114,10 +264,18 @@ export const SyncService = {
           continue;
         }
 
+        // Defer replaying mutations that are still within their backoff window
+        const nextRetry = (item as any).nextRetryAt ?? this.nextRetryMap.get(item.id);
+        if (nextRetry && Date.now() < nextRetry) {
+          if (isDiagnostic) console.log(`[SyncService] Mutation ${item.id} is in backoff window until ${new Date(nextRetry).toISOString()}`);
+          continue;
+        }
+
         if (isDiagnostic) console.log(`[SyncService] Processing item ${item.id} (type: ${item.type}, status: ${item.status || 'pending'})`);
 
         processedTypes.add(item.type);
         try {
+          let skippedDueToOCC = false;
           if (isDiagnostic) console.log(`[SyncService] Decrypting payload for ${item.id}...`);
           const payload = await getDecryptedPayload<any>(item, user.id);
           let error = null;
@@ -288,6 +446,33 @@ export const SyncService = {
                   });
                   error = addError;
               } else {
+                // Optimistic Concurrency Control (OCC): Server-wins conflict resolution
+                const clientUpdatedAt = payload.clientUpdatedAt || (item as any).createdAt;
+                if (clientUpdatedAt && typeof supabase.from === 'function') {
+                  const queryBuilder = supabase.from('trips');
+                  if (typeof queryBuilder?.select === 'function') {
+                    const { data: remoteTrip } = await queryBuilder
+                      .select('id, updated_at')
+                      .eq('id', uTripId)
+                      .single();
+
+                    if (remoteTrip?.updated_at) {
+                      const remoteTime = new Date(remoteTrip.updated_at).getTime();
+                      const clientTime = new Date(clientUpdatedAt).getTime();
+                      if (remoteTime > clientTime) {
+                        console.warn(
+                          `[OCC] Remote record is newer than local mutation for trip ${uTripId}. Server wins.`,
+                          { tripId: uTripId, remoteUpdatedAt: remoteTrip.updated_at, clientUpdatedAt }
+                        );
+                        await removeMutation(item.id);
+                        this.clearBackoff(item.id);
+                        skippedDueToOCC = true;
+                        break;
+                      }
+                    }
+                  }
+                }
+
                 const { error: updateTripError } = await supabase
                   .from('trips')
                   .update(uUpdates)
@@ -384,31 +569,70 @@ export const SyncService = {
               continue;
           }
 
+          if (skippedDueToOCC) {
+            continue;
+          }
+
           if (error) {
             if (isDiagnostic) console.warn(`[SyncService] Failed to sync item ${item.id} (${item.type}):`, error);
             
-            if (isNetworkError(error)) {
-              if (isDiagnostic) console.log(`[SyncService] Network error detected for ${item.id}. Keeping it pending for retry.`);
-            } else {
-              if (isDiagnostic) console.log(`[SyncService] Permanent error detected for ${item.id}. Marking as error.`);
-              await updateMutationStatus(item.id, 'error');
+            if (is4xxError(error)) {
+              if (isDiagnostic) console.warn(`[SyncService] 4xx client error for ${item.id}. Routing to DLQ.`);
+              await this.routeToDLQ(item, error, payload);
+              await removeMutation(item.id);
+              this.clearBackoff(item.id);
+              continue;
             }
+
+            if (is5xxError(error)) {
+              const attempt = (this.retryAttempts.get(item.id) || 0) + 1;
+              this.retryAttempts.set(item.id, attempt);
+              const delay = this.calculateBackoff(attempt);
+              this.backoffDelays.set(item.id, delay);
+              const nextRetry = Date.now() + delay;
+              this.nextRetryMap.set(item.id, nextRetry);
+              (item as any).nextRetryAt = nextRetry;
+              if (isDiagnostic) console.log(`[SyncService] 5xx/network error for ${item.id}. Scheduling retry in ${delay}ms (attempt ${attempt}).`);
+              continue;
+            }
+
+            if (isDiagnostic) console.log(`[SyncService] Permanent error detected for ${item.id}. Marking as error.`);
+            await updateMutationStatus(item.id, 'error');
+            this.clearBackoff(item.id);
             continue; 
           }
 
           if (isDiagnostic) console.log(`[SyncService] synced successfully`);
           await removeMutation(item.id);
+          this.clearBackoff(item.id);
           if (isDiagnostic) console.log(`[SyncService] Removed item ${item.id} from queue.`);
 
         } catch (itemError) {
           if (isDiagnostic) console.warn(`[SyncService] Unexpected error syncing item ${item.id}:`, itemError);
           
-          if (isNetworkError(itemError)) {
-            if (isDiagnostic) console.log(`[SyncService] Network error (caught) for ${item.id}. Keeping it pending.`);
-          } else {
-            if (isDiagnostic) console.log(`[SyncService] Marking item ${item.id} as error (caught).`);
-            await updateMutationStatus(item.id, 'error');
+          if (is4xxError(itemError)) {
+            if (isDiagnostic) console.warn(`[SyncService] 4xx client error (caught) for ${item.id}. Routing to DLQ.`);
+            await this.routeToDLQ(item, itemError);
+            await removeMutation(item.id);
+            this.clearBackoff(item.id);
+            continue;
           }
+
+          if (is5xxError(itemError)) {
+            const attempt = (this.retryAttempts.get(item.id) || 0) + 1;
+            this.retryAttempts.set(item.id, attempt);
+            const delay = this.calculateBackoff(attempt);
+            this.backoffDelays.set(item.id, delay);
+            const nextRetry = Date.now() + delay;
+            this.nextRetryMap.set(item.id, nextRetry);
+            (item as any).nextRetryAt = nextRetry;
+            if (isDiagnostic) console.log(`[SyncService] 5xx/network error (caught) for ${item.id}. Scheduling retry in ${delay}ms (attempt ${attempt}).`);
+            continue;
+          }
+
+          if (isDiagnostic) console.log(`[SyncService] Marking item ${item.id} as error (caught).`);
+          await updateMutationStatus(item.id, 'error');
+          this.clearBackoff(item.id);
           continue;
         }
       }

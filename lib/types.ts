@@ -79,12 +79,13 @@ export interface SyncItem {
   createdAt: string;
   userId: string; // To ensure multi-user isolation on the same device
   status?: SyncStatus;
+  nextRetryAt?: number;
 }
 
 // Derived Interfaces (Frontend Models)
 
 export interface Visit {
-  id?: string; // String for temp ID (optimistic updates), number for DB ID (will refine later if needed)
+  id?: number | string; // number for DB ID, string for temp ID (optimistic updates)
   user_id?: string;
   visit_date: string;
   user_review: string;
@@ -156,7 +157,7 @@ export interface Winery {
   favoriteIsPrivate?: boolean;
   wishlistIsPrivate?: boolean;
   
-  visits?: Visit[];
+  visits?: Visit[]; // Deprecated: stripped from store cache (ST-03); visitStore is the sole source of truth
   
   // Trip context (derived)
   trip_id?: number;

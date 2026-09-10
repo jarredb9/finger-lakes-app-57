@@ -1,14 +1,12 @@
 "use client";
 
-import { memo, useEffect, useRef, useState, useMemo, useCallback } from "react";
+import { memo, useRef, useState, useMemo, useCallback } from "react";
 import Map, { Source, Layer, MapRef } from "react-map-gl/mapbox";
 import mapboxgl from "mapbox-gl";
 
 import { Winery, Trip } from "@/lib/types";
-import { useMapStore } from "@/lib/stores/mapStore";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useMounted } from "@/hooks/use-mounted";
-import { useStreetViewPanorama } from "@/hooks/use-street-view-panorama";
 import { Button } from "@/components/ui/button";
 import { Compass, Navigation } from "lucide-react";
 import {
@@ -41,27 +39,13 @@ const MapView = memo(({
   const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
   const mounted = useMounted();
   const mapRef = useRef<MapRef>(null);
-  const { setMap } = useMapStore();
-  const { closeWineryModal } = useUIStore();
+  const closeWineryModal = useUIStore((s) => s.closeWineryModal);
   const [mapStyle, setMapStyle] = useState<"streets" | "outdoors">("streets");
   const [cursor, setCursor] = useState<string>("");
 
-  const { openStreetView } = useStreetViewPanorama();
-
-  // Sync map instance with mapStore and attach openStreetView contract
   const handleMapLoad = useCallback(() => {
-    if (mapRef.current) {
-      const mapInstance = mapRef.current;
-      (mapInstance as any).openStreetView = openStreetView;
-      setMap(mapInstance);
-    }
-  }, [setMap, openStreetView]);
-
-  useEffect(() => {
-    return () => {
-      setMap(null);
-    };
-  }, [setMap]);
+    // Map view mounted
+  }, []);
 
   // Combine and type all wineries based on selected filters
   const allWineries = useMemo(() => {
@@ -189,6 +173,7 @@ const MapView = memo(({
     >
       <Map
         ref={mapRef}
+        id="default"
         onLoad={handleMapLoad}
         initialViewState={{
           latitude: 42.7,

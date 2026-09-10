@@ -1,5 +1,70 @@
 # Changelog
 
+## [Unreleased]
+
+**Milestone v3.6.0: Architectural Recovery & Test Reliability (In Progress)**
+
+### ⚙ Sprint 3: Zustand 5 State Consolidation, Domain Invariants & Sync Integrity ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43))
+* **Store Slice Decomposition (`tripStore`, `visitStore`)**:
+    * Decomposed monolithic `tripStore.ts` (1,225 lines) into focused, composable slices: `createTripDataSlice`, `createTripUISlice`, and `createTripRealtimeSlice` with dedicated helper modules (`tripFetchHelpers`, `tripMutationHelpers`, `tripPlanningHelpers`, etc.), each strictly under 300 lines of code.
+    * Decomposed `visitStore.ts` (656 lines) into modular slices: `createVisitDataSlice`, `createVisitUISlice`, and `createVisitRealtimeSlice` under 300 lines each.
+    * Maintained temporary `(window as any).useTripStore` backwards compatibility stubs for E2E testing.
+* **Canonical Winery Store Consolidation & 3NF Visit Normalization**:
+    * Deprecated and deleted redundant `wineryDataStore.ts`, consolidating all persistent caching, filtering, and selection logic into `wineryStore.ts`.
+    * Stripped duplicate `visits` arrays and child pointers from `Winery` entities, establishing `visitStore.ts` as the single source of truth for visits.
+    * Implemented on-demand visit hydration (`fetchVisitsForWinery`) in `visitStore` and wired modal state in `use-winery-modal-state.ts`.
+* **Domain Invariants, Coordinate Safety & Ghost Visit Purging**:
+    * Coerced all relational IDs (`trip_id`, `winery_id`, `user_id`) to `Number(id)` across store ingress, utility helpers, and TypeScript interfaces.
+    * Routed map click handlers in `use-winery-map.ts` through `standardizeWineryData`, eliminating legacy `.lat()` and `.lng()` calls in favor of `location.latitude` and `location.longitude`.
+    * Hardened `standardizeWineryData` to purge `visits` to `[]` when receiving either `user_visited: false` or camelCase `userVisited: false`.
+* **Offline Sync Resilience, Backoff, DLQ & Concurrency Control**:
+    * Replaced tight retry loops in `syncService.ts` with exponential backoff and jitter (1s to 60s max) on 5xx network errors.
+    * Implemented an IndexedDB Dead Letter Queue (DLQ) with 7-day automatic retention to route unrecoverable 4xx client errors without blocking the sync queue.
+    * Added optimistic concurrency control (OCC) comparing remote vs local `updated_at` timestamps on offline replay (server-wins conflict resolution).
+    * Wrapped multi-key persistence writes in single `readwrite` IndexedDB transactions (`setMany`) in `idb-persist-storage.ts`.
+    * Excluded `lastActionTimestamps` from IndexedDB `partialize` configuration to prevent stale locks from surviving hydration.
+* **Store Serializability & Realtime Teardown**:
+    * Removed Google Maps Map SDK DOM instances from `mapStore.ts` (sanitizing bounds to plain numbers `{ north, south, east, west }`) and `ReactNode` JSX elements from `uiStore.ts` in favor of serializable modal IDs.
+    * Added explicit WebSocket unsubscription teardown in `store.reset()` across `tripStore`, `visitStore`, and `socialStore` to prevent connection leaks on logout.
+* **Component Selector Hygiene & Re-Render Prevention**:
+    * Migrated whole-store subscriptions across `components/map/map-controls.tsx`, `components/trip-card.tsx`, and `components/winery/use-winery-modal-state.ts` to atomic selectors and `useShallow`.
+    * Added regression test suite `components/__tests__/selectorHygiene.test.tsx` verifying re-render isolation on unrelated store mutations.
+
+### ⚡ Sprint 2: Database Performance Optimization, RPC Hardening & Schema Integrity ([#42](https://github.com/jarredb9/finger-lakes-app-57/pull/42))
+* **Covering Relational & Lookup Indexes**:
+    * Added covering btree indexes in `20260902100000_indexes_and_query_optimization.sql` across `visits`, `trip_wineries`, `trip_members`, `follows`, and `wineries` to eliminate sequential table scans.
+    * Added composite index on `activity_ledger(activity_type, object_id)` to optimize activity ledger filtering.
+* **RPC Query Plan Optimization & Search Path Defense**:
+    * Rewrote `get_map_markers(p_user_id)` to set-based `LEFT JOIN` hash joins against pre-filtered subqueries, eliminating N+1 correlated scalar subqueries.
+    * Pinned `search_path = public, pg_temp` and enforced strict `p_user_id = auth.uid()` authorization checks to prevent schema poisoning and unauthorized marker access.
+* **RLS Function Inlining**:
+    * Refactored `is_visible_to_viewer` to `LANGUAGE sql STABLE SECURITY DEFINER`, allowing the PostgreSQL query planner to inline security predicates directly into query plans.
+* **Single-Roundtrip Composite RPCs**:
+    * Updated `toggle_favorite` and `toggle_wishlist` to return composite `jsonb` payloads (`{ "is_favorite": boolean, "winery_id": integer }` / `{ "on_wishlist": boolean, "winery_id": integer }`), eliminating redundant secondary `ensureInDb` upserts.
+    * Added strict JSON payload validation (`jsonb_typeof(p_winery_data) = 'object'`).
+* **Places API (New) V1 Migration & Awaited Cache Upsert**:
+    * Migrated `app/api/wineries/route.ts` to Places API (New) V1 (`https://places.googleapis.com/v1/places:searchText`) using POST requests and `X-Goog-FieldMask`.
+    * Replaced unawaited floating IIFE with a properly awaited Supabase admin upsert into the local winery cache.
+* **Dynamic Webhook Parameterization & Edge Function Cleanup**:
+    * Parameterized `handle_activity_ledger_notification` using `current_setting('app.settings.supabase_url', true)` and Supabase Vault, falling back to local Kong (`http://kong:8000`) without hardcoding project secrets.
+    * Deleted orphaned Edge Function `update-gemini-summary/` and dropped legacy `tr_visits_gemini_summary` trigger.
+
+### 🛡️ Sprint 1: P0 Security Hotfixes, Production Safety & Test Runner Stabilization ([#40](https://github.com/jarredb9/finger-lakes-app-57/pull/40))
+* **Database Security & Privilege Hardening**:
+    * Removed overly permissive RLS update policy (`"Authenticated users can update wineries"`) on `public.wineries` and revoked direct table `UPDATE` privileges from `anon` and `authenticated` roles.
+    * Revoked execution privileges on `public.bulk_upsert_wineries(jsonb[])` from `PUBLIC`, `anon`, and `authenticated`, restricting execution strictly to `service_role`.
+    * Set explicit `search_path = public, vault, extensions, pg_temp` on `handle_activity_ledger_notification`.
+* **Middleware & Route Protection**:
+    * Updated `proxy.ts` to preserve updated session cookies during `/login` redirects, preventing session token loss.
+    * Added `/privacy`, `/terms`, `/workbox-*`, and `/worker-*` route whitelists to unauthenticated bypass checks in `proxy.ts`.
+    * Restricted `app/api/auth/confirm-user/route.ts` to development/test environments with required secret headers, returning 404 in production.
+* **State Sync & Offline Queue Bugfix**:
+    * Removed corrupting `handleSyncError(..., {})` catch block in `lib/stores/tripStore.ts` that enqueued empty objects into IndexedDB during sync failures.
+* **Test Runner Stabilization & Decoupling**:
+    * Segregated live-database integration tests into `*.integration.test.ts` and excluded them from standard `npm test`, adding a dedicated `npm run test:integration` script.
+    * Refactored `e2e/utils.ts` to lazily resolve Supabase admin clients via dynamic proxy, eliminating crashes when optional environment variables are unset.
+    * Removed legacy CommonJS `node-fetch@2` polyfill, standardizing on Node 24 native Fetch and Web Streams in JSDOM.
+
 ## [3.5.0] - 2026-08-28
 
 **Map Core, Search Autocomplete & Controls Decoupling Refactor**
