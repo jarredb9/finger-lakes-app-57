@@ -92,10 +92,9 @@ export function useWineryMap(userId: string) {
         
         debounceTimeoutRef.current = setTimeout(() => {
           const state = useMapStore.getState();
-          const hasSearched = !!state.lastSearchedBounds;
 
-          // Trigger search if autoSearch is on OR if this is the first search (initial load)
-          if (!state.autoSearch && hasSearched) return;
+          // Only trigger search on map movement if autoSearch is enabled
+          if (!state.autoSearch) return;
           
           if (!currentBounds) return;
 
@@ -133,12 +132,10 @@ export function useWineryMap(userId: string) {
 
     if (typeof mapInstance.on === "function") {
       mapInstance.on("moveend", handleMapMovement);
-      mapInstance.on("load", handleMapMovement);
       // Trigger initial search/bounds population immediately upon map mount/availability
       handleMapMovement();
       return () => {
         mapInstance.off("moveend", handleMapMovement);
-        mapInstance.off("load", handleMapMovement);
         if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       };
     }

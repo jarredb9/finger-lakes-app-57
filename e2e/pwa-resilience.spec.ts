@@ -32,7 +32,8 @@ test.describe('PWA Resilience & Offline Integrity', () => {
 
     // 1. Prepare Winery Context
     await page.evaluate(() => {
-        const dataStore = (window as any).useWineryDataStore.getState();
+        const wineryStore = (window as any).useWineryStore || (window as any).useWineryDataStore;
+        const dataStore = wineryStore.getState();
         const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Mock Winery One');
         
         if (mockWinery) {
@@ -69,7 +70,8 @@ test.describe('PWA Resilience & Offline Integrity', () => {
     
     await page.evaluate(async ({ date, review }) => {
         const b64 = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-        const winery = (window as any).useWineryDataStore.getState().persistentWineries.find((w: any) => w.name === 'Mock Winery One');
+        const wineryStore = (window as any).useWineryStore || (window as any).useWineryDataStore;
+        const winery = wineryStore.getState().persistentWineries.find((w: any) => w.name === 'Mock Winery One');
         
         if (winery) {
             // Reconstitution Rule: Photos stored as base64 in the queue

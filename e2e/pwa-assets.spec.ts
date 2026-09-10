@@ -28,7 +28,8 @@ test.describe('PWA Assets & Sync', () => {
         // Initialize signal in localStorage to survive reloads/redirects
         localStorage.removeItem('_E2E_ENABLE_REAL_SYNC');
 
-        const dataStore = (window as any).useWineryDataStore.getState();
+        const wineryStore = (window as any).useWineryStore || (window as any).useWineryDataStore;
+        const dataStore = wineryStore.getState();
         const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
         
         if (mockWinery) {
@@ -65,7 +66,7 @@ test.describe('PWA Assets & Sync', () => {
     });
 
     // 3. Create Visit (Queued)
-    await page.getByTestId('log-visit-button').click({ force: true });
+    await page.getByTestId('log-visit-button').click();
     await logVisit(page, { date: '2025-01-02', review: 'Sync Me!' });
     
     // 4. Setup Interception for Sync (using context.route and page.route for SW/Direct)
