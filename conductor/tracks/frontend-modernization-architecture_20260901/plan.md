@@ -61,7 +61,7 @@ Focus: Extract heavy modal trees from root `app/layout.tsx` into an `Authenticat
     - [x] Verify test suite and typecheck pass cleanly
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Root Layout Decoupling & Authenticated Modal Host' (Protocol in workflow.md) 45c08c5
 
-## Phase 4: Server Component Boundaries, Route Metadata & Deterministic Dates
+## Phase 4: Server Component Boundaries, Route Metadata & Deterministic Dates [checkpoint: 207af41c]
 Focus: Convert `/friends/[id]`, `/forgot-password`, and `/manual-confirm` into Server Components exporting static metadata, whitelist `/manual-confirm` in `proxy.ts`, fix middleware cookie forwarding, add App Router error boundary, and eliminate non-deterministic dates.
 
 - [x] Task: Write failing tests for Server Component auth guards, route metadata, proxy whitelisting, cookie forwarding, and SSR date determinism [5f33899]
