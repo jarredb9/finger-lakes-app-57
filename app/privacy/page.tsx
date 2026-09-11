@@ -2,6 +2,8 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 
+const LAST_UPDATED = "January 15, 2025";
+
 export default function PrivacyPolicy() {
   return (
     <div className="container mx-auto py-10 px-4 md:px-6 max-w-4xl">
@@ -14,7 +16,7 @@ export default function PrivacyPolicy() {
         </Button>
       </div>
       <h1 className="text-3xl font-bold mb-6">Privacy Policy</h1>
-      <p className="text-sm text-muted-foreground mb-8">Last Updated: {new Date().toLocaleDateString()}</p>
+      <p className="text-sm text-muted-foreground mb-8">Last Updated: {LAST_UPDATED}</p>
 
       <div className="space-y-6">
         <section>
