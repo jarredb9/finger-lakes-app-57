@@ -142,3 +142,12 @@ Focus: Restrict `/auth/v1/*` routes in `app/sw.ts` strictly to NetworkOnly, brid
     - [ ] Run containerized Playwright E2E tests via `./scripts/run-e2e-container.sh webkit e2e/pwa-offline.spec.ts`
     - [ ] Run containerized Playwright E2E tests via `./scripts/run-e2e-container.sh webkit e2e/trip-flow.spec.ts`
 - [ ] Task: Conductor - User Manual Verification 'Phase 7: Service Worker Auth Hygiene & Production Quality Audit' (Protocol in workflow.md)
+
+## Out-of-Band Hardening: Store Invariants & Test Hygiene [checkpoint: ee5b2d8a]
+Incidental test scope cleanup and domain invariant verification performed on this branch:
+- [x] Task: Clean Jest coverage scope and exclude E2E test harness [ee5b2d8a]
+    - [x] Configure `collectCoverageFrom` in `jest.config.mjs` to target application code and exclude `e2e/**`, test files, and declarations
+- [x] Task: Fix store state synchronization and snapshot rollbacks [ee5b2d8a]
+    - [x] Synchronize `tripsForDate` on winery removal and add snapshot rollbacks upon server rejection in `lib/stores/slices/tripWineryHelpers.ts` and `lib/stores/slices/tripNoteHelpers.ts`
+- [x] Task: Add store domain invariants behavioral test suite [ee5b2d8a]
+    - [x] Create `lib/stores/__tests__/tripStore.domainInvariants.test.ts` verifying React 19 StrictMode mutex initialization, 1000ms clock-skew staleness filtering, multi-collection sync, and negative temporary integer IDs
