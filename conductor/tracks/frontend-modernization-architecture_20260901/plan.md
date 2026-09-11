@@ -27,14 +27,14 @@ Focus: Isolate Mapbox GL CSS to map boundaries, harden Mapbox against runtime We
     - [x] Add test verifying `components/map/MapView.tsx` loads `GoogleMapFallback` via `next/dynamic` and does not evaluate `@googlemaps/js-api-loader` on Mapbox-supported clients
     - [x] Add test verifying `MapView.tsx` transitions gracefully to `GoogleMapFallback` when Mapbox emits a WebGL context creation failure or runtime error
     - [x] Add test verifying coordinate filtering excludes `NaN` / non-finite coordinates from GeoJSON generation
-- [ ] Task: Isolate Mapbox CSS, harden WebGL error boundary, and dynamically load Google Maps fallback
-    - [ ] Move `import 'mapbox-gl/dist/mapbox-gl.css'` from `app/layout.tsx` into `components/map/MapView.tsx`
-    - [ ] Refactor `components/map/MapView.tsx` to load `GoogleMapFallback` via `next/dynamic({ ssr: false })` using exact filesystem casing (`./google-map-fallback`)
-    - [ ] Add `onError` listener and `MapErrorBoundary` in `components/map/MapView.tsx` to automatically trigger `GoogleMapFallback` on WebGL failure or style error
-    - [ ] Maintain strict DOM stability on single root element (`data-testid="map-view-canvas" data-state="loading|ready|error"`) without nested duplicate test IDs
-    - [ ] Purge DOM container and event listeners on effect cleanup in `components/map/google-map-fallback.tsx` to eliminate React 19 StrictMode context leaks
-    - [ ] Sanitize coordinates in `MapView.tsx:wineriesGeoJSON` to prevent Mapbox parser crashes on `NaN`
-    - [ ] Enforce Tailwind sizing constraints on `MapView.tsx` wrapper and trigger `map.resize()` on load
+- [x] Task: Isolate Mapbox CSS, harden WebGL error boundary, and dynamically load Google Maps fallback [d08ebfe]
+    - [x] Move `import 'mapbox-gl/dist/mapbox-gl.css'` from `app/layout.tsx` into `components/map/MapView.tsx`
+    - [x] Refactor `components/map/MapView.tsx` to load `GoogleMapFallback` via `next/dynamic({ ssr: false })` using exact filesystem casing (`./google-map-fallback`)
+    - [x] Add `onError` listener and `MapErrorBoundary` in `components/map/MapView.tsx` to automatically trigger `GoogleMapFallback` on WebGL failure or style error
+    - [x] Maintain strict DOM stability on single root element (`data-testid="map-view-canvas" data-state="loading|ready|error"`) without nested duplicate test IDs
+    - [x] Purge DOM container and event listeners on effect cleanup in `components/map/google-map-fallback.tsx` to eliminate React 19 StrictMode context leaks
+    - [x] Sanitize coordinates in `MapView.tsx:wineriesGeoJSON` to prevent Mapbox parser crashes on `NaN`
+    - [x] Enforce Tailwind sizing constraints on `MapView.tsx` wrapper and trigger `map.resize()` on load
 - [ ] Task: Verify Mapbox rendering and fallback behavior across unit test suite
     - [ ] Update `components/map/__tests__/MapView.test.tsx` for dynamic import compatibility (`findByTestId`) and verify tests pass cleanly
     - [ ] Run `npm run type-check` to verify zero type regressions in map components
