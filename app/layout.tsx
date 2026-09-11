@@ -6,15 +6,10 @@ import '@/lib/utils/pointer-capture-patch'
 import { Toaster } from "@/components/ui/toaster"
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { AuthProvider } from '@/components/auth-provider'
-import { GlobalModalRenderer } from '@/components/global-modal-renderer'
-import { VisitFormModal } from '@/components/VisitFormModal'
-import { WineryNoteModal } from '@/components/WineryNoteModal'
 import { ModalHost } from '@/components/modal-host'
 import { PwaHandler } from '@/components/pwa-handler'
 import { E2EStoreExposer } from '@/components/e2e-store-exposer'
-
 import { CookieConsent } from '@/components/cookie-consent'
-import { TripShareDialogWrapper } from '@/components/trip-share-dialog-wrapper'
 
 export const metadata: Metadata = {
   title: 'Winery Visit Planner',
@@ -61,10 +56,6 @@ export default function RootLayout({
               </AuthProvider>
               <Toaster />
               <PwaHandler />
-              <TripShareDialogWrapper />
-              <GlobalModalRenderer />
-              <VisitFormModal />
-              <WineryNoteModal />
             </main>
             <CookieConsent />
           </div>
