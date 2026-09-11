@@ -131,7 +131,7 @@ describe("Server Component Boundaries, Route Metadata & Deterministic Dates (Pha
       const content = fs.readFileSync(privacyPath, "utf8");
 
       expect(content).not.toMatch(/new\s+Date\(\)\.toLocaleDateString\(\)/);
-      expect(content).toMatch(/January 15, 2025/);
+      expect(content).toMatch(/LAST_UPDATED\s*=\s*["'][^"']+["']/);
     });
 
     it("asserts app/terms/page.tsx uses static date constant and eliminates new Date().toLocaleDateString()", () => {
@@ -139,7 +139,7 @@ describe("Server Component Boundaries, Route Metadata & Deterministic Dates (Pha
       const content = fs.readFileSync(termsPath, "utf8");
 
       expect(content).not.toMatch(/new\s+Date\(\)\.toLocaleDateString\(\)/);
-      expect(content).toMatch(/January 15, 2025/);
+      expect(content).toMatch(/LAST_UPDATED\s*=\s*["'][^"']+["']/);
     });
   });
 
