@@ -1,5 +1,5 @@
 // components/WineryQnA.tsx
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useRef } from "react";
 import { PlaceReview, Winery } from "@/lib/types";
 import { Card, CardContent, CardDescription } from "@/components/ui/card";
 import { MessageSquare, Dog, CalendarCheck, Baby, CheckCircle2, XCircle, Car, Zap, Accessibility, Sun, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, HelpCircle } from "lucide-react";
@@ -315,6 +315,103 @@ export const questions = [
 
 const reservationPlatforms = ['tock.com', 'resy.com', 'opentable.com', 'cellarpass.com'];
 
+interface WineryQuestionReviewCardProps {
+  searchResults: { review: PlaceReview; snippet: string }[] | null;
+  userRatingCount?: number | null;
+}
+
+export function WineryQuestionReviewCard({
+  searchResults,
+  userRatingCount,
+}: WineryQuestionReviewCardProps) {
+  const [activeReviewIndex, setActiveReviewIndex] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  const currentResult = searchResults?.[activeReviewIndex];
+
+  return (
+    <div className="space-y-3">
+      {currentResult ? (
+        <>
+          <Card className="bg-muted/30 border-border/50">
+            <CardContent className="p-3 text-sm">
+              <div className="relative">
+                <p className="italic text-foreground leading-relaxed">
+                  {isExpanded ? currentResult.review.text : currentResult.snippet}
+                </p>
+                <button 
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="text-primary hover:underline font-medium mt-1.5 flex items-center gap-1 text-xs"
+                  data-testid="toggle-full-review"
+                >
+                  {isExpanded ? (
+                    <><ChevronUp className="h-4.5 w-4.5" /> Show less</>
+                  ) : (
+                    <><ChevronDown className="h-4.5 w-4.5" /> Show full review</>
+                  )}
+                </button>
+              </div>
+              <p className="text-xs text-right text-muted-foreground mt-2">
+                - {currentResult.review.author_name} ({currentResult.review.relative_time_description})
+              </p>
+            </CardContent>
+          </Card>
+          
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-1">
+            <div className="flex items-center flex-wrap gap-2">
+              {searchResults && searchResults.length > 0 && (
+                <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">
+                  {activeReviewIndex + 1} of {searchResults.length}
+                </span>
+              )}
+              {userRatingCount && userRatingCount > 5 && (
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <HelpCircle className="h-3 w-3" />
+                  Top results from {userRatingCount} total reviews.
+                </p>
+              )}
+            </div>
+
+            {searchResults && searchResults.length > 1 && (
+              <div className="flex gap-2 w-full sm:w-auto justify-end">
+                {activeReviewIndex > 0 && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setActiveReviewIndex(activeReviewIndex - 1)}
+                    className="text-xs h-7 gap-1 border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary"
+                    data-testid="prev-review"
+                  >
+                    <ChevronLeft className="h-3 w-3" />
+                    Previous
+                  </Button>
+                )}
+                
+                {activeReviewIndex < searchResults.length - 1 && (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setActiveReviewIndex(activeReviewIndex + 1)}
+                    className="text-xs h-7 gap-1 border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary"
+                    data-testid="next-review"
+                  >
+                    Next
+                    <ChevronRight className="h-3 w-3" />
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        </>
+      ) : (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No mention of this in the reviews. It might be best to call or check their website.
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function WineryQnA({ 
   winery, 
   activeQuestionId: activeQuestionIdProp,
@@ -323,8 +420,6 @@ export default function WineryQnA({
   const [localActiveQuestionId, setLocalActiveQuestionId] = useState<string | null>(null);
   const activeQuestionId = activeQuestionIdProp !== undefined ? activeQuestionIdProp : (localActiveQuestionId || (winery.reviews && winery.reviews.length > 0 ? "dogs" : null));
   const setActiveQuestionId = setActiveQuestionIdProp !== undefined ? setActiveQuestionIdProp : setLocalActiveQuestionId;
-  const [activeReviewIndex, setActiveReviewIndex] = useState(0);
-  const [isExpanded, setIsExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   
   const reviews = winery.reviews;
@@ -387,19 +482,9 @@ export default function WineryQnA({
     return foundReviews;
   }, [activeQuestionId, reviews, winery.reservable, hasOnlineReservations]);
 
-  // Reset index and expansion when question changes
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setActiveReviewIndex(0);
-     
-    setIsExpanded(false);
-  }, [activeQuestionId]);
-
   if (!activeQuestionId) {
     return null;
   }
-
-  const currentResult = searchResults?.[activeReviewIndex];
 
   return (
     <div className="space-y-4 pt-2" ref={containerRef} data-testid="winery-qna">
@@ -464,85 +549,11 @@ export default function WineryQnA({
             )}
           </>
         ) : (
-          <div className="space-y-3">
-            {currentResult ? (
-              <>
-                <Card className="bg-muted/30 border-border/50">
-                  <CardContent className="p-3 text-sm">
-                    <div className="relative">
-                      <p className="italic text-foreground leading-relaxed">
-                        {isExpanded ? currentResult.review.text : currentResult.snippet}
-                      </p>
-                      <button 
-                        onClick={() => setIsExpanded(!isExpanded)}
-                        className="text-primary hover:underline font-medium mt-1.5 flex items-center gap-1 text-xs"
-                        data-testid="toggle-full-review"
-                      >
-                        {isExpanded ? (
-                          <><ChevronUp className="h-4.5 w-4.5" /> Show less</>
-                        ) : (
-                          <><ChevronDown className="h-4.5 w-4.5" /> Show full review</>
-                        )}
-                      </button>
-                    </div>
-                    <p className="text-xs text-right text-muted-foreground mt-2">
-                      - {currentResult.review.author_name} ({currentResult.review.relative_time_description})
-                    </p>
-                  </CardContent>
-                </Card>
-                
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mt-1">
-                  <div className="flex items-center flex-wrap gap-2">
-                    {searchResults && searchResults.length > 0 && (
-                      <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-wider font-bold">
-                        {activeReviewIndex + 1} of {searchResults.length}
-                      </span>
-                    )}
-                    {winery.userRatingCount && winery.userRatingCount > 5 && (
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <HelpCircle className="h-3 w-3" />
-                        Top results from {winery.userRatingCount} total reviews.
-                      </p>
-                    )}
-                  </div>
-
-                  {searchResults && searchResults.length > 1 && (
-                    <div className="flex gap-2 w-full sm:w-auto justify-end">
-                      {activeReviewIndex > 0 && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setActiveReviewIndex(activeReviewIndex - 1)}
-                          className="text-xs h-7 gap-1 border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary"
-                          data-testid="prev-review"
-                        >
-                          <ChevronLeft className="h-3 w-3" />
-                          Previous
-                        </Button>
-                      )}
-                      
-                      {activeReviewIndex < searchResults.length - 1 && (
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          onClick={() => setActiveReviewIndex(activeReviewIndex + 1)}
-                          className="text-xs h-7 gap-1 border-primary/20 hover:border-primary/50 hover:bg-primary/5 text-primary"
-                          data-testid="next-review"
-                        >
-                          Next
-                          <ChevronRight className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No mention of this in the reviews. It might be best to call or check their website.
-              </p>
-            )}
-          </div>
+          <WineryQuestionReviewCard
+            key={activeQuestionId}
+            searchResults={searchResults}
+            userRatingCount={winery.userRatingCount}
+          />
         )}
       </div>
     </div>

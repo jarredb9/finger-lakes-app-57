@@ -13,19 +13,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import TripForm from "./trip-form";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { formatDateLocal } from "@/lib/utils";
+import { useMounted } from "@/hooks/use-mounted";
 
 export default function TripPlanner({ initialDate, user, hideCalendar = false, hideTrips = false }: { initialDate: Date, user: AuthenticatedUser, hideCalendar?: boolean, hideTrips?: boolean }) {
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(initialDate);
     const [isCreateTripModalOpen, setCreateTripModalOpen] = useState(false);
     const { openShareDialog } = useUIStore();
-    const [isMounted, setIsMounted] = useState(false);
+    const isMounted = useMounted();
 
     const { tripsForDate = [], isLoading, fetchTripsForDate } = useTripStore();
-
-    useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setIsMounted(true);
-    }, []);
 
     useEffect(() => {
         if (selectedDate) {
