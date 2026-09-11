@@ -23,7 +23,8 @@ The primary objectives are organized into **7 tightly bounded, domain-separated 
 - **FE-03 (Map Engine Isolation & Error Boundary - Phase 2)**:
   - Move `import 'mapbox-gl/dist/mapbox-gl.css'` from `app/layout.tsx` into `components/map/MapView.tsx`.
   - Dynamically load `GoogleMapFallback` via `next/dynamic({ ssr: false })` using exact kebab-case `./google-map-fallback` to prevent Linux case-sensitive build failures.
-  - Implement `MapErrorBoundary` and `onError` handler on `<Map>` in `MapView.tsx` to automatically transition to `GoogleMapFallback` upon WebGL context creation failure or tile loading timeouts.
+  - Implement `MapErrorBoundary` (extracted to `components/map/map-error-boundary.tsx`) and `onError` handler on `<Map>` in `MapView.tsx` to automatically transition to `GoogleMapFallback` upon WebGL context creation failure or tile loading timeouts.
+  - Extract reusable `<MapStyleSwitcher />` into `components/map/map-style-switcher.tsx`, unifying style controls across `MapView.tsx` and `google-map-fallback.tsx` while keeping `MapView.tsx` under 300 lines (264 lines).
   - Ensure exactly ONE element holds `data-testid="map-view-canvas"` to prevent duplicate selector collisions in testing frameworks.
   - Purge DOM container and event listeners on effect cleanup in `google-map-fallback.tsx` to prevent React 19 StrictMode context leaks.
   - Sanitize winery coordinates (`Number.isFinite`) in `wineriesGeoJSON` to prevent Mapbox GeoJSON parser crashes on `NaN`.
@@ -87,9 +88,10 @@ The primary objectives are organized into **7 tightly bounded, domain-separated 
    - Remove `import 'mapbox-gl/dist/mapbox-gl.css'` from `app/layout.tsx`.
    - Move Mapbox CSS import to `components/map/MapView.tsx`.
    - Constrain `MapView.tsx` wrapper with explicit Tailwind dimensions and trigger `map.resize()` on load.
-2. **Harden Mapbox with Runtime Fallback**:
-   - Wrap `<Map>` inside `MapErrorBoundary` and attach an `onError` listener to detect WebGL context creation failures and tile style errors.
+2. **Harden Mapbox with Runtime Fallback & Modular Decomposition**:
+   - Wrap `<Map>` inside `MapErrorBoundary` (extracted to `components/map/map-error-boundary.tsx`) and attach an `onError` listener to detect WebGL context creation failures and tile style errors.
    - Automatically transition to `GoogleMapFallback` without throwing unhandled exceptions.
+   - Extract shared `<MapStyleSwitcher />` into `components/map/map-style-switcher.tsx` across `MapView.tsx` and `google-map-fallback.tsx`.
 3. **Lazy-Load Google Maps Fallback with Strict DOM Stability**:
    - Dynamically import `GoogleMapFallback` via `next/dynamic({ ssr: false })` using exact kebab-case `./google-map-fallback`.
    - Maintain strict DOM stability on a single container (`data-testid="map-view-canvas"` with `data-state="loading|ready|error"`).
