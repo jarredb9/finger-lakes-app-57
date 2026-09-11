@@ -82,7 +82,7 @@ Focus: Convert `/friends/[id]`, `/forgot-password`, and `/manual-confirm` into S
     - [x] In `utils/supabase/auth-helper.ts`, update `setAll` to forward modified request cookies via `NextResponse.next({ request })`
     - [x] Replace dynamic `new Date().toLocaleDateString()` in `app/privacy/page.tsx` and `app/terms/page.tsx` with static `LAST_UPDATED = "January 15, 2025"` constant
     - [x] In `components/VisitForm.tsx`, replace `new Date().toISOString().split("T")[0]` (lines 37, 48, 108) with `getTodayLocal()`, and retain `editingVisit.visit_date` directly without re-serializing via `toISOString()` (line 59)
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Server Component Boundaries, Route Metadata & Deterministic Dates' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Server Component Boundaries, Route Metadata & Deterministic Dates' (Protocol in workflow.md)
 
 ## Phase 5: React 19 Adherence: State Derivation & Compiler Compliance
 Focus: Eliminate render-time `setState` calls in `use-winery-modal-state.ts` via keyed inner content, preserve outer drawer/dialog DOM stability, key review display in `WineryQnA.tsx`, derive state in `use-trip-actions.ts`, adopt `useMounted()`, and remove all 3 `react-hooks/set-state-in-effect` suppressions.
