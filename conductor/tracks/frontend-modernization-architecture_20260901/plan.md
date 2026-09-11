@@ -96,11 +96,11 @@ Focus: Eliminate render-time `setState` calls in `use-winery-modal-state.ts` via
     - [x] In `components/winery/use-winery-modal-state.ts`, eliminate `prevActiveWineryId`, `setPrevActiveWineryId`, and render-phase state setters
     - [x] In `components/winery-modal.tsx`, maintain stable outer `<Drawer>`, `<Dialog>`, and `<Sheet>` containers, and extract inner content to `<WineryModalContent key={activeWineryId} activeWineryId={activeWineryId} />` to reset tabs, lightbox, and scroll state via React reconciliation
     - [x] In `lib/stores/uiStore.ts`, reset drawer `snapPoint` to default `"300px"` in the `openWineryModal` action handler to avoid snap point desynchronization
-- [ ] Task: Key review content in `WineryQnA.tsx` and eliminate all effect suppressions
-    - [ ] In `components/WineryQnA.tsx`, extract review display into `<WineryQuestionReviewCard key={activeQuestionId} />` and remove `useEffect` state reset
-    - [ ] In `hooks/use-trip-actions.ts`, derive `currentMembers` directly as `trip.members || []` and remove unused `selectedFriends` state, setter, and effect
-    - [ ] In `components/trip-planner.tsx`, replace local `isMounted` state and effect with shared `useMounted()` hook
-    - [ ] Remove all 3 `eslint-disable-next-line react-hooks/set-state-in-effect` comments across the codebase
+- [x] Task: Key review content in `WineryQnA.tsx` and eliminate all effect suppressions [e80297d]
+    - [x] In `components/WineryQnA.tsx`, extract review display into `<WineryQuestionReviewCard key={activeQuestionId} />` and remove `useEffect` state reset
+    - [x] In `hooks/use-trip-actions.ts`, derive `currentMembers` directly as `trip.members || []` and remove unused `selectedFriends` state, setter, and effect
+    - [x] In `components/trip-planner.tsx`, replace local `isMounted` state and effect with shared `useMounted()` hook
+    - [x] Remove all 3 `eslint-disable-next-line react-hooks/set-state-in-effect` comments across the codebase
 - [ ] Task: Conductor - User Manual Verification 'Phase 5: React 19 Adherence: State Derivation & Compiler Compliance' (Protocol in workflow.md)
 
 ## Phase 6: React 19 Form Actions Modernization
