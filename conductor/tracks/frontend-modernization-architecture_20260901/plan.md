@@ -92,10 +92,10 @@ Focus: Eliminate render-time `setState` calls in `use-winery-modal-state.ts` via
     - [x] Add test asserting outer modal containers (`Drawer`, `Dialog`, `Sheet`) maintain stable DOM instances while inner content resets via `key={activeWineryId}`
     - [x] Add tests for `WineryQnA.tsx` asserting active question transitions reset review state without `useEffect` state synchronization or out-of-bounds review flashes
     - [x] Add test asserting zero `react-hooks/set-state-in-effect` suppressions exist across the entire repository
-- [ ] Task: Eliminate render-time `setState` in `use-winery-modal-state.ts` and key inner modal content
-    - [ ] In `components/winery/use-winery-modal-state.ts`, eliminate `prevActiveWineryId`, `setPrevActiveWineryId`, and render-phase state setters
-    - [ ] In `components/winery-modal.tsx`, maintain stable outer `<Drawer>`, `<Dialog>`, and `<Sheet>` containers, and extract inner content to `<WineryModalContent key={activeWineryId} activeWineryId={activeWineryId} />` to reset tabs, lightbox, and scroll state via React reconciliation
-    - [ ] In `lib/stores/uiStore.ts`, reset drawer `snapPoint` to default `"300px"` in the `openWineryModal` action handler to avoid snap point desynchronization
+- [x] Task: Eliminate render-time `setState` in `use-winery-modal-state.ts` and key inner modal content [fc2f3e7]
+    - [x] In `components/winery/use-winery-modal-state.ts`, eliminate `prevActiveWineryId`, `setPrevActiveWineryId`, and render-phase state setters
+    - [x] In `components/winery-modal.tsx`, maintain stable outer `<Drawer>`, `<Dialog>`, and `<Sheet>` containers, and extract inner content to `<WineryModalContent key={activeWineryId} activeWineryId={activeWineryId} />` to reset tabs, lightbox, and scroll state via React reconciliation
+    - [x] In `lib/stores/uiStore.ts`, reset drawer `snapPoint` to default `"300px"` in the `openWineryModal` action handler to avoid snap point desynchronization
 - [ ] Task: Key review content in `WineryQnA.tsx` and eliminate all effect suppressions
     - [ ] In `components/WineryQnA.tsx`, extract review display into `<WineryQuestionReviewCard key={activeQuestionId} />` and remove `useEffect` state reset
     - [ ] In `hooks/use-trip-actions.ts`, derive `currentMembers` directly as `trip.members || []` and remove unused `selectedFriends` state, setter, and effect
