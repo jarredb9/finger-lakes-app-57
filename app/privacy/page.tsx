@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 
-const LAST_UPDATED = "January 15, 2025";
+const LAST_UPDATED = "December 11, 2025";
 
 export default function PrivacyPolicy() {
   return (
