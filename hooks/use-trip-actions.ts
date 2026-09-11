@@ -2,24 +2,18 @@ import { useToast } from "@/hooks/use-toast";
 import { Trip } from "@/lib/types";
 import { useTripStore } from "@/lib/stores/tripStore";
 import { useFriendStore } from "@/lib/stores/friendStore";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 
 export function useTripActions(trip: Trip) {
   const { toast } = useToast();
   const { addMembersToTrip } = useTripStore();
   const { fetchFriends } = useFriendStore();
-  const [selectedFriends, setSelectedFriends] = useState<string[]>(
-    (trip.members || []).map(m => m.id)
-  );
+
+  const currentMembers = trip.members || [];
 
   useEffect(() => {
     fetchFriends();
   }, [fetchFriends]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedFriends((trip.members || []).map(m => m.id));
-  }, [trip.members]);
 
   const handleExportToMaps = () => {
     if (!trip.wineries || trip.wineries.length === 0) return;
@@ -53,19 +47,8 @@ export function useTripActions(trip: Trip) {
     }
   };
 
-  const toggleFriendSelection = (friendId: string) => {
-    let newSelection: string[] = [];
-    setSelectedFriends(prev => {
-      newSelection = prev.includes(friendId)
-        ? prev.filter(id => id !== friendId)
-        : [...prev, friendId];
-      return newSelection;
-    });
-    return newSelection;
-  };
-
   const saveTripMembers = async (membersToSave?: string[]) => {
-    const finalMembers = membersToSave || selectedFriends;
+    const finalMembers = membersToSave || currentMembers.map(m => m.id);
     try {
       await addMembersToTrip(trip.id.toString(), finalMembers);
       toast({ description: "Trip members updated." });
@@ -74,13 +57,10 @@ export function useTripActions(trip: Trip) {
     }
   };
 
-  const currentMembers = trip.members || [];
-
   return {
-    selectedFriends,
+    selectedFriends: currentMembers.map(m => m.id),
     currentMembers,
     handleExportToMaps,
-    toggleFriendSelection,
     saveTripMembers,
   };
 }
