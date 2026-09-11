@@ -16,58 +16,60 @@ import { WineryWeatherWidget } from "../WineryWeatherWidget";
 import TripPlannerSection from "../TripPlannerSection";
 import VisitCardHistory from "../VisitCardHistory";
 
-export interface TabletWinerySheetProps {
-  isOpen: boolean;
-  onClose: () => void;
+export interface TabletWineryLayoutProps {
   winery: Winery | null;
-  loadingWineryId: string | null;
-  isLoading: boolean;
-  isAIEnabled: boolean;
-  lightboxPhoto: string | null;
-  setLightboxPhoto: (photo: string | null) => void;
-  activeTab: WineryModalTab;
-  effectiveActiveTab: WineryModalTab;
-  setActiveTab: (tab: WineryModalTab) => void;
-  visits: Visit[];
-  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
-  visitHistoryRef: React.RefObject<HTMLDivElement | null>;
-  onLogVisit: () => void;
-  onStreetView: () => void;
-  onToggleWishlist: () => void;
-  onToggleFavorite: () => void;
-  onToggleFavoritePrivacy: (e: React.MouseEvent) => void;
-  onToggleWishlistPrivacy: (e: React.MouseEvent) => void;
-  onEditVisit: (visit: Visit) => void;
-  onDeleteVisit: (visitId: string) => void;
-  onTripBadgeClick: (tripId: number) => void;
+  loadingWineryId?: string | null;
+  isLoading?: boolean;
+  isAIEnabled?: boolean;
+  lightboxPhoto?: string | null;
+  setLightboxPhoto?: (photo: string | null) => void;
+  activeTab?: WineryModalTab;
+  effectiveActiveTab?: WineryModalTab;
+  setActiveTab?: (tab: WineryModalTab) => void;
+  visits?: Visit[];
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
+  visitHistoryRef?: React.RefObject<HTMLDivElement | null>;
+  onLogVisit?: () => void;
+  onStreetView?: () => void;
+  onToggleWishlist?: () => void;
+  onToggleFavorite?: () => void;
+  onToggleFavoritePrivacy?: (e: React.MouseEvent) => void;
+  onToggleWishlistPrivacy?: (e: React.MouseEvent) => void;
+  onEditVisit?: (visit: Visit) => void;
+  onDeleteVisit?: (visitId: string) => void;
+  onTripBadgeClick?: (tripId: number) => void;
+  onClose?: () => void;
 }
 
-export function TabletWinerySheet({
-  isOpen,
-  onClose,
-  winery,
-  loadingWineryId,
-  isLoading,
-  isAIEnabled,
-  lightboxPhoto,
-  setLightboxPhoto,
-  effectiveActiveTab,
-  setActiveTab,
-  visits,
-  scrollContainerRef,
-  visitHistoryRef,
-  onLogVisit,
-  onStreetView,
-  onToggleWishlist,
-  onToggleFavorite,
-  onToggleFavoritePrivacy,
-  onToggleWishlistPrivacy,
-  onEditVisit,
-  onDeleteVisit,
-  onTripBadgeClick,
-}: TabletWinerySheetProps) {
-  if (!isOpen) return null;
+export interface TabletWinerySheetProps extends TabletWineryLayoutProps {
+  isOpen: boolean;
+  onClose: () => void;
+  children?: React.ReactNode;
+}
 
+export function TabletWineryLayout({
+  winery,
+  loadingWineryId = null,
+  isLoading = false,
+  isAIEnabled = false,
+  lightboxPhoto: _lightboxPhoto = null,
+  setLightboxPhoto = () => {},
+  effectiveActiveTab = "community",
+  setActiveTab = () => {},
+  visits = [],
+  scrollContainerRef = { current: null },
+  visitHistoryRef = { current: null },
+  onLogVisit = () => {},
+  onStreetView = () => {},
+  onToggleWishlist = () => {},
+  onToggleFavorite = () => {},
+  onToggleFavoritePrivacy = () => {},
+  onToggleWishlistPrivacy = () => {},
+  onEditVisit = () => {},
+  onDeleteVisit = () => {},
+  onTripBadgeClick = () => {},
+  onClose = () => {},
+}: TabletWineryLayoutProps) {
   const renderTabsList = () => (
     <div className="flex border-b border-border/50 w-full overflow-x-auto scrollbar-none flex-nowrap justify-between shrink-0" role="tablist">
       {[
@@ -281,6 +283,22 @@ export function TabletWinerySheet({
     );
   };
 
+  return renderContent();
+}
+
+export function TabletWinerySheet(props: TabletWinerySheetProps) {
+  const {
+    isOpen,
+    onClose,
+    winery,
+    isLoading = false,
+    lightboxPhoto = null,
+    setLightboxPhoto = () => {},
+    children,
+  } = props;
+
+  if (!isOpen) return null;
+
   return (
     <>
       <div
@@ -301,7 +319,7 @@ export function TabletWinerySheet({
           </Button>
         </div>
 
-        {renderContent()}
+        {children || <TabletWineryLayout {...props} />}
       </div>
 
       {lightboxPhoto && (

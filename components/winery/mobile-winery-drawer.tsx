@@ -17,62 +17,66 @@ import { MapNavigation } from "../MapNavigation";
 import TripPlannerSection from "../TripPlannerSection";
 import VisitCardHistory from "../VisitCardHistory";
 
-export interface MobileWineryDrawerProps {
-  isOpen: boolean;
-  onClose: () => void;
+export interface MobileWineryLayoutProps {
   winery: Winery | null;
-  loadingWineryId: string | null;
-  isLoading: boolean;
-  isAIEnabled: boolean;
+  loadingWineryId?: string | null;
+  isLoading?: boolean;
+  isAIEnabled?: boolean;
   isMobile?: boolean;
-  lightboxPhoto: string | null;
-  setLightboxPhoto: (photo: string | null) => void;
-  snapPoint: string | number | null;
-  setSnapPoint: (snapPoint: string | number | null) => void;
-  activeTab: WineryModalTab;
-  effectiveActiveTab: WineryModalTab;
-  setActiveTab: (tab: WineryModalTab) => void;
-  visits: Visit[];
-  scrollContainerRef: React.RefObject<HTMLDivElement | null>;
-  visitHistoryRef: React.RefObject<HTMLDivElement | null>;
-  onLogVisit: () => void;
-  onStreetView: () => void;
-  onToggleWishlist: () => void;
-  onToggleFavorite: () => void;
-  onToggleFavoritePrivacy: (e: React.MouseEvent) => void;
-  onToggleWishlistPrivacy: (e: React.MouseEvent) => void;
-  onEditVisit: (visit: Visit) => void;
-  onDeleteVisit: (visitId: string) => void;
-  onTripBadgeClick: (tripId: number) => void;
+  lightboxPhoto?: string | null;
+  setLightboxPhoto?: (photo: string | null) => void;
+  snapPoint?: string | number | null;
+  setSnapPoint?: (snapPoint: string | number | null) => void;
+  activeTab?: WineryModalTab;
+  effectiveActiveTab?: WineryModalTab;
+  setActiveTab?: (tab: WineryModalTab) => void;
+  visits?: Visit[];
+  scrollContainerRef?: React.RefObject<HTMLDivElement | null>;
+  visitHistoryRef?: React.RefObject<HTMLDivElement | null>;
+  onLogVisit?: () => void;
+  onStreetView?: () => void;
+  onToggleWishlist?: () => void;
+  onToggleFavorite?: () => void;
+  onToggleFavoritePrivacy?: (e: React.MouseEvent) => void;
+  onToggleWishlistPrivacy?: (e: React.MouseEvent) => void;
+  onEditVisit?: (visit: Visit) => void;
+  onDeleteVisit?: (visitId: string) => void;
+  onTripBadgeClick?: (tripId: number) => void;
+  onClose?: () => void;
 }
 
-export function MobileWineryDrawer({
-  isOpen,
-  onClose,
+export interface MobileWineryDrawerProps extends MobileWineryLayoutProps {
+  isOpen: boolean;
+  onClose: () => void;
+  children?: React.ReactNode;
+}
+
+export function MobileWineryLayout({
   winery,
-  loadingWineryId,
-  isLoading,
-  isAIEnabled,
+  loadingWineryId = null,
+  isLoading = false,
+  isAIEnabled = false,
   isMobile = true,
-  lightboxPhoto,
-  setLightboxPhoto,
-  snapPoint,
-  setSnapPoint,
-  effectiveActiveTab,
-  setActiveTab,
-  visits,
-  scrollContainerRef,
-  visitHistoryRef,
-  onLogVisit,
-  onStreetView,
-  onToggleWishlist,
-  onToggleFavorite,
-  onToggleFavoritePrivacy,
-  onToggleWishlistPrivacy,
-  onEditVisit,
-  onDeleteVisit,
-  onTripBadgeClick,
-}: MobileWineryDrawerProps) {
+  lightboxPhoto: _lightboxPhoto = null,
+  setLightboxPhoto = () => {},
+  snapPoint = "300px",
+  setSnapPoint = () => {},
+  effectiveActiveTab = "community",
+  setActiveTab = () => {},
+  visits = [],
+  scrollContainerRef = { current: null },
+  visitHistoryRef = { current: null },
+  onLogVisit = () => {},
+  onStreetView = () => {},
+  onToggleWishlist = () => {},
+  onToggleFavorite = () => {},
+  onToggleFavoritePrivacy = () => {},
+  onToggleWishlistPrivacy = () => {},
+  onEditVisit = () => {},
+  onDeleteVisit = () => {},
+  onTripBadgeClick = () => {},
+  onClose = () => {},
+}: MobileWineryLayoutProps) {
   const renderTabsList = () => (
     <div className="flex border-b border-border/50 w-full overflow-x-auto scrollbar-none flex-nowrap justify-between" role="tablist">
       {[
@@ -363,6 +367,22 @@ export function MobileWineryDrawer({
     );
   };
 
+  return renderMobileLayout();
+}
+
+export function MobileWineryDrawer(props: MobileWineryDrawerProps) {
+  const {
+    isOpen,
+    onClose,
+    winery,
+    isLoading = false,
+    snapPoint = "300px",
+    setSnapPoint = () => {},
+    lightboxPhoto = null,
+    setLightboxPhoto = () => {},
+    children,
+  } = props;
+
   return (
     <Drawer 
       open={isOpen} 
@@ -390,7 +410,7 @@ export function MobileWineryDrawer({
           </DrawerDescription>
         </DrawerHeader>
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden" data-testid="drawer-scroll-container">
-          {renderMobileLayout()}
+          {children || <MobileWineryLayout {...props} />}
         </div>
         <PhotoLightboxModal
           winery={winery}
