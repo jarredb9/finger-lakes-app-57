@@ -8,6 +8,7 @@ import { Star, Plus, Edit, Loader2, Lock } from "lucide-react";
 import PhotoUploader from "./PhotoUploader";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Base64Photo } from "@/lib/utils/sync-helpers";
+import { getTodayLocal } from "@/lib/utils";
 
 interface VisitFormProps {
   editingVisit: Visit | null;
@@ -34,7 +35,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({
   togglePhotoForDeletion, 
   setPhotosToDelete 
 }, ref) => {
-  const [visitDate, setVisitDate] = useState(new Date().toISOString().split("T")[0]);
+  const [visitDate, setVisitDate] = useState(getTodayLocal());
   const [userReview, setUserReview] = useState("");
   const [rating, setRating] = useState(5);
   const [isPrivate, setIsPrivate] = useState(false);
@@ -45,7 +46,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({
   const isSubmitting = isExternalSubmitting || isInternalSubmitting;
 
   const resetForm = useCallback(() => {
-    setVisitDate(new Date().toISOString().split("T")[0]);
+    setVisitDate(getTodayLocal());
     setUserReview("");
     setRating(5);
     setIsPrivate(false);
@@ -56,7 +57,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({
 
   useEffect(() => {
     if (editingVisit) {
-      setVisitDate(new Date(editingVisit.visit_date + "T00:00:00").toISOString().split("T")[0]);
+      setVisitDate(editingVisit.visit_date);
       setUserReview(editingVisit.user_review || "");
       setRating(editingVisit.rating || 5);
       setIsPrivate((editingVisit as any).is_private || false);
@@ -105,7 +106,7 @@ const VisitForm = forwardRef<HTMLDivElement, VisitFormProps>(({
       <div className="space-y-4">
         <div className="space-y-2">
           <Label htmlFor="visitDate">Visit Date *</Label>
-          <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} max={new Date().toISOString().split("T")[0]} required aria-label="Visit Date" disabled={isSubmitting} />
+          <Input id="visitDate" type="date" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} max={getTodayLocal()} required aria-label="Visit Date" disabled={isSubmitting} />
         </div>
         <div className="space-y-2">
           <Label>Your Rating</Label>

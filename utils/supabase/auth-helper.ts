@@ -19,9 +19,7 @@ interface SupabaseCookie {
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
+    request,
   })
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -44,11 +42,7 @@ export async function updateSession(request: NextRequest) {
                 ...options,
               })
             })
-            response = NextResponse.next({
-              request: {
-                headers: request.headers,
-              },
-            })
+            response = NextResponse.next({ request })
             cookiesToSet.forEach(({ name, value, options }) => {
               response.cookies.set({
                 name,
