@@ -29,7 +29,11 @@ Revise the plan to ensure optimal agent execution and prevent context blowup:
 
 Delegate the review to multiple multiple concurrent specialized research, code review, or other specialty agents to ensure a proper review is completed without main session or sub-agent context bloat. 
 ```
-**NOTE**: Concerd using /boost or /teamwork which auto delegates agents
+### Teamwork Review Prompt - Best for large tracks that span a large part of the project, but heavy token cost
+/teamwork-preview Perform a comprehensive architectural and failure-mode of conductor/tracks/<track-id>/
+
+### Boost Review Prompt - Best for targeted tracks where code quality matters most
+/boost Conduct an empirical codebase audit and architectural feasibility review of conductor/tracks/<track-id>/
 ---
 
 ## 2. Upfront Track Creation Prompt (Avoid Revisions)
