@@ -40,7 +40,7 @@ Focus: Isolate Mapbox GL CSS to map boundaries, harden Mapbox against runtime We
     - [x] Run `npm run type-check` to verify zero type regressions in map components
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Map Engine Bundle Isolation & Dynamic Fallback Loading' (Protocol in workflow.md) 1f9cc83
 
-## Phase 3: Root Layout Decoupling & Authenticated Modal Host
+## Phase 3: Root Layout Decoupling & Authenticated Modal Host [checkpoint: 45c08c5]
 Focus: Extract heavy modal trees from root `app/layout.tsx` into an `AuthenticatedModalHost` (including WineryModal and VisitHistoryModal) loaded lazily via next/dynamic with idle prefetching, while standardizing portal behavior and strictly maintaining `<ModalHost />` (`#modal-root`) in layout.
 
 - [x] Task: Write failing tests for root layout modal isolation and AuthenticatedModalHost mounting [3246a32]
@@ -59,7 +59,7 @@ Focus: Extract heavy modal trees from root `app/layout.tsx` into an `Authenticat
 - [x] Task: Decouple root `app/layout.tsx` (Contract) [6a5eb3d]
     - [x] Remove modal component imports and JSX elements from root `app/layout.tsx`, ensuring public routes (`/login`, `/signup`, `/forgot-password`, `/manual-confirm`, `/privacy`, `/terms`) mount zero modal code
     - [x] Verify test suite and typecheck pass cleanly
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Root Layout Decoupling & Authenticated Modal Host' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Root Layout Decoupling & Authenticated Modal Host' (Protocol in workflow.md) 45c08c5
 
 ## Phase 4: Server Component Boundaries, Route Metadata & Deterministic Dates
 Focus: Convert `/friends/[id]`, `/forgot-password`, and `/manual-confirm` into Server Components exporting static metadata, whitelist `/manual-confirm` in `proxy.ts`, fix middleware cookie forwarding, add App Router error boundary, and eliminate non-deterministic dates.
