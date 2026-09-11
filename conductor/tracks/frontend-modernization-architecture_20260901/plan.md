@@ -56,9 +56,9 @@ Focus: Extract heavy modal trees from root `app/layout.tsx` into an `Authenticat
     - [x] Mount `AuthenticatedModalHost` inside `components/app-shell.tsx`, `app/trips/[id]/page.tsx`, `app/friends/[id]/page.tsx`, and `app/settings/page.tsx`
     - [x] Remove redundant `<WineryModal />` and `<VisitHistoryModal />` from `components/app-shell.tsx`
     - [x] Verify `AuthenticatedModalHost` renders correctly across authenticated views
-- [ ] Task: Decouple root `app/layout.tsx` (Contract)
-    - [ ] Remove modal component imports and JSX elements from root `app/layout.tsx`, ensuring public routes (`/login`, `/signup`, `/forgot-password`, `/manual-confirm`, `/privacy`, `/terms`) mount zero modal code
-    - [ ] Verify test suite and typecheck pass cleanly
+- [x] Task: Decouple root `app/layout.tsx` (Contract) [6a5eb3d]
+    - [x] Remove modal component imports and JSX elements from root `app/layout.tsx`, ensuring public routes (`/login`, `/signup`, `/forgot-password`, `/manual-confirm`, `/privacy`, `/terms`) mount zero modal code
+    - [x] Verify test suite and typecheck pass cleanly
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Root Layout Decoupling & Authenticated Modal Host' (Protocol in workflow.md)
 
 ## Phase 4: Server Component Boundaries, Route Metadata & Deterministic Dates
