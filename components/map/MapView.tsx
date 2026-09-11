@@ -1,8 +1,10 @@
 "use client";
 
-import { memo, useRef, useState, useMemo, useCallback } from "react";
+import React, { memo, useRef, useState, useMemo, useCallback, Component } from "react";
+import dynamic from "next/dynamic";
 import Map, { Source, Layer, MapRef } from "react-map-gl/mapbox";
 import mapboxgl from "mapbox-gl";
+import "mapbox-gl/dist/mapbox-gl.css";
 
 import { Winery, Trip } from "@/lib/types";
 import { useUIStore } from "@/lib/stores/uiStore";
@@ -15,7 +17,51 @@ import {
   clusterCountLayer,
   unclusteredPointLayer,
 } from "@/lib/maps/mapbox-layers";
-import { GoogleMapFallback } from "./google-map-fallback";
+
+const GoogleMapFallback = dynamic(
+  () => import("./google-map-fallback").then((mod) => mod.GoogleMapFallback),
+  {
+    ssr: false,
+    loading: () => (
+      <div
+        data-testid="map-fallback-loading"
+        className="h-full w-full bg-muted animate-pulse"
+      />
+    ),
+  }
+);
+
+interface MapErrorBoundaryProps {
+  fallback: React.ReactNode;
+  children: React.ReactNode;
+  onError?: (error: Error, errorInfo?: React.ErrorInfo) => void;
+}
+
+interface MapErrorBoundaryState {
+  hasError: boolean;
+}
+
+class MapErrorBoundary extends Component<MapErrorBoundaryProps, MapErrorBoundaryState> {
+  constructor(props: MapErrorBoundaryProps) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(): MapErrorBoundaryState {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    this.props.onError?.(error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback;
+    }
+    return this.props.children;
+  }
+}
 
 export interface MapViewProps {
   discoveredWineries: Winery[];
@@ -42,9 +88,14 @@ const MapView = memo(({
   const closeWineryModal = useUIStore((s) => s.closeWineryModal);
   const [mapStyle, setMapStyle] = useState<"streets" | "outdoors">("streets");
   const [cursor, setCursor] = useState<string>("");
+  const [mapboxFailed, setMapboxFailed] = useState<boolean>(false);
 
   const handleMapLoad = useCallback(() => {
-    // Map view mounted
+    mapRef.current?.getMap()?.resize?.();
+  }, []);
+
+  const handleMapError = useCallback((_e: any) => {
+    setMapboxFailed(true);
   }, []);
 
   // Combine and type all wineries based on selected filters
@@ -77,18 +128,24 @@ const MapView = memo(({
     return list;
   }, [discoveredWineries, visitedWineries, wishlistWineries, favoriteWineries, filter, _selectedTrip]);
 
-  // Convert wineries to GeoJSON for Mapbox Source
+  // Convert wineries to GeoJSON for Mapbox Source with finite coordinate sanitization
   const wineriesGeoJSON = useMemo(() => {
+    const validWineries = allWineries.filter((winery) => {
+      const lat = Number(winery.latitude);
+      const lng = Number(winery.longitude);
+      return Number.isFinite(lat) && Number.isFinite(lng);
+    });
+
     return {
       type: "FeatureCollection" as const,
-      features: allWineries.map((winery) => ({
+      features: validWineries.map((winery) => ({
         type: "Feature" as const,
         properties: {
           id: winery.id,
           name: winery.name,
           address: winery.address,
-          latitude: winery.latitude,
-          longitude: winery.longitude,
+          latitude: Number(winery.latitude),
+          longitude: Number(winery.longitude),
           type: winery.type,
         },
         geometry: {
@@ -143,15 +200,19 @@ const MapView = memo(({
       <div
         data-testid="map-view-canvas"
         data-state="loading"
-        className="h-full w-full bg-muted animate-pulse"
+        className="h-full w-full min-h-[300px] bg-muted animate-pulse overflow-hidden"
       />
     );
   }
 
   const isSupported = mapboxgl.supported();
-  if (!isSupported) {
+  if (!isSupported || mapboxFailed) {
     return (
-      <div data-testid="map-view-canvas" data-state="ready" className="relative h-full w-full">
+      <div
+        data-testid="map-view-canvas"
+        data-state="ready"
+        className="relative h-full w-full min-h-[300px] bg-muted overflow-hidden"
+      >
         <GoogleMapFallback
           discoveredWineries={discoveredWineries}
           visitedWineries={visitedWineries}
@@ -169,38 +230,54 @@ const MapView = memo(({
     <div
       data-testid="map-view-canvas"
       data-state="ready"
-      className="relative h-full w-full bg-muted"
+      className="relative h-full w-full min-h-[300px] bg-muted overflow-hidden"
     >
-      <Map
-        ref={mapRef}
-        id="default"
-        onLoad={handleMapLoad}
-        initialViewState={{
-          latitude: 42.7,
-          longitude: -76.9,
-          zoom: 9,
-        }}
-        mapboxAccessToken={mapboxToken}
-        mapStyle={MAP_STYLES[mapStyle]}
-        onClick={onMapClick}
-        onMouseEnter={onMouseEnter}
-        onMouseLeave={onMouseLeave}
-        cursor={cursor}
-        interactiveLayerIds={["clusters", "unclustered-point"]}
+      <MapErrorBoundary
+        onError={() => setMapboxFailed(true)}
+        fallback={
+          <GoogleMapFallback
+            discoveredWineries={discoveredWineries}
+            visitedWineries={visitedWineries}
+            wishlistWineries={wishlistWineries}
+            favoriteWineries={favoriteWineries}
+            filter={filter}
+            onMarkerClick={onMarkerClick}
+            selectedTrip={_selectedTrip}
+          />
+        }
       >
-        <Source
-          id="wineries"
-          type="geojson"
-          data={wineriesGeoJSON}
-          cluster={true}
-          clusterMaxZoom={14}
-          clusterRadius={50}
+        <Map
+          ref={mapRef}
+          id="default"
+          onLoad={handleMapLoad}
+          onError={handleMapError}
+          initialViewState={{
+            latitude: 42.7,
+            longitude: -76.9,
+            zoom: 9,
+          }}
+          mapboxAccessToken={mapboxToken}
+          mapStyle={MAP_STYLES[mapStyle]}
+          onClick={onMapClick}
+          onMouseEnter={onMouseEnter}
+          onMouseLeave={onMouseLeave}
+          cursor={cursor}
+          interactiveLayerIds={["clusters", "unclustered-point"]}
         >
-          <Layer {...clusterLayer} />
-          <Layer {...clusterCountLayer} />
-          <Layer {...unclusteredPointLayer} />
-        </Source>
-      </Map>
+          <Source
+            id="wineries"
+            type="geojson"
+            data={wineriesGeoJSON}
+            cluster={true}
+            clusterMaxZoom={14}
+            clusterRadius={50}
+          >
+            <Layer {...clusterLayer} />
+            <Layer {...clusterCountLayer} />
+            <Layer {...unclusteredPointLayer} />
+          </Source>
+        </Map>
+      </MapErrorBoundary>
 
       {/* Floating Style Switcher Control */}
       <div className="absolute top-4 left-4 z-30 flex gap-1 bg-background/95 backdrop-blur-sm p-1 rounded-lg border shadow-md">

@@ -44,12 +44,13 @@ export function GoogleMapFallback({
 
   useEffect(() => {
     let active = true;
+    const container = containerRef.current;
 
     async function initMap() {
       const mapsLib = await getGoogleLibrary("maps");
-      if (!active || !containerRef.current) return;
+      if (!active || !container) return;
 
-      const gmap = new mapsLib.Map(containerRef.current, {
+      const gmap = new mapsLib.Map(container, {
         center: { lat: 42.7, lng: -76.9 },
         zoom: 9,
         mapId: "DEMO_MAP_ID",
@@ -75,6 +76,9 @@ export function GoogleMapFallback({
       active = false;
       mapRef.current = null;
       setMapAdapter(null);
+      if (container) {
+        container.innerHTML = "";
+      }
     };
   }, []);
 
@@ -120,12 +124,17 @@ export function GoogleMapFallback({
     });
     markersRef.current = [];
 
+    const clickCleanups: (() => void)[] = [];
+
     allWineries.forEach(async (winery) => {
       const markerLib = await getGoogleLibrary("marker");
       const mapsLib = await getGoogleLibrary("maps");
       if (!active) return;
 
       const color = PIN_COLORS[winery.type as keyof typeof PIN_COLORS] || "#4b5563";
+      const handleMarkerClick = () => {
+        onMarkerClick(winery);
+      };
 
       let marker: any;
       if (markerLib?.AdvancedMarkerElement) {
@@ -143,8 +152,9 @@ export function GoogleMapFallback({
           gmpClickable: true,
         });
 
-        marker.addEventListener("gmp-click", () => {
-          onMarkerClick(winery);
+        marker.addEventListener("gmp-click", handleMarkerClick);
+        clickCleanups.push(() => {
+          marker.removeEventListener?.("gmp-click", handleMarkerClick);
         });
       } else if (mapsLib?.Marker) {
         marker = new mapsLib.Marker({
@@ -153,8 +163,11 @@ export function GoogleMapFallback({
           title: winery.name,
         });
 
-        marker.addListener("click", () => {
-          onMarkerClick(winery);
+        const listener = marker.addListener("click", handleMarkerClick);
+        clickCleanups.push(() => {
+          if (listener && typeof listener.remove === "function") {
+            listener.remove();
+          }
         });
       }
 
@@ -165,6 +178,7 @@ export function GoogleMapFallback({
 
     return () => {
       active = false;
+      clickCleanups.forEach((cleanup) => cleanup());
       markersRef.current.forEach((m) => {
         if (typeof m.setMap === "function") {
           m.setMap(null);
