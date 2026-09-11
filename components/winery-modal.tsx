@@ -3,10 +3,12 @@ import { useWineryModalState } from "./winery/use-winery-modal-state";
 import { DesktopWineryModal } from "./winery/desktop-winery-modal";
 import { MobileWineryDrawer } from "./winery/mobile-winery-drawer";
 import { TabletWinerySheet } from "./winery/tablet-winery-sheet";
+import { WineryModalContent } from "./winery/winery-modal-content";
 
 export function WineryModal() {
   const {
     isWineryModalOpen,
+    activeWineryId,
     activeWinery,
     loadingWineryId,
     isLoading,
@@ -41,6 +43,7 @@ export function WineryModal() {
   }
 
   const commonProps = {
+    activeWineryId,
     winery: activeWinery,
     loadingWineryId,
     isLoading,
@@ -64,6 +67,18 @@ export function WineryModal() {
     onTripBadgeClick: handleTripBadgeClick,
   };
 
+  const modalContent = (
+    <WineryModalContent
+      key={activeWineryId}
+      isMobile={isMobile}
+      isTablet={isTablet}
+      snapPoint={snapPoint}
+      setSnapPoint={setSnapPoint}
+      onClose={closeWineryModal}
+      {...commonProps}
+    />
+  );
+
   if (isMobile) {
     return (
       <MobileWineryDrawer
@@ -73,7 +88,9 @@ export function WineryModal() {
         snapPoint={snapPoint}
         setSnapPoint={setSnapPoint}
         {...commonProps}
-      />
+      >
+        {modalContent}
+      </MobileWineryDrawer>
     );
   }
 
@@ -83,7 +100,9 @@ export function WineryModal() {
         isOpen={isWineryModalOpen}
         onClose={closeWineryModal}
         {...commonProps}
-      />
+      >
+        {modalContent}
+      </TabletWinerySheet>
     );
   }
 
@@ -92,7 +111,9 @@ export function WineryModal() {
       isOpen={isWineryModalOpen}
       onClose={closeWineryModal}
       {...commonProps}
-    />
+    >
+      {modalContent}
+    </DesktopWineryModal>
   );
 }
 

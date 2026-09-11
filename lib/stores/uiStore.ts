@@ -42,6 +42,8 @@ export interface UIState {
   toggleSidebar: () => void;
   setSidebarOpen: (isOpen: boolean) => void;
   setVisitHistoryModalOpen: (isOpen: boolean) => void;
+  snapPoint: string | number | null;
+  setSnapPoint: (snapPoint: string | number | null) => void;
   openWineryModal: (wineryId: string, returnToHistory?: boolean) => void; // Updated signature
   closeWineryModal: () => void;
   setTheme: (theme: 'light' | 'dark') => void;
@@ -85,6 +87,8 @@ export const useUIStore = createWithEqualityFn<UIState>()(
       activeNoteWineryDbId: null,
       activeNoteInitialValue: '',
       activeNoteTripId: null,
+      snapPoint: typeof window !== 'undefined' && (window as any)._E2E_FULL_DRAWER ? 1 : '300px',
+      setSnapPoint: (snapPoint) => set({ snapPoint }),
 
       toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
       setSidebarOpen: (isOpen) => set({ isSidebarOpen: isOpen }),
@@ -92,7 +96,8 @@ export const useUIStore = createWithEqualityFn<UIState>()(
       openWineryModal: (wineryId, returnToHistory = false) => set({ 
         isWineryModalOpen: true, 
         activeWineryId: wineryId,
-        returnToVisitHistory: returnToHistory
+        returnToVisitHistory: returnToHistory,
+        snapPoint: typeof window !== 'undefined' && (window as any)._E2E_FULL_DRAWER ? 1 : '300px',
       }),
       closeWineryModal: () => set((state) => {
         const base = {
@@ -104,6 +109,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
           activeNoteWineryDbId: null,
           activeNoteInitialValue: '',
           activeNoteTripId: null,
+          snapPoint: typeof window !== 'undefined' && (window as any)._E2E_FULL_DRAWER ? 1 : '300px',
         };
         // If the flag is set, open the history modal when closing the winery modal
         if (state.returnToVisitHistory) {
@@ -228,6 +234,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         activeNoteWineryDbId: null,
         activeNoteInitialValue: '',
         activeNoteTripId: null,
+        snapPoint: typeof window !== 'undefined' && (window as any)._E2E_FULL_DRAWER ? 1 : '300px',
       }),
     }),
     {
