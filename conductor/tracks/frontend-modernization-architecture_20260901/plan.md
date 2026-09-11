@@ -71,10 +71,10 @@ Focus: Convert `/friends/[id]`, `/forgot-password`, and `/manual-confirm` into S
     - [x] Add test asserting `utils/supabase/auth-helper.ts` forwards updated cookies to `NextResponse.next({ request })` so downstream Server Components receive refreshed tokens
     - [x] Add tests asserting `app/privacy/page.tsx` and `app/terms/page.tsx` render static dates with zero hydration mismatches
     - [x] Add test asserting `components/VisitForm.tsx` uses `getTodayLocal()` for initial and max dates and preserves `editingVisit.visit_date` without UTC shifts
-- [ ] Task: Convert `app/friends/[id]/page.tsx` to Server Component with auth guard, metadata, and error boundary
-    - [ ] Refactor `app/friends/[id]/page.tsx` into an async Server Component with server auth check via `getUser()`, server-side redirect to `/login?redirectTo=/friends/${id}`, and static `Metadata` export
-    - [ ] Pass resolved `id` to client component `components/FriendProfile.tsx`
-    - [ ] Create `app/error.tsx` providing a global fallback error boundary that preserves App Shell navigation and allows users to retry failed server operations
+- [x] Task: Convert `app/friends/[id]/page.tsx` to Server Component with auth guard, metadata, and error boundary [1b3fa6b]
+    - [x] Refactor `app/friends/[id]/page.tsx` into an async Server Component with server auth check via `getUser()`, server-side redirect to `/login?redirectTo=/friends/${id}`, and static `Metadata` export
+    - [x] Pass resolved `id` to client component `components/FriendProfile.tsx`
+    - [x] Create `app/error.tsx` providing a global fallback error boundary that preserves App Shell navigation and allows users to retry failed server operations
 - [ ] Task: Modularize auth pages, harden `proxy.ts`, and enforce deterministic SSR dates
     - [ ] Split `app/forgot-password/page.tsx` into a Server Component exporting static `Metadata` and client component `components/forgot-password-form.tsx`
     - [ ] Split `app/manual-confirm/page.tsx` into a Server Component exporting static `Metadata` and client component `components/manual-confirm-form.tsx`
