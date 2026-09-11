@@ -1,6 +1,5 @@
 "use client";
 
-import { createPortal } from "react-dom";
 import { useState } from "react";
 import { useUIStore, UIState } from "@/lib/stores/uiStore";
 import { useTripStore } from "@/lib/stores/tripStore";
@@ -73,10 +72,7 @@ export function WineryNoteModal() {
 
     if (!mounted) return null;
 
-    const modalRoot = document.getElementById("modal-root");
-    if (!modalRoot) return null;
-
-    return createPortal(
+    return (
         <Dialog open={isThisModalOpen} onOpenChange={(isOpen) => !isOpen && handleClose()}>
             <DialogContent
                 data-testid="note-modal"
@@ -101,7 +97,6 @@ export function WineryNoteModal() {
                     </>
                 )}
             </DialogContent>
-        </Dialog>,
-        modalRoot
+        </Dialog>
     );
 }
