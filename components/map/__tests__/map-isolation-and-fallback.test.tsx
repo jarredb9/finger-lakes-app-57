@@ -148,7 +148,7 @@ describe("Map Engine Bundle Isolation & Dynamic Fallback Loading (Phase 2 Task 1
       // Should transition to GoogleMapFallback without crashing, preserving canvas container
       const canvas = screen.getByTestId("map-view-canvas");
       expect(canvas).toBeInTheDocument();
-      expect(screen.getByTestId("google-map-fallback-stub")).toBeInTheDocument();
+      expect(await screen.findByTestId("google-map-fallback-stub")).toBeInTheDocument();
       expect(screen.queryByTestId("mapbox-map")).not.toBeInTheDocument();
     });
   });
