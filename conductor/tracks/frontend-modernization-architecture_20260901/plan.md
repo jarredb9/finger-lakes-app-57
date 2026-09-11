@@ -151,3 +151,9 @@ Incidental test scope cleanup and domain invariant verification performed on thi
     - [x] Synchronize `tripsForDate` on winery removal and add snapshot rollbacks upon server rejection in `lib/stores/slices/tripWineryHelpers.ts` and `lib/stores/slices/tripNoteHelpers.ts`
 - [x] Task: Add store domain invariants behavioral test suite [ee5b2d8a]
     - [x] Create `lib/stores/__tests__/tripStore.domainInvariants.test.ts` verifying React 19 StrictMode mutex initialization, 1000ms clock-skew staleness filtering, multi-collection sync, and negative temporary integer IDs
+- [x] Task: Decompose winery modal layouts into shared subcomponents [53e5f892]
+    - [x] Extract shared tab navigation and panels into `components/winery/winery-modal-tabs.tsx`
+    - [x] Extract shared trip status badge into `components/winery/winery-trip-badge.tsx`
+    - [x] Extract shared vibe tags scroller into `components/winery/winery-vibe-scroller.tsx`
+    - [x] Refactor `desktop-winery-modal.tsx`, `tablet-winery-sheet.tsx`, and `mobile-winery-drawer.tsx` to compose shared subcomponents, eliminating ~318 net lines of duplicated JSX logic and establishing discrete React 19 Compiler boundaries
+
