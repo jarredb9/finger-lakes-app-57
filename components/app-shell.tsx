@@ -11,13 +11,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { InteractiveBottomSheet, SheetMode } from "@/components/ui/interactive-bottom-sheet";
 import { useMapStore } from "@/lib/stores/mapStore";
-import { VisitHistoryModal } from "@/components/visit-history-modal";
+import { AuthenticatedModalHost } from "@/components/modals/authenticated-modal-host";
 import { OfflineIndicator } from "@/components/offline-indicator";
 import { useLayoutTier } from "@/hooks/use-layout-tier";
 import { useMounted } from "@/hooks/use-mounted";
 import { TabletFloatingDrawer } from "@/components/layout/TabletFloatingDrawer";
 import { MobileNavBar, NavTab } from "@/components/layout/MobileNavBar";
-import { WineryModal } from "@/components/winery-modal";
 import { UserNav } from "@/components/nav/user-nav";
 
 interface AppShellProps {
@@ -69,8 +68,7 @@ function AppShellContent({ user, initialTab = "explore" }: AppShellProps) {
         >
             <h1 className="sr-only">Winery Visit Planner and Tracker</h1>
             <OfflineIndicator />
-            <WineryModal />
-            <VisitHistoryModal />
+            <AuthenticatedModalHost />
 
             {/* Desktop Sidebar */}
             {isDesktop && (

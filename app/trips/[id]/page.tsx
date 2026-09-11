@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth";
 import { Loader2 } from "lucide-react";
 import TripDetailClientPage from "./client-page";
+import { AuthenticatedModalHost } from "@/components/modals/authenticated-modal-host";
 
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -17,6 +18,7 @@ export default async function TripDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <AuthenticatedModalHost />
       <div className="bg-white border-b px-4 py-3 flex items-center gap-2">
          <Link href="/" className="flex items-center text-sm font-medium text-muted-foreground hover:text-primary transition-colors">
             <ArrowLeft className="h-4 w-4 mr-1" />

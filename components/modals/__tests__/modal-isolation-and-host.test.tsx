@@ -63,27 +63,43 @@ describe("Root Layout Decoupling & Authenticated Modal Host (Phase 3 Task 1)", (
   });
 
   describe("Requirement 3: Caller Mounting & AppShell Cleanliness", () => {
-    it("asserts components/app-shell.tsx and app/trips/[id]/page.tsx mount AuthenticatedModalHost", () => {
+    it("asserts components/app-shell.tsx, app/trips/[id]/page.tsx, app/friends/[id]/page.tsx, and app/settings/page.tsx mount AuthenticatedModalHost", () => {
       const appShellPath = path.join(ROOT_DIR, "components/app-shell.tsx");
       const tripDetailPath = path.join(ROOT_DIR, "app/trips/[id]/page.tsx");
+      const friendsDetailPath = path.join(ROOT_DIR, "app/friends/[id]/page.tsx");
+      const settingsPath = path.join(ROOT_DIR, "app/settings/page.tsx");
 
       expect(fs.existsSync(appShellPath)).toBe(true);
       expect(fs.existsSync(tripDetailPath)).toBe(true);
+      expect(fs.existsSync(friendsDetailPath)).toBe(true);
+      expect(fs.existsSync(settingsPath)).toBe(true);
 
       const appShellSource = fs.readFileSync(appShellPath, "utf8");
       const tripDetailSource = fs.readFileSync(tripDetailPath, "utf8");
+      const friendsDetailSource = fs.readFileSync(friendsDetailPath, "utf8");
+      const settingsSource = fs.readFileSync(settingsPath, "utf8");
 
       // AppShell must import and mount AuthenticatedModalHost
       expect(appShellSource).toMatch(/AuthenticatedModalHost/);
       expect(appShellSource).toMatch(/<AuthenticatedModalHost\s*\/>/);
 
-      // AppShell must remove redundant direct modal instances
+      // AppShell must remove redundant direct modal instances and imports
       expect(appShellSource).not.toMatch(/<WineryModal\s*\/>/);
       expect(appShellSource).not.toMatch(/<VisitHistoryModal\s*\/>/);
+      expect(appShellSource).not.toMatch(/from ['"]@\/components\/winery-modal['"]/);
+      expect(appShellSource).not.toMatch(/from ['"]@\/components\/visit-history-modal['"]/);
 
       // Trip Detail standalone route must import and mount AuthenticatedModalHost
       expect(tripDetailSource).toMatch(/AuthenticatedModalHost/);
       expect(tripDetailSource).toMatch(/<AuthenticatedModalHost\s*\/>/);
+
+      // Friends Detail route must import and mount AuthenticatedModalHost
+      expect(friendsDetailSource).toMatch(/AuthenticatedModalHost/);
+      expect(friendsDetailSource).toMatch(/<AuthenticatedModalHost\s*\/>/);
+
+      // Settings route must import and mount AuthenticatedModalHost
+      expect(settingsSource).toMatch(/AuthenticatedModalHost/);
+      expect(settingsSource).toMatch(/<AuthenticatedModalHost\s*\/>/);
     });
   });
 
