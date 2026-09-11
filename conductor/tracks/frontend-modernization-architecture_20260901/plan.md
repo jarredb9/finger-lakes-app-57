@@ -52,10 +52,10 @@ Focus: Extract heavy modal trees from root `app/layout.tsx` into an `Authenticat
     - [x] Create `components/modals/authenticated-modal-host.tsx` marked `"use client";` dynamically importing `VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, `GlobalModalRenderer`, `WineryModal`, and `VisitHistoryModal` with `{ ssr: false }`
     - [x] Add route change cleanup and idle prefetching via `requestIdleCallback` in `authenticated-modal-host.tsx`
     - [x] Standardize portal targets between Radix `DialogPortal` and `#modal-root`
-- [ ] Task: Mount modal host in callers (Migrate)
-    - [ ] Mount `AuthenticatedModalHost` inside `components/app-shell.tsx`, `app/trips/[id]/page.tsx`, `app/friends/[id]/page.tsx`, and `app/settings/page.tsx`
-    - [ ] Remove redundant `<WineryModal />` and `<VisitHistoryModal />` from `components/app-shell.tsx`
-    - [ ] Verify `AuthenticatedModalHost` renders correctly across authenticated views
+- [x] Task: Mount modal host in callers (Migrate) [ee4161d]
+    - [x] Mount `AuthenticatedModalHost` inside `components/app-shell.tsx`, `app/trips/[id]/page.tsx`, `app/friends/[id]/page.tsx`, and `app/settings/page.tsx`
+    - [x] Remove redundant `<WineryModal />` and `<VisitHistoryModal />` from `components/app-shell.tsx`
+    - [x] Verify `AuthenticatedModalHost` renders correctly across authenticated views
 - [ ] Task: Decouple root `app/layout.tsx` (Contract)
     - [ ] Remove modal component imports and JSX elements from root `app/layout.tsx`, ensuring public routes (`/login`, `/signup`, `/forgot-password`, `/manual-confirm`, `/privacy`, `/terms`) mount zero modal code
     - [ ] Verify test suite and typecheck pass cleanly
