@@ -87,11 +87,11 @@ Focus: Convert `/friends/[id]`, `/forgot-password`, and `/manual-confirm` into S
 ## Phase 5: React 19 Adherence: State Derivation & Compiler Compliance
 Focus: Eliminate render-time `setState` calls in `use-winery-modal-state.ts` via keyed inner content, preserve outer drawer/dialog DOM stability, key review display in `WineryQnA.tsx`, derive state in `use-trip-actions.ts`, adopt `useMounted()`, and remove all 3 `react-hooks/set-state-in-effect` suppressions.
 
-- [ ] Task: Write failing tests for React Compiler state derivation, keyed resets, and effect suppression removal
-    - [ ] Add tests for `use-winery-modal-state.ts` asserting state reset behavior without render-time `setState`
-    - [ ] Add test asserting outer modal containers (`Drawer`, `Dialog`, `Sheet`) maintain stable DOM instances while inner content resets via `key={activeWineryId}`
-    - [ ] Add tests for `WineryQnA.tsx` asserting active question transitions reset review state without `useEffect` state synchronization or out-of-bounds review flashes
-    - [ ] Add test asserting zero `react-hooks/set-state-in-effect` suppressions exist across the entire repository
+- [x] Task: Write failing tests for React Compiler state derivation, keyed resets, and effect suppression removal [602d5a3]
+    - [x] Add tests for `use-winery-modal-state.ts` asserting state reset behavior without render-time `setState`
+    - [x] Add test asserting outer modal containers (`Drawer`, `Dialog`, `Sheet`) maintain stable DOM instances while inner content resets via `key={activeWineryId}`
+    - [x] Add tests for `WineryQnA.tsx` asserting active question transitions reset review state without `useEffect` state synchronization or out-of-bounds review flashes
+    - [x] Add test asserting zero `react-hooks/set-state-in-effect` suppressions exist across the entire repository
 - [ ] Task: Eliminate render-time `setState` in `use-winery-modal-state.ts` and key inner modal content
     - [ ] In `components/winery/use-winery-modal-state.ts`, eliminate `prevActiveWineryId`, `setPrevActiveWineryId`, and render-phase state setters
     - [ ] In `components/winery-modal.tsx`, maintain stable outer `<Drawer>`, `<Dialog>`, and `<Sheet>` containers, and extract inner content to `<WineryModalContent key={activeWineryId} activeWineryId={activeWineryId} />` to reset tabs, lightbox, and scroll state via React reconciliation
