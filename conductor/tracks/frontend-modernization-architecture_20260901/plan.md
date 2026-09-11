@@ -22,11 +22,11 @@ Focus: Audit and prune 7 dead dependencies and 10 unreferenced Radix primitives 
 ## Phase 2: Map Engine Bundle Isolation & Dynamic Fallback Loading
 Focus: Isolate Mapbox GL CSS to map boundaries, harden Mapbox against runtime WebGL crashes with automatic Google Maps fallback, standardize coordinates, and dynamically load fallback components via next/dynamic with strict DOM stability.
 
-- [ ] Task: Write failing tests for Mapbox CSS isolation, Google Maps fallback dynamic loading, and runtime error recovery
-    - [ ] Add test asserting `app/layout.tsx` does not import `mapbox-gl/dist/mapbox-gl.css`
-    - [ ] Add test verifying `components/map/MapView.tsx` loads `GoogleMapFallback` via `next/dynamic` and does not evaluate `@googlemaps/js-api-loader` on Mapbox-supported clients
-    - [ ] Add test verifying `MapView.tsx` transitions gracefully to `GoogleMapFallback` when Mapbox emits a WebGL context creation failure or runtime error
-    - [ ] Add test verifying coordinate filtering excludes `NaN` / non-finite coordinates from GeoJSON generation
+- [x] Task: Write failing tests for Mapbox CSS isolation, Google Maps fallback dynamic loading, and runtime error recovery [c1d27eb]
+    - [x] Add test asserting `app/layout.tsx` does not import `mapbox-gl/dist/mapbox-gl.css`
+    - [x] Add test verifying `components/map/MapView.tsx` loads `GoogleMapFallback` via `next/dynamic` and does not evaluate `@googlemaps/js-api-loader` on Mapbox-supported clients
+    - [x] Add test verifying `MapView.tsx` transitions gracefully to `GoogleMapFallback` when Mapbox emits a WebGL context creation failure or runtime error
+    - [x] Add test verifying coordinate filtering excludes `NaN` / non-finite coordinates from GeoJSON generation
 - [ ] Task: Isolate Mapbox CSS, harden WebGL error boundary, and dynamically load Google Maps fallback
     - [ ] Move `import 'mapbox-gl/dist/mapbox-gl.css'` from `app/layout.tsx` into `components/map/MapView.tsx`
     - [ ] Refactor `components/map/MapView.tsx` to load `GoogleMapFallback` via `next/dynamic({ ssr: false })` using exact filesystem casing (`./google-map-fallback`)
