@@ -64,13 +64,13 @@ Focus: Extract heavy modal trees from root `app/layout.tsx` into an `Authenticat
 ## Phase 4: Server Component Boundaries, Route Metadata & Deterministic Dates
 Focus: Convert `/friends/[id]`, `/forgot-password`, and `/manual-confirm` into Server Components exporting static metadata, whitelist `/manual-confirm` in `proxy.ts`, fix middleware cookie forwarding, add App Router error boundary, and eliminate non-deterministic dates.
 
-- [ ] Task: Write failing tests for Server Component auth guards, route metadata, proxy whitelisting, cookie forwarding, and SSR date determinism
-    - [ ] Add test asserting `app/friends/[id]/page.tsx` is an async Server Component redirecting unauthenticated users to `/login` and exporting route `Metadata`
-    - [ ] Add tests asserting `app/forgot-password/page.tsx` and `app/manual-confirm/page.tsx` are Server Components exporting static `Metadata`
-    - [ ] Add test asserting `proxy.ts` allows unauthenticated access to `/manual-confirm` and preserves query parameters in `redirectTo`
-    - [ ] Add test asserting `utils/supabase/auth-helper.ts` forwards updated cookies to `NextResponse.next({ request })` so downstream Server Components receive refreshed tokens
-    - [ ] Add tests asserting `app/privacy/page.tsx` and `app/terms/page.tsx` render static dates with zero hydration mismatches
-    - [ ] Add test asserting `components/VisitForm.tsx` uses `getTodayLocal()` for initial and max dates and preserves `editingVisit.visit_date` without UTC shifts
+- [x] Task: Write failing tests for Server Component auth guards, route metadata, proxy whitelisting, cookie forwarding, and SSR date determinism [5f33899]
+    - [x] Add test asserting `app/friends/[id]/page.tsx` is an async Server Component redirecting unauthenticated users to `/login` and exporting route `Metadata`
+    - [x] Add tests asserting `app/forgot-password/page.tsx` and `app/manual-confirm/page.tsx` are Server Components exporting static `Metadata`
+    - [x] Add test asserting `proxy.ts` allows unauthenticated access to `/manual-confirm` and preserves query parameters in `redirectTo`
+    - [x] Add test asserting `utils/supabase/auth-helper.ts` forwards updated cookies to `NextResponse.next({ request })` so downstream Server Components receive refreshed tokens
+    - [x] Add tests asserting `app/privacy/page.tsx` and `app/terms/page.tsx` render static dates with zero hydration mismatches
+    - [x] Add test asserting `components/VisitForm.tsx` uses `getTodayLocal()` for initial and max dates and preserves `editingVisit.visit_date` without UTC shifts
 - [ ] Task: Convert `app/friends/[id]/page.tsx` to Server Component with auth guard, metadata, and error boundary
     - [ ] Refactor `app/friends/[id]/page.tsx` into an async Server Component with server auth check via `getUser()`, server-side redirect to `/login?redirectTo=/friends/${id}`, and static `Metadata` export
     - [ ] Pass resolved `id` to client component `components/FriendProfile.tsx`
