@@ -8,7 +8,7 @@ import { AuthenticatedModalHost } from "@/components/modals/authenticated-modal-
 import { Button } from "@/components/ui/button";
 
 export const metadata: Metadata = {
-  title: "Friend Profile | Finger Lakes Winery Planner",
+  title: "Friend Profile | The Winery Planner App",
   description: "View friend profile and activity",
 };
 
