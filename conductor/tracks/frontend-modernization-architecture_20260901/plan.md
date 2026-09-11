@@ -19,7 +19,7 @@ Focus: Audit and prune 7 dead dependencies and 10 unreferenced Radix primitives 
     - [x] Verify local dev startup boots with Turbopack without Serwist Webpack hook errors
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Dependency Pruning, Tooling Optimization & Turbopack Unblocking' (Protocol in workflow.md) 1cbfaa1
 
-## Phase 2: Map Engine Bundle Isolation & Dynamic Fallback Loading
+## Phase 2: Map Engine Bundle Isolation & Dynamic Fallback Loading [checkpoint: 1f9cc83]
 Focus: Isolate Mapbox GL CSS to map boundaries, harden Mapbox against runtime WebGL crashes with automatic Google Maps fallback, standardize coordinates, and dynamically load fallback components via next/dynamic with strict DOM stability.
 
 - [x] Task: Write failing tests for Mapbox CSS isolation, Google Maps fallback dynamic loading, and runtime error recovery [c1d27eb]
@@ -38,7 +38,7 @@ Focus: Isolate Mapbox GL CSS to map boundaries, harden Mapbox against runtime We
 - [x] Task: Verify Mapbox rendering and fallback behavior across unit test suite [f854a19]
     - [x] Update `components/map/__tests__/MapView.test.tsx` for dynamic import compatibility (`findByTestId`) and verify tests pass cleanly
     - [x] Run `npm run type-check` to verify zero type regressions in map components
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Map Engine Bundle Isolation & Dynamic Fallback Loading' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Map Engine Bundle Isolation & Dynamic Fallback Loading' (Protocol in workflow.md) 1f9cc83
 
 ## Phase 3: Root Layout Decoupling & Authenticated Modal Host
 Focus: Extract heavy modal trees from root `app/layout.tsx` into an `AuthenticatedModalHost` (including WineryModal and VisitHistoryModal) loaded lazily via next/dynamic with idle prefetching, while standardizing portal behavior and strictly maintaining `<ModalHost />` (`#modal-root`) in layout.
