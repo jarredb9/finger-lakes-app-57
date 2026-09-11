@@ -43,11 +43,11 @@ Focus: Isolate Mapbox GL CSS to map boundaries, harden Mapbox against runtime We
 ## Phase 3: Root Layout Decoupling & Authenticated Modal Host
 Focus: Extract heavy modal trees from root `app/layout.tsx` into an `AuthenticatedModalHost` (including WineryModal and VisitHistoryModal) loaded lazily via next/dynamic with idle prefetching, while standardizing portal behavior and strictly maintaining `<ModalHost />` (`#modal-root`) in layout.
 
-- [ ] Task: Write failing tests for root layout modal isolation and AuthenticatedModalHost mounting
-    - [ ] Add test asserting `app/layout.tsx` retains `<ModalHost />` (`#modal-root`) but contains no direct imports or JSX nodes for `VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, or `GlobalModalRenderer`
-    - [ ] Add test asserting `AuthenticatedModalHost` lazily loads modal trees via `next/dynamic({ ssr: false })` and prefetch triggers on idle
-    - [ ] Add test asserting `components/app-shell.tsx` and `app/trips/[id]/page.tsx` mount `AuthenticatedModalHost`
-    - [ ] Add test asserting route transitions dismiss open modals and cleanse body pointer-event locks
+- [x] Task: Write failing tests for root layout modal isolation and AuthenticatedModalHost mounting [3246a32]
+    - [x] Add test asserting `app/layout.tsx` retains `<ModalHost />` (`#modal-root`) but contains no direct imports or JSX nodes for `VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, or `GlobalModalRenderer`
+    - [x] Add test asserting `AuthenticatedModalHost` lazily loads modal trees via `next/dynamic({ ssr: false })` and prefetch triggers on idle
+    - [x] Add test asserting `components/app-shell.tsx` and `app/trips/[id]/page.tsx` mount `AuthenticatedModalHost`
+    - [x] Add test asserting route transitions dismiss open modals and cleanse body pointer-event locks
 - [ ] Task: Create `AuthenticatedModalHost` with full modal coverage (Expand)
     - [ ] Create `components/modals/authenticated-modal-host.tsx` marked `"use client";` dynamically importing `VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, `GlobalModalRenderer`, `WineryModal`, and `VisitHistoryModal` with `{ ssr: false }`
     - [ ] Add route change cleanup and idle prefetching via `requestIdleCallback` in `authenticated-modal-host.tsx`
