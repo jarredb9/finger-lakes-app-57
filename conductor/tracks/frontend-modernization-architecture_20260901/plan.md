@@ -48,10 +48,10 @@ Focus: Extract heavy modal trees from root `app/layout.tsx` into an `Authenticat
     - [x] Add test asserting `AuthenticatedModalHost` lazily loads modal trees via `next/dynamic({ ssr: false })` and prefetch triggers on idle
     - [x] Add test asserting `components/app-shell.tsx` and `app/trips/[id]/page.tsx` mount `AuthenticatedModalHost`
     - [x] Add test asserting route transitions dismiss open modals and cleanse body pointer-event locks
-- [ ] Task: Create `AuthenticatedModalHost` with full modal coverage (Expand)
-    - [ ] Create `components/modals/authenticated-modal-host.tsx` marked `"use client";` dynamically importing `VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, `GlobalModalRenderer`, `WineryModal`, and `VisitHistoryModal` with `{ ssr: false }`
-    - [ ] Add route change cleanup and idle prefetching via `requestIdleCallback` in `authenticated-modal-host.tsx`
-    - [ ] Standardize portal targets between Radix `DialogPortal` and `#modal-root`
+- [x] Task: Create `AuthenticatedModalHost` with full modal coverage (Expand) [0a5665c]
+    - [x] Create `components/modals/authenticated-modal-host.tsx` marked `"use client";` dynamically importing `VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, `GlobalModalRenderer`, `WineryModal`, and `VisitHistoryModal` with `{ ssr: false }`
+    - [x] Add route change cleanup and idle prefetching via `requestIdleCallback` in `authenticated-modal-host.tsx`
+    - [x] Standardize portal targets between Radix `DialogPortal` and `#modal-root`
 - [ ] Task: Mount modal host in callers (Migrate)
     - [ ] Mount `AuthenticatedModalHost` inside `components/app-shell.tsx`, `app/trips/[id]/page.tsx`, `app/friends/[id]/page.tsx`, and `app/settings/page.tsx`
     - [ ] Remove redundant `<WineryModal />` and `<VisitHistoryModal />` from `components/app-shell.tsx`
