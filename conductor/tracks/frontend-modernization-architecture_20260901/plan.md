@@ -35,9 +35,9 @@ Focus: Isolate Mapbox GL CSS to map boundaries, harden Mapbox against runtime We
     - [x] Purge DOM container and event listeners on effect cleanup in `components/map/google-map-fallback.tsx` to eliminate React 19 StrictMode context leaks
     - [x] Sanitize coordinates in `MapView.tsx:wineriesGeoJSON` to prevent Mapbox parser crashes on `NaN`
     - [x] Enforce Tailwind sizing constraints on `MapView.tsx` wrapper and trigger `map.resize()` on load
-- [ ] Task: Verify Mapbox rendering and fallback behavior across unit test suite
-    - [ ] Update `components/map/__tests__/MapView.test.tsx` for dynamic import compatibility (`findByTestId`) and verify tests pass cleanly
-    - [ ] Run `npm run type-check` to verify zero type regressions in map components
+- [x] Task: Verify Mapbox rendering and fallback behavior across unit test suite [f854a19]
+    - [x] Update `components/map/__tests__/MapView.test.tsx` for dynamic import compatibility (`findByTestId`) and verify tests pass cleanly
+    - [x] Run `npm run type-check` to verify zero type regressions in map components
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Map Engine Bundle Isolation & Dynamic Fallback Loading' (Protocol in workflow.md)
 
 ## Phase 3: Root Layout Decoupling & Authenticated Modal Host
