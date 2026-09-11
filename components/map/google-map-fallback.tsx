@@ -5,8 +5,7 @@ import { Winery, Trip } from "@/lib/types";
 import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
 import { GoogleMapAdapter } from "@/lib/maps/google-map-adapter";
 import { PIN_COLORS } from "@/lib/maps/mapbox-layers";
-import { Button } from "@/components/ui/button";
-import { Compass, Navigation } from "lucide-react";
+import { MapStyleSwitcher } from "./map-style-switcher";
 
 export interface GoogleMapFallbackProps {
   discoveredWineries: Winery[];
@@ -196,26 +195,7 @@ export function GoogleMapFallback({
       <div ref={containerRef} className="w-full h-full" />
 
       {/* Floating Style Switcher Control */}
-      <div className="absolute top-4 left-4 z-30 flex gap-1 bg-background/95 backdrop-blur-sm p-1 rounded-lg border shadow-md">
-        <Button
-          size="sm"
-          variant={mapStyle === "outdoors" ? "default" : "ghost"}
-          onClick={() => setMapStyle("outdoors")}
-          className="h-7 px-2.5 text-xs gap-1.5"
-        >
-          <Compass className="h-3.5 w-3.5" />
-          <span>Outdoors</span>
-        </Button>
-        <Button
-          size="sm"
-          variant={mapStyle === "streets" ? "default" : "ghost"}
-          onClick={() => setMapStyle("streets")}
-          className="h-7 px-2.5 text-xs gap-1.5"
-        >
-          <Navigation className="h-3.5 w-3.5" />
-          <span>Streets</span>
-        </Button>
-      </div>
+      <MapStyleSwitcher currentStyle={mapStyle} onStyleChange={setMapStyle} />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useRef, useState, useMemo, useCallback, Component } from "react";
+import { memo, useRef, useState, useMemo, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Map, { Source, Layer, MapRef } from "react-map-gl/mapbox";
 import mapboxgl from "mapbox-gl";
@@ -9,14 +9,14 @@ import "mapbox-gl/dist/mapbox-gl.css";
 import { Winery, Trip } from "@/lib/types";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useMounted } from "@/hooks/use-mounted";
-import { Button } from "@/components/ui/button";
-import { Compass, Navigation } from "lucide-react";
 import {
   MAP_STYLES,
   clusterLayer,
   clusterCountLayer,
   unclusteredPointLayer,
 } from "@/lib/maps/mapbox-layers";
+import { MapErrorBoundary } from "./map-error-boundary";
+import { MapStyleSwitcher } from "./map-style-switcher";
 
 const GoogleMapFallback = dynamic(
   () => import("./google-map-fallback").then((mod) => mod.GoogleMapFallback),
@@ -30,38 +30,6 @@ const GoogleMapFallback = dynamic(
     ),
   }
 );
-
-interface MapErrorBoundaryProps {
-  fallback: React.ReactNode;
-  children: React.ReactNode;
-  onError?: (error: Error, errorInfo?: React.ErrorInfo) => void;
-}
-
-interface MapErrorBoundaryState {
-  hasError: boolean;
-}
-
-class MapErrorBoundary extends Component<MapErrorBoundaryProps, MapErrorBoundaryState> {
-  constructor(props: MapErrorBoundaryProps) {
-    super(props);
-    this.state = { hasError: false };
-  }
-
-  static getDerivedStateFromError(): MapErrorBoundaryState {
-    return { hasError: true };
-  }
-
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    this.props.onError?.(error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback;
-    }
-    return this.props.children;
-  }
-}
 
 export interface MapViewProps {
   discoveredWineries: Winery[];
@@ -280,26 +248,7 @@ const MapView = memo(({
       </MapErrorBoundary>
 
       {/* Floating Style Switcher Control */}
-      <div className="absolute top-4 left-4 z-30 flex gap-1 bg-background/95 backdrop-blur-sm p-1 rounded-lg border shadow-md">
-        <Button
-          size="sm"
-          variant={mapStyle === "outdoors" ? "default" : "ghost"}
-          onClick={() => setMapStyle("outdoors")}
-          className="h-7 px-2.5 text-xs gap-1.5"
-        >
-          <Compass className="h-3.5 w-3.5" />
-          <span>Outdoors</span>
-        </Button>
-        <Button
-          size="sm"
-          variant={mapStyle === "streets" ? "default" : "ghost"}
-          onClick={() => setMapStyle("streets")}
-          className="h-7 px-2.5 text-xs gap-1.5"
-        >
-          <Navigation className="h-3.5 w-3.5" />
-          <span>Streets</span>
-        </Button>
-      </div>
+      <MapStyleSwitcher currentStyle={mapStyle} onStyleChange={setMapStyle} />
 
       {/* Floating Google Attribution Badge */}
       <div className="absolute bottom-24 group-[.sheet-open]:bottom-[calc(45vh+7.5rem)] lg:bottom-4 left-4 z-30 bg-background/95 backdrop-blur-sm px-2.5 py-1 rounded-md border shadow-md text-[10px] text-muted-foreground flex items-center gap-1 select-none pointer-events-none transition-all duration-300">
