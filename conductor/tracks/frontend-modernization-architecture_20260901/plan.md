@@ -75,13 +75,13 @@ Focus: Convert `/friends/[id]`, `/forgot-password`, and `/manual-confirm` into S
     - [x] Refactor `app/friends/[id]/page.tsx` into an async Server Component with server auth check via `getUser()`, server-side redirect to `/login?redirectTo=/friends/${id}`, and static `Metadata` export
     - [x] Pass resolved `id` to client component `components/FriendProfile.tsx`
     - [x] Create `app/error.tsx` providing a global fallback error boundary that preserves App Shell navigation and allows users to retry failed server operations
-- [ ] Task: Modularize auth pages, harden `proxy.ts`, and enforce deterministic SSR dates
-    - [ ] Split `app/forgot-password/page.tsx` into a Server Component exporting static `Metadata` and client component `components/forgot-password-form.tsx`
-    - [ ] Split `app/manual-confirm/page.tsx` into a Server Component exporting static `Metadata` and client component `components/manual-confirm-form.tsx`
-    - [ ] In `proxy.ts`, add `'/manual-confirm'` to `publicRoutes`, preserve query strings in `redirectTo`, normalize deep-link trailing slashes, and return 401 for unauthenticated Server Action POSTs
-    - [ ] In `utils/supabase/auth-helper.ts`, update `setAll` to forward modified request cookies via `NextResponse.next({ request })`
-    - [ ] Replace dynamic `new Date().toLocaleDateString()` in `app/privacy/page.tsx` and `app/terms/page.tsx` with static `LAST_UPDATED = "January 15, 2025"` constant
-    - [ ] In `components/VisitForm.tsx`, replace `new Date().toISOString().split("T")[0]` (lines 37, 48, 108) with `getTodayLocal()`, and retain `editingVisit.visit_date` directly without re-serializing via `toISOString()` (line 59)
+- [x] Task: Modularize auth pages, harden `proxy.ts`, and enforce deterministic SSR dates [2e3d4e8e]
+    - [x] Split `app/forgot-password/page.tsx` into a Server Component exporting static `Metadata` and client component `components/forgot-password-form.tsx`
+    - [x] Split `app/manual-confirm/page.tsx` into a Server Component exporting static `Metadata` and client component `components/manual-confirm-form.tsx`
+    - [x] In `proxy.ts`, add `'/manual-confirm'` to `publicRoutes`, preserve query strings in `redirectTo`, normalize deep-link trailing slashes, and return 401 for unauthenticated Server Action POSTs
+    - [x] In `utils/supabase/auth-helper.ts`, update `setAll` to forward modified request cookies via `NextResponse.next({ request })`
+    - [x] Replace dynamic `new Date().toLocaleDateString()` in `app/privacy/page.tsx` and `app/terms/page.tsx` with static `LAST_UPDATED = "January 15, 2025"` constant
+    - [x] In `components/VisitForm.tsx`, replace `new Date().toISOString().split("T")[0]` (lines 37, 48, 108) with `getTodayLocal()`, and retain `editingVisit.visit_date` directly without re-serializing via `toISOString()` (line 59)
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Server Component Boundaries, Route Metadata & Deterministic Dates' (Protocol in workflow.md)
 
 ## Phase 5: React 19 Adherence: State Derivation & Compiler Compliance
