@@ -122,7 +122,7 @@ Focus: Standardize authentication forms on React 19 Server Actions with `useActi
     - [x] In `lib/services/syncService.ts` and `lib/stores/slices/tripDataSlice.ts`, implement atomic `replaceTripTempId` to eliminate ghost trip duplication after offline queue replay
 - [x] Task: Conductor - User Manual Verification 'Phase 6: React 19 Form Actions Modernization' (Protocol in workflow.md) d88a104e
 
-## Phase 7: Service Worker Auth Hygiene & Production Quality Audit
+## Phase 7: Service Worker Auth Hygiene & Production Quality Audit [checkpoint: ff654fd0]
 Focus: Restrict `/auth/v1/*` routes in `app/sw.ts` strictly to NetworkOnly, bridge `userStore.logout()` to purge CacheStorage safely with offline resilience and cross-tab awareness, harden `fetchUser()` with local session fallback, and execute full production quality audit including containerized Playwright E2E tests.
 
 - [x] Task: Write failing tests for Service Worker auth caching rules, offline session preservation, and build audit [0da9a820]
@@ -141,7 +141,7 @@ Focus: Restrict `/auth/v1/*` routes in `app/sw.ts` strictly to NetworkOnly, brid
     - [x] Run containerized Playwright E2E tests via `./scripts/run-e2e-container.sh --build webkit e2e/auth-recovery.spec.ts`
     - [x] Run containerized Playwright E2E tests via `./scripts/run-e2e-container.sh webkit e2e/pwa-offline.spec.ts`
     - [x] Run containerized Playwright E2E tests via `./scripts/run-e2e-container.sh webkit e2e/trip-flow.spec.ts`
-- [ ] Task: Conductor - User Manual Verification 'Phase 7: Service Worker Auth Hygiene & Production Quality Audit' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 7: Service Worker Auth Hygiene & Production Quality Audit' (Protocol in workflow.md) ff654fd0
 
 ## Out-of-Band Hardening: Store Invariants & Test Hygiene [checkpoint: ee5b2d8a]
 Incidental test scope cleanup and domain invariant verification performed on this branch:
