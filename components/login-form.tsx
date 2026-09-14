@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useActionState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -9,52 +9,40 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2 } from "lucide-react"
-import { createClient } from "@/utils/supabase/client"
 import { useMounted } from "@/hooks/use-mounted"
+import { loginAction, type ActionState } from "@/app/actions/auth"
 
 export function LoginForm({ redirectTo }: { redirectTo?: string }) {
-  const [error, setError] = useState<string | null>(null)
-  const [isPending, setIsPending] = useState(false)
   const isHydrated = useMounted()
   const router = useRouter()
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    setIsPending(true)
-    setError(null)
-
-    const formData = new FormData(e.currentTarget)
-    const email = ((formData.get("email") as string) || "").trim()
-    const password = (formData.get("password") as string) || ""
-
-    if (!email || !password) {
-      setError("Please enter both email and password")
-      setIsPending(false)
-      return
-    }
-
-    try {
-      const supabase = createClient()
-      const { error: loginError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (loginError) {
-        setError(loginError.message)
-        setIsPending(false)
-        return
+  const [state, formAction, isPending] = useActionState(
+    async (prevState: ActionState, formData: FormData): Promise<ActionState> => {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        return {
+          success: false,
+          error: "You are currently offline. Please check your network connection.",
+        }
       }
+      try {
+        return await loginAction(prevState, formData)
+      } catch (err: unknown) {
+        const error = err as { message?: string } | null
+        return {
+          success: false,
+          error: error?.message || "An unexpected error occurred. Please try again.",
+        }
+      }
+    },
+    { success: false, error: null }
+  )
 
-      // Critical Sequence: refresh before push to ensure middleware sees the cookie
+  useEffect(() => {
+    if (state.success) {
       router.refresh()
       router.push(redirectTo || "/")
-    } catch (err) {
-      console.error("Login error:", err)
-      setError("An unexpected error occurred. Please try again.")
-      setIsPending(false)
     }
-  }
+  }, [state.success, redirectTo, router])
 
   return (
     <Card className="w-full">
@@ -62,11 +50,11 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
         <CardTitle><h1 className="text-2xl font-bold">Sign In</h1></CardTitle>
         <CardDescription>Enter your credentials to access your account</CardDescription>
       </CardHeader>
-      <form onSubmit={handleSubmit} data-hydrated={isHydrated}>
+      <form action={formAction} data-hydrated={isHydrated}>
         <CardContent className="space-y-4">
-          {error && (
+          {state.error && (
             <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
+              <AlertDescription>{state.error}</AlertDescription>
             </Alert>
           )}
           <div className="space-y-2">

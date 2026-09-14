@@ -75,7 +75,11 @@ export async function fetchTripsHelper(
       };
     });
   } catch (error: any) {
-    console.error("Failed to fetch trips", error);
+    if (error?.message === "Unauthorized") {
+      console.warn("Trip fetch unauthorized, session may still be initializing");
+    } else {
+      console.error("Failed to fetch trips", error);
+    }
     if (get().trips.length > 0) {
       set({ isLoading: false });
     } else {

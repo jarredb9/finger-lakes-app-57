@@ -1,8 +1,7 @@
 import { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate, NetworkFirst } from 'serwist';
-import { ExpirationPlugin } from 'serwist';
+import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate, NetworkFirst, ExpirationPlugin } from 'serwist';
 import { checkAndCleanupQuota } from '../lib/utils/quota';
-import { isSupabaseUrl as checkIsSupabaseUrl } from '../lib/utils/sw-utils';
+import { isSupabaseUrl as checkIsSupabaseUrl, isAuthPageRoute } from '../lib/utils/sw-utils';
 
 
 declare global {
@@ -84,28 +83,6 @@ const serwist = new Serwist({
   },
   runtimeCaching: [
     {
-      // Special handling for Auth endpoints to allow offline session checks
-      matcher: ({ url, request }) => {
-        const isE2EEnv = process.env.NEXT_PUBLIC_IS_E2E === 'true';
-        const skipHeader = request?.headers.get('x-skip-sw-interception') === 'true';
-        const isE2E = isE2EEnv || skipHeader;
-
-        if (isE2E) return false;
-
-        return isSupabaseUrl(url) && 
-          (url.pathname.includes('/auth/v1/user') || url.pathname.includes('/auth/v1/session'));
-      },
-      handler: new StaleWhileRevalidate({
-        cacheName: 'supabase-auth',
-        plugins: [
-          new ExpirationPlugin({
-            maxEntries: 5,
-            maxAgeSeconds: 7 * 24 * 60 * 60, // 1 week
-          }),
-        ],
-      }),
-    },
-    {
       matcher: ({ url, request }) => {
         const isE2EEnv = process.env.NEXT_PUBLIC_IS_E2E === 'true';
         const skipHeader = request?.headers.get('x-skip-sw-interception') === 'true';
@@ -135,11 +112,9 @@ const serwist = new Serwist({
         
         const isSupabase = isSupabaseUrl(url);
         
-        // Don't intercept if it's E2E or already handled by the auth/storage matchers above
+        // Don't intercept if it's E2E or handled by the storage matcher above
         if (isSupabase && (
             isE2E || 
-            url.pathname.includes('/auth/v1/user') || 
-            url.pathname.includes('/auth/v1/session') ||
             url.pathname.includes('/storage/v1/object/public')
         )) {
             return false;
@@ -187,7 +162,10 @@ const serwist = new Serwist({
       }),
     },
     {
-      matcher: ({ request }) => request.destination === 'document',
+      matcher: ({ url, request }) => {
+        if (request.destination !== 'document') return false;
+        return !isAuthPageRoute(url);
+      },
       handler: new NetworkFirst({
         cacheName: 'pages',
         networkTimeoutSeconds: 3,
@@ -238,6 +216,17 @@ const serwist = new Serwist({
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+  } else if (event.data && event.data.type === 'PURGE_AUTH_CACHE') {
+    event.waitUntil(
+      Promise.all([
+        caches.delete('supabase-auth'),
+        caches.delete('pages'),
+      ]).then(() => {
+        console.log('[SW] Successfully purged auth and pages caches on logout');
+      }).catch((err) => {
+        console.error('[SW] Failed to purge auth caches:', err);
+      })
+    );
   }
 });
 

@@ -5,8 +5,7 @@ import { Winery, Trip } from "@/lib/types";
 import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
 import { GoogleMapAdapter } from "@/lib/maps/google-map-adapter";
 import { PIN_COLORS } from "@/lib/maps/mapbox-layers";
-import { Button } from "@/components/ui/button";
-import { Compass, Navigation } from "lucide-react";
+import { MapStyleSwitcher } from "./map-style-switcher";
 
 export interface GoogleMapFallbackProps {
   discoveredWineries: Winery[];
@@ -44,12 +43,13 @@ export function GoogleMapFallback({
 
   useEffect(() => {
     let active = true;
+    const container = containerRef.current;
 
     async function initMap() {
       const mapsLib = await getGoogleLibrary("maps");
-      if (!active || !containerRef.current) return;
+      if (!active || !container) return;
 
-      const gmap = new mapsLib.Map(containerRef.current, {
+      const gmap = new mapsLib.Map(container, {
         center: { lat: 42.7, lng: -76.9 },
         zoom: 9,
         mapId: "DEMO_MAP_ID",
@@ -75,6 +75,9 @@ export function GoogleMapFallback({
       active = false;
       mapRef.current = null;
       setMapAdapter(null);
+      if (container) {
+        container.innerHTML = "";
+      }
     };
   }, []);
 
@@ -120,12 +123,17 @@ export function GoogleMapFallback({
     });
     markersRef.current = [];
 
+    const clickCleanups: (() => void)[] = [];
+
     allWineries.forEach(async (winery) => {
       const markerLib = await getGoogleLibrary("marker");
       const mapsLib = await getGoogleLibrary("maps");
       if (!active) return;
 
       const color = PIN_COLORS[winery.type as keyof typeof PIN_COLORS] || "#4b5563";
+      const handleMarkerClick = () => {
+        onMarkerClick(winery);
+      };
 
       let marker: any;
       if (markerLib?.AdvancedMarkerElement) {
@@ -143,8 +151,9 @@ export function GoogleMapFallback({
           gmpClickable: true,
         });
 
-        marker.addEventListener("gmp-click", () => {
-          onMarkerClick(winery);
+        marker.addEventListener("gmp-click", handleMarkerClick);
+        clickCleanups.push(() => {
+          marker.removeEventListener?.("gmp-click", handleMarkerClick);
         });
       } else if (mapsLib?.Marker) {
         marker = new mapsLib.Marker({
@@ -153,8 +162,11 @@ export function GoogleMapFallback({
           title: winery.name,
         });
 
-        marker.addListener("click", () => {
-          onMarkerClick(winery);
+        const listener = marker.addListener("click", handleMarkerClick);
+        clickCleanups.push(() => {
+          if (listener && typeof listener.remove === "function") {
+            listener.remove();
+          }
         });
       }
 
@@ -165,6 +177,7 @@ export function GoogleMapFallback({
 
     return () => {
       active = false;
+      clickCleanups.forEach((cleanup) => cleanup());
       markersRef.current.forEach((m) => {
         if (typeof m.setMap === "function") {
           m.setMap(null);
@@ -182,26 +195,7 @@ export function GoogleMapFallback({
       <div ref={containerRef} className="w-full h-full" />
 
       {/* Floating Style Switcher Control */}
-      <div className="absolute top-4 left-4 z-30 flex gap-1 bg-background/95 backdrop-blur-sm p-1 rounded-lg border shadow-md">
-        <Button
-          size="sm"
-          variant={mapStyle === "outdoors" ? "default" : "ghost"}
-          onClick={() => setMapStyle("outdoors")}
-          className="h-7 px-2.5 text-xs gap-1.5"
-        >
-          <Compass className="h-3.5 w-3.5" />
-          <span>Outdoors</span>
-        </Button>
-        <Button
-          size="sm"
-          variant={mapStyle === "streets" ? "default" : "ghost"}
-          onClick={() => setMapStyle("streets")}
-          className="h-7 px-2.5 text-xs gap-1.5"
-        >
-          <Navigation className="h-3.5 w-3.5" />
-          <span>Streets</span>
-        </Button>
-      </div>
+      <MapStyleSwitcher currentStyle={mapStyle} onStyleChange={setMapStyle} />
     </div>
   );
 }

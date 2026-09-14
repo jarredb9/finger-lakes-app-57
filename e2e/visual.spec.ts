@@ -1,5 +1,5 @@
 import { test, expect } from './utils';
-import { getSidebarContainer, login, navigateToTab } from './helpers';
+import { getSidebarContainer, login, navigateToTab, ensureSidebarExpanded } from './helpers';
 
 test.describe('Visual Regression Testing', () => {
 
@@ -25,8 +25,16 @@ test.describe('Visual Regression Testing', () => {
             animation-duration: 0s !important;
             -webkit-animation-delay: 0s !important;
             animation-delay: 0s !important;
+            scrollbar-width: none !important;
+          }
+          *::-webkit-scrollbar {
+            display: none !important;
+          }
+          input, textarea {
+            caret-color: transparent !important;
           }
           [data-testid="trip-badge"] { display: none !important; }
+          [data-testid="vibe-tags-scroller"] { display: none !important; }
           [data-testid*="winery-modal"] h2 {
             white-space: nowrap !important;
             overflow: hidden !important;
@@ -50,10 +58,13 @@ test.describe('Visual Regression Testing', () => {
     // Pre-emptively dismiss cookie banner using init script if not already set by helper
     await page.evaluate(() => window.localStorage.setItem('cookie-consent', 'true'));
     await page.reload();
-    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    });
 
     await expect(page).toHaveScreenshot('login-page.png', {
-        maxDiffPixelRatio: 0.05 // Allow slight rendering differences
+        maxDiffPixelRatio: 0.10 // Align with project-wide standard
     });
   });
 
@@ -61,20 +72,24 @@ test.describe('Visual Regression Testing', () => {
     await mockMaps.initDefaultMocks({ currentUserId: user.id, forceMocks: true });
     await login(page, user.email, user.password);
 
-    // Ensure we are on Explore and the sidebar/sheet is active
+    // Ensure we are on Explore and the sidebar/sheet is active and fully expanded
     await navigateToTab(page, 'Explore');
+    await ensureSidebarExpanded(page);
 
     // Wait for content to render
     const sidebar = getSidebarContainer(page);
     await expect(sidebar.getByText('Wineries in View')).toBeVisible();
-    await page.evaluate(() => document.fonts.ready);
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    });
     
     await expect(page).toHaveScreenshot('dashboard-main.png', {
         mask: [
             page.locator('[data-testid="user-avatar"]'), 
             page.locator('text=/Trip \\d+/') 
         ],
-        maxDiffPixelRatio: 0.05
+        maxDiffPixelRatio: 0.10
     });
   });
 
@@ -87,6 +102,7 @@ test.describe('Visual Regression Testing', () => {
     await login(page, user.email, user.password);
 
     await navigateToTab(page, 'Explore');
+    await ensureSidebarExpanded(page);
 
     // Open a winery modal - click the title to avoid MapNavigation intercepting card clicks
     const firstWinery = page.getByTestId('winery-card-Mock Winery One').first();

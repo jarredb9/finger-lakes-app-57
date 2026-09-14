@@ -39,19 +39,42 @@ export const useUserStore = createWithEqualityFn<UserState>((set, get) => ({
     set({ isLoading: true });
     const supabase = createClient();
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      let authUser: any = null;
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+
+      if (!isOffline) {
+        try {
+          const { data } = await supabase.auth.getUser();
+          authUser = data?.user || null;
+        } catch (err) {
+          console.warn('[userStore] getUser failed, attempting getSession fallback', err);
+        }
+      }
+
+      // Offline or network failure fallback: read local stored token via getSession()
+      if (!authUser) {
+        const { data } = await supabase.auth.getSession();
+        authUser = data?.session?.user || null;
+      }
+
       if (!authUser) {
         set({ user: null, isLoading: false });
         return;
       }
 
-      const profile = await ProfileService.fetchProfile(authUser.id);
+      let profile: any = null;
+      try {
+        profile = await ProfileService.fetchProfile(authUser.id);
+      } catch (profileErr) {
+        console.warn('[userStore] Failed to fetch profile (may be offline)', profileErr);
+      }
+
       set({ 
         user: { 
           id: authUser.id, 
           email: authUser.email,
-          full_name: profile?.full_name,
-          avatar_url: profile?.avatar_url,
+          full_name: profile?.full_name || authUser.user_metadata?.full_name,
+          avatar_url: profile?.avatar_url || authUser.user_metadata?.avatar_url,
           privacy_level: profile?.privacy_level || 'private',
           ai_enabled: profile?.ai_enabled ?? false
         }, 
@@ -127,10 +150,42 @@ export const useUserStore = createWithEqualityFn<UserState>((set, get) => ({
     // 1. First await the asynchronous reset of the sync store to guarantee queue deletion
     await useSyncStore.getState().reset();
 
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    // 2. Safely attempt Supabase signOut with defensive try/catch (resilient against network failure / offline)
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn('[userStore] Sign out failed (network/offline), proceeding with local store purge', error);
+    }
 
-    // 2. Reset other Zustand stores
+    // 3. Purge CacheStorage (supabase-auth and pages caches)
+    if (typeof window !== 'undefined' && 'caches' in window && window.caches) {
+      try {
+        await Promise.all([
+          window.caches.delete('supabase-auth'),
+          window.caches.delete('pages'),
+        ]);
+      } catch (cacheErr) {
+        console.warn('[userStore] Failed to purge window.caches', cacheErr);
+      }
+    }
+
+    // 4. Dispatch PURGE_AUTH_CACHE message to Service Worker with null-controller safety
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator && navigator.serviceWorker) {
+      try {
+        if (navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'PURGE_AUTH_CACHE' });
+        } else if (navigator.serviceWorker.ready) {
+          navigator.serviceWorker.ready.then((reg) => {
+            reg.active?.postMessage({ type: 'PURGE_AUTH_CACHE' });
+          }).catch(() => {});
+        }
+      } catch (swErr) {
+        console.warn('[userStore] Failed to dispatch PURGE_AUTH_CACHE to serviceWorker', swErr);
+      }
+    }
+
+    // 5. Reset other Zustand stores
     useVisitStore.getState().reset?.();
     useTripStore.getState().reset?.();
     useFriendStore.getState().reset?.();

@@ -42,6 +42,14 @@ This track represents the final stabilization phase (**Sprint 4 QA**) of Milesto
   - *Location*: [`jest.config.mjs`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/jest.config.mjs), [`jest.setup.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/jest.setup.ts)
   - *Problem*: Shared mutable mocks leak between independent test suites.
   - *Remediation*: Set `clearMocks: true` and reset all store mocks in `afterEach`.
+- **[QA-13] Visit Store Offline Reconstitution & Domain Invariants**:
+  - *Location*: [`lib/stores/slices/visitInitHelpers.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/stores/slices/visitInitHelpers.ts) (27% coverage)
+  - *Problem*: `visitInitHelpers.ts:70` handles binary Base64 serialization (critical for WebKit/iOS IndexedDB blob persistence) and offline queueing without invariant testing.
+  - *Remediation*: Implement [`visitStore.domainInvariants.test.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/stores/__tests__/visitStore.domainInvariants.test.ts) modeling photo reconstitution, Base64 serialization, and offline queueing invariants mirroring `tripStore.domainInvariants.test.ts`.
+- **[QA-14] Social & Trip Service Mutation Test Suites**:
+  - *Location*: [`lib/services/socialService.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/services/socialService.ts) (0% coverage), [`lib/services/tripService.ts`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/lib/services/tripService.ts) (36–49% coverage)
+  - *Problem*: `socialService.ts` currently has zero unit test coverage; mutating operations in `tripService.ts` (such as multi-winery RPC chaining and trip owner deletion guards) are untested.
+  - *Remediation*: Implement dedicated test suites in `lib/services/__tests__/` covering RPC mutation chains, ownership authorization guards, and error rollbacks.
 
 ### 3.2 E2E Architecture & Fixture Modularization
 - **[QA-01] Decompose `MockMapsManager` Monolith**:
@@ -88,15 +96,19 @@ This track represents the final stabilization phase (**Sprint 4 QA**) of Milesto
 - [ ] `MockMapsManager` is broken into modular fixtures under `e2e/fixtures/`.
 - [ ] `maxDiffPixelRatio` is reduced to `0.01` in `playwright.config.ts`.
 - [ ] Drag-and-drop itinerary reordering and offline reconnect sync have automated E2E test coverage.
+- [ ] `visitStore.domainInvariants.test.ts` passes and brings `visitInitHelpers.ts` coverage to >= 80%.
+- [ ] `socialService.ts` and mutating operations in `tripService.ts` have dedicated unit test coverage in `lib/services/__tests__/`.
 - [ ] `./scripts/run-e2e-container.sh chromium` and `./scripts/run-e2e-container.sh webkit` pass reliably with individual test runtimes < 15 seconds.
 
 ---
 
 ## 5. Proposed Phased Implementation Plan
 
-### Phase 1: Jest 30 Isolation & Memory Leak Remediation
+### Phase 1: Jest 30 Isolation, Memory Leak Remediation & Service Mutation Tests
 - [ ] Task: Configure `workerIdleMemoryLimit: '512MB'` and `clearMocks: true` in `jest.config.mjs`
 - [ ] Task: Refactor `lib/stores/__tests__/` to replace `jest.resetModules()` with store `reset()`
+- [ ] Task: Implement `lib/stores/__tests__/visitStore.domainInvariants.test.ts` covering Base64 photo reconstitution and offline queueing in `visitInitHelpers.ts`
+- [ ] Task: Implement `lib/services/__tests__/socialService.test.ts` and `lib/services/__tests__/tripService.mutations.test.ts` covering RPC mutation chains and ownership guards
 - [ ] Task: Verify full Jest test suite runs cleanly with zero worker crashes
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Jest Isolation & Memory' (Protocol in workflow.md)
 
