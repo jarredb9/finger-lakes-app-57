@@ -134,13 +134,13 @@ Focus: Restrict `/auth/v1/*` routes in `app/sw.ts` strictly to NetworkOnly, brid
     - [x] In `app/sw.ts`, add message listener for `{ type: 'PURGE_AUTH_CACHE' }` to delete `supabase-auth` and `pages` caches, and exclude auth pages (`/login`, `/signup`, `/forgot-password`, `/manual-confirm`) from `pages` cache
     - [x] In `lib/stores/userStore.ts#logout`, wrap `supabase.auth.signOut()` in defensive `try/catch`, purge `window.caches`, and dispatch `PURGE_AUTH_CACHE` via `navigator.serviceWorker.ready` and `controller`
     - [x] In `lib/stores/userStore.ts#fetchUser`, add offline fallback to `supabase.auth.getSession()` when network is unavailable
-- [ ] Task: Execute full quality audit (lint, type-check, build, and containerized E2E)
-    - [ ] Run `npm run lint` and verify zero ESLint errors, warnings, or suppressions
-    - [ ] Run `npm run type-check` and verify zero TypeScript errors
-    - [ ] Run `npm run build` and verify clean production Webpack compilation with reduced JavaScript chunk sizes
-    - [ ] Run containerized Playwright E2E tests via `./scripts/run-e2e-container.sh --build webkit e2e/auth-recovery.spec.ts`
-    - [ ] Run containerized Playwright E2E tests via `./scripts/run-e2e-container.sh webkit e2e/pwa-offline.spec.ts`
-    - [ ] Run containerized Playwright E2E tests via `./scripts/run-e2e-container.sh webkit e2e/trip-flow.spec.ts`
+- [x] Task: Execute full quality audit (lint, type-check, build, and containerized E2E)
+    - [x] Run `npm run lint` and verify zero ESLint errors, warnings, or suppressions
+    - [x] Run `npm run type-check` and verify zero TypeScript errors
+    - [x] Run `npm run build` and verify clean production Webpack compilation with reduced JavaScript chunk sizes
+    - [x] Run containerized Playwright E2E tests via `./scripts/run-e2e-container.sh --build webkit e2e/auth-recovery.spec.ts`
+    - [x] Run containerized Playwright E2E tests via `./scripts/run-e2e-container.sh webkit e2e/pwa-offline.spec.ts`
+    - [x] Run containerized Playwright E2E tests via `./scripts/run-e2e-container.sh webkit e2e/trip-flow.spec.ts`
 - [ ] Task: Conductor - User Manual Verification 'Phase 7: Service Worker Auth Hygiene & Production Quality Audit' (Protocol in workflow.md)
 
 ## Out-of-Band Hardening: Store Invariants & Test Hygiene [checkpoint: ee5b2d8a]
@@ -159,5 +159,9 @@ Incidental test scope cleanup and domain invariant verification performed on thi
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions 990f0f6
+- [x] Task: Fix E2E trip-flow DatePicker pointer interception and auth fetch resilience [945c7347]
+    - [x] Revert `DialogPortal` in `components/ui/dialog.tsx` to `DialogPrimitive.Portal` to eliminate stacking context traps with Radix popovers
+    - [x] Add `getSession()` fallback to `TripService.getTrips` in `lib/services/tripService.ts` for session cache resilience
+    - [x] Demote `Unauthorized` errors from `console.error` to `console.warn` in `lib/stores/slices/tripFetchHelpers.ts`
 
 
