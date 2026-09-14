@@ -223,17 +223,27 @@ describe("app/actions/auth.ts Server Actions", () => {
       expect(createAdminClient).not.toHaveBeenCalled();
     });
 
-    it("confirms user account in non-production mode using admin client", async () => {
+    it("confirms user account in non-production mode by looking up user ID from email", async () => {
       (process.env as any).NODE_ENV = "development";
 
+      const mockListUsers = jest.fn().mockResolvedValue({
+        data: {
+          users: [
+            { id: "b2c3d4e5-1234-5678-9abc-def012345678", email: "user@example.com" },
+          ],
+        },
+        error: null,
+      });
+
       const mockUpdateUserById = jest.fn().mockResolvedValue({
-        data: { user: { id: "user-123", email_confirmed_at: "2026-09-14T12:00:00Z" } },
+        data: { user: { id: "b2c3d4e5-1234-5678-9abc-def012345678", email_confirmed_at: "2026-09-14T12:00:00Z" } },
         error: null,
       });
 
       (createAdminClient as jest.Mock).mockResolvedValue({
         auth: {
           admin: {
+            listUsers: mockListUsers,
             updateUserById: mockUpdateUserById,
           },
         },
@@ -244,9 +254,13 @@ describe("app/actions/auth.ts Server Actions", () => {
 
       const result = await manualConfirmAction(null, formData);
 
-      expect(mockUpdateUserById).toHaveBeenCalledWith("user@example.com", {
-        email_confirm: true,
-      });
+      expect(mockListUsers).toHaveBeenCalled();
+      expect(mockUpdateUserById).toHaveBeenCalledWith(
+        "b2c3d4e5-1234-5678-9abc-def012345678",
+        {
+          email_confirm: true,
+        }
+      );
       expect(result).toEqual({
         success: true,
         error: null,
@@ -256,18 +270,50 @@ describe("app/actions/auth.ts Server Actions", () => {
       });
     });
 
-    it("handles admin updateUserById failure", async () => {
+    it("confirms user account directly when a UUID is provided", async () => {
       (process.env as any).NODE_ENV = "development";
 
+      const mockListUsers = jest.fn();
       const mockUpdateUserById = jest.fn().mockResolvedValue({
-        data: null,
-        error: { message: "User not found" },
+        data: { user: { id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890" } },
+        error: null,
       });
 
       (createAdminClient as jest.Mock).mockResolvedValue({
         auth: {
           admin: {
+            listUsers: mockListUsers,
             updateUserById: mockUpdateUserById,
+          },
+        },
+      });
+
+      const formData = new FormData();
+      formData.set("email", "a1b2c3d4-e5f6-7890-abcd-ef1234567890");
+
+      const result = await manualConfirmAction(null, formData);
+
+      expect(mockListUsers).not.toHaveBeenCalled();
+      expect(mockUpdateUserById).toHaveBeenCalledWith(
+        "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+        { email_confirm: true }
+      );
+      expect(result.success).toBe(true);
+    });
+
+    it("handles user not found during email lookup", async () => {
+      (process.env as any).NODE_ENV = "development";
+
+      const mockListUsers = jest.fn().mockResolvedValue({
+        data: { users: [] },
+        error: null,
+      });
+
+      (createAdminClient as jest.Mock).mockResolvedValue({
+        auth: {
+          admin: {
+            listUsers: mockListUsers,
+            updateUserById: jest.fn(),
           },
         },
       });
@@ -279,7 +325,44 @@ describe("app/actions/auth.ts Server Actions", () => {
 
       expect(result).toEqual({
         success: false,
-        error: "User not found",
+        error: "User with this email was not found. Please check the email and try again.",
+      });
+    });
+
+    it("handles admin updateUserById failure", async () => {
+      (process.env as any).NODE_ENV = "development";
+
+      const mockListUsers = jest.fn().mockResolvedValue({
+        data: {
+          users: [
+            { id: "b2c3d4e5-1234-5678-9abc-def012345678", email: "user@example.com" },
+          ],
+        },
+        error: null,
+      });
+
+      const mockUpdateUserById = jest.fn().mockResolvedValue({
+        data: null,
+        error: { message: "Update failed" },
+      });
+
+      (createAdminClient as jest.Mock).mockResolvedValue({
+        auth: {
+          admin: {
+            listUsers: mockListUsers,
+            updateUserById: mockUpdateUserById,
+          },
+        },
+      });
+
+      const formData = new FormData();
+      formData.set("email", "user@example.com");
+
+      const result = await manualConfirmAction(null, formData);
+
+      expect(result).toEqual({
+        success: false,
+        error: "Update failed",
       });
     });
   });

@@ -162,7 +162,60 @@ export async function manualConfirmAction(
 
   try {
     const supabase = await createAdminClient();
-    const { error } = await supabase.auth.admin.updateUserById(email, {
+
+    let targetUserId: string | null = null;
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+        email.trim()
+      );
+
+    if (isUuid) {
+      targetUserId = email.trim();
+    } else {
+      let page = 1;
+      const perPage = 50;
+
+      while (!targetUserId) {
+        const { data: listData, error: listError } =
+          await supabase.auth.admin.listUsers({
+            page,
+            perPage,
+          });
+
+        if (listError) {
+          return {
+            success: false,
+            error: listError.message || "Failed to search for user account.",
+          };
+        }
+
+        const users = listData?.users || [];
+        const matchedUser = users.find(
+          (u) => u.email?.toLowerCase() === email.trim().toLowerCase()
+        );
+
+        if (matchedUser) {
+          targetUserId = matchedUser.id;
+          break;
+        }
+
+        if (users.length < perPage) {
+          break;
+        }
+
+        page++;
+      }
+    }
+
+    if (!targetUserId) {
+      return {
+        success: false,
+        error:
+          "User with this email was not found. Please check the email and try again.",
+      };
+    }
+
+    const { error } = await supabase.auth.admin.updateUserById(targetUserId, {
       email_confirm: true,
     });
 
