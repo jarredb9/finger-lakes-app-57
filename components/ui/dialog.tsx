@@ -10,32 +10,7 @@ const Dialog = DialogPrimitive.Root
 
 const DialogTrigger = DialogPrimitive.Trigger
 
-const DialogPortal = ({
-  container,
-  ...props
-}: DialogPrimitive.DialogPortalProps) => {
-  const [portalTarget, setPortalTarget] = React.useState<HTMLElement | null>(() => {
-    if (typeof document !== "undefined") {
-      return (container as HTMLElement) || document.getElementById("modal-root");
-    }
-    return null;
-  });
-
-  React.useEffect(() => {
-    if (container) {
-      setPortalTarget(container as HTMLElement);
-    } else if (typeof document !== "undefined") {
-      setPortalTarget(document.getElementById("modal-root"));
-    }
-  }, [container]);
-
-  return (
-    <DialogPrimitive.Portal
-      container={container || portalTarget || undefined}
-      {...props}
-    />
-  );
-};
+const DialogPortal = DialogPrimitive.Portal
 
 const DialogClose = DialogPrimitive.Close
 
