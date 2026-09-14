@@ -360,6 +360,10 @@ describe('UserStore Logic', () => {
         writable: true,
       });
 
+      jest.doMock('@/lib/stores/syncStore', () => ({
+        useSyncStore: { getState: () => ({ reset: jest.fn().mockResolvedValue(undefined) }) },
+      }));
+
       jest.doMock('@/utils/supabase/client', () => ({
         createClient: () => ({
           auth: {
@@ -372,11 +376,9 @@ describe('UserStore Logic', () => {
       store.setState({ user: { id: 'null-sw-user', email: 'sw@example.com' } });
 
       // Should complete without throwing "Cannot read properties of null (reading 'postMessage')"
-      await expect(
-        act(async () => {
-          await store.getState().logout();
-        })
-      ).resolves.not.toThrow();
+      await act(async () => {
+        await store.getState().logout();
+      });
 
       expect(store.getState().user).toBeNull();
     });
@@ -395,6 +397,10 @@ describe('UserStore Logic', () => {
         writable: true,
       });
 
+      jest.doMock('@/lib/stores/syncStore', () => ({
+        useSyncStore: { getState: () => ({ reset: jest.fn().mockResolvedValue(undefined) }) },
+      }));
+
       jest.doMock('@/utils/supabase/client', () => ({
         createClient: () => ({
           auth: {
@@ -406,11 +412,9 @@ describe('UserStore Logic', () => {
       const store = require('../userStore').useUserStore;
       store.setState({ user: { id: 'no-sw-user', email: 'nosw@example.com' } });
 
-      await expect(
-        act(async () => {
-          await store.getState().logout();
-        })
-      ).resolves.not.toThrow();
+      await act(async () => {
+        await store.getState().logout();
+      });
 
       expect(store.getState().user).toBeNull();
 
