@@ -115,11 +115,11 @@ Focus: Standardize authentication forms on React 19 Server Actions with `useActi
     - [x] Create `app/actions/auth.ts` exporting typed Server Actions (`loginAction`, `forgotPasswordAction`, `manualConfirmAction`) with defensive `try/catch` and plain serializable `ActionState` contracts
     - [x] Refactor `components/login-form.tsx` to use React 19 `useActionState` with native `isPending` indicator and `router.refresh()` / `router.push()` upon success
     - [x] Refactor `components/forgot-password-form.tsx` and `components/manual-confirm-form.tsx` to use `useActionState` with client offline connectivity guard
-- [ ] Task: Modernize `trip-form.tsx` submission with Controlled Hybrid Client `useActionState` and offline resilience
-    - [ ] Refactor `components/trip-form.tsx` with Controlled Hybrid `useActionState`, triggering client action dispatch via `form.handleSubmit(onValidSubmit)` in `startTransition` and syncing action errors back to `form.setError()`
-    - [ ] Update `handleWineryToggle` in `components/trip-form.tsx` to allow offline winery selection by assigning an ephemeral ID when `ensureInDb` returns `null`
-    - [ ] In `lib/stores/slices/tripMutationHelpers.ts`, implement true optimistic rollback on permanent failure in `createTripHelper`
-    - [ ] In `lib/services/syncService.ts` and `lib/stores/slices/tripDataSlice.ts`, implement atomic `replaceTripTempId` to eliminate ghost trip duplication after offline queue replay
+- [x] Task: Modernize `trip-form.tsx` submission with Controlled Hybrid Client `useActionState` and offline resilience [acd72f88]
+    - [x] Refactor `components/trip-form.tsx` with Controlled Hybrid `useActionState`, triggering client action dispatch via `form.handleSubmit(onValidSubmit)` in `startTransition` and syncing action errors back to `form.setError()`
+    - [x] Update `handleWineryToggle` in `components/trip-form.tsx` to allow offline winery selection by assigning an ephemeral ID when `ensureInDb` returns `null`
+    - [x] In `lib/stores/slices/tripMutationHelpers.ts`, implement true optimistic rollback on permanent failure in `createTripHelper`
+    - [x] In `lib/services/syncService.ts` and `lib/stores/slices/tripDataSlice.ts`, implement atomic `replaceTripTempId` to eliminate ghost trip duplication after offline queue replay
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: React 19 Form Actions Modernization' (Protocol in workflow.md)
 
 ## Phase 7: Service Worker Auth Hygiene & Production Quality Audit
