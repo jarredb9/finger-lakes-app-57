@@ -103,7 +103,7 @@ Focus: Eliminate render-time `setState` calls in `use-winery-modal-state.ts` via
     - [x] Remove all 3 `eslint-disable-next-line react-hooks/set-state-in-effect` comments across the codebase
 - [x] Task: Conductor - User Manual Verification 'Phase 5: React 19 Adherence: State Derivation & Compiler Compliance' (Protocol in workflow.md) 29e1b3aa
 
-## Phase 6: React 19 Form Actions Modernization
+## Phase 6: React 19 Form Actions Modernization [checkpoint: d88a104e]
 Focus: Standardize authentication forms on React 19 Server Actions with `useActionState` and serializable error contracts; modernize `trip-form.tsx` submission with a Controlled Hybrid Client Action State pattern preserving `react-hook-form` / Zod validation, offline winery selection, and atomic optimistic rollback.
 
 - [x] Task: Write failing tests for form submissions using React 19 `useActionState` and optimistic rollback [7dced8d2]
@@ -120,7 +120,7 @@ Focus: Standardize authentication forms on React 19 Server Actions with `useActi
     - [x] Update `handleWineryToggle` in `components/trip-form.tsx` to allow offline winery selection by assigning an ephemeral ID when `ensureInDb` returns `null`
     - [x] In `lib/stores/slices/tripMutationHelpers.ts`, implement true optimistic rollback on permanent failure in `createTripHelper`
     - [x] In `lib/services/syncService.ts` and `lib/stores/slices/tripDataSlice.ts`, implement atomic `replaceTripTempId` to eliminate ghost trip duplication after offline queue replay
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: React 19 Form Actions Modernization' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 6: React 19 Form Actions Modernization' (Protocol in workflow.md) d88a104e
 
 ## Phase 7: Service Worker Auth Hygiene & Production Quality Audit
 Focus: Restrict `/auth/v1/*` routes in `app/sw.ts` strictly to NetworkOnly, bridge `userStore.logout()` to purge CacheStorage safely with offline resilience and cross-tab awareness, harden `fetchUser()` with local session fallback, and execute full production quality audit including containerized Playwright E2E tests.
