@@ -129,11 +129,11 @@ Focus: Restrict `/auth/v1/*` routes in `app/sw.ts` strictly to NetworkOnly, brid
     - [x] Add tests in `lib/utils/__tests__/sw-utils.test.ts` verifying `/auth/v1/` routes match `NetworkOnly` and are excluded from `StaleWhileRevalidate`
     - [x] Add tests in `lib/stores/__tests__/userStore.test.ts` verifying `userStore.fetchUser()` falls back to `getSession()` when offline without losing user identity
     - [x] Add tests in `lib/stores/__tests__/userStore.test.ts` verifying `userStore.logout()` purges `supabase-auth` and `pages` from `window.caches`, posts `PURGE_AUTH_CACHE` to Service Worker with null-controller safety, and completes store reset even when offline or in non-browser test environments
-- [ ] Task: Harden `app/sw.ts` with NetworkOnly auth caching and bridge `userStore.ts#logout`
-    - [ ] In `app/sw.ts`, remove `StaleWhileRevalidate` matcher for `/auth/v1/user` and `/auth/v1/session`; route all `/auth/v1/*` requests strictly to `NetworkOnly`
-    - [ ] In `app/sw.ts`, add message listener for `{ type: 'PURGE_AUTH_CACHE' }` to delete `supabase-auth` and `pages` caches, and exclude auth pages (`/login`, `/signup`, `/forgot-password`, `/manual-confirm`) from `pages` cache
-    - [ ] In `lib/stores/userStore.ts#logout`, wrap `supabase.auth.signOut()` in defensive `try/catch`, purge `window.caches`, and dispatch `PURGE_AUTH_CACHE` via `navigator.serviceWorker.ready` and `controller`
-    - [ ] In `lib/stores/userStore.ts#fetchUser`, add offline fallback to `supabase.auth.getSession()` when network is unavailable
+- [x] Task: Harden `app/sw.ts` with NetworkOnly auth caching and bridge `userStore.ts#logout` [c44093bc]
+    - [x] In `app/sw.ts`, remove `StaleWhileRevalidate` matcher for `/auth/v1/user` and `/auth/v1/session`; route all `/auth/v1/*` requests strictly to `NetworkOnly`
+    - [x] In `app/sw.ts`, add message listener for `{ type: 'PURGE_AUTH_CACHE' }` to delete `supabase-auth` and `pages` caches, and exclude auth pages (`/login`, `/signup`, `/forgot-password`, `/manual-confirm`) from `pages` cache
+    - [x] In `lib/stores/userStore.ts#logout`, wrap `supabase.auth.signOut()` in defensive `try/catch`, purge `window.caches`, and dispatch `PURGE_AUTH_CACHE` via `navigator.serviceWorker.ready` and `controller`
+    - [x] In `lib/stores/userStore.ts#fetchUser`, add offline fallback to `supabase.auth.getSession()` when network is unavailable
 - [ ] Task: Execute full quality audit (lint, type-check, build, and containerized E2E)
     - [ ] Run `npm run lint` and verify zero ESLint errors, warnings, or suppressions
     - [ ] Run `npm run type-check` and verify zero TypeScript errors
