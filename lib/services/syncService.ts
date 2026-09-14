@@ -383,7 +383,7 @@ export const SyncService = {
               break;
 
             case 'create_trip': {
-              let createdTripResult: any = null;
+              let createdTripResult: { trip_id?: number | string; id?: number | string } | null = null;
               if (payload.wineries && payload.wineries.length > 0) {
                   const { data, error: tripError } = await supabase.rpc('create_trip_with_winery', {
                     p_trip_name: payload.name,

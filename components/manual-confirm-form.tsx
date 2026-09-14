@@ -23,10 +23,11 @@ export function ManualConfirmForm() {
       }
       try {
         return await manualConfirmAction(prevState, formData);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const error = err as { message?: string } | null;
         return {
           success: false,
-          error: err?.message || "An error occurred. Please try again.",
+          error: error?.message || "An error occurred. Please try again.",
         };
       }
     },

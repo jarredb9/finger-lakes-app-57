@@ -75,7 +75,7 @@ describe('useTripStore SyncStatus', () => {
     expect(finalTrip.syncStatus).toBe('synced');
   });
 
-  it('should set syncStatus to error if createTrip fails', async () => {
+  it('should roll back and remove optimistic trip if createTrip fails permanently', async () => {
     const newTripParams = { name: 'Failing Trip', trip_date: '2023-01-01' };
     
     let rejectService: (reason: any) => void;
@@ -90,7 +90,7 @@ describe('useTripStore SyncStatus', () => {
     });
 
     await act(async () => {
-      rejectService!(new Error('Network error'));
+      rejectService!(new Error('Permanent failure'));
       try {
         await createPromise!;
       } catch (e) {
@@ -100,6 +100,25 @@ describe('useTripStore SyncStatus', () => {
 
     const state = useTripStore.getState();
     const failedTrip = state.trips.find((t: any) => t.name === 'Failing Trip');
+    expect(failedTrip).toBeUndefined();
+  });
+
+  it('should set syncStatus to error if updateTrip fails', async () => {
+    const existingTrip = createMockTrip({ id: 200, name: 'Existing Trip', syncStatus: 'synced' });
+    useTripStore.setState({ trips: [existingTrip] });
+
+    mockTripService.updateTrip.mockRejectedValueOnce(new Error('Update failed'));
+
+    await act(async () => {
+      try {
+        await useTripStore.getState().updateTrip('200', { name: 'Renamed Trip' });
+      } catch {
+        // expected
+      }
+    });
+
+    const state = useTripStore.getState();
+    const failedTrip = state.trips.find((t: any) => t.id === 200);
     expect(failedTrip).toBeDefined();
     expect(failedTrip.syncStatus).toBe('error');
   });

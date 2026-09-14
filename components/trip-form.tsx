@@ -91,8 +91,9 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
         });
         onClose?.(); // Close the modal
         return { success: true, error: null };
-      } catch (error: any) {
-        const errorMessage = error?.message || "Failed to create trip.";
+      } catch (error: unknown) {
+        const err = error as { message?: string } | null;
+        const errorMessage = err?.message || "Failed to create trip.";
         toast({ variant: "destructive", description: "Failed to create trip." });
         form.setError("root", { message: errorMessage });
         return { success: false, error: errorMessage };
