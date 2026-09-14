@@ -111,10 +111,10 @@ Focus: Standardize authentication forms on React 19 Server Actions with `useActi
     - [x] Add tests for `components/forgot-password-form.tsx` and `components/manual-confirm-form.tsx` verifying submission via `useActionState`
     - [x] Add tests for `components/trip-form.tsx` verifying form submission via Controlled Hybrid `useActionState` while preserving `react-hook-form` / Zod validation, offline winery selection without blocking `ensureInDb` RPC guards, and store persistence
     - [x] Add tests in `lib/stores/slices/__tests__/tripMutationHelpers.test.ts` verifying `createTripHelper` rolls back `tempId` on permanent error and replaces `tempId` atomically upon sync
-- [ ] Task: Modernize authentication forms with React 19 Server Actions, serializable contracts, and `useActionState`
-    - [ ] Create `app/actions/auth.ts` exporting typed Server Actions (`loginAction`, `forgotPasswordAction`, `manualConfirmAction`) with defensive `try/catch` and plain serializable `ActionState` contracts
-    - [ ] Refactor `components/login-form.tsx` to use React 19 `useActionState` with native `isPending` indicator and `router.refresh()` / `router.push()` upon success
-    - [ ] Refactor `components/forgot-password-form.tsx` and `components/manual-confirm-form.tsx` to use `useActionState` with client offline connectivity guard
+- [x] Task: Modernize authentication forms with React 19 Server Actions, serializable contracts, and `useActionState` [ec50d17]
+    - [x] Create `app/actions/auth.ts` exporting typed Server Actions (`loginAction`, `forgotPasswordAction`, `manualConfirmAction`) with defensive `try/catch` and plain serializable `ActionState` contracts
+    - [x] Refactor `components/login-form.tsx` to use React 19 `useActionState` with native `isPending` indicator and `router.refresh()` / `router.push()` upon success
+    - [x] Refactor `components/forgot-password-form.tsx` and `components/manual-confirm-form.tsx` to use `useActionState` with client offline connectivity guard
 - [ ] Task: Modernize `trip-form.tsx` submission with Controlled Hybrid Client `useActionState` and offline resilience
     - [ ] Refactor `components/trip-form.tsx` with Controlled Hybrid `useActionState`, triggering client action dispatch via `form.handleSubmit(onValidSubmit)` in `startTransition` and syncing action errors back to `form.setError()`
     - [ ] Update `handleWineryToggle` in `components/trip-form.tsx` to allow offline winery selection by assigning an ephemeral ID when `ensureInDb` returns `null`
