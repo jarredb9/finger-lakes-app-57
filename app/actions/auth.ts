@@ -12,14 +12,15 @@ export type ActionState<T = unknown> = {
 };
 
 function extractField(
-  formData: FormData | Record<string, any>,
+  formData: FormData | Record<string, unknown>,
   key: string
 ): string {
   if (typeof formData === "object" && formData !== null) {
     if (formData instanceof FormData) {
       return ((formData.get(key) as string) || "").trim();
     }
-    return ((formData[key] as string) || "").trim();
+    const val = formData[key];
+    return (typeof val === "string" ? val : "").trim();
   }
   return "";
 }
@@ -64,12 +65,13 @@ export async function loginAction(
       success: true,
       error: null,
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as { message?: string } | null;
     // eslint-disable-next-line no-console
     console.error("Login action error:", err);
     return {
       success: false,
-      error: err?.message || "An unexpected error occurred. Please try again.",
+      error: error?.message || "An unexpected error occurred. Please try again.",
     };
   }
 }
@@ -123,12 +125,13 @@ export async function forgotPasswordAction(
           "If an account with this email exists, a password reset link has been sent.",
       },
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as { message?: string } | null;
     // eslint-disable-next-line no-console
     console.error("Forgot password action error:", err);
     return {
       success: false,
-      error: err?.message || "An error occurred. Please try again.",
+      error: error?.message || "An error occurred. Please try again.",
     };
   }
 }
@@ -179,12 +182,13 @@ export async function manualConfirmAction(
         message: "Account confirmed! You can now sign in.",
       },
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const error = err as { message?: string } | null;
     // eslint-disable-next-line no-console
     console.error("Manual confirm action error:", err);
     return {
       success: false,
-      error: err?.message || "An error occurred. Please try again.",
+      error: error?.message || "An error occurred. Please try again.",
     };
   }
 }
