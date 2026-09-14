@@ -7,7 +7,11 @@ import { findWineryByDbId } from '@/lib/stores/wineryStore';
 export const TripService = {
   async getTrips(page: number, type: 'upcoming' | 'past', limit = 6) {
     const supabase = createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    let { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      user = sessionData?.session?.user || null;
+    }
     if (!user) throw new Error("Unauthorized");
 
     const today = getTodayLocal();
