@@ -1,44 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
+import { manualConfirmAction, type ActionState } from "@/app/actions/auth";
 
 export function ManualConfirmForm() {
-  const [email, setEmail] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleConfirm() {
-    if (!email) {
-      setMessage("Please enter your email address");
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await fetch("/api/auth/confirm-user", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
-      });
-
-      if (response.ok) {
-        setMessage("Account confirmed! You can now sign in.");
-      } else {
-        const data = await response.json();
-        setMessage(data.message || "Could not confirm account. The user may not exist or may already be confirmed.");
+  const [state, formAction, isPending] = useActionState(
+    async (
+      prevState: ActionState<{ message: string }>,
+      formData: FormData
+    ): Promise<ActionState<{ message: string }>> => {
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
+        return {
+          success: false,
+          error: "You are currently offline. Please check your network connection.",
+        };
       }
-    } catch (err) {
-      setMessage("An error occurred. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  }
+      try {
+        return await manualConfirmAction(prevState, formData);
+      } catch (err: any) {
+        return {
+          success: false,
+          error: err?.message || "An error occurred. Please try again.",
+        };
+      }
+    },
+    { success: false, error: null }
+  );
 
   return (
     <Card className="w-full max-w-md">
@@ -48,31 +41,38 @@ export function ManualConfirmForm() {
           {"If your account needs email confirmation but you haven't received an email, try this manual confirmation."}
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {message && (
-          <Alert>
-            <AlertDescription>{message}</AlertDescription>
-          </Alert>
-        )}
-        <div className="space-y-2">
-          <Label htmlFor="email">Email Address</Label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="your@email.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <Button onClick={handleConfirm} disabled={loading} className="w-full">
-          {loading ? "Confirming..." : "Confirm Account"}
-        </Button>
-        <div className="text-center">
-          <Link href="/login" className="text-blue-600 hover:underline text-sm">
-            Back to Sign In
-          </Link>
-        </div>
-      </CardContent>
+      <form action={formAction}>
+        <CardContent className="space-y-4">
+          {state.data?.message && (
+            <Alert>
+              <AlertDescription>{state.data.message}</AlertDescription>
+            </Alert>
+          )}
+          {state.error && (
+            <Alert variant="destructive">
+              <AlertDescription>{state.error}</AlertDescription>
+            </Alert>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="email">Email Address</Label>
+            <Input
+              id="email"
+              name="email"
+              type="email"
+              placeholder="your@email.com"
+              required
+            />
+          </div>
+          <Button type="submit" disabled={isPending} className="w-full">
+            {isPending ? "Confirming..." : "Confirm Account"}
+          </Button>
+          <div className="text-center">
+            <Link href="/login" className="text-blue-600 hover:underline text-sm">
+              Back to Sign In
+            </Link>
+          </div>
+        </CardContent>
+      </form>
     </Card>
   );
 }
