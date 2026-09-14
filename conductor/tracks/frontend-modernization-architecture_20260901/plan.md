@@ -84,7 +84,7 @@ Focus: Convert `/friends/[id]`, `/forgot-password`, and `/manual-confirm` into S
     - [x] In `components/VisitForm.tsx`, replace `new Date().toISOString().split("T")[0]` (lines 37, 48, 108) with `getTodayLocal()`, and retain `editingVisit.visit_date` directly without re-serializing via `toISOString()` (line 59)
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Server Component Boundaries, Route Metadata & Deterministic Dates' (Protocol in workflow.md)
 
-## Phase 5: React 19 Adherence: State Derivation & Compiler Compliance
+## Phase 5: React 19 Adherence: State Derivation & Compiler Compliance [checkpoint: 29e1b3aa]
 Focus: Eliminate render-time `setState` calls in `use-winery-modal-state.ts` via keyed inner content, preserve outer drawer/dialog DOM stability, key review display in `WineryQnA.tsx`, derive state in `use-trip-actions.ts`, adopt `useMounted()`, and remove all 3 `react-hooks/set-state-in-effect` suppressions.
 
 - [x] Task: Write failing tests for React Compiler state derivation, keyed resets, and effect suppression removal [602d5a3]
@@ -101,7 +101,7 @@ Focus: Eliminate render-time `setState` calls in `use-winery-modal-state.ts` via
     - [x] In `hooks/use-trip-actions.ts`, derive `currentMembers` directly as `trip.members || []` and remove unused `selectedFriends` state, setter, and effect
     - [x] In `components/trip-planner.tsx`, replace local `isMounted` state and effect with shared `useMounted()` hook
     - [x] Remove all 3 `eslint-disable-next-line react-hooks/set-state-in-effect` comments across the codebase
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: React 19 Adherence: State Derivation & Compiler Compliance' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: React 19 Adherence: State Derivation & Compiler Compliance' (Protocol in workflow.md) 29e1b3aa
 
 ## Phase 6: React 19 Form Actions Modernization
 Focus: Standardize authentication forms on React 19 Server Actions with `useActionState` and serializable error contracts; modernize `trip-form.tsx` submission with a Controlled Hybrid Client Action State pattern preserving `react-hook-form` / Zod validation, offline winery selection, and atomic optimistic rollback.
