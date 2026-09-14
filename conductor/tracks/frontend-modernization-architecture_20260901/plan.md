@@ -106,11 +106,11 @@ Focus: Eliminate render-time `setState` calls in `use-winery-modal-state.ts` via
 ## Phase 6: React 19 Form Actions Modernization
 Focus: Standardize authentication forms on React 19 Server Actions with `useActionState` and serializable error contracts; modernize `trip-form.tsx` submission with a Controlled Hybrid Client Action State pattern preserving `react-hook-form` / Zod validation, offline winery selection, and atomic optimistic rollback.
 
-- [ ] Task: Write failing tests for form submissions using React 19 `useActionState` and optimistic rollback
-    - [ ] Add tests for `components/login-form.tsx` verifying pending state transitions, serializable error handling, and form submission via `useActionState`
-    - [ ] Add tests for `components/forgot-password-form.tsx` and `components/manual-confirm-form.tsx` verifying submission via `useActionState`
-    - [ ] Add tests for `components/trip-form.tsx` verifying form submission via Controlled Hybrid `useActionState` while preserving `react-hook-form` / Zod validation, offline winery selection without blocking `ensureInDb` RPC guards, and store persistence
-    - [ ] Add tests in `lib/stores/slices/__tests__/tripMutationHelpers.test.ts` verifying `createTripHelper` rolls back `tempId` on permanent error and replaces `tempId` atomically upon sync
+- [x] Task: Write failing tests for form submissions using React 19 `useActionState` and optimistic rollback [7dced8d2]
+    - [x] Add tests for `components/login-form.tsx` verifying pending state transitions, serializable error handling, and form submission via `useActionState`
+    - [x] Add tests for `components/forgot-password-form.tsx` and `components/manual-confirm-form.tsx` verifying submission via `useActionState`
+    - [x] Add tests for `components/trip-form.tsx` verifying form submission via Controlled Hybrid `useActionState` while preserving `react-hook-form` / Zod validation, offline winery selection without blocking `ensureInDb` RPC guards, and store persistence
+    - [x] Add tests in `lib/stores/slices/__tests__/tripMutationHelpers.test.ts` verifying `createTripHelper` rolls back `tempId` on permanent error and replaces `tempId` atomically upon sync
 - [ ] Task: Modernize authentication forms with React 19 Server Actions, serializable contracts, and `useActionState`
     - [ ] Create `app/actions/auth.ts` exporting typed Server Actions (`loginAction`, `forgotPasswordAction`, `manualConfirmAction`) with defensive `try/catch` and plain serializable `ActionState` contracts
     - [ ] Refactor `components/login-form.tsx` to use React 19 `useActionState` with native `isPending` indicator and `router.refresh()` / `router.push()` upon success
