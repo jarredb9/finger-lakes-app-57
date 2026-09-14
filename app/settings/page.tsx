@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Settings } from "lucide-react";
 import PrivacySettings from "@/components/PrivacySettings";
 import AISettings from "@/components/AISettings";
+import { AuthenticatedModalHost } from "@/components/modals/authenticated-modal-host";
 
 export const metadata = {
   title: "Settings | Winery Tracker",
@@ -20,6 +21,7 @@ export default async function SettingsPage() {
 
     return (
         <div data-testid="settings-page-container" className="container mx-auto py-10 px-4 md:px-6 max-w-4xl min-h-screen">
+            <AuthenticatedModalHost />
             <div className="mb-6">
                 <Button asChild variant="ghost" className="pl-0 hover:bg-transparent hover:text-primary">
                     <Link href="/" className="flex items-center gap-2">

@@ -1,6 +1,5 @@
 "use client";
 
-import { createPortal } from "react-dom";
 import { useState } from "react";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useVisitStore } from "@/lib/stores/visitStore";
@@ -71,10 +70,7 @@ export function VisitFormModal() {
 
     if (!mounted) return null;
 
-    const modalRoot = document.getElementById("modal-root");
-    if (!modalRoot) return null;
-
-    return createPortal(
+    return (
         <Dialog open={isThisModalOpen} onOpenChange={(isOpen) => !isOpen && handleClose()}>
             <DialogContent
                 data-testid="visit-modal"
@@ -91,7 +87,7 @@ export function VisitFormModal() {
                             </DialogHeader>
                         )}
                         <div className="overflow-y-auto flex-1">
-                            <VisitForm 
+                             <VisitForm 
                                 editingVisit={editingVisit}
                                 onCancel={handleClose}
                                 onSave={handleSave}
@@ -106,7 +102,6 @@ export function VisitFormModal() {
                     </>
                 )}
             </DialogContent>
-        </Dialog>,
-        modalRoot
+        </Dialog>
     );
 }

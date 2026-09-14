@@ -38,3 +38,31 @@ export const isSupabaseUrl = (
 
   return false;
 };
+
+/**
+ * Checks if a URL is an Auth API route for Supabase.
+ */
+export const isAuthApiRoute = (
+  url: URL,
+  supabaseUrl?: string,
+  baseUrl?: string,
+  selfLocationOrigin?: string
+): boolean => {
+  if (!isSupabaseUrl(url, supabaseUrl || '', baseUrl || '', selfLocationOrigin)) {
+    return false;
+  }
+  return url.pathname.includes('/auth/v1/');
+};
+
+/**
+ * Checks if a pathname or URL is an authentication page that should be excluded
+ * from Serwist's pages document cache.
+ */
+export const isAuthPageRoute = (urlOrPath: URL | string): boolean => {
+  const pathname = typeof urlOrPath === 'string'
+    ? urlOrPath.split('?')[0]
+    : urlOrPath.pathname;
+
+  const authPrefixes = ['/login', '/signup', '/forgot-password', '/reset-password', '/manual-confirm'];
+  return authPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+};

@@ -9,13 +9,14 @@ type GetTripState = StoreApi<TripState>['getState'];
 type SetTripState = StoreApi<TripState>['setState'];
 
 export async function saveWineryNoteHelper(
-  _get: GetTripState,
+  get: GetTripState,
   set: SetTripState,
   tripId: string,
   wineryId: number,
   notes: string
 ): Promise<void> {
   const tripIdAsNumber = Number(tripId);
+  const originalTrips = get().trips;
 
   set(state => ({
     trips: state.trips.map((t: Trip) => {
@@ -54,23 +55,24 @@ export async function saveWineryNoteHelper(
     }
 
     console.error("Failed to save winery note, reverting.", error);
-    set(state => ({
-      trips: state.trips.map(t => 
+    set({
+      trips: originalTrips.map(t => 
         Number(t.id) === tripIdAsNumber ? { ...t, syncStatus: 'error' as const } : t
       ),
       lastActionTimestamp: Date.now()
-    }));
+    });
     throw error;
   }
 }
 
 export async function saveAllWineryNotesHelper(
-  _get: GetTripState,
+  get: GetTripState,
   set: SetTripState,
   tripId: string,
   notes: Record<number, string>
 ): Promise<void> {
   const tripIdAsNumber = Number(tripId);
+  const originalTrips = get().trips;
 
   set(state => ({
     trips: state.trips.map((t: Trip) => {
@@ -109,12 +111,12 @@ export async function saveAllWineryNotesHelper(
     }
 
     console.error("Failed to save all winery notes, reverting.", error);
-    set(state => ({
-      trips: state.trips.map(t => 
+    set({
+      trips: originalTrips.map(t => 
         Number(t.id) === tripIdAsNumber ? { ...t, syncStatus: 'error' as const } : t
       ),
       lastActionTimestamp: Date.now()
-    }));
+    });
     throw error;
   }
 }

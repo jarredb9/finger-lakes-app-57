@@ -14,6 +14,7 @@ export {
   createTripHelper,
   deleteTripHelper,
   updateTripHelper,
+  replaceTripTempIdHelper,
 } from './tripMutationHelpers';
 
 export {

@@ -55,12 +55,12 @@ export async function updateWineryOrderHelper(
       return;
     }
     console.error("Failed to update winery order, reverting.", error);
-    set(state => ({
-      trips: state.trips.map(t => 
+    set({
+      trips: originalTrips.map(t => 
         Number(t.id) === tripIdAsNumber ? { ...t, syncStatus: 'error' as const } : t
       ),
       lastActionTimestamp: Date.now()
-    }));
+    });
     throw new Error("Failed to save new winery order.");
   }
 }
@@ -82,7 +82,21 @@ export async function removeWineryFromTripHelper(
   const updatedTrips = [...originalTrips];
   updatedTrips[tripIndex] = updatedTrip;
 
-  set({ trips: updatedTrips, selectedTrip: updatedTrip, lastActionTimestamp: Date.now() });
+  const originalTripsForDate = get().tripsForDate;
+  const tripForDateIndex = originalTripsForDate.findIndex(t => Number(t.id) === tripIdAsNumber);
+  let updatedTripsForDate = originalTripsForDate;
+
+  if (tripForDateIndex !== -1) {
+    updatedTripsForDate = [...originalTripsForDate];
+    updatedTripsForDate[tripForDateIndex] = updatedTrip;
+  }
+
+  set({
+    trips: updatedTrips,
+    selectedTrip: updatedTrip,
+    tripsForDate: updatedTripsForDate,
+    lastActionTimestamp: Date.now()
+  });
 
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
@@ -117,12 +131,16 @@ export async function removeWineryFromTripHelper(
       return;
     }
     console.error("Failed to remove winery, reverting:", error);
-    set(state => ({
-      trips: state.trips.map(t => 
+    set({
+      trips: originalTrips.map(t => 
+        Number(t.id) === tripIdAsNumber ? { ...t, syncStatus: 'error' as const } : t
+      ),
+      selectedTrip: originalTrips.find(t => Number(t.id) === tripIdAsNumber) || null,
+      tripsForDate: originalTripsForDate.map(t =>
         Number(t.id) === tripIdAsNumber ? { ...t, syncStatus: 'error' as const } : t
       ),
       lastActionTimestamp: Date.now()
-    }));
+    });
   }
 }
 

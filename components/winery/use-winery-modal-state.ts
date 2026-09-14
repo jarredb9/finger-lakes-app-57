@@ -14,7 +14,14 @@ import { useShallow } from "zustand/react/shallow";
 export type WineryModalTab = "community" | "amenities" | "ai_insights" | "varietals" | "visits" | "trip";
 
 export function useWineryModalState() {
-  const { isWineryModalOpen, activeWineryId, closeWineryModal: closeWineryModalRaw, openVisitForm } = useUIStore();
+  const { 
+    isWineryModalOpen, 
+    activeWineryId, 
+    closeWineryModal: closeWineryModalRaw, 
+    openVisitForm,
+    snapPoint,
+    setSnapPoint,
+  } = useUIStore();
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
 
   const closeWineryModal = () => {
@@ -24,22 +31,6 @@ export function useWineryModalState() {
 
   const { toast } = useToast();
   const { fetchTripById, setSelectedTrip } = useTripStore();
-
-  const [snapPoint, setSnapPoint] = useState<string | number | null>(() =>
-    typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? 1 : "300px"
-  );
-  const [prevActiveWineryId, setPrevActiveWineryId] = useState<string | null>(null);
-
-  if (isWineryModalOpen && activeWineryId !== prevActiveWineryId) {
-    const defaultSnap = typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER ? 1 : "300px";
-    setPrevActiveWineryId(activeWineryId);
-    setSnapPoint(defaultSnap);
-  } else if (!isWineryModalOpen && prevActiveWineryId !== null) {
-    setPrevActiveWineryId(null);
-    if (lightboxPhoto !== null) {
-      setLightboxPhoto(null);
-    }
-  }
 
   const { isStreetViewActive, openStreetView } = useStreetViewPanorama();
   const isAIEnabled = useAIFeaturesEnabled();

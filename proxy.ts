@@ -5,6 +5,7 @@ const publicRoutes = [
   '/login',
   '/signup',
   '/forgot-password',
+  '/manual-confirm',
   '/reset-password',
   '/auth/callback',
   '/api/auth/forgot-password',
@@ -33,7 +34,7 @@ export async function proxy(request: NextRequest) {
 
   // Check for user on protected routes
   if (!user) {
-    if (pathname.startsWith('/api/')) {
+    if (pathname.startsWith('/api/') || (request.method === 'POST' && request.headers.has('next-action'))) {
       return new NextResponse(JSON.stringify({ message: 'Unauthorized' }), {
         status: 401,
         headers: { 'Content-Type': 'application/json' },
@@ -42,8 +43,9 @@ export async function proxy(request: NextRequest) {
     
     // In E2E mode, avoid aggressive redirects to prevent test instability during network flips,
     // BUT we must allow the initial redirect to login to preserve the redirectTo parameter.
-    const deepLinkRoutes = ['/', '/trips/', '/friends/', '/settings/'];
-    const isDeepLink = deepLinkRoutes.some(r => pathname === r || pathname.startsWith(r));
+    const deepLinkRoutes = ['/', '/trips', '/friends', '/settings'];
+    const normalizedPathname = pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
+    const isDeepLink = deepLinkRoutes.some(r => normalizedPathname === r || normalizedPathname.startsWith(r + '/'));
     
     if (process.env.IS_E2E === 'true' && !isDeepLink) {
         console.log(`[PROXY] No user found for ${pathname} but skipping redirect due to E2E mode`);
@@ -52,7 +54,8 @@ export async function proxy(request: NextRequest) {
 
     // Redirect to login if no user and not a public route
     const url = new URL('/login', request.url);
-    url.searchParams.set('redirectTo', pathname);
+    const redirectTo = pathname + request.nextUrl.search;
+    url.searchParams.set('redirectTo', redirectTo);
     const redirectResponse = NextResponse.redirect(url);
     response.cookies.getAll().forEach((cookie) => {
       redirectResponse.cookies.set(cookie.name, cookie.value, cookie);

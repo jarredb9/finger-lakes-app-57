@@ -44,11 +44,8 @@ jest.mock('@/components/WineryMap', () => {
   return MockWineryMap;
 });
 
-jest.mock('@/components/winery-modal', () => ({
-  WineryModal: () => <div data-testid="mock-winery-modal">Winery Modal</div>,
-}));
-jest.mock('@/components/visit-history-modal', () => ({
-  VisitHistoryModal: () => <div data-testid="mock-visit-history-modal">Visit History Modal</div>,
+jest.mock('@/components/modals/authenticated-modal-host', () => ({
+  AuthenticatedModalHost: () => <div data-testid="mock-authenticated-modal-host">Authenticated Modal Host</div>,
 }));
 jest.mock('@/components/offline-indicator', () => ({
   OfflineIndicator: () => <div data-testid="mock-offline-indicator">Offline Indicator</div>,
@@ -92,6 +89,7 @@ describe('AppShell 3-Tier Responsive Layout', () => {
 
     render(<AppShell user={mockUser} initialTab="trips" />);
 
+    expect(screen.getByTestId('mock-authenticated-modal-host')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-nav-bar')).toBeInTheDocument();
     expect(screen.getByTestId('mobile-sidebar-container')).toBeInTheDocument();
     expect(screen.queryByTestId('tablet-floating-drawer')).not.toBeInTheDocument();

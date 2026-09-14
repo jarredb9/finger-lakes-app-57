@@ -4,6 +4,45 @@
 
 **Milestone v3.6.0: Architectural Recovery & Test Reliability (In Progress)**
 
+### 🚀 Sprint 4: Frontend Modernization, React 19 / App Router Architecture & Bundle Optimization ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36))
+* **Dependency Pruning & Turbopack Dev Unblocking**:
+    * Pruned 7 dead dependencies (`@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `recharts`, `react-resizable-panels`, `input-otp`, and `sonner`) and 10 unreferenced Radix UI primitives, safely retaining `@radix-ui/react-accordion`.
+    * Cleaned brittle overrides (`minimatch`, `glob`, `brace-expansion`, `uuid`) in `package.json`.
+    * Gated `@serwist/next` to production-only builds in `next.config.mjs`, unblocking high-performance local development with Turbopack (`next dev --turbo`).
+* **Map Engine Bundle Isolation, Error Boundary & Dynamic Fallback**:
+    * Extracted Mapbox GL stylesheet (`mapbox-gl/dist/mapbox-gl.css`) from root `layout.tsx` into `components/map/MapView.tsx`, eliminating Mapbox CSS loading on non-map pages.
+    * Dynamically loaded `GoogleMapFallback` via `next/dynamic` (`ssr: false`) with kebab-case module resolution (`./google-map-fallback`).
+    * Implemented `MapErrorBoundary` and `<Map onError>` fallback triggers to automatically recover from runtime WebGL context initialization failures or Mapbox style load timeouts.
+    * Extracted isolated `<MapStyleSwitcher />` component and sanitized winery coordinates (`Number.isFinite`) in GeoJSON features to prevent Mapbox parser crashes on invalid data.
+    * Added DOM container and listener cleanup in `GoogleMapFallback` effect teardown, eliminating StrictMode memory leaks.
+* **Root Layout Decoupling & Authenticated Modal Host**:
+    * Decoupled heavy modal component trees (`VisitFormModal`, `WineryNoteModal`, `TripShareDialogWrapper`, `GlobalModalRenderer`, `WineryModal`, `VisitHistoryModal`) from root `app/layout.tsx`.
+    * Created `AuthenticatedModalHost` with `ssr: false` dynamic imports and idle prefetching via `requestIdleCallback`, mounting it within `components/app-shell.tsx` and standalone authenticated routes (`/trips/[id]`, `/friends/[id]`, `/settings`).
+    * Added route navigation listeners and unmount cleanup in `AuthenticatedModalHost` to dismiss active modals and clear lingering `document.body` pointer-event and overflow locks.
+    * Preserved `<ModalHost />` (`#modal-root`) in root `app/layout.tsx` for portal stability, restoring standard `DialogPrimitive.Portal` behavior to eliminate stacking context traps.
+* **Server Component Boundaries, Route Metadata & SSR Date Determinism**:
+    * Converted `/friends/[id]`, `/forgot-password`, and `/manual-confirm` into Next.js Server Components exporting static `Metadata` and enforcing server-side auth redirects (`getUser()`), delegating interactive form logic to client components.
+    * Added global `app/error.tsx` App Router error boundary to gracefully handle server exceptions while preserving navigation shell.
+    * Whitelisted `/manual-confirm` in `proxy.ts`, preserved URL query parameters across unauthenticated `redirectTo` query strings, normalized trailing slashes on deep links, and returned 401 JSON responses for unauthorized Server Action POST requests.
+    * Fixed session cookie forwarding in `utils/supabase/auth-helper.ts` via `NextResponse.next({ request })` so downstream Server Components receive refreshed auth tokens.
+    * Replaced non-deterministic `new Date().toLocaleDateString()` with static constants in `/privacy` and `/terms`, and migrated `components/VisitForm.tsx` to `getTodayLocal()`, preserving raw `visit_date` strings without UTC shifts.
+* **React 19 State Derivation, Compiler Adherence & Layout Decomposition**:
+    * Eliminated render-phase `setState` calls in `use-winery-modal-state.ts`, resetting modal state via React reconciliation using `<WineryModalContent key={activeWineryId} />` while maintaining stable outer drawer/dialog instances.
+    * Decomposed winery modal layouts across desktop, tablet, and mobile into shared subcomponents (`winery-modal-tabs.tsx`, `winery-trip-badge.tsx`, `winery-vibe-scroller.tsx`), eliminating duplicated JSX and establishing discrete React 19 compiler boundaries.
+    * Extracted `<WineryQuestionReviewCard key={activeQuestionId} />` in `components/WineryQnA.tsx`, eliminating `useEffect` review index resets and out-of-bounds flashes.
+    * Replaced local mount effects with shared `useMounted()` hook in `components/trip-planner.tsx` and derived `currentMembers` directly in `hooks/use-trip-actions.ts`.
+    * Completely eliminated all `eslint-disable-next-line react-hooks/set-state-in-effect` comments across the entire codebase.
+* **React 19 Form Actions & Offline Resilience**:
+    * Created typed Server Actions in `app/actions/auth.ts` (`loginAction`, `forgotPasswordAction`, `manualConfirmAction`) with plain serializable `ActionState` contracts, refactoring auth forms to consume React 19 `useActionState`.
+    * Implemented Controlled Hybrid Client `useActionState` in `components/trip-form.tsx`, preserving `react-hook-form` / Zod validation and surfacing action errors through form fields.
+    * Allowed offline winery additions in `trip-form.tsx` using temporary negative ephemeral IDs when `ensureInDb` is offline.
+    * Implemented true optimistic rollback on permanent failure in `createTripHelper` and added atomic `replaceTripTempId` in `syncService.ts` and `tripDataSlice.ts` to prevent ghost trip duplication during offline replay.
+* **Service Worker Auth Hygiene & Session Resilience**:
+    * Restricted Supabase Auth routes (`/auth/v1/*`) strictly to `NetworkOnly` in `app/sw.ts` and excluded auth pages from Serwist `pages` cache.
+    * Added `PURGE_AUTH_CACHE` message handler in `app/sw.ts` to purge `supabase-auth` and `pages` CacheStorage upon logout.
+    * Hardened `userStore.logout()` with defensive `signOut()` error handling, CacheStorage deletion, and safe null-controller Service Worker messaging.
+    * Added offline session fallback via `supabase.auth.getSession()` in `userStore.fetchUser()` and `TripService.getTrips()` to preserve user identity and trip accessibility when offline.
+
 ### ⚙ Sprint 3: Zustand 5 State Consolidation, Domain Invariants & Sync Integrity ([#43](https://github.com/jarredb9/finger-lakes-app-57/pull/43))
 * **Store Slice Decomposition (`tripStore`, `visitStore`)**:
     * Decomposed monolithic `tripStore.ts` (1,225 lines) into focused, composable slices: `createTripDataSlice`, `createTripUISlice`, and `createTripRealtimeSlice` with dedicated helper modules (`tripFetchHelpers`, `tripMutationHelpers`, `tripPlanningHelpers`, etc.), each strictly under 300 lines of code.

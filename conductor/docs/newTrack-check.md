@@ -26,8 +26,14 @@ Revise the plan to ensure optimal agent execution and prevent context blowup:
 4. Bounded Phase Sizing:
    - Keep phases capped at 3–4 tasks maximum so each phase comfortably executes in a single clean agent session (<60 turns).
    - Ensure Task 1 (failing tests) explicitly covers every implementation task in that phase.
-```
 
+Delegate the review to multiple multiple concurrent specialized research, code review, or other specialty agents to ensure a proper review is completed without main session or sub-agent context bloat. 
+```
+### Teamwork Review Prompt - Best for large tracks that span a large part of the project, but heavy token cost
+/teamwork-preview Perform a comprehensive architectural and failure-mode of conductor/tracks/<track-id>/
+
+### Boost Review Prompt - Best for targeted tracks where code quality matters most
+/boost Conduct an empirical codebase audit and architectural feasibility review of conductor/tracks/<track-id>/
 ---
 
 ## 2. Upfront Track Creation Prompt (Avoid Revisions)

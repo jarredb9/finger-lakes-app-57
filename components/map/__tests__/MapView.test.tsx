@@ -89,7 +89,7 @@ describe("MapView Container Component", () => {
     expect(screen.getByTestId("mapbox-layer-unclustered-point")).toBeInTheDocument();
   });
 
-  it("renders GoogleMapFallback when Mapbox is not supported (maintaining DOM stability)", () => {
+  it("renders GoogleMapFallback when Mapbox is not supported (maintaining DOM stability)", async () => {
     (mapboxgl.supported as jest.Mock).mockReturnValue(false);
 
     render(
@@ -106,7 +106,7 @@ describe("MapView Container Component", () => {
     const mapContainer = screen.getByTestId("map-view-canvas");
     expect(mapContainer).toBeInTheDocument();
     expect(mapContainer).toHaveAttribute("data-state", "ready");
-    expect(screen.getByTestId("google-map-fallback-stub")).toBeInTheDocument();
+    expect(await screen.findByTestId("google-map-fallback-stub")).toBeInTheDocument();
   });
 
   it("triggers map onLoad cleanly without polluting useMapStore with map instances (ST-12)", () => {

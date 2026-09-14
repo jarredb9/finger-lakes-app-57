@@ -9,6 +9,7 @@ import {
   createTripHelper,
   deleteTripHelper,
   updateTripHelper,
+  replaceTripTempIdHelper,
   updateWineryOrderHelper,
   removeWineryFromTripHelper,
   saveWineryNoteHelper,
@@ -30,6 +31,7 @@ export interface TripDataSlice {
   fetchUpcomingTrips: () => Promise<void>;
   fetchTripsForDate: (date: string) => Promise<void>;
   createTrip: (trip: Partial<Trip>) => Promise<Trip | null>;
+  replaceTripTempId: (tempId: number | string, syncedTrip: Trip) => void;
   deleteTrip: (tripId: string) => Promise<void>;
   updateTrip: (tripId: string, updates: Partial<Omit<Trip, 'updateNote'> & {
     updateNote?: { wineryId: number; notes: string; } | { notes: Record<number, string>; };
@@ -62,6 +64,7 @@ export const createTripDataSlice: StateCreator<
   fetchUpcomingTrips: () => fetchUpcomingTripsHelper(get, set),
   fetchTripsForDate: (dateString) => fetchTripsForDateHelper(get, set, dateString),
   createTrip: (trip) => createTripHelper(get, set, trip),
+  replaceTripTempId: (tempId, syncedTrip) => replaceTripTempIdHelper(set, tempId, syncedTrip),
   deleteTrip: (tripId) => deleteTripHelper(get, set, tripId),
   updateTrip: (tripId, updates) => updateTripHelper(get, set, tripId, updates),
   updateWineryOrder: (tripId, wineryIds) => updateWineryOrderHelper(get, set, tripId, wineryIds),
