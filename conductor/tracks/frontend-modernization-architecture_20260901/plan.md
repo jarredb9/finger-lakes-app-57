@@ -125,10 +125,10 @@ Focus: Standardize authentication forms on React 19 Server Actions with `useActi
 ## Phase 7: Service Worker Auth Hygiene & Production Quality Audit
 Focus: Restrict `/auth/v1/*` routes in `app/sw.ts` strictly to NetworkOnly, bridge `userStore.logout()` to purge CacheStorage safely with offline resilience and cross-tab awareness, harden `fetchUser()` with local session fallback, and execute full production quality audit including containerized Playwright E2E tests.
 
-- [ ] Task: Write failing tests for Service Worker auth caching rules, offline session preservation, and build audit
-    - [ ] Add tests in `lib/utils/__tests__/sw-utils.test.ts` verifying `/auth/v1/` routes match `NetworkOnly` and are excluded from `StaleWhileRevalidate`
-    - [ ] Add tests in `lib/stores/__tests__/userStore.test.ts` verifying `userStore.fetchUser()` falls back to `getSession()` when offline without losing user identity
-    - [ ] Add tests in `lib/stores/__tests__/userStore.test.ts` verifying `userStore.logout()` purges `supabase-auth` and `pages` from `window.caches`, posts `PURGE_AUTH_CACHE` to Service Worker with null-controller safety, and completes store reset even when offline or in non-browser test environments
+- [x] Task: Write failing tests for Service Worker auth caching rules, offline session preservation, and build audit [0da9a820]
+    - [x] Add tests in `lib/utils/__tests__/sw-utils.test.ts` verifying `/auth/v1/` routes match `NetworkOnly` and are excluded from `StaleWhileRevalidate`
+    - [x] Add tests in `lib/stores/__tests__/userStore.test.ts` verifying `userStore.fetchUser()` falls back to `getSession()` when offline without losing user identity
+    - [x] Add tests in `lib/stores/__tests__/userStore.test.ts` verifying `userStore.logout()` purges `supabase-auth` and `pages` from `window.caches`, posts `PURGE_AUTH_CACHE` to Service Worker with null-controller safety, and completes store reset even when offline or in non-browser test environments
 - [ ] Task: Harden `app/sw.ts` with NetworkOnly auth caching and bridge `userStore.ts#logout`
     - [ ] In `app/sw.ts`, remove `StaleWhileRevalidate` matcher for `/auth/v1/user` and `/auth/v1/session`; route all `/auth/v1/*` requests strictly to `NetworkOnly`
     - [ ] In `app/sw.ts`, add message listener for `{ type: 'PURGE_AUTH_CACHE' }` to delete `supabase-auth` and `pages` caches, and exclude auth pages (`/login`, `/signup`, `/forgot-password`, `/manual-confirm`) from `pages` cache
