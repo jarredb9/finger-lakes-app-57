@@ -74,11 +74,11 @@ export async function createTripHelper(
       return tempTrip;
     }
 
-    console.error("Failed to create trip, marking as error.", error);
+    console.error("Failed to create trip, rolling back optimistic state.", error);
     set(state => ({ 
-      tripsForDate: state.tripsForDate.map(t => Number(t.id) === tempId ? { ...t, syncStatus: 'error' as const } : t),
-      upcomingTrips: state.upcomingTrips.map(t => Number(t.id) === tempId ? { ...t, syncStatus: 'error' as const } : t),
-      trips: state.trips.map(t => Number(t.id) === tempId ? { ...t, syncStatus: 'error' as const } : t),
+      tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tempId),
+      upcomingTrips: state.upcomingTrips.filter(t => Number(t.id) !== tempId),
+      trips: state.trips.filter(t => Number(t.id) !== tempId),
       lastActionTimestamp: Date.now()
     }));
     throw error;
@@ -196,3 +196,32 @@ export async function updateTripHelper(
     throw error;
   }
 }
+
+export function replaceTripTempIdHelper(
+  set: SetTripState,
+  tempId: number | string,
+  syncedTrip: Trip
+): void {
+  const numericTempId = Number(tempId);
+  const normalizedSyncedTrip: Trip = {
+    ...syncedTrip,
+    id: Number(syncedTrip.id),
+    syncStatus: 'synced',
+  };
+
+  const replaceInList = (list: Trip[]): Trip[] => {
+    const hasSyncedId = list.some(t => Number(t.id) === Number(normalizedSyncedTrip.id));
+    if (hasSyncedId) {
+      return list.filter(t => Number(t.id) !== numericTempId);
+    }
+    return list.map(t => Number(t.id) === numericTempId ? normalizedSyncedTrip : t);
+  };
+
+  set(state => ({
+    trips: replaceInList(state.trips),
+    upcomingTrips: replaceInList(state.upcomingTrips),
+    tripsForDate: replaceInList(state.tripsForDate),
+    lastActionTimestamp: Date.now(),
+  }));
+}
+

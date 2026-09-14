@@ -5,6 +5,8 @@ import { base64ToFile, isBase64Photo, Base64Photo } from '@/lib/utils/sync-helpe
 import { useVisitStore } from '@/lib/stores/visitStore';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
+import { TripService } from './tripService';
+import { Trip } from '@/lib/types';
 import { isNetworkError } from '../stores/sync-utils';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { checkAndCleanupQuota, isQuotaError } from '@/lib/utils/quota';
@@ -380,9 +382,10 @@ export const SyncService = {
               error = deleteError;
               break;
 
-            case 'create_trip':
+            case 'create_trip': {
+              let createdTripResult: any = null;
               if (payload.wineries && payload.wineries.length > 0) {
-                  const { error: tripError } = await supabase.rpc('create_trip_with_winery', {
+                  const { data, error: tripError } = await supabase.rpc('create_trip_with_winery', {
                     p_trip_name: payload.name,
                     p_trip_date: payload.trip_date,
                     p_winery_data: WineryService.getRpcData(payload.wineries[0]),
@@ -391,15 +394,40 @@ export const SyncService = {
                     p_idempotency_key: item.id
                   });
                   error = tripError;
+                  createdTripResult = data;
               } else {
-                  const { error: tripError } = await supabase.rpc('create_trip', {
+                  const { data, error: tripError } = await supabase.rpc('create_trip', {
                     p_name: payload.name,
                     p_trip_date: payload.trip_date,
                     p_idempotency_key: item.id
                   });
                   error = tripError;
+                  createdTripResult = data;
+              }
+
+              if (!error && payload.tempId) {
+                const serverTripId = createdTripResult?.trip_id || createdTripResult?.id;
+                if (serverTripId) {
+                  let syncedTrip: Trip | null = null;
+                  try {
+                    syncedTrip = await TripService.getTripById(serverTripId.toString());
+                  } catch {
+                    syncedTrip = null;
+                  }
+                  const finalTrip: Trip = syncedTrip || {
+                    id: Number(serverTripId),
+                    user_id: user.id,
+                    name: payload.name,
+                    trip_date: payload.trip_date,
+                    wineries: payload.wineries || [],
+                    members: [],
+                    syncStatus: 'synced',
+                  };
+                  useTripStore.getState().replaceTripTempId(payload.tempId, finalTrip);
+                }
               }
               break;
+            }
 
             case 'update_trip':
               const { tripId: uTripId, updates: uUpdates } = payload;

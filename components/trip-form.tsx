@@ -1,7 +1,7 @@
 // components/trip-form.tsx
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useActionState, startTransition } from "react";
 import { useTripStore } from "@/lib/stores/tripStore"; 
 import { useWineryStore } from "@/lib/stores/wineryStore";
 import { DatePicker } from "./DatePicker";
@@ -43,6 +43,11 @@ const tripSchema = z.object({
 
 type TripFormValues = z.infer<typeof tripSchema>
 
+type TripActionState = {
+  success: boolean;
+  error: string | null;
+};
+
 export default function TripForm({ initialDate, user, onClose }: TripFormProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -67,6 +72,35 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
     },
   })
 
+  const [_actionState, formAction, isPending] = useActionState<TripActionState, TripFormValues>(
+    async (_prevState, data) => {
+      try {
+        await createTrip({
+          name: data.name,
+          trip_date: formatDateLocal(data.date),
+          wineries: data.wineries,
+          user_id: user.id,
+        });
+        toast({ description: "Trip created successfully!" });
+        
+        // Reset form but keep date if desired, or reset completely
+        form.reset({
+          name: "",
+          date: data.date, // Keep the date
+          wineries: [],
+        });
+        onClose?.(); // Close the modal
+        return { success: true, error: null };
+      } catch (error: any) {
+        const errorMessage = error?.message || "Failed to create trip.";
+        toast({ variant: "destructive", description: "Failed to create trip." });
+        form.setError("root", { message: errorMessage });
+        return { success: false, error: errorMessage };
+      }
+    },
+    { success: false, error: null }
+  );
+
   const selectedWineries = form.watch("wineries") as Winery[];
 
   const handleWineryToggle = async (winery: Winery) => {
@@ -78,37 +112,23 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
     } else {
       // Add - first ensure it's in the store and DB
       upsertWinery(winery);
-      const dbId = await ensureInDb(winery.id);
-      
-      if (!dbId) {
-        toast({ variant: "destructive", description: `Could not save ${winery.name} to the database.` });
-        return;
+      let dbId: number | null = null;
+      try {
+        dbId = await ensureInDb(winery.id);
+      } catch {
+        dbId = null;
       }
-      const wineryWithDbId = { ...winery, dbId };
+      
+      const resolvedDbId = dbId ?? -Date.now();
+      const wineryWithDbId = { ...winery, dbId: resolvedDbId };
       form.setValue("wineries", [...currentWineries, wineryWithDbId]);
     }
   };
 
-  const onSubmit = async (data: TripFormValues) => {
-    try {
-      await createTrip({
-        name: data.name,
-        trip_date: formatDateLocal(data.date),
-        wineries: data.wineries,
-        user_id: user.id,
-      });
-      toast({ description: "Trip created successfully!" });
-      
-      // Reset form but keep date if desired, or reset completely
-      form.reset({
-        name: "",
-        date: data.date, // Keep the date
-        wineries: [],
-      });
-      onClose?.(); // Close the modal
-    } catch (error) {
-      toast({ variant: "destructive", description: "Failed to create trip." });
-    }
+  const onSubmit = (data: TripFormValues) => {
+    startTransition(() => {
+      formAction(data);
+    });
   };
 
   return (
@@ -190,13 +210,19 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
               <FormMessage>{form.formState.errors.wineries?.message}</FormMessage>
             </div>
 
+            {form.formState.errors.root?.message && (
+              <p className="text-sm font-medium text-destructive">
+                {form.formState.errors.root.message}
+              </p>
+            )}
+
             <Button 
               type="submit" 
-              disabled={!form.formState.isValid || form.formState.isSubmitting} 
+              disabled={!form.formState.isValid || isPending} 
               data-testid="create-trip-submit-btn"
               data-is-valid={form.formState.isValid}
             >
-              {form.formState.isSubmitting ? "Creating..." : "Create Trip"}
+              {isPending ? "Creating..." : "Create Trip"}
             </Button>
           </form>
         </Form>
