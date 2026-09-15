@@ -1,14 +1,14 @@
 # Implementation Plan: Test Automation Infrastructure Modernization & E2E Test Suite Stabilization
 
-Stabilizing the test automation infrastructure by eliminating Node 24 JSDOM memory leaks, enabling global mock clearing, filling critical unit coverage gaps in visit offline reconstitution and service mutations, decomposing the monolithic `MockMapsManager` into modular fixtures, gating store `window` attachments behind E2E environments, eliminating arbitrary `waitForTimeout` sleeps and `{ force: true }` clicks, calibrating visual snapshots to 1%, and adding E2E coverage for itinerary reordering and offline reconnection.
+Stabilizing the test automation infrastructure by eliminating Node 24 JSDOM memory leaks, enabling global mock clearing, filling critical unit coverage gaps in visit offline reconstitution and service mutations, modernizing runner scripts and store isolation, upgrading the Playwright container and npm package to 1.63, decomposing the monolithic `MockMapsManager` into modular fixtures, gating store `window` attachments behind E2E environments, eliminating arbitrary `waitForTimeout` sleeps and `{ force: true }` clicks, calibrating visual snapshots to 1%, and adding E2E coverage for itinerary reordering and offline reconnection.
 
 ## Phase 1: Jest 30 Test Infrastructure, Memory Limits & Module Reset Remediation
 Focus: Eliminate Node 24 JSDOM worker memory exhaustion, configure global mock clearing, polyfill JSDOM URL helpers in `jest.setup.ts`, and eliminate `jest.resetModules()` across store and service test suites.
 
-- [ ] Task: Configure Jest memory limits, global mock isolation, and URL polyfills (Red Phase)
-    - [ ] Add `workerIdleMemoryLimit: '512MB'` and `clearMocks: true` in `jest.config.mjs`
-    - [ ] Polyfill `global.URL.createObjectURL` and `global.URL.revokeObjectURL` in `jest.setup.ts`
-    - [ ] Create `lib/__tests__/tooling/jest-setup.test.ts` verifying URL polyfills and mock isolation
+- [x] Task: Configure Jest memory limits, global mock isolation, and URL polyfills (Red Phase) [921ff3b]
+    - [x] Add `workerIdleMemoryLimit: '512MB'` and `clearMocks: true` in `jest.config.mjs`
+    - [x] Polyfill `global.URL.createObjectURL` and `global.URL.revokeObjectURL` in `jest.setup.ts`
+    - [x] Create `lib/__tests__/tooling/jest-setup.test.ts` verifying URL polyfills and mock isolation
 - [ ] Task: Refactor store test suites to eliminate `jest.resetModules()` memory leaks (Green Phase)
     - [ ] Hoist `@/utils/supabase/client` mocks to top-level `jest.mock()` in `lib/stores/__tests__/wineryStore.test.ts` and replace `jest.resetModules()` with explicit `useWineryStore.getState().reset()`
     - [ ] Audit and eliminate `jest.resetModules()` calls across 15 store test suites in `lib/stores/__tests__/` (26 call sites)
@@ -57,7 +57,25 @@ Focus: Eliminate cross-store window coupling in `uiStore.ts`, gate store window 
     - [ ] Add container volume isolation (`-v /work/node_modules`) to eliminate host pollution and reconcile SELinux `:Z` mount flags
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Store Isolation, Engine Window Detachment & Runner Script Modernization' (Protocol in workflow.md)
 
-## Phase 5: Modular Route Fixtures & E2E Helper Store-Poking Decoupling
+## Phase 5: Playwright 1.63 Container & NPM Package Upgrade
+Focus: Upgrade `@playwright/test` and the Playwright container image to 1.63 (Noble base), certify rootless container execution on RHEL 8, and verify browser binary parity.
+
+- [ ] Task: Upgrade Playwright dependency, container scripts, and create version canary (Red Phase)
+    - [ ] Create `scripts/__tests__/playwright-version-check.test.sh` asserting `@playwright/test` and container image both resolve to `1.63.x`
+    - [ ] Bump `@playwright/test` to `1.63.0` in `package.json` and sync `package-lock.json`
+    - [ ] Update `PLAYWRIGHT_VERSION="v1.63.0-noble"` in `scripts/run-e2e-container.sh` and `scripts/run-jest-container.sh`
+    - [ ] Verify version check test fails before container pull/build and passes after (Red/Green)
+- [ ] Task: Pull 1.63 container image, certify browser engines, and verify Jest runner (Green Phase)
+    - [ ] Pull `mcr.microsoft.com/playwright:v1.63.0-noble` and verify image inspect/exists in Podman
+    - [ ] Run container smoke verification across `chromium`, `webkit`, and `Mobile Safari`
+    - [ ] Run `./scripts/run-jest-container.sh` to confirm Jest 30 tests pass cleanly without glibc or Node regressions in the new image
+- [ ] Task: Remediate 1.58 -> 1.63 deprecations and run baseline E2E smoke suite (Green Phase)
+    - [ ] Audit and remediate any Playwright 1.63 breaking changes (locator strictness, network interception, snapshot config)
+    - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/auth-recovery.spec.ts` inside container
+    - [ ] Confirm zero host `node_modules` pollution under volume isolation
+- [ ] Task: Conductor - User Manual Verification 'Phase 5: Playwright 1.63 Container & NPM Package Upgrade' (Protocol in workflow.md)
+
+## Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling
 Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/fixtures/`, maintain backward compatibility through `e2e/utils.ts`, and eliminate store-poking in E2E helpers.
 
 - [ ] Task: Create fixture contract parity tests and E2E readiness canary (Red Phase)
@@ -78,8 +96,9 @@ Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/f
     - [ ] Remove `window.useMapStore.getState().setBounds(...)` poking from `waitForMapReady()`
     - [ ] Refactor `expectTripInStore` and `expectTripDeletedFromStore` to remove store fetch poking in retry loops
     - [ ] Migrate `e2e/trip-sharing.spec.ts` away from `injectTripState` to route mocks; deprecate unused injectors
+- [ ] Task: Conductor - User Manual Verification 'Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling' (Protocol in workflow.md)
 
-## Phase 6: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
+## Phase 7: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
 Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, eliminate all 12 `waitForTimeout` calls, and resolve 24 `{ force: true }` clicks.
 
 - [ ] Task: Configure ESLint Playwright guardrails and visual snapshot tolerances (Red Phase)
@@ -96,9 +115,9 @@ Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, elim
     - [ ] Resolve illegitimate workarounds by fixing underlying CSS z-index, entry animations, hover triggers, drawer snap points, and button-enabled readiness
     - [ ] For verified exceptions where non-standard DOM or gesture overlays genuinely require it, retain `{ force: true }` with explicit inline code comments and `// eslint-disable-next-line playwright/no-force-option`
     - [ ] Verify `npm run lint` reports 0 errors and zero unjustified warnings on Playwright rules
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 7: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination' (Protocol in workflow.md)
 
-## Phase 7: High-Value E2E Feature Coverage & Cross-Browser Verification
+## Phase 8: High-Value E2E Feature Coverage & Cross-Browser Verification
 Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offline reconnection queue drainage, certifying full cross-browser test pass.
 
 - [ ] Task: Write failing E2E tests for itinerary reordering and offline reconnect sync (Red Phase)
@@ -114,4 +133,4 @@ Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offlin
 - [ ] Task: Full cross-browser container suite verification and quality gate (Verification)
     - [ ] Run `./scripts/run-e2e-container.sh all` across `chromium`, `webkit`, `mobile-safari`, and `mobile-chrome`
     - [ ] Run repository quality gate: `npm test`, `npm run lint`, and `npm run type-check`
-    - [ ] Conductor - User Manual Verification 'Phase 7: High-Value E2E Feature Coverage & Cross-Browser Verification' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 8: High-Value E2E Feature Coverage & Cross-Browser Verification' (Protocol in workflow.md)
