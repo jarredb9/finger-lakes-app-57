@@ -24,13 +24,10 @@ jest.mock('@/utils/supabase/client', () => ({
   createClient: jest.fn(() => (globalThis as any)._MOCK_CLIENT),
 }));
 
-describe('friendStore', () => {
-  let useFriendStore: any;
+import { useFriendStore } from '../friendStore';
 
+describe('friendStore', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.resetModules();
-    useFriendStore = require('../friendStore').useFriendStore;
     useFriendStore.getState().reset();
     
     process.env.NEXT_PUBLIC_IS_E2E = 'true';

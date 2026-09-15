@@ -1,46 +1,85 @@
 import { act } from '@testing-library/react';
+import { useUserStore } from '../userStore';
+import { useSyncStore } from '../syncStore';
+import { useVisitStore } from '../visitStore';
+import { useTripStore } from '../tripStore';
+import { useFriendStore } from '../friendStore';
+import { useWineryStore } from '../wineryStore';
+import { useMapStore } from '../mapStore';
+import { useUIStore } from '../uiStore';
+
+let mockGetUser = jest.fn();
+let mockGetSession = jest.fn();
+let mockSignOut = jest.fn();
+let mockFrom = jest.fn();
+let mockRpc = jest.fn();
+
+(globalThis as any)._USER_MOCKS = {
+  mockGetUser,
+  mockGetSession,
+  mockSignOut,
+  mockFrom,
+  mockRpc,
+};
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getUser: (...args: any[]) => (globalThis as any)._USER_MOCKS.mockGetUser(...args),
+      getSession: (...args: any[]) => (globalThis as any)._USER_MOCKS.mockGetSession(...args),
+      signOut: (...args: any[]) => (globalThis as any)._USER_MOCKS.mockSignOut(...args),
+    },
+    from: (...args: any[]) => (globalThis as any)._USER_MOCKS.mockFrom(...args),
+    rpc: (...args: any[]) => (globalThis as any)._USER_MOCKS.mockRpc(...args),
+  })),
+}));
 
 describe('UserStore Logic', () => {
-  let useUserStore: any;
-
   beforeEach(() => {
-    jest.resetModules();
-
-    // Mock Supabase
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: () => ({
-        auth: {
-          getUser: jest.fn().mockResolvedValue({ 
-            data: { user: { id: 'user-123', email: 'test@example.com' } },
+    mockGetUser = jest.fn().mockResolvedValue({ 
+      data: { user: { id: 'user-123', email: 'test@example.com' } },
+      error: null
+    });
+    mockGetSession = jest.fn().mockResolvedValue({ 
+      data: { session: { user: { id: 'user-123', email: 'test@example.com' } } },
+      error: null
+    });
+    mockSignOut = jest.fn().mockResolvedValue({ error: null });
+    mockFrom = jest.fn(() => ({
+      select: () => ({
+        eq: () => ({
+          single: jest.fn().mockResolvedValue({
+            data: { 
+              id: 'user-123', 
+              name: 'Test User', 
+              email: 'test@example.com',
+              privacy_level: 'friends_only',
+              ai_enabled: false
+            },
             error: null
-          }),
-          signOut: jest.fn().mockResolvedValue({ error: null }),
-        },
-        from: () => ({
-          select: () => ({
-            eq: () => ({
-              single: jest.fn().mockResolvedValue({
-                data: { 
-                  id: 'user-123', 
-                  name: 'Test User', 
-                  email: 'test@example.com',
-                  privacy_level: 'friends_only',
-                  ai_enabled: false
-                },
-                error: null
-              })
-            })
-          }),
-          update: () => ({
-            eq: jest.fn().mockResolvedValue({ data: null, error: null })
           })
-        }),
-        rpc: jest.fn().mockResolvedValue({ data: { success: true }, error: null }),
+        })
       }),
+      update: () => ({
+        eq: jest.fn().mockResolvedValue({ data: null, error: null })
+      })
     }));
+    mockRpc = jest.fn().mockResolvedValue({ data: { success: true }, error: null });
 
-    // Re-require store after mocks
-    useUserStore = require('../userStore').useUserStore;
+    (globalThis as any)._USER_MOCKS = {
+      mockGetUser,
+      mockGetSession,
+      mockSignOut,
+      mockFrom,
+      mockRpc,
+    };
+
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      value: true,
+      writable: true,
+    });
+
     useUserStore.getState().reset();
   });
 
@@ -51,9 +90,9 @@ describe('UserStore Logic', () => {
 
     const user = useUserStore.getState().user;
     expect(user).toBeDefined();
-    expect(user.id).toBe('user-123');
-    expect(user.privacy_level).toBe('friends_only');
-    expect(user.ai_enabled).toBe(false);
+    expect(user?.id).toBe('user-123');
+    expect(user?.privacy_level).toBe('friends_only');
+    expect(user?.ai_enabled).toBe(false);
     expect(useUserStore.getState().user).not.toBeNull();
   });
 
@@ -68,7 +107,7 @@ describe('UserStore Logic', () => {
     });
 
     const user = useUserStore.getState().user;
-    expect(user.privacy_level).toBe('public');
+    expect(user?.privacy_level).toBe('public');
   });
 
   it('should update ai_enabled setting optimistically', async () => {
@@ -76,19 +115,19 @@ describe('UserStore Logic', () => {
       await useUserStore.getState().fetchUser();
     });
 
-    expect(useUserStore.getState().user.ai_enabled).toBe(false);
+    expect(useUserStore.getState().user?.ai_enabled).toBe(false);
 
     await act(async () => {
       await useUserStore.getState().updateAIEnabled(true);
     });
 
-    expect(useUserStore.getState().user.ai_enabled).toBe(true);
+    expect(useUserStore.getState().user?.ai_enabled).toBe(true);
 
     await act(async () => {
       await useUserStore.getState().updateAIEnabled(false);
     });
 
-    expect(useUserStore.getState().user.ai_enabled).toBe(false);
+    expect(useUserStore.getState().user?.ai_enabled).toBe(false);
   });
 
   it('should reset user state', async () => {
@@ -106,59 +145,39 @@ describe('UserStore Logic', () => {
   });
 
   it('should await syncStore reset and reset all other stores on logout', async () => {
-    jest.resetModules();
-
-    // Redefine Supabase client mock since resetModules cleared it
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: () => ({
-        auth: {
-          signOut: jest.fn().mockResolvedValue({ error: null }),
-        },
-      }),
-    }));
-
     const mockSyncReset = jest.fn().mockResolvedValue(undefined);
-    const mockGenericReset = jest.fn();
+    const mockVisitReset = jest.fn();
+    const mockTripReset = jest.fn();
+    const mockFriendReset = jest.fn();
+    const mockWineryReset = jest.fn();
+    const mockMapReset = jest.fn();
+    const mockUIReset = jest.fn();
 
-    jest.doMock('../syncStore', () => ({
-      useSyncStore: { getState: () => ({ reset: mockSyncReset }) }
-    }));
-    jest.doMock('../visitStore', () => ({
-      useVisitStore: { getState: () => ({ reset: mockGenericReset }) }
-    }));
-    jest.doMock('../tripStore', () => ({
-      useTripStore: { getState: () => ({ reset: mockGenericReset }) }
-    }));
-    jest.doMock('../friendStore', () => ({
-      useFriendStore: { getState: () => ({ reset: mockGenericReset }) }
-    }));
-    jest.doMock('../wineryStore', () => ({
-      useWineryStore: { getState: () => ({ reset: mockGenericReset }) }
-    }));
-    jest.doMock('../mapStore', () => ({
-      useMapStore: { getState: () => ({ reset: mockGenericReset }) }
-    }));
-    jest.doMock('../uiStore', () => ({
-      useUIStore: { getState: () => ({ reset: mockGenericReset }) }
-    }));
-
-    // Re-require userStore under these mocks
-    const testUserStore = require('../userStore').useUserStore;
+    useSyncStore.getState().reset = mockSyncReset;
+    useVisitStore.getState().reset = mockVisitReset;
+    useTripStore.getState().reset = mockTripReset;
+    useFriendStore.getState().reset = mockFriendReset;
+    useWineryStore.getState().reset = mockWineryReset;
+    useMapStore.getState().reset = mockMapReset;
+    useUIStore.getState().reset = mockUIReset;
 
     await act(async () => {
-      await testUserStore.getState().logout();
+      await useUserStore.getState().logout();
     });
 
     expect(mockSyncReset).toHaveBeenCalled();
-    expect(mockGenericReset).toHaveBeenCalledTimes(6); // Remaining 6 stores (UserStore itself is reset via get().reset())
+    expect(mockVisitReset).toHaveBeenCalled();
+    expect(mockTripReset).toHaveBeenCalled();
+    expect(mockFriendReset).toHaveBeenCalled();
+    expect(mockWineryReset).toHaveBeenCalled();
+    expect(mockMapReset).toHaveBeenCalled();
+    expect(mockUIReset).toHaveBeenCalled();
   });
 
   describe('Phase 7 Task 1: Offline session preservation in fetchUser (FM-7.1)', () => {
     it('should fall back to supabase.auth.getSession() when offline (navigator.onLine === false) without losing user identity', async () => {
-      jest.resetModules();
-
-      const mockGetUser = jest.fn().mockRejectedValue(new TypeError('Failed to fetch (NetworkOnly / Offline)'));
-      const mockGetSession = jest.fn().mockResolvedValue({
+      mockGetUser = jest.fn().mockRejectedValue(new TypeError('Failed to fetch (NetworkOnly / Offline)'));
+      mockGetSession = jest.fn().mockResolvedValue({
         data: {
           session: {
             user: {
@@ -171,22 +190,21 @@ describe('UserStore Logic', () => {
         error: null,
       });
 
-      jest.doMock('@/utils/supabase/client', () => ({
-        createClient: () => ({
-          auth: {
-            getUser: mockGetUser,
-            getSession: mockGetSession,
-            signOut: jest.fn(),
-          },
-          from: () => ({
-            select: () => ({
-              eq: () => ({
-                single: jest.fn().mockRejectedValue(new Error('Offline - network unavailable')),
-              }),
-            }),
+      mockFrom = jest.fn(() => ({
+        select: () => ({
+          eq: () => ({
+            single: jest.fn().mockRejectedValue(new Error('Offline - network unavailable')),
           }),
         }),
       }));
+
+      (globalThis as any)._USER_MOCKS = {
+        mockGetUser,
+        mockGetSession,
+        mockSignOut,
+        mockFrom,
+        mockRpc,
+      };
 
       // Simulate offline network state
       Object.defineProperty(navigator, 'onLine', {
@@ -195,29 +213,26 @@ describe('UserStore Logic', () => {
         writable: true,
       });
 
-      const store = require('../userStore').useUserStore;
-      store.getState().reset();
+      useUserStore.getState().reset();
 
       await act(async () => {
-        await store.getState().fetchUser();
+        await useUserStore.getState().fetchUser();
       });
 
       // Assert getSession was invoked as a fallback
       expect(mockGetSession).toHaveBeenCalled();
 
       // Assert user identity was preserved from session rather than wiped to null
-      const currentUser = store.getState().user;
+      const currentUser = useUserStore.getState().user;
       expect(currentUser).not.toBeNull();
       expect(currentUser?.id).toBe('offline-user-789');
       expect(currentUser?.email).toBe('offline@winery.com');
-      expect(store.getState().isLoading).toBe(false);
+      expect(useUserStore.getState().isLoading).toBe(false);
     });
 
     it('should fall back to getSession() when getUser() throws a network error even if onLine is true', async () => {
-      jest.resetModules();
-
-      const mockGetUser = jest.fn().mockRejectedValue(new Error('Network request failed'));
-      const mockGetSession = jest.fn().mockResolvedValue({
+      mockGetUser = jest.fn().mockRejectedValue(new Error('Network request failed'));
+      mockGetSession = jest.fn().mockResolvedValue({
         data: {
           session: {
             user: {
@@ -229,22 +244,21 @@ describe('UserStore Logic', () => {
         error: null,
       });
 
-      jest.doMock('@/utils/supabase/client', () => ({
-        createClient: () => ({
-          auth: {
-            getUser: mockGetUser,
-            getSession: mockGetSession,
-            signOut: jest.fn(),
-          },
-          from: () => ({
-            select: () => ({
-              eq: () => ({
-                single: jest.fn().mockRejectedValue(new Error('Network error')),
-              }),
-            }),
+      mockFrom = jest.fn(() => ({
+        select: () => ({
+          eq: () => ({
+            single: jest.fn().mockRejectedValue(new Error('Network error')),
           }),
         }),
       }));
+
+      (globalThis as any)._USER_MOCKS = {
+        mockGetUser,
+        mockGetSession,
+        mockSignOut,
+        mockFrom,
+        mockRpc,
+      };
 
       Object.defineProperty(navigator, 'onLine', {
         configurable: true,
@@ -252,46 +266,41 @@ describe('UserStore Logic', () => {
         writable: true,
       });
 
-      const store = require('../userStore').useUserStore;
-      store.getState().reset();
+      useUserStore.getState().reset();
 
       await act(async () => {
-        await store.getState().fetchUser();
+        await useUserStore.getState().fetchUser();
       });
 
       expect(mockGetSession).toHaveBeenCalled();
-      expect(store.getState().user?.id).toBe('network-err-user');
+      expect(useUserStore.getState().user?.id).toBe('network-err-user');
     });
 
     it('should set user to null if both getUser() and getSession() return no user/session', async () => {
-      jest.resetModules();
+      mockGetUser = jest.fn().mockResolvedValue({ data: { user: null }, error: null });
+      mockGetSession = jest.fn().mockResolvedValue({ data: { session: null }, error: null });
 
-      jest.doMock('@/utils/supabase/client', () => ({
-        createClient: () => ({
-          auth: {
-            getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
-            getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
-            signOut: jest.fn(),
-          },
-        }),
-      }));
+      (globalThis as any)._USER_MOCKS = {
+        mockGetUser,
+        mockGetSession,
+        mockSignOut,
+        mockFrom,
+        mockRpc,
+      };
 
-      const store = require('../userStore').useUserStore;
-      store.setState({ user: { id: 'previous-user', email: 'old@example.com' } });
+      useUserStore.setState({ user: { id: 'previous-user', email: 'old@example.com' } });
 
       await act(async () => {
-        await store.getState().fetchUser();
+        await useUserStore.getState().fetchUser();
       });
 
-      expect(store.getState().user).toBeNull();
-      expect(store.getState().isLoading).toBe(false);
+      expect(useUserStore.getState().user).toBeNull();
+      expect(useUserStore.getState().isLoading).toBe(false);
     });
   });
 
   describe('Phase 7 Task 1: Offline-resilient logout, CacheStorage purge & SW messaging (FM-7.2)', () => {
     it('should purge supabase-auth and pages from window.caches and dispatch PURGE_AUTH_CACHE to serviceWorker', async () => {
-      jest.resetModules();
-
       const mockDelete = jest.fn().mockResolvedValue(true);
       const mockPostMessage = jest.fn();
 
@@ -319,19 +328,13 @@ describe('UserStore Logic', () => {
         writable: true,
       });
 
-      jest.doMock('@/utils/supabase/client', () => ({
-        createClient: () => ({
-          auth: {
-            signOut: jest.fn().mockResolvedValue({ error: null }),
-          },
-        }),
-      }));
+      mockSignOut = jest.fn().mockResolvedValue({ error: null });
+      (globalThis as any)._USER_MOCKS.mockSignOut = mockSignOut;
 
-      const store = require('../userStore').useUserStore;
-      store.setState({ user: { id: 'active-user', email: 'active@example.com' } });
+      useUserStore.setState({ user: { id: 'active-user', email: 'active@example.com' } });
 
       await act(async () => {
-        await store.getState().logout();
+        await useUserStore.getState().logout();
       });
 
       // Asserts CacheStorage purge was attempted
@@ -344,12 +347,10 @@ describe('UserStore Logic', () => {
       );
 
       // Asserts local store reset
-      expect(store.getState().user).toBeNull();
+      expect(useUserStore.getState().user).toBeNull();
     });
 
     it('should handle null navigator.serviceWorker.controller safely without throwing TypeError', async () => {
-      jest.resetModules();
-
       // Controller is null on first visit, incognito, or hard refresh
       Object.defineProperty(navigator, 'serviceWorker', {
         configurable: true,
@@ -360,32 +361,21 @@ describe('UserStore Logic', () => {
         writable: true,
       });
 
-      jest.doMock('@/lib/stores/syncStore', () => ({
-        useSyncStore: { getState: () => ({ reset: jest.fn().mockResolvedValue(undefined) }) },
-      }));
+      useSyncStore.getState().reset = jest.fn().mockResolvedValue(undefined as any);
+      mockSignOut = jest.fn().mockResolvedValue({ error: null });
+      (globalThis as any)._USER_MOCKS.mockSignOut = mockSignOut;
 
-      jest.doMock('@/utils/supabase/client', () => ({
-        createClient: () => ({
-          auth: {
-            signOut: jest.fn().mockResolvedValue({ error: null }),
-          },
-        }),
-      }));
-
-      const store = require('../userStore').useUserStore;
-      store.setState({ user: { id: 'null-sw-user', email: 'sw@example.com' } });
+      useUserStore.setState({ user: { id: 'null-sw-user', email: 'sw@example.com' } });
 
       // Should complete without throwing "Cannot read properties of null (reading 'postMessage')"
       await act(async () => {
-        await store.getState().logout();
+        await useUserStore.getState().logout();
       });
 
-      expect(store.getState().user).toBeNull();
+      expect(useUserStore.getState().user).toBeNull();
     });
 
     it('should complete logout without error when window.caches or navigator.serviceWorker is undefined', async () => {
-      jest.resetModules();
-
       // Simulate SSR or stripped Node environment
       const originalCaches = (window as any).caches;
       const originalSW = (navigator as any).serviceWorker;
@@ -397,26 +387,17 @@ describe('UserStore Logic', () => {
         writable: true,
       });
 
-      jest.doMock('@/lib/stores/syncStore', () => ({
-        useSyncStore: { getState: () => ({ reset: jest.fn().mockResolvedValue(undefined) }) },
-      }));
+      useSyncStore.getState().reset = jest.fn().mockResolvedValue(undefined as any);
+      mockSignOut = jest.fn().mockResolvedValue({ error: null });
+      (globalThis as any)._USER_MOCKS.mockSignOut = mockSignOut;
 
-      jest.doMock('@/utils/supabase/client', () => ({
-        createClient: () => ({
-          auth: {
-            signOut: jest.fn().mockResolvedValue({ error: null }),
-          },
-        }),
-      }));
-
-      const store = require('../userStore').useUserStore;
-      store.setState({ user: { id: 'no-sw-user', email: 'nosw@example.com' } });
+      useUserStore.setState({ user: { id: 'no-sw-user', email: 'nosw@example.com' } });
 
       await act(async () => {
-        await store.getState().logout();
+        await useUserStore.getState().logout();
       });
 
-      expect(store.getState().user).toBeNull();
+      expect(useUserStore.getState().user).toBeNull();
 
       // Restore
       if (originalCaches) (window as any).caches = originalCaches;
@@ -424,54 +405,41 @@ describe('UserStore Logic', () => {
     });
 
     it('should complete store reset even when supabase.auth.signOut() rejects (e.g. offline)', async () => {
-      jest.resetModules();
-
       const mockSyncReset = jest.fn().mockResolvedValue(undefined);
-      const mockGenericReset = jest.fn();
+      const mockVisitReset = jest.fn();
+      const mockTripReset = jest.fn();
+      const mockFriendReset = jest.fn();
+      const mockWineryReset = jest.fn();
+      const mockMapReset = jest.fn();
+      const mockUIReset = jest.fn();
 
-      jest.doMock('@/lib/stores/syncStore', () => ({
-        useSyncStore: { getState: () => ({ reset: mockSyncReset }) },
-      }));
-      jest.doMock('@/lib/stores/visitStore', () => ({
-        useVisitStore: { getState: () => ({ reset: mockGenericReset }) },
-      }));
-      jest.doMock('@/lib/stores/tripStore', () => ({
-        useTripStore: { getState: () => ({ reset: mockGenericReset }) },
-      }));
-      jest.doMock('@/lib/stores/friendStore', () => ({
-        useFriendStore: { getState: () => ({ reset: mockGenericReset }) },
-      }));
-      jest.doMock('@/lib/stores/wineryStore', () => ({
-        useWineryStore: { getState: () => ({ reset: mockGenericReset }) },
-      }));
-      jest.doMock('@/lib/stores/mapStore', () => ({
-        useMapStore: { getState: () => ({ reset: mockGenericReset }) },
-      }));
-      jest.doMock('@/lib/stores/uiStore', () => ({
-        useUIStore: { getState: () => ({ reset: mockGenericReset }) },
-      }));
+      useSyncStore.getState().reset = mockSyncReset;
+      useVisitStore.getState().reset = mockVisitReset;
+      useTripStore.getState().reset = mockTripReset;
+      useFriendStore.getState().reset = mockFriendReset;
+      useWineryStore.getState().reset = mockWineryReset;
+      useMapStore.getState().reset = mockMapReset;
+      useUIStore.getState().reset = mockUIReset;
 
       // Supabase signOut fails when network is severed
-      jest.doMock('@/utils/supabase/client', () => ({
-        createClient: () => ({
-          auth: {
-            signOut: jest.fn().mockRejectedValue(new Error('Network error during sign out')),
-          },
-        }),
-      }));
+      mockSignOut = jest.fn().mockRejectedValue(new Error('Network error during sign out'));
+      (globalThis as any)._USER_MOCKS.mockSignOut = mockSignOut;
 
-      const store = require('../userStore').useUserStore;
-      store.setState({ user: { id: 'offline-signout-user', email: 'offline@example.com' } });
+      useUserStore.setState({ user: { id: 'offline-signout-user', email: 'offline@example.com' } });
 
       // Must catch error defensively and still wipe state across stores
       await act(async () => {
-        await store.getState().logout();
+        await useUserStore.getState().logout();
       });
 
       expect(mockSyncReset).toHaveBeenCalled();
-      expect(mockGenericReset).toHaveBeenCalledTimes(6);
-      expect(store.getState().user).toBeNull();
+      expect(mockVisitReset).toHaveBeenCalled();
+      expect(mockTripReset).toHaveBeenCalled();
+      expect(mockFriendReset).toHaveBeenCalled();
+      expect(mockWineryReset).toHaveBeenCalled();
+      expect(mockMapReset).toHaveBeenCalled();
+      expect(mockUIReset).toHaveBeenCalled();
+      expect(useUserStore.getState().user).toBeNull();
     });
   });
 });
-

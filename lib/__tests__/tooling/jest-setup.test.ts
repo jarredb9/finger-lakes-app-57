@@ -44,4 +44,30 @@ describe('Jest Setup & Test Infrastructure Verification (Phase 1 Task 1)', () =>
       expect(configContent).toMatch(/clearMocks:\s*true/);
     });
   });
+
+  describe('Store Test Suite Module Reset Hygiene (Phase 1 Task 2)', () => {
+    it('asserts zero occurrences of jest.resetModules() across store test suites in lib/stores/__tests__', () => {
+      const storeTestsDir = path.join(process.cwd(), 'lib/stores/__tests__');
+      const files = fs.readdirSync(storeTestsDir).filter(f => f.endsWith('.test.ts') || f.endsWith('.test.tsx'));
+
+      // Files designated for Phase 1 Task 3
+      const task3Files = ['relational-ids.test.ts', 'tripStore.domainInvariants.test.ts'];
+      const targetFiles = files.filter(f => !task3Files.includes(f));
+
+      const violations: { file: string; line: number }[] = [];
+
+      for (const file of targetFiles) {
+        const content = fs.readFileSync(path.join(storeTestsDir, file), 'utf-8');
+        const lines = content.split('\n');
+        lines.forEach((lineText, idx) => {
+          if (lineText.includes('jest.resetModules()')) {
+            violations.push({ file, line: idx + 1 });
+          }
+        });
+      }
+
+      expect(violations).toEqual([]);
+    });
+  });
 });
+

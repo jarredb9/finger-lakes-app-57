@@ -1,29 +1,29 @@
 import { act } from '@testing-library/react';
+import { useUserStore } from '../userStore';
+import { useSyncStore } from '@/lib/stores/syncStore';
+
+const mockAddMutation = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('@/lib/stores/syncStore', () => ({
+  useSyncStore: {
+    getState: jest.fn(() => ({
+      addMutation: mockAddMutation,
+      queue: [],
+      initialize: jest.fn(),
+    })),
+  },
+}));
+
+jest.mock('@/lib/services/profileService', () => ({
+  ProfileService: {
+    updatePrivacyLevel: jest.fn(),
+  },
+}));
 
 describe('userStore SyncStore integration', () => {
-  let useUserStore: any;
-  let useSyncStore: any;
-
   beforeEach(() => {
-    jest.resetModules();
-
-    // Mock SyncStore
-    const mockAddMutation = jest.fn().mockResolvedValue(undefined);
-    jest.doMock('@/lib/stores/syncStore', () => ({
-      useSyncStore: {
-        getState: jest.fn(() => ({
-          addMutation: mockAddMutation,
-          queue: [],
-          initialize: jest.fn(),
-        })),
-      },
-    }));
-
-    jest.doMock('@/lib/services/profileService', () => ({
-      ProfileService: {
-        updatePrivacyLevel: jest.fn(),
-      },
-    }));
+    jest.clearAllMocks();
+    mockAddMutation.mockResolvedValue(undefined);
 
     // Mock navigator.onLine to false
     Object.defineProperty(navigator, 'onLine', {
@@ -32,11 +32,8 @@ describe('userStore SyncStore integration', () => {
       writable: true,
     });
 
-    useUserStore = require('../userStore').useUserStore;
-    useSyncStore = require('@/lib/stores/syncStore').useSyncStore;
-    
     useUserStore.getState().reset();
-    useUserStore.setState({ user: { id: 'user-123', name: 'Tester', email: 'test@mail.com' } });
+    useUserStore.setState({ user: { id: 'user-123', name: 'Tester', email: 'test@mail.com' } as any });
   });
 
   afterEach(() => {
@@ -54,7 +51,7 @@ describe('userStore SyncStore integration', () => {
       userId: 'user-123',
       payload: expect.objectContaining({
         type: 'privacy',
-        level: 'private'
+        level: 'private',
       })
     }));
   });
