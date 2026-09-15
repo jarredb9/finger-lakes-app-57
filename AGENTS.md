@@ -19,6 +19,10 @@
   - Populate Data: `npm run db:populate`
   - Types: `npm run db:check-types:local` / `npm run db:gen-types`
   - Edge Function Tests: `npm run test:functions`
+- **Jest Tests (RHEL 8 / Containerized):**
+  - RHEL 8 glibc (2.28) is incompatible with Next.js 16.3+ native SWC (requires glibc 2.29+). Run Jest via the Podman container runner:
+  - Unit Tests: `./scripts/run-jest-container.sh [jest_args]` or `npm run test:container [-- jest_args]`
+  - Integration Tests: `npm run test:integration:container [-- jest_args]`
 - **Playwright E2E:** Run via Podman container script:
   - Syntax: `./scripts/run-e2e-container.sh [--build] [project] [test_file]`
   - Example: `./scripts/run-e2e-container.sh --build webkit e2e/trip-flow.spec.ts`
