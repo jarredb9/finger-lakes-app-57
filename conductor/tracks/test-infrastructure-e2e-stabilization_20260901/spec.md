@@ -64,15 +64,16 @@ The primary objectives are organized into **8 bounded phases** (adhering strictl
 ### 2.4 Flakiness Elimination & Issue #25 Hardening
 - **QA-09 & Issue #25 (Zero `waitForTimeout` & Actionability Audit)**:
   - Eliminate all 12 `page.waitForTimeout()` sleeps across verified files: `e2e/pwa-assets.spec.ts` (L119), `e2e/photo-flow.spec.ts` (L102), `e2e/trip-flow.spec.ts` (L101), `e2e/helpers.ts` (L509, L633), and `e2e/responsive-layout.spec.ts` (L42, L67, L101, L122, L127, L133, L139).
+  - Replace sleeps with web-first auto-retrying assertions (`expect(locator).toBeVisible()`, `waitForResponse()`, `expect.poll()`, `toPass()`) or Playwright's `page.clock` API for timer/debounce-dependent flows (e.g. `page.clock.fastForward()`).
   - Audit all 24 code occurrences of `{ force: true }` across 7 files (`photo-flow.spec.ts`, `helpers.ts`, `trip-flow.spec.ts`, `auth-recovery.spec.ts`, `visit-flow.spec.ts`, `accessibility.spec.ts`, `runtime-audit.spec.ts`); resolve underlying z-index, visibility, hover styles, and animation actionability issues.
 - **QA-08 (Strict Visual Snapshot Calibration)**:
   - Reduce `maxDiffPixelRatio` in `playwright.config.ts` from `0.10` to `0.01` (1%).
   - Strip the 7 inline `maxDiffPixelRatio: 0.10` overrides from `e2e/visual.spec.ts` (L67, L92, L123, L135, L147, L161, L176). Re-baseline snapshots if anti-aliasing variations emerge.
 - **QA-10 (High-Value E2E Coverage Gaps)**:
-  - Add E2E tests for itinerary drag-and-drop reordering in `e2e/trip-management.spec.ts`.
+  - Add E2E tests for itinerary drag-and-drop reordering in `e2e/trip-management.spec.ts`. Note: `@hello-pangea/dnd` relies on pointer/mouse/keyboard sensors rather than native HTML5 drag events; drive reordering via mouse steps (`page.mouse.move(..., { steps: 10 })`) or accessible keyboard interactions (`Space` -> `ArrowDown` -> `Space`).
   - Add E2E tests for offline reconnect queue drainage (`setOffline(false)`) and cache invalidation in `e2e/pwa-offline.spec.ts`.
 - **Lint Guardrails**:
-  - Configure `eslint-plugin-playwright` in `eslint.config.mjs` (ESLint 9 Flat Config) matching `files: ['e2e/**/*.{ts,js}']`:
+  - Configure `eslint-plugin-playwright` in `eslint.config.mjs` using ESLint 9 Flat Config (`playwright.configs['flat/recommended']` or plugin definition) matching `files: ['e2e/**/*.{ts,js}']`:
     - `'playwright/no-wait-for-timeout': 'error'`
     - `'playwright/no-force-option': 'warn'`
 
