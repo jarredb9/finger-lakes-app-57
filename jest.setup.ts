@@ -67,6 +67,24 @@ if (typeof global.Request === 'undefined') {
   }
 }
 
+// Polyfill URL.createObjectURL and URL.revokeObjectURL for JSDOM
+if (typeof global.URL !== 'undefined') {
+  if (typeof global.URL.createObjectURL === 'undefined') {
+    global.URL.createObjectURL = jest.fn((_blob?: any) => `blob:mock-${Math.random().toString(36).substring(2, 9)}`);
+  }
+  if (typeof global.URL.revokeObjectURL === 'undefined') {
+    global.URL.revokeObjectURL = jest.fn();
+  }
+}
+if (typeof window !== 'undefined' && typeof window.URL !== 'undefined') {
+  if (typeof window.URL.createObjectURL === 'undefined') {
+    window.URL.createObjectURL = global.URL.createObjectURL;
+  }
+  if (typeof window.URL.revokeObjectURL === 'undefined') {
+    window.URL.revokeObjectURL = global.URL.revokeObjectURL;
+  }
+}
+
 // Polyfill matchMedia for JSDOM
 if (typeof window !== 'undefined') {
   Object.defineProperty(window, 'matchMedia', {
