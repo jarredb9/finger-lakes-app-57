@@ -1,43 +1,53 @@
 import { act } from '@testing-library/react';
 import { createMockTrip, createMockWinery } from '@/lib/test-utils/fixtures';
+import { useTripStore } from '../tripStore';
+
+let mockTripService = {
+  createTrip: jest.fn(),
+  deleteTrip: jest.fn(),
+  updateTrip: jest.fn(),
+};
+
+(globalThis as any)._TRIP_SYNC_MOCKS = {
+  mockTripService,
+};
+
+jest.mock('@/lib/services/tripService', () => ({
+  TripService: {
+    createTrip: (...args: any[]) => (globalThis as any)._TRIP_SYNC_MOCKS.mockTripService.createTrip(...args),
+    deleteTrip: (...args: any[]) => (globalThis as any)._TRIP_SYNC_MOCKS.mockTripService.deleteTrip(...args),
+    updateTrip: (...args: any[]) => (globalThis as any)._TRIP_SYNC_MOCKS.mockTripService.updateTrip(...args),
+  },
+}));
+
+jest.mock('@/lib/stores/wineryStore', () => ({
+  useWineryStore: {
+    getState: jest.fn(() => ({
+      ensureWineryDetails: jest.fn().mockResolvedValue({}),
+      updateWinery: jest.fn(),
+      upsertWinery: jest.fn(),
+    })),
+  },
+}));
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
+    },
+    rpc: jest.fn().mockResolvedValue({ data: {}, error: null }),
+  })),
+}));
 
 describe('tripStore sync locking', () => {
-  let useTripStore: any;
-  let mockTripService: any;
-
   beforeEach(() => {
-    jest.resetModules();
-
     mockTripService = {
       createTrip: jest.fn(),
       deleteTrip: jest.fn(),
       updateTrip: jest.fn(),
     };
+    (globalThis as any)._TRIP_SYNC_MOCKS = { mockTripService };
 
-    jest.doMock('@/lib/services/tripService', () => ({
-      TripService: mockTripService
-    }));
-
-    jest.doMock('@/lib/stores/wineryStore', () => ({
-      useWineryStore: {
-        getState: jest.fn(() => ({
-          ensureWineryDetails: jest.fn().mockResolvedValue({}),
-          updateWinery: jest.fn(),
-          upsertWinery: jest.fn(),
-        })),
-      },
-    }));
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: jest.fn(() => ({
-        auth: {
-          getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
-        },
-        rpc: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      })),
-    }));
-
-    useTripStore = require('../tripStore').useTripStore;
     useTripStore.getState().reset();
     
     jest.spyOn(Date, 'now').mockReturnValue(1000);

@@ -1,44 +1,44 @@
 import { act } from '@testing-library/react';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
 import { GooglePlaceId, WineryDbId } from '@/lib/types';
+import { useWineryStore } from '../wineryStore';
+import { useSyncStore } from '@/lib/stores/syncStore';
+
+const mockAddMutation = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('@/lib/stores/syncStore', () => ({
+  useSyncStore: {
+    getState: jest.fn(() => ({
+      addMutation: mockAddMutation,
+      queue: [],
+      initialize: jest.fn(),
+    })),
+  },
+}));
+
+jest.mock('@/lib/services/wineryService', () => ({
+  WineryService: {
+    toggleFavorite: jest.fn(),
+    toggleWishlist: jest.fn(),
+    toggleFavoritePrivacy: jest.fn(),
+    toggleWishlistPrivacy: jest.fn(),
+    ensureInDb: jest.fn(),
+  },
+}));
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
+      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null }),
+    },
+  })),
+}));
 
 describe('wineryDataStore SyncStore integration', () => {
-  let useWineryStore: any;
-  let useSyncStore: any;
-
   beforeEach(() => {
-    jest.resetModules();
-
-    // Mock SyncStore
-    const mockAddMutation = jest.fn().mockResolvedValue(undefined);
-    jest.doMock('@/lib/stores/syncStore', () => ({
-      useSyncStore: {
-        getState: jest.fn(() => ({
-          addMutation: mockAddMutation,
-          queue: [],
-          initialize: jest.fn(),
-        })),
-      },
-    }));
-
-    jest.doMock('@/lib/services/wineryService', () => ({
-      WineryService: {
-        toggleFavorite: jest.fn(),
-        toggleWishlist: jest.fn(),
-        toggleFavoritePrivacy: jest.fn(),
-        toggleWishlistPrivacy: jest.fn(),
-        ensureInDb: jest.fn(),
-      },
-    }));
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: jest.fn(() => ({
-        auth: {
-          getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
-          getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null }),
-        },
-      })),
-    }));
+    jest.clearAllMocks();
+    mockAddMutation.mockResolvedValue(undefined);
 
     // Mock navigator.onLine to false
     Object.defineProperty(navigator, 'onLine', {
@@ -47,9 +47,6 @@ describe('wineryDataStore SyncStore integration', () => {
       writable: true,
     });
 
-    useWineryStore = require('../wineryStore').useWineryStore;
-    useSyncStore = require('@/lib/stores/syncStore').useSyncStore;
-    
     useWineryStore.getState().reset();
   });
 

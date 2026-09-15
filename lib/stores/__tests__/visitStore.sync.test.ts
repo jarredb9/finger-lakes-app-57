@@ -1,43 +1,40 @@
 import { act } from '@testing-library/react';
 import { createMockVisit, createMockWinery } from '@/lib/test-utils/fixtures';
+import { useVisitStore } from '../visitStore';
+
+jest.mock('@/lib/stores/wineryStore', () => ({
+  useWineryStore: {
+    getState: jest.fn(() => ({
+      addVisitToWinery: jest.fn(),
+      replaceVisit: jest.fn(),
+      optimisticallyDeleteVisit: jest.fn(),
+      confirmOptimisticUpdate: jest.fn(),
+      optimisticallyUpdateVisit: jest.fn(),
+      revertOptimisticUpdate: jest.fn(),
+      getWineries: jest.fn(() => []),
+      upsertWinery: jest.fn(),
+    })),
+  },
+}));
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
+      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null }),
+    },
+    rpc: jest.fn().mockResolvedValue({ data: { visit_id: 'v1', winery_id: 1 }, error: null }),
+    storage: {
+      from: jest.fn(() => ({
+        upload: jest.fn().mockResolvedValue({ data: {}, error: null }),
+        remove: jest.fn().mockResolvedValue({ data: {}, error: null }),
+      })),
+    },
+  })),
+}));
 
 describe('visitStore sync locking', () => {
-  let useVisitStore: any;
-
   beforeEach(() => {
-    jest.resetModules();
-
-    jest.doMock('@/lib/stores/wineryStore', () => ({
-      useWineryStore: {
-        getState: jest.fn(() => ({
-          addVisitToWinery: jest.fn(),
-          replaceVisit: jest.fn(),
-          optimisticallyDeleteVisit: jest.fn(),
-          confirmOptimisticUpdate: jest.fn(),
-          optimisticallyUpdateVisit: jest.fn(),
-          revertOptimisticUpdate: jest.fn(),
-          getWineries: jest.fn(() => []),
-          upsertWinery: jest.fn(),
-        })),
-      },
-    }));
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: jest.fn(() => ({
-        auth: {
-          getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
-          getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-123' } }, error: null }),
-        },
-        rpc: jest.fn().mockResolvedValue({ data: { visit_id: 'v1', winery_id: 1 }, error: null }),
-        storage: {
-          from: jest.fn(() => ({
-            upload: jest.fn().mockResolvedValue({ data: {}, error: null }),
-            remove: jest.fn().mockResolvedValue({ data: {}, error: null }),
-          })),
-        },
-      })),
-    }));
-
     // Mock navigator.onLine
     Object.defineProperty(navigator, 'onLine', {
       configurable: true,
@@ -45,7 +42,6 @@ describe('visitStore sync locking', () => {
       writable: true,
     });
 
-    useVisitStore = require('../visitStore').useVisitStore;
     useVisitStore.getState().reset();
     
     jest.spyOn(Date, 'now').mockReturnValue(1000);
@@ -78,7 +74,7 @@ describe('visitStore sync locking', () => {
     const visitData = { rating: 4 };
     
     // Setup state so updateVisit finds the visit in visitStore (ST-03 single source of truth)
-    useVisitStore.setState({ visits: [createMockVisit({ id: visitId } as any)] });
+    useVisitStore.setState({ visits: [createMockVisit({ id: visitId } as any) as any] });
 
     await act(async () => {
       await useVisitStore.getState().updateVisit(visitId, visitData, [], []);

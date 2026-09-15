@@ -1,41 +1,41 @@
 import { act } from '@testing-library/react';
+import { useTripStore } from '../tripStore';
+import { useSyncStore } from '@/lib/stores/syncStore';
+
+const mockAddMutation = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('@/lib/stores/syncStore', () => ({
+  useSyncStore: {
+    getState: jest.fn(() => ({
+      addMutation: mockAddMutation,
+      queue: [],
+      initialize: jest.fn(),
+    })),
+  },
+}));
+
+jest.mock('@/lib/services/tripService', () => ({
+  TripService: {
+    createTrip: jest.fn(),
+    deleteTrip: jest.fn(),
+    updateTrip: jest.fn(),
+    getTrips: jest.fn().mockResolvedValue({ trips: [], count: 0 }),
+  },
+}));
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
+    },
+    rpc: jest.fn().mockResolvedValue({ data: {}, error: null }),
+  })),
+}));
 
 describe('tripStore SyncStore integration', () => {
-  let useTripStore: any;
-  let useSyncStore: any;
-
   beforeEach(() => {
-    jest.resetModules();
-
-    // Mock SyncStore
-    const mockAddMutation = jest.fn().mockResolvedValue(undefined);
-    jest.doMock('@/lib/stores/syncStore', () => ({
-      useSyncStore: {
-        getState: jest.fn(() => ({
-          addMutation: mockAddMutation,
-          queue: [],
-          initialize: jest.fn(),
-        })),
-      },
-    }));
-
-    jest.doMock('@/lib/services/tripService', () => ({
-      TripService: {
-        createTrip: jest.fn(),
-        deleteTrip: jest.fn(),
-        updateTrip: jest.fn(),
-        getTrips: jest.fn().mockResolvedValue({ trips: [], count: 0 }),
-      },
-    }));
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: jest.fn(() => ({
-        auth: {
-          getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
-        },
-        rpc: jest.fn().mockResolvedValue({ data: {}, error: null }),
-      })),
-    }));
+    jest.clearAllMocks();
+    mockAddMutation.mockResolvedValue(undefined);
 
     // Mock navigator.onLine to false
     Object.defineProperty(navigator, 'onLine', {
@@ -44,9 +44,6 @@ describe('tripStore SyncStore integration', () => {
       writable: true,
     });
 
-    useTripStore = require('../tripStore').useTripStore;
-    useSyncStore = require('@/lib/stores/syncStore').useSyncStore;
-    
     useTripStore.getState().reset();
   });
 
@@ -67,7 +64,7 @@ describe('tripStore SyncStore integration', () => {
       userId: 'user-123',
       payload: expect.objectContaining({
         name: 'Test Trip',
-        trip_date: '2023-01-01'
+        trip_date: '2023-01-01',
       })
     }));
   });
@@ -84,7 +81,7 @@ describe('tripStore SyncStore integration', () => {
       type: 'delete_trip',
       userId: 'user-123',
       payload: expect.objectContaining({
-        tripId: '456'
+        tripId: '456',
       })
     }));
   });
@@ -103,7 +100,7 @@ describe('tripStore SyncStore integration', () => {
       userId: 'user-123',
       payload: expect.objectContaining({
         tripId: '456',
-        updates: expect.objectContaining({ name: 'Updated Name' })
+        updates: expect.objectContaining({ name: 'Updated Name' }),
       })
     }));
   });
