@@ -43,10 +43,10 @@ Focus: Implement unit test suites and harden mutation flows, multi-winery RPC ch
 ## Phase 4: Store Isolation, Engine Window Detachment & Runner Script Modernization
 Focus: Eliminate cross-store window coupling in `uiStore.ts`, gate store window attachments behind `NEXT_PUBLIC_IS_E2E`, update unit assertions, and fix container runner CLI parsing.
 
-- [ ] Task: Write failing store isolation tests and runner script argument parsing tests (Red Phase)
-    - [ ] Create `lib/__tests__/tooling/store-isolation.test.ts` asserting stores are not attached to `window` when `NEXT_PUBLIC_IS_E2E !== 'true'`
-    - [ ] Create `scripts/__tests__/run-e2e-container.test.sh` asserting CLI argument parsing without project collision, flag passthrough, and zero-argument safety
-    - [ ] Verify both tests fail against the current codebase (Red phase)
+- [x] Task: Write failing store isolation tests and runner script argument parsing tests (Red Phase) [fee3c2c]
+    - [x] Create `lib/__tests__/tooling/store-isolation.test.ts` asserting stores are not attached to `window` when `NEXT_PUBLIC_IS_E2E !== 'true'`
+    - [x] Create `scripts/__tests__/run-e2e-container.test.sh` asserting CLI argument parsing without project collision, flag passthrough, and zero-argument safety
+    - [x] Verify both tests fail against the current codebase (Red phase)
 - [ ] Task: Eliminate cross-store window coupling and gate store window exposure (Green Phase - Expand-and-Contract Part A)
     - [ ] Replace `(window as any).useTripStore.getState().setSelectedTrip(null)` in `lib/stores/uiStore.ts:205-207` with direct store invocation
     - [ ] Gate `(window as any).use*Store` attachments across all 8 stores behind `process.env.NEXT_PUBLIC_IS_E2E === 'true'`
