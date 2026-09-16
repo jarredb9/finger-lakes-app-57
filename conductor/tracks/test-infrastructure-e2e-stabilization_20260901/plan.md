@@ -47,10 +47,10 @@ Focus: Eliminate cross-store window coupling in `uiStore.ts`, gate store window 
     - [x] Create `lib/__tests__/tooling/store-isolation.test.ts` asserting stores are not attached to `window` when `NEXT_PUBLIC_IS_E2E !== 'true'`
     - [x] Create `scripts/__tests__/run-container.test.sh` asserting CLI argument parsing, spec path defaulting, flag passthrough, zero-argument safety, and volume isolation across all 4 container scripts
     - [x] Verify both tests fail against the current codebase (Red phase)
-- [ ] Task: Eliminate cross-store window coupling and gate store window exposure (Green Phase - Expand-and-Contract Part A)
-    - [ ] Replace `(window as any).useTripStore.getState().setSelectedTrip(null)` in `lib/stores/uiStore.ts:205-207` with direct store invocation
-    - [ ] Gate `(window as any).use*Store` attachments across all 8 stores behind `process.env.NEXT_PUBLIC_IS_E2E === 'true'`
-    - [ ] Update unit assertions in `tripStore.slices.test.ts` and `visitStore.slices.test.ts` to assert gated test environment behavior
+- [x] Task: Eliminate cross-store window coupling and gate store window exposure (Green Phase - Expand-and-Contract Part A) [0f04411]
+    - [x] Replace `(window as any).useTripStore.getState().setSelectedTrip(null)` in `lib/stores/uiStore.ts:205-207` with direct store invocation
+    - [x] Gate `(window as any).use*Store` attachments across all 8 stores behind `process.env.NEXT_PUBLIC_IS_E2E === 'true'`
+    - [x] Update unit assertions in `tripStore.slices.test.ts` and `visitStore.slices.test.ts` to assert gated test environment behavior
 - [ ] Task: Modernize container runner scripts (Green Phase)
     - [ ] Fix positional argument parsing (lines 103–125) in `scripts/run-e2e-container.sh` to default project to `webkit` when `$1` is a spec path or CLI flag
     - [ ] Guard `shift` to prevent crash on zero arguments and pass CLI arguments as array `TEST_ARGS=("$@")`
