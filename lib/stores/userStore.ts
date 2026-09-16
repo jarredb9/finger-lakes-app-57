@@ -199,5 +199,5 @@ export const useUserStore = createWithEqualityFn<UserState>((set, get) => ({
 }));
 
 if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
-  (window as any).useUserStore = useUserStore;
+  window.useUserStore = useUserStore;
 }

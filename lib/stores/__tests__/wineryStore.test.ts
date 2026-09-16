@@ -39,8 +39,8 @@ jest.mock('@/lib/utils', () => {
 
 describe('WineryUIStore: ensureWineryDetails', () => {
   beforeEach(() => {
-    (window as any)._E2E_SKIP_WINERY_INJECTION = true;
-    (window as any)._E2E_SKIP_DETAILS_MOCK = true;
+    window._E2E_SKIP_WINERY_INJECTION = true;
+    window._E2E_SKIP_DETAILS_MOCK = true;
     mockRpc.mockResolvedValue({ data: [], error: null });
     mockInvoke.mockResolvedValue({ data: null, error: null });
     useWineryStore.getState().reset();

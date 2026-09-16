@@ -10,16 +10,16 @@ describe('Store Isolation & Engine Window Detachment (Phase 4 Task 1 - Red Phase
 
   const clearWindowStores = () => {
     if (typeof window !== 'undefined') {
-      delete (window as any).useFriendStore;
-      delete (window as any).useMapStore;
-      delete (window as any).useSyncStore;
-      delete (window as any).useTripStore;
-      delete (window as any).useUIStore;
-      delete (window as any).useUserStore;
-      delete (window as any).useVisitStore;
-      delete (window as any).useWineryStore;
-      delete (window as any).useWineryDataStore;
-      delete (window as any).idbKeyVal;
+      delete window.useFriendStore;
+      delete window.useMapStore;
+      delete window.useSyncStore;
+      delete window.useTripStore;
+      delete window.useUIStore;
+      delete window.useUserStore;
+      delete window.useVisitStore;
+      delete window.useWineryStore;
+      delete window.useWineryDataStore;
+      delete window.idbKeyVal;
     }
   };
 
@@ -39,16 +39,16 @@ describe('Store Isolation & Engine Window Detachment (Phase 4 Task 1 - Red Phase
         require('@/lib/stores/wineryStore');
       });
 
-      expect((window as any).useFriendStore).toBeUndefined();
-      expect((window as any).useMapStore).toBeUndefined();
-      expect((window as any).useSyncStore).toBeUndefined();
-      expect((window as any).useTripStore).toBeUndefined();
-      expect((window as any).useUIStore).toBeUndefined();
-      expect((window as any).useUserStore).toBeUndefined();
-      expect((window as any).useVisitStore).toBeUndefined();
-      expect((window as any).useWineryStore).toBeUndefined();
-      expect((window as any).useWineryDataStore).toBeUndefined();
-      expect((window as any).idbKeyVal).toBeUndefined();
+      expect(window.useFriendStore).toBeUndefined();
+      expect(window.useMapStore).toBeUndefined();
+      expect(window.useSyncStore).toBeUndefined();
+      expect(window.useTripStore).toBeUndefined();
+      expect(window.useUIStore).toBeUndefined();
+      expect(window.useUserStore).toBeUndefined();
+      expect(window.useVisitStore).toBeUndefined();
+      expect(window.useWineryStore).toBeUndefined();
+      expect(window.useWineryDataStore).toBeUndefined();
+      expect(window.idbKeyVal).toBeUndefined();
     });
 
     it('asserts stores ARE attached to window when explicitly enabled for E2E testing (NEXT_PUBLIC_IS_E2E === "true")', () => {
@@ -66,15 +66,15 @@ describe('Store Isolation & Engine Window Detachment (Phase 4 Task 1 - Red Phase
         require('@/lib/stores/wineryStore');
       });
 
-      expect((window as any).useFriendStore).toBeDefined();
-      expect((window as any).useMapStore).toBeDefined();
-      expect((window as any).useSyncStore).toBeDefined();
-      expect((window as any).useTripStore).toBeDefined();
-      expect((window as any).useUIStore).toBeDefined();
-      expect((window as any).useUserStore).toBeDefined();
-      expect((window as any).useVisitStore).toBeDefined();
-      expect((window as any).useWineryStore).toBeDefined();
-      expect((window as any).useWineryDataStore).toBeDefined();
+      expect(window.useFriendStore).toBeDefined();
+      expect(window.useMapStore).toBeDefined();
+      expect(window.useSyncStore).toBeDefined();
+      expect(window.useTripStore).toBeDefined();
+      expect(window.useUIStore).toBeDefined();
+      expect(window.useUserStore).toBeDefined();
+      expect(window.useVisitStore).toBeDefined();
+      expect(window.useWineryStore).toBeDefined();
+      expect(window.useWineryDataStore).toBeDefined();
     });
   });
 

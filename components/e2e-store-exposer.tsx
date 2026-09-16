@@ -17,23 +17,22 @@ export function E2EStoreExposer() {
   useEffect(() => {
     // Expose stores - we assume gating happens at the component rendering level in layout.tsx
     if (typeof window !== 'undefined') {
-      (window as any).useWineryDataStore = useWineryStore;
-      (window as any).useWineryStore = useWineryStore;
-      (window as any).useUIStore = useUIStore;
-      (window as any).useVisitStore = useVisitStore;
-      (window as any).useTripStore = useTripStore;
-      (window as any).useUserStore = useUserStore;
-      (window as any).useFriendStore = useFriendStore;
-      (window as any).useMapStore = useMapStore;
-      (window as any).useSyncStore = useSyncStore;
-      (window as any).SyncService = SyncService;
-      (window as any).createSupabaseClient = createClient;
-      if (!(window as any).supabase) {
-        (window as any).supabase = createClient();
+      window.useWineryDataStore = useWineryStore;
+      window.useWineryStore = useWineryStore;
+      window.useUIStore = useUIStore;
+      window.useVisitStore = useVisitStore;
+      window.useTripStore = useTripStore;
+      window.useUserStore = useUserStore;
+      window.useFriendStore = useFriendStore;
+      window.useMapStore = useMapStore;
+      window.useSyncStore = useSyncStore;
+      window.SyncService = SyncService;
+      window.createSupabaseClient = createClient;
+      if (!window.supabase) {
+        window.supabase = createClient();
       }
-      (window as any).idbKeyVal = { get: idbGet, set: idbSet };
+      window.idbKeyVal = { get: idbGet, set: idbSet };
       
-      // @ts-ignore
       window._STORES_EXPOSED = true;
 
       // eslint-disable-next-line no-console

@@ -78,8 +78,8 @@ describe('ST-01: visitStore Slice Decomposition & Lifecycle', () => {
     });
 
     it('gates window.useVisitStore exposure behind NEXT_PUBLIC_IS_E2E === "true"', () => {
-      expect((global as any).window).toBeDefined();
-      expect((global as any).window.useVisitStore).toBeUndefined();
+      expect(window).toBeDefined();
+      expect(window.useVisitStore).toBeUndefined();
 
       const prevEnv = process.env.NEXT_PUBLIC_IS_E2E;
       try {
@@ -88,10 +88,10 @@ describe('ST-01: visitStore Slice Decomposition & Lifecycle', () => {
         jest.isolateModules(() => {
           e2eVisitStore = require('../visitStore').useVisitStore;
         });
-        expect((global as any).window.useVisitStore).toBe(e2eVisitStore);
+        expect(window.useVisitStore).toBe(e2eVisitStore);
       } finally {
         process.env.NEXT_PUBLIC_IS_E2E = prevEnv;
-        delete (global as any).window.useVisitStore;
+        delete window.useVisitStore;
       }
     });
 

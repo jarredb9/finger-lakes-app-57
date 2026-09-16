@@ -81,8 +81,8 @@ describe('ST-01: tripStore Slice Decomposition & Lifecycle', () => {
     });
 
     it('gates window.useTripStore exposure behind NEXT_PUBLIC_IS_E2E === "true"', () => {
-      expect((global as any).window).toBeDefined();
-      expect((global as any).window.useTripStore).toBeUndefined();
+      expect(window).toBeDefined();
+      expect(window.useTripStore).toBeUndefined();
 
       const prevEnv = process.env.NEXT_PUBLIC_IS_E2E;
       try {
@@ -91,10 +91,10 @@ describe('ST-01: tripStore Slice Decomposition & Lifecycle', () => {
         jest.isolateModules(() => {
           e2eTripStore = require('../tripStore').useTripStore;
         });
-        expect((global as any).window.useTripStore).toBe(e2eTripStore);
+        expect(window.useTripStore).toBe(e2eTripStore);
       } finally {
         process.env.NEXT_PUBLIC_IS_E2E = prevEnv;
-        delete (global as any).window.useTripStore;
+        delete window.useTripStore;
       }
     });
 

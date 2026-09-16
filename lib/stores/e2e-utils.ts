@@ -23,7 +23,7 @@ export const shouldMockWineries = () => {
     if (!isE2E()) return false;
     
     const skipInjection = typeof window !== 'undefined' && (
-        (window as any)._E2E_SKIP_WINERY_INJECTION ||
+        window._E2E_SKIP_WINERY_INJECTION ||
         localStorage.getItem('_E2E_SKIP_WINERY_INJECTION') === 'true'
     );
     if (skipInjection) {
