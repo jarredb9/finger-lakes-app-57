@@ -13,7 +13,12 @@
 
 ## 3. Environment & Execution Commands
 - **Runtime:** Node.js 24 (LTS).
-- **Dev Server:** `npm run dev` (http://localhost:3000) or `npm run dev:real` (local Supabase stack at http://127.0.0.1:54321).
+- **Dev Server:**
+  - Host: `npm run dev` (http://localhost:3000) or `npm run dev:real` (local Supabase stack at http://127.0.0.1:54321).
+  - Container (RHEL 8 / Native Turbopack): `npm run dev:container` or `npm run dev:container:real`.
+- **Production Build:**
+  - Host (WASM fallback on RHEL 8): `npm run build`
+  - Container (RHEL 8 / Native SWC): `npm run build:container` or `./scripts/run-build-container.sh`
 - **Local DB Stack:**
   - Start: `npm run db:start` (automatically applies SELinux fix)
   - Populate Data: `npm run db:populate`

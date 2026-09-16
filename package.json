@@ -7,7 +7,10 @@
   },
   "scripts": {
     "build": "next build --webpack",
+    "build:container": "./scripts/run-build-container.sh",
     "dev": "next dev --turbo",
+    "dev:container": "./scripts/run-dev-container.sh",
+    "dev:container:real": "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_IS_E2E=false E2E_REAL_DATA=true npm run dev:container",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "jest",
