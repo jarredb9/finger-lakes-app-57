@@ -13,15 +13,15 @@ declare module "react-map-gl/mapbox" {
 
 declare global {
   interface Window {
-    useFriendStore?: import('@/lib/stores/friendStore').useFriendStore;
-    useMapStore?: import('@/lib/stores/mapStore').useMapStore;
-    useSyncStore?: import('@/lib/stores/syncStore').useSyncStore;
-    useTripStore?: import('@/lib/stores/tripStore').useTripStore;
-    useUIStore?: import('@/lib/stores/uiStore').useUIStore;
-    useUserStore?: import('@/lib/stores/userStore').useUserStore;
-    useVisitStore?: import('@/lib/stores/visitStore').useVisitStore;
-    useWineryStore?: import('@/lib/stores/wineryStore').useWineryStore;
-    useWineryDataStore?: import('@/lib/stores/wineryStore').useWineryStore;
+    useFriendStore?: typeof import('@/lib/stores/friendStore').useFriendStore;
+    useMapStore?: typeof import('@/lib/stores/mapStore').useMapStore;
+    useSyncStore?: typeof import('@/lib/stores/syncStore').useSyncStore;
+    useTripStore?: typeof import('@/lib/stores/tripStore').useTripStore;
+    useUIStore?: typeof import('@/lib/stores/uiStore').useUIStore;
+    useUserStore?: typeof import('@/lib/stores/userStore').useUserStore;
+    useVisitStore?: typeof import('@/lib/stores/visitStore').useVisitStore;
+    useWineryStore?: typeof import('@/lib/stores/wineryStore').useWineryStore;
+    useWineryDataStore?: typeof import('@/lib/stores/wineryStore').useWineryStore;
     SyncService?: typeof import('@/lib/services/syncService').SyncService;
     createSupabaseClient?: typeof import('@/utils/supabase/client').createClient;
     supabase?: ReturnType<typeof import('@/utils/supabase/client').createClient>;
@@ -39,8 +39,6 @@ declare global {
     _E2E_ENABLE_REAL_SYNC?: boolean;
     _DIAGNOSTIC_LOGGING?: boolean;
     opera?: string;
-    requestIdleCallback?: (callback: IdleRequestCallback, options?: IdleRequestOptions) => number;
-    cancelIdleCallback?: (handle: number) => void;
   }
 
   var _PWA_UPDATING: boolean | undefined;
