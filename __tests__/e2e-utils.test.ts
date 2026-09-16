@@ -11,7 +11,6 @@ describe('e2e/utils environment independence (QA-11)', () => {
   const originalKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   beforeEach(() => {
-    jest.resetModules();
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     delete process.env.SUPABASE_SERVICE_ROLE_KEY;
   });

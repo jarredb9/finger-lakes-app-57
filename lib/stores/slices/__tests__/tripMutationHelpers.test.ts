@@ -1,53 +1,76 @@
 import { act } from '@testing-library/react';
 import { createMockTrip } from '@/lib/test-utils/fixtures';
 import { Trip } from '@/lib/types';
+import { useTripStore } from '@/lib/stores/tripStore';
+import { createTripHelper } from '../tripMutationHelpers';
+
+interface MockTripService {
+  createTrip: jest.Mock;
+  deleteTrip: jest.Mock;
+  updateTrip: jest.Mock;
+}
+
+declare global {
+  var _TRIP_MUTATION_HELPERS_MOCKS: {
+    mockTripService: MockTripService;
+  } | undefined;
+}
+
+let mockTripService: MockTripService = {
+  createTrip: jest.fn(),
+  deleteTrip: jest.fn(),
+  updateTrip: jest.fn(),
+};
+
+globalThis._TRIP_MUTATION_HELPERS_MOCKS = {
+  mockTripService,
+};
+
+jest.mock('@/lib/services/tripService', () => ({
+  TripService: {
+    createTrip: (...args: unknown[]) => globalThis._TRIP_MUTATION_HELPERS_MOCKS?.mockTripService.createTrip(...args),
+    deleteTrip: (...args: unknown[]) => globalThis._TRIP_MUTATION_HELPERS_MOCKS?.mockTripService.deleteTrip(...args),
+    updateTrip: (...args: unknown[]) => globalThis._TRIP_MUTATION_HELPERS_MOCKS?.mockTripService.updateTrip(...args),
+  },
+}));
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getSession: jest.fn().mockResolvedValue({
+        data: { session: { user: { id: 'test-user-1' } } },
+        error: null,
+      }),
+      getUser: jest.fn().mockResolvedValue({
+        data: { user: { id: 'test-user-1' } },
+        error: null,
+      }),
+    },
+  })),
+}));
+
+jest.mock('@/lib/stores/sync-utils', () => ({
+  enqueueIfOffline: jest.fn().mockResolvedValue(false),
+  handleSyncError: jest.fn().mockImplementation((error: Error | { message?: string; status?: number }) => {
+    if (error?.message?.includes('400') || ('status' in error && error.status === 400)) {
+      return Promise.resolve(false);
+    }
+    return Promise.resolve(false);
+  }),
+  isNetworkError: jest.fn().mockReturnValue(false),
+}));
 
 describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () => {
-  let useTripStore: any;
-  let mockTripService: any;
-  let createTripHelper: any;
-
   beforeEach(() => {
-    jest.resetModules();
-
     mockTripService = {
       createTrip: jest.fn(),
       deleteTrip: jest.fn(),
       updateTrip: jest.fn(),
     };
+    globalThis._TRIP_MUTATION_HELPERS_MOCKS = {
+      mockTripService,
+    };
 
-    jest.doMock('@/lib/services/tripService', () => ({
-      TripService: mockTripService,
-    }));
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: jest.fn(() => ({
-        auth: {
-          getSession: jest.fn().mockResolvedValue({
-            data: { session: { user: { id: 'test-user-1' } } },
-            error: null,
-          }),
-          getUser: jest.fn().mockResolvedValue({
-            data: { user: { id: 'test-user-1' } },
-            error: null,
-          }),
-        },
-      })),
-    }));
-
-    jest.doMock('@/lib/stores/sync-utils', () => ({
-      enqueueIfOffline: jest.fn().mockResolvedValue(false),
-      handleSyncError: jest.fn().mockImplementation((error: any) => {
-        if (error?.message?.includes('400') || error?.status === 400) {
-          return Promise.resolve(false);
-        }
-        return Promise.resolve(false);
-      }),
-      isNetworkError: jest.fn().mockReturnValue(false),
-    }));
-
-    useTripStore = require('@/lib/stores/tripStore').useTripStore;
-    createTripHelper = require('../tripMutationHelpers').createTripHelper;
     useTripStore.getState().reset();
   });
 
@@ -93,9 +116,9 @@ describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () =
       // TRUE OPTIMISTIC ROLLBACK REQUIREMENT:
       // The temporary trip with negative numeric ID must NOT remain in trips, upcomingTrips, or tripsForDate!
       // In the pre-refactor implementation, it is retained with syncStatus: 'error'.
-      const tempTripInTrips = state.trips.find((t: any) => Number(t.id) < 0 || t.name === 'Temporary Optimistic Trip');
-      const tempTripInUpcoming = state.upcomingTrips.find((t: any) => Number(t.id) < 0 || t.name === 'Temporary Optimistic Trip');
-      const tempTripInDate = state.tripsForDate.find((t: any) => Number(t.id) < 0 || t.name === 'Temporary Optimistic Trip');
+      const tempTripInTrips = state.trips.find((t: Trip) => Number(t.id) < 0 || t.name === 'Temporary Optimistic Trip');
+      const tempTripInUpcoming = state.upcomingTrips.find((t: Trip) => Number(t.id) < 0 || t.name === 'Temporary Optimistic Trip');
+      const tempTripInDate = state.tripsForDate.find((t: Trip) => Number(t.id) < 0 || t.name === 'Temporary Optimistic Trip');
 
       expect(tempTripInTrips).toBeUndefined();
       expect(tempTripInUpcoming).toBeUndefined();
@@ -109,7 +132,7 @@ describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () =
 
   describe('atomic replaceTripTempId sync reconciliation helper (FM-6.4)', () => {
     it('exposes atomic replaceTripTempId on tripStore to swap tempId with server trip across all collections', () => {
-      const state = useTripStore.getState() as any;
+      const state = useTripStore.getState();
 
       // REQUIREMENT: tripDataSlice / tripStore must expose atomic replaceTripTempId(tempId, syncedTrip)
       // to eliminate ghost trip duplication when SyncService replays offline mutations.
@@ -144,7 +167,7 @@ describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () =
         syncStatus: 'synced',
       };
 
-      const store = useTripStore.getState() as any;
+      const store = useTripStore.getState();
       if (typeof store.replaceTripTempId === 'function') {
         act(() => {
           store.replaceTripTempId(tempId, syncedServerTrip);
