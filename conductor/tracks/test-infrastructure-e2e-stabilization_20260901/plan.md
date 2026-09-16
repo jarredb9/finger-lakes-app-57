@@ -35,9 +35,9 @@ Focus: Implement unit test suites and harden mutation flows, multi-winery RPC ch
     - [x] Create `lib/services/__tests__/socialService.test.ts` covering all 8 social RPC methods and request handling
     - [x] Create `lib/services/__tests__/tripService.mutations.test.ts` covering multi-winery RPC chaining, trip deletion guards, notes updates, and `.neq('role', 'owner')` owner protections
     - [x] Verify tests execute and fail cleanly on unhandled mutation branches (Red phase)
-- [ ] Task: Implement service mutation hardening and verify test coverage (Green Phase)
-    - [ ] Harden error handling, ownership guard assertions, and rollback invariants in `socialService.ts` and `tripService.ts`
-    - [ ] Verify both service test suites pass with >= 80% coverage (Green phase)
+- [x] Task: Implement service mutation hardening and verify test coverage (Green Phase) [d961817]
+    - [x] Harden error handling, ownership guard assertions, and rollback invariants in `socialService.ts` and `tripService.ts`
+    - [x] Verify both service test suites pass with >= 80% coverage (Green phase)
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Supabase Service Mutation Test Suites & Ownership Guards' (Protocol in workflow.md)
 
 ## Phase 4: Store Isolation, Engine Window Detachment & Runner Script Modernization
