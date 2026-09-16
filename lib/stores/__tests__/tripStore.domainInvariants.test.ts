@@ -1,16 +1,100 @@
 import { act } from '@testing-library/react';
 import { createMockTrip, createMockWinery } from '@/lib/test-utils/fixtures';
-import { GooglePlaceId, WineryDbId } from '@/lib/types';
+import { GooglePlaceId, WineryDbId, Trip, SyncItem, Winery } from '@/lib/types';
 import { resetTripInitState } from '../slices/tripInitHelpers';
+import { useTripStore } from '../tripStore';
+import { useSyncStore } from '../syncStore';
+
+interface MockTripService {
+  getTrips: jest.Mock;
+  getTripById: jest.Mock;
+  getUpcomingTrips: jest.Mock;
+  getTripsForDate: jest.Mock;
+  createTrip: jest.Mock;
+  deleteTrip: jest.Mock;
+  updateTrip: jest.Mock;
+}
+
+interface MockSupabaseClient {
+  auth: {
+    getUser: jest.Mock;
+    getSession: jest.Mock;
+  };
+  rpc: jest.Mock;
+  from: jest.Mock;
+}
+
+interface MockDomainInvariantGlobals {
+  getTripService: () => MockTripService;
+  getSupabase: () => MockSupabaseClient;
+}
+
+declare global {
+  var _TRIP_DOMAIN_INVARIANT_MOCKS: MockDomainInvariantGlobals | undefined;
+}
+
+let mockTripService: MockTripService = {
+  getTrips: jest.fn(),
+  getTripById: jest.fn(),
+  getUpcomingTrips: jest.fn(),
+  getTripsForDate: jest.fn(),
+  createTrip: jest.fn(),
+  deleteTrip: jest.fn(),
+  updateTrip: jest.fn(),
+};
+
+let mockSupabase: MockSupabaseClient = {
+  auth: {
+    getUser: jest.fn().mockResolvedValue({
+      data: { user: { id: 'user-invariant-123' } },
+      error: null,
+    }),
+    getSession: jest.fn().mockResolvedValue({
+      data: { session: { user: { id: 'user-invariant-123' } } },
+      error: null,
+    }),
+  },
+  rpc: jest.fn().mockResolvedValue({ data: {}, error: null }),
+  from: jest.fn().mockReturnValue({
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    range: jest.fn().mockResolvedValue({ data: [], error: null, count: 0 }),
+  }),
+};
+
+globalThis._TRIP_DOMAIN_INVARIANT_MOCKS = {
+  getTripService: () => mockTripService,
+  getSupabase: () => mockSupabase,
+};
+
+jest.mock('@/lib/services/tripService', () => ({
+  TripService: new Proxy({}, {
+    get: (_, prop: string) => {
+      const service = globalThis._TRIP_DOMAIN_INVARIANT_MOCKS?.getTripService();
+      return service ? (service as unknown as Record<string, unknown>)[prop] : undefined;
+    },
+  }),
+}));
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => globalThis._TRIP_DOMAIN_INVARIANT_MOCKS?.getSupabase()),
+}));
+
+jest.mock('@/lib/stores/wineryStore', () => ({
+  useWineryStore: {
+    getState: jest.fn(() => ({
+      ensureWineryDetails: jest.fn().mockImplementation((id: string) =>
+        Promise.resolve({ id, name: `Enriched ${id}`, description: 'Detailed' })
+      ),
+      updateWinery: jest.fn(),
+      upsertWinery: jest.fn(),
+    })),
+  },
+}));
 
 describe('tripStore Domain Invariants & Concurrency Resilience', () => {
-  let useTripStore: any;
-  let useSyncStore: any;
-  let mockTripService: any;
-  let mockSupabase: any;
-
   beforeEach(() => {
-    jest.resetModules();
     resetTripInitState();
 
     mockTripService = {
@@ -43,29 +127,6 @@ describe('tripStore Domain Invariants & Concurrency Resilience', () => {
       }),
     };
 
-    jest.doMock('@/lib/services/tripService', () => ({
-      TripService: mockTripService,
-    }));
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: jest.fn(() => mockSupabase),
-    }));
-
-    jest.doMock('@/lib/stores/wineryStore', () => ({
-      useWineryStore: {
-        getState: jest.fn(() => ({
-          ensureWineryDetails: jest.fn().mockImplementation((id: string) =>
-            Promise.resolve({ id, name: `Enriched ${id}`, description: 'Detailed' })
-          ),
-          updateWinery: jest.fn(),
-          upsertWinery: jest.fn(),
-        })),
-      },
-    }));
-
-    useSyncStore = require('../syncStore').useSyncStore;
-    useTripStore = require('../tripStore').useTripStore;
-
     useTripStore.getState().reset();
     useSyncStore.setState({ queue: [], isInitialized: true });
   });
@@ -76,24 +137,24 @@ describe('tripStore Domain Invariants & Concurrency Resilience', () => {
 
   describe('Invariant 1: React 19 StrictMode Concurrent Initialization Mutex', () => {
     it('deduplicates concurrent initialize() calls and reconstitutes offline queued mutations with negative numeric IDs', async () => {
-      const mockQueue = [
+      const mockQueue: SyncItem[] = [
         {
           id: 'mutation-1',
           type: 'create_trip',
+          encryptedPayload: 'encrypted-1',
+          createdAt: new Date().toISOString(),
           userId: 'user-invariant-123',
-          timestamp: Date.now(),
-          retries: 0,
         },
         {
           id: 'mutation-2',
           type: 'update_trip',
+          encryptedPayload: 'encrypted-2',
+          createdAt: new Date().toISOString(),
           userId: 'user-invariant-123',
-          timestamp: Date.now(),
-          retries: 0,
         },
       ];
 
-      const getDecryptedPayloadSpy = jest.fn().mockImplementation((item: any) => {
+      const getDecryptedPayloadSpy = jest.fn().mockImplementation((item: SyncItem) => {
         if (item.type === 'create_trip') {
           return Promise.resolve({
             tempId: '-999',
@@ -138,16 +199,16 @@ describe('tripStore Domain Invariants & Concurrency Resilience', () => {
       expect(state.trips).toHaveLength(2);
 
       // Assert Negative Integer Temporary ID invariant (ST-04)
-      const queuedTrip = state.trips.find((t: any) => t.name === 'Queued Seneca Trip');
+      const queuedTrip = state.trips.find((t: Trip) => t.name === 'Queued Seneca Trip');
       expect(queuedTrip).toBeDefined();
-      expect(typeof queuedTrip.id).toBe('number');
-      expect(queuedTrip.id).toBe(-999);
-      expect(queuedTrip.syncStatus).toBe('pending');
+      expect(typeof queuedTrip!.id).toBe('number');
+      expect(queuedTrip!.id).toBe(-999);
+      expect(queuedTrip!.syncStatus).toBe('pending');
 
       // Assert pending update applied to existing trip
-      const updatedExisting = state.trips.find((t: any) => t.id === 101);
-      expect(updatedExisting.name).toBe('Renamed Existing Trip');
-      expect(updatedExisting.syncStatus).toBe('pending');
+      const updatedExisting = state.trips.find((t: Trip) => t.id === 101);
+      expect(updatedExisting!.name).toBe('Renamed Existing Trip');
+      expect(updatedExisting!.syncStatus).toBe('pending');
     });
   });
 
@@ -180,9 +241,9 @@ describe('tripStore Domain Invariants & Concurrency Resilience', () => {
 
       const state = useTripStore.getState();
       // Local optimistic name MUST NOT be overwritten by stale server payload
-      const tripInStore = state.trips.find((t: any) => Number(t.id) === 200);
-      expect(tripInStore.name).toBe('Local Optimistic Trip Name');
-      expect(state.selectedTrip.name).toBe('Local Optimistic Trip Name');
+      const tripInStore = state.trips.find((t: Trip) => Number(t.id) === 200);
+      expect(tripInStore!.name).toBe('Local Optimistic Trip Name');
+      expect(state.selectedTrip?.name).toBe('Local Optimistic Trip Name');
     });
 
     it('accepts fresh server response when payloadTime satisfies clock-skew threshold and enriches wineries', async () => {
@@ -219,11 +280,11 @@ describe('tripStore Domain Invariants & Concurrency Resilience', () => {
       });
 
       const state = useTripStore.getState();
-      const tripInStore = state.trips.find((t: any) => Number(t.id) === 200);
-      expect(tripInStore.name).toBe('Fresh Authoritative Name');
-      expect(tripInStore.syncStatus).toBe('synced');
+      const tripInStore = state.trips.find((t: Trip) => Number(t.id) === 200);
+      expect(tripInStore!.name).toBe('Fresh Authoritative Name');
+      expect(tripInStore!.syncStatus).toBe('synced');
       // Enriched by useWineryStore
-      expect(tripInStore.wineries[0].description).toBe('Detailed');
+      expect((tripInStore!.wineries[0] as Winery & { description?: string }).description).toBe('Detailed');
     });
   });
 
@@ -255,8 +316,8 @@ describe('tripStore Domain Invariants & Concurrency Resilience', () => {
       expect(state.trips[0].wineries).toHaveLength(1);
       expect(state.trips[0].wineries[0].dbId).toBe(20);
 
-      expect(state.selectedTrip.wineries).toHaveLength(1);
-      expect(state.selectedTrip.wineries[0].dbId).toBe(20);
+      expect(state.selectedTrip?.wineries).toHaveLength(1);
+      expect(state.selectedTrip?.wineries[0].dbId).toBe(20);
 
       expect(state.tripsForDate[0].wineries).toHaveLength(1);
       expect(state.tripsForDate[0].wineries[0].dbId).toBe(20);
@@ -288,7 +349,7 @@ describe('tripStore Domain Invariants & Concurrency Resilience', () => {
 
       let state = useTripStore.getState();
       expect(state.trips[0].wineries).toHaveLength(2);
-      expect(state.selectedTrip.wineries).toHaveLength(2);
+      expect(state.selectedTrip?.wineries).toHaveLength(2);
       expect(state.tripsForDate[0].wineries).toHaveLength(2);
 
       // Toggle winery1 off trip
@@ -299,7 +360,7 @@ describe('tripStore Domain Invariants & Concurrency Resilience', () => {
       state = useTripStore.getState();
       expect(state.trips[0].wineries).toHaveLength(1);
       expect(state.trips[0].wineries[0].dbId).toBe(20);
-      expect(state.selectedTrip.wineries[0].dbId).toBe(20);
+      expect(state.selectedTrip?.wineries[0].dbId).toBe(20);
       expect(state.tripsForDate[0].wineries[0].dbId).toBe(20);
     });
   });
@@ -324,11 +385,11 @@ describe('tripStore Domain Invariants & Concurrency Resilience', () => {
       });
 
       const state = useTripStore.getState();
-      const revertedTrip = state.trips.find((t: any) => t.id === 500);
+      const revertedTrip = state.trips.find((t: Trip) => t.id === 500);
 
       // Note MUST be reverted back to original snapshot, not left dirty
-      expect(revertedTrip.wineries[0].notes).toBe('Original Untouched Note');
-      expect(revertedTrip.syncStatus).toBe('error');
+      expect(revertedTrip!.wineries[0].notes).toBe('Original Untouched Note');
+      expect(revertedTrip!.syncStatus).toBe('error');
     });
 
     it('reverts winery removal across all collections when server rejects with non-network error', async () => {
@@ -362,7 +423,7 @@ describe('tripStore Domain Invariants & Concurrency Resilience', () => {
       expect(state.trips[0].wineries).toHaveLength(2);
       expect(state.trips[0].syncStatus).toBe('error');
 
-      expect(state.selectedTrip.wineries).toHaveLength(2);
+      expect(state.selectedTrip?.wineries).toHaveLength(2);
       expect(state.tripsForDate[0].wineries).toHaveLength(2);
       expect(state.tripsForDate[0].syncStatus).toBe('error');
     });

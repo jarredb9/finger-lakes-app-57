@@ -1,17 +1,29 @@
-jest.mock('@/utils/supabase/client');
+import { TripService } from '../tripService';
+import { createClient } from '@/utils/supabase/client';
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(),
+}));
+
+interface MockSupabaseClient {
+  auth: {
+    getUser: jest.Mock;
+  };
+  from: jest.Mock;
+  select: jest.Mock;
+  eq: jest.Mock;
+  gte: jest.Mock;
+  lt: jest.Mock;
+  order: jest.Mock;
+  range: jest.Mock;
+  rpc?: jest.Mock;
+}
 
 describe('TripService', () => {
-  let TripService: any;
-  let mockSupabase: any;
+  let mockSupabase: MockSupabaseClient;
   let mockRange: jest.Mock;
 
   beforeEach(() => {
-    jest.resetModules();
-    
-    // Get fresh mocks after reset
-    const { createClient } = require('@/utils/supabase/client');
-    TripService = require('../tripService').TripService;
-    
     mockRange = jest.fn();
     mockSupabase = {
       auth: {
@@ -72,12 +84,11 @@ describe('TripService', () => {
 
   describe('getTripById', () => {
     it('should convert trip ID to Number', async () => {
-      const { createClient } = require('@/utils/supabase/client');
       const mockRpc = jest.fn().mockResolvedValue({
         data: { id: '456', name: 'Single Trip' },
         error: null
       });
-      (createClient() as any).rpc = mockRpc;
+      mockSupabase.rpc = mockRpc;
 
       const result = await TripService.getTripById('456');
 
@@ -88,7 +99,6 @@ describe('TripService', () => {
 
   describe('getTripsForDate', () => {
     it('should convert trip IDs to Number', async () => {
-      const { createClient } = require('@/utils/supabase/client');
       const mockRpc = jest.fn().mockResolvedValue({
         data: [
           { id: '101', name: 'Date Trip 1' },
@@ -96,7 +106,7 @@ describe('TripService', () => {
         ],
         error: null
       });
-      (createClient() as any).rpc = mockRpc;
+      mockSupabase.rpc = mockRpc;
 
       const result = await TripService.getTripsForDate('2026-05-10');
 
