@@ -51,10 +51,14 @@ Focus: Eliminate cross-store window coupling in `uiStore.ts`, gate store window 
     - [x] Replace `(window as any).useTripStore.getState().setSelectedTrip(null)` in `lib/stores/uiStore.ts:205-207` with direct store invocation
     - [x] Gate `(window as any).use*Store` attachments across all 8 stores behind `process.env.NEXT_PUBLIC_IS_E2E === 'true'`
     - [x] Update unit assertions in `tripStore.slices.test.ts` and `visitStore.slices.test.ts` to assert gated test environment behavior
-- [x] Task: Modernize container runner scripts (Green Phase) [21eae44]
+- [x] Task: Modernize container runner scripts (Green Phase) [0f97476]
     - [x] Fix positional argument parsing (lines 103–125) in `scripts/run-e2e-container.sh` to default project to `webkit` when `$1` is a spec path or CLI flag
     - [x] Guard `shift` to prevent crash on zero arguments and pass CLI arguments as array `TEST_ARGS=("$@")`
     - [x] Add container volume isolation (`-v /work/node_modules`) across `run-e2e-container.sh`, `run-jest-container.sh`, `run-dev-container.sh`, and `run-build-container.sh` to eliminate host pollution and reconcile SELinux `:Z` mount flags
+- [x] Task: Global Window Interface Augmentation & Type Cast Elimination (Green Phase - Expand-and-Contract Part B) [0f97476]
+    - [x] Augment global `Window` interface and `_PWA_UPDATING` in `lib/shims.d.ts`
+    - [x] Eliminate `(window as any)` and `(global as any)` type casts across all 8 stores, components (`e2e-store-exposer.tsx`, `mobile-winery-drawer.tsx`, `authenticated-modal-host.tsx`, `MapNavigation.tsx`), utilities (`lib/utils/winery.ts`, `e2e-utils.ts`), and test suites
+    - [x] Verify zero type errors via `npm run type-check` and green store isolation assertions in container
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Store Isolation, Engine Window Detachment & Runner Script Modernization' (Protocol in workflow.md)
 
 ## Phase 5: Playwright 1.63 Container & NPM Package Upgrade
