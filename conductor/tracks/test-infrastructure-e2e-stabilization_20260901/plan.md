@@ -23,9 +23,9 @@ Focus: Build comprehensive domain invariant testing and harden offline Base64 ph
 - [x] Task: Write failing domain invariant tests for visit store offline reconstitution (Red Phase) [c9acc26]
     - [x] Create `lib/stores/__tests__/visitStore.domainInvariants.test.ts` testing Base64 photo reconstitution, preview URLs, queue encryption, and optimistic deletion rollback
     - [x] Verify tests fail cleanly on missing invariant implementations (Red phase)
-- [ ] Task: Harden visitInitHelpers.ts to satisfy visit store domain invariants (Green Phase)
-    - [ ] Harden binary photo serialization, ID normalization, mutex deduplication, and error recovery in `lib/stores/slices/visitInitHelpers.ts`
-    - [ ] Verify `visitStore.domainInvariants.test.ts` passes and coverage of `visitInitHelpers.ts` is >= 80% (Green phase)
+- [x] Task: Harden visitInitHelpers.ts to satisfy visit store domain invariants (Green Phase) [38553d1]
+    - [x] Harden binary photo serialization, ID normalization, mutex deduplication, and error recovery in `lib/stores/slices/visitInitHelpers.ts`
+    - [x] Verify `visitStore.domainInvariants.test.ts` passes and coverage of `visitInitHelpers.ts` is >= 80% (Green phase)
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Visit Store Domain Invariants & Offline Photo Reconstitution' (Protocol in workflow.md)
 
 ## Phase 3: Supabase Service Mutation Test Suites & Ownership Guards
