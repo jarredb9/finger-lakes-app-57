@@ -12,9 +12,9 @@ Focus: Eliminate Node 24 JSDOM worker memory exhaustion, configure global mock c
 - [x] Task: Refactor store test suites to eliminate `jest.resetModules()` memory leaks (Green Phase) [3372783]
     - [x] Hoist `@/utils/supabase/client` mocks to top-level `jest.mock()` in `lib/stores/__tests__/wineryStore.test.ts` and replace `jest.resetModules()` with explicit `useWineryStore.getState().reset()`
     - [x] Audit and eliminate `jest.resetModules()` calls across 15 store test suites in `lib/stores/__tests__/` (26 call sites)
-- [ ] Task: Refactor service, slice, and utility test suites to eliminate remaining `jest.resetModules()` (Green Phase)
-    - [ ] Hoist mocks and eliminate `jest.resetModules()` in `wineryService.test.ts`, `tripService.test.ts`, `e2e-utils.test.ts`, `relational-ids.test.ts`, `tripMutationHelpers.test.ts`, and `tripStore.domainInvariants.test.ts` (8 call sites)
-    - [ ] Verify zero occurrences of `jest.resetModules()` remain across the entire repository
+- [x] Task: Refactor service, slice, and utility test suites to eliminate remaining `jest.resetModules()` (Green Phase) [7e29efa]
+    - [x] Hoist mocks and eliminate `jest.resetModules()` in `wineryService.test.ts`, `tripService.test.ts`, `e2e-utils.test.ts`, `relational-ids.test.ts`, `tripMutationHelpers.test.ts`, and `tripStore.domainInvariants.test.ts` (8 call sites)
+    - [x] Verify zero occurrences of `jest.resetModules()` remain across the entire repository
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Jest 30 Test Infrastructure, Memory Limits & Module Reset Remediation' (Protocol in workflow.md)
 
 ## Phase 2: Visit Store Domain Invariants & Offline Photo Reconstitution
