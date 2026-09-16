@@ -27,8 +27,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-PROJECT_ARG=$1
-
 echo "🚀 Starting Playwright Containerized Tests (Rootless)..."
 echo "📦 Image: $IMAGE"
 
@@ -100,22 +98,47 @@ if [ "$SHOULD_BUILD" = true ]; then
 fi
 
 # Determine command based on argument
-if [ "$PROJECT_ARG" == "all" ]; then
-    echo "🌐 Project: ALL (Running full suite)"
-    # Shift to get remaining args
+PROJECT=""
+USE_PROJECT_FLAG=true
+
+if [ "$#" -eq 0 ]; then
+    PROJECT="webkit"
+elif [ "$1" = "all" ]; then
+    USE_PROJECT_FLAG=false
     shift
-    TEST_CMD="npx playwright test $*"
+elif [ "$1" = "chromium" ] || [ "$1" = "webkit" ] || [ "$1" = "firefox" ]; then
+    PROJECT="$1"
+    shift
+elif [ "$1" = "mobile-safari" ] || [ "$1" = "Mobile Safari" ]; then
+    PROJECT="Mobile Safari"
+    shift
+elif [ "$1" = "mobile-chrome" ] || [ "$1" = "Mobile Chrome" ]; then
+    PROJECT="Mobile Chrome"
+    shift
+elif [ "$1" = "tablet-safari" ] || [ "$1" = "Mobile Safari (Tablet)" ]; then
+    PROJECT="Mobile Safari (Tablet)"
+    shift
 else
-    case "$PROJECT_ARG" in
-        mobile-safari|"Mobile Safari") PROJECT="Mobile Safari" ;;
-        mobile-chrome|"Mobile Chrome") PROJECT="Mobile Chrome" ;;
-        tablet-safari|"Mobile Safari (Tablet)") PROJECT="Mobile Safari (Tablet)" ;;
-        *) PROJECT="${PROJECT_ARG:-webkit}" ;;
-    esac
+    # $1 is a spec path, flag, or unrecognized option; default project to webkit and retain $1
+    PROJECT="webkit"
+fi
+
+TEST_ARGS=("$@")
+
+if [ "$USE_PROJECT_FLAG" = true ]; then
     echo "🌐 Project: $PROJECT"
-    # Shift to get remaining args
-    shift
-    TEST_CMD="npx playwright test --project=\"$PROJECT\" $*"
+    if [ ${#TEST_ARGS[@]} -gt 0 ]; then
+        TEST_CMD="npx playwright test --project=\"$PROJECT\" ${TEST_ARGS[*]}"
+    else
+        TEST_CMD="npx playwright test --project=\"$PROJECT\""
+    fi
+else
+    echo "🌐 Project: ALL (Running full suite)"
+    if [ ${#TEST_ARGS[@]} -gt 0 ]; then
+        TEST_CMD="npx playwright test ${TEST_ARGS[*]}"
+    else
+        TEST_CMD="npx playwright test"
+    fi
 fi
 
 # 2. Ensure we have the image
@@ -144,6 +167,7 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     --name "$CONTAINER_NAME" \
     --network=host \
     -v "$(pwd):/work:Z" \
+    -v /work/node_modules \
     "${EXTRA_OPTS[@]}" \
     --security-opt label=disable \
     --security-opt seccomp=unconfined \
@@ -162,7 +186,7 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     -e BASE_URL="$BASE_URL" \
     "$IMAGE" \
     /bin/bash -c '
-        if [ ! -d "node_modules" ]; then
+        if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
             echo "Installing dependencies..."
             npm install
         fi
