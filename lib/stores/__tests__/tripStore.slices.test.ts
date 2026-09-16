@@ -80,9 +80,22 @@ describe('ST-01: tripStore Slice Decomposition & Lifecycle', () => {
       });
     });
 
-    it('retains window.useTripStore backwards compatibility for test runners', () => {
+    it('gates window.useTripStore exposure behind NEXT_PUBLIC_IS_E2E === "true"', () => {
       expect((global as any).window).toBeDefined();
-      expect((global as any).window.useTripStore).toBe(useTripStore);
+      expect((global as any).window.useTripStore).toBeUndefined();
+
+      const prevEnv = process.env.NEXT_PUBLIC_IS_E2E;
+      try {
+        process.env.NEXT_PUBLIC_IS_E2E = 'true';
+        let e2eTripStore: any;
+        jest.isolateModules(() => {
+          e2eTripStore = require('../tripStore').useTripStore;
+        });
+        expect((global as any).window.useTripStore).toBe(e2eTripStore);
+      } finally {
+        process.env.NEXT_PUBLIC_IS_E2E = prevEnv;
+        delete (global as any).window.useTripStore;
+      }
     });
 
     it('unsubscribes and cleans up Realtime channel on store.reset() (ST-11)', async () => {

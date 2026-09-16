@@ -198,6 +198,6 @@ export const useUserStore = createWithEqualityFn<UserState>((set, get) => ({
   reset: () => set({ user: null, isLoading: false }),
 }));
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
   (window as any).useUserStore = useUserStore;
 }
