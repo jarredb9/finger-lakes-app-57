@@ -1,12 +1,11 @@
 #!/bin/bash
 
-# scripts/__tests__/run-e2e-container.test.sh
-# Purpose: Unit tests for scripts/run-e2e-container.sh CLI argument parsing, zero-argument safety, and container options.
+# scripts/__tests__/run-container.test.sh
+# Purpose: Unit tests for container runner scripts CLI argument parsing, zero-argument safety, and container volume options.
 
 set -u
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-SCRIPT_UNDER_TEST="$PROJECT_ROOT/scripts/run-e2e-container.sh"
 
 TEMP_DIR=$(mktemp -d)
 MOCK_LOG="$TEMP_DIR/mock_exec.log"
@@ -80,10 +79,11 @@ chmod +x "$MOCK_BIN/docker"
 PASSED=0
 FAILED=0
 
-run_test() {
-    local test_name="$1"
-    local expected_pattern="$2"
-    shift 2
+run_script_test() {
+    local script_path="$1"
+    local test_name="$2"
+    local expected_pattern="$3"
+    shift 3
     local args=("$@")
 
     rm -f "$MOCK_LOG"
@@ -99,7 +99,7 @@ run_test() {
         export MOCK_LOG="$MOCK_LOG"
         export CI="false"
         cd "$PROJECT_ROOT"
-        "$SCRIPT_UNDER_TEST" "${args[@]}" > "$TEMP_DIR/stdout.log" 2> "$TEMP_DIR/stderr.log"
+        "$script_path" "${args[@]}" > "$TEMP_DIR/stdout.log" 2> "$TEMP_DIR/stderr.log"
     )
     local exit_code=$?
     set -e
@@ -128,39 +128,59 @@ run_test() {
     fi
 }
 
+E2E_SCRIPT="$PROJECT_ROOT/scripts/run-e2e-container.sh"
+JEST_SCRIPT="$PROJECT_ROOT/scripts/run-jest-container.sh"
+DEV_SCRIPT="$PROJECT_ROOT/scripts/run-dev-container.sh"
+BUILD_SCRIPT="$PROJECT_ROOT/scripts/run-build-container.sh"
+
 echo "=== Running scripts/run-e2e-container.sh Unit Tests (Phase 4 Task 1) ==="
 
 # 1. Zero-argument safety: should default project to webkit without crashing on shift
-run_test "Zero arguments defaults to webkit and does not crash" \
+run_script_test "$E2E_SCRIPT" "E2E: Zero arguments defaults to webkit and does not crash" \
     "ENV: TEST_CMD=npx playwright test --project=\"webkit\""
 
 # 2. Spec file path without project: should default to webkit and pass spec path
-run_test "Spec file path without project defaults to webkit" \
+run_script_test "$E2E_SCRIPT" "E2E: Spec file path without project defaults to webkit" \
     "ENV: TEST_CMD=npx playwright test --project=\"webkit\" e2e/trip-flow.spec.ts" \
     "e2e/trip-flow.spec.ts"
 
 # 3. CLI flag passthrough without project: should default to webkit and pass flags
-run_test "CLI flag passthrough without project defaults to webkit" \
+run_script_test "$E2E_SCRIPT" "E2E: CLI flag passthrough without project defaults to webkit" \
     "ENV: TEST_CMD=npx playwright test --project=\"webkit\" --grep @smoke" \
     "--grep" "@smoke"
 
 # 4. Explicit project with spec path
-run_test "Explicit project with spec path sets project correctly" \
+run_script_test "$E2E_SCRIPT" "E2E: Explicit project with spec path sets project correctly" \
     "ENV: TEST_CMD=npx playwright test --project=\"chromium\" e2e/trip-flow.spec.ts" \
     "chromium" "e2e/trip-flow.spec.ts"
 
 # 5. Project alias resolution: mobile-safari -> Mobile Safari
-run_test "Project alias mobile-safari maps to Mobile Safari" \
+run_script_test "$E2E_SCRIPT" "E2E: Project alias mobile-safari maps to Mobile Safari" \
     "ENV: TEST_CMD=npx playwright test --project=\"Mobile Safari\" e2e/trip-flow.spec.ts" \
     "mobile-safari" "e2e/trip-flow.spec.ts"
 
 # 6. Project 'all' runs without --project filter
-run_test "Project 'all' executes without --project argument" \
+run_script_test "$E2E_SCRIPT" "E2E: Project 'all' executes without --project argument" \
     "ENV: TEST_CMD=npx playwright test e2e/trip-flow.spec.ts" \
     "all" "e2e/trip-flow.spec.ts"
 
-# 7. Volume isolation: container mount must include /work/node_modules isolation
-run_test "Container volume isolation protects host node_modules" \
+# 7. Volume isolation: container mount must include /work/node_modules isolation across all runner scripts
+run_script_test "$E2E_SCRIPT" "E2E: Container volume isolation protects host node_modules" \
+    "VOL: /work/node_modules"
+
+echo ""
+echo "=== Running Jest/Dev/Build Container Runner Script Tests ==="
+
+# 8. Jest container script volume isolation
+run_script_test "$JEST_SCRIPT" "Jest: Container volume isolation protects host node_modules" \
+    "VOL: /work/node_modules"
+
+# 9. Dev container script volume isolation
+run_script_test "$DEV_SCRIPT" "Dev: Container volume isolation protects host node_modules" \
+    "VOL: /work/node_modules"
+
+# 10. Build container script volume isolation
+run_script_test "$BUILD_SCRIPT" "Build: Container volume isolation protects host node_modules" \
     "VOL: /work/node_modules"
 
 echo ""

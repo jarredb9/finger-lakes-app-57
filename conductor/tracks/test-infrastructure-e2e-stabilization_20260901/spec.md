@@ -45,20 +45,20 @@ The primary objectives are organized into **8 bounded phases** (adhering strictl
   - Update unit assertions in `tripStore.slices.test.ts:83-86` and `visitStore.slices.test.ts:80-83` to reflect the gated test environment behavior.
   - Ensure `e2e/helpers.ts:login` replaces window store hydration checks with web-first DOM readiness checks (`data-state="ready"` on `map-container` and `trip-list-container`).
   - Refactor `e2e/helpers.ts` to eliminate `store.setState()` calls inside retry loops, driving assertions through native UI interactions and network route responses.
-- **QA-07 (Container Runner Script Modernization)**:
-  - Modernize `scripts/run-e2e-container.sh`:
-    - Fix positional argument parsing (lines 103–125) so passing a spec path (e.g. `./scripts/run-e2e-container.sh e2e/trip-flow.spec.ts`) or flag defaults project to `webkit` rather than misassigning to `$PROJECT`.
+- **QA-07 (Container Runner Script Modernization & Volume Isolation)**:
+  - Modernize and harden container runner scripts (`scripts/run-e2e-container.sh`, `scripts/run-jest-container.sh`, `scripts/run-dev-container.sh`, `scripts/run-build-container.sh`):
+    - Fix positional argument parsing (lines 103–125) in `scripts/run-e2e-container.sh` so passing a spec path (e.g. `./scripts/run-e2e-container.sh e2e/trip-flow.spec.ts`) or flag defaults project to `webkit` rather than misassigning to `$PROJECT`.
     - Guard `shift` to eliminate crashes on zero positional arguments.
     - Support passing arbitrary Playwright CLI flags (`--grep`, `--debug`, `--update-snapshots`) as array parameters.
-    - Prevent host `node_modules` pollution via container volume isolation (`-v /work/node_modules`) and reconcile SELinux `:Z` mount flags.
+    - Prevent host `node_modules` pollution via container volume isolation (`-v /work/node_modules`) and reconcile SELinux `:Z` mount flags across all container scripts.
 
 ### 2.3 Playwright 1.63 Container & Toolchain Upgrade
 - **QA-15 (Playwright 1.63 NPM & Container Upgrade)**:
   - Upgrade `@playwright/test` from `1.58.2` to `1.63.0` in `package.json` and sync `package-lock.json`.
-  - Update `PLAYWRIGHT_VERSION="v1.63.0-noble"` in `scripts/run-e2e-container.sh` and `scripts/run-jest-container.sh`.
+  - Update `PLAYWRIGHT_VERSION="v1.63.0-noble"` uniformly across all container scripts (`scripts/run-e2e-container.sh`, `scripts/run-jest-container.sh`, `scripts/run-dev-container.sh`, `scripts/run-build-container.sh`).
   - Certify rootless Podman/Docker execution on RHEL 8 under SELinux `:Z` and container volume isolation (`-v /work/node_modules`).
   - Verify browser engines (`chromium`, `webkit`, `Mobile Safari`, `firefox`) within the new container.
-  - Certify that the Jest container test runner (`scripts/run-jest-container.sh`) continues to pass cleanly on the updated Noble image.
+  - Certify that the Jest container test runner (`scripts/run-jest-container.sh`), build runner (`scripts/run-build-container.sh`), and dev runner (`scripts/run-dev-container.sh`) continue to pass cleanly on the updated Noble image without Node 24 regressions.
   - Audit and remediate any breaking API changes or locator strictness issues introduced between 1.58 and 1.63.
 
 ### 2.4 Flakiness Elimination & Issue #25 Hardening
