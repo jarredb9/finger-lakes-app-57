@@ -1,73 +1,151 @@
 ---
-title: Jest Colocation and Mocking
+title: Jest Colocation, Static Mock Hoisting, and Store State Isolation
 impact: HIGH
-impactDescription: 100% logic coverage, prevents side-effect leakage
-tags: jest, unit-tests, mocking, stores
+impactDescription: Eliminates Node 24 JSDOM memory exhaustion, prevents store state leakage, guarantees deterministic fast test suites
+tags: jest, unit-tests, mocking, stores, memory-limits
 ---
 
-## Jest Colocation and Mocking
+## Jest Colocation, Static Mock Hoisting, and Store Isolation
 
-All Jest tests must be colocated with their source files. Side-effect heavy stores (IDB, Supabase) must be mocked inside `beforeEach` to prevent state leakage between tests.
+All Jest tests must be colocated with their source files (e.g. `lib/stores/__tests__/wineryStore.test.ts`, `lib/services/__tests__/wineryService.test.ts`).
 
-**Incorrect (External test folder, global mocks):**
+### 1. 🚨 Anti-Pattern: `jest.resetModules()` & Dynamic `require()` (FORBIDDEN)
 
-```typescript
-// tests/unit/wineryStore.test.ts
-import { wineryStore } from '@/lib/stores/wineryStore';
+**Never** use `jest.resetModules()` or `jest.doMock()` inside `beforeEach` or individual test cases.
 
-// Global mocks leak state across test files
-jest.mock('@/lib/services/supabase');
+**Why this is prohibited:**
+- In Node 24 with JSDOM, `jest.resetModules()` continuously re-instantiates module graphs, causing massive memory leaks that exhaust worker heaps (OOM crashes).
+- It breaks module-level singletons (e.g., Zustand store references, DB clients).
+- It creates duplicate prototypes and slows test suite execution by 5–10x.
 
-describe('wineryStore', () => {
-  it('fetches data', async () => { /* ... */ });
-});
-```
-
-**Correct (Colocated, encapsulated mocks):**
+**Incorrect (Dynamic resetModules with dynamic require):**
 
 ```typescript
-// lib/stores/__tests__/wineryStore.test.ts
+// ❌ FORBIDDEN: Memory leak and broken singletons in Node 24 JSDOM
 describe('wineryStore', () => {
   beforeEach(() => {
-    // Reset module state and mocks for every test
     jest.resetModules();
-    jest.doMock('@/lib/services/supabase', () => ({
-      supabase: { from: jest.fn() }
+    jest.doMock('@/utils/supabase/client', () => ({
+      createClient: () => ({ ... }),
     }));
   });
 
-  it('fetches data', async () => {
+  it('fetches wineries', async () => {
     const { useWineryStore } = require('../wineryStore');
-    // ... test logic
+    // ...
   });
 });
 ```
 
+**Correct (Top-level static `jest.mock()` + static ES `import` + explicit store reset):**
+
+```typescript
+// lib/stores/__tests__/wineryStore.test.ts
+import { useWineryStore } from '../wineryStore';
+import { createClient } from '@/utils/supabase/client';
+
+// 1. Static mock hoisted to top of file
+const mockFrom = jest.fn();
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    from: mockFrom,
+    rpc: jest.fn(),
+  })),
+}));
+
+describe('wineryStore', () => {
+  beforeEach(() => {
+    // 2. Explicit store state reset instead of module resetting
+    useWineryStore.getState().reset();
+    mockFrom.mockReset();
+  });
+
+  it('fetches wineries', async () => {
+    mockFrom.mockReturnValueOnce({
+      select: jest.fn().mockResolvedValue({ data: [], error: null }),
+    });
+    await useWineryStore.getState().fetchWineries();
+    expect(useWineryStore.getState().wineries).toEqual([]);
+  });
+});
+```
+
+---
+
+### 2. Dynamic Mock Delegation Pattern
+
+When different tests in the same suite require different module behavior (e.g., varying Supabase client auth states or error scenarios), use a mutable delegate or mock function at the module scope rather than `jest.doMock()`.
+
+```typescript
+// lib/services/__tests__/wineryService.test.ts
+import { wineryService } from '../wineryService';
+
+let mockRpcDelegate = jest.fn();
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: () => ({
+    rpc: (...args: unknown[]) => mockRpcDelegate(...args),
+  }),
+}));
+
+describe('wineryService', () => {
+  beforeEach(() => {
+    mockRpcDelegate = jest.fn().mockResolvedValue({ data: null, error: null });
+  });
+
+  it('handles error responses cleanly', async () => {
+    mockRpcDelegate.mockResolvedValueOnce({
+      data: null,
+      error: { message: 'Database failure' },
+    });
+
+    await expect(wineryService.getWineryById(1)).rejects.toThrow('Database failure');
+  });
+});
+```
+
+---
+
+### 3. Jest 30 & Node 24 Infrastructure Standards
+
+1. **Worker Idle Memory Limit:**
+   `jest.config.mjs` configures `workerIdleMemoryLimit: '512MB'` to ensure JSDOM worker threads release memory when idle.
+2. **Global Mock Clearing:**
+   `jest.config.mjs` sets `clearMocks: true` to automatically clear `jest.fn()` call histories between tests without wiping hoisted implementations.
+3. **URL & Environment Polyfills:**
+   `jest.setup.ts` polyfills `global.URL.createObjectURL` and `global.URL.revokeObjectURL` for consistent blob URL mocking across tests.
+
+---
+
 ## UI Component Mocking (Shadcn/Radix)
 
-When testing components that use Radix primitives with `asChild` (like `TooltipTrigger`, `DialogTrigger`), Jest/JSDOM may throw `React.Children.only` errors if children are conditionally rendered or if the `Slot` implementation is not perfectly handled.
+When testing components that use Radix primitives with `asChild` (like `TooltipTrigger`, `DialogTrigger`), Jest/JSDOM may throw `React.Children.only` errors if children are conditionally rendered or if the `Slot` implementation is not fully resolved.
 
-**Standard:** For unit tests focusing on business logic or store interactions, mock complex UI components to isolate the test and prevent JSDOM rendering issues.
+**Standard:** For unit tests focusing on presentational logic or store interactions, mock complex UI components to isolate the test and prevent JSDOM rendering issues.
 
 ```typescript
 // Mock UI components simply but functionally
 jest.mock('@/components/ui/tooltip', () => ({
-  Tooltip: ({ children }: any) => children,
-  TooltipTrigger: ({ children }: any) => children,
-  TooltipContent: ({ children }: any) => <div>{children}</div>,
-  TooltipProvider: ({ children }: any) => children,
+  Tooltip: ({ children }: { children: React.ReactNode }) => children,
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => children,
+  TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TooltipProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
 jest.mock('@/components/ui/button', () => {
-  const Button = ({ children, ...props }: any) => <button {...props}>{children}</button>;
+  const Button = ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button {...props}>{children}</button>
+  );
   return { 
     Button,
-    buttonVariants: jest.fn(() => "") // Calendar and other components may need this
+    buttonVariants: jest.fn(() => '')
   };
 });
 ```
 
-## Advanced Store Mocking
+---
+
+## Advanced Store & Service Mocking
 
 ### 1. Context-Aware RPC Mocking (Chained Dependencies)
 Stores often call internal methods (like `ensureInDb`) which perform their own RPC calls (like `ensure_winery`) before the primary action proceeds.
@@ -75,17 +153,17 @@ Stores often call internal methods (like `ensureInDb`) which perform their own R
 - **Standard:** Always return a valid numeric ID (> 100) for `ensure_winery` and appropriate objects for `log_visit`.
 
 ```typescript
-const mockRpc = jest.fn((name, params) => {
+const mockRpc = jest.fn((name: string, _params: unknown) => {
   if (name === 'ensure_winery') return Promise.resolve({ data: 101, error: null });
   if (name === 'log_visit') return Promise.resolve({ data: { visit_id: 123 }, error: null });
   return Promise.resolve({ data: { success: true }, error: null });
 });
 ```
 
-### 2. RPC Signature Resilience (Global Standard)
-Manual header injection via the 3rd argument (`{ headers: getE2EHeaders() }`) is deprecated. The Supabase client now automatically handles E2E headers globally via `utils/supabase/client.ts`.
+### 2. RPC Signature Resilience
+Manual header injection via the 3rd argument (`{ headers: getE2EHeaders() }`) is handled globally via `utils/supabase/client.ts`.
 
-- **Standard:** Tests using `toHaveBeenCalledWith` should now only specify two arguments (method name and params).
+- **Standard:** Tests using `toHaveBeenCalledWith` should only specify the RPC name and parameter payload.
 
 ```typescript
 expect(mockRpc).toHaveBeenCalledWith(
@@ -94,14 +172,17 @@ expect(mockRpc).toHaveBeenCalledWith(
 );
 ```
 
+---
+
 ## Zero-Mock Unit Testing (Presentational Purity)
 
 With the **Container/Presentational pattern**, UI components are "Pure." They don't know about Zustand, IDs, or RPCs. This allows for unit testing with zero mocks.
 
-**Standard:** Use the central `test/factories/dataFactory.ts` to generate robust mock objects. NEVER manually write raw JSON objects in individual tests to avoid drift when schema types change.
+**Standard:** Use `test/factories/dataFactory.ts` to generate mock data structures. NEVER manually write raw untyped JSON objects in individual tests to avoid schema drift.
 
 ```typescript
 // components/__tests__/TripCardPresentational.test.tsx
+import { render } from '@testing-library/react';
 import { createMockTrip } from '@/test/factories/dataFactory';
 import TripCardPresentational from '../TripCardPresentational';
 
@@ -112,7 +193,6 @@ describe('TripCardPresentational', () => {
       <TripCardPresentational 
         trip={trip} 
         isOwner={true}
-        // ... all other props pass directly as props
       />
     );
     expect(getByText("Lake Seneca Tour")).toBeInTheDocument();
@@ -120,9 +200,7 @@ describe('TripCardPresentational', () => {
 });
 ```
 
-### Why this is Senior-Level:
-1.  **Refactor Safety:** If you change a prop name, TypeScript will immediately highlight all broken tests.
-2.  **Schema Alignment:** The `dataFactory` ensures all tests use data that matches `lib/database.types.ts`.
-3.  **Speed:** Zero mocks = Zero overhead. Tests run at the speed of raw React rendering.
-
-Reference: [Jest Mocking](https://jestjs.io/docs/manual-mocks)
+### Architectural Benefits:
+1. **Refactor Safety:** TypeScript immediately highlights broken tests when prop or schema interfaces change.
+2. **Schema Alignment:** `dataFactory` ensures all tests use data adhering to `lib/database.types.ts`.
+3. **Speed & Stability:** Zero mocks + static imports run at maximum speed without Node 24 JSDOM worker memory leaks.
