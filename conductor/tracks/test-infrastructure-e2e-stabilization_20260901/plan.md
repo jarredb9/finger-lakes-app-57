@@ -59,6 +59,9 @@ Focus: Eliminate cross-store window coupling in `uiStore.ts`, gate store window 
     - [x] Augment global `Window` interface and `_PWA_UPDATING` in `lib/shims.d.ts`
     - [x] Eliminate `(window as any)` and `(global as any)` type casts across all 8 stores, components (`e2e-store-exposer.tsx`, `mobile-winery-drawer.tsx`, `authenticated-modal-host.tsx`, `MapNavigation.tsx`), utilities (`lib/utils/winery.ts`, `e2e-utils.ts`), and test suites
     - [x] Verify zero type errors via `npm run type-check` and green store isolation assertions in container
+- [x] Task: Apply review suggestions [c3505c5]
+    - [x] Add `typeof` to store hook types on `Window` interface in `lib/shims.d.ts` and eliminate DOM modifier conflicts
+    - [x] Update `e2e/utils.ts` mock bounds to match `SerializableBounds` structure
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Store Isolation, Engine Window Detachment & Runner Script Modernization' (Protocol in workflow.md) [2bbf3f9]
 
 ## Phase 5: Playwright 1.63 Container & NPM Package Upgrade
