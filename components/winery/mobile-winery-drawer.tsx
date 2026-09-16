@@ -91,7 +91,7 @@ export function MobileWineryLayout({
   }
 
   const isOpen = isOpenNow(winery.openingHours);
-  const isFull = snapPoint === "100%" || snapPoint === 1 || snapPoint === "1" || (typeof window !== "undefined" && !!(window as any)._E2E_FULL_DRAWER);
+  const isFull = snapPoint === "100%" || snapPoint === 1 || snapPoint === "1" || (typeof window !== "undefined" && !!window._E2E_FULL_DRAWER);
   const isPeek = !isFull && snapPoint === "300px";
   const isHalf = !isPeek && !isFull;
 
@@ -285,7 +285,7 @@ export function MobileWineryDrawer(props: MobileWineryDrawerProps) {
       snapPoints={["300px", "520px", 1]}
       activeSnapPoint={snapPoint}
       setActiveSnapPoint={(val) => {
-        const isE2EFull = typeof window !== "undefined" && (window as any)._E2E_FULL_DRAWER;
+        const isE2EFull = typeof window !== "undefined" && window._E2E_FULL_DRAWER;
         setSnapPoint(isE2EFull ? 1 : val);
       }}
       modal={false}

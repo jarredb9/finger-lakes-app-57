@@ -36,13 +36,13 @@ export function usePWAUpdate() {
         return;
       }
       // Prevent infinite reload loops
-      if ((globalThis as any)._PWA_UPDATING) {
+      if (globalThis._PWA_UPDATING) {
           return;
       }
-      (globalThis as any)._PWA_UPDATING = true;
+      globalThis._PWA_UPDATING = true;
       // Use a wrapper or mock for reload to avoid JSDOM limitations in tests
-      if (typeof window !== 'undefined' && (window as any)._E2E_RELOAD) {
-          (window as any)._E2E_RELOAD();
+      if (typeof window !== 'undefined' && window._E2E_RELOAD) {
+          window._E2E_RELOAD();
       } else {
           window.location.reload();
       }

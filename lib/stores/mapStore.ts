@@ -144,5 +144,5 @@ export const useMapStore = createWithEqualityFn<MapState>((set, get) => ({
 
 // Expose store for E2E testing
 if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
-  (window as any).useMapStore = useMapStore;
+  window.useMapStore = useMapStore;
 }
