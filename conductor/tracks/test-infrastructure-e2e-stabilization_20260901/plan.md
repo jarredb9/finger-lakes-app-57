@@ -2,7 +2,7 @@
 
 Stabilizing the test automation infrastructure by eliminating Node 24 JSDOM memory leaks, enabling global mock clearing, filling critical unit coverage gaps in visit offline reconstitution and service mutations, modernizing runner scripts and store isolation, upgrading the Playwright container and npm package to 1.63, decomposing the monolithic `MockMapsManager` into modular fixtures, gating store `window` attachments behind E2E environments, eliminating arbitrary `waitForTimeout` sleeps and `{ force: true }` clicks, calibrating visual snapshots to 1%, and adding E2E coverage for itinerary reordering and offline reconnection.
 
-## Phase 1: Jest 30 Test Infrastructure, Memory Limits & Module Reset Remediation
+## Phase 1: Jest 30 Test Infrastructure, Memory Limits & Module Reset Remediation [checkpoint: ccd6a3d]
 Focus: Eliminate Node 24 JSDOM worker memory exhaustion, configure global mock clearing, polyfill JSDOM URL helpers in `jest.setup.ts`, and eliminate `jest.resetModules()` across store and service test suites.
 
 - [x] Task: Configure Jest memory limits, global mock isolation, and URL polyfills (Red Phase) [921ff3b]
@@ -15,7 +15,7 @@ Focus: Eliminate Node 24 JSDOM worker memory exhaustion, configure global mock c
 - [x] Task: Refactor service, slice, and utility test suites to eliminate remaining `jest.resetModules()` (Green Phase) [7e29efa]
     - [x] Hoist mocks and eliminate `jest.resetModules()` in `wineryService.test.ts`, `tripService.test.ts`, `e2e-utils.test.ts`, `relational-ids.test.ts`, `tripMutationHelpers.test.ts`, and `tripStore.domainInvariants.test.ts` (8 call sites)
     - [x] Verify zero occurrences of `jest.resetModules()` remain across the entire repository
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Jest 30 Test Infrastructure, Memory Limits & Module Reset Remediation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Jest 30 Test Infrastructure, Memory Limits & Module Reset Remediation' (Protocol in workflow.md) [ccd6a3d]
 
 ## Phase 2: Visit Store Domain Invariants & Offline Photo Reconstitution
 Focus: Build comprehensive domain invariant testing and harden offline Base64 photo serialization, deduplication mutex, and queue reconstitution in `visitInitHelpers.ts`.
