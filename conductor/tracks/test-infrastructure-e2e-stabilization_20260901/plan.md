@@ -31,10 +31,10 @@ Focus: Build comprehensive domain invariant testing and harden offline Base64 ph
 ## Phase 3: Supabase Service Mutation Test Suites & Ownership Guards
 Focus: Implement unit test suites and harden mutation flows, multi-winery RPC chaining, and owner protection guards in `socialService.ts` and `tripService.ts`.
 
-- [ ] Task: Write failing unit test suites for social and trip service mutations (Red Phase)
-    - [ ] Create `lib/services/__tests__/socialService.test.ts` covering all 8 social RPC methods and request handling
-    - [ ] Create `lib/services/__tests__/tripService.mutations.test.ts` covering multi-winery RPC chaining, trip deletion guards, notes updates, and `.neq('role', 'owner')` owner protections
-    - [ ] Verify tests execute and fail cleanly on unhandled mutation branches (Red phase)
+- [x] Task: Write failing unit test suites for social and trip service mutations (Red Phase) [e3795d3]
+    - [x] Create `lib/services/__tests__/socialService.test.ts` covering all 8 social RPC methods and request handling
+    - [x] Create `lib/services/__tests__/tripService.mutations.test.ts` covering multi-winery RPC chaining, trip deletion guards, notes updates, and `.neq('role', 'owner')` owner protections
+    - [x] Verify tests execute and fail cleanly on unhandled mutation branches (Red phase)
 - [ ] Task: Implement service mutation hardening and verify test coverage (Green Phase)
     - [ ] Harden error handling, ownership guard assertions, and rollback invariants in `socialService.ts` and `tripService.ts`
     - [ ] Verify both service test suites pass with >= 80% coverage (Green phase)
