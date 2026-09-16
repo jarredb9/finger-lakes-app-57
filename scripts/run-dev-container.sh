@@ -72,6 +72,7 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     --network=host \
     --init \
     -v "$(pwd):/work:Z" \
+    -v /work/node_modules \
     "${EXTRA_OPTS[@]}" \
     --security-opt label=disable \
     --security-opt seccomp=unconfined \
@@ -82,7 +83,7 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     -e E2E_REAL_DATA="$E2E_REAL_DATA" \
     "$IMAGE" \
     /bin/bash -c '
-        if [ ! -d "node_modules" ]; then
+        if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
             echo "Installing dependencies..."
             npm install
         fi
