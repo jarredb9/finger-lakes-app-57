@@ -46,8 +46,11 @@ export async function deleteVisitHelper(
   }
 
   try {
-    const { error } = await supabase.rpc('delete_visit', { p_visit_id: parseInt(visitId) });
-    if (error) throw error;
+    const numericId = parseInt(visitId, 10);
+    if (!isNaN(numericId) && numericId > 0) {
+      const { error } = await supabase.rpc('delete_visit', { p_visit_id: numericId });
+      if (error) throw error;
+    }
     
     confirmOptimisticUpdate();
     set({ lastActionTimestamp: Date.now() });
@@ -70,7 +73,7 @@ export async function deleteVisitHelper(
 export async function injectVisitWithPhotosHelper(
   set: SetVisitState,
   winery: Winery,
-  visitData: { visit_date: string; user_review: string; rating: number; photos: (File | Base64Photo)[] }
+  visitData: { visit_date: string; user_review: string; rating: number; photos: (File | Base64Photo)[]; is_private?: boolean }
 ): Promise<void> {
   const { addVisitToWinery } = useWineryStore.getState();
   const supabase = createClient();
@@ -83,17 +86,19 @@ export async function injectVisitWithPhotosHelper(
 
   for (const p of visitData.photos) {
     if (isBase64Photo(p)) {
-      previewUrls.push(`data:${p.type};base64,${p.base64}`);
+      previewUrls.push(`data:${p.type || 'image/jpeg'};base64,${p.base64}`);
       queuePhotos.push(p);
+    } else if (typeof p === 'string') {
+      previewUrls.push(p);
     } else {
       const file = p as File;
       previewUrls.push(URL.createObjectURL(file));
       const base64DataUrl = await fileToBase64(file);
       queuePhotos.push({
         __isBase64: true,
-        base64: base64DataUrl.split(',')[1],
-        name: file.name,
-        type: file.type
+        base64: base64DataUrl.split(',')[1] || '',
+        name: file.name || 'photo.jpg',
+        type: file.type || 'image/jpeg'
       });
     }
   }
@@ -105,8 +110,11 @@ export async function injectVisitWithPhotosHelper(
     rating: visitData.rating,
     user_review: visitData.user_review,
     photos: previewUrls,
+    is_private: visitData.is_private || false,
+    syncStatus: 'pending',
     wineryName: winery.name,
     wineryId: winery.id,
+    winery_id: winery.dbId !== undefined ? (Number(winery.dbId) as WineryDbId) : undefined,
     wineries: {
       id: Number(winery.dbId || 0) as WineryDbId,
       google_place_id: winery.id,
@@ -125,7 +133,7 @@ export async function injectVisitWithPhotosHelper(
     userId: session.user.id,
     payload: {
       wineryId: winery.id,
-      wineryDbId: winery.dbId,
+      wineryDbId: winery.dbId !== undefined ? Number(winery.dbId) : undefined,
       wineryName: winery.name,
       wineryAddress: winery.address,
       latitude: winery.latitude,
@@ -134,6 +142,7 @@ export async function injectVisitWithPhotosHelper(
       user_review: visitData.user_review,
       rating: visitData.rating,
       photos: queuePhotos,
+      is_private: visitData.is_private || false,
       tempId
     }
   });
@@ -166,6 +175,7 @@ export async function initializeVisitStoreHelper(
         if (item.type === 'log_visit') {
           try {
             const payload = await syncStore.getDecryptedPayload<any>(item, user.id);
+            if (!payload) continue;
             pendingVisits.push({
               id: payload.tempId || item.id,
               user_id: user.id,
@@ -173,9 +183,10 @@ export async function initializeVisitStoreHelper(
               rating: payload.rating,
               user_review: payload.user_review,
               is_private: payload.is_private || false,
-              photos: (payload.photos || []).map((p: any) => isBase64Photo(p) ? `data:${p.type};base64,${p.base64}` : p),
+              photos: (payload.photos || []).map((p: any) => isBase64Photo(p) ? `data:${p.type || 'image/jpeg'};base64,${p.base64}` : p),
               wineryName: payload.wineryName,
               wineryId: payload.wineryId,
+              winery_id: payload.wineryDbId !== undefined ? (Number(payload.wineryDbId) as WineryDbId) : undefined,
               syncStatus: 'pending',
               wineries: {
                 id: Number(payload.wineryDbId || 0) as WineryDbId,
@@ -196,7 +207,7 @@ export async function initializeVisitStoreHelper(
         set(state => {
           const newVisits = [...state.visits];
           for (const pv of pendingVisits) {
-            if (!newVisits.find(v => v.id === pv.id)) {
+            if (!newVisits.find(v => String(v.id) === String(pv.id))) {
               newVisits.unshift(pv);
             }
           }
