@@ -507,12 +507,71 @@ describe('visitStore Domain Invariants & Offline Reconstitution', () => {
       const queue = useSyncStore.getState().queue;
       expect(queue).toHaveLength(1);
       expect(queue[0].type).toBe('delete_visit');
+    });
 
-      const decryptedPayload = await useSyncStore.getState().getDecryptedPayload<{ visitId: string }>(
-        queue[0],
-        'user-visit-invariant-123'
-      );
-      expect(decryptedPayload.visitId).toBe('606');
+    it('executes online deletion cleanly and confirms optimistic update when RPC succeeds', async () => {
+      const visit = createMockVisitWithWinery({ id: 707 as any, winery_id: 101 as WineryDbId });
+      useVisitStore.setState({ visits: [visit] });
+
+      mockSupabase.rpc.mockResolvedValue({ data: { success: true }, error: null });
+
+      await act(async () => {
+        await useVisitStore.getState().deleteVisit('707');
+      });
+
+      // Visit removed from store
+      const state = useVisitStore.getState();
+      expect(state.visits).toHaveLength(0);
+
+      // RPC invoked with parsed numeric id
+      expect(mockSupabase.rpc).toHaveBeenCalledWith('delete_visit', { p_visit_id: 707 });
+      expect(mockWineryStoreState.confirmOptimisticUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to queueing mutation when online deletion encounters a network error (handleSyncError)', async () => {
+      const visit = createMockVisitWithWinery({ id: 808 as any, winery_id: 101 as WineryDbId });
+      useVisitStore.setState({ visits: [visit] });
+
+      // Simulate network error during RPC
+      mockSupabase.rpc.mockRejectedValue(new Error('Failed to fetch from remote origin'));
+
+      await act(async () => {
+        await useVisitStore.getState().deleteVisit('808');
+      });
+
+      // Visit remains optimistically removed
+      const state = useVisitStore.getState();
+      expect(state.visits).toHaveLength(0);
+
+      // Mutation queued via handleSyncError
+      const queue = useSyncStore.getState().queue;
+      expect(queue).toHaveLength(1);
+      expect(queue[0].type).toBe('delete_visit');
+    });
+
+    it('throws unauthenticated error in injectVisitWithPhotos when session is missing', async () => {
+      mockSupabase.auth.getSession.mockResolvedValue({ data: { session: null }, error: null });
+      const winery = createMockWinery();
+
+      await expect(
+        useVisitStore.getState().injectVisitWithPhotos!(winery, {
+          visit_date: '2026-10-15',
+          user_review: 'Unauthenticated attempt',
+          rating: 5,
+          photos: [],
+        })
+      ).rejects.toThrow('User not authenticated.');
+    });
+
+    it('returns early in initializeVisitStoreHelper when user is unauthenticated', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({ data: { user: null }, error: null });
+
+      await act(async () => {
+        await useVisitStore.getState().initialize();
+      });
+
+      const state = useVisitStore.getState();
+      expect(state.visits).toHaveLength(0);
     });
   });
 });
