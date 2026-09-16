@@ -43,27 +43,27 @@ Focus: Implement unit test suites and harden mutation flows, multi-winery RPC ch
 ## Phase 4: Store Isolation, Engine Window Detachment & Runner Script Modernization
 Focus: Eliminate cross-store window coupling in `uiStore.ts`, gate store window attachments behind `NEXT_PUBLIC_IS_E2E`, update unit assertions, and fix container runner CLI parsing.
 
-- [x] Task: Write failing store isolation tests and runner script argument parsing tests (Red Phase) [fee3c2c]
+- [x] Task: Write failing store isolation tests and runner script argument parsing tests (Red Phase) [855e627]
     - [x] Create `lib/__tests__/tooling/store-isolation.test.ts` asserting stores are not attached to `window` when `NEXT_PUBLIC_IS_E2E !== 'true'`
-    - [x] Create `scripts/__tests__/run-e2e-container.test.sh` asserting CLI argument parsing without project collision, flag passthrough, and zero-argument safety
+    - [x] Create `scripts/__tests__/run-container.test.sh` asserting CLI argument parsing, spec path defaulting, flag passthrough, zero-argument safety, and volume isolation across all 4 container scripts
     - [x] Verify both tests fail against the current codebase (Red phase)
 - [ ] Task: Eliminate cross-store window coupling and gate store window exposure (Green Phase - Expand-and-Contract Part A)
     - [ ] Replace `(window as any).useTripStore.getState().setSelectedTrip(null)` in `lib/stores/uiStore.ts:205-207` with direct store invocation
     - [ ] Gate `(window as any).use*Store` attachments across all 8 stores behind `process.env.NEXT_PUBLIC_IS_E2E === 'true'`
     - [ ] Update unit assertions in `tripStore.slices.test.ts` and `visitStore.slices.test.ts` to assert gated test environment behavior
-- [ ] Task: Modernize container runner script scripts/run-e2e-container.sh (Green Phase)
-    - [ ] Fix positional argument parsing (lines 103–125) to default project to `webkit` when `$1` is a spec path or CLI flag
+- [ ] Task: Modernize container runner scripts (Green Phase)
+    - [ ] Fix positional argument parsing (lines 103–125) in `scripts/run-e2e-container.sh` to default project to `webkit` when `$1` is a spec path or CLI flag
     - [ ] Guard `shift` to prevent crash on zero arguments and pass CLI arguments as array `TEST_ARGS=("$@")`
-    - [ ] Add container volume isolation (`-v /work/node_modules`) to eliminate host pollution and reconcile SELinux `:Z` mount flags
+    - [ ] Add container volume isolation (`-v /work/node_modules`) across `run-e2e-container.sh`, `run-jest-container.sh`, `run-dev-container.sh`, and `run-build-container.sh` to eliminate host pollution and reconcile SELinux `:Z` mount flags
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Store Isolation, Engine Window Detachment & Runner Script Modernization' (Protocol in workflow.md)
 
 ## Phase 5: Playwright 1.63 Container & NPM Package Upgrade
 Focus: Upgrade `@playwright/test` and the Playwright container image to 1.63 (Noble base), certify rootless container execution on RHEL 8, and verify browser binary parity.
 
 - [ ] Task: Upgrade Playwright dependency, container scripts, and create version canary (Red Phase)
-    - [ ] Create `scripts/__tests__/playwright-version-check.test.sh` asserting `@playwright/test` and container image both resolve to `1.63.x`
+    - [ ] Create `scripts/__tests__/playwright-version-check.test.sh` asserting `@playwright/test` and all container scripts (`run-e2e-container.sh`, `run-jest-container.sh`, `run-dev-container.sh`, `run-build-container.sh`) resolve to `1.63.x` / `v1.63.0-noble`
     - [ ] Bump `@playwright/test` to `1.63.0` in `package.json` and sync `package-lock.json`
-    - [ ] Update `PLAYWRIGHT_VERSION="v1.63.0-noble"` in `scripts/run-e2e-container.sh` and `scripts/run-jest-container.sh`
+    - [ ] Update `PLAYWRIGHT_VERSION="v1.63.0-noble"` in `scripts/run-e2e-container.sh`, `scripts/run-jest-container.sh`, `scripts/run-dev-container.sh`, and `scripts/run-build-container.sh`
     - [ ] Verify version check test fails before container pull/build and passes after (Red/Green)
 - [ ] Task: Pull 1.63 container image, certify browser engines, and verify Jest runner (Green Phase)
     - [ ] Pull `mcr.microsoft.com/playwright:v1.63.0-noble` and verify image inspect/exists in Podman
