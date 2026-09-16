@@ -69,10 +69,14 @@ export const TripService = {
   },
 
   async getTripById(tripId: string) {
+    const parsedId = parseInt(tripId, 10);
+    if (isNaN(parsedId) || parsedId <= 0) {
+      throw new Error("Invalid trip ID");
+    }
     const supabase = createClient();
     
     const { data, error } = await supabase.rpc('get_trip_details', { 
-      p_trip_id: parseInt(tripId) 
+      p_trip_id: parsedId 
     });
 
     if (error) {
@@ -130,8 +134,17 @@ export const TripService = {
         // If there were more wineries, add them to the existing trip
         if (trip.wineries.length > 1) {
             const extraWineries = trip.wineries.slice(1);
-            for (const extra of extraWineries) {
-                await this.addWineryToExistingTrip(data.trip_id, extra.dbId || 0, null);
+            try {
+                for (const extra of extraWineries) {
+                    await this.addWineryToExistingTrip(data.trip_id, extra.dbId || 0, null);
+                }
+            } catch (chainedError) {
+                try {
+                    await this.deleteTrip(data.trip_id.toString());
+                } catch (rollbackError) {
+                    console.error("Failed to rollback trip creation after chaining error:", rollbackError);
+                }
+                throw chainedError;
             }
         }
 
@@ -151,18 +164,26 @@ export const TripService = {
   },
 
   async deleteTrip(tripId: string) {
+    const parsedId = parseInt(tripId, 10);
+    if (isNaN(parsedId) || parsedId <= 0) {
+      throw new Error("Invalid trip ID");
+    }
     const supabase = createClient();
-    const { error } = await supabase.rpc('delete_trip', { p_trip_id: parseInt(tripId) });
+    const { error } = await supabase.rpc('delete_trip', { p_trip_id: parsedId });
     if (error) throw error;
   },
 
   async updateTrip(tripId: string, updates: Partial<Trip> | { removeWineryId: number } | { updateNote: any } | { wineryOrder: number[] }) {
+    const parsedTripId = parseInt(tripId, 10);
+    if (isNaN(parsedTripId) || parsedTripId <= 0) {
+      throw new Error("Invalid trip ID");
+    }
     const supabase = createClient();
 
     // 1. Handle Winery Reordering
     if ('wineryOrder' in updates && Array.isArray(updates.wineryOrder)) {
         const { error } = await supabase.rpc('reorder_trip_wineries', {
-            p_trip_id: parseInt(tripId),
+            p_trip_id: parsedTripId,
             p_winery_ids: updates.wineryOrder
         });
             
@@ -187,7 +208,7 @@ export const TripService = {
        
        if (typeof notes === 'string') {
            const { error } = await supabase.rpc('update_trip_winery_notes', {
-               p_trip_id: parseInt(tripId),
+               p_trip_id: parsedTripId,
                p_winery_id: wineryId,
                p_notes: notes
            });
@@ -196,8 +217,8 @@ export const TripService = {
        else if (typeof notes === 'object') {
            const promises = Object.entries(notes).map(([wId, text]) => 
                 supabase.rpc('update_trip_winery_notes', {
-                    p_trip_id: parseInt(tripId),
-                    p_winery_id: parseInt(wId),
+                    p_trip_id: parsedTripId,
+                    p_winery_id: parseInt(wId, 10),
                     p_notes: text as string
                 })
            );
@@ -223,10 +244,16 @@ export const TripService = {
   },
 
   async addMemberByEmail(tripId: number, email: string) {
+    if (!email || typeof email !== 'string' || !email.trim()) {
+      throw new Error("Valid email is required.");
+    }
+    if (!tripId || typeof tripId !== 'number' || tripId <= 0 || isNaN(tripId)) {
+      throw new Error("Valid tripId is required.");
+    }
     const supabase = createClient();
     const { data, error } = await supabase.rpc('add_trip_member_by_email', {
         p_trip_id: tripId,
-        p_email: email
+        p_email: email.trim()
     });
 
     if (error) {
@@ -238,12 +265,18 @@ export const TripService = {
   },
 
   async removeMember(tripId: number, userId: string) {
+    if (!tripId || typeof tripId !== 'number' || tripId <= 0 || isNaN(tripId)) {
+      throw new Error("Valid trip ID is required.");
+    }
+    if (!userId || typeof userId !== 'string' || !userId.trim()) {
+      throw new Error("Valid user ID is required.");
+    }
     const supabase = createClient();
     const { error } = await supabase
         .from('trip_members')
         .delete()
         .eq('trip_id', tripId)
-        .eq('user_id', userId)
+        .eq('user_id', userId.trim())
         .neq('role', 'owner'); // Safety: cannot remove owner
 
     if (error) {
