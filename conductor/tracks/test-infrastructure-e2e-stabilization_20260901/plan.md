@@ -28,7 +28,7 @@ Focus: Build comprehensive domain invariant testing and harden offline Base64 ph
     - [x] Verify `visitStore.domainInvariants.test.ts` passes and coverage of `visitInitHelpers.ts` is >= 80% (Green phase)
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Visit Store Domain Invariants & Offline Photo Reconstitution' (Protocol in workflow.md) [c0fd5d5]
 
-## Phase 3: Supabase Service Mutation Test Suites & Ownership Guards
+## Phase 3: Supabase Service Mutation Test Suites & Ownership Guards [checkpoint: e527ff3]
 Focus: Implement unit test suites and harden mutation flows, multi-winery RPC chaining, and owner protection guards in `socialService.ts` and `tripService.ts`.
 
 - [x] Task: Write failing unit test suites for social and trip service mutations (Red Phase) [e3795d3]
@@ -38,7 +38,7 @@ Focus: Implement unit test suites and harden mutation flows, multi-winery RPC ch
 - [x] Task: Implement service mutation hardening and verify test coverage (Green Phase) [d961817]
     - [x] Harden error handling, ownership guard assertions, and rollback invariants in `socialService.ts` and `tripService.ts`
     - [x] Verify both service test suites pass with >= 80% coverage (Green phase)
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Supabase Service Mutation Test Suites & Ownership Guards' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: Supabase Service Mutation Test Suites & Ownership Guards' (Protocol in workflow.md) [e527ff3]
 
 ## Phase 4: Store Isolation, Engine Window Detachment & Runner Script Modernization
 Focus: Eliminate cross-store window coupling in `uiStore.ts`, gate store window attachments behind `NEXT_PUBLIC_IS_E2E`, update unit assertions, and fix container runner CLI parsing.
