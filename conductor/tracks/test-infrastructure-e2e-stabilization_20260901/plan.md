@@ -17,7 +17,7 @@ Focus: Eliminate Node 24 JSDOM worker memory exhaustion, configure global mock c
     - [x] Verify zero occurrences of `jest.resetModules()` remain across the entire repository
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Jest 30 Test Infrastructure, Memory Limits & Module Reset Remediation' (Protocol in workflow.md) [ccd6a3d]
 
-## Phase 2: Visit Store Domain Invariants & Offline Photo Reconstitution
+## Phase 2: Visit Store Domain Invariants & Offline Photo Reconstitution [checkpoint: c0fd5d5]
 Focus: Build comprehensive domain invariant testing and harden offline Base64 photo serialization, deduplication mutex, and queue reconstitution in `visitInitHelpers.ts`.
 
 - [x] Task: Write failing domain invariant tests for visit store offline reconstitution (Red Phase) [c9acc26]
@@ -26,7 +26,7 @@ Focus: Build comprehensive domain invariant testing and harden offline Base64 ph
 - [x] Task: Harden visitInitHelpers.ts to satisfy visit store domain invariants (Green Phase) [38553d1]
     - [x] Harden binary photo serialization, ID normalization, mutex deduplication, and error recovery in `lib/stores/slices/visitInitHelpers.ts`
     - [x] Verify `visitStore.domainInvariants.test.ts` passes and coverage of `visitInitHelpers.ts` is >= 80% (Green phase)
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Visit Store Domain Invariants & Offline Photo Reconstitution' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Visit Store Domain Invariants & Offline Photo Reconstitution' (Protocol in workflow.md) [c0fd5d5]
 
 ## Phase 3: Supabase Service Mutation Test Suites & Ownership Guards
 Focus: Implement unit test suites and harden mutation flows, multi-winery RPC chaining, and owner protection guards in `socialService.ts` and `tripService.ts`.
