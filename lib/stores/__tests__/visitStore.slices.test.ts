@@ -77,9 +77,22 @@ describe('ST-01: visitStore Slice Decomposition & Lifecycle', () => {
       });
     });
 
-    it('retains window.useVisitStore backwards compatibility for test runners', () => {
+    it('gates window.useVisitStore exposure behind NEXT_PUBLIC_IS_E2E === "true"', () => {
       expect((global as any).window).toBeDefined();
-      expect((global as any).window.useVisitStore).toBe(useVisitStore);
+      expect((global as any).window.useVisitStore).toBeUndefined();
+
+      const prevEnv = process.env.NEXT_PUBLIC_IS_E2E;
+      try {
+        process.env.NEXT_PUBLIC_IS_E2E = 'true';
+        let e2eVisitStore: any;
+        jest.isolateModules(() => {
+          e2eVisitStore = require('../visitStore').useVisitStore;
+        });
+        expect((global as any).window.useVisitStore).toBe(e2eVisitStore);
+      } finally {
+        process.env.NEXT_PUBLIC_IS_E2E = prevEnv;
+        delete (global as any).window.useVisitStore;
+      }
     });
 
     it('unsubscribes and cleans up Realtime channel on store.reset() (ST-11)', async () => {

@@ -59,6 +59,6 @@ export const useTripStore = createWithEqualityFn<TripState>()(
   )
 );
 
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
   (window as any).useTripStore = useTripStore;
 }
