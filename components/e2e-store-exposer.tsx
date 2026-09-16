@@ -15,8 +15,7 @@ import { useEffect } from "react";
 
 export function E2EStoreExposer() {
   useEffect(() => {
-    // Expose stores - we assume gating happens at the component rendering level in layout.tsx
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
       window.useWineryDataStore = useWineryStore;
       window.useWineryStore = useWineryStore;
       window.useUIStore = useUIStore;
