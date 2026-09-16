@@ -1475,11 +1475,10 @@ export class MockMapsManager {
                 if (!state.bounds) {
                     mapStore.setState({ 
                         bounds: { 
-                            getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76, 0: -76, 1: 43 }),
-                            getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77, 0: -77, 1: 42 }),
-                            getCenter: () => ({ latitude: 42.5, longitude: -76.5, lat: () => 42.5, lng: () => -76.5 }),
-                            contains: () => true,
-                            extend: () => {}
+                            north: 43,
+                            south: 42,
+                            east: -76,
+                            west: -77,
                         } 
                     });
                 }
