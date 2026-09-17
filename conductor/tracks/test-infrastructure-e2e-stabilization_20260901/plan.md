@@ -67,11 +67,11 @@ Focus: Eliminate cross-store window coupling in `uiStore.ts`, gate store window 
 ## Phase 5: Playwright 1.63 Container & NPM Package Upgrade
 Focus: Upgrade `@playwright/test` and the Playwright container image to 1.63 (Noble base), certify rootless container execution on RHEL 8, and verify browser binary parity.
 
-- [ ] Task: Upgrade Playwright dependency, container scripts, and create version canary (Red Phase)
-    - [ ] Create `scripts/__tests__/playwright-version-check.test.sh` asserting `@playwright/test` and all container scripts (`run-e2e-container.sh`, `run-jest-container.sh`, `run-dev-container.sh`, `run-build-container.sh`) resolve to `1.63.x` / `v1.63.0-noble`
-    - [ ] Bump `@playwright/test` to `1.63.0` in `package.json` and sync `package-lock.json`
-    - [ ] Update `PLAYWRIGHT_VERSION="v1.63.0-noble"` in `scripts/run-e2e-container.sh`, `scripts/run-jest-container.sh`, `scripts/run-dev-container.sh`, and `scripts/run-build-container.sh`
-    - [ ] Verify version check test fails before container pull/build and passes after (Red/Green)
+- [x] Task: Upgrade Playwright dependency, container scripts, and create version canary (Red Phase) [9a98121]
+    - [x] Create `scripts/__tests__/playwright-version-check.test.sh` asserting `@playwright/test` and all container scripts (`run-e2e-container.sh`, `run-jest-container.sh`, `run-dev-container.sh`, `run-build-container.sh`) resolve to `1.63.x` / `v1.63.0-noble`
+    - [x] Bump `@playwright/test` to `1.63.0` in `package.json` and sync `package-lock.json`
+    - [x] Update `PLAYWRIGHT_VERSION="v1.63.0-noble"` in `scripts/run-e2e-container.sh`, `scripts/run-jest-container.sh`, `scripts/run-dev-container.sh`, and `scripts/run-build-container.sh`
+    - [x] Verify version check test fails before container pull/build and passes after (Red/Green)
 - [ ] Task: Pull 1.63 container image, certify browser engines, and verify Jest runner (Green Phase)
     - [ ] Pull `mcr.microsoft.com/playwright:v1.63.0-noble` and verify image inspect/exists in Podman
     - [ ] Run container smoke verification across `chromium`, `webkit`, and `Mobile Safari`
