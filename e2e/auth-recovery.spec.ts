@@ -110,7 +110,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
       if (route.request().method() === 'OPTIONS') {
         return route.fulfill({ status: 204, headers: commonHeaders });
       }
-      route.fulfill({
+      return route.fulfill({
         status: 400,
         contentType: 'application/json',
         headers: commonHeaders,
