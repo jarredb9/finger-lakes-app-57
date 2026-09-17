@@ -64,7 +64,7 @@ Focus: Eliminate cross-store window coupling in `uiStore.ts`, gate store window 
     - [x] Update `e2e/utils.ts` mock bounds to match `SerializableBounds` structure
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Store Isolation, Engine Window Detachment & Runner Script Modernization' (Protocol in workflow.md) [2bbf3f9]
 
-## Phase 5: Playwright 1.63 Container & NPM Package Upgrade
+## Phase 5: Playwright 1.63 Container & NPM Package Upgrade [checkpoint: bd9287e]
 Focus: Upgrade `@playwright/test` and the Playwright container image to 1.63 (Noble base), certify rootless container execution on RHEL 8, and verify browser binary parity.
 
 - [x] Task: Upgrade Playwright dependency, container scripts, and create version canary (Red Phase) [9a98121]
@@ -80,7 +80,7 @@ Focus: Upgrade `@playwright/test` and the Playwright container image to 1.63 (No
     - [x] Audit and remediate any Playwright 1.63 breaking changes (locator strictness, network interception, snapshot config)
     - [x] Run `./scripts/run-e2e-container.sh webkit e2e/auth-recovery.spec.ts` inside container
     - [x] Confirm zero host `node_modules` pollution under volume isolation
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Playwright 1.63 Container & NPM Package Upgrade' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Playwright 1.63 Container & NPM Package Upgrade' (Protocol in workflow.md) [bd9287e]
 
 ## Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling
 Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/fixtures/`, maintain backward compatibility through `e2e/utils.ts`, and eliminate store-poking in E2E helpers.
