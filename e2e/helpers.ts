@@ -895,7 +895,7 @@ export async function selectPrivacyOption(page: Page, optionName: 'Public' | 'Fr
  * Bypasses navigation and initial fetch for specific tests.
  */
 export async function injectTripState(page: Page, trips: Trip[]) {
-  await page.evaluate((tripsToInject) => {
+  await page.evaluate((tripsToInject: Trip[]) => {
     // @ts-ignore
     const store = window.useTripStore;
     if (store && store.setState) {
@@ -915,7 +915,7 @@ export async function injectTripState(page: Page, trips: Trip[]) {
         lastActionTimestamps: { ...store.getState().lastActionTimestamps, ...lastActionTimestamps }
       });
     }
-  }, trips);
+  }, trips as any);
 }
 
 /**
