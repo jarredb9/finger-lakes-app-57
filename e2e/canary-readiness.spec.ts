@@ -2,22 +2,16 @@ import { test, expect } from './utils';
 import { login, waitForMapReady, waitForSignal } from './helpers';
 
 /**
- * Phase 6 Task 1 (Red Phase): E2E Readiness Canary
+ * Phase 6 Task 4 (Green Phase): E2E Readiness Canary
  * 
- * Verifies and establishes the failing baseline for readiness verification
- * without window store access.
- * 
- * Target Architecture (Phase 6 Task 4):
- * - Eliminate store-poking in login() and waitForMapReady()
- * - Replace window store hydration polling with web-first DOM signals (data-state="ready")
- * 
- * Current Red Phase Behavior:
- * - When window.use*Store is locked to undefined (preventing exposer re-attachment),
- *   current login() throws "Stores not hydrated"
- * - When window.useMapStore is detached, current waitForMapReady() throws "Map bounds not initialized"
+ * Certifies that readiness verification operates completely decoupled
+ * from window store access:
+ * - login() helper succeeds even when all window stores are locked to undefined
+ * - waitForMapReady() helper succeeds when window.useMapStore is detached
+ * - Web-first DOM readiness signals (data-state="ready") function independently of window stores
  */
-test.describe('E2E Readiness Canary: Store-Poking Decoupling (Red Phase)', () => {
-  test('canary: current login() helper fails when window stores are detached', async ({ page, user }) => {
+test.describe('E2E Readiness Canary: Store-Poking Decoupling (Green Phase)', () => {
+  test('login() helper succeeds when window stores are detached', async ({ page, user }) => {
     // Lock window store attachments to undefined so <E2EStoreExposer /> cannot expose them
     await page.addInitScript(() => {
       const stores = [
@@ -41,14 +35,13 @@ test.describe('E2E Readiness Canary: Store-Poking Decoupling (Red Phase)', () =>
       }
     });
 
-    // Current login() helper relies on window.useUserStore.getState().user and hasHydrated()
-    // This proves empirically that current helpers fail in the Red Phase without store poking.
+    // Green Phase: login() relies on DOM readiness signals and succeeds without window stores
     await expect(
       login(page, user.email, user.password)
-    ).rejects.toThrow(/Stores not hydrated/);
+    ).resolves.toBeUndefined();
   });
 
-  test('canary: current waitForMapReady() helper fails when window.useMapStore is detached', async ({ page, user }) => {
+  test('waitForMapReady() helper succeeds when window.useMapStore is detached', async ({ page, user }) => {
     // Log in with skipMapReady to navigate to dashboard
     await login(page, user.email, user.password, { skipMapReady: true });
 
@@ -63,11 +56,10 @@ test.describe('E2E Readiness Canary: Store-Poking Decoupling (Red Phase)', () =>
       } catch (e) {}
     });
 
-    // Current waitForMapReady() helper polls window.useMapStore.getState().bounds
-    // This proves that map readiness helper fails in the Red Phase without store poking.
+    // Green Phase: waitForMapReady() relies on DOM container data-state="ready" and succeeds without window.useMapStore
     await expect(
       waitForMapReady(page)
-    ).rejects.toThrow(/Map bounds not initialized/);
+    ).resolves.toBeUndefined();
   });
 
   test('target contract: DOM readiness signals operate independently of window stores', async ({ page, user }) => {

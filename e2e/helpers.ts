@@ -171,29 +171,7 @@ export async function refreshFriendsStore(page: Page) {
 
 export async function waitForMapReady(page: Page) {
     const mapContainer = page.locator('[data-testid="map-container"]').first();
-    
-    // Proactively initialize bounds if missing (helps stabilize mocks and unblocks search)
-    await page.evaluate(() => {
-        // @ts-ignore
-        if (window.useMapStore && !window.useMapStore.getState().bounds) {
-            // @ts-ignore
-            window.useMapStore.getState().setBounds({
-                getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76, 0: -76, 1: 43 }),
-                getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77, 0: -77, 1: 42 }),
-                contains: () => true
-            });
-        }
-    }).catch(() => {});
-
     await expect(mapContainer).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
-
-    await expect(async () => {
-        const hasBounds = await page.evaluate(() => {
-            // @ts-ignore
-            return !!(window.useMapStore?.getState?.().bounds);
-        }).catch(() => false);
-        if (!hasBounds) throw new Error('Map bounds not initialized');
-    }).toPass({ timeout: 10000 });
 }
 
 export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | 'Friends' | 'History') {
@@ -385,23 +363,11 @@ export async function login(page: Page, email: string, pass: string, options: { 
   await dismissCookieConsent(page);
 
   if (!options.skipMapReady) {
-    // Note: get_map_markers is bypassed in E2E mode at the store level
-    await expect(async () => {
-      const isHydrated = await page.evaluate(() => {
-        try {
-          const u = (window as any).useUserStore?.getState().user;
-          const w = (window as any).useWineryDataStore?.persist?.hasHydrated();
-          const v = (window as any).useVisitStore?.persist?.hasHydrated();
-          const t = (window as any).useTripStore?.persist?.hasHydrated();
-          return !!(u && w && v && t);
-        } catch (e) {
-          return false;
-        }
-      }).catch(() => false);
-      if (!isHydrated) throw new Error('Stores not hydrated');
-    }).toPass({ timeout: 10000, intervals: [500, 1000] });
-
-    await waitForMapReady(page);
+    if (page.url().includes('/trips')) {
+      await waitForSignal(page, 'trip-list-container', 'ready', 15000);
+    } else {
+      await waitForMapReady(page);
+    }
   }
 
   if (isMobile && !options.skipMapReady) {
@@ -752,23 +718,13 @@ export async function waitForToast(page: Page, message: string | RegExp) {
  * Faster alternative to waitForToast for success verification.
  */
 export async function expectTripInStore(page: Page, tripName: string) {
-    let start = Date.now();
     await expect(async () => {
         const found = await page.evaluate((name) => {
-            // @ts-ignore
             const trips = window.useTripStore?.getState().trips || [];
-            return trips.some((t: any) => t.name === name);
+            return trips.some((t) => t.name === name);
         }, tripName);
         
         if (!found) {
-            // If it's been more than 3s, poke the store to ensure it's synced with the backend
-            if (Date.now() - start > 3000) {
-                 await page.evaluate(async () => {
-                    // @ts-ignore
-                    const store = window.useTripStore?.getState();
-                    if (store && !store.isLoading) await store.fetchTrips(1, 'upcoming', true);
-                }).catch(() => null);
-            }
             throw new Error(`Trip "${tripName}" not found in store`);
         }
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });
@@ -778,23 +734,13 @@ export async function expectTripInStore(page: Page, tripName: string) {
  * Asserts that a trip with the given name no longer exists in the store.
  */
 export async function expectTripDeletedFromStore(page: Page, tripName: string) {
-    let start = Date.now();
     await expect(async () => {
         const found = await page.evaluate((name) => {
-            // @ts-ignore
             const trips = window.useTripStore?.getState().trips || [];
-            return trips.some((t: any) => t.name === name);
+            return trips.some((t) => t.name === name);
         }, tripName);
         
         if (found) {
-            // If it's been more than 3s, poke the store to ensure it's synced with the backend
-            if (Date.now() - start > 3000) {
-                 await page.evaluate(async () => {
-                    // @ts-ignore
-                    const store = window.useTripStore?.getState();
-                    if (store && !store.isLoading) await store.fetchTrips(1, 'upcoming', true);
-                }).catch(() => null);
-            }
             throw new Error(`Trip "${tripName}" still exists in store`);
         }
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });
@@ -893,6 +839,7 @@ export async function selectPrivacyOption(page: Page, optionName: 'Public' | 'Fr
 /**
  * Injects trip data directly into the Zustand store.
  * Bypasses navigation and initial fetch for specific tests.
+ * @deprecated Use modular route fixtures (e2e/fixtures/) instead of direct store injection.
  */
 export async function injectTripState(page: Page, trips: Trip[]) {
   await page.evaluate((tripsToInject: Trip[]) => {
@@ -920,6 +867,7 @@ export async function injectTripState(page: Page, trips: Trip[]) {
 
 /**
  * Injects visit data directly into the Zustand store.
+ * @deprecated Use modular route fixtures (e2e/fixtures/) instead of direct store injection.
  */
 export async function injectVisitState(page: Page, visits: VisitWithWinery[]) {
   await page.evaluate((visitsToInject) => {
@@ -939,6 +887,7 @@ export async function injectVisitState(page: Page, visits: VisitWithWinery[]) {
 /**
  * Injects winery data directly into the Master Cache (wineryDataStore).
  * This is the source of truth for markers and details.
+ * @deprecated Use modular route fixtures (e2e/fixtures/) instead of direct store injection.
  */
 export async function injectWineryState(page: Page, wineries: any[]) {
   await page.evaluate((wineriesToInject) => {
@@ -956,6 +905,7 @@ export async function injectWineryState(page: Page, wineries: any[]) {
 
 /**
  * Injects social data (friends, requests, feed) directly into the Zustand store.
+ * @deprecated Use modular route fixtures (e2e/fixtures/) instead of direct store injection.
  */
 export async function injectSocialState(page: Page, data: { 
     friends?: any[], 

@@ -2,7 +2,6 @@ import { test, expect, MockMapsManager, createMockTrip, createDefaultMockState }
 import { 
     ensureSidebarExpanded,
     ensureProfileReady,
-    injectTripState,
     navigateToTab,
     getSidebarContainer,
     login,
@@ -25,35 +24,25 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
         ]
     });
 
+    const friend = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
+
     await mockMaps.initDefaultMocks({ currentUserId: userA.id, forceMocks: true });
     mockMaps.getState().trips = [mockTrip];
+    mockMaps.getState().socialMap.set(userA.id, {
+        friends: [friend],
+        pending_incoming: [],
+        pending_outgoing: []
+    });
+    mockMaps.getState().social = {
+        friends: [friend],
+        pending_incoming: [],
+        pending_outgoing: []
+    };
 
     await login(page, userA.email, userA.password, { skipMapReady: true });
     await ensureProfileReady(page);
 
-    // 2. ATOMIC INJECTION: Establish friendship and inject trip
-    await test.step('Atomic state injection', async () => {
-        const friend = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
-        
-        await page.evaluate(({ f, t }) => {
-            (window as any).useFriendStore?.setState({ friends: [f] });
-            (window as any).useTripStore?.setState({ trips: [t], upcomingTrips: [t] });
-        }, { f: friend, t: mockTrip } as any);
-
-        // Sync mock layer
-        mockMaps.getState().socialMap.set(userA.id, {
-            friends: [friend],
-            pending_incoming: [],
-            pending_outgoing: []
-        });
-        mockMaps.getState().social = {
-            friends: [friend],
-            pending_incoming: [],
-            pending_outgoing: []
-        };
-    });
-
-    // 3. Open Share Dialog directly from the injected trip
+    // 2. Open Share Dialog directly from the trip
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);
     
@@ -108,16 +97,6 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
       const managerA = new MockMapsManager(pageA, sharedState);
       const managerB = new MockMapsManager(pageB, sharedState);
 
-      // We use MOCKS for this test to ensure stability in the container
-      await managerA.initDefaultMocks({ currentUserId: userA.id, forceMocks: true });
-      await managerB.initDefaultMocks({ currentUserId: userB.id, forceMocks: true });
-
-      await login(pageA, userA.email, userA.password, { skipMapReady: true });
-      await login(pageB, userB.email, userB.password, { skipMapReady: true });
-      
-      await ensureProfileReady(pageA);
-      await ensureProfileReady(pageB);
-
       const uniqueTripName = `Sync Trip ${Date.now()}`;
       const tripId = 999;
       const mockTrip = createMockTrip({
@@ -129,35 +108,33 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
           ]
       });
 
-      // 1. Establish friendship and inject trip via ATOMIC INJECTION
-      await test.step('Atomic state injection', async () => {
-          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
-          const friendForB = { id: userA.id, name: 'User A', email: userA.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
+      const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
+      const friendForB = { id: userA.id, name: 'User A', email: userA.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
 
-          await pageA.evaluate(({ f, t }) => {
-              (window as any).useFriendStore?.setState({ friends: [f] });
-              (window as any).useTripStore?.setState({ trips: [t], upcomingTrips: [t] });
-          }, { f: friendForA, t: mockTrip } as any);
-
-          await pageB.evaluate(({ f }) => {
-              (window as any).useFriendStore?.setState({ friends: [f] });
-          }, { f: friendForB });
-
-          // Update the mock layer for BOTH users
-          sharedState.socialMap.set(userA.id, {
-              friends: [friendForA],
-              pending_incoming: [],
-              pending_outgoing: []
-          });
-          sharedState.socialMap.set(userB.id, {
-              friends: [friendForB],
-              pending_incoming: [],
-              pending_outgoing: []
-          });
-          sharedState.trips = [mockTrip];
+      // Update the mock layer for BOTH users ahead of time
+      sharedState.socialMap.set(userA.id, {
+          friends: [friendForA],
+          pending_incoming: [],
+          pending_outgoing: []
       });
+      sharedState.socialMap.set(userB.id, {
+          friends: [friendForB],
+          pending_incoming: [],
+          pending_outgoing: []
+      });
+      sharedState.trips = [mockTrip];
 
-      // 2. User A invites User B via UI (tests the collaboration flow)
+      // We use MOCKS for this test to ensure stability in the container
+      await managerA.initDefaultMocks({ currentUserId: userA.id, forceMocks: true });
+      await managerB.initDefaultMocks({ currentUserId: userB.id, forceMocks: true });
+
+      await login(pageA, userA.email, userA.password, { skipMapReady: true });
+      await login(pageB, userB.email, userB.password, { skipMapReady: true });
+      
+      await ensureProfileReady(pageA);
+      await ensureProfileReady(pageB);
+
+      // 1. User A invites User B via UI (tests the collaboration flow)
       await navigateToTab(pageA, 'Trips');
       await ensureSidebarExpanded(pageA);
       const sidebarA = getSidebarContainer(pageA);
@@ -266,10 +243,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
     await login(page, user.email, user.password, { skipMapReady: true });
 
-    // 3. ATOMIC STATE INJECTION
-    await injectTripState(page, [mockTrip]);
-
-    // 4. Verification
+    // 3. Verification
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);
     
@@ -338,9 +312,6 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
     await login(page, user.email, user.password, { skipMapReady: true });
     await ensureProfileReady(page);
-
-    // Atomic State Injection for both trips
-    await injectTripState(page, [sharedTrip, ownedTrip]);
 
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);
