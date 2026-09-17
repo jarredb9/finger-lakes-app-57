@@ -38,7 +38,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
         await page.evaluate(({ f, t }) => {
             (window as any).useFriendStore?.setState({ friends: [f] });
             (window as any).useTripStore?.setState({ trips: [t], upcomingTrips: [t] });
-        }, { f: friend, t: mockTrip });
+        }, { f: friend, t: mockTrip } as any);
 
         // Sync mock layer
         mockMaps.getState().socialMap.set(userA.id, {
@@ -137,7 +137,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
           await pageA.evaluate(({ f, t }) => {
               (window as any).useFriendStore?.setState({ friends: [f] });
               (window as any).useTripStore?.setState({ trips: [t], upcomingTrips: [t] });
-          }, { f: friendForA, t: mockTrip });
+          }, { f: friendForA, t: mockTrip } as any);
 
           await pageB.evaluate(({ f }) => {
               (window as any).useFriendStore?.setState({ friends: [f] });
