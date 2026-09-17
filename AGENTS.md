@@ -10,6 +10,7 @@
 2. **Supabase Operations:** Prioritize Supabase MCP tools for interacting with hosted environments. Use the local CLI (`npm run db:*`) for local development.
 3. **Backwards Compatibility:** All database migrations in `supabase/migrations/*` must follow the expand-and-contract pattern to avoid breaking live running instances.
 4. **Git Hygiene:** Do not modify `.git/` or make automated commits unless explicitly requested.
+5. **Modal & Plan Approval Invariant:** A response of `User Skipped` or dismissal of `ask_question` is strictly non-affirmative. Never interpret a skipped modal as consent, approval, or a directive to proceed. Under `/plan` or any confirmation gate, you MUST halt and wait for explicit affirmative text approval before executing any code changes or commands.
 
 ## 3. Environment & Execution Commands
 - **Runtime:** Node.js 24 (LTS).
