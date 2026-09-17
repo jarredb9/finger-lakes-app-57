@@ -137,7 +137,14 @@ Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offlin
 - [ ] Task: Implement full E2E spec for offline reconnect queue drainage (Green Phase)
     - [ ] Implement `context.setOffline(false)` drainage flow, queue emptiness assertion (`queue.length === 0`), and UI cache invalidation in `e2e/pwa-offline.spec.ts`
     - [ ] Verify test passes cleanly in container
+- [ ] Task: Audit and prune track-specific post-TDD scaffolding tests (Cleanup)
+    - [ ] Audit test suites created during this track (`scripts/__tests__`, `lib/__tests__/tooling`, `e2e/__tests__`) for pure scaffolding tests (e.g. version regex checks, temporary CLI parsing scaffolds)
+    - [ ] Prune ephemeral scaffolding while preserving permanent behavioral contracts, store domain invariants, and container runner integrity
+    - [ ] Verify test suite runs cleanly via `./scripts/run-jest-container.sh`
 - [ ] Task: Full cross-browser container suite verification and quality gate (Verification)
     - [ ] Run `./scripts/run-e2e-container.sh all` across `chromium`, `webkit`, `mobile-safari`, and `mobile-chrome`
     - [ ] Run repository quality gate: `npm test`, `npm run lint`, and `npm run type-check`
 - [ ] Task: Conductor - User Manual Verification 'Phase 8: High-Value E2E Feature Coverage & Cross-Browser Verification' (Protocol in workflow.md)
+
+## Phase: Review Fixes
+- [x] Task: Audit and prune previous conductor track's post-TDD scaffolding tests (5b77e92)
