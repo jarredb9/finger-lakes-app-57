@@ -94,10 +94,10 @@ Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/f
     - [x] Create `e2e/fixtures/auth.fixture.ts` handling Supabase Auth sessions, profiles, and test user fixtures
     - [x] Create `e2e/fixtures/trips.fixture.ts` handling Trips, stops, visits, favorites, and social RPC mocks
     - [x] Create `e2e/fixtures/index.ts` exporting composite `test` object via Playwright `test.extend()`
-- [ ] Task: Refactor e2e/utils.ts into a backward-compatible delegation façade (Green Phase - Expand-and-Contract Part B)
-    - [ ] Replace internal monolithic implementation in `e2e/utils.ts` with delegation to modular fixtures in `e2e/fixtures/`
-    - [ ] Re-export `test`, `expect`, `MockMapsManager` adapter class, `createDefaultMockState`, and types
-    - [ ] Verify existing multi-context specs pass with zero spec code changes
+- [x] Task: Refactor e2e/utils.ts into a backward-compatible delegation façade (Green Phase - Expand-and-Contract Part B) [dda80ad]
+    - [x] Replace internal monolithic implementation in `e2e/utils.ts` with delegation to modular fixtures in `e2e/fixtures/`
+    - [x] Re-export `test`, `expect`, `MockMapsManager` adapter class, `createDefaultMockState`, and types
+    - [x] Verify existing multi-context specs pass with zero spec code changes
 - [ ] Task: Refactor e2e/helpers.ts to eliminate store-poking in assertion retries (Green Phase - Expand-and-Contract Part C: Caller Migration)
     - [ ] Replace store hydration polling in `login()` with DOM readiness checks (`data-state="ready"`)
     - [ ] Remove `window.useMapStore.getState().setBounds(...)` poking from `waitForMapReady()`
