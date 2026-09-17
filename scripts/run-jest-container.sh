@@ -24,9 +24,9 @@ else
     exit 1
 fi
 
-# Detect TTY/CI environment to set interactive flags safely
-INTERACTIVE_FLAG="-t"
-if [ -t 0 ] && [ "$CI" != "true" ]; then
+# Only allocate an interactive TTY if --watch is explicitly requested in a terminal
+INTERACTIVE_FLAG=""
+if [[ " $* " =~ " --watch" ]] && [ -t 0 ] && [ "$CI" != "true" ]; then
     INTERACTIVE_FLAG="-it"
 fi
 
@@ -74,11 +74,31 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     -e CI="$CI" \
     -e TEST_TYPE="$TEST_TYPE" \
     -e NODE_ENV="test" \
+    -e INTERACTIVE_FLAG="$INTERACTIVE_FLAG" \
+    -e VERBOSE="$VERBOSE" \
     "$IMAGE" \
     /bin/bash -c '
         if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
-            echo "Installing dependencies..."
-            npm install
+            if [ -z "$INTERACTIVE_FLAG" ] && [ "$VERBOSE" != "true" ]; then
+                npm install --silent >/dev/null 2>&1 || npm install
+            else
+                echo "Installing dependencies..."
+                npm install
+            fi
         fi
-        npx jest "$@"
+        if [ -z "$INTERACTIVE_FLAG" ] && [ "$VERBOSE" != "true" ]; then
+            TMP_OUT=$(mktemp)
+            if npx jest --ci "$@" > "$TMP_OUT" 2>&1; then
+                tail -n 10 "$TMP_OUT" | grep -E "(Test Suites:|Tests:|Snapshots:|Time:|Ran all test suites)" || cat "$TMP_OUT"
+                rm -f "$TMP_OUT"
+                exit 0
+            else
+                EXIT_CODE=$?
+                cat "$TMP_OUT"
+                rm -f "$TMP_OUT"
+                exit $EXIT_CODE
+            fi
+        else
+            npx jest "$@"
+        fi
     ' bash "$@"

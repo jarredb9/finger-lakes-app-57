@@ -15,7 +15,17 @@ Execute Phase <X>, Task <Y> only. Halt after committing. Include git notes and p
 ```
 
 *(Optional: Append the specific test path, e.g. `(target test: lib/.../myTest.test.ts)` to save 2 search tool calls).*
+```text
+/plan /conductor:implement @[conductor/tracks/<track_id>]
 
+Plan Phase <X>, Task <Y> only.
+```
+
+```text
+/conductor:implement @[conductor/tracks/<track_id>]
+
+Execute Phase <X>, Task <Y> only. Follow the implementation plan at @/home/byrnesjd4821/.gemini/antigravity-cli/brain/<conversation-id>/<plan-name.md>. Halt after committing.Include git notes and plan.md update upon completion.
+```
 ---
 
 ## 2. Recovery Invocation (Uncommitted Changes in `git status`)

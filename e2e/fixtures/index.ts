@@ -32,6 +32,10 @@ export class CompositeMockMapsManager {
     this.maps.setupLogging();
   }
 
+  flushDiagnosticLogs() {
+    this.maps.flushDiagnosticLogs();
+  }
+
   getState(): MockMapsState {
     return this.trips.getState();
   }
@@ -199,6 +203,10 @@ export const test = base.extend<{
     manager.setupLogging();
     await manager.initDefaultMocks();
     await use(manager);
+
+    if (testInfo.status !== testInfo.expectedStatus) {
+      manager.flushDiagnosticLogs();
+    }
   }, { auto: true }],
 
   user: async ({}, use) => {
