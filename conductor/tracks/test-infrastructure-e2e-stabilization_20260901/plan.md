@@ -108,10 +108,10 @@ Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/f
 ## Phase 7: Fixture Granularization & Domain-Driven Handler Decomposition
 Focus: Decompose monolithic `maps.fixture.ts` (800 lines) and `trips.fixture.ts` (680 lines) into granular, single-responsibility domain handlers, browser shims, and utility modules under `e2e/fixtures/`, preserving 100% backward compatibility and adhering strictly to TDD.
 
-- [ ] Task: Create failing unit and contract parity tests for granular domain handlers and shims (Red Phase)
-    - [ ] Create `e2e/__tests__/handler-contracts.test.ts` asserting contract interfaces, independent initialization, route registration patterns, and bypass toggles for `trips.handler.ts`, `visits.handler.ts`, `social.handler.ts`, `favorites.handler.ts`, `places.handler.ts`, `assets.handler.ts`, `browser.shim.ts`, and `google-maps-sdk.shim.ts`
-    - [ ] Create `e2e/__tests__/mock-wineries.test.ts` asserting canonical `MOCK_MARKERS` consistency and `getEquivalentWineryIds` normalization
-    - [ ] Verify tests fail cleanly before modular handlers are implemented (Red phase)
+- [x] Task: Create failing unit and contract parity tests for granular domain handlers and shims (Red Phase) [bf1e559]
+    - [x] Create `e2e/__tests__/handler-contracts.test.ts` asserting contract interfaces, independent initialization, route registration patterns, and bypass toggles for `trips.handler.ts`, `visits.handler.ts`, `social.handler.ts`, `favorites.handler.ts`, `places.handler.ts`, `assets.handler.ts`, `browser.shim.ts`, and `google-maps-sdk.shim.ts`
+    - [x] Create `e2e/__tests__/mock-wineries.test.ts` asserting canonical `MOCK_MARKERS` consistency and `getEquivalentWineryIds` normalization
+    - [x] Verify tests fail cleanly before modular handlers are implemented (Red phase)
 - [ ] Task: Implement shared utilities, browser shims, and maps sub-handlers (Green Phase - Expand-and-Contract Part A)
     - [ ] Create `e2e/fixtures/utils/mock-wineries.ts` and `e2e/fixtures/utils/diagnostic-logger.ts`
     - [ ] Create `e2e/fixtures/shims/browser.shim.ts` (WebGL/Canvas mocks, SW filter, map bounds injection) and `e2e/fixtures/shims/google-maps-sdk.shim.ts` (Maps JS SDK stub)
