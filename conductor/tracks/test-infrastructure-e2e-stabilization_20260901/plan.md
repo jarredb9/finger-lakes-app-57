@@ -89,11 +89,11 @@ Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/f
     - [x] Create `e2e/__tests__/fixture-contract.test.ts` asserting interface parity, failure injectors, and bypasses
     - [x] Create `e2e/canary-readiness.spec.ts` asserting readiness verification without window store access
     - [x] Verify tests fail before modular fixtures are built (Red phase)
-- [ ] Task: Implement modular route fixtures under e2e/fixtures/ (Green Phase - Expand-and-Contract Part A: Expand)
-    - [ ] Create `e2e/fixtures/maps.fixture.ts` isolating Google Places REST, JS SDK mocks, and tile/asset mocks
-    - [ ] Create `e2e/fixtures/auth.fixture.ts` handling Supabase Auth sessions, profiles, and test user fixtures
-    - [ ] Create `e2e/fixtures/trips.fixture.ts` handling Trips, stops, visits, favorites, and social RPC mocks
-    - [ ] Create `e2e/fixtures/index.ts` exporting composite `test` object via Playwright `test.extend()`
+- [x] Task: Implement modular route fixtures under e2e/fixtures/ (Green Phase - Expand-and-Contract Part A: Expand) [9905091]
+    - [x] Create `e2e/fixtures/maps.fixture.ts` isolating Google Places REST, JS SDK mocks, and tile/asset mocks
+    - [x] Create `e2e/fixtures/auth.fixture.ts` handling Supabase Auth sessions, profiles, and test user fixtures
+    - [x] Create `e2e/fixtures/trips.fixture.ts` handling Trips, stops, visits, favorites, and social RPC mocks
+    - [x] Create `e2e/fixtures/index.ts` exporting composite `test` object via Playwright `test.extend()`
 - [ ] Task: Refactor e2e/utils.ts into a backward-compatible delegation façade (Green Phase - Expand-and-Contract Part B)
     - [ ] Replace internal monolithic implementation in `e2e/utils.ts` with delegation to modular fixtures in `e2e/fixtures/`
     - [ ] Re-export `test`, `expect`, `MockMapsManager` adapter class, `createDefaultMockState`, and types
