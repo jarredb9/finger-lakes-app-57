@@ -7,7 +7,7 @@ set -e
 
 # 1. Configuration
 # Re-use the existing Playwright noble image which contains Ubuntu 24.04 (glibc 2.39) and Node
-PLAYWRIGHT_VERSION="v1.58.2-noble"
+PLAYWRIGHT_VERSION="v1.63.0-noble"
 IMAGE="mcr.microsoft.com/playwright:$PLAYWRIGHT_VERSION"
 
 # Detect container engine (honor CONTAINER_ENGINE env var, prefer docker in CI, fallback to podman locally)
