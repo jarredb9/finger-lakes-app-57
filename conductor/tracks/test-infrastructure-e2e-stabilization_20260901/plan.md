@@ -105,7 +105,27 @@ Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/f
     - [x] Migrate `e2e/trip-sharing.spec.ts` away from `injectTripState` to route mocks; deprecate unused injectors
 - [x] Task: Conductor - User Manual Verification 'Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling' (Protocol in workflow.md) [9ef4806]
 
-## Phase 7: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
+## Phase 7: Fixture Granularization & Domain-Driven Handler Decomposition
+Focus: Decompose monolithic `maps.fixture.ts` (800 lines) and `trips.fixture.ts` (680 lines) into granular, single-responsibility domain handlers, browser shims, and utility modules under `e2e/fixtures/`, preserving 100% backward compatibility and adhering strictly to TDD.
+
+- [ ] Task: Create failing unit and contract parity tests for granular domain handlers and shims (Red Phase)
+    - [ ] Create `e2e/__tests__/handler-contracts.test.ts` asserting contract interfaces, independent initialization, route registration patterns, and bypass toggles for `trips.handler.ts`, `visits.handler.ts`, `social.handler.ts`, `favorites.handler.ts`, `places.handler.ts`, `assets.handler.ts`, `browser.shim.ts`, and `google-maps-sdk.shim.ts`
+    - [ ] Create `e2e/__tests__/mock-wineries.test.ts` asserting canonical `MOCK_MARKERS` consistency and `getEquivalentWineryIds` normalization
+    - [ ] Verify tests fail cleanly before modular handlers are implemented (Red phase)
+- [ ] Task: Implement shared utilities, browser shims, and maps sub-handlers (Green Phase - Expand-and-Contract Part A)
+    - [ ] Create `e2e/fixtures/utils/mock-wineries.ts` and `e2e/fixtures/utils/diagnostic-logger.ts`
+    - [ ] Create `e2e/fixtures/shims/browser.shim.ts` (WebGL/Canvas mocks, SW filter, map bounds injection) and `e2e/fixtures/shims/google-maps-sdk.shim.ts` (Maps JS SDK stub)
+    - [ ] Create `e2e/fixtures/handlers/places.handler.ts` (Google Places REST, legacy endpoints, Edge Functions) and `e2e/fixtures/handlers/assets.handler.ts` (tiles, fonts, Mapbox, weather)
+    - [ ] Refactor `e2e/fixtures/maps.fixture.ts` into a lightweight orchestrator (<80 lines) delegating to shims and handlers
+    - [ ] Verify maps contract tests and `auth-recovery.spec.ts` pass cleanly (Green phase)
+- [ ] Task: Implement Supabase domain handlers and refactor trips fixture orchestrator (Green Phase - Expand-and-Contract Part B)
+    - [ ] Create `e2e/fixtures/handlers/trips.handler.ts` (trips RPCs & `/rest/v1/trips`), `e2e/fixtures/handlers/visits.handler.ts` (visits RPCs, idempotency), `e2e/fixtures/handlers/social.handler.ts` (social RPCs, friend feed, profile stats), and `e2e/fixtures/handlers/favorites.handler.ts` (favorites, wishlist, privacy, dynamic markers, `/rest/v1/favorites`)
+    - [ ] Refactor `e2e/fixtures/trips.fixture.ts` into a lightweight orchestrator (<85 lines) delegating to domain handlers
+    - [ ] Re-export granular handlers and utilities in `e2e/fixtures/index.ts` and `e2e/utils.ts`
+    - [ ] Verify all contract tests, canary tests, and existing multi-context specs pass cleanly with zero spec code changes (Green phase)
+- [ ] Task: Conductor - User Manual Verification 'Phase 7: Fixture Granularization & Domain-Driven Handler Decomposition' (Protocol in workflow.md)
+
+## Phase 8: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
 Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, eliminate all 12 `waitForTimeout` calls, and resolve 24 `{ force: true }` clicks.
 
 - [ ] Task: Configure ESLint Playwright guardrails and visual snapshot tolerances (Red Phase)
@@ -122,9 +142,9 @@ Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, elim
     - [ ] Resolve illegitimate workarounds by fixing underlying CSS z-index, entry animations, hover triggers, drawer snap points, and button-enabled readiness
     - [ ] For verified exceptions where non-standard DOM or gesture overlays genuinely require it, retain `{ force: true }` with explicit inline code comments and `// eslint-disable-next-line playwright/no-force-option`
     - [ ] Verify `npm run lint` reports 0 errors and zero unjustified warnings on Playwright rules
-- [ ] Task: Conductor - User Manual Verification 'Phase 7: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 8: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination' (Protocol in workflow.md)
 
-## Phase 8: High-Value E2E Feature Coverage & Cross-Browser Verification
+## Phase 9: High-Value E2E Feature Coverage & Cross-Browser Verification
 Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offline reconnection queue drainage, certifying full cross-browser test pass.
 
 - [ ] Task: Write failing E2E tests for itinerary reordering and offline reconnect sync (Red Phase)
@@ -144,7 +164,8 @@ Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offlin
 - [ ] Task: Full cross-browser container suite verification and quality gate (Verification)
     - [ ] Run `./scripts/run-e2e-container.sh all` across `chromium`, `webkit`, `mobile-safari`, and `mobile-chrome`
     - [ ] Run repository quality gate: `npm test`, `npm run lint`, and `npm run type-check`
-- [ ] Task: Conductor - User Manual Verification 'Phase 8: High-Value E2E Feature Coverage & Cross-Browser Verification' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 9: High-Value E2E Feature Coverage & Cross-Browser Verification' (Protocol in workflow.md)
+
 
 ## Phase: Review Fixes
 - [x] Task: Audit and prune previous conductor track's post-TDD scaffolding tests (5b77e92)
