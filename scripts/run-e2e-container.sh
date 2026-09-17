@@ -45,7 +45,7 @@ else
 fi
 
 # Detect TTY/CI environment to set interactive flags safely
-INTERACTIVE_FLAG="-t"
+INTERACTIVE_FLAG=""
 if [ -t 0 ] && [ "$CI" != "true" ]; then
     INTERACTIVE_FLAG="-it"
 fi
@@ -179,6 +179,8 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     -e NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
     -e SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
     -e E2E_REAL_DATA="$E2E_REAL_DATA" \
+    -e VERBOSE="$VERBOSE" \
+    -e DEBUG_E2E="$DEBUG_E2E" \
     -e TEST_CMD="$TEST_CMD" \
     -e SHOULD_BUILD="$SHOULD_BUILD" \
     -e TEST_USER_EMAIL="$TEST_USER_EMAIL" \
@@ -187,16 +189,17 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     "$IMAGE" \
     /bin/bash -c '
         if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
-            echo "Installing dependencies..."
-            npm install
+            if [ -z "$INTERACTIVE_FLAG" ] && [ "$VERBOSE" != "true" ]; then
+                npm install --silent >/dev/null 2>&1 || npm install
+            else
+                echo "Installing dependencies..."
+                npm install
+            fi
         fi
 
         if [ "$SHOULD_BUILD" = "true" ]; then
             echo "🧹 Cleaning and building inside container..."
-            echo "🔍 Sanity Check: e2e/utils.ts console listener:"
-            grep -A 5 "page.on(" e2e/utils.ts
             rm -rf .next
-            npm install
             npm run build
         fi
         
