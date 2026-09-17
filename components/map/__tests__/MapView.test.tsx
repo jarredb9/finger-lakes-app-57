@@ -1,8 +1,11 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, act } from "@testing-library/react";
 import MapView from "../MapView";
 import { useMapStore } from "@/lib/stores/mapStore";
 import mapboxgl from "mapbox-gl";
 import { Winery } from "@/lib/types";
+
+let lastMapProps: any = null;
+let lastSourceProps: any = null;
 
 jest.mock("mapbox-gl", () => ({
   supported: jest.fn().mockReturnValue(true),
@@ -11,6 +14,10 @@ jest.mock("mapbox-gl", () => ({
 jest.mock("react-map-gl/mapbox", () => {
   const React = require("react");
   const MockMap = React.forwardRef((props: any, ref: any) => {
+    React.useEffect(() => {
+      lastMapProps = props;
+    });
+
     const instance = React.useMemo(
       () => ({
         getMap: jest.fn().mockReturnValue({
@@ -38,7 +45,12 @@ jest.mock("react-map-gl/mapbox", () => {
   return {
     __esModule: true,
     default: MockMap,
-    Source: ({ children }: any) => <div data-testid="mapbox-source">{children}</div>,
+    Source: (props: any) => {
+      React.useEffect(() => {
+        lastSourceProps = props;
+      });
+      return <div data-testid="mapbox-source">{props.children}</div>;
+    },
     Layer: (props: any) => <div data-testid={`mapbox-layer-${props.id}`} />,
   };
 });
@@ -149,5 +161,112 @@ describe("MapView Container Component", () => {
 
     fireEvent.click(outdoorsBtn);
     fireEvent.click(streetsBtn);
+  });
+
+  it("transitions gracefully to GoogleMapFallback when Mapbox emits a WebGL context creation failure or runtime error", async () => {
+    (mapboxgl.supported as jest.Mock).mockReturnValue(true);
+
+    render(
+      <MapView
+        discoveredWineries={[sampleWinery]}
+        visitedWineries={[]}
+        wishlistWineries={[]}
+        favoriteWineries={[]}
+        filter={["all"]}
+        onMarkerClick={jest.fn()}
+      />
+    );
+
+    expect(screen.getByTestId("mapbox-map")).toBeInTheDocument();
+    expect(lastMapProps?.onError).toBeDefined();
+
+    act(() => {
+      lastMapProps.onError({
+        error: new Error("Could not create WebGL context"),
+      });
+    });
+
+    const canvas = screen.getByTestId("map-view-canvas");
+    expect(canvas).toBeInTheDocument();
+    expect(await screen.findByTestId("google-map-fallback-stub")).toBeInTheDocument();
+    expect(screen.queryByTestId("mapbox-map")).not.toBeInTheDocument();
+  });
+
+  it("excludes NaN, non-finite, and invalid coordinates from wineriesGeoJSON generation", async () => {
+    (mapboxgl.supported as jest.Mock).mockReturnValue(true);
+
+    const nanLatWinery: Winery = {
+      ...sampleWinery,
+      id: "winery-nan-lat" as any,
+      name: "NaN Lat Winery",
+      latitude: NaN,
+      longitude: -76.9,
+    };
+
+    const nanLngWinery: Winery = {
+      ...sampleWinery,
+      id: "winery-nan-lng" as any,
+      name: "NaN Lng Winery",
+      latitude: 42.8,
+      longitude: NaN,
+    };
+
+    const infinityWinery: Winery = {
+      ...sampleWinery,
+      id: "winery-inf" as any,
+      name: "Infinity Winery",
+      latitude: Infinity,
+      longitude: -76.9,
+    };
+
+    const nullCoordsWinery: Winery = {
+      ...sampleWinery,
+      id: "winery-null" as any,
+      name: "Null Coords Winery",
+      latitude: null as any,
+      longitude: undefined as any,
+    };
+
+    const stringInvalidWinery: Winery = {
+      ...sampleWinery,
+      id: "winery-str" as any,
+      name: "String Coords Winery",
+      latitude: "invalid" as any,
+      longitude: -76.9,
+    };
+
+    render(
+      <MapView
+        discoveredWineries={[
+          sampleWinery,
+          nanLatWinery,
+          nanLngWinery,
+          infinityWinery,
+          nullCoordsWinery,
+          stringInvalidWinery,
+        ]}
+        visitedWineries={[]}
+        wishlistWineries={[]}
+        favoriteWineries={[]}
+        filter={["all"]}
+        onMarkerClick={jest.fn()}
+      />
+    );
+
+    expect(lastSourceProps).not.toBeNull();
+    const features = lastSourceProps.data?.features || [];
+
+    // Only the single valid winery should be included in the GeoJSON features
+    expect(features.length).toBe(1);
+    expect(features[0].properties.id).toBe(sampleWinery.id);
+
+    // Verify every coordinate pair in features consists of strictly finite numbers
+    features.forEach((feature: any) => {
+      const [lng, lat] = feature.geometry.coordinates;
+      expect(Number.isFinite(lng)).toBe(true);
+      expect(Number.isFinite(lat)).toBe(true);
+      expect(isNaN(lng)).toBe(false);
+      expect(isNaN(lat)).toBe(false);
+    });
   });
 });
