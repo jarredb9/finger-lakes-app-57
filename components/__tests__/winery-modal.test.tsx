@@ -1,4 +1,4 @@
-import { render, screen, within, waitFor } from '@testing-library/react';
+import { render, screen, within, waitFor, act } from '@testing-library/react';
 import { WineryModal } from '../winery-modal';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
 import { useUIStore } from '@/lib/stores/uiStore';
@@ -301,6 +301,36 @@ describe('WineryModal Redesign', () => {
 
       const expandButton = screen.getByTestId('drawer-expand-chevron-button');
       expect(expandButton).toBeInTheDocument();
+    });
+
+    it('asserts outer Drawer container maintains stable DOM identity across winery transitions while inner content resets', () => {
+      const mockWinery2 = createMockWinery({
+        id: 'winery-2' as GooglePlaceId,
+        dbId: 43 as WineryDbId,
+        name: 'Second Winery',
+      });
+      useWineryStore.setState({
+        persistentWineries: [mockWinery, mockWinery2],
+      });
+
+      const { rerender } = render(<WineryModal />);
+
+      const outerDrawerBefore = screen.getByTestId('winery-modal-drawer');
+      expect(outerDrawerBefore).toBeInTheDocument();
+
+      const innerContentBefore = screen.getByTestId('winery-modal-content');
+      expect(innerContentBefore).toHaveAttribute('data-winery-id', TEST_WINERY_ID);
+
+      act(() => {
+        useUIStore.setState({ activeWineryId: 'winery-2' as GooglePlaceId });
+      });
+      rerender(<WineryModal />);
+
+      const outerDrawerAfter = screen.getByTestId('winery-modal-drawer');
+      expect(outerDrawerAfter).toBe(outerDrawerBefore);
+
+      const innerContentAfter = screen.getByTestId('winery-modal-content');
+      expect(innerContentAfter).toHaveAttribute('data-winery-id', 'winery-2');
     });
   });
 });
