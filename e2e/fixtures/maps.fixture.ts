@@ -7,6 +7,7 @@ import { MapMarkerRpc, WineryDbId, GooglePlaceId } from '@/lib/types';
 export class MapsFixtureManager {
   private swEnabled = false;
   private workerIndex: number;
+  private diagnosticLogs: string[] = [];
 
   constructor(private page: Page, workerIndex: number = 0) {
     this.workerIndex = workerIndex;
@@ -25,17 +26,38 @@ export class MapsFixtureManager {
   }
 
   /**
+   * Flushes buffered diagnostic and network logs upon test failure.
+   */
+  flushDiagnosticLogs() {
+    if (this.diagnosticLogs.length > 0) {
+      console.log('\n--- Flushed Diagnostic & Network Logs for Failed Spec ---');
+      for (const entry of this.diagnosticLogs) {
+        console.log(entry);
+      }
+      this.diagnosticLogs = [];
+    }
+  }
+
+  /**
    * Sets up console and request logging for the current page.
+   * Buffers routine 200 OK and info logs; immediately logs errors (4xx/5xx or console errors).
+   * Buffers are automatically flushed if the test fails.
    */
   setupLogging() {
     const page = this.page;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
+    const isVerbose = process.env.DEBUG_E2E === 'true' || process.env.VERBOSE === 'true';
 
     const logHandler = (msg: any) => {
       const text = msg.text();
       const type = msg.type();
+      const formatted = `[BROWSER-${type.toUpperCase()}] ${text}`;
 
-      console.log(`[BROWSER-${type.toUpperCase()}] ${text}`);
+      if (isVerbose || type === 'error') {
+        console.log(formatted);
+      } else {
+        this.diagnosticLogs.push(formatted);
+      }
 
       if (text.includes('Hydration') || text.includes('Error') || type === 'error' || text.includes('403')) {
         if (text.includes('[DIAGNOSTIC]')) return; 
@@ -64,7 +86,12 @@ export class MapsFixtureManager {
                                  text.includes('Attempted to load a Vector Map, but failed');
         
         if (!isInfrastructure && !isExpectedOfflineError && !isThirdPartyNoise) {
-          console.log(`[DIAGNOSTIC] Would have failed due to console error: ${text}`);
+          const warning = `[DIAGNOSTIC] Would have failed due to console error: ${text}`;
+          if (isVerbose) {
+            console.log(warning);
+          } else {
+            this.diagnosticLogs.push(warning);
+          }
         }
       }
     };
@@ -77,7 +104,12 @@ export class MapsFixtureManager {
     page.on('request', request => {
       const url = request.url();
       if (url.includes('rpc/') || url.includes('google') || url.includes(supabaseHost)) {
-        console.log(`[DIAGNOSTIC] [NETWORK-REQ] ${request.method()} ${url}`);
+        const line = `[DIAGNOSTIC] [NETWORK-REQ] ${request.method()} ${url}`;
+        if (isVerbose) {
+          console.log(line);
+        } else {
+          this.diagnosticLogs.push(line);
+        }
       }
     });
 
@@ -85,7 +117,12 @@ export class MapsFixtureManager {
       const url = response.url();
       if (url.includes('rpc/') || url.includes('google') || url.includes(supabaseHost)) {
         const status = response.status();
-        console.log(`[DIAGNOSTIC] [NETWORK-RES] ${status} ${url}`);
+        const line = `[DIAGNOSTIC] [NETWORK-RES] ${status} ${url}`;
+        if (isVerbose || status >= 400) {
+          console.log(line);
+        } else {
+          this.diagnosticLogs.push(line);
+        }
         if (status >= 400) {
           try {
             const body = await response.text();
