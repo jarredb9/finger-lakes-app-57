@@ -85,10 +85,10 @@ Focus: Upgrade `@playwright/test` and the Playwright container image to 1.63 (No
 ## Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling
 Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/fixtures/`, maintain backward compatibility through `e2e/utils.ts`, and eliminate store-poking in E2E helpers.
 
-- [ ] Task: Create fixture contract parity tests and E2E readiness canary (Red Phase)
-    - [ ] Create `e2e/__tests__/fixture-contract.test.ts` asserting interface parity, failure injectors, and bypasses
-    - [ ] Create `e2e/canary-readiness.spec.ts` asserting readiness verification without window store access
-    - [ ] Verify tests fail before modular fixtures are built (Red phase)
+- [x] Task: Create fixture contract parity tests and E2E readiness canary (Red Phase) [7f2ed58]
+    - [x] Create `e2e/__tests__/fixture-contract.test.ts` asserting interface parity, failure injectors, and bypasses
+    - [x] Create `e2e/canary-readiness.spec.ts` asserting readiness verification without window store access
+    - [x] Verify tests fail before modular fixtures are built (Red phase)
 - [ ] Task: Implement modular route fixtures under e2e/fixtures/ (Green Phase - Expand-and-Contract Part A: Expand)
     - [ ] Create `e2e/fixtures/maps.fixture.ts` isolating Google Places REST, JS SDK mocks, and tile/asset mocks
     - [ ] Create `e2e/fixtures/auth.fixture.ts` handling Supabase Auth sessions, profiles, and test user fixtures
