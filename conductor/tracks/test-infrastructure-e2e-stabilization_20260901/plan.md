@@ -82,7 +82,7 @@ Focus: Upgrade `@playwright/test` and the Playwright container image to 1.63 (No
     - [x] Confirm zero host `node_modules` pollution under volume isolation
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Playwright 1.63 Container & NPM Package Upgrade' (Protocol in workflow.md) [bd9287e]
 
-## Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling
+## Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling [checkpoint: 9ef4806]
 Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/fixtures/`, maintain backward compatibility through `e2e/utils.ts`, and eliminate store-poking in E2E helpers.
 
 - [x] Task: Create fixture contract parity tests and E2E readiness canary (Red Phase) [7f2ed58]
@@ -103,7 +103,7 @@ Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/f
     - [x] Remove `window.useMapStore.getState().setBounds(...)` poking from `waitForMapReady()`
     - [x] Refactor `expectTripInStore` and `expectTripDeletedFromStore` to remove store fetch poking in retry loops
     - [x] Migrate `e2e/trip-sharing.spec.ts` away from `injectTripState` to route mocks; deprecate unused injectors
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling' (Protocol in workflow.md) [9ef4806]
 
 ## Phase 7: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
 Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, eliminate all 12 `waitForTimeout` calls, and resolve 24 `{ force: true }` clicks.
