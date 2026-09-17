@@ -148,3 +148,4 @@ Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offlin
 
 ## Phase: Review Fixes
 - [x] Task: Audit and prune previous conductor track's post-TDD scaffolding tests (5b77e92)
+- [x] Task: Apply review suggestions [c3bf048]
