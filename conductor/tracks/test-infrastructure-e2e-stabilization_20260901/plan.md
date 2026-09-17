@@ -76,10 +76,10 @@ Focus: Upgrade `@playwright/test` and the Playwright container image to 1.63 (No
     - [x] Pull `mcr.microsoft.com/playwright:v1.63.0-noble` and verify image inspect/exists in Podman
     - [x] Run container smoke verification across `chromium`, `webkit`, and `Mobile Safari`
     - [x] Run `./scripts/run-jest-container.sh` to confirm Jest 30 tests pass cleanly without glibc or Node regressions in the new image
-- [ ] Task: Remediate 1.58 -> 1.63 deprecations and run baseline E2E smoke suite (Green Phase)
-    - [ ] Audit and remediate any Playwright 1.63 breaking changes (locator strictness, network interception, snapshot config)
-    - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/auth-recovery.spec.ts` inside container
-    - [ ] Confirm zero host `node_modules` pollution under volume isolation
+- [x] Task: Remediate 1.58 -> 1.63 deprecations and run baseline E2E smoke suite (Green Phase) [701f084]
+    - [x] Audit and remediate any Playwright 1.63 breaking changes (locator strictness, network interception, snapshot config)
+    - [x] Run `./scripts/run-e2e-container.sh webkit e2e/auth-recovery.spec.ts` inside container
+    - [x] Confirm zero host `node_modules` pollution under volume isolation
 - [ ] Task: Conductor - User Manual Verification 'Phase 5: Playwright 1.63 Container & NPM Package Upgrade' (Protocol in workflow.md)
 
 ## Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling
