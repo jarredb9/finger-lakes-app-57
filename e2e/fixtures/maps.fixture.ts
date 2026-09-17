@@ -420,13 +420,163 @@ export class MapsFixtureManager {
         })
       });
     });
+
+    // 9. Google Maps Tiles Handler
+    await this.page.context().route(/google\.com\/maps\/vt\/tile|google\.com\/vt\/tile/, async (route) => {
+      return route.fulfill({
+        contentType: 'image/png',
+        body: Buffer.from('iVBORw0KGgoAAAANghjYAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+      });
+    });
+
+    // 10. Google Fonts Handler
+    await this.page.context().route(/fonts\.(googleapis|gstatic)\.com/, async (route) => {
+      const type = route.request().resourceType();
+      if (type === 'font' || type === 'stylesheet') return route.fulfill({ status: 200, contentType: type === 'font' ? 'font/woff2' : 'text/css', body: '' });
+      return route.fallback();
+    });
+
+    // 11. Mapbox API Handlers
+    await this.page.context().route(/api\.mapbox\.com\/styles\/v1/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: JSON.stringify({
+          version: 8,
+          sources: {},
+          layers: [],
+          glyphs: 'mapbox://fonts/mapbox/{fontstack}/{range}.pbf'
+        })
+      });
+    });
+
+    await this.page.context().route(/api\.mapbox\.com\/fonts\/v1/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/x-protobuf',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: Buffer.alloc(0)
+      });
+    });
+
+    await this.page.context().route(/api\.mapbox\.com\/sprites\/v1/, async (route) => {
+      if (route.request().url().endsWith('.json')) {
+        await route.fulfill({ 
+          status: 200, 
+          contentType: 'application/json', 
+          headers: { 'Access-Control-Allow-Origin': '*' },
+          body: '{}' 
+        });
+      } else {
+        await route.fulfill({ 
+          status: 200, 
+          contentType: 'image/png', 
+          headers: { 'Access-Control-Allow-Origin': '*' },
+          body: Buffer.from('iVBORw0KGgoAAAghjYAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64') 
+        });
+      }
+    });
+
+    await this.page.context().route(/(api\.mapbox\.com\/v4\/|\.tiles\.mapbox\.com)/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'image/png',
+        headers: { 'Access-Control-Allow-Origin': '*' },
+        body: Buffer.from('iVBORw0KGgoAAAghjYAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
+      });
+    });
+
+    // 12. Supabase Edge Functions Handler
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
+    const supabaseUrlObj = new URL(supabaseUrl);
+    const supabaseHost = supabaseUrlObj.host.replace(/\./g, '\\.');
+
+    await this.page.context().route(new RegExp(`${supabaseHost}/functions/v1/`), async (route) => {
+      const req = route.request();
+      const url = req.url();
+      const method = req.method();
+
+      if (method === 'OPTIONS') return route.fulfill({ status: 204, headers: commonHeaders });
+
+      if (url.includes('search-wineries')) {
+        const mockWineries = markers.map(m => ({
+          id: m.google_place_id,
+          name: m.name,
+          address: m.address,
+          latitude: m.latitude,
+          longitude: m.longitude,
+          rating: 4.8,
+          enrichment_tier: 'basic',
+          last_enriched_at: null,
+          generative_summary: null
+        }));
+        return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(mockWineries) });
+      }
+
+      if (url.includes('get-winery-details')) {
+        let placeId = 'ch-12345-mock-winery-1';
+        try {
+          const postData = JSON.parse(req.postData() || '{}');
+          if (postData.placeId) placeId = postData.placeId;
+        } catch (e) {}
+
+        const marker = markers.find(m => m.google_place_id === placeId);
+        const isWinery2 = placeId === 'ch-67890-mock-winery-2';
+        const isWinery3 = placeId === 'ch-abcde-mock-winery-3';
+        const isUnknownWinery = isWinery2 || isWinery3;
+
+        const detailedWinery = {
+          id: placeId,
+          name: marker?.name || 'Mock Enriched Winery',
+          address: marker?.address || '123 Enrichment Ave',
+          latitude: marker?.latitude || 42.7,
+          longitude: marker?.longitude || -76.9,
+          rating: 4.9,
+          enrichment_tier: 'enriched',
+          last_enriched_at: new Date().toISOString(),
+          generative_summary: 'This winery has been enriched with AI insights. It features award-winning Rieslings and a stunning lake view.',
+          neighborhood_summary: 'The surrounding area is known for its rolling hills and proximity to Seneca Lake.',
+          allows_dogs: isUnknownWinery ? null : true,
+          has_ev_charging: isUnknownWinery ? null : true,
+          serves_wine: true,
+          good_for_children: isUnknownWinery ? null : true,
+          outdoor_seating: isUnknownWinery ? null : true,
+          parking_options: isUnknownWinery ? { freeParking: null } : { freeParking: true },
+          accessibility_options: isUnknownWinery ? { wheelchairAccessibleEntrance: null } : { wheelchairAccessibleEntrance: true },
+          reviews: isWinery2 ? [] : [
+            {
+              author_name: 'John Doe',
+              text: 'Loved the outdoor seating patio and they have electric vehicle ev charging, but parking is a bit hard.',
+              relative_time_description: 'a week ago',
+              rating: 5
+            },
+            {
+              author_name: 'Jane Smith',
+              text: 'Great Riesling, and we really enjoyed the outdoor atmosphere and outdoor area. Perfect for a sunny day.',
+              relative_time_description: '2 weeks ago',
+              rating: 4
+            }
+          ]
+        };
+        return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify(detailedWinery) });
+      }
+
+      return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true, data: {} }) });
+    });
   }
 
   /**
    * Sets up WebGL mocks and Mapbox support in headless browser context.
    */
   async setupWebGLAndMapMocks() {
-    await this.page.addInitScript(({ swEnabled, workerIndex }: { swEnabled: boolean, workerIndex: number }) => {
+    const markers: MapMarkerRpc[] = [
+      createMockMapMarkerRpc({ id: 1 as WineryDbId, google_place_id: 'ch-12345-mock-winery-1' as GooglePlaceId, name: 'Mock Winery One' }),
+      createMockMapMarkerRpc({ id: 2 as WineryDbId, google_place_id: 'ch-67890-mock-winery-2' as GooglePlaceId, name: 'Vineyard of Illusion' }),
+      createMockMapMarkerRpc({ id: 3 as WineryDbId, google_place_id: 'ch-abcde-mock-winery-3' as GooglePlaceId, name: 'The Phantom Cellar' })
+    ];
+
+    await (this.page.addInitScript as any)(({ swEnabled, workerIndex, mockMarkers }: any) => {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
           for (const registration of registrations) {
@@ -528,8 +678,71 @@ export class MapsFixtureManager {
 
         (window as any).mapboxgl = (window as any).mapboxgl || {};
         (window as any).mapboxgl.supported = () => true;
+
+        const inject = () => {
+          // @ts-ignore
+          if (window._E2E_SKIP_WINERY_INJECTION) return false;
+
+          // @ts-ignore
+          const wineryStore = window.useWineryDataStore;
+          // @ts-ignore
+          const mapStore = window.useMapStore;
+
+          if (wineryStore && wineryStore.getState) {
+            const state = wineryStore.getState();
+            // @ts-ignore
+            if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0) {
+              // @ts-ignore
+              const standardizer = window.standardizeWineryData || ((m: any) => ({
+                id: m.google_place_id,
+                dbId: Number(m.id),
+                name: m.name,
+                address: m.address || 'Mock Address',
+                latitude: Number(m.latitude || m.lat || 0),
+                longitude: Number(m.longitude || m.lng || 0),
+                rating: Number(m.google_rating) || 4.5,
+                userVisited: false,
+                onWishlist: false,
+                isFavorite: false,
+                visits: [],
+                openingHours: null,
+                reviews: []
+              }));
+
+              const standardized = mockMarkers.map((m: any) => standardizer(m)).filter((w: any) => w !== null);
+              (wineryStore as any).setState({ persistentWineries: standardized });
+              // @ts-ignore
+              window._E2E_INJECTED = true;
+            }
+          }
+
+          if (mapStore && mapStore.getState) {
+            const state = mapStore.getState();
+            if (!state.bounds) {
+              mapStore.setState({ 
+                bounds: { 
+                  north: 43,
+                  south: 42,
+                  east: -76,
+                  west: -77,
+                } 
+              });
+            }
+          }
+          
+          // @ts-ignore
+          if (window.google && window.google.maps) {
+            const maps = window.google.maps;
+            if (maps.LatLngBounds) maps.LatLngBounds.prototype.contains = () => true;
+            return true;
+          }
+          return false;
+        };
+        inject();
+        const intervalId = setInterval(inject, 200);
+        setTimeout(() => clearInterval(intervalId), 5000);
       }
-    }, { swEnabled: this.swEnabled, workerIndex: this.workerIndex });
+    }, { swEnabled: this.swEnabled, workerIndex: this.workerIndex, mockMarkers: markers } as any);
   }
 }
 

@@ -36,6 +36,30 @@ export class CompositeMockMapsManager {
     return this.trips.getState();
   }
 
+  get state(): MockMapsState {
+    return this.trips.getState();
+  }
+
+  get currentUserId(): string {
+    return this.auth.getCurrentUserId();
+  }
+  set currentUserId(id: string) {
+    this.auth.setCurrentUserId(id);
+    this.trips.setCurrentUserId(id);
+  }
+
+  get userProfilesState() {
+    return this.auth.getUserProfilesState();
+  }
+
+  get swEnabled(): boolean {
+    return this.maps.isServiceWorkerEnabled();
+  }
+
+  get workerIndex(): number {
+    return this.maps.getWorkerIndex();
+  }
+
   getEquivalentWineryIds(rawId: string | number | undefined | null, markersList: MapMarkerRpc[] = []): string[] {
     return this.maps.getEquivalentWineryIds(rawId, markersList);
   }
@@ -191,6 +215,9 @@ export const test = base.extend<{
 });
 
 export { expect } from '@playwright/test';
+
+export { CompositeMockMapsManager as MockMapsManager };
+export { createMockTrip, createMockVisitWithWinery, createMockMapMarkerRpc } from '@/lib/test-utils/fixtures';
 
 // Re-export modular managers and types
 export { MapsFixtureManager, mapsFixture } from './maps.fixture';
