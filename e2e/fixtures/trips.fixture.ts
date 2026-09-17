@@ -174,16 +174,6 @@ export class TripsFixtureManager {
         });
       }
 
-      // Specific RPC Implementations
-      if (url.includes('definitely_does_not_exist_rpc_12345')) {
-        return route.fulfill({
-          status: 404,
-          contentType: 'application/json',
-          headers: commonHeaders,
-          body: JSON.stringify({ code: '42883', message: 'function definitely_does_not_exist_rpc_12345() does not exist' })
-        });
-      }
-
       if (url.includes('get_trips_for_date')) {
         const postData = JSON.parse(req.postData() || '{}');
         const targetDate = postData.target_date;
