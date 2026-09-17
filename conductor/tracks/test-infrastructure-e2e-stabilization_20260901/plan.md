@@ -98,11 +98,11 @@ Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/f
     - [x] Replace internal monolithic implementation in `e2e/utils.ts` with delegation to modular fixtures in `e2e/fixtures/`
     - [x] Re-export `test`, `expect`, `MockMapsManager` adapter class, `createDefaultMockState`, and types
     - [x] Verify existing multi-context specs pass with zero spec code changes
-- [ ] Task: Refactor e2e/helpers.ts to eliminate store-poking in assertion retries (Green Phase - Expand-and-Contract Part C: Caller Migration)
-    - [ ] Replace store hydration polling in `login()` with DOM readiness checks (`data-state="ready"`)
-    - [ ] Remove `window.useMapStore.getState().setBounds(...)` poking from `waitForMapReady()`
-    - [ ] Refactor `expectTripInStore` and `expectTripDeletedFromStore` to remove store fetch poking in retry loops
-    - [ ] Migrate `e2e/trip-sharing.spec.ts` away from `injectTripState` to route mocks; deprecate unused injectors
+- [x] Task: Refactor e2e/helpers.ts to eliminate store-poking in assertion retries (Green Phase - Expand-and-Contract Part C: Caller Migration) [6fa3871]
+    - [x] Replace store hydration polling in `login()` with DOM readiness checks (`data-state="ready"`)
+    - [x] Remove `window.useMapStore.getState().setBounds(...)` poking from `waitForMapReady()`
+    - [x] Refactor `expectTripInStore` and `expectTripDeletedFromStore` to remove store fetch poking in retry loops
+    - [x] Migrate `e2e/trip-sharing.spec.ts` away from `injectTripState` to route mocks; deprecate unused injectors
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling' (Protocol in workflow.md)
 
 ## Phase 7: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
