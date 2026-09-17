@@ -72,10 +72,10 @@ Focus: Upgrade `@playwright/test` and the Playwright container image to 1.63 (No
     - [x] Bump `@playwright/test` to `1.63.0` in `package.json` and sync `package-lock.json`
     - [x] Update `PLAYWRIGHT_VERSION="v1.63.0-noble"` in `scripts/run-e2e-container.sh`, `scripts/run-jest-container.sh`, `scripts/run-dev-container.sh`, and `scripts/run-build-container.sh`
     - [x] Verify version check test fails before container pull/build and passes after (Red/Green)
-- [ ] Task: Pull 1.63 container image, certify browser engines, and verify Jest runner (Green Phase)
-    - [ ] Pull `mcr.microsoft.com/playwright:v1.63.0-noble` and verify image inspect/exists in Podman
-    - [ ] Run container smoke verification across `chromium`, `webkit`, and `Mobile Safari`
-    - [ ] Run `./scripts/run-jest-container.sh` to confirm Jest 30 tests pass cleanly without glibc or Node regressions in the new image
+- [x] Task: Pull 1.63 container image, certify browser engines, and verify Jest runner (Green Phase) [96dad40]
+    - [x] Pull `mcr.microsoft.com/playwright:v1.63.0-noble` and verify image inspect/exists in Podman
+    - [x] Run container smoke verification across `chromium`, `webkit`, and `Mobile Safari`
+    - [x] Run `./scripts/run-jest-container.sh` to confirm Jest 30 tests pass cleanly without glibc or Node regressions in the new image
 - [ ] Task: Remediate 1.58 -> 1.63 deprecations and run baseline E2E smoke suite (Green Phase)
     - [ ] Audit and remediate any Playwright 1.63 breaking changes (locator strictness, network interception, snapshot config)
     - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/auth-recovery.spec.ts` inside container
