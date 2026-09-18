@@ -136,11 +136,11 @@ Focus: Decompose monolithic `e2e/helpers.ts` (1,013 lines) into granular, single
     - [x] Refactor `e2e/helpers.ts` into a lightweight delegation façade (`export * from './helpers/index';`)
     - [x] Verify `helper-contracts.test.ts` passes and `npm run type-check` succeeds with 0 errors (Green phase)
     - [x] Remove redundant `e2e/helpers.ts` façade in favor of directory resolution (`./helpers` -> `e2e/helpers/index.ts`)
-- [ ] Task: Verify E2E multi-spec smoke and regression safety in container (Verification)
-    - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/auth-recovery.spec.ts`
-    - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/canary-readiness.spec.ts`
-    - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/visit-flow.spec.ts`
-    - [ ] Confirm zero regression across existing specs without modifying spec import paths
+- [x] Task: Verify E2E multi-spec smoke and regression safety in container (Verification) [cb70fe5]
+    - [x] Run `./scripts/run-e2e-container.sh webkit e2e/auth-recovery.spec.ts`
+    - [x] Run `./scripts/run-e2e-container.sh webkit e2e/canary-readiness.spec.ts`
+    - [x] Run `./scripts/run-e2e-container.sh webkit e2e/visit-flow.spec.ts`
+    - [x] Confirm zero regression across existing specs without modifying spec import paths
 - [ ] Task: Conductor - User Manual Verification 'Phase 8: E2E Helper Modularization & Domain Decomposition' (Protocol in workflow.md)
 
 ## Phase 9: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
