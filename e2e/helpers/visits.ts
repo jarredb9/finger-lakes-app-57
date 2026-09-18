@@ -22,9 +22,9 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
     if (data.isPrivate) await visitModal.getByLabel(/Make this visit private/i).check();
     
     const saveBtn = visitModal.getByTestId('visit-save-button');
-    
-    // Buffer for React event loop
-    await page.waitForTimeout(500);
+    await expect(visitModal.getByLabel('Your Review')).toHaveValue(data.review);
+    await expect(saveBtn).toBeVisible();
+    await expect(saveBtn).toBeEnabled();
     await saveBtn.click({ force: true });
 
     await expect(async () => {

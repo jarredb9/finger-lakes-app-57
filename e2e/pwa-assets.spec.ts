@@ -114,19 +114,17 @@ test.describe('PWA Assets & Sync', () => {
     console.log('[Test] Going online...');
     await context.setOffline(false);
     
-    // Give time to settle the network stack and avoid the "Load failed" engine bug
-    console.log('[Test] Waiting for network to settle (5s)...');
-    await page.waitForTimeout(5000);
-    
-    console.log('[Test] Triggering manual sync...');
-    await page.evaluate(async () => {
-        // @ts-ignore
-        await window.SyncService.sync();
-    });
+    // Wait for browser network status to report online
+    await expect.poll(() => page.evaluate(() => window.navigator.onLine), { timeout: 10000 }).toBe(true);
 
     // 6. Wait for Sync
     console.log('[Test] Waiting for sync results...');
     await expect(async () => {
+        // Trigger manual sync in retry loop if still pending
+        await page.evaluate(async () => {
+            await (window as any).SyncService?.sync?.();
+        });
+
         // Verify via store state (Senior Standard)
         const queueLength = await page.evaluate(() => (window as any).useSyncStore.getState().queue.length);
         

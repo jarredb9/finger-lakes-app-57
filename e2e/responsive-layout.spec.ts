@@ -39,7 +39,6 @@ test.describe('Adaptive 3-Tier Responsive Layout Suite', () => {
   test('Tier 1: Mobile layout (< 768px) displays bottom nav, bottom sheet drawer, and mobile winery drawer', async ({ page }) => {
     // 1. Set mobile viewport (iPhone 13 / 14: 390x844)
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.waitForTimeout(200);
 
     // 2. Verify mobile navigation bar is visible and floating
     const navBar = page.getByTestId('mobile-nav-bar');
@@ -64,7 +63,6 @@ test.describe('Adaptive 3-Tier Responsive Layout Suite', () => {
   test('Tier 2: Tablet portrait layout (768px - 1024px) displays full map canvas, floating drawer, and floating winery sheet', async ({ page }) => {
     // 1. Set iPad portrait viewport (810x1080)
     await page.setViewportSize({ width: 810, height: 1080 });
-    await page.waitForTimeout(200);
 
     // 2. Verify tablet floating drawer overlay is present and expanded by default
     const tabletDrawer = page.getByTestId('tablet-floating-drawer');
@@ -98,7 +96,6 @@ test.describe('Adaptive 3-Tier Responsive Layout Suite', () => {
   test('Tier 3: Desktop layout (≥ 1024px) displays persistent split-pane sidebar and desktop modal dialog', async ({ page }) => {
     // 1. Set desktop viewport (1280x800)
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.waitForTimeout(200);
 
     // 2. Verify desktop split-pane sidebar container is visible
     const desktopSidebar = page.getByTestId('desktop-sidebar-container');
@@ -119,24 +116,20 @@ test.describe('Adaptive 3-Tier Responsive Layout Suite', () => {
   test('Dynamic Viewport Resizing: preserves state and seamlessly transitions across mobile, tablet, and desktop tiers', async ({ page }) => {
     // 1. Start on Desktop viewport (1280x800)
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.waitForTimeout(200);
     await expect(page.getByTestId('desktop-sidebar-container')).toBeVisible();
 
     // 2. Resize dynamically to Tablet portrait (810x1080)
     await page.setViewportSize({ width: 810, height: 1080 });
-    await page.waitForTimeout(200);
     await expect(page.getByTestId('tablet-floating-drawer')).toBeVisible();
     await expect(page.getByTestId('desktop-sidebar-container')).not.toBeVisible();
 
     // 3. Resize dynamically to Mobile (390x844)
     await page.setViewportSize({ width: 390, height: 844 });
-    await page.waitForTimeout(200);
     await expect(page.getByTestId('mobile-nav-bar')).toBeVisible();
     await expect(page.getByTestId('tablet-floating-drawer')).not.toBeVisible();
 
     // 4. Resize back to Desktop
     await page.setViewportSize({ width: 1280, height: 800 });
-    await page.waitForTimeout(200);
     await expect(page.getByTestId('desktop-sidebar-container')).toBeVisible();
     await expect(page.getByTestId('mobile-nav-bar')).not.toBeVisible();
   });

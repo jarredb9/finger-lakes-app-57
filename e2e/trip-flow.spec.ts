@@ -96,9 +96,7 @@ test.describe('Trip Planning Flow', () => {
         
         const confirmBtn = page.getByTestId('confirm-delete-trip-btn');
         await expect(confirmBtn).toBeVisible({ timeout: 5000 });
-        
-        // Firefox needs a tiny bit of breathing room for the event listener to attach to the dialog button
-        await page.waitForTimeout(500);
+        await expect(confirmBtn).toBeEnabled({ timeout: 5000 });
 
         await Promise.all([
             page.waitForResponse(resp => (resp.url().includes('delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')) && [200, 204].includes(resp.status()), { timeout: 15000 }),
