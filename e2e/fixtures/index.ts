@@ -231,6 +231,12 @@ export { createMockTrip, createMockVisitWithWinery, createMockMapMarkerRpc } fro
 export { MapsFixtureManager, mapsFixture } from './maps.fixture';
 export { AuthFixtureManager, authFixture, getAdminClient, supabase, createTestUser, deleteTestUser } from './auth.fixture';
 export { TripsFixtureManager, tripsFixture } from './trips.fixture';
+export { TripsHandler } from './handlers/trips.handler';
+export { VisitsHandler } from './handlers/visits.handler';
+export { SocialHandler } from './handlers/social.handler';
+export { FavoritesHandler } from './handlers/favorites.handler';
+export { PlacesHandler } from './handlers/places.handler';
+export { AssetsHandler } from './handlers/assets.handler';
 export * from './types';
 
 /** @deprecated Use mockMaps fixture */
