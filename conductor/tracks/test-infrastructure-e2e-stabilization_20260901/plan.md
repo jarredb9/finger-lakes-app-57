@@ -146,12 +146,12 @@ Focus: Decompose monolithic `e2e/helpers.ts` (1,013 lines) into granular, single
 ## Phase 9: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
 Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, eliminate all 12 `waitForTimeout` calls, and resolve 24 `{ force: true }` clicks across 8 files/modules.
 
-- [ ] Task: Configure ESLint Playwright guardrails and visual snapshot tolerances (Red Phase)
-    - [ ] Add `eslint-plugin-playwright` to `devDependencies` in `package.json`
-    - [ ] Configure `files: ['e2e/**/*.{ts,js}']` in `eslint.config.mjs` with `'playwright/no-wait-for-timeout': 'error'` and `'playwright/no-force-option': 'warn'`
-    - [ ] Update `playwright.config.ts` to set `maxDiffPixelRatio: 0.01` (1%)
-    - [ ] Remove the 7 inline `maxDiffPixelRatio: 0.10` overrides from `e2e/visual.spec.ts`
-    - [ ] Run `npm run lint` and confirm it flags the 12 `waitForTimeout` calls as errors (Red phase)
+- [x] Task: Configure ESLint Playwright guardrails and visual snapshot tolerances (Red Phase) [fa32d9d]
+    - [x] Add `eslint-plugin-playwright` to `devDependencies` in `package.json`
+    - [x] Configure `files: ['e2e/**/*.{ts,js}']` in `eslint.config.mjs` with `'playwright/no-wait-for-timeout': 'error'` and `'playwright/no-force-option': 'warn'`
+    - [x] Update `playwright.config.ts` to set `maxDiffPixelRatio: 0.01` (1%)
+    - [x] Remove the 7 inline `maxDiffPixelRatio: 0.10` overrides from `e2e/visual.spec.ts`
+    - [x] Run `npm run lint` and confirm it flags the 12 `waitForTimeout` calls as errors (Red phase)
 - [ ] Task: Eliminate all 12 page.waitForTimeout() sleeps across test suite (Green Phase)
     - [ ] Refactor `e2e/pwa-assets.spec.ts:119`, `e2e/photo-flow.spec.ts:102`, `e2e/responsive-layout.spec.ts` (7 calls), `e2e/helpers/wineries.ts` (1 call in `openWineryDetails`), `e2e/helpers/visits.ts` (1 call in `logVisit`), and `e2e/trip-flow.spec.ts:101`
     - [ ] Replace sleeps with auto-retrying assertions (`waitForResponse`, `toBeVisible`, `toPass`, `expect.poll`)
