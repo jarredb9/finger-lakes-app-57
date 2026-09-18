@@ -1,5 +1,5 @@
- 
 import { Page } from '@playwright/test';
+import { getTodayLocal } from '@/lib/utils';
 import { createMockTrip } from '@/lib/test-utils/fixtures';
 import { MockMapsState, createDefaultMockState } from '../types';
 
@@ -52,7 +52,7 @@ export class TripsHandler {
   }
 
   initDefaultState() {
-    const todayCA = new Date().toLocaleDateString('en-CA');
+    const todayCA = getTodayLocal();
 
     if (!this.state.trips) {
       this.state.trips = [

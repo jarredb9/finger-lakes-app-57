@@ -1,5 +1,5 @@
- 
 import { Page } from '@playwright/test';
+import { getTodayLocal } from '@/lib/utils';
 import { createMockVisitWithWinery } from '@/lib/test-utils/fixtures';
 import { MapMarkerRpc, WineryDbId, GooglePlaceId } from '@/lib/types';
 import { MockMapsState, createDefaultMockState } from '../types';
@@ -78,7 +78,7 @@ export class VisitsHandler {
     };
 
     const markers = this.markers;
-    const todayCA = new Date().toLocaleDateString('en-CA');
+    const todayCA = getTodayLocal();
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
     let supabaseHost = 'localhost:54321';
     try {

@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { Page } from '@playwright/test';
+import { Page, ConsoleMessage } from '@playwright/test';
 
 export class DiagnosticLogger {
   private diagnosticLogs: string[] = [];
@@ -29,7 +29,7 @@ export class DiagnosticLogger {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'http://localhost:54321';
     const isVerbose = process.env.DEBUG_E2E === 'true' || process.env.VERBOSE === 'true';
 
-    const logHandler = (msg: any) => {
+    const logHandler = (msg: ConsoleMessage) => {
       const text = msg.text();
       const type = msg.type();
       const formatted = `[BROWSER-${type.toUpperCase()}] ${text}`;
