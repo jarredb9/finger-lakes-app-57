@@ -143,7 +143,7 @@ Focus: Decompose monolithic `e2e/helpers.ts` (1,013 lines) into granular, single
     - [x] Confirm zero regression across existing specs without modifying spec import paths
 - [x] Task: Conductor - User Manual Verification 'Phase 8: E2E Helper Modularization & Domain Decomposition' (Protocol in workflow.md) [c0ccddc]
 
-## Phase 9: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
+## Phase 9: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination [checkpoint: 67ffab3]
 Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, eliminate all 12 `waitForTimeout` calls, and resolve 24 `{ force: true }` clicks across 8 files/modules.
 
 - [x] Task: Configure ESLint Playwright guardrails and visual snapshot tolerances (Red Phase) [fa32d9d]
@@ -160,7 +160,7 @@ Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, elim
     - [x] Resolve illegitimate workarounds by fixing underlying CSS z-index, entry animations, hover triggers, drawer snap points, and button-enabled readiness
     - [x] For verified exceptions where non-standard DOM or gesture overlays genuinely require it, retain `{ force: true }` with explicit inline code comments and `// eslint-disable-next-line playwright/no-force-option`
     - [x] Verify `npm run lint` reports 0 errors and zero unjustified warnings on Playwright rules
-- [ ] Task: Conductor - User Manual Verification 'Phase 9: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 9: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination' (Protocol in workflow.md) [67ffab3]
 
 ## Phase 10: High-Value E2E Feature Coverage
 Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offline reconnection queue drainage.
