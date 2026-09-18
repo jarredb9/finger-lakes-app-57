@@ -254,10 +254,12 @@ test.describe('Granular Domain Helpers Contract Parity (Phase 8)', () => {
         return;
       }
       const barrel = await import(indexFile);
-      const barrelKeys = Object.keys(barrel).sort();
-      const facadeKeys = Object.keys(monolithicHelpers).sort();
+      const isMetaKey = (k: string) => k === '__esModule' || k === 'default' || k === 'module.exports';
+      const barrelKeys = Object.keys(barrel).filter(k => !isMetaKey(k)).sort();
+      const facadeKeys = Object.keys(monolithicHelpers).filter(k => !isMetaKey(k)).sort();
 
       expect(barrelKeys).toEqual(facadeKeys);
+      expect(barrelKeys).toHaveLength(38);
     });
   });
 
