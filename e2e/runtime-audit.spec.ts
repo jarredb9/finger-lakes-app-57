@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 import { test, expect } from './utils';
-import { login, getSidebarContainer } from './helpers';
+import { login, getSidebarContainer, navigateToTab } from './helpers';
 
 test.describe('Runtime & Performance Audit', () => {
   test('should login and check for hydration/console errors', async ({ page, user }) => {
@@ -21,15 +21,7 @@ test.describe('Runtime & Performance Audit', () => {
     await login(page, user.email, user.password);
 
     // 4. Wait for the map/wineries to load
-    const viewport = page.viewportSize();
-    const isMobile = Boolean(viewport && viewport.width < 1024);
-    
-    if (isMobile) {
-        const exploreBtn = page.getByRole('button', { name: 'Explore' });
-        if (await exploreBtn.isVisible()) {
-            await exploreBtn.click({ force: true });
-        }
-    }
+    await navigateToTab(page, 'Explore');
 
     const sidebar = getSidebarContainer(page);
     await expect(sidebar.getByText(/Wineries/i).first()).toBeVisible({ timeout: 20000 });

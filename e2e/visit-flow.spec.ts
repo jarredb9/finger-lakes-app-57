@@ -25,7 +25,10 @@ test.describe('Visit Logging Flow', () => {
     await openWineryDetails(page, 'Mock Winery One');
     
     // 2. Open Log Visit modal
-    await page.getByTestId('log-visit-button').click({ force: true });
+    const logVisitBtn = page.getByTestId('log-visit-button').first();
+    await expect(logVisitBtn).toBeVisible({ timeout: 10000 });
+    await expect(logVisitBtn).toBeEnabled({ timeout: 5000 });
+    await logVisitBtn.click();
 
     // 3. Log Visit
     await logVisit(page, { review: 'Excellent wine and view!', rating: 5 });
@@ -42,8 +45,9 @@ test.describe('Visit Logging Flow', () => {
 
     // 4. Delete Visit
     const deleteBtn = historySidebar.getByRole('button', { name: 'Delete visit' }).first();
-    
-    await deleteBtn.click({ force: true });
+    await expect(deleteBtn).toBeVisible({ timeout: 10000 });
+    await expect(deleteBtn).toBeEnabled({ timeout: 5000 });
+    await deleteBtn.click();
     
     await expectVisitDeletedFromStore(page, 'Excellent wine and view!');
     await expect(historyItem).not.toBeVisible();

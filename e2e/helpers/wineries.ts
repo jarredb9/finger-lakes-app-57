@@ -68,7 +68,7 @@ export async function openWineryDetails(page: Page, wineryName: string, options:
         if (!isFullDrawer) {
             const titleCard = modal.getByTestId('drawer-title-card').first();
             if (await titleCard.isVisible()) {
-                await titleCard.click({ force: true }).catch(() => {});
+                await titleCard.click().catch(() => {});
             }
         }
         await expect(modal.locator('[data-testid="drawer-drag-handle"], [data-testid="drawer-title-card"]').first()).toBeVisible();
@@ -113,7 +113,7 @@ export async function closeWineryModal(page: Page) {
     if (isOpen) {
         const closeBtn = modal.getByRole('button', { name: /Close/i });
         if (await closeBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-            await closeBtn.click({ force: true });
+            await closeBtn.click();
         } else {
             await page.keyboard.press('Escape');
             await page.evaluate(() => {

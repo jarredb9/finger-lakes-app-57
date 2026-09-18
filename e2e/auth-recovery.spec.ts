@@ -66,7 +66,8 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('new-password-123');
 
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await resetBtn.click({ force: true });
+    await expect(resetBtn).toBeEnabled({ timeout: 10000 });
+    await resetBtn.click();
 
     // 5. Verify Success and Redirection
     // Standard: Use the data-testid from the component
@@ -86,7 +87,8 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('password456');
 
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await resetBtn.click({ force: true });
+    await expect(resetBtn).toBeEnabled({ timeout: 10000 });
+    await resetBtn.click();
 
     await expect(page.getByTestId('reset-password-error')).toContainText('Passwords do not match');
   });
@@ -126,7 +128,8 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('new-password-123');
 
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await resetBtn.click({ force: true });
+    await expect(resetBtn).toBeEnabled({ timeout: 10000 });
+    await resetBtn.click();
 
     await expect(page.getByTestId('reset-password-error')).toContainText('Invalid or expired reset token');
   });
