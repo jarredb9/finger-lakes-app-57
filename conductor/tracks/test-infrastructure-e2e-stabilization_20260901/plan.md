@@ -112,12 +112,12 @@ Focus: Decompose monolithic `maps.fixture.ts` (800 lines) and `trips.fixture.ts`
     - [x] Create `e2e/__tests__/handler-contracts.test.ts` asserting contract interfaces, independent initialization, route registration patterns, and bypass toggles for `trips.handler.ts`, `visits.handler.ts`, `social.handler.ts`, `favorites.handler.ts`, `places.handler.ts`, `assets.handler.ts`, `browser.shim.ts`, and `google-maps-sdk.shim.ts`
     - [x] Create `e2e/__tests__/mock-wineries.test.ts` asserting canonical `MOCK_MARKERS` consistency and `getEquivalentWineryIds` normalization
     - [x] Verify tests fail cleanly before modular handlers are implemented (Red phase)
-- [ ] Task: Implement shared utilities, browser shims, and maps sub-handlers (Green Phase - Expand-and-Contract Part A)
-    - [ ] Create `e2e/fixtures/utils/mock-wineries.ts` and `e2e/fixtures/utils/diagnostic-logger.ts`
-    - [ ] Create `e2e/fixtures/shims/browser.shim.ts` (WebGL/Canvas mocks, SW filter, map bounds injection) and `e2e/fixtures/shims/google-maps-sdk.shim.ts` (Maps JS SDK stub)
-    - [ ] Create `e2e/fixtures/handlers/places.handler.ts` (Google Places REST, legacy endpoints, Edge Functions) and `e2e/fixtures/handlers/assets.handler.ts` (tiles, fonts, Mapbox, weather)
-    - [ ] Refactor `e2e/fixtures/maps.fixture.ts` into a lightweight orchestrator (<80 lines) delegating to shims and handlers
-    - [ ] Verify maps contract tests and `auth-recovery.spec.ts` pass cleanly (Green phase)
+- [x] Task: Implement shared utilities, browser shims, and maps sub-handlers (Green Phase - Expand-and-Contract Part A) [93dc4e3]
+    - [x] Create `e2e/fixtures/utils/mock-wineries.ts` and `e2e/fixtures/utils/diagnostic-logger.ts`
+    - [x] Create `e2e/fixtures/shims/browser.shim.ts` (WebGL/Canvas mocks, SW filter, map bounds injection) and `e2e/fixtures/shims/google-maps-sdk.shim.ts` (Maps JS SDK stub)
+    - [x] Create `e2e/fixtures/handlers/places.handler.ts` (Google Places REST, legacy endpoints, Edge Functions) and `e2e/fixtures/handlers/assets.handler.ts` (tiles, fonts, Mapbox, weather)
+    - [x] Refactor `e2e/fixtures/maps.fixture.ts` into a lightweight orchestrator (<80 lines) delegating to shims and handlers
+    - [x] Verify maps contract tests and `auth-recovery.spec.ts` pass cleanly (Green phase)
 - [ ] Task: Implement Supabase domain handlers and refactor trips fixture orchestrator (Green Phase - Expand-and-Contract Part B)
     - [ ] Create `e2e/fixtures/handlers/trips.handler.ts` (trips RPCs & `/rest/v1/trips`), `e2e/fixtures/handlers/visits.handler.ts` (visits RPCs, idempotency), `e2e/fixtures/handlers/social.handler.ts` (social RPCs, friend feed, profile stats), and `e2e/fixtures/handlers/favorites.handler.ts` (favorites, wishlist, privacy, dynamic markers, `/rest/v1/favorites`)
     - [ ] Refactor `e2e/fixtures/trips.fixture.ts` into a lightweight orchestrator (<85 lines) delegating to domain handlers
