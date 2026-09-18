@@ -3,7 +3,7 @@
 ## 1. Overview & Objectives
 This track executes the **Test Automation Infrastructure Modernization & E2E Test Suite Stabilization** initiative for Milestone [v3.6.0 - Architectural Recovery & Test Reliability](https://github.com/jarredb9/finger-lakes-app-57/milestone/1), completing the remaining QA scope of parent epic [#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39) and addressing issues [#38](https://github.com/jarredb9/finger-lakes-app-57/issues/38) and [#25](https://github.com/jarredb9/finger-lakes-app-57/issues/25), building directly on [05-test-infrastructure-e2e-stabilization.md](file:///home/byrnesjd4821/Git/finger-lakes-app-57/conductor/proposals/05-test-infrastructure-e2e-stabilization.md).
 
-The primary objectives are organized into **9 bounded phases** (adhering strictly to Contract Decoupling, Domain Separation, and Bounded Phase Sizing of max 3–4 tasks per phase):
+The primary objectives are organized into **10 bounded phases** (adhering strictly to Contract Decoupling, Domain Separation, and Bounded Phase Sizing of max 3–4 tasks per phase):
 1. **Jest 30 Test Infrastructure, Memory Limits & Module Reset Remediation (Phase 1)**: Eliminate Node 24 JSDOM memory exhaustion by setting `workerIdleMemoryLimit: '512MB'` in `jest.config.mjs`, enabling global mock isolation (`clearMocks: true`), polyfilling `URL.createObjectURL` / `URL.revokeObjectURL` in `jest.setup.ts`, and eliminating `jest.resetModules()` (34 occurrences across 22 test files) by hoisting mocks and utilizing explicit store/service resets.
 2. **Visit Store Domain Invariants & Offline Photo Reconstitution (Phase 2)**: Build comprehensive domain invariant unit testing in `lib/stores/__tests__/visitStore.domainInvariants.test.ts` to test and harden `lib/stores/slices/visitInitHelpers.ts` (raising coverage from 27% to >= 80%), validating binary Base64 photo serialization, React 19 concurrent double-mount deduplication mutex, and offline mutation queue payload reconstitution.
 3. **Supabase Service Mutation Test Suites & Ownership Guards (Phase 3)**: Implement unit test suites covering all 8 methods in `lib/services/__tests__/socialService.test.ts` (raising coverage from 0% to >= 80%) and mutating operations in `lib/services/__tests__/tripService.mutations.test.ts` (multi-winery RPC chaining, trip deletion guards, notes updates, and `.neq('role', 'owner')` owner protection guards).
@@ -11,8 +11,9 @@ The primary objectives are organized into **9 bounded phases** (adhering strictl
 5. **Playwright 1.63 Container & NPM Package Upgrade (Phase 5)**: Upgrade `@playwright/test` to 1.63.0 in `package.json` and sync lockfile, bump `PLAYWRIGHT_VERSION="v1.63.0-noble"` in `scripts/run-e2e-container.sh` and `scripts/run-jest-container.sh`, pull the new Noble container image, certify rootless Podman/Docker execution on RHEL 8 under SELinux `:Z`, verify browser binary parity (`chromium`, `webkit`, `Mobile Safari`, `firefox`), and certify Jest container runner compatibility without Node 24 regressions.
 6. **Modular Route Fixtures & E2E Helper Store-Poking Decoupling (Phase 6)**: Decompose the monolithic ~80 KB `MockMapsManager` in `e2e/utils.ts` into modular route fixtures under `e2e/fixtures/` (`maps.fixture.ts`, `auth.fixture.ts`, `trips.fixture.ts`, `index.ts`) while re-exporting in `e2e/utils.ts` via an expand-and-contract delegation façade to ensure 100% backward compatibility across all 31 existing spec files. Refactor `e2e/helpers.ts` to eliminate store-poking in assertion retries and replace store hydration polling with DOM readiness checks (`data-state="ready"`).
 7. **Fixture Granularization & Domain-Driven Handler Decomposition (Phase 7)**: Decompose monolithic `maps.fixture.ts` (800 lines) and `trips.fixture.ts` (680 lines) into granular, single-responsibility domain handlers, browser shims, and shared utilities under `e2e/fixtures/` (`shims/browser.shim.ts`, `shims/google-maps-sdk.shim.ts`, `handlers/places.handler.ts`, `handlers/assets.handler.ts`, `handlers/trips.handler.ts`, `handlers/visits.handler.ts`, `handlers/social.handler.ts`, `handlers/favorites.handler.ts`, `utils/mock-wineries.ts`, `utils/diagnostic-logger.ts`), reducing orchestrator fixtures to thin facades (<85 lines) while maintaining 100% backward compatibility across all 31 existing spec files.
-8. **E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination (Phase 8)**: Configure `eslint-plugin-playwright` in `eslint.config.mjs` (ESLint 9 Flat Config) with `'playwright/no-wait-for-timeout': 'error'` and `'playwright/no-force-option': 'warn'`. Reduce `maxDiffPixelRatio` in `playwright.config.ts` from `0.10` to `0.01` (1%) and strip inline overrides in `e2e/visual.spec.ts`. Eliminate all 12 `page.waitForTimeout()` sleeps and remediate all 24 `{ force: true }` clicks across 7 files with native actionability fixes.
-9. **High-Value E2E Feature Coverage & Cross-Browser Verification (Phase 9)**: Add end-to-end tests for drag-and-drop itinerary reordering using `@hello-pangea/dnd` in `e2e/trip-management.spec.ts` and offline reconnect queue drainage (`setOffline(false)`) and cache invalidation in `e2e/pwa-offline.spec.ts`. Execute full container test pass across all browser projects (`chromium`, `webkit`, `mobile-safari`, `mobile-chrome`).
+8. **E2E Helper Modularization & Domain Decomposition (Phase 8)**: Decompose the monolithic 1,013-line `e2e/helpers.ts` into granular, single-responsibility domain helper modules under `e2e/helpers/` (`core.ts`, `navigation.ts`, `auth.ts`, `wineries.ts`, `visits.ts`, `social.ts`, `assertions.ts`, `diagnostics.ts`, `index.ts`), converting `e2e/helpers.ts` into a 100% backward-compatible delegation façade (`export * from './helpers/index'`), backed by unit and contract parity tests in `e2e/__tests__/helper-contracts.test.ts`.
+9. **E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination (Phase 9)**: Configure `eslint-plugin-playwright` in `eslint.config.mjs` (ESLint 9 Flat Config) with `'playwright/no-wait-for-timeout': 'error'` and `'playwright/no-force-option': 'warn'`. Reduce `maxDiffPixelRatio` in `playwright.config.ts` from `0.10` to `0.01` (1%) and strip inline overrides in `e2e/visual.spec.ts`. Eliminate all 12 `page.waitForTimeout()` sleeps across test specs and modular helpers (`e2e/helpers/wineries.ts`, `e2e/helpers/visits.ts`) and remediate all 24 `{ force: true }` clicks across 8 files/modules with native actionability fixes.
+10. **High-Value E2E Feature Coverage & Cross-Browser Verification (Phase 10)**: Add end-to-end tests for drag-and-drop itinerary reordering using `@hello-pangea/dnd` in `e2e/trip-management.spec.ts` and offline reconnect queue drainage (`setOffline(false)`) and cache invalidation in `e2e/pwa-offline.spec.ts`. Execute full container test pass across all browser projects (`chromium`, `webkit`, `mobile-safari`, `mobile-chrome`).
 
 
 ---
@@ -77,15 +78,30 @@ The primary objectives are organized into **9 bounded phases** (adhering strictl
   - Certify that the Jest container test runner (`scripts/run-jest-container.sh`), build runner (`scripts/run-build-container.sh`), and dev runner (`scripts/run-dev-container.sh`) continue to pass cleanly on the updated Noble image without Node 24 regressions.
   - Audit and remediate any breaking API changes or locator strictness issues introduced between 1.58 and 1.63.
 
-### 2.4 Flakiness Elimination & Issue #25 Hardening
+### 2.4 E2E Helper Modularization & Domain Decomposition (Phase 8)
+- **QA-17 (Granular Domain Helper Decomposition & Backward-Compatible Façade)**:
+  - Decompose monolithic `e2e/helpers.ts` (1,013 lines) into modular domain-specific helper files under `e2e/helpers/`:
+    - `e2e/helpers/core.ts`: Low-level driver primitives, DOM signaling, readiness signals, and service worker / storage cleanup (`getSidebarContainer`, `waitForSignal`, `waitForAppReady`, `waitForMapReady`, `dismissCookieConsent`, `clearServiceWorkers`).
+    - `e2e/helpers/navigation.ts`: Responsive shell navigation, tab switching, and drawer expansion (`getTabTrigger`, `navigateToTab`, `navigateToSettings`, `ensureSidebarExpanded`).
+    - `e2e/helpers/auth.ts`: Authentication forms and login flows (`fillLoginForm`, `clickSignIn`, `submitLoginForm`, `login`, `loginProgrammatic`).
+    - `e2e/helpers/wineries.ts`: Winery search, card interaction, drawer and modal state (`waitForSearchComplete`, `openWineryDetails`, `openWineryModalState`, `closeWineryModal`).
+    - `e2e/helpers/visits.ts`: Visit logging and modal workflows (`logVisit`).
+    - `e2e/helpers/social.ts`: Social graph operations, friend requests, removal, sharing, and privacy (`setupFriendship`, `removeFriend`, `closeShareDialog`, `selectPrivacyOption`, `refreshFriendsStore`).
+    - `e2e/helpers/assertions.ts`: Custom store assertions and UI feedback signals (`waitForToast`, `ensureProfileReady`, `expectTripInStore`, `expectTripDeletedFromStore`, `expectVisitInStore`, `expectVisitDeletedFromStore`, `expectWineryStatusInStore`, `expectWineryPrivacyInStore`).
+    - `e2e/helpers/diagnostics.ts`: Deprecated state injection bypasses and store diagnostics (`dumpStoreDiagnostics`, `injectTripState`, `injectVisitState`, `injectWineryState`, `injectSocialState`).
+    - `e2e/helpers/index.ts`: Barrel export aggregating all granular helper modules.
+  - Refactor `e2e/helpers.ts` into a lightweight delegation façade (`export * from './helpers/index'`), guaranteeing 100% backward compatibility with zero import path churn across existing spec files.
+  - Implement comprehensive unit and contract parity test suite in `e2e/__tests__/helper-contracts.test.ts`.
+
+### 2.5 Flakiness Elimination & Issue #25 Hardening (Phase 9)
 - **QA-09 & Issue #25 (Zero `waitForTimeout` & Actionability Audit)**:
-  - Eliminate all 12 `page.waitForTimeout()` sleeps across verified files: `e2e/pwa-assets.spec.ts` (L119), `e2e/photo-flow.spec.ts` (L102), `e2e/trip-flow.spec.ts` (L101), `e2e/helpers.ts` (L509, L633), and `e2e/responsive-layout.spec.ts` (L42, L67, L101, L122, L127, L133, L139).
+  - Eliminate all 12 `page.waitForTimeout()` sleeps across verified files: `e2e/pwa-assets.spec.ts` (L119), `e2e/photo-flow.spec.ts` (L102), `e2e/trip-flow.spec.ts` (L101), `e2e/helpers/wineries.ts` (1 call in `openWineryDetails`), `e2e/helpers/visits.ts` (1 call in `logVisit`), and `e2e/responsive-layout.spec.ts` (L42, L67, L101, L122, L127, L133, L139).
   - Replace sleeps with web-first auto-retrying assertions (`expect(locator).toBeVisible()`, `waitForResponse()`, `expect.poll()`, `toPass()`) or Playwright's `page.clock` API for timer/debounce-dependent flows (e.g. `page.clock.fastForward()`).
-  - Audit all 24 code occurrences of `{ force: true }` across 7 files (`photo-flow.spec.ts`, `helpers.ts`, `trip-flow.spec.ts`, `auth-recovery.spec.ts`, `visit-flow.spec.ts`, `accessibility.spec.ts`, `runtime-audit.spec.ts`); resolve underlying z-index, visibility, hover styles, and animation actionability issues.
+  - Audit all 24 code occurrences of `{ force: true }` across 8 files/modules (`photo-flow.spec.ts` [9], `e2e/helpers/wineries.ts` [2], `e2e/helpers/visits.ts` [3], `trip-flow.spec.ts` [3], `auth-recovery.spec.ts` [3], `visit-flow.spec.ts` [2], `accessibility.spec.ts` [1], `runtime-audit.spec.ts` [1]); resolve underlying z-index, visibility, hover styles, and animation actionability issues.
 - **QA-08 (Strict Visual Snapshot Calibration)**:
   - Reduce `maxDiffPixelRatio` in `playwright.config.ts` from `0.10` to `0.01` (1%).
   - Strip the 7 inline `maxDiffPixelRatio: 0.10` overrides from `e2e/visual.spec.ts` (L67, L92, L123, L135, L147, L161, L176). Re-baseline snapshots if anti-aliasing variations emerge.
-- **QA-10 (High-Value E2E Coverage Gaps)**:
+- **QA-10 (High-Value E2E Coverage Gaps - Phase 10)**:
   - Add E2E tests for itinerary drag-and-drop reordering in `e2e/trip-management.spec.ts`. Note: `@hello-pangea/dnd` relies on pointer/mouse/keyboard sensors rather than native HTML5 drag events; drive reordering via mouse steps (`page.mouse.move(..., { steps: 10 })`) or accessible keyboard interactions (`Space` -> `ArrowDown` -> `Space`).
   - Add E2E tests for offline reconnect queue drainage (`setOffline(false)`) and cache invalidation in `e2e/pwa-offline.spec.ts`.
 - **Lint Guardrails**:
@@ -107,7 +123,7 @@ The primary objectives are organized into **9 bounded phases** (adhering strictl
 - [ ] `npm test` executes cleanly without out-of-memory heap exhaustion or worker crashes under Node 24.
 - [ ] Zero production stores are attached to `window` in production builds (`process.env.NEXT_PUBLIC_IS_E2E !== 'true'`).
 - [ ] Cross-store window access in `uiStore.ts` is eliminated.
-- [ ] Zero instances of `page.waitForTimeout` remain in `e2e/` or test helpers.
+- [ ] Zero instances of `page.waitForTimeout` remain in `e2e/` or test helpers (`e2e/helpers/*`).
 - [ ] Zero `{ force: true }` options remain on standard interactive UI elements without explicit documented justification.
 - [ ] `@playwright/test` is upgraded to `1.63.0` in `package.json` and container image is updated to `v1.63.0-noble` across `run-e2e-container.sh` and `run-jest-container.sh`.
 - [ ] Containerized test runner parses CLI arguments and spec files correctly and passes cleanly across browser projects in the 1.63 image.
@@ -116,6 +132,8 @@ The primary objectives are organized into **9 bounded phases** (adhering strictl
 - [ ] `maps.fixture.ts` is reduced from 800 lines to <80 lines, delegating to dedicated shims (`browser.shim.ts`, `google-maps-sdk.shim.ts`) and handlers (`places.handler.ts`, `assets.handler.ts`).
 - [ ] `trips.fixture.ts` is reduced from 680 lines to <85 lines, delegating to dedicated domain handlers (`trips.handler.ts`, `visits.handler.ts`, `social.handler.ts`, `favorites.handler.ts`).
 - [ ] Granular domain handlers and shims have dedicated unit and contract parity tests in `e2e/__tests__/handler-contracts.test.ts` and `e2e/__tests__/mock-wineries.test.ts`.
+- [ ] `e2e/helpers.ts` is reduced to a clean delegation façade (<20 lines) exporting from `e2e/helpers/index.ts`.
+- [ ] Granular helper modules (`core`, `navigation`, `auth`, `wineries`, `visits`, `social`, `assertions`, `diagnostics`) have dedicated unit and contract parity tests in `e2e/__tests__/helper-contracts.test.ts`.
 - [ ] `maxDiffPixelRatio` is reduced to `0.01` globally and inline overrides in `e2e/visual.spec.ts` are removed.
 - [ ] Drag-and-drop itinerary reordering and offline reconnect sync have automated E2E test coverage.
 - [ ] `visitStore.domainInvariants.test.ts` passes and brings `visitInitHelpers.ts` coverage to >= 80%.
