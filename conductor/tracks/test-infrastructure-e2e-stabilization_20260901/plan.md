@@ -118,11 +118,11 @@ Focus: Decompose monolithic `maps.fixture.ts` (800 lines) and `trips.fixture.ts`
     - [x] Create `e2e/fixtures/handlers/places.handler.ts` (Google Places REST, legacy endpoints, Edge Functions) and `e2e/fixtures/handlers/assets.handler.ts` (tiles, fonts, Mapbox, weather)
     - [x] Refactor `e2e/fixtures/maps.fixture.ts` into a lightweight orchestrator (<80 lines) delegating to shims and handlers
     - [x] Verify maps contract tests and `auth-recovery.spec.ts` pass cleanly (Green phase)
-- [ ] Task: Implement Supabase domain handlers and refactor trips fixture orchestrator (Green Phase - Expand-and-Contract Part B)
-    - [ ] Create `e2e/fixtures/handlers/trips.handler.ts` (trips RPCs & `/rest/v1/trips`), `e2e/fixtures/handlers/visits.handler.ts` (visits RPCs, idempotency), `e2e/fixtures/handlers/social.handler.ts` (social RPCs, friend feed, profile stats), and `e2e/fixtures/handlers/favorites.handler.ts` (favorites, wishlist, privacy, dynamic markers, `/rest/v1/favorites`)
-    - [ ] Refactor `e2e/fixtures/trips.fixture.ts` into a lightweight orchestrator (<85 lines) delegating to domain handlers
-    - [ ] Re-export granular handlers and utilities in `e2e/fixtures/index.ts` and `e2e/utils.ts`
-    - [ ] Verify all contract tests, canary tests, and existing multi-context specs pass cleanly with zero spec code changes (Green phase)
+- [x] Task: Implement Supabase domain handlers and refactor trips fixture orchestrator (Green Phase - Expand-and-Contract Part B) [fabe682]
+    - [x] Create `e2e/fixtures/handlers/trips.handler.ts` (trips RPCs & `/rest/v1/trips`), `e2e/fixtures/handlers/visits.handler.ts` (visits RPCs, idempotency), `e2e/fixtures/handlers/social.handler.ts` (social RPCs, friend feed, profile stats), and `e2e/fixtures/handlers/favorites.handler.ts` (favorites, wishlist, privacy, dynamic markers, `/rest/v1/favorites`)
+    - [x] Refactor `e2e/fixtures/trips.fixture.ts` into a lightweight orchestrator (<85 lines) delegating to domain handlers
+    - [x] Re-export granular handlers and utilities in `e2e/fixtures/index.ts` and `e2e/utils.ts`
+    - [x] Verify all contract tests, canary tests, and existing multi-context specs pass cleanly with zero spec code changes (Green phase)
 - [ ] Task: Conductor - User Manual Verification 'Phase 7: Fixture Granularization & Domain-Driven Handler Decomposition' (Protocol in workflow.md)
 
 ## Phase 8: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
