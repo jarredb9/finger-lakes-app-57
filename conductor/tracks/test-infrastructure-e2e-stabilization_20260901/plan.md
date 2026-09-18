@@ -125,8 +125,25 @@ Focus: Decompose monolithic `maps.fixture.ts` (800 lines) and `trips.fixture.ts`
     - [x] Verify all contract tests, canary tests, and existing multi-context specs pass cleanly with zero spec code changes (Green phase)
 - [x] Task: Conductor - User Manual Verification 'Phase 7: Fixture Granularization & Domain-Driven Handler Decomposition' (Protocol in workflow.md) [6829f7e]
 
-## Phase 8: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
-Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, eliminate all 12 `waitForTimeout` calls, and resolve 24 `{ force: true }` clicks.
+## Phase 8: E2E Helper Modularization & Domain Decomposition
+Focus: Decompose monolithic `e2e/helpers.ts` (1,013 lines) into granular, single-responsibility domain helper modules (`core.ts`, `navigation.ts`, `auth.ts`, `wineries.ts`, `visits.ts`, `social.ts`, `assertions.ts`, `diagnostics.ts`, `index.ts`) under `e2e/helpers/`, establishing `e2e/helpers.ts` as a 100% backward-compatible delegation façade, adhering strictly to TDD.
+
+- [ ] Task: Create failing unit and contract parity tests for granular domain helpers (Red Phase)
+    - [ ] Create `e2e/__tests__/helper-contracts.test.ts` asserting module existence under `e2e/helpers/`, 38 exported function parity between `e2e/helpers/index.ts` and `e2e/helpers.ts`, and signature consistency
+    - [ ] Verify tests fail cleanly before modular helper files are created (Red phase)
+- [ ] Task: Implement domain helper modules and backward-compatible façade (Green Phase)
+    - [ ] Implement `core.ts`, `navigation.ts`, `auth.ts`, `wineries.ts`, `visits.ts`, `social.ts`, `assertions.ts`, `diagnostics.ts`, and `index.ts` under `e2e/helpers/`
+    - [ ] Refactor `e2e/helpers.ts` into a lightweight delegation façade (`export * from './helpers/index';`)
+    - [ ] Verify `helper-contracts.test.ts` passes and `npm run type-check` succeeds with 0 errors (Green phase)
+- [ ] Task: Verify E2E multi-spec smoke and regression safety in container (Verification)
+    - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/auth-recovery.spec.ts`
+    - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/canary-readiness.spec.ts`
+    - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/visit-flow.spec.ts`
+    - [ ] Confirm zero regression across existing specs without modifying spec import paths
+- [ ] Task: Conductor - User Manual Verification 'Phase 8: E2E Helper Modularization & Domain Decomposition' (Protocol in workflow.md)
+
+## Phase 9: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
+Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, eliminate all 12 `waitForTimeout` calls, and resolve 24 `{ force: true }` clicks across 8 files/modules.
 
 - [ ] Task: Configure ESLint Playwright guardrails and visual snapshot tolerances (Red Phase)
     - [ ] Add `eslint-plugin-playwright` to `devDependencies` in `package.json`
@@ -135,16 +152,16 @@ Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, elim
     - [ ] Remove the 7 inline `maxDiffPixelRatio: 0.10` overrides from `e2e/visual.spec.ts`
     - [ ] Run `npm run lint` and confirm it flags the 12 `waitForTimeout` calls as errors (Red phase)
 - [ ] Task: Eliminate all 12 page.waitForTimeout() sleeps across test suite (Green Phase)
-    - [ ] Refactor `e2e/pwa-assets.spec.ts:119`, `e2e/photo-flow.spec.ts:102`, `e2e/responsive-layout.spec.ts` (7 calls), `e2e/helpers.ts:509,633`, and `e2e/trip-flow.spec.ts:101`
+    - [ ] Refactor `e2e/pwa-assets.spec.ts:119`, `e2e/photo-flow.spec.ts:102`, `e2e/responsive-layout.spec.ts` (7 calls), `e2e/helpers/wineries.ts` (1 call in `openWineryDetails`), `e2e/helpers/visits.ts` (1 call in `logVisit`), and `e2e/trip-flow.spec.ts:101`
     - [ ] Replace sleeps with auto-retrying assertions (`waitForResponse`, `toBeVisible`, `toPass`, `expect.poll`)
-- [ ] Task: Audit and resolve { force: true } actionability issues across 7 files (Green Phase)
-    - [ ] Audit each of the 24 occurrences across the 7 files (`photo-flow.spec.ts` [9], `helpers.ts` [5], `trip-flow.spec.ts` [3], `auth-recovery.spec.ts` [3], `visit-flow.spec.ts` [2], `accessibility.spec.ts` [1], and `runtime-audit.spec.ts` [1])
+- [ ] Task: Audit and resolve { force: true } actionability issues across 8 files/modules (Green Phase)
+    - [ ] Audit each of the 24 occurrences across the 8 files/modules (`photo-flow.spec.ts` [9], `e2e/helpers/wineries.ts` [2], `e2e/helpers/visits.ts` [3], `trip-flow.spec.ts` [3], `auth-recovery.spec.ts` [3], `visit-flow.spec.ts` [2], `accessibility.spec.ts` [1], and `runtime-audit.spec.ts` [1])
     - [ ] Resolve illegitimate workarounds by fixing underlying CSS z-index, entry animations, hover triggers, drawer snap points, and button-enabled readiness
     - [ ] For verified exceptions where non-standard DOM or gesture overlays genuinely require it, retain `{ force: true }` with explicit inline code comments and `// eslint-disable-next-line playwright/no-force-option`
     - [ ] Verify `npm run lint` reports 0 errors and zero unjustified warnings on Playwright rules
-- [ ] Task: Conductor - User Manual Verification 'Phase 8: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 9: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination' (Protocol in workflow.md)
 
-## Phase 9: High-Value E2E Feature Coverage & Cross-Browser Verification
+## Phase 10: High-Value E2E Feature Coverage & Cross-Browser Verification
 Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offline reconnection queue drainage, certifying full cross-browser test pass.
 
 - [ ] Task: Write failing E2E tests for itinerary reordering and offline reconnect sync (Red Phase)
@@ -159,12 +176,12 @@ Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offlin
     - [ ] Verify test passes cleanly in container
 - [ ] Task: Audit and prune track-specific post-TDD scaffolding tests (Cleanup)
     - [ ] Audit test suites created during this track (`scripts/__tests__`, `lib/__tests__/tooling`, `e2e/__tests__`) for pure scaffolding tests (e.g. version regex checks, temporary CLI parsing scaffolds)
-    - [ ] Prune ephemeral scaffolding while preserving permanent behavioral contracts, store domain invariants, and container runner integrity
+    - [ ] Prune ephemeral scaffolding while preserving permanent behavioral contracts (`handler-contracts.test.ts`, `helper-contracts.test.ts`, `mock-wineries.test.ts`), store domain invariants, and container runner integrity
     - [ ] Verify test suite runs cleanly via `./scripts/run-jest-container.sh`
 - [ ] Task: Full cross-browser container suite verification and quality gate (Verification)
     - [ ] Run `./scripts/run-e2e-container.sh all` across `chromium`, `webkit`, `mobile-safari`, and `mobile-chrome`
     - [ ] Run repository quality gate: `npm test`, `npm run lint`, and `npm run type-check`
-- [ ] Task: Conductor - User Manual Verification 'Phase 9: High-Value E2E Feature Coverage & Cross-Browser Verification' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 10: High-Value E2E Feature Coverage & Cross-Browser Verification' (Protocol in workflow.md)
 
 
 ## Phase: Review Fixes
