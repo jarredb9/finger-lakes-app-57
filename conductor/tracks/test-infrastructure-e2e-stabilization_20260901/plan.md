@@ -135,6 +135,7 @@ Focus: Decompose monolithic `e2e/helpers.ts` (1,013 lines) into granular, single
     - [x] Implement `core.ts`, `navigation.ts`, `auth.ts`, `wineries.ts`, `visits.ts`, `social.ts`, `assertions.ts`, `diagnostics.ts`, and `index.ts` under `e2e/helpers/`
     - [x] Refactor `e2e/helpers.ts` into a lightweight delegation façade (`export * from './helpers/index';`)
     - [x] Verify `helper-contracts.test.ts` passes and `npm run type-check` succeeds with 0 errors (Green phase)
+    - [x] Remove redundant `e2e/helpers.ts` façade in favor of directory resolution (`./helpers` -> `e2e/helpers/index.ts`)
 - [ ] Task: Verify E2E multi-spec smoke and regression safety in container (Verification)
     - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/auth-recovery.spec.ts`
     - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/canary-readiness.spec.ts`
