@@ -63,13 +63,15 @@ export function getEquivalentWineryIds(
 /**
  * Extracts numeric latitude with Finger Lakes region fallback.
  */
-export function markerLat(m: Partial<MapMarkerRpc> | any): number {
-  return Number(m?.latitude ?? m?.lat ?? 42.5);
+export function markerLat(m?: Partial<MapMarkerRpc> | Record<string, unknown> | null): number {
+  const obj = m as Record<string, unknown> | undefined | null;
+  return Number(obj?.latitude ?? obj?.lat ?? 42.5);
 }
 
 /**
  * Extracts numeric longitude with Finger Lakes region fallback.
  */
-export function markerLng(m: Partial<MapMarkerRpc> | any): number {
-  return Number(m?.longitude ?? m?.lng ?? -76.8);
+export function markerLng(m?: Partial<MapMarkerRpc> | Record<string, unknown> | null): number {
+  const obj = m as Record<string, unknown> | undefined | null;
+  return Number(obj?.longitude ?? obj?.lng ?? -76.8);
 }
