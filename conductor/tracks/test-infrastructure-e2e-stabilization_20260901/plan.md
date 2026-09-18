@@ -125,7 +125,7 @@ Focus: Decompose monolithic `maps.fixture.ts` (800 lines) and `trips.fixture.ts`
     - [x] Verify all contract tests, canary tests, and existing multi-context specs pass cleanly with zero spec code changes (Green phase)
 - [x] Task: Conductor - User Manual Verification 'Phase 7: Fixture Granularization & Domain-Driven Handler Decomposition' (Protocol in workflow.md) [6829f7e]
 
-## Phase 8: E2E Helper Modularization & Domain Decomposition
+## Phase 8: E2E Helper Modularization & Domain Decomposition [checkpoint: c0ccddc]
 Focus: Decompose monolithic `e2e/helpers.ts` (1,013 lines) into granular, single-responsibility domain helper modules (`core.ts`, `navigation.ts`, `auth.ts`, `wineries.ts`, `visits.ts`, `social.ts`, `assertions.ts`, `diagnostics.ts`, `index.ts`) under `e2e/helpers/`, establishing `e2e/helpers.ts` as a 100% backward-compatible delegation façade, adhering strictly to TDD.
 
 - [x] Task: Create failing unit and contract parity tests for granular domain helpers (Red Phase) [44a5950]
@@ -141,7 +141,7 @@ Focus: Decompose monolithic `e2e/helpers.ts` (1,013 lines) into granular, single
     - [x] Run `./scripts/run-e2e-container.sh webkit e2e/canary-readiness.spec.ts`
     - [x] Run `./scripts/run-e2e-container.sh webkit e2e/visit-flow.spec.ts`
     - [x] Confirm zero regression across existing specs without modifying spec import paths
-- [ ] Task: Conductor - User Manual Verification 'Phase 8: E2E Helper Modularization & Domain Decomposition' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 8: E2E Helper Modularization & Domain Decomposition' (Protocol in workflow.md) [c0ccddc]
 
 ## Phase 9: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
 Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, eliminate all 12 `waitForTimeout` calls, and resolve 24 `{ force: true }` clicks across 8 files/modules.
