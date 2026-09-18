@@ -18,14 +18,14 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
     }
     
     await visitModal.getByLabel('Your Review').fill(data.review);
-    if (data.rating) await visitModal.getByLabel(`Set rating to ${data.rating}`).click({ force: true });
+    if (data.rating) await visitModal.getByLabel(`Set rating to ${data.rating}`).click();
     if (data.isPrivate) await visitModal.getByLabel(/Make this visit private/i).check();
     
     const saveBtn = visitModal.getByTestId('visit-save-button');
     await expect(visitModal.getByLabel('Your Review')).toHaveValue(data.review);
     await expect(saveBtn).toBeVisible();
     await expect(saveBtn).toBeEnabled();
-    await saveBtn.click({ force: true });
+    await saveBtn.click();
 
     await expect(async () => {
         const { isOpen, isSubmitting, errorText } = await page.evaluate(() => {
@@ -57,7 +57,7 @@ export async function logVisit(page: Page, data: { review: string, rating?: numb
         if (!isSubmitting) {
             // Check if button is still enabled
             if (await saveBtn.isEnabled({ timeout: 1000 })) {
-                 await saveBtn.click({ force: true }).catch(() => {});
+                 await saveBtn.click().catch(() => {});
             }
         }
 

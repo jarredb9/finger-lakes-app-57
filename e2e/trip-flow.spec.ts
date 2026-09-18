@@ -52,10 +52,14 @@ test.describe('Trip Planning Flow', () => {
     await planner.getByTestId('new-trip-checkbox').check();
     await planner.getByTestId('new-trip-name-input').fill(uniqueTripName);
     
+    const addBtn = planner.getByTestId('add-to-trip-btn');
+    await expect(addBtn).toBeVisible({ timeout: 5000 });
+    await expect(addBtn).toBeEnabled({ timeout: 5000 });
+    
     // Wait for the RPC and the refresh calls
     await Promise.all([
         page.waitForResponse(resp => resp.url().includes('create_trip_with_winery') && resp.status() === 200),
-        planner.getByTestId('add-to-trip-btn').click({ force: true })
+        addBtn.click()
     ]);
 
     await expectTripInStore(page, uniqueTripName);
@@ -90,7 +94,9 @@ test.describe('Trip Planning Flow', () => {
     await expect(async () => {
         const dialog = page.locator('[role="alertdialog"]');
         if (!(await dialog.isVisible())) {
-            await deleteBtn.click({ force: true });
+            await expect(deleteBtn).toBeVisible({ timeout: 5000 });
+            await expect(deleteBtn).toBeEnabled({ timeout: 5000 });
+            await deleteBtn.click();
             await expect(dialog).toBeVisible({ timeout: 5000 });
         }
         
@@ -100,7 +106,7 @@ test.describe('Trip Planning Flow', () => {
 
         await Promise.all([
             page.waitForResponse(resp => (resp.url().includes('delete_trip') || (resp.url().includes('trips') && resp.request().method() === 'DELETE')) && [200, 204].includes(resp.status()), { timeout: 15000 }),
-            confirmBtn.click({ force: true })
+            confirmBtn.click()
         ]);
     }).toPass({ timeout: 30000, intervals: [2000] });
 
