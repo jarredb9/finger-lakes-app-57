@@ -131,10 +131,10 @@ Focus: Decompose monolithic `e2e/helpers.ts` (1,013 lines) into granular, single
 - [x] Task: Create failing unit and contract parity tests for granular domain helpers (Red Phase) [44a5950]
     - [x] Create `e2e/__tests__/helper-contracts.test.ts` asserting module existence under `e2e/helpers/`, 38 exported function parity between `e2e/helpers/index.ts` and `e2e/helpers.ts`, and signature consistency
     - [x] Verify tests fail cleanly before modular helper files are created (Red phase)
-- [ ] Task: Implement domain helper modules and backward-compatible façade (Green Phase)
-    - [ ] Implement `core.ts`, `navigation.ts`, `auth.ts`, `wineries.ts`, `visits.ts`, `social.ts`, `assertions.ts`, `diagnostics.ts`, and `index.ts` under `e2e/helpers/`
-    - [ ] Refactor `e2e/helpers.ts` into a lightweight delegation façade (`export * from './helpers/index';`)
-    - [ ] Verify `helper-contracts.test.ts` passes and `npm run type-check` succeeds with 0 errors (Green phase)
+- [x] Task: Implement domain helper modules and backward-compatible façade (Green Phase) [8d4554a]
+    - [x] Implement `core.ts`, `navigation.ts`, `auth.ts`, `wineries.ts`, `visits.ts`, `social.ts`, `assertions.ts`, `diagnostics.ts`, and `index.ts` under `e2e/helpers/`
+    - [x] Refactor `e2e/helpers.ts` into a lightweight delegation façade (`export * from './helpers/index';`)
+    - [x] Verify `helper-contracts.test.ts` passes and `npm run type-check` succeeds with 0 errors (Green phase)
 - [ ] Task: Verify E2E multi-spec smoke and regression safety in container (Verification)
     - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/auth-recovery.spec.ts`
     - [ ] Run `./scripts/run-e2e-container.sh webkit e2e/canary-readiness.spec.ts`
