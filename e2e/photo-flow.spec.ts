@@ -95,13 +95,13 @@ test.describe('Photo Management Workflow', () => {
     const isMobile = (page.viewportSize()?.width ?? 1024) < 640;
     if (isMobile) {
         const titleCard = wineryModal.getByTestId('drawer-title-card').first();
-        for (let i = 0; i < 3; i++) {
-            if (await visitsTab.isVisible()) break;
+        await expect(async () => {
+            if (await visitsTab.isVisible()) return;
             if (await titleCard.isVisible()) {
                 await titleCard.click({ force: true });
-                await page.waitForTimeout(500);
             }
-        }
+            await expect(visitsTab).toBeVisible();
+        }).toPass({ timeout: 10000 });
     }
     
     await expect(visitsTab).toBeVisible({ timeout: 10000 });

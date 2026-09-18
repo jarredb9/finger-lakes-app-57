@@ -71,7 +71,7 @@ export async function openWineryDetails(page: Page, wineryName: string, options:
                 await titleCard.click({ force: true }).catch(() => {});
             }
         }
-        await page.waitForTimeout(300);
+        await expect(modal.locator('[data-testid="drawer-drag-handle"], [data-testid="drawer-title-card"]').first()).toBeVisible();
     }
 }
 
