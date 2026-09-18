@@ -21,6 +21,10 @@ export {
   authFixture,
   TripsFixtureManager,
   tripsFixture,
+  TripsHandler,
+  VisitsHandler,
+  SocialHandler,
+  FavoritesHandler,
 } from './fixtures';
 
 export type {
