@@ -105,7 +105,7 @@ Focus: Decompose monolithic `MockMapsManager` into modular fixtures under `e2e/f
     - [x] Migrate `e2e/trip-sharing.spec.ts` away from `injectTripState` to route mocks; deprecate unused injectors
 - [x] Task: Conductor - User Manual Verification 'Phase 6: Modular Route Fixtures & E2E Helper Store-Poking Decoupling' (Protocol in workflow.md) [9ef4806]
 
-## Phase 7: Fixture Granularization & Domain-Driven Handler Decomposition
+## Phase 7: Fixture Granularization & Domain-Driven Handler Decomposition [checkpoint: 6829f7e]
 Focus: Decompose monolithic `maps.fixture.ts` (800 lines) and `trips.fixture.ts` (680 lines) into granular, single-responsibility domain handlers, browser shims, and utility modules under `e2e/fixtures/`, preserving 100% backward compatibility and adhering strictly to TDD.
 
 - [x] Task: Create failing unit and contract parity tests for granular domain handlers and shims (Red Phase) [bf1e559]
@@ -123,7 +123,7 @@ Focus: Decompose monolithic `maps.fixture.ts` (800 lines) and `trips.fixture.ts`
     - [x] Refactor `e2e/fixtures/trips.fixture.ts` into a lightweight orchestrator (<85 lines) delegating to domain handlers
     - [x] Re-export granular handlers and utilities in `e2e/fixtures/index.ts` and `e2e/utils.ts`
     - [x] Verify all contract tests, canary tests, and existing multi-context specs pass cleanly with zero spec code changes (Green phase)
-- [ ] Task: Conductor - User Manual Verification 'Phase 7: Fixture Granularization & Domain-Driven Handler Decomposition' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 7: Fixture Granularization & Domain-Driven Handler Decomposition' (Protocol in workflow.md) [6829f7e]
 
 ## Phase 8: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination
 Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, eliminate all 12 `waitForTimeout` calls, and resolve 24 `{ force: true }` clicks.
