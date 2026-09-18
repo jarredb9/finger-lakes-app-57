@@ -152,9 +152,9 @@ Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, elim
     - [x] Update `playwright.config.ts` to set `maxDiffPixelRatio: 0.01` (1%)
     - [x] Remove the 7 inline `maxDiffPixelRatio: 0.10` overrides from `e2e/visual.spec.ts`
     - [x] Run `npm run lint` and confirm it flags the 12 `waitForTimeout` calls as errors (Red phase)
-- [ ] Task: Eliminate all 12 page.waitForTimeout() sleeps across test suite (Green Phase)
-    - [ ] Refactor `e2e/pwa-assets.spec.ts:119`, `e2e/photo-flow.spec.ts:102`, `e2e/responsive-layout.spec.ts` (7 calls), `e2e/helpers/wineries.ts` (1 call in `openWineryDetails`), `e2e/helpers/visits.ts` (1 call in `logVisit`), and `e2e/trip-flow.spec.ts:101`
-    - [ ] Replace sleeps with auto-retrying assertions (`waitForResponse`, `toBeVisible`, `toPass`, `expect.poll`)
+- [x] Task: Eliminate all 12 page.waitForTimeout() sleeps across test suite (Green Phase) [fa12511]
+    - [x] Refactor `e2e/pwa-assets.spec.ts:119`, `e2e/photo-flow.spec.ts:102`, `e2e/responsive-layout.spec.ts` (7 calls), `e2e/helpers/wineries.ts` (1 call in `openWineryDetails`), `e2e/helpers/visits.ts` (1 call in `logVisit`), and `e2e/trip-flow.spec.ts:101`
+    - [x] Replace sleeps with auto-retrying assertions (`waitForResponse`, `toBeVisible`, `toPass`, `expect.poll`)
 - [ ] Task: Audit and resolve { force: true } actionability issues across 8 files/modules (Green Phase)
     - [ ] Audit each of the 24 occurrences across the 8 files/modules (`photo-flow.spec.ts` [9], `e2e/helpers/wineries.ts` [2], `e2e/helpers/visits.ts` [3], `trip-flow.spec.ts` [3], `auth-recovery.spec.ts` [3], `visit-flow.spec.ts` [2], `accessibility.spec.ts` [1], and `runtime-audit.spec.ts` [1])
     - [ ] Resolve illegitimate workarounds by fixing underlying CSS z-index, entry animations, hover triggers, drawer snap points, and button-enabled readiness
