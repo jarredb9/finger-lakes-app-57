@@ -31,6 +31,15 @@ declare global {
       get: (key: string) => Promise<any>;
       set: (key: string, val: any) => Promise<any>;
     };
+    WebGLRenderingContext?: any;
+    WebGL2RenderingContext?: any;
+    mapboxgl?: {
+      supported?: () => boolean;
+      [key: string]: any;
+    };
+    _E2E_MOCKS_ACTIVE?: boolean;
+    _E2E_USER_EMAIL?: string;
+    _E2E_INJECTED?: boolean;
     _E2E_FULL_DRAWER?: boolean;
     _E2E_RELOAD?: () => void;
     _STORES_EXPOSED?: boolean;

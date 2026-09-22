@@ -41,7 +41,7 @@ export async function submitLoginForm(page: Page, email: string, pass: string) {
 
 export async function login(page: Page, email: string, pass: string, options: { skipMapReady?: boolean, isPwa?: boolean } = {}) {
   await page.addInitScript(() => {
-    (window as any)._E2E_ENABLE_REAL_SYNC = true;
+    window._E2E_ENABLE_REAL_SYNC = true;
     window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
     window.localStorage.setItem('cookie-consent', 'true');
   });

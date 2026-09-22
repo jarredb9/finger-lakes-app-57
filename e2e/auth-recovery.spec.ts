@@ -9,7 +9,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await clearServiceWorkers(page);
     await page.addInitScript(() => {
         window.localStorage.setItem('cookie-consent', 'true');
-        (window as any)._DIAGNOSTIC_LOGGING = true;
+        window._DIAGNOSTIC_LOGGING = true;
     });
   });
 

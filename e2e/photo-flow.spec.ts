@@ -23,7 +23,7 @@ test.describe('Photo Management Workflow', () => {
   test.beforeEach(async ({ page, mockMaps, user }) => {
     // CRITICAL: Override mocks to use real Supabase interactions
     await page.addInitScript(() => {
-      (window as any)._E2E_FULL_DRAWER = true;
+      window._E2E_FULL_DRAWER = true;
     });
     await mockMaps.useRealVisits();
     await mockMaps.initDefaultMocks({ currentUserId: user.id });

@@ -30,12 +30,12 @@ test.describe('Runtime & Performance Audit', () => {
     await expect(async () => {
         const state = await page.evaluate(() => {
             return {
-                wineriesLoaded: (window as any).useWineryDataStore?.getState().persistentWineries.length > 0,
-                wineriesHydrated: (window as any).useWineryDataStore?.persist?.hasHydrated(),
-                userLoaded: !!(window as any).useUserStore?.getState().user,
-                userLoading: (window as any).useUserStore?.getState().isLoading,
-                tripsHydrated: (window as any).useTripStore?.persist?.hasHydrated(),
-                visitsHydrated: (window as any).useVisitStore?.persist?.hasHydrated()
+                wineriesLoaded: (window.useWineryDataStore?.getState().persistentWineries.length ?? 0) > 0,
+                wineriesHydrated: window.useWineryDataStore?.persist?.hasHydrated(),
+                userLoaded: !!window.useUserStore?.getState().user,
+                userLoading: window.useUserStore?.getState().isLoading,
+                tripsHydrated: window.useTripStore?.persist?.hasHydrated(),
+                visitsHydrated: window.useVisitStore?.persist?.hasHydrated()
             };
         });
         

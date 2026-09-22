@@ -12,15 +12,19 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
 
     // Wait for store exposure and user hydration
     await page.waitForFunction(() => {
-        const uStore = (window as any).useUserStore;
-        const sStore = (window as any).useSyncStore;
+        const uStore = window.useUserStore;
+        const sStore = window.useSyncStore;
         const uState = uStore?.getState?.();
         const sState = sStore?.getState?.();
         
         return !!uStore && !!sStore && !!uState?.user && !!sState?.isInitialized;
     }, { timeout: 30000 });
 
-    const userId = await page.evaluate(() => (window as any).useUserStore.getState().user.id);
+    const userId = await page.evaluate(() => {
+      const user = window.useUserStore?.getState().user;
+      if (!user) throw new Error('User not found in store');
+      return user.id;
+    });
 
     // 2. Add two mutations while offline
     await context.setOffline(true);
@@ -29,13 +33,12 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
     const payload2 = { wineryDbId: 102, visit_date: '2026-04-24', rating: 5 };
     
     await page.evaluate(async ({ p1, p2, uid }) => {
-      // @ts-ignore
-      const syncStore = window.useSyncStore.getState();
-      await syncStore.addMutation({ type: 'log_visit', payload: p1, userId: uid });
-      await syncStore.addMutation({ type: 'log_visit', payload: p2, userId: uid });
+      const syncStore = window.useSyncStore?.getState();
+      await syncStore?.addMutation({ type: 'log_visit', payload: p1, userId: uid });
+      await syncStore?.addMutation({ type: 'log_visit', payload: p2, userId: uid });
     }, { p1: payload1, p2: payload2, uid: userId });
 
-    const initialQueue = await page.evaluate(() => (window as any).useSyncStore.getState().queue);
+    const initialQueue = await page.evaluate(() => window.useSyncStore?.getState().queue || []);
     expect(initialQueue.length).toBe(2);
     expect(initialQueue[0].status).toBe('pending');
     expect(initialQueue[1].status).toBe('pending');
@@ -75,11 +78,11 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
     // 4. Wait for Sync to complete
     await expect(async () => {
       const state = await page.evaluate(() => {
-        const sStore = (window as any).useSyncStore;
+        const sStore = window.useSyncStore;
         if (!sStore) return null;
         const sState = sStore.getState();
         return {
-          isSyncing: (window as any).SyncService?.isSyncing,
+          isSyncing: window.SyncService?.isSyncing,
           queue: sState.queue,
           isInitialized: sState.isInitialized
         };
@@ -98,22 +101,22 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
       
       // If not syncing and still have 2 items, trigger sync
       if (!isSyncing && queue.length === 2) {
-        await page.evaluate(() => (window as any).SyncService.sync()).catch(() => {});
+        await page.evaluate(() => window.SyncService?.sync?.()).catch(() => {});
       }
       
       throw new Error(`Sync not complete. Queue: ${JSON.stringify(queue.map((i: any) => ({id: i.id, status: i.status})))}`);
     }).toPass({ timeout: 20000, intervals: [1000] });
 
     // 5. Verify final state before reload
-    const finalQueueState = await page.evaluate(() => (window as any).useSyncStore.getState().queue);
+    const finalQueueState = await page.evaluate(() => window.useSyncStore?.getState().queue || []);
     expect(finalQueueState.length).toBe(1);
     expect(finalQueueState[0].status).toBe('error');
 
     // 6. Reload and verify persistence across browser restart
     await page.reload();
-    await page.waitForFunction(() => (window as any).useSyncStore?.getState().isInitialized);
+    await page.waitForFunction(() => window.useSyncStore?.getState().isInitialized);
 
-    const rehydratedQueue = await page.evaluate(() => (window as any).useSyncStore.getState().queue);
+    const rehydratedQueue = await page.evaluate(() => window.useSyncStore?.getState().queue || []);
     expect(rehydratedQueue.length).toBe(1);
     expect(rehydratedQueue[0].status).toBe('error');
     
@@ -134,11 +137,11 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
     await page.route(/.*\/rpc\/log_visit.*/, retryHandler);
 
     await page.evaluate(async () => {
-      await (window as any).SyncService.sync();
+      await window.SyncService?.sync?.();
     });
 
     // Verify queue remains in error state and RPC was not triggered for permanent error item
-    const queueAfterRetry = await page.evaluate(() => (window as any).useSyncStore.getState().queue);
+    const queueAfterRetry = await page.evaluate(() => window.useSyncStore?.getState().queue || []);
     expect(queueAfterRetry.length).toBe(1);
     expect(queueAfterRetry[0].status).toBe('error');
     expect(retryCallCount).toBe(0);
