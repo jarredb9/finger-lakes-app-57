@@ -14,7 +14,7 @@ The primary objectives are organized into **11 bounded phases** (adhering strict
 8. **E2E Helper Modularization & Domain Decomposition (Phase 8)**: Decompose the monolithic 1,013-line `e2e/helpers.ts` into granular, single-responsibility domain helper modules under `e2e/helpers/` (`core.ts`, `navigation.ts`, `auth.ts`, `wineries.ts`, `visits.ts`, `social.ts`, `assertions.ts`, `diagnostics.ts`, `index.ts`), converting `e2e/helpers.ts` into a 100% backward-compatible delegation façade (`export * from './helpers/index'`), backed by unit and contract parity tests in `e2e/__tests__/helper-contracts.test.ts`.
 9. **E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination (Phase 9)**: Configure `eslint-plugin-playwright` in `eslint.config.mjs` (ESLint 9 Flat Config) with `'playwright/no-wait-for-timeout': 'error'` and `'playwright/no-force-option': 'warn'`. Reduce `maxDiffPixelRatio` in `playwright.config.ts` from `0.10` to `0.01` (1%) and strip inline overrides in `e2e/visual.spec.ts`. Eliminate all 12 `page.waitForTimeout()` sleeps across test specs and modular helpers (`e2e/helpers/wineries.ts`, `e2e/helpers/visits.ts`) and remediate all 24 `{ force: true }` clicks across 8 files/modules with native actionability fixes.
 10. **High-Value E2E Feature Coverage (Phase 10)**: Add end-to-end tests for drag-and-drop itinerary reordering using `@hello-pangea/dnd` in `e2e/trip-management.spec.ts` and offline reconnect queue drainage (`setOffline(false)`) and cache invalidation in `e2e/pwa-offline.spec.ts`, accompanied by strict `any` type audits across Phase 10 specs and fixtures to eliminate anti-pattern casts.
-11. **Track Scaffolding Prune, Cross-Browser Certification & Final Quality Gate (Phase 11)**: Audit and prune ephemeral TDD scaffolding tests while preserving permanent behavioral contracts (`handler-contracts.test.ts`, `helper-contracts.test.ts`, `mock-wineries.test.ts`), certify the full cross-browser container test matrix across all 4 browser projects (`chromium`, `webkit`, `mobile-safari`, `mobile-chrome`), and execute the repository quality gate (`npm test`, `npm run lint`, `npm run type-check`).
+11. **Track Scaffolding Prune, Cross-Browser Certification & Final Quality Gate (Phase 11)**: Audit and prune ephemeral TDD scaffolding tests while preserving permanent behavioral contracts (`handler-contracts.test.ts`, `helper-contracts.test.ts`, `mock-wineries.test.ts`), eliminate all remaining `any` types across route handlers, fixtures, and E2E specs, certify the full cross-browser container test matrix across all 4 browser projects (`chromium`, `webkit`, `mobile-safari`, `mobile-chrome`), and execute the repository quality gate (`npm test`, `npm run lint`, `npm run type-check`).
 
 
 ---
@@ -114,6 +114,7 @@ The primary objectives are organized into **11 bounded phases** (adhering strict
 ### 2.6 Track Scaffolding Prune, Cross-Browser Certification & Final Quality Gate (Phase 11)
 - **QA-18 (Track Scaffolding Pruning, Cross-Browser Verification & Final Quality Gate)**:
   - Audit test suites created during this track (`scripts/__tests__`, `lib/__tests__/tooling`, `e2e/__tests__`) for pure scaffolding tests (e.g. version regex checks, temporary CLI parsing scaffolds) and prune ephemeral scaffolding while preserving permanent behavioral contracts (`handler-contracts.test.ts`, `helper-contracts.test.ts`, `mock-wineries.test.ts`), store domain invariants, and container runner integrity.
+  - Audit and eliminate all remaining `any` types across E2E test files, route handlers, fixtures, and helpers, replacing with Playwright `Route`/`Page` types, canonical domain models (`RpcVisitWithWinery`, `Profile`, `Winery`, `Trip`), and typed shim interfaces.
   - Run full cross-browser container suite verification via `./scripts/run-e2e-container.sh all` across `chromium`, `webkit`, `mobile-safari`, and `mobile-chrome`.
   - Execute repository quality gate: `npm test`, `npm run lint`, and `npm run type-check`.
 
@@ -148,6 +149,7 @@ The primary objectives are organized into **11 bounded phases** (adhering strict
 - [ ] `socialService.ts` and mutating operations in `tripService.ts` have dedicated unit test coverage in `lib/services/__tests__/` (>= 80%).
 - [ ] `eslint-plugin-playwright` is configured in `eslint.config.mjs` and linter checks pass with zero errors.
 - [ ] Global `Window` interface in `lib/shims.d.ts` provides complete typings for E2E store exposures and eliminates all `(window as any)` and `(global as any)` type casts.
+- [ ] Zero `any` types remain across route handlers, fixtures, test helpers, and E2E specifications.
 
 ---
 

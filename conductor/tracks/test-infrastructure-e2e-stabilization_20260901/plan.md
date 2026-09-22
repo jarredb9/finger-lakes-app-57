@@ -185,6 +185,16 @@ Focus: Audit and prune ephemeral TDD scaffolding tests while preserving permanen
     - [x] Audit test suites created during this track (`scripts/__tests__`, `lib/__tests__/tooling`, `e2e/__tests__`) for pure scaffolding tests (e.g. version regex checks, temporary CLI parsing scaffolds)
     - [x] Prune ephemeral scaffolding while preserving permanent behavioral contracts (`handler-contracts.test.ts`, `helper-contracts.test.ts`, `mock-wineries.test.ts`), store domain invariants, and container runner integrity
     - [x] Verify test suite runs cleanly via `./scripts/run-jest-container.sh`
+- [x] Task: Eliminate remaining (window as any) type casts across E2E test suite and fixtures (Refactor) [e2b1684]
+    - [x] Augment lib/shims.d.ts with missing Window properties (_E2E_MOCKS_ACTIVE, _E2E_USER_EMAIL, _E2E_INJECTED, WebGL, mapboxgl)
+    - [x] Eliminate all 109 (window as any) and (globalThis as any) type casts across 29 E2E test files, fixtures, and helpers
+    - [x] Confirm zero remaining occurrences via grep and verify static analysis (npm run type-check, npm run lint)
+    - [x] Run containerized Jest and certified cross-browser E2E test suites (WebKit and Chromium)
+- [x] Task: Eliminate any types across E2E test suite, route handlers, and fixtures (Refactor) [e833ee0]
+    - [x] Audit and eliminate 51 instances of any across 18 E2E test files, route handlers, fixtures, and helpers
+    - [x] Replace untyped route parameters with Playwright Route and spec parameters with Page
+    - [x] Align fixture and store search closures with canonical domain models (RpcVisitWithWinery, Profile, SyncItem, Winery, Trip)
+    - [x] Verify clean static analysis (npm run type-check, npm run lint) and containerized contract/smoke execution
 - [ ] Task: Full cross-browser container suite verification and quality gate (Verification)
     - [ ] Run `./scripts/run-e2e-container.sh all` across `chromium`, `webkit`, `mobile-safari`, and `mobile-chrome`
     - [ ] Run repository quality gate: `npm test`, `npm run lint`, and `npm run type-check`
@@ -199,8 +209,3 @@ Focus: Audit and prune ephemeral TDD scaffolding tests while preserving permanen
     - [x] Eliminate brittle navigator.onLine polling in e2e/pwa-assets.spec.ts causing execution context destruction
     - [x] Standardize reconnection assertion with auto-retrying toPass queue drainage and typed Window shims
     - [x] Certify clean passes across chromium, mobile-chrome, webkit, and mobile-safari, and verify npm run lint
-- [x] Task: Eliminate remaining (window as any) type casts across E2E test suite and fixtures (Refactor) [e2b1684]
-    - [x] Augment lib/shims.d.ts with missing Window properties (_E2E_MOCKS_ACTIVE, _E2E_USER_EMAIL, _E2E_INJECTED, WebGL, mapboxgl)
-    - [x] Eliminate all 109 (window as any) and (globalThis as any) type casts across 29 E2E test files, fixtures, and helpers
-    - [x] Confirm zero remaining occurrences via grep and verify static analysis (npm run type-check, npm run lint)
-    - [x] Run containerized Jest and certified cross-browser E2E test suites (WebKit and Chromium)
