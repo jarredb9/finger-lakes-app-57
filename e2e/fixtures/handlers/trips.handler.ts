@@ -1,7 +1,8 @@
 import { Page } from '@playwright/test';
 import { getTodayLocal } from '@/lib/utils';
 import { createMockTrip } from '@/lib/test-utils/fixtures';
-import { MockMapsState, createDefaultMockState } from '../types';
+import { MockMapsState, MockTrip, createDefaultMockState } from '../types';
+import { GooglePlaceId, Winery, WineryDbId } from '@/lib/types';
 
 export class TripsHandler {
   private state: MockMapsState;
@@ -131,13 +132,13 @@ export class TripsHandler {
         const idempotencyKey = postData.p_idempotency_key || null;
 
         if (idempotencyKey && this.state.trips) {
-          const existing = this.state.trips.find(t => (t as any).idempotency_key === idempotencyKey);
+          const existing = this.state.trips.find(t => t.idempotency_key === idempotencyKey);
           if (existing) {
             return route.fulfill({
               status: 200,
               contentType: 'application/json',
               headers: commonHeaders,
-              body: JSON.stringify({ trip_id: existing.id, winery_id: (existing as any).winery_id || 1 }),
+              body: JSON.stringify({ trip_id: existing.id, winery_id: existing.winery_id || 1 }),
             });
           }
         }
@@ -146,15 +147,17 @@ export class TripsHandler {
         const wineryData = postData.p_winery_data || {};
         const wineryId = wineryData.id || 1;
 
-        const newTrip = createMockTrip({
-          id: newId,
-          name: postData.p_trip_name,
-          trip_date: postData.p_trip_date,
-          user_id: this.currentUserId,
-          updated_at: new Date(Date.now() + 5000).toISOString(),
-        });
-        (newTrip as any).idempotency_key = idempotencyKey;
-        (newTrip as any).winery_id = wineryId;
+        const newTrip: MockTrip = {
+          ...createMockTrip({
+            id: newId,
+            name: postData.p_trip_name,
+            trip_date: postData.p_trip_date,
+            user_id: this.currentUserId,
+            updated_at: new Date(Date.now() + 5000).toISOString(),
+          }),
+          idempotency_key: idempotencyKey,
+          winery_id: wineryId,
+        };
 
         if (!this.state.trips) this.state.trips = [];
         this.state.trips.push(newTrip);
@@ -166,7 +169,7 @@ export class TripsHandler {
         const idempotencyKey = postData.p_idempotency_key || null;
 
         if (idempotencyKey && this.state.trips) {
-          const existing = this.state.trips.find(t => (t as any).idempotency_key === idempotencyKey);
+          const existing = this.state.trips.find(t => t.idempotency_key === idempotencyKey);
           if (existing) {
             return route.fulfill({
               status: 200,
@@ -183,14 +186,16 @@ export class TripsHandler {
         }
 
         const newId = Math.floor(Math.random() * 10000);
-        const newTrip = createMockTrip({
-          id: newId,
-          name: postData.p_name,
-          trip_date: postData.p_trip_date,
-          user_id: this.currentUserId,
-          updated_at: new Date(Date.now() + 5000).toISOString(),
-        });
-        (newTrip as any).idempotency_key = idempotencyKey;
+        const newTrip: MockTrip = {
+          ...createMockTrip({
+            id: newId,
+            name: postData.p_name,
+            trip_date: postData.p_trip_date,
+            user_id: this.currentUserId,
+            updated_at: new Date(Date.now() + 5000).toISOString(),
+          }),
+          idempotency_key: idempotencyKey,
+        };
 
         if (!this.state.trips) this.state.trips = [];
         this.state.trips.push(newTrip);
@@ -204,6 +209,47 @@ export class TripsHandler {
           this.state.trips = this.state.trips.filter(t => Number(t.id) !== tripId);
         }
         return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+      }
+
+      if (url.includes('reorder_trip_wineries')) {
+        const postData = JSON.parse(req.postData() || '{}');
+        const tripId = Number(postData.p_trip_id);
+        const wineryIds: number[] = postData.p_winery_ids || [];
+        if (this.state.trips) {
+          const trip = this.state.trips.find(t => Number(t.id) === tripId);
+          if (trip && trip.wineries) {
+            const reordered = wineryIds
+              .map(id => trip.wineries.find(w => Number(w.dbId) === id || String(w.id) === String(id)))
+              .filter((w): w is Winery => w !== undefined);
+            trip.wineries = reordered;
+            trip.updated_at = new Date().toISOString();
+          }
+        }
+        return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ success: true }) });
+      }
+
+      if (url.includes('add_winery_to_trip')) {
+        const postData = JSON.parse(req.postData() || '{}');
+        const tripId = Number(postData.p_trip_id);
+        const wineryData = (postData.p_winery_data || {}) as Partial<Winery> & { lat?: number; lng?: number };
+        const wineryId = (wineryData.dbId || wineryData.id || Math.floor(Math.random() * 10000)) as number;
+        if (this.state.trips) {
+          const trip = this.state.trips.find(t => Number(t.id) === tripId);
+          if (trip) {
+            if (!trip.wineries) trip.wineries = [];
+            trip.wineries.push({
+              id: String(wineryData.id || wineryId) as GooglePlaceId,
+              dbId: wineryId as WineryDbId,
+              name: wineryData.name || 'Mock Winery',
+              address: wineryData.address || '',
+              latitude: Number(wineryData.latitude ?? wineryData.lat ?? 0),
+              longitude: Number(wineryData.longitude ?? wineryData.lng ?? 0),
+              ...wineryData,
+            });
+            trip.updated_at = new Date().toISOString();
+          }
+        }
+        return route.fulfill({ status: 200, contentType: 'application/json', headers: commonHeaders, body: JSON.stringify({ winery_id: wineryId }) });
       }
 
       if (url.includes('add_trip_member_by_email')) {

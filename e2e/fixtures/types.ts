@@ -41,6 +41,10 @@ export type Profile = Database['public']['Tables']['profiles']['Row'];
 
 export type MapMarker = MapMarkerRpc;
 export type TripDetails = Trip;
+export type MockTrip = Trip & {
+  idempotency_key?: string | null;
+  winery_id?: number | null;
+};
 export type VisitItem = VisitWithWinery;
 
 export interface TestUser {
@@ -55,7 +59,7 @@ export interface TestUser {
  * that can leak between worker-level test runs.
  */
 export interface MockMapsState {
-  trips: Trip[] | null;
+  trips: MockTrip[] | null;
   visits: RpcVisitWithWinery[] | null;
   activityFeed: FriendActivityFeedItem[] | null;
   social: {
