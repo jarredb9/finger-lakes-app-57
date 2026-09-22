@@ -195,3 +195,12 @@ Focus: Audit and prune ephemeral TDD scaffolding tests while preserving permanen
 - [x] Task: Audit and prune previous conductor track's post-TDD scaffolding tests (5b77e92)
 - [x] Task: Apply review suggestions [c3bf048]
 - [x] Task: Apply review suggestions [b0c58b3]
+- [x] Task: Stabilize pwa-assets.spec.ts online reconnection on Chromium and Mobile Chrome
+    - [x] Eliminate brittle navigator.onLine polling in e2e/pwa-assets.spec.ts causing execution context destruction
+    - [x] Standardize reconnection assertion with auto-retrying toPass queue drainage and typed Window shims
+    - [x] Certify clean passes across chromium, mobile-chrome, webkit, and mobile-safari, and verify npm run lint
+- [x] Task: Eliminate remaining (window as any) type casts across E2E test suite and fixtures (Refactor) [e2b1684]
+    - [x] Augment lib/shims.d.ts with missing Window properties (_E2E_MOCKS_ACTIVE, _E2E_USER_EMAIL, _E2E_INJECTED, WebGL, mapboxgl)
+    - [x] Eliminate all 109 (window as any) and (globalThis as any) type casts across 29 E2E test files, fixtures, and helpers
+    - [x] Confirm zero remaining occurrences via grep and verify static analysis (npm run type-check, npm run lint)
+    - [x] Run containerized Jest and certified cross-browser E2E test suites (WebKit and Chromium)
