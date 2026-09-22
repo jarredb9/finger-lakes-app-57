@@ -161,4 +161,72 @@ test.describe('Trip Management Flow', () => {
     // Verify deleted from UI using fresh container lookup
     await expect(finalSidebar.getByText(renamedTripName)).not.toBeVisible({ timeout: 10000 });
   });
+
+  test('User can reorder trip stops using drag-and-drop', async ({ page }) => {
+    test.setTimeout(180000);
+
+    // 1. Navigate to Trips
+    await navigateToTab(page, 'Trips');
+    await ensureSidebarExpanded(page);
+    await waitForSignal(page, 'trip-list-container', 'ready');
+
+    // 2. Open Create Trip Dialog
+    const uniqueTripName = `Reorder Trip ${Date.now()}`;
+    const activeSidebar = getSidebarContainer(page);
+    const newTripBtn = activeSidebar.getByRole('button', { name: /New Trip/i }).first();
+    await expect(newTripBtn).toBeVisible({ timeout: 3000 });
+    await newTripBtn.click();
+
+    const tripForm = page.getByTestId('trip-form-card');
+    await expect(tripForm).toBeVisible({ timeout: 5000 });
+    await tripForm.getByTestId('trip-name-input').fill(uniqueTripName);
+
+    const submitBtn = tripForm.getByTestId('create-trip-submit-btn');
+    await expect(submitBtn).toBeEnabled({ timeout: 10000 });
+
+    await Promise.all([
+      page.waitForResponse(resp => resp.url().includes('rpc/create_trip') && resp.status() >= 200 && resp.status() < 300),
+      submitBtn.click()
+    ]);
+
+    await expectTripInStore(page, uniqueTripName);
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 10000 });
+
+    // 3. Open Trip Details
+    const freshSidebar = getSidebarContainer(page);
+    const tripCard = freshSidebar.getByTestId('trip-card').filter({ hasText: uniqueTripName }).first();
+    await expect(async () => {
+      await page.evaluate(async () => {
+        const store = (window as any).useTripStore?.getState();
+        if (store) await store.fetchTrips(1, 'upcoming', true);
+      });
+      await expect(tripCard).toBeVisible({ timeout: 5000 });
+    }).toPass({ timeout: 20000, intervals: [2000] });
+
+    const tripId = (await tripCard.getAttribute('data-trip-id')) || '';
+    const viewDetailsBtn = tripCard.getByTestId('view-trip-details-btn');
+    await viewDetailsBtn.click();
+
+    await expect(page).toHaveURL(new RegExp(`/trips/${tripId}`), { timeout: 15000 });
+    await waitForSignal(page, 'trip-details-card', 'ready');
+
+    // 4. Drag-and-drop stop reordering persistence scaffold (Red Phase)
+    // Target contract: Draggable stop handles exist and reordering triggers reorder_trip_wineries RPC
+    const wineryList = page.getByTestId('winery-list');
+    await expect(wineryList).toBeVisible({ timeout: 10000 });
+
+    // Capture reorder RPC
+    const reorderRpcPromise = page.waitForResponse(
+      resp => resp.url().includes('reorder_trip_wineries') && resp.status() < 300,
+      { timeout: 5000 }
+    );
+
+    // Attempt drag interaction via drag handle
+    const dragHandle = wineryList.locator('[data-rfd-drag-handle-draggable-id], svg.lucide-grip-vertical').first();
+    await expect(dragHandle).toBeVisible({ timeout: 5000 });
+
+    // Assert reordering RPC dispatched and state updated (Red Phase: expected to fail before Task 2 implementation)
+    await reorderRpcPromise;
+    await expect(page.getByText('Stop order updated')).toBeVisible({ timeout: 5000 });
+  });
 });
