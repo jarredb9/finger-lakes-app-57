@@ -172,10 +172,10 @@ Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offlin
 - [x] Task: Implement full E2E spec for drag-and-drop itinerary reordering (Green Phase) [40d2d60]
     - [x] Implement drag-and-drop simulation for `@hello-pangea/dnd` in `e2e/trip-management.spec.ts`, validating persistent reordered state and RPC payload
     - [x] Verify test passes cleanly in container
-- [ ] Task: Implement full E2E spec for offline reconnect queue drainage (Green Phase)
-    - [ ] Implement `context.setOffline(false)` drainage flow, queue emptiness assertion (`queue.length === 0`), and UI cache invalidation in `e2e/pwa-offline.spec.ts`
-    - [ ] Audit and eliminate all `any` type casts across `e2e/pwa-offline.spec.ts` (21 occurrences) and `e2e/fixtures/handlers/visits.handler.ts`, replacing with canonical `RpcVisitWithWinery`, `Winery`, `Route`, and augmented `Window` interfaces
-    - [ ] Verify test passes cleanly in container and passes static analysis (`npm run lint`, `npm run type-check`)
+- [x] Task: Implement full E2E spec for offline reconnect queue drainage (Green Phase) [b232a58]
+    - [x] Implement `context.setOffline(false)` drainage flow, queue emptiness assertion (`queue.length === 0`), and UI cache invalidation in `e2e/pwa-offline.spec.ts`
+    - [x] Audit and eliminate all `any` type casts across `e2e/pwa-offline.spec.ts` (21 occurrences) and `e2e/fixtures/handlers/visits.handler.ts`, replacing with canonical `RpcVisitWithWinery`, `Winery`, `Route`, and augmented `Window` interfaces
+    - [x] Verify test passes cleanly in container and passes static analysis (`npm run lint`, `npm run type-check`)
 - [ ] Task: Conductor - User Manual Verification 'Phase 10: High-Value E2E Feature Coverage' (Protocol in workflow.md)
 
 ## Phase 11: Track Scaffolding Prune, Cross-Browser Certification & Final Quality Gate
