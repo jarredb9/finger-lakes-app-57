@@ -20,7 +20,13 @@ export class BrowserShim {
     const workerIndex = options.workerIndex ?? 0;
     const markers = options.mockMarkers ?? MOCK_MARKERS;
 
-    await (this.page.addInitScript as any)(({ swEnabled, workerIndex, mockMarkers }: any) => {
+    interface ShimInitScriptArgs {
+      swEnabled: boolean;
+      workerIndex: number;
+      mockMarkers: unknown[];
+    }
+
+    await (this.page.addInitScript as unknown as (script: (args: ShimInitScriptArgs) => void, arg: ShimInitScriptArgs) => Promise<unknown>)(({ swEnabled, workerIndex, mockMarkers }) => {
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
           for (const registration of registrations) {
@@ -32,11 +38,11 @@ export class BrowserShim {
         });
 
         const originalRegister = navigator.serviceWorker.register.bind(navigator.serviceWorker);
-        (navigator.serviceWorker as any).register = (url: string, options?: any) => {
+        (navigator.serviceWorker as unknown as { register: (url: string | URL, options?: RegistrationOptions) => Promise<ServiceWorkerRegistration> }).register = (url: string | URL, options?: RegistrationOptions) => {
           if (!swEnabled) {
             return Promise.reject(new Error('SW blocked for test stability'));
           }
-          const swUrl = new URL(url, window.location.href);
+          const swUrl = new URL(url.toString(), window.location.href);
           swUrl.searchParams.set('worker', String(workerIndex));
           return originalRegister(swUrl.toString(), options);
         };
@@ -66,7 +72,7 @@ export class BrowserShim {
 
         if (window.HTMLCanvasElement) {
           const originalGetContext = window.HTMLCanvasElement.prototype.getContext;
-          window.HTMLCanvasElement.prototype.getContext = function (type: string, attributes?: any) {
+          window.HTMLCanvasElement.prototype.getContext = (function (this: HTMLCanvasElement, type: string, attributes?: unknown) {
             if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
               const glBase = {
                 canvas: this,
@@ -110,14 +116,14 @@ export class BrowserShim {
               };
 
               return new Proxy(glBase, {
-                get: (target: any, prop: string) => {
+                get: (target: Record<string, unknown>, prop: string) => {
                   if (prop in target) return target[prop];
                   return () => {};
                 }
-              }) as any;
+              }) as unknown as RenderingContext;
             }
-            return originalGetContext.call(this, type, attributes);
-          };
+            return originalGetContext.call(this, type as '2d', attributes as CanvasRenderingContext2DSettings);
+          }) as unknown as typeof window.HTMLCanvasElement.prototype.getContext;
         }
 
         window.mapboxgl = window.mapboxgl || {};
@@ -137,13 +143,13 @@ export class BrowserShim {
             // @ts-ignore
             if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0) {
               // @ts-ignore
-              const standardizer = window.standardizeWineryData || ((m: any) => ({
+              const standardizer = window.standardizeWineryData || ((m: MapMarkerRpc) => ({
                 id: m.google_place_id,
                 dbId: Number(m.id),
                 name: m.name,
                 address: m.address || 'Mock Address',
-                latitude: Number(m.latitude || m.lat || 0),
-                longitude: Number(m.longitude || m.lng || 0),
+                latitude: Number(m.latitude || (m as { lat?: number }).lat || 0),
+                longitude: Number(m.longitude || (m as { lng?: number }).lng || 0),
                 rating: Number(m.google_rating) || 4.5,
                 userVisited: false,
                 onWishlist: false,
@@ -153,8 +159,8 @@ export class BrowserShim {
                 reviews: []
               }));
 
-              const standardized = mockMarkers.map((m: any) => standardizer(m)).filter((w: any) => w !== null);
-              (wineryStore as any).setState({ persistentWineries: standardized });
+              const standardized = (mockMarkers as MapMarkerRpc[]).map(m => standardizer(m)).filter(w => w !== null);
+              (wineryStore as unknown as { setState: (s: unknown) => void }).setState({ persistentWineries: standardized });
               // @ts-ignore
               window._E2E_INJECTED = true;
             }
@@ -186,7 +192,7 @@ export class BrowserShim {
         const intervalId = setInterval(inject, 200);
         setTimeout(() => clearInterval(intervalId), 5000);
       }
-    }, { swEnabled, workerIndex, mockMarkers: markers } as any);
+    }, { swEnabled, workerIndex, mockMarkers: markers });
   }
 
   /**

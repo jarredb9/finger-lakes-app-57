@@ -206,7 +206,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       await expect(async () => {
           const trips = await pageB.evaluate(() => window.useTripStore?.getState().trips || []);
-          const hasNewName = trips.some((t: any) => t.name === newName);
+          const hasNewName = trips.some(t => t.name === newName);
           if (!hasNewName) throw new Error(`Trip with new name "${newName}" not found in user B store`);
       }).toPass({ timeout: 10000, intervals: [1000] });
 

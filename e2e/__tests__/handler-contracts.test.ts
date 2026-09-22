@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 import { createDefaultMockState } from '../fixtures/types';
@@ -19,13 +19,13 @@ test.describe('Granular Domain Handlers & Browser Shims Contract Parity (Phase 7
   const shimsDir = path.join(fixturesDir, 'shims');
   const utilsDir = path.join(fixturesDir, 'utils');
 
-  const createDummyPage = () => {
+  const createDummyPage = (): Page & { _registeredRoutes: { pattern: string | RegExp; handler: Function }[]; _initScripts: Function[] } => {
     const registeredRoutes: { pattern: string | RegExp; handler: Function }[] = [];
     const initScripts: Function[] = [];
 
     return {
-      addInitScript: (script: any, _arg?: any) => {
-        initScripts.push(script);
+      addInitScript: (script: Function | string, _arg?: unknown) => {
+        if (typeof script === 'function') initScripts.push(script);
         return Promise.resolve();
       },
       evaluate: () => Promise.resolve(),
@@ -38,7 +38,7 @@ test.describe('Granular Domain Handlers & Browser Shims Contract Parity (Phase 7
       on: () => {},
       _registeredRoutes: registeredRoutes,
       _initScripts: initScripts,
-    } as any;
+    } as unknown as Page & { _registeredRoutes: { pattern: string | RegExp; handler: Function }[]; _initScripts: Function[] };
   };
 
   test.describe('Granular Architecture Structure Contract (Phase 7 Target)', () => {

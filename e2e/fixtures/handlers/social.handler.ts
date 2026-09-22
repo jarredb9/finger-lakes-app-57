@@ -1,6 +1,6 @@
  
 import { Page } from '@playwright/test';
-import { MockMapsState, createDefaultMockState } from '../types';
+import { MockMapsState, createDefaultMockState, Profile } from '../types';
 
 export class SocialHandler {
   private state: MockMapsState;
@@ -103,7 +103,7 @@ export class SocialHandler {
       if (url.includes('get_friend_profile_with_visits')) {
         const postData = JSON.parse(req.postData() || '{}');
         const friendId = postData.friend_id || postData.p_friend_id;
-        const visits = (this.state.visits || []).filter(v => v.user_id === friendId && !(v as any).is_private);
+        const visits = (this.state.visits || []).filter(v => v.user_id === friendId && !v.is_private);
 
         let favCount = 0;
         const favs = this.state.favoritesMap.get(friendId);
@@ -127,7 +127,7 @@ export class SocialHandler {
           });
         }
 
-        const profile: any = { id: friendId, name: 'Mock Friend', email: 'friend@example.com', privacy_level: 'public', ai_enabled: false };
+        const profile: Profile = { id: friendId, name: 'Mock Friend', email: 'friend@example.com', privacy_level: 'public', ai_enabled: false };
         return route.fulfill({
           status: 200,
           contentType: 'application/json',

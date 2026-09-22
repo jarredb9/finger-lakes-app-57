@@ -1,3 +1,4 @@
+import { Page } from '@playwright/test';
 import { test, expect } from './utils';
 import {
   login,
@@ -16,7 +17,7 @@ test.describe('Adaptive 3-Tier Responsive Layout Suite', () => {
     await login(page, user.email, user.password, { skipMapReady: true });
   });
 
-  const seedWineryAndOpenModal = async (page: any, wineryId = 42, name = 'Finger Lakes Estate') => {
+  const seedWineryAndOpenModal = async (page: Page, wineryId = 42, name = 'Finger Lakes Estate') => {
     const winery = {
       id: wineryId,
       google_place_id: `place_${wineryId}`,

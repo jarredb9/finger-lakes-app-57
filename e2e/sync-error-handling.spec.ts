@@ -1,3 +1,4 @@
+import { Route } from '@playwright/test';
 import { test, expect } from './utils';
 import { login, clearServiceWorkers, waitForAppReady } from './helpers';
 
@@ -46,7 +47,7 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
     // 3. Mock network: First fails, Second succeeds
     // Define routes on both context and page BEFORE setting offline(false)
     let callCount = 0;
-    const rpcHandler = async (route: any) => {
+    const rpcHandler = async (route: Route) => {
       callCount++;
       const postData = route.request().postDataJSON();
       
@@ -104,7 +105,7 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
         await page.evaluate(() => window.SyncService?.sync?.()).catch(() => {});
       }
       
-      throw new Error(`Sync not complete. Queue: ${JSON.stringify(queue.map((i: any) => ({id: i.id, status: i.status})))}`);
+      throw new Error(`Sync not complete. Queue: ${JSON.stringify(queue.map(i => ({id: i.id, status: i.status})))}`);
     }).toPass({ timeout: 20000, intervals: [1000] });
 
     // 5. Verify final state before reload
@@ -124,7 +125,7 @@ test.describe('Sync Error Handling (Non-Blocking Loop)', () => {
     await context.unroute(/.*\/rpc\/log_visit.*/);
     await page.unroute(/.*\/rpc\/log_visit.*/);
     let retryCallCount = 0;
-    const retryHandler = async (route: any) => {
+    const retryHandler = async (route: Route) => {
       retryCallCount++;
       await route.fulfill({
         status: 200,

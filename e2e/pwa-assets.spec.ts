@@ -1,3 +1,4 @@
+import { Route } from '@playwright/test';
 import { test, expect } from './utils';
 import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, logVisit, ensureSidebarExpanded } from './helpers';
 
@@ -30,7 +31,7 @@ test.describe('PWA Assets & Sync', () => {
 
         const wineryStore = window.useWineryStore || window.useWineryDataStore;
         const dataStore = wineryStore?.getState();
-        const mockWinery = dataStore?.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
+        const mockWinery = dataStore?.persistentWineries.find(w => w.name === 'Vineyard of Illusion');
         
         if (mockWinery) {
             const mockBounds = {
@@ -92,7 +93,7 @@ test.describe('PWA Assets & Sync', () => {
         'Cache-Control': 'no-store'
     };
 
-    const logVisitHandler = async (route: any) => {
+    const logVisitHandler = async (route: Route) => {
         if (route.request().method() === 'OPTIONS') {
             await route.fulfill({ status: 204, headers: commonHeaders });
             return;

@@ -81,7 +81,7 @@ export async function openWineryDetails(page: Page, wineryName: string, options:
  */
 export async function openWineryModalState(
     page: Page, 
-    wineryIdOrData: string | number | Record<string, any> = 3, 
+    wineryIdOrData: string | number | Partial<Winery> | Record<string, unknown> = 3, 
     options: { fullDrawer?: boolean } = {}
 ) {
     if (options.fullDrawer) {
@@ -91,7 +91,7 @@ export async function openWineryModalState(
         let id: string;
         if (typeof arg === 'object' && arg !== null) {
             window.useWineryDataStore?.getState().upsertWinery(arg as Winery);
-            id = String((arg as Record<string, any>).google_place_id || (arg as Record<string, any>).id);
+            id = String((arg as Record<string, unknown>).google_place_id || (arg as Record<string, unknown>).id);
         } else {
             id = String(arg);
         }

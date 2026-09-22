@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+import { Route } from '@playwright/test';
 import { test, expect } from './utils';
 
 import { clearServiceWorkers } from './helpers';
@@ -24,7 +25,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     };
 
     // Airtight: Combined handler for all auth endpoints
-    const authHandler = async (route: any) => {
+    const authHandler = async (route: Route) => {
       const url = route.request().url();
       const method = route.request().method();
 
@@ -108,7 +109,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await context.unroute(resetPattern);
     await page.unroute(resetPattern);
 
-    const errorHandler = async (route: any) => {
+    const errorHandler = async (route: Route) => {
       if (route.request().method() === 'OPTIONS') {
         return route.fulfill({ status: 204, headers: commonHeaders });
       }

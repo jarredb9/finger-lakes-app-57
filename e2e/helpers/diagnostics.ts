@@ -1,5 +1,5 @@
 import { Page } from '@playwright/test';
-import { Trip, VisitWithWinery } from '@/lib/types';
+import { Trip, VisitWithWinery, Winery, Friend, FriendActivity } from '@/lib/types';
 
 /**
  * E2E ATOMIC STATE INJECTION & DIAGNOSTICS (PERFORMANCE & DEBUGGING)
@@ -40,27 +40,28 @@ export async function dumpStoreDiagnostics(page: Page) {
  * @deprecated Use modular route fixtures (e2e/fixtures/) instead of direct store injection.
  */
 export async function injectTripState(page: Page, trips: Trip[]) {
-  await page.evaluate((tripsToInject: Trip[]) => {
+  await page.evaluate((tripsToInject) => {
     // @ts-ignore
     const store = window.useTripStore;
     if (store && store.setState) {
       const now = Date.now();
       const lastActionTimestamps: Record<string, number> = {};
-      tripsToInject.forEach(t => {
+      const tripsList = tripsToInject as unknown as Trip[];
+      tripsList.forEach(t => {
           lastActionTimestamps[t.id.toString()] = now;
       });
 
       store.setState({ 
-        trips: tripsToInject, 
-        upcomingTrips: tripsToInject,
+        trips: tripsList, 
+        upcomingTrips: tripsList,
         isLoading: false,
         hasMore: false,
-        count: tripsToInject.length,
+        count: tripsList.length,
         lastActionTimestamp: now,
         lastActionTimestamps: { ...store.getState().lastActionTimestamps, ...lastActionTimestamps }
       });
     }
-  }, trips as any);
+  }, trips as unknown as Record<string, unknown>[]);
 }
 
 /**
@@ -87,18 +88,18 @@ export async function injectVisitState(page: Page, visits: VisitWithWinery[]) {
  * This is the source of truth for markers and details.
  * @deprecated Use modular route fixtures (e2e/fixtures/) instead of direct store injection.
  */
-export async function injectWineryState(page: Page, wineries: any[]) {
+export async function injectWineryState(page: Page, wineries: Winery[]) {
   await page.evaluate((wineriesToInject) => {
     // @ts-ignore
     const store = window.useWineryDataStore;
     if (store && store.setState) {
       store.setState({ 
-        persistentWineries: wineriesToInject,
+        persistentWineries: wineriesToInject as unknown as Winery[],
         isLoading: false,
         error: null
       });
     }
-  }, wineries);
+  }, wineries as unknown as Record<string, unknown>[]);
 }
 
 /**
@@ -106,10 +107,10 @@ export async function injectWineryState(page: Page, wineries: any[]) {
  * @deprecated Use modular route fixtures (e2e/fixtures/) instead of direct store injection.
  */
 export async function injectSocialState(page: Page, data: { 
-    friends?: any[], 
-    friendRequests?: any[], 
-    sentRequests?: any[],
-    friendActivityFeed?: any[]
+    friends?: Friend[], 
+    friendRequests?: Friend[], 
+    sentRequests?: Friend[],
+    friendActivityFeed?: FriendActivity[]
 }) {
   await page.evaluate((socialData) => {
     // @ts-ignore

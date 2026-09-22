@@ -233,7 +233,7 @@ test.describe('Granular Domain Helpers Contract Parity (Phase 8)', () => {
     test('directory import "../helpers" resolves to index.ts and exports all 38 expected helper functions', () => {
       expect(ALL_38_HELPER_EXPORTS).toHaveLength(38);
       for (const fnName of ALL_38_HELPER_EXPORTS) {
-        expect(typeof (helpers as any)[fnName], `../helpers must export ${fnName}`).toBe('function');
+        expect(typeof (helpers as Record<string, unknown>)[fnName], `../helpers must export ${fnName}`).toBe('function');
       }
     });
 

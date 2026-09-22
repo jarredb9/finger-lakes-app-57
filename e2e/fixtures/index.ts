@@ -161,7 +161,11 @@ export class CompositeMockMapsManager {
     }
 
     // Proactive store mock injection
-    await this.page.addInitScript(({ realFavoritesEnabled, realVisitsEnabled, realTripsEnabled }: any) => {
+    await this.page.addInitScript(({ realFavoritesEnabled, realVisitsEnabled, realTripsEnabled }: {
+      realFavoritesEnabled: boolean;
+      realVisitsEnabled: boolean;
+      realTripsEnabled: boolean;
+    }) => {
       window._E2E_MOCKS_ACTIVE = true;
       if (realFavoritesEnabled || realVisitsEnabled || realTripsEnabled) {
         window._E2E_ENABLE_REAL_SYNC = true;

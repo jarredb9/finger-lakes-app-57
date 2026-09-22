@@ -1,5 +1,7 @@
+import { Route } from '@playwright/test';
 import { test, expect } from './utils';
 import { login, clearServiceWorkers } from './helpers';
+import { SyncItem } from '@/lib/types';
 
 test.describe('Sync Infrastructure (Phase 2)', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
@@ -53,7 +55,7 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
     expect(initialQueue[0].status).toBe('pending');
 
     // 4. Verify encrypted persistence in IndexedDB
-    const idbData: any = await page.evaluate(async () => {
+    const idbData: SyncItem[] = await page.evaluate(async () => {
       return await window.idbKeyVal?.get('encrypted-offline-queue');
     });
 
@@ -96,7 +98,7 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
       'Cache-Control': 'no-store'
     };
 
-    const rpcHandler = async (route: any) => {
+    const rpcHandler = async (route: Route) => {
       if (route.request().method() === 'OPTIONS') {
         return route.fulfill({ status: 204, headers: corsHeaders });
       }
@@ -147,7 +149,7 @@ test.describe('Sync Infrastructure (Phase 2)', () => {
     expect(rpcCalled).toBe(true);
 
     // 10. Verify IndexedDB queue is also cleared after sync
-    const finalIdbData: any = await page.evaluate(async () => {
+    const finalIdbData: SyncItem[] = await page.evaluate(async () => {
       return await window.idbKeyVal?.get('encrypted-offline-queue');
     });
     expect(finalIdbData).toEqual([]);
