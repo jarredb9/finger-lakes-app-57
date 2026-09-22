@@ -169,9 +169,9 @@ Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offlin
     - [x] Add failing test scaffold in `e2e/trip-management.spec.ts` asserting drag-and-drop stop reordering persistence
     - [x] Add failing test scaffold in `e2e/pwa-offline.spec.ts` asserting online reconnection queue drainage and cache invalidation
     - [x] Verify tests fail before implementation (Red phase)
-- [ ] Task: Implement full E2E spec for drag-and-drop itinerary reordering (Green Phase)
-    - [ ] Implement drag-and-drop simulation for `@hello-pangea/dnd` in `e2e/trip-management.spec.ts`, validating persistent reordered state and RPC payload
-    - [ ] Verify test passes cleanly in container
+- [x] Task: Implement full E2E spec for drag-and-drop itinerary reordering (Green Phase) [40d2d60]
+    - [x] Implement drag-and-drop simulation for `@hello-pangea/dnd` in `e2e/trip-management.spec.ts`, validating persistent reordered state and RPC payload
+    - [x] Verify test passes cleanly in container
 - [ ] Task: Implement full E2E spec for offline reconnect queue drainage (Green Phase)
     - [ ] Implement `context.setOffline(false)` drainage flow, queue emptiness assertion (`queue.length === 0`), and UI cache invalidation in `e2e/pwa-offline.spec.ts`
     - [ ] Verify test passes cleanly in container
