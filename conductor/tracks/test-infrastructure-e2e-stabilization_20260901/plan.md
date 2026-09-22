@@ -162,7 +162,7 @@ Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, elim
     - [x] Verify `npm run lint` reports 0 errors and zero unjustified warnings on Playwright rules
 - [x] Task: Conductor - User Manual Verification 'Phase 9: E2E Lint Guardrails, Snapshot Calibration & Actionability Flakiness Elimination' (Protocol in workflow.md) [67ffab3]
 
-## Phase 10: High-Value E2E Feature Coverage
+## Phase 10: High-Value E2E Feature Coverage [checkpoint: 3a91e13]
 Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offline reconnection queue drainage.
 
 - [x] Task: Write failing E2E tests for itinerary reordering and offline reconnect sync (Red Phase) [956bbee]
@@ -176,7 +176,7 @@ Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offlin
     - [x] Implement `context.setOffline(false)` drainage flow, queue emptiness assertion (`queue.length === 0`), and UI cache invalidation in `e2e/pwa-offline.spec.ts`
     - [x] Audit and eliminate all `any` type casts across `e2e/pwa-offline.spec.ts` (21 occurrences) and `e2e/fixtures/handlers/visits.handler.ts`, replacing with canonical `RpcVisitWithWinery`, `Winery`, `Route`, and augmented `Window` interfaces
     - [x] Verify test passes cleanly in container and passes static analysis (`npm run lint`, `npm run type-check`)
-- [ ] Task: Conductor - User Manual Verification 'Phase 10: High-Value E2E Feature Coverage' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 10: High-Value E2E Feature Coverage' (Protocol in workflow.md) [3a91e13]
 
 ## Phase 11: Track Scaffolding Prune, Cross-Browser Certification & Final Quality Gate
 Focus: Audit and prune ephemeral TDD scaffolding tests while preserving permanent contracts, certify full cross-browser container matrix, and execute repository quality gate.
