@@ -28,17 +28,18 @@ test.describe('PWA Assets & Sync', () => {
         // Initialize signal in localStorage to survive reloads/redirects
         localStorage.removeItem('_E2E_ENABLE_REAL_SYNC');
 
-        const wineryStore = (window as any).useWineryStore || (window as any).useWineryDataStore;
-        const dataStore = wineryStore.getState();
-        const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
+        const wineryStore = window.useWineryStore || window.useWineryDataStore;
+        const dataStore = wineryStore?.getState();
+        const mockWinery = dataStore?.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
         
         if (mockWinery) {
             const mockBounds = {
-                contains: () => true,
-                getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
-                getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 })
+                north: 43,
+                south: 42,
+                east: -76,
+                west: -77
             };
-            (window as any).useMapStore.setState({ 
+            window.useMapStore?.setState({ 
                 bounds: mockBounds,
                 filter: ['all'] 
             });
@@ -61,7 +62,6 @@ test.describe('PWA Assets & Sync', () => {
     // automatic sync fires later, it already has the flag.
     await page.evaluate(() => {
         localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
-        // @ts-ignore
         window._E2E_ENABLE_REAL_SYNC = true;
     });
 
@@ -113,26 +113,32 @@ test.describe('PWA Assets & Sync', () => {
     // 5. Go Online
     console.log('[Test] Going online...');
     await context.setOffline(false);
-    
-    // Wait for browser network status to report online
-    await expect.poll(() => page.evaluate(() => window.navigator.onLine), { timeout: 10000 }).toBe(true);
 
-    // 6. Wait for Sync
+    // 6. Wait for Sync (Web-first auto-retrying queue drainage assertion)
     console.log('[Test] Waiting for sync results...');
     await expect(async () => {
-        // Trigger manual sync in retry loop if still pending
-        await page.evaluate(async () => {
-            await (window as any).SyncService?.sync?.();
+        const state = await page.evaluate(() => {
+            const syncStore = window.useSyncStore;
+            const syncService = window.SyncService;
+            if (!syncStore || !syncStore.getState().isInitialized) return null;
+            return {
+                isSyncing: !!syncService?.isSyncing,
+                queueLength: syncStore.getState().queue.length
+            };
         });
 
-        // Verify via store state (Senior Standard)
-        const queueLength = await page.evaluate(() => (window as any).useSyncStore.getState().queue.length);
-        
-        if (!syncRequestMade && queueLength > 0 && !syncSuccessLogged) {
-            console.log(`[DIAGNOSTIC] Sync not confirmed: syncRequestMade=${syncRequestMade}, queueLength=${queueLength}, syncSuccessLogged=${syncSuccessLogged}`);
+        if (!state) throw new Error('SyncStore not ready');
+
+        if (!syncRequestMade && state.queueLength > 0 && !syncSuccessLogged) {
+            console.log(`[DIAGNOSTIC] Sync not confirmed: syncRequestMade=${syncRequestMade}, queueLength=${state.queueLength}, syncSuccessLogged=${syncSuccessLogged}`);
         }
-        expect(syncRequestMade || queueLength === 0 || syncSuccessLogged).toBe(true);
-    }).toPass({ timeout: 20000 });
+
+        if (state.queueLength > 0 && !state.isSyncing) {
+            await page.evaluate(() => window.SyncService?.sync?.()).catch(() => {});
+        }
+
+        expect(syncRequestMade || state.queueLength === 0 || syncSuccessLogged).toBe(true);
+    }).toPass({ timeout: 20000, intervals: [500] });
   });
 
   test('should cache images and load them offline', async ({ page, context }) => {

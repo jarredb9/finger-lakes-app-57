@@ -23,8 +23,8 @@ test.describe('Social Activity Feed Flow', () => {
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
-      await pageA.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
-      await pageB.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+      await pageA.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
+      await pageB.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
 
       const sharedState = createDefaultMockState();
       const managerA = new MockMapsManager(pageA, sharedState);
@@ -44,21 +44,21 @@ test.describe('Social Activity Feed Flow', () => {
       await login(pageB, userB.email, userB.password, { skipMapReady: true });
       await ensureProfileReady(pageB);
 
-      const user1Name = await pageA.evaluate(() => (window as any).useUserStore.getState().user.full_name);
+      const user1Name = (await pageA.evaluate(() => window.useUserStore?.getState().user?.full_name)) || 'User A';
       console.log(`[DIAGNOSTIC] User A Name: ${user1Name}, ID: ${userA.id}`);
       console.log(`[DIAGNOSTIC] User B ID: ${userB.id}`);
 
       // 2. Establish Friendship via ATOMIC INJECTION (Bypasses UI flakiness)
       await test.step('Establish Friendship via Injection', async () => {
-          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
-          const friendForB = { id: userA.id, name: user1Name, email: userA.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
+          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted' as const, privacy_level: 'public' as const, ai_enabled: false };
+          const friendForB = { id: userA.id, name: user1Name, email: userA.email, status: 'accepted' as const, privacy_level: 'public' as const, ai_enabled: false };
 
           await pageA.evaluate((f) => {
-              (window as any).useFriendStore.setState({ friends: [f] });
+              window.useFriendStore?.setState({ friends: [f] });
           }, friendForA);
 
           await pageB.evaluate((f) => {
-              (window as any).useFriendStore.setState({ friends: [f] });
+              window.useFriendStore?.setState({ friends: [f] });
           }, friendForB);
 
           // Update the mock layer so RPCs also see them as friends

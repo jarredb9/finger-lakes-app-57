@@ -1,4 +1,5 @@
 import { expect, Page } from '@playwright/test';
+import { Winery } from '@/lib/types';
 import { getSidebarContainer } from './core';
 import { ensureSidebarExpanded } from './navigation';
 
@@ -14,7 +15,7 @@ export async function waitForSearchComplete(page: Page) {
 
 export async function openWineryDetails(page: Page, wineryName: string, options: { fullDrawer?: boolean } = {}) {
     if (options.fullDrawer) {
-        await page.evaluate(() => { (window as any)._E2E_FULL_DRAWER = true; });
+        await page.evaluate(() => { window._E2E_FULL_DRAWER = true; });
     }
     const width = page.viewportSize()?.width ?? 1280;
     const isMobile = width < 768;
@@ -64,7 +65,7 @@ export async function openWineryDetails(page: Page, wineryName: string, options:
     await expect(modal).toBeVisible();
 
     if (isMobile) {
-        const isFullDrawer = await page.evaluate(() => (window as any)._E2E_FULL_DRAWER).catch(() => false);
+        const isFullDrawer = await page.evaluate(() => window._E2E_FULL_DRAWER).catch(() => false);
         if (!isFullDrawer) {
             const titleCard = modal.getByTestId('drawer-title-card').first();
             if (await titleCard.isVisible()) {
@@ -84,17 +85,17 @@ export async function openWineryModalState(
     options: { fullDrawer?: boolean } = {}
 ) {
     if (options.fullDrawer) {
-        await page.evaluate(() => { (window as any)._E2E_FULL_DRAWER = true; });
+        await page.evaluate(() => { window._E2E_FULL_DRAWER = true; });
     }
     await page.evaluate((arg) => {
         let id: string;
         if (typeof arg === 'object' && arg !== null) {
-            (window as any).useWineryDataStore?.getState().upsertWinery(arg);
-            id = String(arg.google_place_id || arg.id);
+            window.useWineryDataStore?.getState().upsertWinery(arg as Winery);
+            id = String((arg as Record<string, any>).google_place_id || (arg as Record<string, any>).id);
         } else {
             id = String(arg);
         }
-        (window as any).useUIStore?.getState().openWineryModal(id);
+        window.useUIStore?.getState().openWineryModal(id);
     }, wineryIdOrData);
 
     const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();

@@ -10,7 +10,7 @@ import {
 
 test.describe('Trip Sharing and Collaboration Flow', () => {
   test('User can invite a friend to a trip', async ({ page, user: userA, user2: userB, mockMaps }) => {
-    await page.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+    await page.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
 
     // 1. Setup: Mock state and login
     const uniqueTripName = `Sharing Trip ${Date.now()}`;
@@ -90,8 +90,8 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     const pageB = await contextB.newPage();
 
     try {
-      await pageA.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
-      await pageB.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+      await pageA.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
+      await pageB.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
 
       const sharedState = createDefaultMockState();
       const managerA = new MockMapsManager(pageA, sharedState);
@@ -200,12 +200,12 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       // 5. User B receives the update (proactive store sync as per collaborative sync standard)
       await pageB.evaluate(async () => {
-          const store = (window as any).useTripStore?.getState();
+          const store = window.useTripStore?.getState();
           if (store && !store.isLoading) await store.fetchTrips(1, 'upcoming', true);
       });
 
       await expect(async () => {
-          const trips = await pageB.evaluate(() => (window as any).useTripStore?.getState().trips || []);
+          const trips = await pageB.evaluate(() => window.useTripStore?.getState().trips || []);
           const hasNewName = trips.some((t: any) => t.name === newName);
           if (!hasNewName) throw new Error(`Trip with new name "${newName}" not found in user B store`);
       }).toPass({ timeout: 10000, intervals: [1000] });
@@ -218,7 +218,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
   });
 
   test('Collaborator can see and edit shared trip', async ({ page, user, mockMaps }) => {
-    await page.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+    await page.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
 
     // 1. Prepare data for injection
     const tripId = 777;
@@ -276,7 +276,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
   });
 
   test('Collaborator authorization: Non-owner member can edit but cannot delete shared trip', async ({ page, user, mockMaps }) => {
-    await page.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+    await page.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
 
     const sharedTripId = 778;
     const ownedTripId = 779;

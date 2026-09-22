@@ -94,7 +94,7 @@ export async function clearServiceWorkers(page: Page) {
     // 3. Proactively set flags that MUST survive across the cleanup navigations
     // We add them as init script for the NEXT navigation (to /)
     await page.addInitScript(() => {
-        (window as any)._E2E_ENABLE_REAL_SYNC = true;
+        window._E2E_ENABLE_REAL_SYNC = true;
         window.localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
     });
 

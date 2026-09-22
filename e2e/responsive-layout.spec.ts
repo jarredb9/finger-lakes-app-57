@@ -10,7 +10,7 @@ test.describe('Adaptive 3-Tier Responsive Layout Suite', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
     await clearServiceWorkers(page);
     await page.addInitScript(() => {
-      (window as any)._E2E_SKIP_DETAILS_MOCK = true;
+      window._E2E_SKIP_DETAILS_MOCK = true;
     });
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password, { skipMapReady: true });

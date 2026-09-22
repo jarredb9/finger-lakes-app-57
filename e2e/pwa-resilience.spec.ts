@@ -15,8 +15,8 @@ test.describe('PWA Resilience & Offline Integrity', () => {
 
     // Wait for store exposure and user hydration
     await page.waitForFunction(() => {
-        const uStore = (window as any).useUserStore;
-        const sStore = (window as any).useSyncStore;
+        const uStore = window.useUserStore;
+        const sStore = window.useSyncStore;
         const uState = uStore?.getState?.();
         const sState = sStore?.getState?.();
         
@@ -32,17 +32,18 @@ test.describe('PWA Resilience & Offline Integrity', () => {
 
     // 1. Prepare Winery Context
     await page.evaluate(() => {
-        const wineryStore = (window as any).useWineryStore || (window as any).useWineryDataStore;
-        const dataStore = wineryStore.getState();
-        const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Mock Winery One');
+        const wineryStore = window.useWineryStore || window.useWineryDataStore;
+        const dataStore = wineryStore?.getState();
+        const mockWinery = dataStore?.persistentWineries.find((w: any) => w.name === 'Mock Winery One');
         
         if (mockWinery) {
             const mockBounds = {
-                contains: () => true,
-                getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
-                getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 })
+                north: 43,
+                south: 42,
+                east: -76,
+                west: -77
             };
-            (window as any).useMapStore.setState({ 
+            window.useMapStore?.setState({ 
                 bounds: mockBounds,
                 filter: ['all'] 
             });
@@ -61,7 +62,7 @@ test.describe('PWA Resilience & Offline Integrity', () => {
     // Enable Real Sync mode
     await page.evaluate(() => {
         localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
-        (globalThis as any)._E2E_ENABLE_REAL_SYNC = true;
+        window._E2E_ENABLE_REAL_SYNC = true;
     });
 
     // 3. Inject Visit (Offline) with multiple photos
@@ -70,8 +71,8 @@ test.describe('PWA Resilience & Offline Integrity', () => {
     
     await page.evaluate(async ({ date, review }) => {
         const b64 = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-        const wineryStore = (window as any).useWineryStore || (window as any).useWineryDataStore;
-        const winery = wineryStore.getState().persistentWineries.find((w: any) => w.name === 'Mock Winery One');
+        const wineryStore = window.useWineryStore || window.useWineryDataStore;
+        const winery = wineryStore?.getState().persistentWineries.find((w: any) => w.name === 'Mock Winery One');
         
         if (winery) {
             // Reconstitution Rule: Photos stored as base64 in the queue
@@ -79,40 +80,42 @@ test.describe('PWA Resilience & Offline Integrity', () => {
             const stablePhoto2 = { __isBase64: true, base64: b64, type: 'image/gif', name: 'photo2.gif' };
 
             // Use the internal syncStore directly for the test to ensure we test the queue directly
-            const user = (window as any).useUserStore.getState().user;
-            await (window as any).useSyncStore.getState().addMutation({
-                id: crypto.randomUUID(),
-                type: 'log_visit',
-                userId: user.id,
-                payload: {
-                    wineryId: winery.id,
-                    wineryDbId: winery.dbId,
-                    wineryName: winery.name,
-                    wineryAddress: winery.address,
-                    latitude: winery.latitude,
-                    longitude: winery.longitude,
-                    visit_date: date,
-                    user_review: review,
-                    rating: 5,
-                    photos: [stablePhoto1, stablePhoto2]
-                }
-            });
+            const user = window.useUserStore?.getState().user;
+            if (user) {
+                await window.useSyncStore?.getState().addMutation({
+                    id: crypto.randomUUID(),
+                    type: 'log_visit',
+                    userId: user.id,
+                    payload: {
+                        wineryId: winery.id,
+                        wineryDbId: winery.dbId,
+                        wineryName: winery.name,
+                        wineryAddress: winery.address,
+                        latitude: winery.latitude,
+                        longitude: winery.longitude,
+                        visit_date: date,
+                        user_review: review,
+                        rating: 5,
+                        photos: [stablePhoto1, stablePhoto2]
+                    }
+                });
+            }
         }
     }, { date: visitDate, review: review });
 
     // 4. Verify Persistence (Reset memory state and re-hydrate from IDB while offline)
     await page.evaluate(async () => {
-        const store = (window as any).useSyncStore;
-        store.setState({ queue: [], isInitialized: false });
-        await store.getState().initialize();
+        const store = window.useSyncStore;
+        store?.setState({ queue: [], isInitialized: false });
+        await store?.getState().initialize();
     });
 
-    const queueLengthAfterHydration = await page.evaluate(() => (window as any).useSyncStore.getState().queue.length);
+    const queueLengthAfterHydration = await page.evaluate(() => window.useSyncStore?.getState().queue.length ?? 0);
     expect(queueLengthAfterHydration).toBe(1);
 
     // 5. Verify Encryption (Read from IDB directly via idbKeyVal storage abstraction)
     const isEncrypted = await page.evaluate(async () => {
-        const val = await (window as any).idbKeyVal.get('encrypted-offline-queue');
+        const val = await window.idbKeyVal?.get('encrypted-offline-queue');
         if (Array.isArray(val) && val.length > 0) {
             const firstItem = val[0];
             return typeof firstItem?.encryptedPayload === 'string' && firstItem.encryptedPayload.length > 50;
@@ -179,8 +182,8 @@ test.describe('PWA Resilience & Offline Integrity', () => {
     // 7. Verify sync results
     await expect(async () => {
       const state = await page.evaluate(() => {
-        const syncStore = (window as any).useSyncStore?.getState?.();
-        const visitStore = (window as any).useVisitStore?.getState?.();
+        const syncStore = window.useSyncStore?.getState?.();
+        const visitStore = window.useVisitStore?.getState?.();
         return {
           queueLength: syncStore?.queue?.length ?? -1,
           visits: visitStore?.visits ?? []

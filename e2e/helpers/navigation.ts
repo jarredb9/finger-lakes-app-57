@@ -28,7 +28,7 @@ export async function navigateToTab(page: Page, tabName: 'Explore' | 'Trips' | '
   // Ensure sidebar is open on desktop if we are navigating
   if (isDesktop) {
       // Check store state for sidebar
-      const isSidebarOpenStore = await page.evaluate(() => (window as any).useUIStore?.getState().isSidebarOpen);
+      const isSidebarOpenStore = await page.evaluate(() => window.useUIStore?.getState().isSidebarOpen);
       if (!isSidebarOpenStore) {
           const openBtn = page.getByRole('button', { name: /Open sidebar/i });
           if (await openBtn.isVisible().catch(() => false)) {

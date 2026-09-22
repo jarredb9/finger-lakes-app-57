@@ -61,8 +61,8 @@ export class BrowserShim {
         Object.assign(mockCtor, glConstants);
         Object.assign(mockCtor.prototype, glConstants);
 
-        (window as any).WebGLRenderingContext = (window as any).WebGLRenderingContext || mockCtor;
-        (window as any).WebGL2RenderingContext = (window as any).WebGL2RenderingContext || mockCtor;
+        window.WebGLRenderingContext = window.WebGLRenderingContext || mockCtor;
+        window.WebGL2RenderingContext = window.WebGL2RenderingContext || mockCtor;
 
         if (window.HTMLCanvasElement) {
           const originalGetContext = window.HTMLCanvasElement.prototype.getContext;
@@ -120,8 +120,8 @@ export class BrowserShim {
           };
         }
 
-        (window as any).mapboxgl = (window as any).mapboxgl || {};
-        (window as any).mapboxgl.supported = () => true;
+        window.mapboxgl = window.mapboxgl || {};
+        window.mapboxgl.supported = () => true;
 
         const inject = () => {
           // @ts-ignore
@@ -195,8 +195,8 @@ export class BrowserShim {
   async failMarkers() {
     await this.page.addInitScript(() => {
       console.log('[DIAGNOSTIC] failMarkers init script running');
-      (window as any)._E2E_ENABLE_REAL_SYNC = true;
-      (window as any)._E2E_SKIP_WINERY_INJECTION = true;
+      window._E2E_ENABLE_REAL_SYNC = true;
+      window._E2E_SKIP_WINERY_INJECTION = true;
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
         localStorage.removeItem('winery-data-storage-e2e');
@@ -204,13 +204,13 @@ export class BrowserShim {
     });
 
     await this.page.evaluate(() => {
-      (window as any)._E2E_ENABLE_REAL_SYNC = true;
-      (window as any)._E2E_SKIP_WINERY_INJECTION = true;
+      window._E2E_ENABLE_REAL_SYNC = true;
+      window._E2E_SKIP_WINERY_INJECTION = true;
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
       }
-      if ((window as any).useWineryDataStore) {
-        (window as any).useWineryDataStore.setState({ persistentWineries: [], error: null });
+      if (window.useWineryDataStore) {
+        window.useWineryDataStore.setState({ persistentWineries: [], error: null });
       }
     }).catch(() => {});
 

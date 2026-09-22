@@ -11,7 +11,7 @@ import {
 
 test.describe('Trip Planning Flow', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
-    await page.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+    await page.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
     // Re-initialize mocks with the actual user ID to ensure isOwner works
     await mockMaps.useRealVisits();
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
@@ -80,7 +80,7 @@ test.describe('Trip Planning Flow', () => {
     await expect(async () => {
         // Proactive sync
         await page.evaluate(async () => {
-            const store = (window as any).useTripStore?.getState();
+            const store = window.useTripStore?.getState();
             if (store) await store.fetchTrips(1, 'upcoming', true);
         });
         await expect(tripCard).toBeVisible({ timeout: 5000 });

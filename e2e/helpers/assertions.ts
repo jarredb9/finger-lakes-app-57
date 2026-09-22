@@ -15,7 +15,7 @@ export async function waitForToast(page: Page, message: string | RegExp) {
 export async function ensureProfileReady(page: Page) {
     await expect(async () => {
         const { user, isLoading } = await page.evaluate(() => {
-            const store = (window as any).useUserStore?.getState();
+            const store = window.useUserStore?.getState();
             return { user: store?.user, isLoading: store?.isLoading };
         });
         
