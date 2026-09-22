@@ -27,5 +27,5 @@
 | **db-optimization-rpc-hardening_20260902** | Database Performance Optimization, RPC Hardening & Schema Integrity | [x] Archived | [Plan](./archive/db-optimization-rpc-hardening_20260902/plan.md) |
 | **state-consolidation-invariants_20260901** | Zustand 5 State Consolidation, Domain Invariants & Sync Integrity | [x] Archived | [Plan](./archive/state-consolidation-invariants_20260901/plan.md) |
 | **frontend-modernization-architecture_20260901** | Frontend Modernization, React 19 / App Router Architecture & Bundle Optimization | [x] Archived | [Plan](./archive/frontend-modernization-architecture_20260901/plan.md) |
-| **test-infrastructure-e2e-stabilization_20260901** | Test Automation Infrastructure Modernization & E2E Test Suite Stabilization | ⚪ In Progress | [Plan](./tracks/test-infrastructure-e2e-stabilization_20260901/plan.md) |
+| **test-infrastructure-e2e-stabilization_20260901** | Test Automation Infrastructure Modernization & E2E Test Suite Stabilization | [x] Archived | [Plan](./archive/test-infrastructure-e2e-stabilization_20260901/plan.md) |
 
