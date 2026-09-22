@@ -24,7 +24,7 @@ export function getAdminClient(): ReturnType<typeof createClient<Database>> {
 
 export const supabase = new Proxy({} as ReturnType<typeof createClient<Database>>, {
   get(_target, prop) {
-    return (getAdminClient() as any)[prop];
+    return Reflect.get(getAdminClient(), prop);
   }
 });
 

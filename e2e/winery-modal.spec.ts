@@ -1,3 +1,4 @@
+import { Page } from '@playwright/test';
 import { test, expect } from './utils';
 import {
   login,
@@ -15,7 +16,7 @@ test.describe('Winery Modal Consolidated Suite', () => {
     await login(page, user.email, user.password, { skipMapReady: true });
   });
 
-  const seedWineryAndOpenModal = async (page: any, wineryId = 3, name = 'The Phantom Cellar', options: { fullDrawer?: boolean } = {}) => {
+  const seedWineryAndOpenModal = async (page: Page, wineryId = 3, name = 'The Phantom Cellar', options: { fullDrawer?: boolean } = {}) => {
     const winery = {
       id: wineryId,
       google_place_id: `place_${wineryId}`,

@@ -33,7 +33,7 @@ test.describe('Winery Data Hydration & Integrity Consolidated Suite', () => {
     await expect.poll(async () => {
       return page.evaluate(() => {
         const store = window.useWineryDataStore?.getState();
-        return store?.persistentWineries?.some((w: any) => (w.name === 'RPC Hydrated Winery' || w.id === 'place_101') && w.userVisited === true);
+        return store?.persistentWineries?.some(w => (w.name === 'RPC Hydrated Winery' || w.id === 'place_101') && w.userVisited === true);
       });
     }).toBe(true);
   });
@@ -68,7 +68,7 @@ test.describe('Winery Data Hydration & Integrity Consolidated Suite', () => {
       ]);
 
       const updatedStore = window.useWineryDataStore?.getState();
-      const resultingWinery = updatedStore?.persistentWineries.find((w: any) => w.id === 'place_50' || w.dbId === 50);
+      const resultingWinery = updatedStore?.persistentWineries.find(w => w.id === 'place_50' || w.dbId === 50);
       return (
         resultingWinery?.phone === '555-0199' &&
         resultingWinery?.website === 'https://fullwinery.com' &&

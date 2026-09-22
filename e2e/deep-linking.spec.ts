@@ -1,3 +1,4 @@
+import { Route } from '@playwright/test';
 import { test, expect } from './utils';
 import { login, waitForAppReady, submitLoginForm, clearServiceWorkers, waitForSignal } from './helpers';
 
@@ -19,7 +20,7 @@ test.describe('Deep Linking & Redirection', () => {
     });
 
     // 2. Airtight Mock: Register RPC handler on both context and page
-    const tripDetailsHandler = async (route: any) => {
+    const tripDetailsHandler = async (route: Route) => {
       const method = route.request().method();
       if (method === 'OPTIONS') {
         return route.fulfill({ status: 204, headers: commonHeaders });

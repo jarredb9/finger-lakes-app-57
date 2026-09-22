@@ -1,3 +1,4 @@
+import { Page } from '@playwright/test';
 import { test, expect } from './utils';
 import { login, clearServiceWorkers, openWineryModalState } from './helpers';
 
@@ -12,7 +13,7 @@ test.describe('Winery Amenities & Q&A Reviews Consolidated Suite', () => {
     await login(page, user.email, user.password, { skipMapReady: true });
   });
 
-  const seedAndOpenWinery = async (page: any, rawWinery: any) => {
+  const seedAndOpenWinery = async (page: Page, rawWinery: Record<string, unknown>) => {
     await openWineryModalState(page, rawWinery);
   };
 

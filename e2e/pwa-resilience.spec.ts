@@ -1,3 +1,4 @@
+import { Route } from '@playwright/test';
 import { test, expect } from './utils';
 import { login, navigateToTab, openWineryDetails, clearServiceWorkers, waitForAppReady } from './helpers';
 
@@ -34,7 +35,7 @@ test.describe('PWA Resilience & Offline Integrity', () => {
     await page.evaluate(() => {
         const wineryStore = window.useWineryStore || window.useWineryDataStore;
         const dataStore = wineryStore?.getState();
-        const mockWinery = dataStore?.persistentWineries.find((w: any) => w.name === 'Mock Winery One');
+        const mockWinery = dataStore?.persistentWineries.find(w => w.name === 'Mock Winery One');
         
         if (mockWinery) {
             const mockBounds = {
@@ -72,7 +73,7 @@ test.describe('PWA Resilience & Offline Integrity', () => {
     await page.evaluate(async ({ date, review }) => {
         const b64 = "R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
         const wineryStore = window.useWineryStore || window.useWineryDataStore;
-        const winery = wineryStore?.getState().persistentWineries.find((w: any) => w.name === 'Mock Winery One');
+        const winery = wineryStore?.getState().persistentWineries.find(w => w.name === 'Mock Winery One');
         
         if (winery) {
             // Reconstitution Rule: Photos stored as base64 in the queue
@@ -134,7 +135,7 @@ test.describe('PWA Resilience & Offline Integrity', () => {
         'Cache-Control': 'no-store'
     };
 
-    const storageHandler = async (route: any) => {
+    const storageHandler = async (route: Route) => {
         const method = route.request().method();
         if (method === 'OPTIONS') {
             await route.fulfill({ status: 204, headers: commonHeaders });
@@ -153,7 +154,7 @@ test.describe('PWA Resilience & Offline Integrity', () => {
         await route.continue();
     };
 
-    const rpcHandler = async (route: any) => {
+    const rpcHandler = async (route: Route) => {
         rpcCount++;
         await route.fulfill({ 
             status: 200, 
@@ -190,7 +191,7 @@ test.describe('PWA Resilience & Offline Integrity', () => {
         };
       }).catch(() => ({ queueLength: -1, visits: [] }));
 
-      const hasSyncedVisit = state.visits.some((v: any) => 
+      const hasSyncedVisit = state.visits.some(v => 
         v.user_review === 'Resilience integration test with multiple photos' && 
         v.syncStatus === 'synced'
       );

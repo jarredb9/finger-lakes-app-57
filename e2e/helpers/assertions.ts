@@ -69,7 +69,7 @@ export async function expectVisitInStore(page: Page, query: string | { review?: 
         const found = await page.evaluate((q) => {
             // @ts-ignore
             const visits = window.useVisitStore?.getState().visits || [];
-            return visits.some((v: any) => {
+            return visits.some(v => {
                 if (typeof q === 'string') return v.user_review?.includes(q);
                 if (q.review && !v.user_review?.includes(q.review)) return false;
                 if (q.date && v.visit_date !== q.date) return false;
@@ -88,7 +88,7 @@ export async function expectVisitDeletedFromStore(page: Page, reviewText: string
         const found = await page.evaluate((text) => {
             // @ts-ignore
             const visits = window.useVisitStore?.getState().visits || [];
-            return visits.some((v: any) => v.user_review?.includes(text));
+            return visits.some(v => v.user_review?.includes(text));
         }, reviewText);
         if (found) throw new Error(`Visit with review containing "${reviewText}" still exists in store`);
     }).toPass({ timeout: 10000, intervals: [500, 1000] });
