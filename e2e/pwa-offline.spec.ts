@@ -11,7 +11,7 @@ test.describe('PWA Offline Functionality', () => {
       window._E2E_FULL_DRAWER = true;
     });
     mockMaps.enableServiceWorker();
-    await login(page, user.email, user.password, { isPwa: true });
+    await login(page, user.email, user.password, { isPwa: true, skipMapReady: true });
   });
 
   test('should display offline indicator and allow cached navigation', async ({ page, context }) => {
