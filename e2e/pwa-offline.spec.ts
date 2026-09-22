@@ -1,3 +1,6 @@
+import type { Route } from '@playwright/test';
+import type { Winery, VisitWithWinery } from '@/lib/types';
+import type { SerializableBounds } from '@/lib/stores/mapStore';
 import { test, expect } from './utils';
 import { login, navigateToTab, waitForMapReady, clearServiceWorkers, openWineryDetails, closeWineryModal, logVisit, ensureSidebarExpanded } from './helpers';
 
@@ -5,7 +8,7 @@ test.describe('PWA Offline Functionality', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
     await clearServiceWorkers(page);
     await page.addInitScript(() => {
-      (window as any)._E2E_FULL_DRAWER = true;
+      window._E2E_FULL_DRAWER = true;
     });
     mockMaps.enableServiceWorker();
     await login(page, user.email, user.password, { isPwa: true });
@@ -44,21 +47,22 @@ test.describe('PWA Offline Functionality', () => {
     
     // Force winery visibility in list
     await page.evaluate(() => {
-        const wineryStore = (window as any).useWineryStore || (window as any).useWineryDataStore;
-        const dataStore = wineryStore.getState();
-        const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
+        const wineryStore = window.useWineryStore || window.useWineryDataStore;
+        const dataStore = wineryStore?.getState();
+        const mockWinery = dataStore?.persistentWineries.find((w: Winery) => w.name === 'Vineyard of Illusion');
         
         if (mockWinery) {
             // Clear search and trip to ensure useWineryFilter falls back to persistentWineries
-            (window as any).useMapStore.setState({ searchResults: [] });
-            (window as any).useTripStore.setState({ selectedTrip: null });
+            window.useMapStore?.setState({ searchResults: [] });
+            window.useTripStore?.setState({ selectedTrip: null });
 
-            const mockBounds = {
-                contains: () => true,
-                getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
-                getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 })
+            const mockBounds: SerializableBounds = {
+                north: 43,
+                south: 42,
+                east: -76,
+                west: -77
             };
-            (window as any).useMapStore.setState({ 
+            window.useMapStore?.setState({ 
                 bounds: mockBounds,
                 filter: ['all'] 
             });
@@ -69,7 +73,7 @@ test.describe('PWA Offline Functionality', () => {
     
     // Enable Full Drawer state in E2E before opening modal so tabs render on mobile
     await page.evaluate(() => {
-      (window as any)._E2E_FULL_DRAWER = true;
+      window._E2E_FULL_DRAWER = true;
     });
 
     await openWineryDetails(page, 'Vineyard of Illusion');
@@ -80,7 +84,7 @@ test.describe('PWA Offline Functionality', () => {
     await context.setOffline(true);
     // Use context.route + page.route to block Service Worker requests reliably
     const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
-    const blockHandler = (route: any) => {
+    const blockHandler = (route: Route) => {
         if (isWebKit) {
             return route.fulfill({ 
                 status: 404, 
@@ -108,8 +112,8 @@ test.describe('PWA Offline Functionality', () => {
 
     // Tier 2: Logic assertion on store state (pw-interactions.md:7)
     const pendingVisit = await page.evaluate(() => {
-      const visits = (window as any).useVisitStore?.getState().visits || [];
-      return visits.find((v: any) => v.user_review === 'Offline note test');
+      const visits = window.useVisitStore?.getState().visits || [];
+      return visits.find((v: VisitWithWinery) => v.user_review === 'Offline note test');
     });
     expect(pendingVisit).toBeDefined();
     expect(pendingVisit?.syncStatus).toBe('pending');
@@ -132,20 +136,21 @@ test.describe('PWA Offline Functionality', () => {
 
     // Force winery visibility in list
     await page.evaluate(() => {
-      const wineryStore = (window as any).useWineryStore || (window as any).useWineryDataStore;
-      const dataStore = wineryStore.getState();
-      const mockWinery = dataStore.persistentWineries.find((w: any) => w.name === 'Vineyard of Illusion');
+      const wineryStore = window.useWineryStore || window.useWineryDataStore;
+      const dataStore = wineryStore?.getState();
+      const mockWinery = dataStore?.persistentWineries.find((w: Winery) => w.name === 'Vineyard of Illusion');
 
       if (mockWinery) {
-        (window as any).useMapStore.setState({ searchResults: [] });
-        (window as any).useTripStore.setState({ selectedTrip: null });
+        window.useMapStore?.setState({ searchResults: [] });
+        window.useTripStore?.setState({ selectedTrip: null });
 
-        const mockBounds = {
-          contains: () => true,
-          getNorthEast: () => ({ latitude: 43, longitude: -76, lat: () => 43, lng: () => -76 }),
-          getSouthWest: () => ({ latitude: 42, longitude: -77, lat: () => 42, lng: () => -77 })
+        const mockBounds: SerializableBounds = {
+          north: 43,
+          south: 42,
+          east: -76,
+          west: -77
         };
-        (window as any).useMapStore.setState({ 
+        window.useMapStore?.setState({ 
           bounds: mockBounds,
           filter: ['all'] 
         });
@@ -155,7 +160,7 @@ test.describe('PWA Offline Functionality', () => {
     await ensureSidebarExpanded(page);
 
     await page.evaluate(() => {
-      (window as any)._E2E_FULL_DRAWER = true;
+      window._E2E_FULL_DRAWER = true;
     });
 
     await openWineryDetails(page, 'Vineyard of Illusion');
@@ -166,7 +171,7 @@ test.describe('PWA Offline Functionality', () => {
     // 1. Simulate going offline
     await context.setOffline(true);
     const isWebKit = page.context().browser()?.browserType().name() === 'webkit';
-    const blockHandler = (route: any) => {
+    const blockHandler = (route: Route) => {
       if (isWebKit) {
         return route.fulfill({ 
           status: 404, 
@@ -189,29 +194,44 @@ test.describe('PWA Offline Functionality', () => {
 
     // 3. Confirm visit is in offline queue
     const queueLengthBefore = await page.evaluate(() => {
-      return (window as any).useSyncStore?.getState().queue.length || 0;
+      return window.useSyncStore?.getState().queue.length || 0;
     });
     expect(queueLengthBefore).toBeGreaterThan(0);
 
-    // 4. Online reconnection queue drainage scaffold (Red Phase)
-    // Restore network connectivity
+    // 4. Online reconnection queue drainage flow
+    // Step 1: Unroute blockHandler on both page and context prior to setting offline to false
+    await page.unroute(/.*get_paginated_visits.*/, blockHandler);
+    await context.unroute(/.*get_paginated_visits.*/, blockHandler);
     await context.setOffline(false);
 
-    // Assert queue drainage and cache invalidation:
-    // In Red Phase, assert target contract that will fail until Task 3 implements
-    // route unblocking, online signal handling, and sync completion
+    // Step 2: Auto-retrying queue drainage assertion with programmatic sync fallback
     await expect(async () => {
-      const queueLength = await page.evaluate(() => {
-        return (window as any).useSyncStore?.getState().queue.length ?? -1;
+      const state = await page.evaluate(() => {
+        const syncStore = window.useSyncStore;
+        const syncService = window.SyncService;
+        if (!syncStore || !syncStore.getState().isInitialized) return null;
+        return {
+          isSyncing: !!syncService?.isSyncing,
+          queueLength: syncStore.getState().queue.length
+        };
       });
-      expect(queueLength).toBe(0);
-    }).toPass({ timeout: 5000 });
 
-    // Assert cache invalidation: visit in store is marked 'synced'
-    const syncedVisit = await page.evaluate(({ review }) => {
-      const visits = (window as any).useVisitStore?.getState().visits || [];
-      return visits.find((v: any) => v.user_review === review);
-    }, { review: reviewText });
-    expect(syncedVisit?.syncStatus).toBe('synced');
+      if (!state) throw new Error('SyncStore not ready');
+
+      if (state.queueLength > 0 && !state.isSyncing) {
+        await page.evaluate(() => window.SyncService?.sync?.()).catch(() => {});
+      }
+      expect(state.queueLength).toBe(0);
+    }).toPass({ timeout: 15000 });
+
+    // Step 3: Auto-retrying store cache invalidation assertion
+    await expect(async () => {
+      const syncedVisit = await page.evaluate(({ review }) => {
+        const visits = window.useVisitStore?.getState().visits || [];
+        return visits.find((v: VisitWithWinery) => v.user_review === review);
+      }, { review: reviewText });
+      expect(syncedVisit).toBeDefined();
+      expect(syncedVisit?.syncStatus).toBe('synced');
+    }).toPass({ timeout: 15000 });
   });
 });

@@ -2,7 +2,7 @@ import { Page } from '@playwright/test';
 import { getTodayLocal } from '@/lib/utils';
 import { createMockVisitWithWinery } from '@/lib/test-utils/fixtures';
 import { MapMarkerRpc, WineryDbId, GooglePlaceId } from '@/lib/types';
-import { MockMapsState, createDefaultMockState } from '../types';
+import { MockMapsState, createDefaultMockState, RpcVisitWithWinery } from '../types';
 import { MOCK_MARKERS } from '../utils/mock-wineries';
 
 export class VisitsHandler {
@@ -127,7 +127,7 @@ export class VisitsHandler {
 
         if (!this.state.visits) this.state.visits = [];
 
-        const newVisit: any = {
+        const newVisit: RpcVisitWithWinery = {
           visit_id: newId,
           user_id: this.currentUserId,
           visit_date: visitData.visit_date || todayCA,

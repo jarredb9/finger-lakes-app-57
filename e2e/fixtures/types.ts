@@ -15,6 +15,7 @@ export type RpcVisitWithWinery = Omit<Database['public']['Functions']['get_pagin
   user_review: string | null;
   rating: number | null;
   idempotency_key?: string | null;
+  is_private?: boolean;
 };
 
 export type FriendActivityFeedItem = {
