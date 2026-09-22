@@ -165,10 +165,10 @@ Focus: Enforce ESLint 9 Playwright rules, calibrate visual snapshots to 1%, elim
 ## Phase 10: High-Value E2E Feature Coverage
 Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offline reconnection queue drainage.
 
-- [ ] Task: Write failing E2E tests for itinerary reordering and offline reconnect sync (Red Phase)
-    - [ ] Add failing test scaffold in `e2e/trip-management.spec.ts` asserting drag-and-drop stop reordering persistence
-    - [ ] Add failing test scaffold in `e2e/pwa-offline.spec.ts` asserting online reconnection queue drainage and cache invalidation
-    - [ ] Verify tests fail before implementation (Red phase)
+- [x] Task: Write failing E2E tests for itinerary reordering and offline reconnect sync (Red Phase) [956bbee]
+    - [x] Add failing test scaffold in `e2e/trip-management.spec.ts` asserting drag-and-drop stop reordering persistence
+    - [x] Add failing test scaffold in `e2e/pwa-offline.spec.ts` asserting online reconnection queue drainage and cache invalidation
+    - [x] Verify tests fail before implementation (Red phase)
 - [ ] Task: Implement full E2E spec for drag-and-drop itinerary reordering (Green Phase)
     - [ ] Implement drag-and-drop simulation for `@hello-pangea/dnd` in `e2e/trip-management.spec.ts`, validating persistent reordered state and RPC payload
     - [ ] Verify test passes cleanly in container
