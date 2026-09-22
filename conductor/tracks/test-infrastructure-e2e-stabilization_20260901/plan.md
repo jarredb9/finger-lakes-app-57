@@ -178,7 +178,7 @@ Focus: Add end-to-end coverage for drag-and-drop itinerary reordering and offlin
     - [x] Verify test passes cleanly in container and passes static analysis (`npm run lint`, `npm run type-check`)
 - [x] Task: Conductor - User Manual Verification 'Phase 10: High-Value E2E Feature Coverage' (Protocol in workflow.md) [3a91e13]
 
-## Phase 11: Track Scaffolding Prune, Cross-Browser Certification & Final Quality Gate
+## Phase 11: Track Scaffolding Prune, Cross-Browser Certification & Final Quality Gate [58c20b9]
 Focus: Audit and prune ephemeral TDD scaffolding tests while preserving permanent contracts, certify full cross-browser container matrix, and execute repository quality gate.
 
 - [x] Task: Audit and prune track-specific post-TDD scaffolding tests (Cleanup) [1987945]
@@ -195,10 +195,10 @@ Focus: Audit and prune ephemeral TDD scaffolding tests while preserving permanen
     - [x] Replace untyped route parameters with Playwright Route and spec parameters with Page
     - [x] Align fixture and store search closures with canonical domain models (RpcVisitWithWinery, Profile, SyncItem, Winery, Trip)
     - [x] Verify clean static analysis (npm run type-check, npm run lint) and containerized contract/smoke execution
-- [ ] Task: Full cross-browser container suite verification and quality gate (Verification)
-    - [ ] Run `./scripts/run-e2e-container.sh all` across `chromium`, `webkit`, `mobile-safari`, and `mobile-chrome`
-    - [ ] Run repository quality gate: `npm test`, `npm run lint`, and `npm run type-check`
-- [ ] Task: Conductor - User Manual Verification 'Phase 11: Track Scaffolding Prune, Cross-Browser Certification & Final Quality Gate' (Protocol in workflow.md)
+- [x] Task: Full cross-browser container suite verification and quality gate (Verification) [924ced2]
+    - [x] Run `./scripts/run-e2e-container.sh all` across `chromium`, `webkit`, `mobile-safari`, and `mobile-chrome`
+    - [x] Run repository quality gate: `npm test`, `npm run lint`, and `npm run type-check`
+- [x] Task: Conductor - User Manual Verification 'Phase 11: Track Scaffolding Prune, Cross-Browser Certification & Final Quality Gate' (Protocol in workflow.md) [924ced2]
 
 
 ## Phase: Review Fixes
