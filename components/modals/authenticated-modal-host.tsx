@@ -79,11 +79,11 @@ export function AuthenticatedModalHost() {
     };
 
     if (typeof window !== "undefined") {
-      if ("requestIdleCallback" in window) {
-        const handle = (window as any).requestIdleCallback(prefetchModals);
+      if ("requestIdleCallback" in window && typeof window.requestIdleCallback === 'function') {
+        const handle = window.requestIdleCallback(prefetchModals);
         return () => {
-          if ("cancelIdleCallback" in window) {
-            (window as any).cancelIdleCallback(handle);
+          if ("cancelIdleCallback" in window && typeof window.cancelIdleCallback === 'function') {
+            window.cancelIdleCallback(handle);
           }
         };
       } else {

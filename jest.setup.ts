@@ -2,13 +2,6 @@ import '@testing-library/jest-dom'
 import { TextEncoder, TextDecoder } from 'util';
 import * as dotenv from 'dotenv';
 import path from 'path';
-import { useUIStore } from './lib/stores/uiStore';
-import { useFriendStore } from './lib/stores/friendStore';
-import { useMapStore } from './lib/stores/mapStore';
-import { useTripStore } from './lib/stores/tripStore';
-import { useUserStore } from './lib/stores/userStore';
-import { useVisitStore } from './lib/stores/visitStore';
-import { useWineryStore } from './lib/stores/wineryStore';
 
 // Load env vars from .env.local
 dotenv.config({ path: path.resolve(__dirname, '.env.local') });
@@ -26,13 +19,27 @@ jest.mock('idb-keyval', () => ({
 // Reset all Zustand stores before each test to prevent state bleed
 // And setup modal-root for Portals
 beforeEach(() => {
-  useUIStore.getState().reset?.();
-  useFriendStore.getState().reset?.();
-  useMapStore.getState().reset?.();
-  useTripStore.getState().reset?.();
-  useUserStore.getState().reset?.();
-  useVisitStore.getState().reset?.();
-  useWineryStore.getState().reset?.();
+  try {
+    require('./lib/stores/uiStore').useUIStore.getState().reset?.();
+  } catch {}
+  try {
+    require('./lib/stores/friendStore').useFriendStore.getState().reset?.();
+  } catch {}
+  try {
+    require('./lib/stores/mapStore').useMapStore.getState().reset?.();
+  } catch {}
+  try {
+    require('./lib/stores/tripStore').useTripStore.getState().reset?.();
+  } catch {}
+  try {
+    require('./lib/stores/userStore').useUserStore.getState().reset?.();
+  } catch {}
+  try {
+    require('./lib/stores/visitStore').useVisitStore.getState().reset?.();
+  } catch {}
+  try {
+    require('./lib/stores/wineryStore').useWineryStore.getState().reset?.();
+  } catch {}
 
   // Ensure modal-root exists for Portals
   if (typeof document !== 'undefined') {
@@ -64,6 +71,24 @@ if (typeof global.Request === 'undefined') {
     global.ReadableStream = nodeGlobals.ReadableStream;
     global.WritableStream = nodeGlobals.WritableStream;
     global.TransformStream = nodeGlobals.TransformStream;
+  }
+}
+
+// Polyfill URL.createObjectURL and URL.revokeObjectURL for JSDOM
+if (typeof global.URL !== 'undefined') {
+  if (typeof global.URL.createObjectURL === 'undefined') {
+    global.URL.createObjectURL = jest.fn((_blob?: any) => `blob:mock-${Math.random().toString(36).substring(2, 9)}`);
+  }
+  if (typeof global.URL.revokeObjectURL === 'undefined') {
+    global.URL.revokeObjectURL = jest.fn();
+  }
+}
+if (typeof window !== 'undefined' && typeof window.URL !== 'undefined') {
+  if (typeof window.URL.createObjectURL === 'undefined') {
+    window.URL.createObjectURL = global.URL.createObjectURL;
+  }
+  if (typeof window.URL.revokeObjectURL === 'undefined') {
+    window.URL.revokeObjectURL = global.URL.revokeObjectURL;
   }
 }
 

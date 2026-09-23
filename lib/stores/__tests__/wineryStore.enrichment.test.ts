@@ -1,47 +1,40 @@
 import { act } from '@testing-library/react';
 import { createMockWinery, createMockVisit, createMockMapMarkerRpc } from '@/lib/test-utils/fixtures';
-import { WineryDbId, GooglePlaceId } from '@/lib/types';
+import { WineryDbId, GooglePlaceId, Winery } from '@/lib/types';
+import { useWineryStore } from '../wineryStore';
+
+let mockRpc: any = jest.fn((name: string) => {
+  if (name === 'get_map_markers') {
+    return Promise.resolve({ data: [], error: null });
+  }
+  return Promise.resolve({ data: null, error: null });
+});
+
+(globalThis as any)._WINERY_ENRICH_RPC = mockRpc;
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    rpc: (...args: any[]) => (globalThis as any)._WINERY_ENRICH_RPC(...args),
+  })),
+}));
 
 describe('WineryDataStore', () => {
-  let useWineryStore: any;
-  let mockRpc: any;
-
   beforeEach(() => {
-    jest.resetModules();
-    
-    // Ensure hydrateWineries is not skipped in Jest tests
     (globalThis as any)._E2E_ENABLE_REAL_SYNC = true;
 
-    // Name-aware mockRpc
-    mockRpc = jest.fn((name) => {
+    mockRpc = jest.fn((name: string) => {
       if (name === 'get_map_markers') {
-         // Default empty return for markers, specific tests override this
-         return Promise.resolve({ data: [], error: null });
+        return Promise.resolve({ data: [], error: null });
       }
       return Promise.resolve({ data: null, error: null });
     });
+    (globalThis as any)._WINERY_ENRICH_RPC = mockRpc;
 
-    // Mock Supabase
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: () => ({
-        rpc: mockRpc,
-      }),
-    }));
-
-    // Mock IDB to prevent errors during persist middleware init
-    jest.doMock('idb-keyval', () => ({
-      get: jest.fn(),
-      set: jest.fn(),
-      del: jest.fn(),
-    }));
-
-    // Re-require store
-    useWineryStore = require('../wineryStore').useWineryStore;
     useWineryStore.getState().reset();
   });
 
   afterEach(() => {
-      delete (globalThis as any)._E2E_ENABLE_REAL_SYNC;
+    delete (globalThis as any)._E2E_ENABLE_REAL_SYNC;
   });
 
   it('should preserve existing winery details (visits) when hydrating from map markers', async () => {
@@ -78,7 +71,7 @@ describe('WineryDataStore', () => {
 
     // 3. Trigger Hydration
     act(() => {
-      useWineryStore.getState().hydrateWineries([freshMarker]);
+      useWineryStore.getState().hydrateWineries([freshMarker as any]);
     });
 
     // 4. Assertions
@@ -96,9 +89,9 @@ describe('WineryDataStore', () => {
 
   it('should not overwrite existing enriched fields with basic/null/undefined marker fields in upsertWinery and bulkUpsertWineries', () => {
     // 1. Setup Initial State with Rich/Enriched Data
-    const existingWinery = {
-      id: 'winery-1',
-      dbId: 1,
+    const existingWinery: Winery = createMockWinery({
+      id: 'winery-1' as GooglePlaceId,
+      dbId: 1 as WineryDbId,
       name: 'Enriched Winery',
       address: '123 Wine St',
       latitude: 42.5,
@@ -117,16 +110,16 @@ describe('WineryDataStore', () => {
       outdoor_seating: true,
       openingHours: { open_now: true, weekday_text: ['Monday: Open'] },
       reviews: [{ author_name: 'Tester', rating: 5, text: 'Great!', time: 123, relative_time_description: 'Now' }],
-      visits: [{ id: 'visit-1', user_review: 'Preserve me!' }],
-    };
+      visits: [{ id: 'visit-1', user_review: 'Preserve me!' }] as any,
+    });
 
     act(() => {
       useWineryStore.setState({ persistentWineries: [existingWinery] });
     });
 
     // 2. Prepare basic/partial marker updates
-    const basicUpdate = {
-      id: 'winery-1',
+    const basicUpdate: any = {
+      id: 'winery-1' as GooglePlaceId,
       name: 'Enriched Winery (Updated)',
       address: '123 Wine St (Updated)',
       latitude: 42.5,
@@ -145,22 +138,23 @@ describe('WineryDataStore', () => {
 
     // Test upsertWinery
     act(() => {
-      useWineryStore.getState().upsertWinery(basicUpdate);
+      useWineryStore.getState().upsertWinery(basicUpdate as Winery);
     });
 
     let updatedWineries = useWineryStore.getState().persistentWineries;
     let updatedWinery = updatedWineries.find((w: any) => w.id === 'winery-1');
-    expect(updatedWinery.name).toBe('Enriched Winery (Updated)');
-    expect(updatedWinery.phone).toBe('123-456-7890');
-    expect(updatedWinery.website).toBe('https://winery.com');
-    expect(updatedWinery.rating).toBe(4.8);
-    expect(updatedWinery.userRatingCount).toBe(150);
-    expect(updatedWinery.enrichment_tier).toBe('enriched');
-    expect(updatedWinery.generative_summary).toBe('A great winery.');
-    expect(updatedWinery.allows_dogs).toBe(true);
-    expect(updatedWinery.has_ev_charging).toBe(true);
-    expect(updatedWinery.openingHours).toBeDefined();
-    expect(updatedWinery.reviews).toHaveLength(1);
+    expect(updatedWinery).toBeDefined();
+    expect(updatedWinery?.name).toBe('Enriched Winery (Updated)');
+    expect(updatedWinery?.phone).toBe('123-456-7890');
+    expect(updatedWinery?.website).toBe('https://winery.com');
+    expect(updatedWinery?.rating).toBe(4.8);
+    expect(updatedWinery?.userRatingCount).toBe(150);
+    expect(updatedWinery?.enrichment_tier).toBe('enriched');
+    expect(updatedWinery?.generative_summary).toBe('A great winery.');
+    expect(updatedWinery?.allows_dogs).toBe(true);
+    expect(updatedWinery?.has_ev_charging).toBe(true);
+    expect(updatedWinery?.openingHours).toBeDefined();
+    expect(updatedWinery?.reviews).toHaveLength(1);
 
     // Reset and test bulkUpsertWineries
     act(() => {
@@ -168,22 +162,22 @@ describe('WineryDataStore', () => {
     });
 
     act(() => {
-      useWineryStore.getState().bulkUpsertWineries([basicUpdate]);
+      useWineryStore.getState().bulkUpsertWineries([basicUpdate as Winery]);
     });
 
     updatedWineries = useWineryStore.getState().persistentWineries;
     updatedWinery = updatedWineries.find((w: any) => w.id === 'winery-1');
-    expect(updatedWinery.name).toBe('Enriched Winery (Updated)');
-    expect(updatedWinery.phone).toBe('123-456-7890');
-    expect(updatedWinery.website).toBe('https://winery.com');
-    expect(updatedWinery.rating).toBe(4.8);
-    expect(updatedWinery.userRatingCount).toBe(150);
-    expect(updatedWinery.enrichment_tier).toBe('enriched');
-    expect(updatedWinery.generative_summary).toBe('A great winery.');
-    expect(updatedWinery.allows_dogs).toBe(true);
-    expect(updatedWinery.has_ev_charging).toBe(true);
-    expect(updatedWinery.openingHours).toBeDefined();
-    expect(updatedWinery.reviews).toHaveLength(1);
+    expect(updatedWinery).toBeDefined();
+    expect(updatedWinery?.name).toBe('Enriched Winery (Updated)');
+    expect(updatedWinery?.phone).toBe('123-456-7890');
+    expect(updatedWinery?.website).toBe('https://winery.com');
+    expect(updatedWinery?.rating).toBe(4.8);
+    expect(updatedWinery?.userRatingCount).toBe(150);
+    expect(updatedWinery?.enrichment_tier).toBe('enriched');
+    expect(updatedWinery?.generative_summary).toBe('A great winery.');
+    expect(updatedWinery?.allows_dogs).toBe(true);
+    expect(updatedWinery?.has_ev_charging).toBe(true);
+    expect(updatedWinery?.openingHours).toBeDefined();
+    expect(updatedWinery?.reviews).toHaveLength(1);
   });
 });
-

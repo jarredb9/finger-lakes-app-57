@@ -52,7 +52,8 @@ test.describe('Accessibility (A11y)', () => {
     const firstWinery = resultsList.getByTestId('winery-card-Mock Winery One').first();
     const wineryTitle = firstWinery.locator('h3');
     await expect(wineryTitle).toBeVisible({ timeout: 10000 });
-    await wineryTitle.click({ force: true });
+    await firstWinery.scrollIntoViewIfNeeded();
+    await wineryTitle.click();
 
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();

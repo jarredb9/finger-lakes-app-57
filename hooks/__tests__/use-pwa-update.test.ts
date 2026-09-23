@@ -29,9 +29,8 @@ describe('usePWAUpdate', () => {
 
     // Satisfy JSDOM by using a mock for reload
     const mockReload = jest.fn();
-    (window as any)._E2E_RELOAD = mockReload;
+    window._E2E_RELOAD = mockReload;
 
-    // @ts-ignore
     delete globalThis._PWA_UPDATING;
     process.env.NEXT_PUBLIC_IS_E2E = '';
   });
@@ -58,12 +57,12 @@ describe('usePWAUpdate', () => {
       handler();
     });
 
-    expect((globalThis as any)._PWA_UPDATING).toBe(true);
-    expect((window as any)._E2E_RELOAD).toHaveBeenCalled();
+    expect(globalThis._PWA_UPDATING).toBe(true);
+    expect(window._E2E_RELOAD).toHaveBeenCalled();
   });
 
   it('should NOT reload on controllerchange if already updating', async () => {
-    (globalThis as any)._PWA_UPDATING = true;
+    globalThis._PWA_UPDATING = true;
     renderHook(() => usePWAUpdate());
     
     const handler = mockServiceWorker.addEventListener.mock.calls.find(
@@ -75,6 +74,6 @@ describe('usePWAUpdate', () => {
     });
 
     // If it didn't crash, it means it returned early because _PWA_UPDATING was already true
-    expect((globalThis as any)._PWA_UPDATING).toBe(true);
+    expect(globalThis._PWA_UPDATING).toBe(true);
   });
 });

@@ -483,7 +483,7 @@ export const getWineryVibeTags = (winery: Partial<Winery> | null | undefined): s
 
 // Expose for E2E testing
 if (typeof window !== 'undefined') {
-    (window as any).standardizeWineryData = standardizeWineryData;
-    (window as any).getWineryVibeTags = getWineryVibeTags;
+    window.standardizeWineryData = standardizeWineryData;
+    window.getWineryVibeTags = getWineryVibeTags;
 }
 

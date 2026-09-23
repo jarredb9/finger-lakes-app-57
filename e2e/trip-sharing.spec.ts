@@ -2,7 +2,6 @@ import { test, expect, MockMapsManager, createMockTrip, createDefaultMockState }
 import { 
     ensureSidebarExpanded,
     ensureProfileReady,
-    injectTripState,
     navigateToTab,
     getSidebarContainer,
     login,
@@ -11,7 +10,7 @@ import {
 
 test.describe('Trip Sharing and Collaboration Flow', () => {
   test('User can invite a friend to a trip', async ({ page, user: userA, user2: userB, mockMaps }) => {
-    await page.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+    await page.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
 
     // 1. Setup: Mock state and login
     const uniqueTripName = `Sharing Trip ${Date.now()}`;
@@ -25,35 +24,25 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
         ]
     });
 
+    const friend = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
+
     await mockMaps.initDefaultMocks({ currentUserId: userA.id, forceMocks: true });
     mockMaps.getState().trips = [mockTrip];
+    mockMaps.getState().socialMap.set(userA.id, {
+        friends: [friend],
+        pending_incoming: [],
+        pending_outgoing: []
+    });
+    mockMaps.getState().social = {
+        friends: [friend],
+        pending_incoming: [],
+        pending_outgoing: []
+    };
 
     await login(page, userA.email, userA.password, { skipMapReady: true });
     await ensureProfileReady(page);
 
-    // 2. ATOMIC INJECTION: Establish friendship and inject trip
-    await test.step('Atomic state injection', async () => {
-        const friend = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
-        
-        await page.evaluate(({ f, t }) => {
-            (window as any).useFriendStore?.setState({ friends: [f] });
-            (window as any).useTripStore?.setState({ trips: [t], upcomingTrips: [t] });
-        }, { f: friend, t: mockTrip });
-
-        // Sync mock layer
-        mockMaps.getState().socialMap.set(userA.id, {
-            friends: [friend],
-            pending_incoming: [],
-            pending_outgoing: []
-        });
-        mockMaps.getState().social = {
-            friends: [friend],
-            pending_incoming: [],
-            pending_outgoing: []
-        };
-    });
-
-    // 3. Open Share Dialog directly from the injected trip
+    // 2. Open Share Dialog directly from the trip
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);
     
@@ -101,22 +90,12 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
     const pageB = await contextB.newPage();
 
     try {
-      await pageA.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
-      await pageB.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+      await pageA.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
+      await pageB.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
 
       const sharedState = createDefaultMockState();
       const managerA = new MockMapsManager(pageA, sharedState);
       const managerB = new MockMapsManager(pageB, sharedState);
-
-      // We use MOCKS for this test to ensure stability in the container
-      await managerA.initDefaultMocks({ currentUserId: userA.id, forceMocks: true });
-      await managerB.initDefaultMocks({ currentUserId: userB.id, forceMocks: true });
-
-      await login(pageA, userA.email, userA.password, { skipMapReady: true });
-      await login(pageB, userB.email, userB.password, { skipMapReady: true });
-      
-      await ensureProfileReady(pageA);
-      await ensureProfileReady(pageB);
 
       const uniqueTripName = `Sync Trip ${Date.now()}`;
       const tripId = 999;
@@ -129,35 +108,33 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
           ]
       });
 
-      // 1. Establish friendship and inject trip via ATOMIC INJECTION
-      await test.step('Atomic state injection', async () => {
-          const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
-          const friendForB = { id: userA.id, name: 'User A', email: userA.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
+      const friendForA = { id: userB.id, name: 'User B', email: userB.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
+      const friendForB = { id: userA.id, name: 'User A', email: userA.email, status: 'accepted', privacy_level: 'public' as const, ai_enabled: false };
 
-          await pageA.evaluate(({ f, t }) => {
-              (window as any).useFriendStore?.setState({ friends: [f] });
-              (window as any).useTripStore?.setState({ trips: [t], upcomingTrips: [t] });
-          }, { f: friendForA, t: mockTrip });
-
-          await pageB.evaluate(({ f }) => {
-              (window as any).useFriendStore?.setState({ friends: [f] });
-          }, { f: friendForB });
-
-          // Update the mock layer for BOTH users
-          sharedState.socialMap.set(userA.id, {
-              friends: [friendForA],
-              pending_incoming: [],
-              pending_outgoing: []
-          });
-          sharedState.socialMap.set(userB.id, {
-              friends: [friendForB],
-              pending_incoming: [],
-              pending_outgoing: []
-          });
-          sharedState.trips = [mockTrip];
+      // Update the mock layer for BOTH users ahead of time
+      sharedState.socialMap.set(userA.id, {
+          friends: [friendForA],
+          pending_incoming: [],
+          pending_outgoing: []
       });
+      sharedState.socialMap.set(userB.id, {
+          friends: [friendForB],
+          pending_incoming: [],
+          pending_outgoing: []
+      });
+      sharedState.trips = [mockTrip];
 
-      // 2. User A invites User B via UI (tests the collaboration flow)
+      // We use MOCKS for this test to ensure stability in the container
+      await managerA.initDefaultMocks({ currentUserId: userA.id, forceMocks: true });
+      await managerB.initDefaultMocks({ currentUserId: userB.id, forceMocks: true });
+
+      await login(pageA, userA.email, userA.password, { skipMapReady: true });
+      await login(pageB, userB.email, userB.password, { skipMapReady: true });
+      
+      await ensureProfileReady(pageA);
+      await ensureProfileReady(pageB);
+
+      // 1. User A invites User B via UI (tests the collaboration flow)
       await navigateToTab(pageA, 'Trips');
       await ensureSidebarExpanded(pageA);
       const sidebarA = getSidebarContainer(pageA);
@@ -223,13 +200,13 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
       // 5. User B receives the update (proactive store sync as per collaborative sync standard)
       await pageB.evaluate(async () => {
-          const store = (window as any).useTripStore?.getState();
+          const store = window.useTripStore?.getState();
           if (store && !store.isLoading) await store.fetchTrips(1, 'upcoming', true);
       });
 
       await expect(async () => {
-          const trips = await pageB.evaluate(() => (window as any).useTripStore?.getState().trips || []);
-          const hasNewName = trips.some((t: any) => t.name === newName);
+          const trips = await pageB.evaluate(() => window.useTripStore?.getState().trips || []);
+          const hasNewName = trips.some(t => t.name === newName);
           if (!hasNewName) throw new Error(`Trip with new name "${newName}" not found in user B store`);
       }).toPass({ timeout: 10000, intervals: [1000] });
 
@@ -241,7 +218,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
   });
 
   test('Collaborator can see and edit shared trip', async ({ page, user, mockMaps }) => {
-    await page.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+    await page.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
 
     // 1. Prepare data for injection
     const tripId = 777;
@@ -266,10 +243,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
     await login(page, user.email, user.password, { skipMapReady: true });
 
-    // 3. ATOMIC STATE INJECTION
-    await injectTripState(page, [mockTrip]);
-
-    // 4. Verification
+    // 3. Verification
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);
     
@@ -302,7 +276,7 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
   });
 
   test('Collaborator authorization: Non-owner member can edit but cannot delete shared trip', async ({ page, user, mockMaps }) => {
-    await page.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+    await page.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
 
     const sharedTripId = 778;
     const ownedTripId = 779;
@@ -338,9 +312,6 @@ test.describe('Trip Sharing and Collaboration Flow', () => {
 
     await login(page, user.email, user.password, { skipMapReady: true });
     await ensureProfileReady(page);
-
-    // Atomic State Injection for both trips
-    await injectTripState(page, [sharedTrip, ownedTrip]);
 
     await navigateToTab(page, 'Trips');
     await ensureSidebarExpanded(page);

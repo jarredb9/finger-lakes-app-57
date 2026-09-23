@@ -37,7 +37,7 @@ export interface VisitDataSlice {
   initialize: () => Promise<void>;
   injectVisitWithPhotos?: (
     winery: Winery,
-    visitData: { visit_date: string; user_review: string; rating: number; photos: (File | Base64Photo)[] }
+    visitData: { visit_date: string; user_review: string; rating: number; photos: (File | Base64Photo)[]; is_private?: boolean }
   ) => Promise<void>;
 }
 

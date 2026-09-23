@@ -1,6 +1,7 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { persist } from 'zustand/middleware';
 import { Winery, Visit } from '@/lib/types';
+import { useTripStore } from '@/lib/stores/tripStore';
 
 export type ModalType = 'visit_form' | 'winery_notes' | 'share' | null;
 
@@ -87,7 +88,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
       activeNoteWineryDbId: null,
       activeNoteInitialValue: '',
       activeNoteTripId: null,
-      snapPoint: typeof window !== 'undefined' && (window as any)._E2E_FULL_DRAWER ? 1 : '300px',
+      snapPoint: typeof window !== 'undefined' && window._E2E_FULL_DRAWER ? 1 : '300px',
       setSnapPoint: (snapPoint) => set({ snapPoint }),
 
       toggleSidebar: () => set((state) => ({ isSidebarOpen: !state.isSidebarOpen })),
@@ -97,7 +98,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         isWineryModalOpen: true, 
         activeWineryId: wineryId,
         returnToVisitHistory: returnToHistory,
-        snapPoint: typeof window !== 'undefined' && (window as any)._E2E_FULL_DRAWER ? 1 : '300px',
+        snapPoint: typeof window !== 'undefined' && window._E2E_FULL_DRAWER ? 1 : '300px',
       }),
       closeWineryModal: () => set((state) => {
         const base = {
@@ -109,7 +110,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
           activeNoteWineryDbId: null,
           activeNoteInitialValue: '',
           activeNoteTripId: null,
-          snapPoint: typeof window !== 'undefined' && (window as any)._E2E_FULL_DRAWER ? 1 : '300px',
+          snapPoint: typeof window !== 'undefined' && window._E2E_FULL_DRAWER ? 1 : '300px',
         };
         // If the flag is set, open the history modal when closing the winery modal
         if (state.returnToVisitHistory) {
@@ -202,13 +203,11 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         activeModal: { type: 'share', props: { tripId, tripName } }
       }),
       closeShareDialog: () => {
-        if (typeof window !== 'undefined' && (window as any).useTripStore) {
-          (window as any).useTripStore.getState().setSelectedTrip(null);
-        }
+        useTripStore.getState().setSelectedTrip(null);
         set({ 
           isShareDialogOpen: false, 
           shareTripId: null, 
-          shareTripName: null,
+          shareTripName: null, 
           activeModal: null,
         });
       },
@@ -234,7 +233,7 @@ export const useUIStore = createWithEqualityFn<UIState>()(
         activeNoteWineryDbId: null,
         activeNoteInitialValue: '',
         activeNoteTripId: null,
-        snapPoint: typeof window !== 'undefined' && (window as any)._E2E_FULL_DRAWER ? 1 : '300px',
+        snapPoint: typeof window !== 'undefined' && window._E2E_FULL_DRAWER ? 1 : '300px',
       }),
     }),
     {
@@ -248,6 +247,6 @@ export const useUIStore = createWithEqualityFn<UIState>()(
 );
 
 // Expose store for E2E testing
-if (typeof window !== 'undefined') {
-  (window as any).useUIStore = useUIStore;
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+  window.useUIStore = useUIStore;
 }

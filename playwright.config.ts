@@ -36,7 +36,7 @@ export default defineConfig({
   /* Global visual snapshot configuration to absorb SwiftShader / headless renderer sub-pixel differences */
   expect: {
     toHaveScreenshot: {
-      maxDiffPixelRatio: 0.10,
+      maxDiffPixelRatio: 0.01,
       threshold: 0.2,
       animations: 'disabled',
       scale: 'css',

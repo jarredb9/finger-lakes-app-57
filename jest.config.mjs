@@ -12,6 +12,8 @@ const isIntegration = process.env.TEST_TYPE === 'integration';
 const config = {
   coverageProvider: 'v8',
   testEnvironment: 'jsdom',
+  workerIdleMemoryLimit: '512MB',
+  clearMocks: true,
   // Add more setup options before each test is run
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {

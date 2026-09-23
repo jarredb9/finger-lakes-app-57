@@ -10,15 +10,25 @@
 2. **Supabase Operations:** Prioritize Supabase MCP tools for interacting with hosted environments. Use the local CLI (`npm run db:*`) for local development.
 3. **Backwards Compatibility:** All database migrations in `supabase/migrations/*` must follow the expand-and-contract pattern to avoid breaking live running instances.
 4. **Git Hygiene:** Do not modify `.git/` or make automated commits unless explicitly requested.
+5. **Modal & Plan Approval Invariant:** A response of `User Skipped` or dismissal of `ask_question` is strictly non-affirmative. Never interpret a skipped modal as consent, approval, or a directive to proceed. Under `/plan` or any confirmation gate, you MUST halt and wait for explicit affirmative text approval before executing any code changes or commands.
 
 ## 3. Environment & Execution Commands
 - **Runtime:** Node.js 24 (LTS).
-- **Dev Server:** `npm run dev` (http://localhost:3000) or `npm run dev:real` (local Supabase stack at http://127.0.0.1:54321).
+- **Dev Server:**
+  - Host: `npm run dev` (http://localhost:3000) or `npm run dev:real` (local Supabase stack at http://127.0.0.1:54321).
+  - Container (RHEL 8 / Native Turbopack): `npm run dev:container` or `npm run dev:container:real`.
+- **Production Build:**
+  - Host (WASM fallback on RHEL 8): `npm run build`
+  - Container (RHEL 8 / Native SWC): `npm run build:container` or `./scripts/run-build-container.sh`
 - **Local DB Stack:**
   - Start: `npm run db:start` (automatically applies SELinux fix)
   - Populate Data: `npm run db:populate`
   - Types: `npm run db:check-types:local` / `npm run db:gen-types`
   - Edge Function Tests: `npm run test:functions`
+- **Jest Tests (RHEL 8 / Containerized):**
+  - RHEL 8 glibc (2.28) is incompatible with Next.js 16.3+ native SWC (requires glibc 2.29+). Run Jest via the Podman container runner:
+  - Unit Tests: `./scripts/run-jest-container.sh [jest_args]` or `npm run test:container [-- jest_args]`
+  - Integration Tests: `npm run test:integration:container [-- jest_args]`
 - **Playwright E2E:** Run via Podman container script:
   - Syntax: `./scripts/run-e2e-container.sh [--build] [project] [test_file]`
   - Example: `./scripts/run-e2e-container.sh --build webkit e2e/trip-flow.spec.ts`
@@ -31,7 +41,8 @@
 - **Coordinate Standardization:** All winery data sources (Google API, DB RPCs, mocks) must pass through `standardizeWineryData` in `lib/utils/winery.ts`. Access coordinates via `location.latitude` and `location.longitude` (no `.lat()` calls, strip legacy `lat`/`lng` keys).
 - **Ghost Visit Prevention:** If a source reports `user_visited: false`, clear the `visits` array in the standardizer.
 - **Lazy Enrichment Policy:** Check the `last_enriched_at` timestamp (<30 days freshness) in Edge Functions before invoking external Google Places / Gemini APIs.
-- **DOM Stability & Testing:** Keep critical UI containers (`map-container`, `trip-list-container`) in the DOM during loading/error states using `data-state="loading|error|ready"` rather than early unmounting.
+- **Map Architecture:** Mapbox GL JS (`react-map-gl/mapbox`, `mapbox-gl`) is the primary map rendering, clustering, and interaction engine. Google Maps (`components/map/google-map-fallback.tsx`) is the dynamic fallback triggered by `MapErrorBoundary` for non-GPU, headless, or WebGL-disabled systems.
+- **Supabase RPC Signatures:** Custom PostgreSQL functions returning composite structures should use `RETURNS TABLE (...)` instead of `RETURNS jsonb` to support automated TypeScript type generation (`npm run db:gen-types`).
 - **UI Architecture:** Container/Presentational pattern. Use Tailwind CSS v4 utility classes.
 
 ## 5. Agent Workflow, Skills & Project Tracking

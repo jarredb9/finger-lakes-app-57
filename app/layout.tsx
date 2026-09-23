@@ -50,7 +50,7 @@ export default function RootLayout({
               <ModalHost />
               <AuthProvider>
                 {children}
-                {(process.env.NODE_ENV !== 'production' || process.env.NEXT_PUBLIC_IS_E2E === 'true') && (
+                {process.env.NEXT_PUBLIC_IS_E2E === 'true' && (
                   <E2EStoreExposer />
                 )}
               </AuthProvider>

@@ -36,7 +36,7 @@ export function MapNavigation({
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    const userAgent = typeof window !== "undefined" ? navigator.userAgent || navigator.vendor || (window as any).opera : "";
+    const userAgent = (typeof window !== "undefined" ? (navigator.userAgent || navigator.vendor || window.opera || "") : "");
     const mobile = /android|iphone|ipad|ipod/i.test(userAgent);
     const ios = /iphone|ipad|ipod/i.test(userAgent);
     

@@ -1,6 +1,6 @@
 import { createWithEqualityFn } from 'zustand/traditional';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { Winery, Visit, GooglePlaceId, WineryDbId } from '@/lib/types';
+import { Winery, Visit, GooglePlaceId, WineryDbId, MapMarkerRpc } from '@/lib/types';
 import { createClient } from '@/utils/supabase/client';
 import { invokeFunction } from '@/lib/utils';
 import { standardizeWineryData, GoogleWinery } from '@/lib/utils/winery';
@@ -22,7 +22,7 @@ export interface WineryState {
   getWinery: (id: string) => Winery | undefined;
   upsertWinery: (winery: Winery) => void;
   bulkUpsertWineries: (wineries: Winery[]) => void;
-  hydrateWineries: (markers: GoogleWinery[]) => void;
+  hydrateWineries: (markers: (GoogleWinery | MapMarkerRpc)[]) => void;
   ensureInDb: (wineryId: string) => Promise<WineryDbId | null>;
   upsertEnrichedWinery: (winery: Winery) => Promise<WineryDbId | null>;
 
@@ -130,13 +130,17 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
         set(state => {
           const currentWineries = state.persistentWineries;
           const hydrated = markers.map(m => {
-            const mId = m.google_place_id || m.place_id || (typeof m.id === 'string' ? m.id : undefined);
+            const placeId = 'place_id' in m ? m.place_id : undefined;
+            const mId = m.google_place_id || placeId || (typeof m.id === 'string' ? m.id : undefined);
             const existing = currentWineries.find(w => w.id === mId);
             const standardized = standardizeWineryData(m, existing);
             return standardized ? sanitizeWineryForCache(standardized) : null;
           }).filter((w): w is Winery => w !== null);
 
-          const markerIds = new Set(markers.map(m => m.google_place_id || m.place_id || (typeof m.id === 'string' ? m.id : undefined)));
+          const markerIds = new Set(markers.map(m => {
+            const placeId = 'place_id' in m ? m.place_id : undefined;
+            return m.google_place_id || placeId || (typeof m.id === 'string' ? m.id : undefined);
+          }));
           const extras = currentWineries.filter(w => !markerIds.has(w.id));
 
           return { persistentWineries: [...hydrated, ...extras] };
@@ -545,9 +549,9 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
 );
 
 // Expose stores for E2E testing
-if (typeof window !== 'undefined') {
-  (window as any).useWineryStore = useWineryStore;
-  (window as any).useWineryDataStore = useWineryStore;
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+  window.useWineryStore = useWineryStore;
+  window.useWineryDataStore = useWineryStore;
 }
 
 // Backward compatibility helper

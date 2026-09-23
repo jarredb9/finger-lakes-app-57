@@ -25,8 +25,8 @@ test.describe('Privacy and Profile Flow', () => {
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
-      await pageA.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
-      await pageB.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+      await pageA.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
+      await pageB.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
 
       const sharedState = createDefaultMockState();
       const managerA = new MockMapsManager(pageA, sharedState);

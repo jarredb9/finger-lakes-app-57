@@ -1,3 +1,4 @@
+import { Page } from '@playwright/test';
 import { test, expect } from './utils';
 import {
   login,
@@ -9,13 +10,13 @@ test.describe('Winery Modal Consolidated Suite', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
     await clearServiceWorkers(page);
     await page.addInitScript(() => {
-      (window as any)._E2E_SKIP_DETAILS_MOCK = true;
+      window._E2E_SKIP_DETAILS_MOCK = true;
     });
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password, { skipMapReady: true });
   });
 
-  const seedWineryAndOpenModal = async (page: any, wineryId = 3, name = 'The Phantom Cellar', options: { fullDrawer?: boolean } = {}) => {
+  const seedWineryAndOpenModal = async (page: Page, wineryId = 3, name = 'The Phantom Cellar', options: { fullDrawer?: boolean } = {}) => {
     const winery = {
       id: wineryId,
       google_place_id: `place_${wineryId}`,
@@ -170,10 +171,12 @@ test.describe('Winery Modal Consolidated Suite', () => {
 
       // Enable AI features via store state injection
       await page.evaluate(() => {
-        const userStore = (window as any).useUserStore;
+        const userStore = window.useUserStore;
         if (userStore) {
           const current = userStore.getState();
-          userStore.setState({ user: { ...current.user, ai_enabled: true } });
+          if (current.user) {
+            userStore.setState({ user: { ...current.user, ai_enabled: true } });
+          }
         }
       });
 

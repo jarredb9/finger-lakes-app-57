@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+import { Route } from '@playwright/test';
 import { test, expect } from './utils';
 
 import { clearServiceWorkers } from './helpers';
@@ -9,7 +10,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await clearServiceWorkers(page);
     await page.addInitScript(() => {
         window.localStorage.setItem('cookie-consent', 'true');
-        (window as any)._DIAGNOSTIC_LOGGING = true;
+        window._DIAGNOSTIC_LOGGING = true;
     });
   });
 
@@ -24,7 +25,7 @@ test.describe('Auth Recovery (Password Reset)', () => {
     };
 
     // Airtight: Combined handler for all auth endpoints
-    const authHandler = async (route: any) => {
+    const authHandler = async (route: Route) => {
       const url = route.request().url();
       const method = route.request().method();
 
@@ -66,7 +67,8 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('new-password-123');
 
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await resetBtn.click({ force: true });
+    await expect(resetBtn).toBeEnabled({ timeout: 10000 });
+    await resetBtn.click();
 
     // 5. Verify Success and Redirection
     // Standard: Use the data-testid from the component
@@ -86,7 +88,8 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('password456');
 
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await resetBtn.click({ force: true });
+    await expect(resetBtn).toBeEnabled({ timeout: 10000 });
+    await resetBtn.click();
 
     await expect(page.getByTestId('reset-password-error')).toContainText('Passwords do not match');
   });
@@ -106,11 +109,11 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await context.unroute(resetPattern);
     await page.unroute(resetPattern);
 
-    const errorHandler = async (route: any) => {
+    const errorHandler = async (route: Route) => {
       if (route.request().method() === 'OPTIONS') {
         return route.fulfill({ status: 204, headers: commonHeaders });
       }
-      route.fulfill({
+      return route.fulfill({
         status: 400,
         contentType: 'application/json',
         headers: commonHeaders,
@@ -126,7 +129,8 @@ test.describe('Auth Recovery (Password Reset)', () => {
     await page.getByLabel('Confirm New Password', { exact: true }).fill('new-password-123');
 
     const resetBtn = page.getByRole('button', { name: 'Reset Password' });
-    await resetBtn.click({ force: true });
+    await expect(resetBtn).toBeEnabled({ timeout: 10000 });
+    await resetBtn.click();
 
     await expect(page.getByTestId('reset-password-error')).toContainText('Invalid or expired reset token');
   });

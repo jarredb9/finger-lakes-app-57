@@ -41,8 +41,8 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       const pageA = await contextA.newPage();
       const pageB = await contextB.newPage();
 
-      await pageA.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
-      await pageB.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+      await pageA.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
+      await pageB.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
 
       const sharedState = createDefaultMockState();
       const managerA = new MockMapsManager(pageA, sharedState);
@@ -58,7 +58,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         await managerA.useRealVisits();
         await managerA.initDefaultMocks({ currentUserId: user1.id });
         await login(pageA, user1.email, user1.password, { skipMapReady: true });
-        await pageA.evaluate((email) => { (window as any)._E2E_USER_EMAIL = email; }, user1.email);
+        await pageA.evaluate((email) => { window._E2E_USER_EMAIL = email; }, user1.email);
         await ensureProfileReady(pageA);
 
         await managerB.useRealSocial();
@@ -66,7 +66,7 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
         await managerB.useRealVisits();
         await managerB.initDefaultMocks({ currentUserId: user2.id });
         await login(pageB, user2.email, user2.password, { skipMapReady: true });
-        await pageB.evaluate((email) => { (window as any)._E2E_USER_EMAIL = email; }, user2.email);
+        await pageB.evaluate((email) => { window._E2E_USER_EMAIL = email; }, user2.email);
         await ensureProfileReady(pageB);
 
         await setupFriendship(pageA, pageB, user1.email, user2.email);
@@ -159,9 +159,8 @@ test.describe('Item Privacy Flow (Favorites & Wishlist)', () => {
       // 7. User B sees items are hidden
       await test.step('User B sees private items hidden', async () => {
         await pageB.evaluate((userId) => {
-            const win = window as any;
-            if (win.useFriendStore) {
-                win.useFriendStore.getState().fetchFriendProfile(userId);
+            if (window.useFriendStore) {
+                window.useFriendStore.getState().fetchFriendProfile(userId);
             }
         }, user1.id);
 

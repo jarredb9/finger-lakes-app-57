@@ -83,10 +83,10 @@ test.describe('Sync Lock (Revision Control)', () => {
     // 4. Trigger rename (Optimistic Update)
     console.log('[DIAGNOSTIC] Triggering optimistic rename...');
     await page.evaluate(({ originalName, newName }) => {
-        const store = (window as any).useTripStore.getState();
-        const trip = store.trips.find((t: any) => t.name === originalName);
+        const store = window.useTripStore?.getState();
+        const trip = store?.trips.find(t => t.name === originalName);
         if (trip) {
-            store.updateTrip(trip.id.toString(), { name: newName });
+            store?.updateTrip(trip.id.toString(), { name: newName });
         }
     }, { originalName, newName });
 
@@ -97,8 +97,8 @@ test.describe('Sync Lock (Revision Control)', () => {
     // This will hit our GET handler, which still has originalName because the PATCH is waiting.
     console.log('[DIAGNOSTIC] Triggering background refresh (simulating stale Realtime)...');
     await page.evaluate(async () => {
-        const store = (window as any).useTripStore.getState();
-        await store.fetchTrips(1, 'upcoming', true);
+        const store = window.useTripStore?.getState();
+        await store?.fetchTrips(1, 'upcoming', true);
     });
 
     // --- THIS IS THE CRITICAL CHECK ---

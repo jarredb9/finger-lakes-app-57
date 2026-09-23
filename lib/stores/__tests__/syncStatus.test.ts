@@ -1,44 +1,81 @@
 import { act } from '@testing-library/react';
-import { createMockTrip } from '@/lib/test-utils/fixtures';
+import { createMockTrip, createMockWinery } from '@/lib/test-utils/fixtures';
+import { useTripStore } from '../tripStore';
+import { useVisitStore } from '../visitStore';
+
+const mockTripService = {
+  getTrips: jest.fn(),
+  getTripById: jest.fn(),
+  getUpcomingTrips: jest.fn(),
+  getTripsForDate: jest.fn(),
+  createTrip: jest.fn(),
+  deleteTrip: jest.fn(),
+  updateTrip: jest.fn(),
+};
+
+const mockRpc = jest.fn();
+
+const mockWineryStoreState = {
+  addVisitToWinery: jest.fn(),
+  replaceVisit: jest.fn(),
+  optimisticallyDeleteVisit: jest.fn(),
+  confirmOptimisticUpdate: jest.fn(),
+  getWineries: jest.fn(() => []),
+};
+
+const mockWineryStore = {
+  getState: jest.fn(() => mockWineryStoreState),
+};
+
+jest.mock('@/lib/services/tripService', () => ({
+  TripService: {
+    getTrips: (...args: any[]) => mockTripService.getTrips(...args),
+    getTripById: (...args: any[]) => mockTripService.getTripById(...args),
+    getUpcomingTrips: (...args: any[]) => mockTripService.getUpcomingTrips(...args),
+    getTripsForDate: (...args: any[]) => mockTripService.getTripsForDate(...args),
+    createTrip: (...args: any[]) => mockTripService.createTrip(...args),
+    deleteTrip: (...args: any[]) => mockTripService.deleteTrip(...args),
+    updateTrip: (...args: any[]) => mockTripService.updateTrip(...args),
+  },
+}));
+
+jest.mock('@/lib/stores/wineryStore', () => ({
+  useWineryStore: Object.assign(
+    (selector: any) => (typeof selector === 'function' ? selector(mockWineryStore.getState()) : mockWineryStore.getState()),
+    {
+      getState: () => mockWineryStore.getState(),
+      setState: jest.fn(),
+      subscribe: jest.fn(() => () => {}),
+    }
+  ),
+}));
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    rpc: (...args: any[]) => mockRpc(...args),
+    from: jest.fn(() => ({
+      select: jest.fn(),
+      insert: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
+      single: jest.fn(),
+    })),
+    auth: {
+      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user' } }, error: null }),
+      getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'test-user' } } }, error: null }),
+    },
+    storage: {
+      from: jest.fn(() => ({
+        upload: jest.fn().mockResolvedValue({ data: { path: 'path' }, error: null }),
+        remove: jest.fn().mockResolvedValue({ data: {}, error: null }),
+      })),
+    },
+  })),
+}));
 
 describe('useTripStore SyncStatus', () => {
-  let useTripStore: any;
-  let mockTripService: any;
-
   beforeEach(() => {
-    jest.resetModules();
-
-    mockTripService = {
-      getTrips: jest.fn(),
-      getTripById: jest.fn(),
-      getUpcomingTrips: jest.fn(),
-      getTripsForDate: jest.fn(),
-      createTrip: jest.fn(),
-      deleteTrip: jest.fn(),
-      updateTrip: jest.fn(),
-    };
-
-    jest.doMock('@/lib/services/tripService', () => ({
-      TripService: mockTripService
-    }));
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: jest.fn(() => ({
-        rpc: jest.fn(),
-        from: jest.fn(() => ({
-          select: jest.fn(),
-          insert: jest.fn(),
-          update: jest.fn(),
-          delete: jest.fn(),
-        })),
-        auth: {
-          getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user' } }, error: null }),
-          getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'test-user' } } }, error: null }),
-        }
-      })),
-    }));
-
-    useTripStore = require('../tripStore').useTripStore;
+    jest.clearAllMocks();
     useTripStore.getState().reset();
   });
 
@@ -61,7 +98,7 @@ describe('useTripStore SyncStatus', () => {
     const optimisticState = useTripStore.getState();
     const optimisticTrip = optimisticState.trips.find((t: any) => t.name === 'New Trip');
     expect(optimisticTrip).toBeDefined();
-    expect(optimisticTrip.syncStatus).toBe('pending');
+    expect(optimisticTrip?.syncStatus).toBe('pending');
 
     await act(async () => {
       resolveService!(createdTrip);
@@ -72,7 +109,7 @@ describe('useTripStore SyncStatus', () => {
     const finalState = useTripStore.getState();
     const finalTrip = finalState.trips.find((t: any) => t.id === 123);
     expect(finalTrip).toBeDefined();
-    expect(finalTrip.syncStatus).toBe('synced');
+    expect(finalTrip?.syncStatus).toBe('synced');
   });
 
   it('should roll back and remove optimistic trip if createTrip fails permanently', async () => {
@@ -120,63 +157,17 @@ describe('useTripStore SyncStatus', () => {
     const state = useTripStore.getState();
     const failedTrip = state.trips.find((t: any) => t.id === 200);
     expect(failedTrip).toBeDefined();
-    expect(failedTrip.syncStatus).toBe('error');
+    expect(failedTrip?.syncStatus).toBe('error');
   });
 });
 
 describe('useVisitStore SyncStatus', () => {
-  let useVisitStore: any;
-  let mockWineryStore: any;
-  let mockRpc: jest.Mock;
-
   beforeEach(() => {
-    jest.resetModules();
-
-    mockRpc = jest.fn();
-
-    mockWineryStore = {
-      getState: jest.fn(() => ({
-        addVisitToWinery: jest.fn(),
-        replaceVisit: jest.fn(),
-        optimisticallyDeleteVisit: jest.fn(),
-        confirmOptimisticUpdate: jest.fn(),
-        getWineries: jest.fn(() => []),
-      })),
-    };
-
-    jest.doMock('@/lib/stores/wineryStore', () => ({
-      useWineryStore: mockWineryStore
-    }));
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: jest.fn(() => ({
-        rpc: mockRpc,
-        from: jest.fn(() => ({
-          select: jest.fn(),
-          insert: jest.fn(),
-          update: jest.fn(),
-          delete: jest.fn(),
-          single: jest.fn(),
-        })),
-        auth: {
-          getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user' } }, error: null }),
-          getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'test-user' } } }, error: null }),
-        },
-        storage: {
-          from: jest.fn(() => ({
-            upload: jest.fn().mockResolvedValue({ data: { path: 'path' }, error: null }),
-            remove: jest.fn().mockResolvedValue({ data: {}, error: null }),
-          })),
-        }
-      })),
-    }));
-
-    useVisitStore = require('../visitStore').useVisitStore;
+    jest.clearAllMocks();
     useVisitStore.getState().reset();
   });
 
   it('should set syncStatus to pending during saveVisit and synced after completion', async () => {
-    const { createMockWinery } = require('@/lib/test-utils/fixtures');
     const winery = createMockWinery();
     const visitData = { visit_date: '2023-01-01', user_review: 'Great!', rating: 5, photos: [] };
     
@@ -193,7 +184,7 @@ describe('useVisitStore SyncStatus', () => {
     const optimisticState = useVisitStore.getState();
     const optimisticVisit = optimisticState.visits[0];
     expect(optimisticVisit).toBeDefined();
-    expect(optimisticVisit.syncStatus).toBe('pending');
+    expect(optimisticVisit?.syncStatus).toBe('pending');
 
     await act(async () => {
       await savePromise!;
@@ -203,6 +194,6 @@ describe('useVisitStore SyncStatus', () => {
     const finalState = useVisitStore.getState();
     const finalVisit = finalState.visits.find((v: any) => v.id === '123');
     expect(finalVisit).toBeDefined();
-    expect(finalVisit.syncStatus).toBe('synced');
+    expect(finalVisit?.syncStatus).toBe('synced');
   });
 });

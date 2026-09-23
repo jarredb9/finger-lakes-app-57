@@ -154,9 +154,7 @@ export const useSyncStore = create<SyncState>((set, get) => ({
 }));
 
 // Expose store for E2E if in browser
-if (typeof window !== 'undefined') {
-  (window as any).useSyncStore = useSyncStore;
-  if (process.env.NEXT_PUBLIC_IS_E2E === 'true' || process.env.NODE_ENV !== 'production') {
-    (window as any).idbKeyVal = { get: idbGet, set: idbSet };
-  }
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+  window.useSyncStore = useSyncStore;
+  window.idbKeyVal = { get: idbGet, set: idbSet };
 }

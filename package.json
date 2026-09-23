@@ -7,12 +7,18 @@
   },
   "scripts": {
     "build": "next build --webpack",
+    "build:container": "./scripts/run-build-container.sh",
     "dev": "next dev --turbo",
+    "dev:container": "./scripts/run-dev-container.sh",
+    "dev:container:real": "NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_IS_E2E=false E2E_REAL_DATA=true npm run dev:container",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:integration": "TEST_TYPE=integration jest --runInBand",
+    "test:container": "./scripts/run-jest-container.sh",
+    "test:container:watch": "./scripts/run-jest-container.sh --watch",
+    "test:integration:container": "TEST_TYPE=integration ./scripts/run-jest-container.sh --runInBand",
     "audit": "npm audit",
     "prepare": "husky",
     "start": "next start",
@@ -33,7 +39,8 @@
     "db:check-types": "npx supabase gen types typescript --db-url \"$SUPABASE_DB_URL\" --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts",
     "db:check-types:ci": "npx supabase gen types typescript --local --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts",
     "db:check-types:local": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase gen types typescript --local --schema public > lib/database.types.tmp.ts && diff lib/database.types.ts lib/database.types.tmp.ts && rm lib/database.types.tmp.ts",
-    "db:gen-types": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase gen types typescript --local --schema public > lib/database.types.ts"
+    "db:gen-types": "restorecon -RF ./supabase/functions && export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock && npx supabase gen types typescript --local --schema public > lib/database.types.ts",
+    "session:inspect": "node scripts/inspect-session.mjs"
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^2.1.1",
@@ -88,7 +95,7 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",
     "@eslint/eslintrc": "^3.3.1",
-    "@playwright/test": "1.58.2",
+    "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "^4.1.18",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -107,6 +114,7 @@
     "dotenv": "^17.2.3",
     "eslint": "^9.21.0",
     "eslint-config-next": "^16.1.6",
+    "eslint-plugin-playwright": "^2.12.0",
     "husky": "^9.1.7",
     "jest": "^30.1.3",
     "jest-environment-jsdom": "^30.1.2",

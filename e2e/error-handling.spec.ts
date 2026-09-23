@@ -17,7 +17,7 @@ test.describe('Error Handling (Unhappy Path)', () => {
     //    This avoids the 750ms idle-debounce race condition seen in CI where setError(null)
     //    clears the error at the start of a new search before the assertion can observe it.
     await page.evaluate(() => {
-      const store = (window as any).useMapStore;
+      const store = window.useMapStore;
       if (store?.setState) {
         store.setState({
           error: 'Failed to find wineries in this area. Please check your connection and try again.',
@@ -47,7 +47,7 @@ test.describe('Error Handling (Unhappy Path)', () => {
     //    This bypasses the edge case where cached trips prevent the error from being
     //    set in fetchTrips (which only sets error if trips.length === 0).
     await page.evaluate(() => {
-      const store = (window as any).useTripStore;
+      const store = window.useTripStore;
       if (store?.setState) {
         store.setState({ error: 'Database Connection Failed', isLoading: false });
       }

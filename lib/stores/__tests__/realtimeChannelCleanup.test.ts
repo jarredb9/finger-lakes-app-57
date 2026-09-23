@@ -1,62 +1,58 @@
 import { act } from '@testing-library/react';
+import { useTripStore } from '../tripStore';
+import { useVisitStore } from '../visitStore';
+import { useFriendStore } from '../friendStore';
+import { useUserStore } from '../userStore';
+
+const mockTripChannel = {
+  on: jest.fn().mockReturnThis(),
+  subscribe: jest.fn().mockReturnThis(),
+  unsubscribe: jest.fn(),
+};
+
+const mockVisitChannel = {
+  on: jest.fn().mockReturnThis(),
+  subscribe: jest.fn().mockReturnThis(),
+  unsubscribe: jest.fn(),
+};
+
+const mockFriendChannel = {
+  on: jest.fn().mockReturnThis(),
+  subscribe: jest.fn().mockReturnThis(),
+  unsubscribe: jest.fn(),
+};
+
+const mockSupabase = {
+  channel: jest.fn((name: string) => {
+    if (name === 'trip-updates') return mockTripChannel;
+    if (name === 'visit-updates') return mockVisitChannel;
+    if (name === 'social-updates') return mockFriendChannel;
+    return {
+      on: jest.fn().mockReturnThis(),
+      subscribe: jest.fn().mockReturnThis(),
+      unsubscribe: jest.fn(),
+    };
+  }),
+  auth: {
+    signOut: jest.fn().mockResolvedValue({ error: null }),
+    getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
+    getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
+  },
+};
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => mockSupabase),
+}));
 
 describe('ST-11: Realtime Channel Cleanup on Reset and Logout', () => {
-  let useTripStore: any;
-  let useVisitStore: any;
-  let useFriendStore: any;
-  let useUserStore: any;
-  let mockTripChannel: any;
-  let mockVisitChannel: any;
-  let mockFriendChannel: any;
-  let mockSupabase: any;
-
   beforeEach(() => {
-    jest.resetModules();
-
-    mockTripChannel = {
-      on: jest.fn().mockReturnThis(),
-      subscribe: jest.fn().mockReturnThis(),
-      unsubscribe: jest.fn(),
-    };
-
-    mockVisitChannel = {
-      on: jest.fn().mockReturnThis(),
-      subscribe: jest.fn().mockReturnThis(),
-      unsubscribe: jest.fn(),
-    };
-
-    mockFriendChannel = {
-      on: jest.fn().mockReturnThis(),
-      subscribe: jest.fn().mockReturnThis(),
-      unsubscribe: jest.fn(),
-    };
-
-    mockSupabase = {
-      channel: jest.fn((name: string) => {
-        if (name === 'trip-updates') return mockTripChannel;
-        if (name === 'visit-updates') return mockVisitChannel;
-        if (name === 'social-updates') return mockFriendChannel;
-        return {
-          on: jest.fn().mockReturnThis(),
-          subscribe: jest.fn().mockReturnThis(),
-          unsubscribe: jest.fn(),
-        };
-      }),
-      auth: {
-        signOut: jest.fn().mockResolvedValue({ error: null }),
-        getUser: jest.fn().mockResolvedValue({ data: { user: null }, error: null }),
-        getSession: jest.fn().mockResolvedValue({ data: { session: null }, error: null }),
-      },
-    };
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: jest.fn(() => mockSupabase),
-    }));
-
-    useTripStore = require('../tripStore').useTripStore;
-    useVisitStore = require('../visitStore').useVisitStore;
-    useFriendStore = require('../friendStore').useFriendStore;
-    useUserStore = require('../userStore').useUserStore;
+    jest.clearAllMocks();
+    mockTripChannel.on.mockReturnThis();
+    mockTripChannel.subscribe.mockReturnThis();
+    mockVisitChannel.on.mockReturnThis();
+    mockVisitChannel.subscribe.mockReturnThis();
+    mockFriendChannel.on.mockReturnThis();
+    mockFriendChannel.subscribe.mockReturnThis();
 
     act(() => {
       useTripStore.getState().reset();
