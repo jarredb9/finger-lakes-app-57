@@ -4,9 +4,9 @@ import { getSidebarContainer, login, navigateToTab, ensureSidebarExpanded } from
 test.describe('Visual Regression Testing', () => {
 
   test.beforeEach(async ({ page }, testInfo) => {
-    // Run visual tests across desktop (chromium), mobile drawer (Mobile Chrome), and tablet (Mobile Safari (Tablet))
-    const allowedProjects = ['chromium', 'Mobile Chrome', 'Mobile Safari (Tablet)'];
-    test.skip(!allowedProjects.includes(testInfo.project.name), 'Visual tests run on chromium, Mobile Chrome, and Mobile Safari (Tablet)');
+    // Run visual tests across desktop (chromium), mobile drawer (Mobile Chrome, Mobile Safari), and tablet (Mobile Safari (Tablet))
+    const allowedProjects = ['chromium', 'Mobile Chrome', 'Mobile Safari', 'Mobile Safari (Tablet)'];
+    test.skip(!allowedProjects.includes(testInfo.project.name), 'Visual tests run on chromium, Mobile Chrome, Mobile Safari, and Mobile Safari (Tablet)');
 
     // Reduce motion natively in browser
     await page.emulateMedia({ reducedMotion: 'reduce' });
