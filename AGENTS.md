@@ -41,7 +41,8 @@
 - **Coordinate Standardization:** All winery data sources (Google API, DB RPCs, mocks) must pass through `standardizeWineryData` in `lib/utils/winery.ts`. Access coordinates via `location.latitude` and `location.longitude` (no `.lat()` calls, strip legacy `lat`/`lng` keys).
 - **Ghost Visit Prevention:** If a source reports `user_visited: false`, clear the `visits` array in the standardizer.
 - **Lazy Enrichment Policy:** Check the `last_enriched_at` timestamp (<30 days freshness) in Edge Functions before invoking external Google Places / Gemini APIs.
-- **DOM Stability & Testing:** Keep critical UI containers (`map-container`, `trip-list-container`) in the DOM during loading/error states using `data-state="loading|error|ready"` rather than early unmounting.
+- **Map Architecture:** Mapbox GL JS (`react-map-gl/mapbox`, `mapbox-gl`) is the primary map rendering, clustering, and interaction engine. Google Maps (`components/map/google-map-fallback.tsx`) is the dynamic fallback triggered by `MapErrorBoundary` for non-GPU, headless, or WebGL-disabled systems.
+- **Supabase RPC Signatures:** Custom PostgreSQL functions returning composite structures should use `RETURNS TABLE (...)` instead of `RETURNS jsonb` to support automated TypeScript type generation (`npm run db:gen-types`).
 - **UI Architecture:** Container/Presentational pattern. Use Tailwind CSS v4 utility classes.
 
 ## 5. Agent Workflow, Skills & Project Tracking
