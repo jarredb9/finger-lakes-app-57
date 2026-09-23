@@ -90,13 +90,13 @@ export async function openWineryModalState(
     await page.evaluate((arg) => {
         let id: string;
         if (typeof arg === 'object' && arg !== null) {
-            window.useWineryDataStore?.getState().upsertWinery(arg as Winery);
+            window.useWineryDataStore?.getState().upsertWinery(arg as unknown as Winery);
             id = String((arg as Record<string, unknown>).google_place_id || (arg as Record<string, unknown>).id);
         } else {
             id = String(arg);
         }
         window.useUIStore?.getState().openWineryModal(id);
-    }, wineryIdOrData);
+    }, wineryIdOrData as unknown as Record<string, unknown> | string | number);
 
     const modal = page.locator('[data-testid="winery-modal-dialog"], [data-testid="tablet-winery-sheet"], [data-testid="winery-modal-drawer"], [role="dialog"]').first();
     await expect(modal).toHaveAttribute('data-state', 'ready', { timeout: 15000 });
