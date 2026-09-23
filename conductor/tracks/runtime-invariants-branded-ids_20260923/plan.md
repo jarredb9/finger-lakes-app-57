@@ -3,10 +3,10 @@
 ## Phase 1: Branded ID Ergonomics & Type Guards Foundation
 Focuses on establishing nominal branded ID constructors, runtime type guards, and adopting them across offline sync service boundaries.
 
-- [ ] Task: Branded ID Constructors & Type Guards in `lib/types.ts`
-    - [ ] Write unit tests for `isGooglePlaceId`, `isWineryDbId`, `toGooglePlaceId`, and `toWineryDbId` in `lib/__tests__/types.test.ts` (testing valid values, null/undefined overloads, empty/negative inputs, and dev warning outputs)
-    - [ ] Implement `isGooglePlaceId`, `isWineryDbId`, `toGooglePlaceId`, and `toWineryDbId` in `lib/types.ts` with nullable overloads and dev-mode validation warnings
-    - [ ] Verify tests pass and run `npm run type-check`
+- [x] Task: Branded ID Constructors & Type Guards in `lib/types.ts` (dcc8452)
+    - [x] Write unit tests for `isGooglePlaceId`, `isWineryDbId`, `toGooglePlaceId`, and `toWineryDbId` in `lib/__tests__/types.test.ts` (testing valid values, null/undefined overloads, empty/negative inputs, and dev warning outputs)
+    - [x] Implement `isGooglePlaceId`, `isWineryDbId`, `toGooglePlaceId`, and `toWineryDbId` in `lib/types.ts` with nullable overloads and dev-mode validation warnings
+    - [x] Verify tests pass and run `npm run type-check`
 - [ ] Task: Replace Winery ID `as any` Casts in `lib/services/syncService.ts`
     - [ ] Update `lib/services/syncService.ts` lines 313-314, 559-560, and 572-573 to use `toGooglePlaceId` and `toWineryDbId`
     - [ ] Run existing sync service unit tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`)
