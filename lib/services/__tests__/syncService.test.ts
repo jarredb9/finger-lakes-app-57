@@ -1,8 +1,18 @@
 import { SyncService } from '../syncService';
 import { useSyncStore } from '@/lib/stores/syncStore';
 import { createClient } from '@/utils/supabase/client';
+import { WineryService } from '../wineryService';
+import { toGooglePlaceId, toWineryDbId } from '@/lib/types';
 
 // Mock dependencies
+jest.mock('@/lib/types', () => {
+  const actual = jest.requireActual('@/lib/types');
+  return {
+    ...actual,
+    toGooglePlaceId: jest.fn((...args: any[]) => (actual as any).toGooglePlaceId(...args)),
+    toWineryDbId: jest.fn((...args: any[]) => (actual as any).toWineryDbId(...args)),
+  };
+});
 jest.mock('@/lib/stores/syncStore');
 jest.mock('@/utils/supabase/client');
 jest.mock('@/lib/stores/tripStore', () => ({
@@ -587,6 +597,173 @@ describe('SyncService', () => {
       // Remote is older: local update proceeds
       expect(mockUpdate).toHaveBeenCalledWith({ name: 'Valid Newer Edit' });
       expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-occ-valid');
+    });
+  });
+
+  describe('Branded ID mutations for winery actions (Issue #53 - Red Phase)', () => {
+    it('constructs p_winery_data using toGooglePlaceId and toWineryDbId when syncing log_visit', async () => {
+      const payload = {
+        wineryId: 'ChIJgZbhp4Q304kRo_P2tM7K_kE',
+        wineryDbId: 42,
+        wineryName: 'Dr. Konstantin Frank Winery',
+        wineryAddress: '9749 Middle Rd, Hammondsport, NY 14840',
+        latitude: 42.4465,
+        longitude: -77.1652,
+        visit_date: '2026-09-23',
+        user_review: 'Exceptional Riesling',
+        rating: 5,
+        photos: [],
+      };
+
+      const mockMutation = {
+        id: 'sync-log-visit-branded',
+        type: 'log_visit',
+        encryptedPayload: 'encrypted-log-visit',
+        userId: 'test-user-id',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue(payload),
+      };
+
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      const getRpcDataSpy = jest.spyOn(WineryService, 'getRpcData');
+
+      await SyncService.sync();
+
+      expect(toGooglePlaceId).toHaveBeenCalledWith('ChIJgZbhp4Q304kRo_P2tM7K_kE');
+      expect(toWineryDbId).toHaveBeenCalledWith(42);
+      expect(getRpcDataSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'ChIJgZbhp4Q304kRo_P2tM7K_kE',
+          dbId: 42,
+          name: 'Dr. Konstantin Frank Winery',
+        })
+      );
+      expect(mockSupabase.rpc).toHaveBeenCalledWith(
+        'log_visit',
+        expect.objectContaining({
+          p_winery_data: expect.objectContaining({
+            id: 'ChIJgZbhp4Q304kRo_P2tM7K_kE',
+            name: 'Dr. Konstantin Frank Winery',
+          }),
+        })
+      );
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-log-visit-branded');
+    });
+
+    it('constructs p_winery_data using toGooglePlaceId and toWineryDbId when syncing toggle_favorite winery_action', async () => {
+      const payload = {
+        action: 'toggle_favorite',
+        wineryId: 'ChIJ_XvQW84104kR3y5b90wS_lM',
+        wineryDbId: 88,
+        wineryName: 'Ravines Wine Cellars',
+        wineryAddress: '4000 State Route 14, Geneva, NY 14456',
+        latitude: 42.8241,
+        longitude: -76.9852,
+      };
+
+      const mockMutation = {
+        id: 'sync-toggle-fav-branded',
+        type: 'winery_action',
+        encryptedPayload: 'encrypted-toggle-fav',
+        userId: 'test-user-id',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue(payload),
+      };
+
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      const getRpcDataSpy = jest.spyOn(WineryService, 'getRpcData');
+
+      await SyncService.sync();
+
+      expect(toGooglePlaceId).toHaveBeenCalledWith('ChIJ_XvQW84104kR3y5b90wS_lM');
+      expect(toWineryDbId).toHaveBeenCalledWith(88);
+      expect(getRpcDataSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'ChIJ_XvQW84104kR3y5b90wS_lM',
+          dbId: 88,
+          name: 'Ravines Wine Cellars',
+        })
+      );
+      expect(mockSupabase.rpc).toHaveBeenCalledWith(
+        'toggle_favorite',
+        expect.objectContaining({
+          p_winery_data: expect.objectContaining({
+            id: 'ChIJ_XvQW84104kR3y5b90wS_lM',
+            name: 'Ravines Wine Cellars',
+          }),
+        })
+      );
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-toggle-fav-branded');
+    });
+
+    it('constructs p_winery_data using toGooglePlaceId and toWineryDbId when syncing toggle_wishlist winery_action', async () => {
+      const payload = {
+        action: 'toggle_wishlist',
+        wineryId: 'ChIJd9m7fU1_04kR7xYl27mZ2kM',
+        wineryDbId: 99,
+        wineryName: 'Boundary Breaks',
+        wineryAddress: '1568 Porter Covert Rd, Lodi, NY 14860',
+        latitude: 42.6101,
+        longitude: -76.8451,
+      };
+
+      const mockMutation = {
+        id: 'sync-toggle-wish-branded',
+        type: 'winery_action',
+        encryptedPayload: 'encrypted-toggle-wish',
+        userId: 'test-user-id',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue(payload),
+      };
+
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      const getRpcDataSpy = jest.spyOn(WineryService, 'getRpcData');
+
+      await SyncService.sync();
+
+      expect(toGooglePlaceId).toHaveBeenCalledWith('ChIJd9m7fU1_04kR7xYl27mZ2kM');
+      expect(toWineryDbId).toHaveBeenCalledWith(99);
+      expect(getRpcDataSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'ChIJd9m7fU1_04kR7xYl27mZ2kM',
+          dbId: 99,
+          name: 'Boundary Breaks',
+        })
+      );
+      expect(mockSupabase.rpc).toHaveBeenCalledWith(
+        'toggle_wishlist',
+        expect.objectContaining({
+          p_winery_data: expect.objectContaining({
+            id: 'ChIJd9m7fU1_04kR7xYl27mZ2kM',
+            name: 'Boundary Breaks',
+          }),
+        })
+      );
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-toggle-wish-branded');
     });
   });
 });
