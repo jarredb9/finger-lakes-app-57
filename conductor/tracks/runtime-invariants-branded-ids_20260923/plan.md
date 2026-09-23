@@ -1,6 +1,6 @@
 # Implementation Plan: Runtime Invariant Protection & Branded ID Ergonomics (PR 1 / Issue #53)
 
-## Phase 1: Branded ID Ergonomics & Type Guards Foundation
+## Phase 1: Branded ID Ergonomics & Type Guards Foundation [checkpoint: 5e49957]
 Focuses on establishing nominal branded ID constructors, runtime type guards, and adopting them across offline sync service boundaries.
 
 - [x] Task: Branded ID Constructors & Type Guards in `lib/types.ts` (dcc8452)
@@ -14,7 +14,7 @@ Focuses on establishing nominal branded ID constructors, runtime type guards, an
     - [x] Update `lib/services/syncService.ts` lines 313-314, 559-560, and 572-573 to replace `as any` casts with `toGooglePlaceId` and `toWineryDbId`
     - [x] Run sync service unit tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`) and verify all tests pass (Green phase verification)
     - [x] Verify static type check passes (`npm run type-check`)
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Branded ID Ergonomics & Type Guards Foundation' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Branded ID Ergonomics & Type Guards Foundation' (Protocol in workflow.md) (5e49957)
 
 ## Phase 2: Invariant Protection & Safe Navigation in Core Utilities
 Hardens winery type guards against `null`/`undefined` crash bugs, eliminates untyped `as any` assertions in winery standardizer, and implements safe navigation in opening hours calculation.
