@@ -6,6 +6,7 @@
 set -e
 
 # 1. Configuration
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLAYWRIGHT_VERSION="v1.63.0-noble"
 IMAGE="mcr.microsoft.com/playwright:$PLAYWRIGHT_VERSION"
 
@@ -92,9 +93,10 @@ if [ -n "$ORIG_TEST_USER_PASSWORD" ]; then TEST_USER_PASSWORD="$ORIG_TEST_USER_P
 if [ -n "$ORIG_BASE_URL" ]; then BASE_URL="$ORIG_BASE_URL"; fi
 
 if [ "$SHOULD_BUILD" = true ]; then
-    echo "🏗️  Forcing a fresh production build and clearing isolated storage..."
+    echo "🏗️  Forcing a fresh container production build (run-build-container.sh) and clearing isolated storage..."
     rm -rf .next
     rm -rf test-results/.storage
+    "$SCRIPT_DIR/run-build-container.sh"
 fi
 
 # Determine command based on argument
@@ -182,7 +184,6 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     -e VERBOSE="$VERBOSE" \
     -e DEBUG_E2E="$DEBUG_E2E" \
     -e TEST_CMD="$TEST_CMD" \
-    -e SHOULD_BUILD="$SHOULD_BUILD" \
     -e TEST_USER_EMAIL="$TEST_USER_EMAIL" \
     -e TEST_USER_PASSWORD="$TEST_USER_PASSWORD" \
     -e BASE_URL="$BASE_URL" \
@@ -197,12 +198,6 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
             fi
         fi
 
-        if [ "$SHOULD_BUILD" = "true" ]; then
-            echo "🧹 Cleaning and building inside container..."
-            rm -rf .next
-            npm run build
-        fi
-        
         echo "🎬 Running inside container: $TEST_CMD"
         eval "$TEST_CMD"
     '
