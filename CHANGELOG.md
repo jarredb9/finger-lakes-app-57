@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-**Milestone v3.6.0: Architectural Recovery & Test Reliability**
+**Milestone v3.6.0: Architectural Recovery & Test Reliability (In-Progress)**
 
 ### 🧪 Sprint 5: Test Automation Infrastructure Modernization & E2E Test Suite Stabilization ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#38](https://github.com/jarredb9/finger-lakes-app-57/issues/38), [#25](https://github.com/jarredb9/finger-lakes-app-57/issues/25))
 * **Jest 30 Infrastructure, Memory Management & Module Reset Remediation**:
