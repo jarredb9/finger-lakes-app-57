@@ -7,9 +7,9 @@ Focuses on establishing nominal branded ID constructors, runtime type guards, an
     - [x] Write unit tests for `isGooglePlaceId`, `isWineryDbId`, `toGooglePlaceId`, and `toWineryDbId` in `lib/__tests__/types.test.ts` (testing valid values, null/undefined overloads, empty/negative inputs, and dev warning outputs)
     - [x] Implement `isGooglePlaceId`, `isWineryDbId`, `toGooglePlaceId`, and `toWineryDbId` in `lib/types.ts` with nullable overloads and dev-mode validation warnings
     - [x] Verify tests pass and run `npm run type-check`
-- [ ] Task: Write Failing Unit Tests for Sync Service Branded ID Mutations (Red Phase)
-    - [ ] Add unit test assertions in `lib/services/__tests__/syncService.test.ts` verifying `log_visit`, `toggle_favorite`, and `toggle_wishlist` properly construct `p_winery_data` with branded `id` (`toGooglePlaceId`) and `dbId` (`toWineryDbId`)
-    - [ ] Run containerized sync service tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`) and confirm failures or gaps on unbranded mutation payloads (Red phase verification)
+- [x] Task: Write Failing Unit Tests for Sync Service Branded ID Mutations (Red Phase) (46fc2c6)
+    - [x] Add unit test assertions in `lib/services/__tests__/syncService.test.ts` verifying `log_visit`, `toggle_favorite`, and `toggle_wishlist` properly construct `p_winery_data` with branded `id` (`toGooglePlaceId`) and `dbId` (`toWineryDbId`)
+    - [x] Run containerized sync service tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`) and confirm failures or gaps on unbranded mutation payloads (Red phase verification)
 - [ ] Task: Replace Winery ID `as any` Casts in `lib/services/syncService.ts` (Green Phase)
     - [ ] Update `lib/services/syncService.ts` lines 313-314, 559-560, and 572-573 to replace `as any` casts with `toGooglePlaceId` and `toWineryDbId`
     - [ ] Run sync service unit tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`) and verify all tests pass (Green phase verification)
