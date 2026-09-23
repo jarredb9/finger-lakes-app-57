@@ -28,4 +28,11 @@
 | **state-consolidation-invariants_20260901** | Zustand 5 State Consolidation, Domain Invariants & Sync Integrity | [x] Archived | [Plan](./archive/state-consolidation-invariants_20260901/plan.md) |
 | **frontend-modernization-architecture_20260901** | Frontend Modernization, React 19 / App Router Architecture & Bundle Optimization | [x] Archived | [Plan](./archive/frontend-modernization-architecture_20260901/plan.md) |
 | **test-infrastructure-e2e-stabilization_20260901** | Test Automation Infrastructure Modernization & E2E Test Suite Stabilization | [x] Archived | [Plan](./archive/test-infrastructure-e2e-stabilization_20260901/plan.md) |
+| **runtime-invariants-branded-ids_20260923** | Runtime Invariant Protection & Branded ID Ergonomics (PR 1 / Issue #53) | [ ] In Progress | [Plan](./tracks/runtime-invariants-branded-ids_20260923/plan.md) |
+
+---
+
+- [ ] **Track: Runtime Invariant Protection & Branded ID Ergonomics (PR 1 / Issue #53)**
+*Link: [./tracks/runtime-invariants-branded-ids_20260923/](./tracks/runtime-invariants-branded-ids_20260923/)*
+
 
