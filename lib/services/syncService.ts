@@ -6,7 +6,7 @@ import { useVisitStore } from '@/lib/stores/visitStore';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
 import { TripService } from './tripService';
-import { Trip } from '@/lib/types';
+import { Trip, toGooglePlaceId, toWineryDbId } from '@/lib/types';
 import { isNetworkError } from '../stores/sync-utils';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { checkAndCleanupQuota, isQuotaError } from '@/lib/utils/quota';
@@ -310,8 +310,8 @@ export const SyncService = {
 
               const { error: visitError } = await supabase.rpc('log_visit', {
                 p_winery_data: WineryService.getRpcData({
-                  id: p.wineryId as any,
-                  dbId: p.wineryDbId as any,
+                  id: toGooglePlaceId(p.wineryId),
+                  dbId: toWineryDbId(p.wineryDbId),
                   name: p.wineryName,
                   address: p.wineryAddress,
                   latitude: p.latitude,
@@ -556,8 +556,8 @@ export const SyncService = {
                 const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; latitude: number; longitude: number };
                 const { error: fError } = await supabase.rpc('toggle_favorite', {
                   p_winery_data: WineryService.getRpcData({
-                    id: pW.wineryId as any,
-                    dbId: pW.wineryDbId as any,
+                    id: toGooglePlaceId(pW.wineryId),
+                    dbId: toWineryDbId(pW.wineryDbId),
                     name: pW.wineryName,
                     address: pW.wineryAddress,
                     latitude: pW.latitude,
@@ -569,8 +569,8 @@ export const SyncService = {
                 const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; latitude: number; longitude: number };
                 const { error: wError } = await supabase.rpc('toggle_wishlist', {
                   p_winery_data: WineryService.getRpcData({
-                    id: pW.wineryId as any,
-                    dbId: pW.wineryDbId as any,
+                    id: toGooglePlaceId(pW.wineryId),
+                    dbId: toWineryDbId(pW.wineryDbId),
                     name: pW.wineryName,
                     address: pW.wineryAddress,
                     latitude: pW.latitude,
