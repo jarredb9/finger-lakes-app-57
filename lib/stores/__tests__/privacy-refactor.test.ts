@@ -1,16 +1,50 @@
-import { act } from 'react-dom/test-utils';
+import { act } from '@testing-library/react';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
+import { useWineryStore } from '../wineryStore';
+import { useVisitStore } from '../visitStore';
+
+const mockRpc = jest.fn((name) => {
+  if (name === 'ensure_winery') {
+    return Promise.resolve({ data: 101, error: null });
+  }
+  if (name === 'log_visit') {
+    return Promise.resolve({ data: { visit_id: 123 }, error: null });
+  }
+  if (name === 'toggle_favorite_privacy' || name === 'toggle_wishlist_privacy') {
+    return Promise.resolve({ data: { success: true, is_private: true }, error: null });
+  }
+  return Promise.resolve({ data: { success: true }, error: null });
+});
+
+const mockFrom = jest.fn(() => ({
+  select: jest.fn(() => ({
+    eq: jest.fn(() => ({
+      single: jest.fn(() => Promise.resolve({ data: { photos: [] }, error: null })),
+    })),
+  })),
+}));
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: () => ({
+    rpc: mockRpc,
+    from: mockFrom,
+    auth: {
+      getSession: jest.fn(() => Promise.resolve({ data: { session: { user: { id: 'test-user' } } }, error: null })),
+      getUser: jest.fn(() => Promise.resolve({ data: { user: { id: 'test-user' } }, error: null })),
+    },
+    storage: {
+      from: jest.fn(() => ({
+        upload: jest.fn(() => Promise.resolve({ data: { path: 'test-path' }, error: null })),
+        remove: jest.fn(() => Promise.resolve({ data: {}, error: null })),
+      })),
+    },
+  }),
+}));
 
 describe('Privacy Refactor Store Logic', () => {
-  let useWineryStore: any;
-  let useVisitStore: any;
-  let mockRpc: jest.Mock;
-  let mockFrom: jest.Mock;
-
   beforeEach(() => {
-    jest.resetModules();
-
-    mockRpc = jest.fn((name) => {
+    jest.clearAllMocks();
+    mockRpc.mockImplementation((name) => {
       if (name === 'ensure_winery') {
         return Promise.resolve({ data: 101, error: null });
       }
@@ -22,35 +56,6 @@ describe('Privacy Refactor Store Logic', () => {
       }
       return Promise.resolve({ data: { success: true }, error: null });
     });
-
-    mockFrom = jest.fn(() => ({
-      select: jest.fn(() => ({
-        eq: jest.fn(() => ({
-          single: jest.fn(() => Promise.resolve({ data: { photos: [] }, error: null }))
-        }))
-      }))
-    }));
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: () => ({
-        rpc: mockRpc,
-        from: mockFrom,
-        auth: {
-          getSession: jest.fn(() => Promise.resolve({ data: { session: { user: { id: 'test-user' } } }, error: null })),
-          getUser: jest.fn(() => Promise.resolve({ data: { user: { id: 'test-user' } }, error: null }))
-        },
-        storage: {
-          from: jest.fn(() => ({
-            upload: jest.fn(() => Promise.resolve({ data: { path: 'test-path' }, error: null })),
-            remove: jest.fn(() => Promise.resolve({ data: {}, error: null }))
-          }))
-        }
-      })
-    }));
-
-    // Require stores after mocks
-    useWineryStore = require('../wineryStore').useWineryStore;
-    useVisitStore = require('../visitStore').useVisitStore;
 
     useWineryStore.getState().reset();
     useVisitStore.getState().reset();
@@ -98,7 +103,7 @@ describe('Privacy Refactor Store Logic', () => {
         user_review: 'Private test',
         rating: 5,
         photos: [],
-        is_private: true
+        is_private: true,
       };
 
       await act(async () => {
@@ -107,8 +112,8 @@ describe('Privacy Refactor Store Logic', () => {
 
       expect(mockRpc).toHaveBeenCalledWith('log_visit', expect.objectContaining({
         p_visit_data: expect.objectContaining({
-          is_private: true
-        })
+          is_private: true,
+        }),
       }));
     });
   });

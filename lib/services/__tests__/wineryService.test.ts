@@ -1,14 +1,18 @@
 import { createMockWinery } from '@/lib/test-utils/fixtures';
+import { WineryService } from '../wineryService';
+import { createClient } from '@/utils/supabase/client';
+import { GooglePlaceId } from '@/lib/types';
 
-jest.mock('@/utils/supabase/client');
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(),
+}));
 
 describe('WineryService - Single Roundtrip RPC Hardening (BE-10)', () => {
-  let WineryService: typeof import('../wineryService').WineryService;
   let mockRpc: jest.Mock;
-  let mockSupabase: any;
+  let mockSupabase: { rpc: jest.Mock; from: jest.Mock };
 
   const mockWinery = createMockWinery({
-    id: 'place_12345' as any,
+    id: 'place_12345' as GooglePlaceId,
     name: 'Seneca Shore Wine Cellars',
     address: '9292 State Route 14, Penn Yan, NY',
     latitude: 42.6189,
@@ -17,10 +21,6 @@ describe('WineryService - Single Roundtrip RPC Hardening (BE-10)', () => {
   });
 
   beforeEach(() => {
-    jest.resetModules();
-    const { createClient } = require('@/utils/supabase/client');
-    WineryService = require('../wineryService').WineryService;
-
     mockRpc = jest.fn();
     mockSupabase = {
       rpc: mockRpc,

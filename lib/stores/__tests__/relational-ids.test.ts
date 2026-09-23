@@ -1,15 +1,66 @@
-import { WineryDbId, GooglePlaceId } from '@/lib/types';
+import { WineryDbId, GooglePlaceId, Trip, SyncItem } from '@/lib/types';
 import { standardizeWineryData } from '@/lib/utils/winery';
+import { useVisitStore } from '../visitStore';
+import { useTripStore } from '../tripStore';
+import { resetTripInitState } from '../slices/tripInitHelpers';
+
+interface MockRelationalIdGlobals {
+  mockRpc: (...args: unknown[]) => unknown;
+  getSyncStoreState: () => {
+    queue: SyncItem[];
+    isInitialized: boolean;
+    initialize: jest.Mock;
+    getDecryptedPayload: jest.Mock;
+  };
+}
+
+declare global {
+  var _RELATIONAL_IDS_MOCKS: MockRelationalIdGlobals | undefined;
+}
+
+let mockRpc = jest.fn();
+let mockSyncStoreState: {
+  queue: SyncItem[];
+  isInitialized: boolean;
+  initialize: jest.Mock;
+  getDecryptedPayload: jest.Mock;
+} = {
+  queue: [],
+  isInitialized: true,
+  initialize: jest.fn().mockResolvedValue(undefined),
+  getDecryptedPayload: jest.fn(),
+};
+
+globalThis._RELATIONAL_IDS_MOCKS = {
+  mockRpc: (...args: unknown[]) => mockRpc(...args),
+  getSyncStoreState: () => mockSyncStoreState,
+};
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: () => ({
+    rpc: (...args: unknown[]) => globalThis._RELATIONAL_IDS_MOCKS?.mockRpc(...args),
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-1' } } } }),
+      getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
+    },
+  }),
+}));
+
+jest.mock('@/lib/stores/syncStore', () => ({
+  useSyncStore: {
+    getState: () => globalThis._RELATIONAL_IDS_MOCKS?.getSyncStoreState(),
+  },
+}));
 
 describe('Relational ID Invariant Enforcement (ST-04)', () => {
   describe('standardizeWineryData numeric ID normalization', () => {
     it('coerces string dbId to number', () => {
       const source = {
-        id: 'mock-place-1',
+        id: 'mock-place-1' as GooglePlaceId,
         name: 'Test Winery',
         latitude: 42.5,
         longitude: -76.5,
-        dbId: '123' as any,
+        dbId: '123' as unknown as WineryDbId,
       };
 
       const result = standardizeWineryData(source);
@@ -35,7 +86,7 @@ describe('Relational ID Invariant Enforcement (ST-04)', () => {
         on_wishlist: false,
         is_favorite: false,
         user_visited: false,
-        trip_info: [{ trip_id: '456' as any, trip_name: 'Summer Trip', trip_date: '2026-07-01' }],
+        trip_info: [{ trip_id: '456' as unknown as number, trip_name: 'Summer Trip', trip_date: '2026-07-01' }],
       };
 
       const result = standardizeWineryData(source);
@@ -45,24 +96,8 @@ describe('Relational ID Invariant Enforcement (ST-04)', () => {
   });
 
   describe('visitStore numeric ID normalization', () => {
-    let useVisitStore: any;
-    let mockRpc: jest.Mock;
-
     beforeEach(() => {
-      jest.resetModules();
       mockRpc = jest.fn();
-
-      jest.doMock('@/utils/supabase/client', () => ({
-        createClient: () => ({
-          rpc: mockRpc,
-          auth: {
-            getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-1' } } } }),
-            getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'user-1' } } }),
-          },
-        }),
-      }));
-
-      useVisitStore = require('../visitStore').useVisitStore;
       useVisitStore.getState().reset();
     });
 
@@ -102,40 +137,40 @@ describe('Relational ID Invariant Enforcement (ST-04)', () => {
   });
 
   describe('tripStore offline queue numeric temp ID invariant', () => {
-    let useTripStore: any;
-
     beforeEach(() => {
-      jest.resetModules();
-      useTripStore = require('../tripStore').useTripStore;
+      resetTripInitState();
+      mockSyncStoreState = {
+        queue: [],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        getDecryptedPayload: jest.fn(),
+      };
       useTripStore.getState().reset();
     });
 
     it('ensures all pending offline trips have numeric IDs and never string UUIDs', async () => {
-      const mockSyncStore = {
+      mockSyncStoreState = {
         queue: [
           {
             id: 'uuid-string-from-queue-1234',
             type: 'create_trip',
-            payload: JSON.stringify({ name: 'Offline Trip', trip_date: '2026-09-10' }),
+            encryptedPayload: 'encrypted',
+            createdAt: '2026-09-10T00:00:00Z',
+            userId: 'user-1',
           },
         ],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
         getDecryptedPayload: jest.fn().mockResolvedValue({
           name: 'Offline Trip',
           trip_date: '2026-09-10',
         }),
       };
 
-      jest.doMock('@/lib/stores/syncStore', () => ({
-        useSyncStore: {
-          getState: () => mockSyncStore,
-        },
-      }));
+      await useTripStore.getState().initialize();
 
-      const { useTripStore: reloadedTripStore } = require('../tripStore');
-      await reloadedTripStore.getState().loadPendingMutations?.({ id: 'user-1' });
-
-      const trips = reloadedTripStore.getState().trips;
-      const pending = trips.find((t: any) => t.name === 'Offline Trip');
+      const trips = useTripStore.getState().trips;
+      const pending = trips.find((t: Trip) => t.name === 'Offline Trip');
       if (pending) {
         expect(typeof pending.id).toBe('number');
         expect(Number.isInteger(pending.id)).toBe(true);

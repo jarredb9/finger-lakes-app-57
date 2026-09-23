@@ -1,32 +1,32 @@
 import { act } from '@testing-library/react';
+import { useFriendStore } from '../friendStore';
+import { useSyncStore } from '@/lib/stores/syncStore';
+
+const mockAddMutation = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('@/lib/stores/syncStore', () => ({
+  useSyncStore: {
+    getState: jest.fn(() => ({
+      addMutation: mockAddMutation,
+      queue: [],
+      initialize: jest.fn(),
+    })),
+  },
+}));
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
+    },
+    rpc: jest.fn(),
+  })),
+}));
 
 describe('friendStore SyncStore integration', () => {
-  let useFriendStore: any;
-  let useSyncStore: any;
-
   beforeEach(() => {
-    jest.resetModules();
-
-    // Mock SyncStore
-    const mockAddMutation = jest.fn().mockResolvedValue(undefined);
-    jest.doMock('@/lib/stores/syncStore', () => ({
-      useSyncStore: {
-        getState: jest.fn(() => ({
-          addMutation: mockAddMutation,
-          queue: [],
-          initialize: jest.fn(),
-        })),
-      },
-    }));
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: jest.fn(() => ({
-        auth: {
-          getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
-        },
-        rpc: jest.fn(),
-      })),
-    }));
+    jest.clearAllMocks();
+    mockAddMutation.mockResolvedValue(undefined);
 
     // Mock navigator.onLine to false
     Object.defineProperty(navigator, 'onLine', {
@@ -35,9 +35,6 @@ describe('friendStore SyncStore integration', () => {
       writable: true,
     });
 
-    useFriendStore = require('../friendStore').useFriendStore;
-    useSyncStore = require('@/lib/stores/syncStore').useSyncStore;
-    
     useFriendStore.getState().reset();
   });
 
@@ -58,7 +55,7 @@ describe('friendStore SyncStore integration', () => {
       userId: 'user-123',
       payload: expect.objectContaining({
         action: 'send_request',
-        email: 'test@example.com'
+        email: 'test@example.com',
       })
     }));
   });
@@ -77,7 +74,7 @@ describe('friendStore SyncStore integration', () => {
       payload: expect.objectContaining({
         action: 'respond',
         requesterId: 'r123',
-        accept: true
+        accept: true,
       })
     }));
   });
@@ -95,7 +92,7 @@ describe('friendStore SyncStore integration', () => {
       userId: 'user-123',
       payload: expect.objectContaining({
         action: 'remove',
-        friendId: 'f123'
+        friendId: 'f123',
       })
     }));
   });

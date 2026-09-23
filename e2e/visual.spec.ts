@@ -4,9 +4,9 @@ import { getSidebarContainer, login, navigateToTab, ensureSidebarExpanded } from
 test.describe('Visual Regression Testing', () => {
 
   test.beforeEach(async ({ page }, testInfo) => {
-    // Run visual tests across desktop (chromium), mobile drawer (Mobile Chrome), and tablet (Mobile Safari (Tablet))
-    const allowedProjects = ['chromium', 'Mobile Chrome', 'Mobile Safari (Tablet)'];
-    test.skip(!allowedProjects.includes(testInfo.project.name), 'Visual tests run on chromium, Mobile Chrome, and Mobile Safari (Tablet)');
+    // Run visual tests across desktop (chromium), mobile drawer (Mobile Chrome, Mobile Safari), and tablet (Mobile Safari (Tablet))
+    const allowedProjects = ['chromium', 'Mobile Chrome', 'Mobile Safari', 'Mobile Safari (Tablet)'];
+    test.skip(!allowedProjects.includes(testInfo.project.name), 'Visual tests run on chromium, Mobile Chrome, Mobile Safari, and Mobile Safari (Tablet)');
 
     // Reduce motion natively in browser
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -63,9 +63,7 @@ test.describe('Visual Regression Testing', () => {
       await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
     });
 
-    await expect(page).toHaveScreenshot('login-page.png', {
-        maxDiffPixelRatio: 0.10 // Align with project-wide standard
-    });
+    await expect(page).toHaveScreenshot('login-page.png');
   });
 
   test('main dashboard visual baseline', async ({ page, user, mockMaps }) => {
@@ -88,8 +86,7 @@ test.describe('Visual Regression Testing', () => {
         mask: [
             page.locator('[data-testid="user-avatar"]'), 
             page.locator('text=/Trip \\d+/') 
-        ],
-        maxDiffPixelRatio: 0.10
+        ]
     });
   });
 
@@ -120,7 +117,6 @@ test.describe('Visual Regression Testing', () => {
               drawer.locator('.text-muted-foreground'),
               drawer.locator('[data-testid="winery-weather-widget"]')
           ],
-          maxDiffPixelRatio: 0.10,
           animations: 'disabled'
       });
 
@@ -132,7 +128,6 @@ test.describe('Visual Regression Testing', () => {
               drawer.locator('.text-muted-foreground'),
               drawer.locator('[data-testid="winery-weather-widget"]')
           ],
-          maxDiffPixelRatio: 0.10,
           animations: 'disabled'
       });
 
@@ -144,7 +139,6 @@ test.describe('Visual Regression Testing', () => {
               drawer.locator('.text-muted-foreground'),
               drawer.locator('[data-testid="winery-weather-widget"]')
           ],
-          maxDiffPixelRatio: 0.10,
           animations: 'disabled'
       });
     } else if (isTablet) {
@@ -158,7 +152,6 @@ test.describe('Visual Regression Testing', () => {
               sheet.locator('.text-muted-foreground'),
               sheet.locator('[data-testid="winery-weather-widget"]')
           ],
-          maxDiffPixelRatio: 0.10,
           animations: 'disabled'
       });
     } else {
@@ -173,7 +166,6 @@ test.describe('Visual Regression Testing', () => {
               modal.locator('[data-testid="visit-date"]'),
               modal.locator('[data-testid="winery-weather-widget"]')
           ],
-          maxDiffPixelRatio: 0.10,
           animations: 'disabled'
       });
     }

@@ -1,67 +1,90 @@
 import { act } from '@testing-library/react';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
+import { useVisitStore } from '../visitStore';
+
+let mockRpc = jest.fn().mockResolvedValue({ data: { visit_id: 999 }, error: null });
+let mockAddMutation = jest.fn().mockResolvedValue(undefined);
+let mockRemoveMutation = jest.fn().mockResolvedValue(undefined);
+let mockGetDecryptedPayload = jest.fn();
+let syncStoreMock: any;
+
+(globalThis as any)._VISIT_MOCKS = {
+  mockRpc,
+  mockAddMutation,
+  mockRemoveMutation,
+  mockGetDecryptedPayload,
+};
+
+jest.mock('@/lib/stores/syncStore', () => ({
+  useSyncStore: {
+    getState: () => ({
+      addMutation: (...args: any[]) => (globalThis as any)._VISIT_MOCKS.mockAddMutation(...args),
+      removeMutation: (...args: any[]) => (globalThis as any)._VISIT_MOCKS.mockRemoveMutation(...args),
+      getDecryptedPayload: (...args: any[]) => (globalThis as any)._VISIT_MOCKS.mockGetDecryptedPayload(...args),
+    }),
+  },
+}));
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: () => ({
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ 
+        data: { session: { user: { id: 'user-123' } } } 
+      }),
+      getUser: jest.fn().mockResolvedValue({ 
+        data: { user: { id: 'user-123' } } 
+      }),
+    },
+    rpc: (...args: any[]) => (globalThis as any)._VISIT_MOCKS.mockRpc(...args),
+    storage: {
+      from: () => ({
+        upload: jest.fn().mockResolvedValue({ error: null }),
+        remove: jest.fn().mockResolvedValue({ error: null }),
+      }),
+    },
+  }),
+}));
+
+jest.mock('../wineryStore', () => ({
+  useWineryStore: {
+    getState: () => ({
+      addVisitToWinery: jest.fn(),
+      replaceVisit: jest.fn(),
+      optimisticallyDeleteVisit: jest.fn(),
+      optimisticallyUpdateVisit: jest.fn(),
+      confirmOptimisticUpdate: jest.fn(),
+      revertOptimisticUpdate: jest.fn(),
+      getWineries: jest.fn().mockReturnValue([]),
+    }),
+  },
+}));
 
 describe('VisitStore Offline Logic', () => {
   const originalOnLine = navigator.onLine;
-  let useVisitStore: any;
-  let mockRpc: jest.Mock;
-  let syncStoreMock: any;
 
   beforeEach(() => {
-    jest.resetModules();
     Object.defineProperty(navigator, 'onLine', { value: true, writable: true });
 
-    // Mock SyncStore
+    mockRpc = jest.fn().mockResolvedValue({ data: { visit_id: 999 }, error: null });
+    mockAddMutation = jest.fn().mockResolvedValue(undefined);
+    mockRemoveMutation = jest.fn().mockResolvedValue(undefined);
+    mockGetDecryptedPayload = jest.fn();
+
     syncStoreMock = {
-      getState: jest.fn().mockReturnValue({
-        addMutation: jest.fn().mockResolvedValue(undefined),
-        removeMutation: jest.fn().mockResolvedValue(undefined),
-        getDecryptedPayload: jest.fn(),
+      getState: () => ({
+        addMutation: mockAddMutation,
+        removeMutation: mockRemoveMutation,
+        getDecryptedPayload: mockGetDecryptedPayload,
       }),
     };
-    jest.doMock('@/lib/stores/syncStore', () => ({
-      useSyncStore: syncStoreMock,
-    }));
 
-    // Mock Supabase
-    mockRpc = jest.fn().mockResolvedValue({ data: { visit_id: 999 }, error: null });
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: () => ({
-        auth: {
-          getSession: jest.fn().mockResolvedValue({ 
-            data: { session: { user: { id: 'user-123' } } } 
-          }),
-          getUser: jest.fn().mockResolvedValue({ 
-            data: { user: { id: 'user-123' } } 
-          }),
-        },
-        rpc: mockRpc,
-        storage: {
-          from: () => ({
-            upload: jest.fn().mockResolvedValue({ error: null }),
-            remove: jest.fn().mockResolvedValue({ error: null }),
-          }),
-        }
-      }),
-    }));
+    (globalThis as any)._VISIT_MOCKS = {
+      mockRpc,
+      mockAddMutation,
+      mockRemoveMutation,
+      mockGetDecryptedPayload,
+    };
 
-    // Mock WineryStore
-    jest.doMock('../wineryStore', () => ({
-      useWineryStore: {
-        getState: jest.fn().mockReturnValue({
-          addVisitToWinery: jest.fn(),
-          replaceVisit: jest.fn(),
-          optimisticallyDeleteVisit: jest.fn(),
-          optimisticallyUpdateVisit: jest.fn(),
-          confirmOptimisticUpdate: jest.fn(),
-          revertOptimisticUpdate: jest.fn(),
-          getWineries: jest.fn().mockReturnValue([]),
-        }),
-      },
-    }));
-
-    // Re-require store after mocks
-    useVisitStore = require('../visitStore').useVisitStore;
     useVisitStore.getState().reset();
   });
 
@@ -183,7 +206,7 @@ describe('VisitStore Offline Logic', () => {
         wineries: { id: 99, google_place_id: 'place-other', name: 'Other Winery', address: '456 Road', latitude: 42, longitude: -76 }
       };
 
-      useVisitStore.setState({ visits: [visit1, visitOther, visit2] });
+      useVisitStore.setState({ visits: [visit1, visitOther, visit2] as any });
 
       // Query by string place ID
       const byPlaceId = useVisitStore.getState().getVisitsByWinery('place-abc');
@@ -212,7 +235,7 @@ describe('VisitStore Offline Logic', () => {
         wineries: { id: 10, google_place_id: 'place-abc', name: 'ABC Winery', address: '123 Road', latitude: 42, longitude: -76 }
       };
 
-      useVisitStore.setState({ visits: [originalVisit] });
+      useVisitStore.setState({ visits: [originalVisit] as any });
 
       mockRpc.mockResolvedValueOnce({
         data: {
@@ -233,8 +256,8 @@ describe('VisitStore Offline Logic', () => {
 
       const updated = useVisitStore.getState().visits.find((v: any) => v.id === 42);
       expect(updated).toBeDefined();
-      expect(updated.user_review).toBe('Updated review');
-      expect(updated.rating).toBe(5);
+      expect(updated?.user_review).toBe('Updated review');
+      expect(updated?.rating).toBe(5);
     });
 
     it('hydrates and dedupes visits into visitStore via hydrateVisits', () => {
@@ -249,7 +272,7 @@ describe('VisitStore Offline Logic', () => {
         wineryId: 'place-montezuma',
         wineries: { id: 20, google_place_id: 'place-montezuma', name: 'Montezuma Winery', address: '', latitude: 42, longitude: -76 }
       };
-      useVisitStore.setState({ visits: [initialVisit] });
+      useVisitStore.setState({ visits: [initialVisit] as any });
 
       useVisitStore.getState().hydrateVisits(
         [

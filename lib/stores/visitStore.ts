@@ -60,6 +60,6 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
 );
 
 // Expose store for E2E testing
-if (typeof window !== 'undefined') {
-  (window as any).useVisitStore = useVisitStore;
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+  window.useVisitStore = useVisitStore;
 }

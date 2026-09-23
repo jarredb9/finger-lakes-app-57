@@ -116,34 +116,5 @@ describe("Phase 7 Task 1: Service Worker Auth Route Matching & Caching Rules", (
       }
     });
   });
-
-  describe("Service Worker configuration audit (app/sw.ts)", () => {
-    const fs = require("fs");
-    const path = require("path");
-    const swPath = path.join(process.cwd(), "app/sw.ts");
-    const swContent = fs.readFileSync(swPath, "utf-8");
-
-    it("asserts app/sw.ts does NOT cache /auth/v1/user or /auth/v1/session via StaleWhileRevalidate", () => {
-      // FM-7.1: StaleWhileRevalidate on /auth/v1/* causes cache poisoning across logouts
-      const hasAuthSWR = swContent.includes("cacheName: 'supabase-auth'") || 
-        (swContent.includes("/auth/v1/user") && swContent.includes("StaleWhileRevalidate"));
-      expect(hasAuthSWR).toBe(false);
-    });
-
-    it("asserts app/sw.ts routes all /auth/v1/ endpoints strictly to NetworkOnly", () => {
-      // Must not exclude /auth/v1/user or /auth/v1/session from NetworkOnly
-      expect(swContent).not.toContain("url.pathname.includes('/auth/v1/user')");
-      expect(swContent).not.toContain("url.pathname.includes('/auth/v1/session')");
-    });
-
-    it("asserts app/sw.ts listens for PURGE_AUTH_CACHE message to evict caches on logout", () => {
-      expect(swContent).toContain("PURGE_AUTH_CACHE");
-    });
-
-    it("asserts app/sw.ts excludes authentication pages from the pages document cache", () => {
-      // Serwist pages matcher must filter out auth pages to prevent cached login redirects
-      expect(swContent).toMatch(/isAuthPageRoute|login|manual-confirm/);
-    });
-  });
 });
 

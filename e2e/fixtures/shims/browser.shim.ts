@@ -1,0 +1,239 @@
+/* eslint-disable no-console */
+import { Page } from '@playwright/test';
+import { MapMarkerRpc } from '@/lib/types';
+import { MOCK_MARKERS } from '../utils/mock-wineries';
+
+export interface BrowserShimOptions {
+  swEnabled?: boolean;
+  workerIndex?: number;
+  mockMarkers?: MapMarkerRpc[];
+}
+
+export class BrowserShim {
+  constructor(private page: Page) {}
+
+  /**
+   * Sets up WebGL mocks, Mapbox support, service worker gating, and store bounds in headless browser context.
+   */
+  async setupWebGLAndMapMocks(options: BrowserShimOptions = {}) {
+    const swEnabled = options.swEnabled ?? false;
+    const workerIndex = options.workerIndex ?? 0;
+    const markers = options.mockMarkers ?? MOCK_MARKERS;
+
+    interface ShimInitScriptArgs {
+      swEnabled: boolean;
+      workerIndex: number;
+      mockMarkers: unknown[];
+    }
+
+    await (this.page.addInitScript as unknown as (script: (args: ShimInitScriptArgs) => void, arg: ShimInitScriptArgs) => Promise<unknown>)(({ swEnabled, workerIndex, mockMarkers }) => {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(registrations => {
+          for (const registration of registrations) {
+            const scriptURL = registration.active?.scriptURL || registration.installing?.scriptURL || registration.waiting?.scriptURL;
+            if (scriptURL && !scriptURL.includes(`worker=${workerIndex}`)) {
+              registration.unregister();
+            }
+          }
+        });
+
+        const originalRegister = navigator.serviceWorker.register.bind(navigator.serviceWorker);
+        (navigator.serviceWorker as unknown as { register: (url: string | URL, options?: RegistrationOptions) => Promise<ServiceWorkerRegistration> }).register = (url: string | URL, options?: RegistrationOptions) => {
+          if (!swEnabled) {
+            return Promise.reject(new Error('SW blocked for test stability'));
+          }
+          const swUrl = new URL(url.toString(), window.location.href);
+          swUrl.searchParams.set('worker', String(workerIndex));
+          return originalRegister(swUrl.toString(), options);
+        };
+      }
+
+      if (typeof window !== 'undefined') {
+        const glConstants = {
+          VERTEX_SHADER: 35633,
+          FRAGMENT_SHADER: 35632,
+          COMPILE_STATUS: 35713,
+          LINK_STATUS: 35714,
+          VALIDATE_STATUS: 35715,
+          MAX_VERTEX_ATTRIBS: 35661,
+          MAX_TEXTURE_SIZE: 3379,
+          VERSION: 7938,
+          VENDOR: 7936,
+          RENDERER: 7937,
+          SHADING_LANGUAGE_VERSION: 35724,
+        };
+
+        const mockCtor = function() {};
+        Object.assign(mockCtor, glConstants);
+        Object.assign(mockCtor.prototype, glConstants);
+
+        window.WebGLRenderingContext = window.WebGLRenderingContext || mockCtor;
+        window.WebGL2RenderingContext = window.WebGL2RenderingContext || mockCtor;
+
+        if (window.HTMLCanvasElement) {
+          const originalGetContext = window.HTMLCanvasElement.prototype.getContext;
+          window.HTMLCanvasElement.prototype.getContext = (function (this: HTMLCanvasElement, type: string, attributes?: unknown) {
+            if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+              const glBase = {
+                canvas: this,
+                getParameter: (param: number) => {
+                  if (param === 3379) return 16384;
+                  if (param === 35661) return 80;
+                  if (param === 7938) return 'WebGL 1.0';
+                  if (param === 7936) return 'WebKit';
+                  if (param === 7937) return 'WebKit WebGL';
+                  if (param === 35724) return 'WebGL GLSL ES 1.0';
+                  if (param === 37446) return 'WebKit WebGL';
+                  if (param === 37445) return 'WebKit';
+                  return 0;
+                },
+                getExtension: (name: string) => {
+                  if (name === 'WEBGL_debug_renderer_info') {
+                    return {
+                      UNMASKED_RENDERER_WEBGL: 37446,
+                      UNMASKED_VENDOR_WEBGL: 37445,
+                    };
+                  }
+                  return null;
+                },
+                isContextLost: () => false,
+                createShader: () => ({}),
+                getShaderParameter: () => true,
+                getShaderInfoLog: () => '',
+                getShaderSource: () => '',
+                createProgram: () => ({}),
+                getProgramParameter: () => true,
+                getProgramInfoLog: () => '',
+                getAttribLocation: () => 0,
+                getUniformLocation: () => ({}),
+                createBuffer: () => ({}),
+                createTexture: () => ({}),
+                createFramebuffer: () => ({}),
+                createRenderbuffer: () => ({}),
+                checkFramebufferStatus: () => 36053,
+                getError: () => 0,
+                ...glConstants,
+              };
+
+              return new Proxy(glBase, {
+                get: (target: Record<string, unknown>, prop: string) => {
+                  if (prop in target) return target[prop];
+                  return () => {};
+                }
+              }) as unknown as RenderingContext;
+            }
+            return originalGetContext.call(this, type as '2d', attributes as CanvasRenderingContext2DSettings);
+          }) as unknown as typeof window.HTMLCanvasElement.prototype.getContext;
+        }
+
+        window.mapboxgl = window.mapboxgl || {};
+        window.mapboxgl.supported = () => true;
+
+        const inject = () => {
+          // @ts-ignore
+          if (window._E2E_SKIP_WINERY_INJECTION) return false;
+
+          // @ts-ignore
+          const wineryStore = window.useWineryDataStore;
+          // @ts-ignore
+          const mapStore = window.useMapStore;
+
+          if (wineryStore && wineryStore.getState) {
+            const state = wineryStore.getState();
+            // @ts-ignore
+            if (state.persistentWineries && state.persistentWineries.length === 0 && mockMarkers.length > 0) {
+              // @ts-ignore
+              const standardizer = window.standardizeWineryData || ((m: MapMarkerRpc) => ({
+                id: m.google_place_id,
+                dbId: Number(m.id),
+                name: m.name,
+                address: m.address || 'Mock Address',
+                latitude: Number(m.latitude || (m as { lat?: number }).lat || 0),
+                longitude: Number(m.longitude || (m as { lng?: number }).lng || 0),
+                rating: Number(m.google_rating) || 4.5,
+                userVisited: false,
+                onWishlist: false,
+                isFavorite: false,
+                visits: [],
+                openingHours: null,
+                reviews: []
+              }));
+
+              const standardized = (mockMarkers as MapMarkerRpc[]).map(m => standardizer(m)).filter(w => w !== null);
+              (wineryStore as unknown as { setState: (s: unknown) => void }).setState({ persistentWineries: standardized });
+              // @ts-ignore
+              window._E2E_INJECTED = true;
+            }
+          }
+
+          if (mapStore && mapStore.getState) {
+            const state = mapStore.getState();
+            if (!state.bounds) {
+              mapStore.setState({ 
+                bounds: { 
+                  north: 43,
+                  south: 42,
+                  east: -76,
+                  west: -77,
+                } 
+              });
+            }
+          }
+          
+          // @ts-ignore
+          if (window.google && window.google.maps) {
+            const maps = window.google.maps;
+            if (maps.LatLngBounds) maps.LatLngBounds.prototype.contains = () => true;
+            return true;
+          }
+          return false;
+        };
+        inject();
+        const intervalId = setInterval(inject, 200);
+        setTimeout(() => clearInterval(intervalId), 5000);
+      }
+    }, { swEnabled, workerIndex, mockMarkers: markers });
+  }
+
+  /**
+   * Simulates marker RPC failure by injecting error states and 500 route responses.
+   */
+  async failMarkers() {
+    await this.page.addInitScript(() => {
+      console.log('[DIAGNOSTIC] failMarkers init script running');
+      window._E2E_ENABLE_REAL_SYNC = true;
+      window._E2E_SKIP_WINERY_INJECTION = true;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
+        localStorage.removeItem('winery-data-storage-e2e');
+      }
+    });
+
+    await this.page.evaluate(() => {
+      window._E2E_ENABLE_REAL_SYNC = true;
+      window._E2E_SKIP_WINERY_INJECTION = true;
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('_E2E_ENABLE_REAL_SYNC', 'true');
+      }
+      if (window.useWineryDataStore) {
+        window.useWineryDataStore.setState({ persistentWineries: [], error: null });
+      }
+    }).catch(() => {});
+
+    await this.page.context().route(/.*rpc\/get_map_markers/, async (route) => {
+      console.log('[DIAGNOSTIC] Intercepting get_map_markers with 500 error');
+      await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
+    });
+
+    await this.page.context().route(/.*rpc\/get_wineries_in_bounds/, async (route) => {
+      console.log('[DIAGNOSTIC] Intercepting get_wineries_in_bounds with 500 error');
+      await route.fulfill({ status: 500, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify({ message: 'Internal Server Error' }) });
+    });
+  }
+}
+
+export async function setupBrowserShims(page: Page, options?: BrowserShimOptions) {
+  const shim = new BrowserShim(page);
+  await shim.setupWebGLAndMapMocks(options);
+  return shim;
+}

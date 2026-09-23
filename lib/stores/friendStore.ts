@@ -295,6 +295,6 @@ export const useFriendStore = createWithEqualityFn<FriendState>()(
   )
 );
 
-if (typeof window !== 'undefined') {
-  (window as any).useFriendStore = useFriendStore;
+if (typeof window !== 'undefined' && process.env.NEXT_PUBLIC_IS_E2E === 'true') {
+  window.useFriendStore = useFriendStore;
 }

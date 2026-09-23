@@ -1,36 +1,48 @@
 import { createMockWinery, createMockVisit } from '@/lib/test-utils/fixtures';
-import { Winery, WineryDbId } from '@/lib/types';
+import { Winery, WineryDbId, GooglePlaceId } from '@/lib/types';
+import { useWineryStore } from '../wineryStore';
+
+const mockRpc = jest.fn().mockResolvedValue({ data: [], error: null });
+const mockInvoke = jest.fn().mockResolvedValue({ data: null, error: null });
+const mockFrom = jest.fn(() => ({
+  select: jest.fn(() => ({
+    eq: jest.fn(() => ({
+      maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
+      single: jest.fn().mockResolvedValue({ data: null, error: null }),
+    })),
+  })),
+}));
+
+(globalThis as any)._WINERY_MOCKS = {
+  mockRpc,
+  mockInvoke,
+  mockFrom,
+};
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    rpc: (...args: any[]) => (globalThis as any)._WINERY_MOCKS.mockRpc(...args),
+    functions: {
+      invoke: (...args: any[]) => (globalThis as any)._WINERY_MOCKS.mockInvoke(...args),
+    },
+    from: (...args: any[]) => (globalThis as any)._WINERY_MOCKS.mockFrom(...args),
+  })),
+}));
+
+jest.mock('@/lib/utils', () => {
+  const actual = jest.requireActual('@/lib/utils');
+  return {
+    ...actual,
+    invokeFunction: (...args: any[]) => (globalThis as any)._WINERY_MOCKS.mockInvoke(...args),
+  };
+});
 
 describe('WineryUIStore: ensureWineryDetails', () => {
-  let useWineryStore: any;
-  let mockRpc: jest.Mock;
-  let mockInvoke: jest.Mock;
-
   beforeEach(() => {
-    jest.resetModules();
-    
-    mockRpc = jest.fn().mockResolvedValue({ data: [], error: null });
-    mockInvoke = jest.fn().mockResolvedValue({ data: null, error: null });
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: () => ({
-        rpc: mockRpc,
-        functions: {
-          invoke: mockInvoke
-        }
-      })
-    }));
-
-    jest.doMock('@/lib/utils', () => {
-      const actual = jest.requireActual('@/lib/utils');
-      return {
-        ...actual,
-        invokeFunction: (...args: any[]) => mockInvoke(...args),
-      };
-    });
-
-    // Re-import store to pick up the new mock
-    useWineryStore = require('../wineryStore').useWineryStore;
+    window._E2E_SKIP_WINERY_INJECTION = true;
+    window._E2E_SKIP_DETAILS_MOCK = true;
+    mockRpc.mockResolvedValue({ data: [], error: null });
+    mockInvoke.mockResolvedValue({ data: null, error: null });
     useWineryStore.getState().reset();
   });
 
@@ -127,7 +139,7 @@ describe('WineryUIStore: ensureWineryDetails', () => {
       error: null
     });
 
-    await useWineryStore.getState().ensureWineryDetails('789');
+    await useWineryStore.getState().ensureWineryDetails('789' as GooglePlaceId);
 
     expect(mockRpc).toHaveBeenCalledWith('get_winery_details_by_id', { p_winery_id: 789 });
   });
@@ -175,21 +187,8 @@ describe('WineryUIStore: ensureWineryDetails', () => {
 });
 
 describe('WineryUIStore: fetchWineryData', () => {
-  let useWineryStore: any;
-  let mockRpc: jest.Mock;
-
   beforeEach(() => {
-    jest.resetModules();
-    
-    mockRpc = jest.fn().mockResolvedValue({ data: [], error: null });
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: () => ({
-        rpc: mockRpc
-      })
-    }));
-
-    useWineryStore = require('../wineryStore').useWineryStore;
+    mockRpc.mockResolvedValue({ data: [], error: null });
     useWineryStore.getState().reset();
   });
 

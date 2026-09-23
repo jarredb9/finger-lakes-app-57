@@ -6,7 +6,8 @@
 set -e
 
 # 1. Configuration
-PLAYWRIGHT_VERSION="v1.58.2-noble"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PLAYWRIGHT_VERSION="v1.63.0-noble"
 IMAGE="mcr.microsoft.com/playwright:$PLAYWRIGHT_VERSION"
 
 # Parse optional flags
@@ -27,8 +28,6 @@ cleanup() {
 }
 trap cleanup EXIT
 
-PROJECT_ARG=$1
-
 echo "🚀 Starting Playwright Containerized Tests (Rootless)..."
 echo "📦 Image: $IMAGE"
 
@@ -47,7 +46,7 @@ else
 fi
 
 # Detect TTY/CI environment to set interactive flags safely
-INTERACTIVE_FLAG="-t"
+INTERACTIVE_FLAG=""
 if [ -t 0 ] && [ "$CI" != "true" ]; then
     INTERACTIVE_FLAG="-it"
 fi
@@ -94,28 +93,54 @@ if [ -n "$ORIG_TEST_USER_PASSWORD" ]; then TEST_USER_PASSWORD="$ORIG_TEST_USER_P
 if [ -n "$ORIG_BASE_URL" ]; then BASE_URL="$ORIG_BASE_URL"; fi
 
 if [ "$SHOULD_BUILD" = true ]; then
-    echo "🏗️  Forcing a fresh production build and clearing isolated storage..."
-    rm -rf .next
-    rm -rf test-results/.storage
+    echo "🏗️  Forcing a fresh container production build (run-build-container.sh) and clearing isolated storage..."
+    rm -rf .next 2>/dev/null || true
+    rm -rf test-results/.storage 2>/dev/null || true
+    "$SCRIPT_DIR/run-build-container.sh"
 fi
 
 # Determine command based on argument
-if [ "$PROJECT_ARG" == "all" ]; then
-    echo "🌐 Project: ALL (Running full suite)"
-    # Shift to get remaining args
+PROJECT=""
+USE_PROJECT_FLAG=true
+
+if [ "$#" -eq 0 ]; then
+    PROJECT="webkit"
+elif [ "$1" = "all" ]; then
+    USE_PROJECT_FLAG=false
     shift
-    TEST_CMD="npx playwright test $*"
+elif [ "$1" = "chromium" ] || [ "$1" = "webkit" ] || [ "$1" = "firefox" ]; then
+    PROJECT="$1"
+    shift
+elif [ "$1" = "mobile-safari" ] || [ "$1" = "Mobile Safari" ]; then
+    PROJECT="Mobile Safari"
+    shift
+elif [ "$1" = "mobile-chrome" ] || [ "$1" = "Mobile Chrome" ]; then
+    PROJECT="Mobile Chrome"
+    shift
+elif [ "$1" = "tablet-safari" ] || [ "$1" = "Mobile Safari (Tablet)" ]; then
+    PROJECT="Mobile Safari (Tablet)"
+    shift
 else
-    case "$PROJECT_ARG" in
-        mobile-safari|"Mobile Safari") PROJECT="Mobile Safari" ;;
-        mobile-chrome|"Mobile Chrome") PROJECT="Mobile Chrome" ;;
-        tablet-safari|"Mobile Safari (Tablet)") PROJECT="Mobile Safari (Tablet)" ;;
-        *) PROJECT="${PROJECT_ARG:-webkit}" ;;
-    esac
+    # $1 is a spec path, flag, or unrecognized option; default project to webkit and retain $1
+    PROJECT="webkit"
+fi
+
+TEST_ARGS=("$@")
+
+if [ "$USE_PROJECT_FLAG" = true ]; then
     echo "🌐 Project: $PROJECT"
-    # Shift to get remaining args
-    shift
-    TEST_CMD="npx playwright test --project=\"$PROJECT\" $*"
+    if [ ${#TEST_ARGS[@]} -gt 0 ]; then
+        TEST_CMD="npx playwright test --project=\"$PROJECT\" ${TEST_ARGS[*]}"
+    else
+        TEST_CMD="npx playwright test --project=\"$PROJECT\""
+    fi
+else
+    echo "🌐 Project: ALL (Running full suite)"
+    if [ ${#TEST_ARGS[@]} -gt 0 ]; then
+        TEST_CMD="npx playwright test ${TEST_ARGS[*]}"
+    else
+        TEST_CMD="npx playwright test"
+    fi
 fi
 
 # 2. Ensure we have the image
@@ -155,27 +180,24 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     -e NEXT_PUBLIC_SUPABASE_ANON_KEY="$NEXT_PUBLIC_SUPABASE_ANON_KEY" \
     -e SUPABASE_SERVICE_ROLE_KEY="$SUPABASE_SERVICE_ROLE_KEY" \
     -e E2E_REAL_DATA="$E2E_REAL_DATA" \
+    -e VERBOSE="$VERBOSE" \
+    -e DEBUG_E2E="$DEBUG_E2E" \
     -e TEST_CMD="$TEST_CMD" \
-    -e SHOULD_BUILD="$SHOULD_BUILD" \
     -e TEST_USER_EMAIL="$TEST_USER_EMAIL" \
     -e TEST_USER_PASSWORD="$TEST_USER_PASSWORD" \
     -e BASE_URL="$BASE_URL" \
     "$IMAGE" \
     /bin/bash -c '
-        if [ ! -d "node_modules" ]; then
-            echo "Installing dependencies..."
-            npm install
+        set -e
+        if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
+            if [ -z "$INTERACTIVE_FLAG" ] && [ "$VERBOSE" != "true" ]; then
+                npm install --silent >/dev/null 2>&1 || npm install
+            else
+                echo "Installing dependencies..."
+                npm install
+            fi
         fi
 
-        if [ "$SHOULD_BUILD" = "true" ]; then
-            echo "🧹 Cleaning and building inside container..."
-            echo "🔍 Sanity Check: e2e/utils.ts console listener:"
-            grep -A 5 "page.on(" e2e/utils.ts
-            rm -rf .next
-            npm install
-            npm run build
-        fi
-        
         echo "🎬 Running inside container: $TEST_CMD"
         eval "$TEST_CMD"
     '

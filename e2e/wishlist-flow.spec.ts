@@ -9,7 +9,7 @@ import {
 
 test.describe('Wishlist Flow', () => {
   test.beforeEach(async ({ page, user, mockMaps }) => {
-    await page.addInitScript(() => { (window as any)._E2E_FULL_DRAWER = true; });
+    await page.addInitScript(() => { window._E2E_FULL_DRAWER = true; });
     // Re-initialize mocks with correct user ID to avoid profile mismatch
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
     await login(page, user.email, user.password);

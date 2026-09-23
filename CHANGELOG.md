@@ -2,7 +2,53 @@
 
 ## [Unreleased]
 
-**Milestone v3.6.0: Architectural Recovery & Test Reliability (In Progress)**
+**Milestone v3.6.0: Architectural Recovery & Test Reliability (In-Progress)**
+
+### 🧪 Sprint 5: Test Automation Infrastructure Modernization & E2E Test Suite Stabilization ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#38](https://github.com/jarredb9/finger-lakes-app-57/issues/38), [#25](https://github.com/jarredb9/finger-lakes-app-57/issues/25))
+* **Jest 30 Infrastructure, Memory Management & Module Reset Remediation**:
+    * Resolved Node 24 JSDOM worker heap exhaustion by configuring `workerIdleMemoryLimit: '512MB'` and enabling global mock clearing (`clearMocks: true`) in `jest.config.mjs`.
+    * Polyfilled `URL.createObjectURL` and `URL.revokeObjectURL` in `jest.setup.ts` to support JSDOM testing of binary serialization and preview URLs.
+    * Audited and eliminated all 34 occurrences of `jest.resetModules()` across 22 test files (including `wineryStore.test.ts`, `tripStore.slices.test.ts`, `visitStore.slices.test.ts`, and `realtimeChannelCleanup.test.ts`), hoisting `@/utils/supabase/client` mocks to file-level scope and leveraging explicit store/service resets.
+    * Developed rootless containerized Jest runner `scripts/run-jest-container.sh` with Node 24 and Ubuntu 24.04 glibc 2.39 compatibility on RHEL 8 hosts.
+* **Store Domain Invariants & Offline Photo Reconstitution**:
+    * Created comprehensive domain invariant test suite `lib/stores/__tests__/visitStore.domainInvariants.test.ts` verifying Base64 photo reconstitution, preview URLs, AES-GCM queue payload encryption, and optimistic deletion rollback.
+    * Hardened `lib/stores/slices/visitInitHelpers.ts` to normalize relational IDs (`Number(winery.dbId)`), enforce mutex deduplication against React 19 concurrent double-mounts, and properly serialize binary photos into offline sync queues.
+    * Added comprehensive mutation test suites for `lib/services/socialService.ts` and `lib/services/tripService.ts`, enforcing input sanitization, multi-winery RPC rollback on chaining failure, trip deletion guards, and `.neq('role', 'owner')` owner protection assertions.
+* **Production Store Window Detachment & Runner Script Modernization**:
+    * Decoupled cross-store window access in `lib/stores/uiStore.ts`, replacing `(window as any).useTripStore` with direct store invocation.
+    * Strictly gated `(window as any).use*Store` attachments and `<E2EStoreExposer />` behind `process.env.NEXT_PUBLIC_IS_E2E === 'true'`, preventing store exposure on `window` in standard production builds.
+    * Augmented global `Window` and `globalThis` declarations in `lib/shims.d.ts`, eliminating over 100 `(window as any)` and `(globalThis as any)` type casts across stores, components, utilities, and test suites.
+    * Modernized container runner scripts (`run-e2e-container.sh`, `run-jest-container.sh`, `run-dev-container.sh`, `run-build-container.sh`) to include container volume isolation (`-v /work/node_modules`) preventing host pollution, safe positional argument parsing (defaulting to `webkit`), array-based argument passthrough, and rootless Podman `--userns=keep-id` with SELinux `:Z` mounts.
+* **Playwright 1.63 Container & NPM Package Upgrade**:
+    * Upgraded `@playwright/test` to 1.63.0 and updated all container runners to `mcr.microsoft.com/playwright:v1.63.0-noble`.
+    * Certified rootless containerized browser execution on RHEL 8 across `chromium`, `webkit`, `mobile-safari`, and `mobile-chrome`.
+    * Remediated Playwright 1.63 breaking changes and deprecations in network route handling and generic serialization.
+* **Modular Route Fixtures & Store-Poking Decoupling**:
+    * Decomposed monolithic `MockMapsManager` into granular, single-responsibility domain handlers, browser shims, and shared utilities under `e2e/fixtures/`:
+        * `e2e/fixtures/shims/browser.shim.ts`: WebGL/Canvas mocks, service worker interception, and map bounds injection.
+        * `e2e/fixtures/shims/google-maps-sdk.shim.ts`: Maps JavaScript SDK stubs.
+        * `e2e/fixtures/handlers/places.handler.ts`: Places API v1 REST, legacy endpoints, and Edge Function mocks.
+        * `e2e/fixtures/handlers/assets.handler.ts`: Vector tiles, fonts, and Mapbox assets.
+        * `e2e/fixtures/handlers/trips.handler.ts`: Trips RPCs and `/rest/v1/trips` endpoints.
+        * `e2e/fixtures/handlers/visits.handler.ts`: Visits RPCs and idempotency tracking.
+        * `e2e/fixtures/handlers/social.handler.ts`: Social graph RPCs, friend feeds, and profile stats.
+        * `e2e/fixtures/handlers/favorites.handler.ts`: Favorites, wishlists, and dynamic map markers.
+    * Implemented `CompositeMockMapsManager` in `e2e/fixtures/index.ts` and refactored `e2e/utils.ts` into a 100% backward-compatible delegation façade.
+    * Decoupled E2E test helpers from store-poking in assertion retries, replacing store hydration polling with DOM readiness signals (`data-state="ready"`).
+* **E2E Helper Domain Modularization**:
+    * Decomposed monolithic 1,013-line `e2e/helpers.ts` into granular modules under `e2e/helpers/`: `core.ts`, `navigation.ts`, `auth.ts`, `wineries.ts`, `visits.ts`, `social.ts`, `assertions.ts`, `diagnostics.ts`, and barrel export `index.ts`.
+    * Enforced 100% export interface parity via `e2e/__tests__/helper-contracts.test.ts` and removed redundant facade file in favor of standard directory resolution.
+* **Playwright ESLint Guardrails, Snapshot Calibration & Flakiness Elimination**:
+    * Configured `eslint-plugin-playwright` in `eslint.config.mjs` (ESLint 9 Flat Config) with `'playwright/no-wait-for-timeout': 'error'` and `'playwright/no-force-option': 'warn'`.
+    * Calibrated visual regression snapshot tolerance in `playwright.config.ts` to `maxDiffPixelRatio: 0.01` (1%) and stripped coarse inline overrides in `e2e/visual.spec.ts`.
+    * Eliminated all 12 arbitrary `page.waitForTimeout()` sleeps across the E2E suite, replacing with deterministic auto-retrying assertions (`waitForResponse`, `toBeVisible`, `toPass`, `expect.poll`).
+    * Audited and eliminated all 24 `{ force: true }` clicks across 8 spec files and helpers, resolving underlying CSS z-index, animation timing, and drawer snap point actionability barriers.
+* **High-Value Feature Coverage & Final Certification**:
+    * Implemented full E2E coverage for drag-and-drop itinerary reordering using `@hello-pangea/dnd` accessible keyboard sensors in `e2e/trip-management.spec.ts`, asserting transient DOM reordering, RPC payload integrity, and persistence across reloads.
+    * Implemented full E2E coverage for PWA offline reconnection queue drainage (`context.setOffline(false)`), asserting queue drainage to zero and store cache invalidation in `e2e/pwa-offline.spec.ts`.
+    * Audited and eliminated all `any` types across route handlers, fixtures, and specs, replacing with canonical domain models (`RpcVisitWithWinery`, `Profile`, `SyncItem`, `Winery`, `Trip`).
+    * Pruned ephemeral post-TDD scaffolding while preserving permanent behavioral contracts (`handler-contracts.test.ts`, `helper-contracts.test.ts`, `mock-wineries.test.ts`).
+    * Certified 100% clean passes across the full cross-browser container matrix (`chromium`, `webkit`, `mobile-safari`, `mobile-chrome`) and complete Jest unit test suite (128 suites, 693 tests).
 
 ### 🚀 Sprint 4: Frontend Modernization, React 19 / App Router Architecture & Bundle Optimization ([#39](https://github.com/jarredb9/finger-lakes-app-57/issues/39), [#36](https://github.com/jarredb9/finger-lakes-app-57/issues/36))
 * **Dependency Pruning & Turbopack Dev Unblocking**:

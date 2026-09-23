@@ -1,9 +1,11 @@
 import { useUIStore } from '../uiStore';
+import { useTripStore } from '../tripStore';
 import { Winery, Visit, GooglePlaceId, WineryDbId } from '@/lib/types';
 
 describe('uiStore', () => {
   beforeEach(() => {
     useUIStore.getState().reset();
+    useTripStore.getState().reset();
   });
 
   const mockWinery: Winery = {
@@ -88,5 +90,23 @@ describe('uiStore', () => {
       type: 'share',
       props: { tripId: 'trip-123', tripName: 'My FLX Trip' },
     });
+  });
+
+  it('should reset selectedTrip in tripStore and clear share dialog state when closeShareDialog is called', () => {
+    useTripStore.setState({ selectedTrip: { id: 'trip-123', name: 'My FLX Trip', stops: [] } as any });
+    useUIStore.getState().openShareDialog('trip-123', 'My FLX Trip');
+
+    expect(useUIStore.getState().isShareDialogOpen).toBe(true);
+    expect(useUIStore.getState().shareTripId).toBe('trip-123');
+    expect(useTripStore.getState().selectedTrip).not.toBeNull();
+
+    useUIStore.getState().closeShareDialog();
+
+    const uiState = useUIStore.getState();
+    expect(uiState.isShareDialogOpen).toBe(false);
+    expect(uiState.shareTripId).toBeNull();
+    expect(uiState.shareTripName).toBeNull();
+    expect(uiState.activeModal).toBeNull();
+    expect(useTripStore.getState().selectedTrip).toBeNull();
   });
 });

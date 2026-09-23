@@ -23,7 +23,7 @@ test.describe('Photo Management Workflow', () => {
   test.beforeEach(async ({ page, mockMaps, user }) => {
     // CRITICAL: Override mocks to use real Supabase interactions
     await page.addInitScript(() => {
-      (window as any)._E2E_FULL_DRAWER = true;
+      window._E2E_FULL_DRAWER = true;
     });
     await mockMaps.useRealVisits();
     await mockMaps.initDefaultMocks({ currentUserId: user.id });
@@ -37,7 +37,10 @@ test.describe('Photo Management Workflow', () => {
     await openWineryDetails(page, 'Mock Winery One');
     
     // 2. Open Log Visit modal
-    await page.getByTestId('log-visit-button').click({ force: true });
+    const logVisitBtn = page.getByTestId('log-visit-button').first();
+    await expect(logVisitBtn).toBeVisible({ timeout: 10000 });
+    await expect(logVisitBtn).toBeEnabled({ timeout: 5000 });
+    await logVisitBtn.click();
 
     const modal = page.getByRole('dialog').filter({ hasText: /Log a Visit/i });
     await expect(modal).toBeVisible({ timeout: 15000 });
@@ -46,7 +49,7 @@ test.describe('Photo Management Workflow', () => {
     // Use standardized date format
     const today = new Date().toISOString().split('T')[0];
     await page.getByLabel('Visit Date').fill(today);
-    await page.locator('svg[aria-label="Set rating to 5"]').click({ force: true });
+    await page.getByLabel('Set rating to 5').first().click();
     
     const fileChooserPromise = page.waitForEvent('filechooser');
     await page.locator('label[for="dropzone-file"]').click();
@@ -63,9 +66,9 @@ test.describe('Photo Management Workflow', () => {
 
     // 2.1 Save Visit with robust logic
     const addVisitBtn = page.getByRole('button', { name: 'Add Visit' });
-    
-    // Hybrid approach for WebKit stability
-    await addVisitBtn.click({ force: true }).catch(() => {});
+    await expect(addVisitBtn).toBeVisible({ timeout: 10000 });
+    await expect(addVisitBtn).toBeEnabled({ timeout: 5000 });
+    await addVisitBtn.click().catch(() => {});
 
     await expect(async () => {
         const isOpen = await page.evaluate(() => {
@@ -80,8 +83,8 @@ test.describe('Photo Management Workflow', () => {
         });
 
         if (!isSubmitting) {
-            // Use fallback if the force click didn't start the process
-            await addVisitBtn.click({ force: true });
+            // Use fallback if the click didn't start the process
+            await addVisitBtn.click().catch(() => {});
         }
         throw new Error('Visit modal still open after click');
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });
@@ -95,13 +98,13 @@ test.describe('Photo Management Workflow', () => {
     const isMobile = (page.viewportSize()?.width ?? 1024) < 640;
     if (isMobile) {
         const titleCard = wineryModal.getByTestId('drawer-title-card').first();
-        for (let i = 0; i < 3; i++) {
-            if (await visitsTab.isVisible()) break;
+        await expect(async () => {
+            if (await visitsTab.isVisible()) return;
             if (await titleCard.isVisible()) {
-                await titleCard.click({ force: true });
-                await page.waitForTimeout(500);
+                await titleCard.click().catch(() => {});
             }
-        }
+            await expect(visitsTab).toBeVisible();
+        }).toPass({ timeout: 10000 });
     }
     
     await expect(visitsTab).toBeVisible({ timeout: 10000 });
@@ -128,7 +131,10 @@ test.describe('Photo Management Workflow', () => {
     const visitCard = wineryModal.locator('[data-testid="visit-card"]').first();
     await expect(visitCard).toBeVisible();
     
-    await visitCard.getByLabel('Edit visit').click({ force: true });
+    const editBtn = visitCard.getByLabel('Edit visit');
+    await editBtn.scrollIntoViewIfNeeded();
+    await expect(editBtn).toBeVisible({ timeout: 5000 });
+    await editBtn.click();
 
     // 5. Wait for Form to switch to Edit Mode (Singleton modal)
     await expect(async () => {
@@ -148,16 +154,17 @@ test.describe('Photo Management Workflow', () => {
     
     const photoContainer = photoInForm.locator('..');
     const deleteButton = photoContainer.locator('button').first();
-    await deleteButton.click({ force: true });
+    await expect(deleteButton).toBeVisible({ timeout: 5000 });
+    await deleteButton.click();
 
     // 7. Verify visual feedback (Opacity check for deletion marker)
     await expect(photoInForm).toHaveClass(/opacity-40/);
 
     // 8. Save Changes with robust logic
     const saveChangesBtn = editModal.getByRole('button', { name: 'Save Changes' });
-    
-    // Hybrid approach for WebKit stability
-    await saveChangesBtn.click({ force: true }).catch(() => {});
+    await expect(saveChangesBtn).toBeVisible({ timeout: 10000 });
+    await expect(saveChangesBtn).toBeEnabled({ timeout: 5000 });
+    await saveChangesBtn.click().catch(() => {});
 
     await expect(async () => {
         const isOpen = await page.evaluate(() => {
@@ -172,8 +179,8 @@ test.describe('Photo Management Workflow', () => {
         });
 
         if (!isSubmitting) {
-            // Use fallback if the force click didn't start the process
-            await saveChangesBtn.click({ force: true });
+            // Use fallback if the click didn't start the process
+            await saveChangesBtn.click().catch(() => {});
         }
         throw new Error('Edit modal still open after click');
     }).toPass({ timeout: 15000, intervals: [1000, 2000] });

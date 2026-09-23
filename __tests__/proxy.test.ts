@@ -76,6 +76,39 @@ describe('proxy middleware', () => {
       expect(result.status).toBe(200);
       expect(result.headers.get('location')).toBeNull();
     });
+
+    it('allows unauthenticated access to /manual-confirm without redirecting to /login', async () => {
+      const mockResponse = NextResponse.next();
+      mockUpdateSession.mockResolvedValue({
+        response: mockResponse,
+        user: null,
+      });
+
+      const request = new NextRequest(new URL('https://example.com/manual-confirm'));
+      const result = await proxy(request);
+
+      expect(result.status).toBe(200);
+      expect(result.headers.get('location')).toBeNull();
+    });
+
+    it('preserves query parameters in redirectTo when redirecting unauthenticated requests', async () => {
+      const mockResponse = NextResponse.next();
+      mockUpdateSession.mockResolvedValue({
+        response: mockResponse,
+        user: null,
+      });
+
+      const request = new NextRequest(new URL('https://example.com/trips?filter=upcoming&sort=date'));
+      const result = await proxy(request);
+
+      expect(result.status).toBe(307);
+      const location = result.headers.get('location');
+      expect(location).not.toBeNull();
+
+      const redirectUrl = new URL(location!);
+      expect(redirectUrl.pathname).toBe('/login');
+      expect(redirectUrl.searchParams.get('redirectTo')).toBe('/trips?filter=upcoming&sort=date');
+    });
   });
 
   describe('Service Worker runtime chunk whitelist (FE-05)', () => {

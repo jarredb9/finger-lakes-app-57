@@ -1,48 +1,48 @@
 import { act } from '@testing-library/react';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
 import { GooglePlaceId, WineryDbId } from '@/lib/types';
+import { useVisitStore } from '../visitStore';
+import { useSyncStore } from '@/lib/stores/syncStore';
+
+const mockAddMutation = jest.fn().mockResolvedValue(undefined);
+
+jest.mock('@/lib/stores/syncStore', () => ({
+  useSyncStore: {
+    getState: jest.fn(() => ({
+      addMutation: mockAddMutation,
+      queue: [],
+      initialize: jest.fn(),
+    })),
+  },
+}));
+
+jest.mock('@/lib/stores/wineryStore', () => ({
+  useWineryStore: {
+    getState: jest.fn(() => ({
+      addVisitToWinery: jest.fn(),
+      replaceVisit: jest.fn(),
+      optimisticallyDeleteVisit: jest.fn(),
+      confirmOptimisticUpdate: jest.fn(),
+      optimisticallyUpdateVisit: jest.fn(),
+      revertOptimisticUpdate: jest.fn(),
+      getWineries: jest.fn(() => []),
+      upsertWinery: jest.fn(),
+    })),
+  },
+}));
+
+jest.mock('@/utils/supabase/client', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
+    },
+  })),
+}));
 
 describe('visitStore SyncStore integration', () => {
-  let useVisitStore: any;
-  let useSyncStore: any;
-
   beforeEach(() => {
-    jest.resetModules();
-
-    // Mock SyncStore
-    const mockAddMutation = jest.fn().mockResolvedValue(undefined);
-    jest.doMock('@/lib/stores/syncStore', () => ({
-      useSyncStore: {
-        getState: jest.fn(() => ({
-          addMutation: mockAddMutation,
-          queue: [],
-          initialize: jest.fn(),
-        })),
-      },
-    }));
-
-    jest.doMock('@/lib/stores/wineryStore', () => ({
-      useWineryStore: {
-        getState: jest.fn(() => ({
-          addVisitToWinery: jest.fn(),
-          replaceVisit: jest.fn(),
-          optimisticallyDeleteVisit: jest.fn(),
-          confirmOptimisticUpdate: jest.fn(),
-          optimisticallyUpdateVisit: jest.fn(),
-          revertOptimisticUpdate: jest.fn(),
-          getWineries: jest.fn(() => []),
-          upsertWinery: jest.fn(),
-        })),
-      },
-    }));
-
-    jest.doMock('@/utils/supabase/client', () => ({
-      createClient: jest.fn(() => ({
-        auth: {
-          getSession: jest.fn().mockResolvedValue({ data: { session: { user: { id: 'user-123' } } }, error: null }),
-        },
-      })),
-    }));
+    jest.clearAllMocks();
+    mockAddMutation.mockResolvedValue(undefined);
 
     // Mock navigator.onLine to false
     Object.defineProperty(navigator, 'onLine', {
@@ -51,9 +51,6 @@ describe('visitStore SyncStore integration', () => {
       writable: true,
     });
 
-    useVisitStore = require('../visitStore').useVisitStore;
-    useSyncStore = require('@/lib/stores/syncStore').useSyncStore;
-    
     useVisitStore.getState().reset();
   });
 
