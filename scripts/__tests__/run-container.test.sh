@@ -168,18 +168,23 @@ run_script_test "$E2E_SCRIPT" "E2E: Project 'all' executes without --project arg
 run_script_test "$E2E_SCRIPT" "E2E: Container volume isolation protects host node_modules" \
     "VOL: /work/node_modules"
 
+# 8. --build flag triggers container production build via run-build-container.sh
+run_script_test "$E2E_SCRIPT" "E2E: --build flag triggers run-build-container.sh" \
+    "winery-build-" \
+    "--build" "webkit" "e2e/trip-flow.spec.ts"
+
 echo ""
 echo "=== Running Jest/Dev/Build Container Runner Script Tests ==="
 
-# 8. Jest container script volume isolation
+# 9. Jest container script volume isolation
 run_script_test "$JEST_SCRIPT" "Jest: Container volume isolation protects host node_modules" \
     "VOL: /work/node_modules"
 
-# 9. Dev container script volume isolation
+# 10. Dev container script volume isolation
 run_script_test "$DEV_SCRIPT" "Dev: Container volume isolation protects host node_modules" \
     "VOL: /work/node_modules"
 
-# 10. Build container script volume isolation
+# 11. Build container script volume isolation
 run_script_test "$BUILD_SCRIPT" "Build: Container volume isolation protects host node_modules" \
     "VOL: /work/node_modules"
 
