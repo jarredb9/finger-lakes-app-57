@@ -10,10 +10,10 @@ Focuses on establishing nominal branded ID constructors, runtime type guards, an
 - [x] Task: Write Failing Unit Tests for Sync Service Branded ID Mutations (Red Phase) (46fc2c6)
     - [x] Add unit test assertions in `lib/services/__tests__/syncService.test.ts` verifying `log_visit`, `toggle_favorite`, and `toggle_wishlist` properly construct `p_winery_data` with branded `id` (`toGooglePlaceId`) and `dbId` (`toWineryDbId`)
     - [x] Run containerized sync service tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`) and confirm failures or gaps on unbranded mutation payloads (Red phase verification)
-- [ ] Task: Replace Winery ID `as any` Casts in `lib/services/syncService.ts` (Green Phase)
-    - [ ] Update `lib/services/syncService.ts` lines 313-314, 559-560, and 572-573 to replace `as any` casts with `toGooglePlaceId` and `toWineryDbId`
-    - [ ] Run sync service unit tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`) and verify all tests pass (Green phase verification)
-    - [ ] Verify static type check passes (`npm run type-check`)
+- [x] Task: Replace Winery ID `as any` Casts in `lib/services/syncService.ts` (Green Phase) (4d42fcf)
+    - [x] Update `lib/services/syncService.ts` lines 313-314, 559-560, and 572-573 to replace `as any` casts with `toGooglePlaceId` and `toWineryDbId`
+    - [x] Run sync service unit tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`) and verify all tests pass (Green phase verification)
+    - [x] Verify static type check passes (`npm run type-check`)
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Branded ID Ergonomics & Type Guards Foundation' (Protocol in workflow.md)
 
 ## Phase 2: Invariant Protection & Safe Navigation in Core Utilities
