@@ -13,6 +13,44 @@ export type DbFriend = Tables['friends']['Row'];
 export type GooglePlaceId = string & { __brand: 'GooglePlaceId' };
 export type WineryDbId = number & { __brand: 'WineryDbId' };
 
+export function isGooglePlaceId(val: unknown): val is GooglePlaceId {
+  return typeof val === 'string' && val.trim().length > 0;
+}
+
+export function isWineryDbId(val: unknown): val is WineryDbId {
+  return typeof val === 'number' && Number.isInteger(val) && val > 0;
+}
+
+export function toGooglePlaceId(id: string): GooglePlaceId;
+export function toGooglePlaceId(id: string | null | undefined): GooglePlaceId | undefined;
+export function toGooglePlaceId(id?: string | null): GooglePlaceId | undefined {
+  if (id === null || id === undefined) {
+    return undefined;
+  }
+  if (!isGooglePlaceId(id)) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`[toGooglePlaceId] Warning: Invalid GooglePlaceId received:`, id);
+    }
+    return id as unknown as GooglePlaceId;
+  }
+  return id as GooglePlaceId;
+}
+
+export function toWineryDbId(id: number): WineryDbId;
+export function toWineryDbId(id: number | null | undefined): WineryDbId | undefined;
+export function toWineryDbId(id?: number | null): WineryDbId | undefined {
+  if (id === null || id === undefined) {
+    return undefined;
+  }
+  if (!isWineryDbId(id)) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`[toWineryDbId] Warning: Invalid WineryDbId received:`, id);
+    }
+    return id as unknown as WineryDbId;
+  }
+  return id as WineryDbId;
+}
+
 // RPC Return Types
 export interface MapMarkerRpc {
   id: WineryDbId;
