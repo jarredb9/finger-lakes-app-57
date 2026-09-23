@@ -72,14 +72,13 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     --security-opt seccomp=unconfined \
     -w /work \
     -e CI="$CI" \
-    -e NODE_ENV="production" \
     -e IS_E2E="$IS_E2E" \
     -e NEXT_PUBLIC_IS_E2E="$NEXT_PUBLIC_IS_E2E" \
     "$IMAGE" \
     /bin/bash -c '
         if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
             echo "Installing dependencies..."
-            npm install
+            NODE_ENV=development npm install
         fi
-        npm run build "$@"
+        NODE_ENV=production npm run build "$@"
     ' bash "$@"
