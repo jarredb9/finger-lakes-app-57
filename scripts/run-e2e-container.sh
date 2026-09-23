@@ -94,8 +94,8 @@ if [ -n "$ORIG_BASE_URL" ]; then BASE_URL="$ORIG_BASE_URL"; fi
 
 if [ "$SHOULD_BUILD" = true ]; then
     echo "🏗️  Forcing a fresh container production build (run-build-container.sh) and clearing isolated storage..."
-    rm -rf .next
-    rm -rf test-results/.storage
+    rm -rf .next 2>/dev/null || true
+    rm -rf test-results/.storage 2>/dev/null || true
     "$SCRIPT_DIR/run-build-container.sh"
 fi
 
@@ -169,7 +169,6 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     --name "$CONTAINER_NAME" \
     --network=host \
     -v "$(pwd):/work:Z" \
-    -v /work/node_modules \
     "${EXTRA_OPTS[@]}" \
     --security-opt label=disable \
     --security-opt seccomp=unconfined \
@@ -189,6 +188,7 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     -e BASE_URL="$BASE_URL" \
     "$IMAGE" \
     /bin/bash -c '
+        set -e
         if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
             if [ -z "$INTERACTIVE_FLAG" ] && [ "$VERBOSE" != "true" ]; then
                 npm install --silent >/dev/null 2>&1 || npm install

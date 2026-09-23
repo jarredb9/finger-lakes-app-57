@@ -66,7 +66,6 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     --name "$CONTAINER_NAME" \
     --network=host \
     -v "$(pwd):/work:Z" \
-    -v /work/node_modules \
     "${EXTRA_OPTS[@]}" \
     --security-opt label=disable \
     --security-opt seccomp=unconfined \
@@ -78,6 +77,7 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     -e VERBOSE="$VERBOSE" \
     "$IMAGE" \
     /bin/bash -c '
+        set -e
         if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
             if [ -z "$INTERACTIVE_FLAG" ] && [ "$VERBOSE" != "true" ]; then
                 npm install --silent >/dev/null 2>&1 || npm install

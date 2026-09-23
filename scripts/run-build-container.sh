@@ -66,7 +66,6 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     --name "$CONTAINER_NAME" \
     --network=host \
     -v "$(pwd):/work:Z" \
-    -v /work/node_modules \
     "${EXTRA_OPTS[@]}" \
     --security-opt label=disable \
     --security-opt seccomp=unconfined \
@@ -76,6 +75,7 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     -e NEXT_PUBLIC_IS_E2E="$NEXT_PUBLIC_IS_E2E" \
     "$IMAGE" \
     /bin/bash -c '
+        set -e
         if [ ! -d "node_modules" ] || [ -z "$(ls -A node_modules 2>/dev/null)" ]; then
             echo "Installing dependencies..."
             NODE_ENV=development npm install
