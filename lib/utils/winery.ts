@@ -28,13 +28,18 @@ export interface GoogleWinery {
   reservable?: boolean | null;
 }
 
-// Helper to check if a source is GoogleWinery
-function isGoogleWinery(source: any): source is GoogleWinery {
+// Type guard stub for Red Phase (to be fully hardened in Green Phase Task 2)
+export function isRecord(val: unknown): val is Record<string, unknown> {
+  return typeof val === 'object';
+}
+
+// Helper to check if a source is GoogleWinery (unhardened baseline for Red Phase)
+export function isGoogleWinery(source: any): source is GoogleWinery {
   return 'place_id' in source && 'geometry' in source;
 }
 
-// Helper to check if a source is MapMarkerRpc
-function isMapMarkerRpc(source: any): source is MapMarkerRpc {
+// Helper to check if a source is MapMarkerRpc (unhardened baseline for Red Phase)
+export function isMapMarkerRpc(source: any): source is MapMarkerRpc {
   // MapMarkerRpc always has latitude/longitude (standardized) or lat/lng (legacy)
   // and some form of google id (google_place_id OR id as string)
   const hasGoogleId = 'google_place_id' in source || (typeof source.id === 'string');
@@ -47,15 +52,15 @@ function isMapMarkerRpc(source: any): source is MapMarkerRpc {
   );
 }
 
-// Helper to check if a source is WineryDetailsRpc
-function isWineryDetailsRpc(source: any): source is WineryDetailsRpc {
+// Helper to check if a source is WineryDetailsRpc (unhardened baseline for Red Phase)
+export function isWineryDetailsRpc(source: any): source is WineryDetailsRpc {
     // WineryDetailsRpc is the ONLY one with 'visits'
     const hasGoogleId = 'google_place_id' in source || (typeof source.id === 'string');
     return hasGoogleId && 'visits' in source; 
 }
 
-// Helper to check if a source has raw DbWinery properties (without extended user data from RPC)
-function isRawDbWinery(source: any): source is DbWinery {
+// Helper to check if a source has raw DbWinery properties (without extended user data from RPC) (unhardened baseline for Red Phase)
+export function isRawDbWinery(source: any): source is DbWinery {
   return !isGoogleWinery(source) && !isMapMarkerRpc(source) && !isWineryDetailsRpc(source) && 'created_at' in source;
 }
 

@@ -1,4 +1,11 @@
-import { standardizeWineryData } from '../winery';
+import {
+  standardizeWineryData,
+  isRecord,
+  isGoogleWinery,
+  isMapMarkerRpc,
+  isWineryDetailsRpc,
+  isRawDbWinery,
+} from '../winery';
 import { createMockWinery, createMockVisitWithWinery, createMockMapMarkerRpc } from '@/lib/test-utils/fixtures';
 import { Winery, MapMarkerRpc, WineryDbId } from '@/lib/types';
 
@@ -298,4 +305,268 @@ describe('standardizeWineryData', () => {
     expect(result?.longitude).toBe(-76.99);
   });
 });
+
+describe('Winery Type Guards & Invariant Protection (Issue #53 - Red Phase)', () => {
+  describe('isRecord', () => {
+    it('returns false for null and undefined', () => {
+      expect(isRecord(null)).toBe(false);
+      expect(isRecord(undefined)).toBe(false);
+    });
+
+    it('returns false for primitives (numbers, strings, booleans, symbols)', () => {
+      expect(isRecord(0)).toBe(false);
+      expect(isRecord(42)).toBe(false);
+      expect(isRecord(-1)).toBe(false);
+      expect(isRecord(NaN)).toBe(false);
+      expect(isRecord('')).toBe(false);
+      expect(isRecord('winery')).toBe(false);
+      expect(isRecord(true)).toBe(false);
+      expect(isRecord(false)).toBe(false);
+      expect(isRecord(Symbol('test'))).toBe(false);
+    });
+
+    it('returns false for arrays', () => {
+      expect(isRecord([])).toBe(false);
+      expect(isRecord([1, 2, 3])).toBe(false);
+      expect(isRecord([{ a: 1 }])).toBe(false);
+    });
+
+    it('returns false for functions', () => {
+      expect(isRecord(() => {})).toBe(false);
+      expect(isRecord(function() {})).toBe(false);
+    });
+
+    it('returns true for plain objects and dictionary records', () => {
+      expect(isRecord({})).toBe(true);
+      expect(isRecord({ id: 1, name: 'Test' })).toBe(true);
+      expect(isRecord(Object.create(null))).toBe(true);
+    });
+  });
+
+  describe('isGoogleWinery', () => {
+    it('returns false on null and undefined without throwing TypeError', () => {
+      expect(() => isGoogleWinery(null)).not.toThrow();
+      expect(isGoogleWinery(null)).toBe(false);
+
+      expect(() => isGoogleWinery(undefined)).not.toThrow();
+      expect(isGoogleWinery(undefined)).toBe(false);
+    });
+
+    it('returns false on primitives without throwing TypeError', () => {
+      expect(() => isGoogleWinery(0)).not.toThrow();
+      expect(isGoogleWinery(0)).toBe(false);
+
+      expect(() => isGoogleWinery(42)).not.toThrow();
+      expect(isGoogleWinery(42)).toBe(false);
+
+      expect(() => isGoogleWinery('ChIJ_test_id')).not.toThrow();
+      expect(isGoogleWinery('ChIJ_test_id')).toBe(false);
+
+      expect(() => isGoogleWinery(true)).not.toThrow();
+      expect(isGoogleWinery(true)).toBe(false);
+    });
+
+    it('returns false on arrays without throwing TypeError', () => {
+      expect(() => isGoogleWinery([])).not.toThrow();
+      expect(isGoogleWinery([])).toBe(false);
+
+      expect(() => isGoogleWinery([{ place_id: 'x' }])).not.toThrow();
+      expect(isGoogleWinery([{ place_id: 'x' }])).toBe(false);
+    });
+
+    it('returns false on malformed or incomplete objects', () => {
+      expect(isGoogleWinery({})).toBe(false);
+      expect(isGoogleWinery({ place_id: 'ChIJ123' })).toBe(false);
+      expect(isGoogleWinery({ geometry: { location: { lat: 42, lng: -76 } } })).toBe(false);
+    });
+
+    it('returns true on valid GoogleWinery structure', () => {
+      const valid = {
+        place_id: 'ChIJ123',
+        name: 'Valid Google Winery',
+        geometry: {
+          location: { lat: 42.44, lng: -77.16 }
+        }
+      };
+      expect(isGoogleWinery(valid)).toBe(true);
+    });
+  });
+
+  describe('isMapMarkerRpc', () => {
+    it('returns false on null and undefined without throwing TypeError', () => {
+      expect(() => isMapMarkerRpc(null)).not.toThrow();
+      expect(isMapMarkerRpc(null)).toBe(false);
+
+      expect(() => isMapMarkerRpc(undefined)).not.toThrow();
+      expect(isMapMarkerRpc(undefined)).toBe(false);
+    });
+
+    it('returns false on primitives without throwing TypeError', () => {
+      expect(() => isMapMarkerRpc(0)).not.toThrow();
+      expect(isMapMarkerRpc(0)).toBe(false);
+
+      expect(() => isMapMarkerRpc(42)).not.toThrow();
+      expect(isMapMarkerRpc(42)).toBe(false);
+
+      expect(() => isMapMarkerRpc('some-id')).not.toThrow();
+      expect(isMapMarkerRpc('some-id')).toBe(false);
+
+      expect(() => isMapMarkerRpc(true)).not.toThrow();
+      expect(isMapMarkerRpc(true)).toBe(false);
+    });
+
+    it('returns false on arrays without throwing TypeError', () => {
+      expect(() => isMapMarkerRpc([])).not.toThrow();
+      expect(isMapMarkerRpc([])).toBe(false);
+    });
+
+    it('returns false on malformed objects missing required fields', () => {
+      expect(isMapMarkerRpc({})).toBe(false);
+      expect(isMapMarkerRpc({ google_place_id: 'ChIJ123' })).toBe(false);
+      expect(isMapMarkerRpc({ latitude: 42.5, longitude: -76.5 })).toBe(false);
+    });
+
+    it('returns false if visits property exists (differentiating WineryDetailsRpc)', () => {
+      const withVisits = {
+        google_place_id: 'ChIJ123',
+        latitude: 42.5,
+        longitude: -76.5,
+        visits: []
+      };
+      expect(isMapMarkerRpc(withVisits)).toBe(false);
+    });
+
+    it('returns true on valid MapMarkerRpc structure', () => {
+      const valid = {
+        google_place_id: 'ChIJ123',
+        latitude: 42.5,
+        longitude: -76.5
+      };
+      expect(isMapMarkerRpc(valid)).toBe(true);
+    });
+  });
+
+  describe('isWineryDetailsRpc', () => {
+    it('returns false on null and undefined without throwing TypeError', () => {
+      expect(() => isWineryDetailsRpc(null)).not.toThrow();
+      expect(isWineryDetailsRpc(null)).toBe(false);
+
+      expect(() => isWineryDetailsRpc(undefined)).not.toThrow();
+      expect(isWineryDetailsRpc(undefined)).toBe(false);
+    });
+
+    it('returns false on primitives without throwing TypeError', () => {
+      expect(() => isWineryDetailsRpc(0)).not.toThrow();
+      expect(isWineryDetailsRpc(0)).toBe(false);
+
+      expect(() => isWineryDetailsRpc(42)).not.toThrow();
+      expect(isWineryDetailsRpc(42)).toBe(false);
+
+      expect(() => isWineryDetailsRpc('rpc-id')).not.toThrow();
+      expect(isWineryDetailsRpc('rpc-id')).toBe(false);
+
+      expect(() => isWineryDetailsRpc(true)).not.toThrow();
+      expect(isWineryDetailsRpc(true)).toBe(false);
+    });
+
+    it('returns false on arrays without throwing TypeError', () => {
+      expect(() => isWineryDetailsRpc([])).not.toThrow();
+      expect(isWineryDetailsRpc([])).toBe(false);
+    });
+
+    it('returns false on malformed objects missing google id or visits', () => {
+      expect(isWineryDetailsRpc({})).toBe(false);
+      expect(isWineryDetailsRpc({ google_place_id: 'ChIJ123' })).toBe(false);
+      expect(isWineryDetailsRpc({ visits: [] })).toBe(false);
+    });
+
+    it('returns true on valid WineryDetailsRpc structure', () => {
+      const valid = {
+        google_place_id: 'ChIJ123',
+        visits: []
+      };
+      expect(isWineryDetailsRpc(valid)).toBe(true);
+    });
+  });
+
+  describe('isRawDbWinery', () => {
+    it('returns false on null and undefined without throwing TypeError', () => {
+      expect(() => isRawDbWinery(null)).not.toThrow();
+      expect(isRawDbWinery(null)).toBe(false);
+
+      expect(() => isRawDbWinery(undefined)).not.toThrow();
+      expect(isRawDbWinery(undefined)).toBe(false);
+    });
+
+    it('returns false on primitives without throwing TypeError', () => {
+      expect(() => isRawDbWinery(0)).not.toThrow();
+      expect(isRawDbWinery(0)).toBe(false);
+
+      expect(() => isRawDbWinery(42)).not.toThrow();
+      expect(isRawDbWinery(42)).toBe(false);
+
+      expect(() => isRawDbWinery('db-winery')).not.toThrow();
+      expect(isRawDbWinery('db-winery')).toBe(false);
+
+      expect(() => isRawDbWinery(true)).not.toThrow();
+      expect(isRawDbWinery(true)).toBe(false);
+    });
+
+    it('returns false on arrays without throwing TypeError', () => {
+      expect(() => isRawDbWinery([])).not.toThrow();
+      expect(isRawDbWinery([])).toBe(false);
+    });
+
+    it('returns false on objects matching GoogleWinery, MapMarkerRpc, or WineryDetailsRpc', () => {
+      const google = {
+        place_id: 'ChIJ123',
+        geometry: { location: { lat: 42, lng: -76 } },
+        created_at: '2026-01-01'
+      };
+      expect(isRawDbWinery(google)).toBe(false);
+
+      const mapMarker = {
+        google_place_id: 'ChIJ123',
+        latitude: 42,
+        longitude: -76,
+        created_at: '2026-01-01'
+      };
+      expect(isRawDbWinery(mapMarker)).toBe(false);
+
+      const wineryDetails = {
+        google_place_id: 'ChIJ123',
+        visits: [],
+        created_at: '2026-01-01'
+      };
+      expect(isRawDbWinery(wineryDetails)).toBe(false);
+    });
+
+    it('returns false on objects missing created_at', () => {
+      expect(isRawDbWinery({ id: 1, name: 'Db Winery Without Created At' })).toBe(false);
+    });
+
+    it('returns true on valid DbWinery with created_at and no higher-level source markers', () => {
+      const valid = {
+        id: 10,
+        name: 'Raw DB Winery',
+        created_at: '2026-01-01T00:00:00Z'
+      };
+      expect(isRawDbWinery(valid)).toBe(true);
+    });
+  });
+
+  describe('standardizeWineryData non-object primitive resilience', () => {
+    it('returns null safely without throwing TypeError when passed primitive numbers, strings, or booleans', () => {
+      expect(() => standardizeWineryData(123 as any)).not.toThrow();
+      expect(standardizeWineryData(123 as any)).toBeNull();
+
+      expect(() => standardizeWineryData('invalid-source' as any)).not.toThrow();
+      expect(standardizeWineryData('invalid-source' as any)).toBeNull();
+
+      expect(() => standardizeWineryData(true as any)).not.toThrow();
+      expect(standardizeWineryData(true as any)).toBeNull();
+    });
+  });
+});
+
 
