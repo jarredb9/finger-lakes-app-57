@@ -21,7 +21,7 @@ export function isWineryDbId(val: unknown): val is WineryDbId {
   return typeof val === 'number' && Number.isInteger(val) && val > 0;
 }
 
-export function toGooglePlaceId(id: string): GooglePlaceId;
+export function toGooglePlaceId(id: string): GooglePlaceId | undefined;
 export function toGooglePlaceId(id: string | null | undefined): GooglePlaceId | undefined;
 export function toGooglePlaceId(id?: string | null): GooglePlaceId | undefined {
   if (id === null || id === undefined) {
@@ -31,12 +31,12 @@ export function toGooglePlaceId(id?: string | null): GooglePlaceId | undefined {
     if (process.env.NODE_ENV !== 'production') {
       console.warn(`[toGooglePlaceId] Warning: Invalid GooglePlaceId received:`, id);
     }
-    return id as unknown as GooglePlaceId;
+    return undefined;
   }
   return id as GooglePlaceId;
 }
 
-export function toWineryDbId(id: number): WineryDbId;
+export function toWineryDbId(id: number): WineryDbId | undefined;
 export function toWineryDbId(id: number | null | undefined): WineryDbId | undefined;
 export function toWineryDbId(id?: number | null): WineryDbId | undefined {
   if (id === null || id === undefined) {
@@ -46,7 +46,7 @@ export function toWineryDbId(id?: number | null): WineryDbId | undefined {
     if (process.env.NODE_ENV !== 'production') {
       console.warn(`[toWineryDbId] Warning: Invalid WineryDbId received:`, id);
     }
-    return id as unknown as WineryDbId;
+    return undefined;
   }
   return id as WineryDbId;
 }

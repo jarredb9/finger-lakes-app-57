@@ -7,6 +7,7 @@ import { useTripStore } from '@/lib/stores/tripStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
 import { TripService } from './tripService';
 import { Trip, toGooglePlaceId, toWineryDbId } from '@/lib/types';
+import { isRecord } from '@/lib/utils/winery';
 import { isNetworkError } from '../stores/sync-utils';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { checkAndCleanupQuota, isQuotaError } from '@/lib/utils/quota';
@@ -552,42 +553,54 @@ export const SyncService = {
               break;
 
             case 'winery_action':
+              if (!isRecord(payload)) {
+                console.warn('[SyncService] Invalid winery_action payload received:', payload);
+                break;
+              }
               if (payload.action === 'toggle_favorite') {
-                const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; latitude: number; longitude: number };
+                const wineryId = typeof payload.wineryId === 'string' ? payload.wineryId : '';
+                const wineryDbId = typeof payload.wineryDbId === 'number' ? payload.wineryDbId : undefined;
                 const { error: fError } = await supabase.rpc('toggle_favorite', {
                   p_winery_data: WineryService.getRpcData({
-                    id: toGooglePlaceId(pW.wineryId),
-                    dbId: toWineryDbId(pW.wineryDbId),
-                    name: pW.wineryName,
-                    address: pW.wineryAddress,
-                    latitude: pW.latitude,
-                    longitude: pW.longitude,
+                    id: toGooglePlaceId(wineryId),
+                    dbId: toWineryDbId(wineryDbId),
+                    name: typeof payload.wineryName === 'string' ? payload.wineryName : '',
+                    address: typeof payload.wineryAddress === 'string' ? payload.wineryAddress : '',
+                    latitude: typeof payload.latitude === 'number' ? payload.latitude : 0,
+                    longitude: typeof payload.longitude === 'number' ? payload.longitude : 0,
                   })
                 });
                 error = fError;
               } else if (payload.action === 'toggle_wishlist') {
-                const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; latitude: number; longitude: number };
+                const wineryId = typeof payload.wineryId === 'string' ? payload.wineryId : '';
+                const wineryDbId = typeof payload.wineryDbId === 'number' ? payload.wineryDbId : undefined;
                 const { error: wError } = await supabase.rpc('toggle_wishlist', {
                   p_winery_data: WineryService.getRpcData({
-                    id: toGooglePlaceId(pW.wineryId),
-                    dbId: toWineryDbId(pW.wineryDbId),
-                    name: pW.wineryName,
-                    address: pW.wineryAddress,
-                    latitude: pW.latitude,
-                    longitude: pW.longitude,
+                    id: toGooglePlaceId(wineryId),
+                    dbId: toWineryDbId(wineryDbId),
+                    name: typeof payload.wineryName === 'string' ? payload.wineryName : '',
+                    address: typeof payload.wineryAddress === 'string' ? payload.wineryAddress : '',
+                    latitude: typeof payload.latitude === 'number' ? payload.latitude : 0,
+                    longitude: typeof payload.longitude === 'number' ? payload.longitude : 0,
                   })
                 });
                 error = wError;
               } else if (payload.action === 'toggle_favorite_privacy') {
-                const { error: fpError } = await supabase.rpc('toggle_favorite_privacy', {
-                  p_winery_id: payload.wineryDbId
-                });
-                error = fpError;
+                const wineryDbId = toWineryDbId(typeof payload.wineryDbId === 'number' ? payload.wineryDbId : null);
+                if (wineryDbId) {
+                  const { error: fpError } = await supabase.rpc('toggle_favorite_privacy', {
+                    p_winery_id: wineryDbId
+                  });
+                  error = fpError;
+                }
               } else if (payload.action === 'toggle_wishlist_privacy') {
-                const { error: wpError } = await supabase.rpc('toggle_wishlist_privacy', {
-                  p_winery_id: payload.wineryDbId
-                });
-                error = wpError;
+                const wineryDbId = toWineryDbId(typeof payload.wineryDbId === 'number' ? payload.wineryDbId : null);
+                if (wineryDbId) {
+                  const { error: wpError } = await supabase.rpc('toggle_wishlist_privacy', {
+                    p_winery_id: wineryDbId
+                  });
+                  error = wpError;
+                }
               }
               break;
 
