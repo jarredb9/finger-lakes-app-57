@@ -1,7 +1,8 @@
 import { OpeningHours } from "@/lib/types";
 
 // Helper to get time as integer (e.g. 1430) from a point that might be { hour, minute } OR { time: "1430" }
-function parseTime(point: any): number {
+// Exported for invariant testing; unhardened for Red Phase
+export function parseTime(point: any): number {
   if (typeof point.hour === 'number' && typeof point.minute === 'number') {
     return point.hour * 100 + point.minute;
   }
