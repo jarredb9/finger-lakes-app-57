@@ -52,3 +52,17 @@
   - Handle targeted inspections, surgical code modifications (<3 files), and single-spec test verifications directly in the main session.
   - Delegate broad multi-file indexing, large test suite runs, or open-ended exploratory research to subagents (`invoke_subagent`) to preserve context cleanliness.
 - **Verification Loop:** Rely on empirical verification (run tests, check linter/types) rather than assumptions before declaring a task complete.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues via `gh` CLI (`jarredb9/finger-lakes-app-57`). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Canonical 5-role triage vocabulary. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context layout (`CONTEXT.md` + `docs/adr/`). See `docs/agents/domain.md`.
