@@ -40,13 +40,13 @@ Hardens winery type guards against `null`/`undefined` crash bugs, eliminates unt
 - [x] Task: Write Failing Tests for Safe Opening Hours Property Navigation (Red Phase) (e43728d)
     - [x] Write unit tests in `lib/utils/__tests__/opening-hours.test.ts` for periods with missing `open`, missing `close`, empty arrays, malformed period objects, and nullish inputs to `parseTime` asserting that `isOpenNow` returns safely without throwing `TypeError`
     - [x] Run containerized opening hours tests (`npm run test:container -- lib/utils/__tests__/opening-hours.test.ts`) and confirm tests fail (Red phase verification)
-- [ ] Task: Safe Navigation & Schema in `lib/utils/opening-hours.ts` & `lib/types.ts` (Green Phase)
-    - [ ] Update `OpeningHoursPoint` and export `OpeningHoursPeriod` in `lib/types.ts` to accommodate `{ time?: string }` alongside numeric schemas
-    - [ ] Implement defensive handling in `parseTime(point?: OpeningHoursPoint | null)` returning `NaN` on nullish or malformed points in `lib/utils/opening-hours.ts`
-    - [ ] Implement loop period safety checks (`if (!period?.open || !period?.close) continue;`) in `lib/utils/opening-hours.ts`
-    - [ ] Remove all 7 `// @ts-ignore` comments in `lib/utils/__tests__/opening-hours.test.ts`
-    - [ ] Run opening hours tests (`npm run test:container -- lib/utils/__tests__/opening-hours.test.ts`) and verify all pass (Green phase verification)
-    - [ ] Verify static type check passes (`npm run type-check`)
+- [x] Task: Safe Navigation & Schema in `lib/utils/opening-hours.ts` & `lib/types.ts` (Green Phase) (45e169e)
+    - [x] Update `OpeningHoursPoint` and export `OpeningHoursPeriod` in `lib/types.ts` to accommodate `{ time?: string }` alongside numeric schemas
+    - [x] Implement defensive handling in `parseTime(point?: OpeningHoursPoint | null)` returning `NaN` on nullish or malformed points in `lib/utils/opening-hours.ts`
+    - [x] Implement loop period safety checks (`if (!period?.open || !period?.close) continue;`) in `lib/utils/opening-hours.ts`
+    - [x] Remove all 7 `// @ts-ignore` comments in `lib/utils/__tests__/opening-hours.test.ts`
+    - [x] Run opening hours tests (`npm run test:container -- lib/utils/__tests__/opening-hours.test.ts`) and verify all pass (Green phase verification)
+    - [x] Verify static type check passes (`npm run type-check`)
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Invariant Protection & Safe Navigation in Core Utilities' (Protocol in workflow.md)
 
 ## Phase 3: Zustand Store Mutation Hardening
