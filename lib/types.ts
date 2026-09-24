@@ -160,13 +160,19 @@ export interface PlaceReview {
 
 export interface OpeningHoursPoint {
   day: number;
-  hour: number;
-  minute: number;
+  hour?: number;
+  minute?: number;
+  time?: string;
+}
+
+export interface OpeningHoursPeriod {
+  open?: OpeningHoursPoint;
+  close?: OpeningHoursPoint | null;
 }
 
 export interface OpeningHours {
   open_now?: boolean;
-  periods?: { open: OpeningHoursPoint; close?: OpeningHoursPoint | null }[];
+  periods?: OpeningHoursPeriod[];
   weekday_text?: string[];
   toJSON?: () => Json; // From Google Places API
 }
