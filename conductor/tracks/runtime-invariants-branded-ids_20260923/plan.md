@@ -19,9 +19,9 @@ Focuses on establishing nominal branded ID constructors, runtime type guards, an
 ## Phase 2: Invariant Protection & Safe Navigation in Core Utilities
 Hardens winery type guards against `null`/`undefined` crash bugs, eliminates untyped `as any` assertions in winery standardizer, and implements safe navigation in opening hours calculation.
 
-- [ ] Task: Write Failing Tests for Winery Type Guards & Invariant Protection (Red Phase)
-    - [ ] Write unit tests in `lib/utils/__tests__/winery.test.ts` asserting that `isRecord`, `isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, and `isRawDbWinery` return `false` on `null`, `undefined`, numbers, strings, booleans, arrays, and malformed objects without throwing `TypeError`
-    - [ ] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) to verify tests fail on `null`/`undefined` inputs under the current implementation (Red phase verification)
+- [x] Task: Write Failing Tests for Winery Type Guards & Invariant Protection (Red Phase) (84d1a15)
+    - [x] Write unit tests in `lib/utils/__tests__/winery.test.ts` asserting that `isRecord`, `isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, and `isRawDbWinery` return `false` on `null`, `undefined`, numbers, strings, booleans, arrays, and malformed objects without throwing `TypeError`
+    - [x] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) to verify tests fail on `null`/`undefined` inputs under the current implementation (Red phase verification)
 - [ ] Task: Harden Winery Standardizer Type Guards & Invariants in `lib/utils/winery.ts` (Green Phase)
     - [ ] Implement and export `isRecord(val: unknown): val is Record<string, unknown>` (excluding arrays) in `lib/utils/winery.ts`
     - [ ] Update and export `isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, and `isRawDbWinery` in `lib/utils/winery.ts` to accept `source: unknown` and evaluate `isRecord(source)` before property checks
