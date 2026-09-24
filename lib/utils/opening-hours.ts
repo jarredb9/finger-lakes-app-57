@@ -1,14 +1,23 @@
-import { OpeningHours } from "@/lib/types";
+import { OpeningHours, OpeningHoursPoint } from "@/lib/types";
 
-// Helper to get time as integer (e.g. 1430) from a point that might be { hour, minute } OR { time: "1430" }
-// Exported for invariant testing; unhardened for Red Phase
-export function parseTime(point: any): number {
-  if (typeof point.hour === 'number' && typeof point.minute === 'number') {
+/**
+ * Helper to get time as integer (e.g. 1430) from a point that might be { hour, minute } OR { time: "1430" }.
+ * Safely returns NaN on nullish, primitive, or malformed points without throwing TypeError.
+ */
+export function parseTime(point?: OpeningHoursPoint | null): number {
+  if (!point || typeof point !== 'object') {
+    return NaN;
+  }
+
+  if (typeof point.hour === 'number' && typeof point.minute === 'number' && !isNaN(point.hour) && !isNaN(point.minute)) {
     return point.hour * 100 + point.minute;
   }
-  if (typeof point.time === 'string') {
-    return parseInt(point.time, 10);
+
+  if (typeof point.time === 'string' && point.time.trim().length > 0) {
+    const parsed = parseInt(point.time, 10);
+    return isNaN(parsed) ? NaN : parsed;
   }
+
   return NaN;
 }
 
@@ -17,10 +26,10 @@ export function parseTime(point: any): number {
  * Falls back to 'open_now' property if periods are missing (though this may be stale).
  */
 export function isOpenNow(openingHours: OpeningHours | null | undefined): boolean | null {
-  if (!openingHours) return null;
+  if (!openingHours || typeof openingHours !== 'object') return null;
 
   // 1. If we have periods, calculate dynamically (Trusted Source)
-  if (openingHours.periods && openingHours.periods.length > 0) {
+  if (Array.isArray(openingHours.periods) && openingHours.periods.length > 0) {
     const now = new Date();
     const currentDay = now.getDay(); // 0 = Sunday, 1 = Monday
     const currentHours = now.getHours();
@@ -28,21 +37,26 @@ export function isOpenNow(openingHours: OpeningHours | null | undefined): boolea
     const currentTime = currentHours * 100 + currentMinutes; // e.g., 1430 for 2:30 PM
 
     // Check if open 24/7 (single period, day 0, time 0000, no close)
-    // Note: Use 'any' cast or robust check because DB JSON might differ from TS types
-    const firstPeriod = openingHours.periods[0] as any;
-    if (openingHours.periods.length === 1 && 
-        firstPeriod.open.day === 0 && 
-        (parseTime(firstPeriod.open) === 0) &&
-        !firstPeriod.close) {
+    const firstPeriod = openingHours.periods[0];
+    if (
+      openingHours.periods.length === 1 &&
+      firstPeriod?.open &&
+      typeof firstPeriod.open.day === 'number' &&
+      firstPeriod.open.day === 0 &&
+      parseTime(firstPeriod.open) === 0 &&
+      !firstPeriod.close
+    ) {
       return true;
     }
 
     // Iterate through all periods to see if 'now' falls inside any of them
     for (const period of openingHours.periods) {
-      const open = period.open as any;
-      const close = period.close as any;
+      if (!period?.open || !period?.close) continue;
 
-      if (!close) continue; // Should have a close time unless 24/7 (handled above)
+      const open = period.open;
+      const close = period.close;
+
+      if (typeof open.day !== 'number' || typeof close.day !== 'number') continue;
 
       const openTime = parseTime(open);
       const closeTime = parseTime(close);

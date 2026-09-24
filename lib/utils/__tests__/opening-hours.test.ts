@@ -37,43 +37,36 @@ describe('isOpenNow', () => {
 
   it('should return true when within standard hours', () => {
     mockTime(1, 12, 0); // Monday 12:00 PM
-    // @ts-ignore - Testing loose JSON structure
     expect(isOpenNow(standardHours)).toBe(true);
   });
 
   it('should return false when outside standard hours', () => {
     mockTime(1, 18, 0); // Monday 6:00 PM
-    // @ts-ignore
     expect(isOpenNow(standardHours)).toBe(false);
   });
 
   it('should return false on a different day', () => {
     mockTime(2, 12, 0); // Tuesday 12:00 PM
-    // @ts-ignore
     expect(isOpenNow(standardHours)).toBe(false);
   });
 
   it('should handle midnight spanning periods (before midnight)', () => {
     mockTime(5, 23, 0); // Friday 11:00 PM
-    // @ts-ignore
     expect(isOpenNow(midnightSpanHours)).toBe(true);
   });
 
   it('should handle midnight spanning periods (after midnight)', () => {
     mockTime(6, 1, 0); // Saturday 1:00 AM
-    // @ts-ignore
     expect(isOpenNow(midnightSpanHours)).toBe(true);
   });
 
   it('should handle midnight spanning periods (after close)', () => {
     mockTime(6, 3, 0); // Saturday 3:00 AM
-    // @ts-ignore
     expect(isOpenNow(midnightSpanHours)).toBe(false);
   });
 
   it('should handle number format { hour, minute } correctly', () => {
     mockTime(2, 14, 0); // Tuesday 2:00 PM
-    // @ts-ignore
     expect(isOpenNow(mixedFormatHours)).toBe(true);
   });
 });
