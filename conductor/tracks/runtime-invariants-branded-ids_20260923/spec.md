@@ -5,6 +5,34 @@ Fast-tracked hardening track addressing [GitHub Issue #53](https://github.com/ja
 
 ---
 
+## 1.1 Invariant Architecture & Planning Directives (Mandatory for Planning Agents)
+
+All agents generating task plans or implementing changes across this track MUST follow these four core invariants to prevent shallow refactoring:
+
+1. **No Compiler-Silencing Type Assertions (`as TargetType`):**
+   - Eliminating `as any` does **not** mean replacing it with `as Record<string, any>` or `as TargetType`.
+   - At runtime ingestion boundaries (external APIs, RPCs, IndexedDB, store mutation inputs), types MUST be narrowed through runtime guards (`isRecord`, `Array.isArray`, `typeof === 'string'`) or validated constructors (`toGooglePlaceId`, `toWineryDbId`).
+   - If an input fails validation, it must be rejected (`return null`) or sanitized to a safe fallback (`null`, default value), not force-cast.
+
+2. **Adversarial Red-Phase Testing Requirements:**
+   - Red-phase tests MUST NOT test only happy paths and basic `null`/`undefined` inputs.
+   - Every Red-phase test plan must include **adversarial test cases**:
+     - Explicit `undefined` properties (e.g. `{ place_id: undefined }`) to catch false positives in `'key' in object` checks.
+     - Whitespace-only strings (`'   '`) and empty strings for nominal IDs.
+     - Primitive values passed where records/arrays are expected (e.g. `parking_options: "free"`).
+     - Extraneous / unwhitelisted keys passed into mutation inputs.
+     - Non-integer numbers or `NaN` where database sequence IDs are expected.
+     - Unparseable date strings causing `NaN` in timestamp calculations.
+
+3. **End-to-End Invariant Continuity:**
+   - Once a branded constructor or guard is introduced (e.g. `toGooglePlaceId`, `toWineryDbId`, `isRecord`), subsequent tasks MUST actively use it when normalizing IDs or shapes across the module. Do not leave legacy raw type assertions (`as GooglePlaceId`) in place.
+
+4. **Runtime Mutation Whitelisting (Not Compile-Time Only):**
+   - For store mutation hardening (Phase 3), defining a TypeScript interface (e.g. `TripUpdateInput`) is necessary but insufficient.
+   - State mutation helpers MUST actively sanitize input payloads at runtime (e.g. via key allowlists like `ALLOWED_KEYS = ['name', 'trip_date']`) before spreading into state or passing to database RPCs, logging dev-mode warnings for stripped keys.
+
+---
+
 ## 2. Functional Requirements
 
 ### 2.1 Safe Type Guard Narrowing (`lib/utils/winery.ts`)
@@ -44,6 +72,11 @@ Fast-tracked hardening track addressing [GitHub Issue #53](https://github.com/ja
 - Implement safe defensive handling in `parseTime(point?: OpeningHoursPoint | null)`: return `NaN` when `point` is nullish or malformed.
 - Require `period?.open` and `period?.close` checks before invoking `parseTime` in loop iterations, preventing unhandled `TypeError` crashes.
 - Eliminate the 7 `// @ts-ignore` comments in `lib/utils/__tests__/opening-hours.test.ts` as types now cleanly align with test payloads.
+- **Planning Watch-Outs for Opening Hours (Mandatory for Agent):**
+  - *24/7 Establishments:* A period may specify `open` without a `close` point (e.g. open 24 hours). The loop must safely navigate optional `close`.
+  - *Malformed Point Objects:* `parseTime` must safely return `NaN` on empty objects `{}` or points with missing/invalid `time`, `hour`, or `minute` without throwing uncaught exceptions.
+  - *Defensive Comparison:* Callers must verify `!isNaN(...)` before using parsed timestamps in arithmetic or interval checks.
+  - *No Type Assertions:* Prohibit `(period as any)` or `(point as any)`.
 
 ### 2.4 Branded ID Constructors & Guards (`lib/types.ts`)
 - Export type guards for branded types:
@@ -94,6 +127,10 @@ Fast-tracked hardening track addressing [GitHub Issue #53](https://github.com/ja
   *(Note: `notes` belongs exclusively to `trip_wineries`, and winery ordering/removal are handled by dedicated helpers `updateWineryOrderHelper` and `removeWineryFromTripHelper`).*
 - Update `updateTripHelper(get, set, tripId, updates: TripUpdateInput)` in `lib/stores/slices/tripMutationHelpers.ts` with runtime key whitelisting: only permit `name` and `trip_date`, log dev warnings for unpermitted keys, and prevent arbitrary field leakage into state or DB payloads.
 - Update `TripDataSlice.updateTrip` in `lib/stores/slices/tripDataSlice.ts` to accept `TripUpdateInput` to preserve compile-time integrity across store slices.
+- **Planning Watch-Outs for Zustand Mutations (Mandatory for Agent):**
+  - *Runtime Key Whitelisting:* Do not simply do `{ ...existingTrip, ...updates }`. Filter incoming keys against an explicit whitelist (`['name', 'trip_date']`) at runtime.
+  - *Prevent Field Leakage:* Arbitrary, injected, or unpermitted fields (e.g. `user_id`, `id`, `created_at`, `notes`) must be stripped and logged via `console.warn` in dev mode.
+  - *Type and Value Validation:* Verify `name` is a string (if defined) and `trip_date` is a valid date string (if defined) before committing to store state.
 
 ### 2.6 Branded ID Adoption in Sync Service (`lib/services/syncService.ts`)
 - Replace `as any` casts for winery IDs (e.g. lines 313-314, 559-560, and 572-573) with `toGooglePlaceId(...)` and `toWineryDbId(...)`.
