@@ -17,7 +17,16 @@ Fast-tracked hardening track addressing [GitHub Issue #53](https://github.com/ja
 - Update and export `isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, and `isRawDbWinery` signatures to accept `source: unknown` and ensure `isRecord(source)` is evaluated before applying the `'in'` operator or property checks.
 - Refactor 20+ `(source as any)` assertions in `standardizeWineryData` to use structured narrowing or safe object property lookups.
 
-### 2.2 Safe Opening Hours Property Navigation (`lib/utils/opening-hours.ts` & `lib/types.ts`)
+### 2.2 Winery Standardizer Branded IDs & Deep Invariant Protections (`lib/utils/winery.ts`)
+- **Branded ID Constructor Adoption:** Replace raw `as GooglePlaceId` and `as WineryDbId` assertions in `standardizeWineryData` with nominal branded constructors `toGooglePlaceId(rawGoogleId)` and `toWineryDbId(resolvedDbId)`. Halt and return `null` if `!googleId || !isGooglePlaceId(googleId)` to prevent empty/whitespace strings (`"   "`) from polluting local and persistent stores.
+- **Strict Type Guard Verification:**
+  - Tighten `isGoogleWinery` to require `typeof source.place_id === 'string' && source.place_id.trim().length > 0 && isRecord(source.geometry)` (preventing false positives on `{ place_id: undefined }`).
+  - Tighten `isMapMarkerRpc` and `isWineryDetailsRpc` to enforce `isGooglePlaceId(source.google_place_id) || (typeof source.id === 'string' && source.id.trim().length > 0)`.
+- **Primitive Sanitization on Store Dictionaries:** Enforce `isRecord` validation on `parking_options` and `accessibility_options` before assignment or merging to prevent raw primitive strings/numbers from leaking into store state.
+- **Domain Union Validation for Enrichment Tier:** Validate `incomingTier` against canonical domain values `['basic', 'enriched', 'full']` (defined in `CONTEXT.md`), falling back to `existingTier || 'basic'` on unvetted strings.
+- **Defensive Review Timestamp Parsing:** Guard timestamp conversion in `parseReviewsJson` against `NaN` from invalid `publishTime` inputs.
+
+### 2.3 Safe Opening Hours Property Navigation (`lib/utils/opening-hours.ts` & `lib/types.ts`)
 - Update `OpeningHoursPoint` and export `OpeningHoursPeriod` in `lib/types.ts` accommodating both Google Places `{ day, time }` and numeric `{ day, hour, minute }` schemas:
   ```typescript
   export interface OpeningHoursPoint {
@@ -36,7 +45,7 @@ Fast-tracked hardening track addressing [GitHub Issue #53](https://github.com/ja
 - Require `period?.open` and `period?.close` checks before invoking `parseTime` in loop iterations, preventing unhandled `TypeError` crashes.
 - Eliminate the 7 `// @ts-ignore` comments in `lib/utils/__tests__/opening-hours.test.ts` as types now cleanly align with test payloads.
 
-### 2.3 Branded ID Constructors & Guards (`lib/types.ts`)
+### 2.4 Branded ID Constructors & Guards (`lib/types.ts`)
 - Export type guards for branded types:
   ```typescript
   export function isGooglePlaceId(val: unknown): val is GooglePlaceId {
@@ -74,7 +83,7 @@ Fast-tracked hardening track addressing [GitHub Issue #53](https://github.com/ja
   }
   ```
 
-### 2.4 Strict Zustand Mutation State Merges (`lib/stores/slices/tripMutationHelpers.ts` & `lib/stores/slices/tripDataSlice.ts`)
+### 2.5 Strict Zustand Mutation State Merges (`lib/stores/slices/tripMutationHelpers.ts` & `lib/stores/slices/tripDataSlice.ts`)
 - In accordance with the PostgreSQL `trips` schema (`id`, `user_id`, `name`, `trip_date`, `created_at`, `updated_at`, `idempotency_key`), define strict input interface `TripUpdateInput`:
   ```typescript
   export interface TripUpdateInput {
@@ -86,7 +95,7 @@ Fast-tracked hardening track addressing [GitHub Issue #53](https://github.com/ja
 - Update `updateTripHelper(get, set, tripId, updates: TripUpdateInput)` in `lib/stores/slices/tripMutationHelpers.ts` with runtime key whitelisting: only permit `name` and `trip_date`, log dev warnings for unpermitted keys, and prevent arbitrary field leakage into state or DB payloads.
 - Update `TripDataSlice.updateTrip` in `lib/stores/slices/tripDataSlice.ts` to accept `TripUpdateInput` to preserve compile-time integrity across store slices.
 
-### 2.5 Branded ID Adoption in Sync Service (`lib/services/syncService.ts`)
+### 2.6 Branded ID Adoption in Sync Service (`lib/services/syncService.ts`)
 - Replace `as any` casts for winery IDs (e.g. lines 313-314, 559-560, and 572-573) with `toGooglePlaceId(...)` and `toWineryDbId(...)`.
 
 ---
@@ -110,6 +119,10 @@ Fast-tracked hardening track addressing [GitHub Issue #53](https://github.com/ja
 ## 5. Acceptance Criteria
 - [ ] `lib/utils/winery.ts` type guards safely handle `null`, `undefined`, and primitives without throwing `TypeError`.
 - [ ] 20+ `(source as any)` assertions in `lib/utils/winery.ts` are eliminated or replaced with typed narrowing.
+- [ ] `standardizeWineryData` adopts `toGooglePlaceId` and `toWineryDbId` and rejects invalid/whitespace IDs (`return null`).
+- [ ] `isGoogleWinery`, `isMapMarkerRpc`, and `isWineryDetailsRpc` enforce non-empty string IDs and object geometries.
+- [ ] `parking_options` and `accessibility_options` are sanitized with `isRecord` to prevent primitive leakage.
+- [ ] `enrichment_tier` validates against canonical domain values `['basic', 'enriched', 'full']`.
 - [ ] `lib/utils/opening-hours.ts` safely navigates malformed `firstPeriod` and periods without throwing `TypeError`.
 - [ ] `OpeningHoursPoint` and `OpeningHoursPeriod` in `lib/types.ts` eliminate all 7 `// @ts-ignore` comments in `lib/utils/__tests__/opening-hours.test.ts`.
 - [ ] `toGooglePlaceId` and `toWineryDbId` constructors and type guards are exported from `lib/types.ts` with nullable overloads.

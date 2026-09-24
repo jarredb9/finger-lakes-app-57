@@ -22,11 +22,20 @@ Hardens winery type guards against `null`/`undefined` crash bugs, eliminates unt
 - [x] Task: Write Failing Tests for Winery Type Guards & Invariant Protection (Red Phase) (84d1a15)
     - [x] Write unit tests in `lib/utils/__tests__/winery.test.ts` asserting that `isRecord`, `isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, and `isRawDbWinery` return `false` on `null`, `undefined`, numbers, strings, booleans, arrays, and malformed objects without throwing `TypeError`
     - [x] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) to verify tests fail on `null`/`undefined` inputs under the current implementation (Red phase verification)
-- [ ] Task: Harden Winery Standardizer Type Guards & Invariants in `lib/utils/winery.ts` (Green Phase)
-    - [ ] Implement and export `isRecord(val: unknown): val is Record<string, unknown>` (excluding arrays) in `lib/utils/winery.ts`
-    - [ ] Update and export `isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, and `isRawDbWinery` in `lib/utils/winery.ts` to accept `source: unknown` and evaluate `isRecord(source)` before property checks
-    - [ ] Refactor 20+ `(source as any)` assertions in `standardizeWineryData` to use structured narrowing and typed access
-    - [ ] Run winery standardizer unit tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) and verify all pass (Green phase verification)
+- [x] Task: Harden Winery Standardizer Type Guards & Invariants in `lib/utils/winery.ts` (Green Phase) (154d956)
+    - [x] Implement and export `isRecord(val: unknown): val is Record<string, unknown>` (excluding arrays) in `lib/utils/winery.ts`
+    - [x] Update and export `isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, and `isRawDbWinery` in `lib/utils/winery.ts` to accept `source: unknown` and evaluate `isRecord(source)` before property checks
+    - [x] Refactor 20+ `(source as any)` assertions in `standardizeWineryData` to use structured narrowing and typed access
+    - [x] Run winery standardizer unit tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) and verify all pass (Green phase verification)
+    - [x] Verify static type check passes (`npm run type-check`)
+- [ ] Task: Harden Winery Standardizer Branded IDs & Deep Invariants
+    - [ ] Add unit tests in `lib/utils/__tests__/winery.test.ts` verifying whitespace/invalid Google Place IDs return `null`, primitive `parking_options` and `accessibility_options` are sanitized to `null`, invalid `enrichment_tier` strings fall back to domain defaults, and type guards reject undefined/empty IDs
+    - [ ] Adopt `toGooglePlaceId` and `toWineryDbId` constructors in `standardizeWineryData` in `lib/utils/winery.ts` and reject invalid place IDs (`!isGooglePlaceId(googleId)`)
+    - [ ] Tighten `isGoogleWinery`, `isMapMarkerRpc`, and `isWineryDetailsRpc` to enforce non-empty string IDs and object geometries
+    - [ ] Enforce `isRecord` validation on `parking_options` and `accessibility_options` before assignment or merging
+    - [ ] Validate `enrichment_tier` against canonical domain values `['basic', 'enriched', 'full']`
+    - [ ] Guard timestamp parsing in `parseReviewsJson` against `NaN`
+    - [ ] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) and verify all pass
     - [ ] Verify static type check passes (`npm run type-check`)
 - [ ] Task: Write Failing Tests for Safe Opening Hours Property Navigation (Red Phase)
     - [ ] Write unit tests in `lib/utils/__tests__/opening-hours.test.ts` for periods with missing `open`, missing `close`, empty arrays, malformed period objects, and nullish inputs to `parseTime` asserting that `isOpenNow` returns safely without throwing `TypeError`
