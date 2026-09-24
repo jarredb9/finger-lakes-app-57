@@ -567,6 +567,204 @@ describe('Winery Type Guards & Invariant Protection (Issue #53 - Red Phase)', ()
       expect(standardizeWineryData(true as any)).toBeNull();
     });
   });
+
+  describe('standardizeWineryData Branded IDs & Deep Invariants (Task 3 - Red Phase)', () => {
+    describe('Google Place ID validation', () => {
+      it('returns null on whitespace-only Google Place IDs', () => {
+        const resultWhitespaceId = standardizeWineryData({
+          id: '   ',
+          name: 'Whitespace ID Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+        });
+        expect(resultWhitespaceId).toBeNull();
+
+        const resultWhitespaceGoogleId = standardizeWineryData({
+          google_place_id: '   ',
+          name: 'Whitespace Google ID Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+        });
+        expect(resultWhitespaceGoogleId).toBeNull();
+      });
+
+      it('returns null on empty string Google Place IDs', () => {
+        const resultEmptyId = standardizeWineryData({
+          id: '',
+          name: 'Empty ID Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+        });
+        expect(resultEmptyId).toBeNull();
+
+        const resultEmptyGoogleId = standardizeWineryData({
+          google_place_id: '',
+          name: 'Empty Google ID Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+        });
+        expect(resultEmptyGoogleId).toBeNull();
+      });
+    });
+
+    describe('DB ID resolution via toWineryDbId', () => {
+      it('rejects float / non-integer dbId numbers', () => {
+        const resultFloat = standardizeWineryData({
+          id: 'valid_google_place_id',
+          name: 'Float DB ID Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+          dbId: 1.5,
+        });
+        expect(resultFloat?.dbId).toBeUndefined();
+      });
+
+      it('rejects zero or negative dbId numbers', () => {
+        const resultZero = standardizeWineryData({
+          id: 'valid_google_place_id',
+          name: 'Zero DB ID Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+          dbId: 0,
+        });
+        expect(resultZero?.dbId).toBeUndefined();
+
+        const resultNegative = standardizeWineryData({
+          id: 'valid_google_place_id',
+          name: 'Negative DB ID Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+          dbId: -5,
+        });
+        expect(resultNegative?.dbId).toBeUndefined();
+      });
+
+      it('preserves valid positive integer dbId numbers', () => {
+        const resultValid = standardizeWineryData({
+          id: 'valid_google_place_id',
+          name: 'Valid DB ID Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+          dbId: 42,
+        });
+        expect(resultValid?.dbId).toBe(42);
+      });
+    });
+
+    describe('Store dictionary primitive sanitization', () => {
+      it('sanitizes parking_options to null when passed primitive strings or numbers', () => {
+        const resultStringParking = standardizeWineryData({
+          id: 'valid_google_place_id',
+          name: 'Primitive Parking Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+          parking_options: 'street' as any,
+        });
+        expect(resultStringParking?.parking_options).toBeNull();
+
+        const resultNumberParking = standardizeWineryData({
+          id: 'valid_google_place_id',
+          name: 'Primitive Parking Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+          parkingOptions: 123 as any,
+        });
+        expect(resultNumberParking?.parking_options).toBeNull();
+      });
+
+      it('sanitizes accessibility_options and accessibility_flags to null when passed primitives', () => {
+        const resultStringAccess = standardizeWineryData({
+          id: 'valid_google_place_id',
+          name: 'Primitive Accessibility Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+          accessibility_options: 'wheelchair' as any,
+        });
+        expect(resultStringAccess?.accessibility_options).toBeNull();
+
+        const resultNumberAccess = standardizeWineryData({
+          id: 'valid_google_place_id',
+          name: 'Primitive Accessibility Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+          accessibility_flags: 456 as any,
+        });
+        expect(resultNumberAccess?.accessibility_options).toBeNull();
+      });
+    });
+
+    describe('Enrichment tier domain union validation', () => {
+      it('falls back to basic on unvetted / arbitrary tier strings when no existing tier', () => {
+        const resultArbitrary = standardizeWineryData({
+          id: 'valid_google_place_id',
+          name: 'Custom Tier Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+          enrichment_tier: 'custom' as any,
+        });
+        expect(resultArbitrary?.enrichment_tier).toBe('basic');
+      });
+
+      it('falls back to existing valid tier on unvetted tier strings', () => {
+        const existingFull = {
+          ...createMockWinery(),
+          enrichment_tier: 'full' as const,
+        };
+        const resultFallback = standardizeWineryData(
+          {
+            id: existingFull.id,
+            name: existingFull.name,
+            latitude: existingFull.latitude,
+            longitude: existingFull.longitude,
+            enrichment_tier: 'invalid_tier_string' as any,
+          },
+          existingFull
+        );
+        expect(resultFallback?.enrichment_tier).toBe('full');
+      });
+    });
+
+    describe('Type guard tightening', () => {
+      it('isGoogleWinery returns false for undefined place_id, empty string place_id, or whitespace place_id', () => {
+        expect(isGoogleWinery({ place_id: undefined, geometry: undefined })).toBe(false);
+        expect(isGoogleWinery({ place_id: '', geometry: { location: { lat: 42, lng: -76 } } })).toBe(false);
+        expect(isGoogleWinery({ place_id: '   ', geometry: { location: { lat: 42, lng: -76 } } })).toBe(false);
+        expect(isGoogleWinery({ place_id: 'valid_id', geometry: null })).toBe(false);
+      });
+
+      it('isMapMarkerRpc returns false for empty string or whitespace google_place_id', () => {
+        expect(isMapMarkerRpc({ google_place_id: '', latitude: 42.5, longitude: -76.5 })).toBe(false);
+        expect(isMapMarkerRpc({ google_place_id: '   ', latitude: 42.5, longitude: -76.5 })).toBe(false);
+      });
+
+      it('isWineryDetailsRpc returns false for empty string or whitespace google_place_id', () => {
+        expect(isWineryDetailsRpc({ google_place_id: '', visits: [] })).toBe(false);
+        expect(isWineryDetailsRpc({ google_place_id: '   ', visits: [] })).toBe(false);
+      });
+    });
+
+    describe('Review timestamp parsing resilience', () => {
+      it('parseReviewsJson returns time: 0 without throwing or producing NaN when publishTime is invalid date', () => {
+        const result = standardizeWineryData({
+          id: 'valid_google_place_id',
+          name: 'Invalid Date Review Winery',
+          latitude: 42.5,
+          longitude: -76.5,
+          reviews: [
+            {
+              author_name: 'Test Reviewer',
+              rating: 5,
+              publishTime: 'not-a-valid-date-string',
+            },
+          ],
+        });
+        expect(result?.reviews).toHaveLength(1);
+        expect(result?.reviews?.[0].time).toBe(0);
+        expect(Number.isNaN(result?.reviews?.[0].time)).toBe(false);
+      });
+    });
+  });
 });
+
 
 

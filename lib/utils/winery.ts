@@ -1,4 +1,18 @@
-import { Winery, DbWinery, GooglePlaceId, WineryDbId, OpeningHours, PlaceReview, MapMarkerRpc, WineryDetailsRpc, Visit, WineryVarietal } from '@/lib/types'; // Import RPC types and Json
+import {
+  Winery,
+  DbWinery,
+  GooglePlaceId,
+  OpeningHours,
+  PlaceReview,
+  MapMarkerRpc,
+  WineryDetailsRpc,
+  Visit,
+  WineryVarietal,
+  toGooglePlaceId,
+  toWineryDbId,
+  isGooglePlaceId,
+  isWineryDbId,
+} from '@/lib/types'; // Import RPC types and Json
 import { Json } from '@/lib/database.types'; // Import Json directly
 
 // Represents raw data from Google Places API or similar external sources
@@ -35,7 +49,12 @@ export function isRecord(val: unknown): val is Record<string, unknown> {
 
 // Helper to check if a source is GoogleWinery
 export function isGoogleWinery(source: unknown): source is GoogleWinery {
-  return isRecord(source) && 'place_id' in source && 'geometry' in source;
+  return (
+    isRecord(source) &&
+    typeof source.place_id === 'string' &&
+    source.place_id.trim().length > 0 &&
+    isRecord(source.geometry)
+  );
 }
 
 // Helper to check if a source is MapMarkerRpc
@@ -43,7 +62,7 @@ export function isMapMarkerRpc(source: unknown): source is MapMarkerRpc {
   if (!isRecord(source)) return false;
   // MapMarkerRpc always has latitude/longitude (standardized) or lat/lng (legacy)
   // and some form of google id (google_place_id OR id as string)
-  const hasGoogleId = 'google_place_id' in source || (typeof source.id === 'string');
+  const hasGoogleId = isGooglePlaceId(source.google_place_id) || (typeof source.id === 'string' && source.id.trim().length > 0);
   const hasCoords = 'latitude' in source || 'lat' in source;
   
   return (
@@ -57,7 +76,7 @@ export function isMapMarkerRpc(source: unknown): source is MapMarkerRpc {
 export function isWineryDetailsRpc(source: unknown): source is WineryDetailsRpc {
   if (!isRecord(source)) return false;
   // WineryDetailsRpc is the ONLY one with 'visits'
-  const hasGoogleId = 'google_place_id' in source || (typeof source.id === 'string');
+  const hasGoogleId = isGooglePlaceId(source.google_place_id) || (typeof source.id === 'string' && source.id.trim().length > 0);
   return hasGoogleId && 'visits' in source; 
 }
 
@@ -105,10 +124,13 @@ function parseReviewsJson(json: unknown): PlaceReview[] | null | undefined {
             const relativeTimeVal = String(item.relativePublishTimeDescription || item.relative_time_description || '');
             
             let timeVal = 0;
-            if (typeof item.time === 'number') {
+            if (typeof item.time === 'number' && !isNaN(item.time)) {
                 timeVal = item.time;
             } else if (item.publishTime) {
-                timeVal = Math.floor(new Date(String(item.publishTime)).getTime() / 1000);
+                const parsedMs = new Date(String(item.publishTime)).getTime();
+                if (!isNaN(parsedMs)) {
+                    timeVal = Math.floor(parsedMs / 1000);
+                }
             }
 
             normalized.push({
@@ -161,10 +183,10 @@ export const standardizeWineryData = (
     (typeof record['id'] === 'string' && !/^\d+$/.test(record['id']) ? record['id'] : undefined) ||
     existing?.id
   );
-  const googleId = rawGoogleId as GooglePlaceId;
+  const googleId = toGooglePlaceId(rawGoogleId);
 
-  if (!googleId) {
-    console.warn('[Validation] Winery missing Google Place ID:', source);
+  if (!googleId || !isGooglePlaceId(googleId)) {
+    console.warn('[Validation] Winery missing or invalid Google Place ID:', source);
     return null;
   }
 
@@ -183,12 +205,13 @@ export const standardizeWineryData = (
       resolvedDbId = (existing?.dbId !== undefined && existing?.dbId !== null && !isNaN(Number(existing.dbId))) ? Number(existing.dbId) : undefined;
   }
 
-  // Final fallback to avoid NaN or non-positive
-  if (resolvedDbId !== undefined && (isNaN(resolvedDbId) || resolvedDbId <= 0)) {
+  // Final fallback to avoid NaN, non-integer, or non-positive
+  if (resolvedDbId !== undefined && (isNaN(resolvedDbId) || !Number.isInteger(resolvedDbId) || resolvedDbId <= 0)) {
       resolvedDbId = undefined;
   }
 
-  const dbId = resolvedDbId as WineryDbId | undefined;
+  const rawDbId = toWineryDbId(resolvedDbId);
+  const dbId = isWineryDbId(rawDbId) ? rawDbId : undefined;
 
   // 3. Resolve Coordinates
   let lat: number = 0;
@@ -220,14 +243,19 @@ export const standardizeWineryData = (
   }
   
   // Determine incoming and existing enrichment tiers
-  const incomingTier = (typeof record['enrichment_tier'] === 'string' ? record['enrichment_tier'] : undefined) ||
-    (typeof record['enrichmentTier'] === 'string' ? record['enrichmentTier'] : undefined) ||
-    (isWineryDetailsRpc(source) ? 'enriched' : undefined);
+  const rawIncomingTier = typeof record['enrichment_tier'] === 'string'
+    ? record['enrichment_tier']
+    : (typeof record['enrichmentTier'] === 'string' ? record['enrichmentTier'] : undefined);
+  const incomingTier = (rawIncomingTier === 'basic' || rawIncomingTier === 'enriched' || rawIncomingTier === 'full')
+    ? rawIncomingTier
+    : (isWineryDetailsRpc(source) ? 'enriched' : undefined);
   const isIncomingEnriched = incomingTier === 'enriched' || incomingTier === 'full';
-  const existingTier = existing?.enrichment_tier;
-  const enrichmentTier = (existingTier === 'enriched' || existingTier === 'full') && (incomingTier !== 'enriched' && incomingTier !== 'full')
+  const existingTier = (existing?.enrichment_tier === 'basic' || existing?.enrichment_tier === 'enriched' || existing?.enrichment_tier === 'full')
+    ? existing.enrichment_tier
+    : undefined;
+  const enrichmentTier: 'basic' | 'enriched' | 'full' = (existingTier === 'enriched' || existingTier === 'full') && (incomingTier !== 'enriched' && incomingTier !== 'full')
     ? existingTier
-    : ((incomingTier as 'basic' | 'enriched' | 'full' | undefined) || existingTier || 'basic');
+    : (incomingTier || existingTier || 'basic');
 
   // Helper to merge fields while preventing overwriting of enriched data by basic markers
   const mergeField = <T>(newVal: T | null | undefined, existingVal: T | null | undefined): T | null | undefined => {
@@ -398,9 +426,15 @@ export const standardizeWineryData = (
   const goodForChildren = mergeField(record['good_for_children'] !== undefined ? Boolean(record['good_for_children']) : null, existing?.good_for_children);
   const outdoorSeating = mergeField(record['outdoor_seating'] !== undefined ? Boolean(record['outdoor_seating']) : null, existing?.outdoor_seating);
   
-  let rawParkingOptions: Record<string, any> | null | undefined = record['parking_options'] !== undefined 
-    ? (record['parking_options'] as Record<string, any> | null) 
-    : (record['parkingOptions'] !== undefined ? (record['parkingOptions'] as Record<string, any> | null) : null);
+  const sourceParking = record['parking_options'] !== undefined 
+    ? record['parking_options'] 
+    : (record['parkingOptions'] !== undefined ? record['parkingOptions'] : undefined);
+  let rawParkingOptions: Record<string, any> | null | undefined;
+  if (isRecord(sourceParking)) {
+    rawParkingOptions = sourceParking as Record<string, any>;
+  } else if (sourceParking !== undefined) {
+    rawParkingOptions = null;
+  }
   if (isRecord(rawParkingOptions)) {
     const pObj = rawParkingOptions;
     if (pObj['freeParking'] === undefined) {
@@ -431,12 +465,18 @@ export const standardizeWineryData = (
       }
     }
   }
-  const parkingOptions = mergeField(rawParkingOptions, existing?.parking_options);
+  const parkingOptions = mergeField(rawParkingOptions, existing?.parking_options) ?? null;
 
   const sourceAccessibility = record['accessibility_options'] !== undefined 
     ? record['accessibility_options'] 
-    : (record['accessibility_flags'] !== undefined ? record['accessibility_flags'] : (record['accessibilityOptions'] !== undefined ? record['accessibilityOptions'] : null));
-  const accessibilityOptions = mergeField(sourceAccessibility as Record<string, any> | null, existing?.accessibility_options);
+    : (record['accessibility_flags'] !== undefined ? record['accessibility_flags'] : (record['accessibilityOptions'] !== undefined ? record['accessibilityOptions'] : undefined));
+  let rawAccessibility: Record<string, any> | null | undefined;
+  if (isRecord(sourceAccessibility)) {
+    rawAccessibility = sourceAccessibility as Record<string, any>;
+  } else if (sourceAccessibility !== undefined) {
+    rawAccessibility = null;
+  }
+  const accessibilityOptions = mergeField(rawAccessibility, existing?.accessibility_options) ?? null;
 
   const sourcePrimaryPhoto = typeof record['primary_photo_reference'] === 'string' 
     ? record['primary_photo_reference'] 
