@@ -765,5 +765,105 @@ describe('SyncService', () => {
       );
       expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-toggle-wish-branded');
     });
+
+    it('sanitizes adversarial invalid IDs (whitespace place ID, negative db ID) to undefined in log_visit', async () => {
+      const payload = {
+        wineryId: '   ',
+        wineryDbId: -1,
+        wineryName: 'Corrupted ID Winery',
+        wineryAddress: '123 Test Rd',
+        latitude: 42.0,
+        longitude: -76.0,
+        visit_date: '2026-09-23',
+        user_review: 'Test review',
+        rating: 4,
+        photos: [],
+      };
+
+      const mockMutation = {
+        id: 'sync-log-visit-adversarial',
+        type: 'log_visit',
+        encryptedPayload: 'encrypted-log-visit-adv',
+        userId: 'test-user-id',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue(payload),
+      };
+
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      const getRpcDataSpy = jest.spyOn(WineryService, 'getRpcData');
+
+      await SyncService.sync();
+
+      expect(toGooglePlaceId).toHaveBeenCalledWith('   ');
+      expect(toWineryDbId).toHaveBeenCalledWith(-1);
+      expect(getRpcDataSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: undefined,
+          dbId: undefined,
+        })
+      );
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-log-visit-adversarial');
+    });
+
+    it('safely handles non-record payload in winery_action without throwing TypeError', async () => {
+      const mockMutation = {
+        id: 'sync-winery-action-corrupted',
+        type: 'winery_action',
+        encryptedPayload: 'corrupted-payload',
+        userId: 'test-user-id',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue('invalid-primitive-payload'),
+      };
+
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      await expect(SyncService.sync()).resolves.not.toThrow();
+      expect(mockSupabase.rpc).not.toHaveBeenCalledWith('toggle_favorite', expect.anything());
+    });
+
+    it('validates wineryDbId with toWineryDbId in toggle_favorite_privacy', async () => {
+      const payload = {
+        action: 'toggle_favorite_privacy',
+        wineryDbId: -99, // Invalid sequence ID
+      };
+
+      const mockMutation = {
+        id: 'sync-toggle-privacy-invalid',
+        type: 'winery_action',
+        encryptedPayload: 'privacy-payload',
+        userId: 'test-user-id',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue(payload),
+      };
+
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      await SyncService.sync();
+
+      expect(toWineryDbId).toHaveBeenCalledWith(-99);
+      expect(mockSupabase.rpc).not.toHaveBeenCalledWith('toggle_favorite_privacy', expect.anything());
+    });
   });
 });

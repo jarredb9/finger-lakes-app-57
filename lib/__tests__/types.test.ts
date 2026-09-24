@@ -78,7 +78,7 @@ describe('Branded ID Type Guards and Constructors', () => {
   describe('toGooglePlaceId', () => {
     it('returns branded GooglePlaceId for valid strings without warnings', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      const id: GooglePlaceId = toGooglePlaceId('ChIJ123');
+      const id = toGooglePlaceId('ChIJ123');
       expect(id).toBe('ChIJ123');
       expect(warnSpy).not.toHaveBeenCalled();
     });
@@ -102,7 +102,7 @@ describe('Branded ID Type Guards and Constructors', () => {
         '[toGooglePlaceId] Warning: Invalid GooglePlaceId received:',
         ''
       );
-      expect(emptyRes).toBe('');
+      expect(emptyRes).toBeUndefined();
 
       warnSpy.mockClear();
       const whitespaceRes = toGooglePlaceId('   ');
@@ -110,7 +110,7 @@ describe('Branded ID Type Guards and Constructors', () => {
         '[toGooglePlaceId] Warning: Invalid GooglePlaceId received:',
         '   '
       );
-      expect(whitespaceRes).toBe('   ');
+      expect(whitespaceRes).toBeUndefined();
 
       warnSpy.mockClear();
       const nonStringRes = toGooglePlaceId(123 as unknown as string);
@@ -118,7 +118,7 @@ describe('Branded ID Type Guards and Constructors', () => {
         '[toGooglePlaceId] Warning: Invalid GooglePlaceId received:',
         123
       );
-      expect(nonStringRes).toBe(123);
+      expect(nonStringRes).toBeUndefined();
     });
 
     it('suppresses warnings in production mode for invalid inputs', () => {
@@ -126,7 +126,7 @@ describe('Branded ID Type Guards and Constructors', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
       const res = toGooglePlaceId('');
-      expect(res).toBe('');
+      expect(res).toBeUndefined();
       expect(warnSpy).not.toHaveBeenCalled();
     });
   });
@@ -134,7 +134,7 @@ describe('Branded ID Type Guards and Constructors', () => {
   describe('toWineryDbId', () => {
     it('returns branded WineryDbId for valid positive integers without warnings', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
-      const id: WineryDbId = toWineryDbId(42);
+      const id = toWineryDbId(42);
       expect(id).toBe(42);
       expect(warnSpy).not.toHaveBeenCalled();
     });
@@ -158,7 +158,7 @@ describe('Branded ID Type Guards and Constructors', () => {
         '[toWineryDbId] Warning: Invalid WineryDbId received:',
         0
       );
-      expect(zeroRes).toBe(0);
+      expect(zeroRes).toBeUndefined();
 
       warnSpy.mockClear();
       const negRes = toWineryDbId(-5);
@@ -166,7 +166,7 @@ describe('Branded ID Type Guards and Constructors', () => {
         '[toWineryDbId] Warning: Invalid WineryDbId received:',
         -5
       );
-      expect(negRes).toBe(-5);
+      expect(negRes).toBeUndefined();
 
       warnSpy.mockClear();
       const floatRes = toWineryDbId(1.5);
@@ -174,7 +174,7 @@ describe('Branded ID Type Guards and Constructors', () => {
         '[toWineryDbId] Warning: Invalid WineryDbId received:',
         1.5
       );
-      expect(floatRes).toBe(1.5);
+      expect(floatRes).toBeUndefined();
 
       warnSpy.mockClear();
       const nanRes = toWineryDbId(NaN);
@@ -182,7 +182,7 @@ describe('Branded ID Type Guards and Constructors', () => {
         '[toWineryDbId] Warning: Invalid WineryDbId received:',
         NaN
       );
-      expect(Number.isNaN(nanRes)).toBe(true);
+      expect(nanRes).toBeUndefined();
 
       warnSpy.mockClear();
       const nonNumRes = toWineryDbId('42' as unknown as number);
@@ -190,7 +190,7 @@ describe('Branded ID Type Guards and Constructors', () => {
         '[toWineryDbId] Warning: Invalid WineryDbId received:',
         '42'
       );
-      expect(nonNumRes).toBe('42');
+      expect(nonNumRes).toBeUndefined();
     });
 
     it('suppresses warnings in production mode for invalid inputs', () => {
@@ -198,7 +198,7 @@ describe('Branded ID Type Guards and Constructors', () => {
       const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
 
       const res = toWineryDbId(0);
-      expect(res).toBe(0);
+      expect(res).toBeUndefined();
       expect(warnSpy).not.toHaveBeenCalled();
     });
   });
