@@ -135,6 +135,23 @@ All agents generating task plans or implementing changes across this track MUST 
 ### 2.6 Branded ID Adoption in Sync Service (`lib/services/syncService.ts`)
 - Replace `as any` casts for winery IDs (e.g. lines 313-314, 559-560, and 572-573) with `toGooglePlaceId(...)` and `toWineryDbId(...)`.
 
+### 2.7 Gold-Standard Structural Boundary Parsers & Domain Amenity Interfaces (`lib/types.ts` & `lib/utils/winery.ts`)
+- Define strongly-typed closed domain interfaces `ParkingOptions` and `AccessibilityOptions` in `lib/types.ts` capturing known Google Places boolean flags (`freeParkingLot`, `wheelchairAccessibleParking`, etc.) and synthesized convenience attributes (`freeParking`).
+- Update `Winery.parking_options` and `Winery.accessibility_options` to use `ParkingOptions | null` and `AccessibilityOptions | null`, eliminating `Record<string, any>`.
+- Implement gold-standard parsers in `lib/utils/winery.ts` with zero `as` assertions:
+  - `parseOpeningHoursJson(json: unknown): OpeningHours | null | undefined`: Resilient period filtering that drops corrupt period objects, validates `day` (0-6) and time points, filters `weekday_text` for string elements, and returns clean typed `OpeningHours`.
+  - `parseParkingOptionsJson(json: unknown): ParkingOptions | null`: Validates `isRecord`, extracts known boolean flags, synthesizes `freeParking`, and returns `null` if no recognized flags are present.
+  - `parseAccessibilityOptionsJson(json: unknown): AccessibilityOptions | null`: Validates `isRecord`, extracts known boolean flags, and returns `null` if no recognized flags are present.
+- Strengthen RPC type guards (`isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, `isRawDbWinery`): require string `name`, valid coordinates, and non-empty IDs.
+- Collapse redundant `toGooglePlaceId` and `toWineryDbId` overload signatures in `lib/types.ts` into single nullable signatures.
+
+### 2.8 Sync Service Error Routing to DLQ & Cast Cleanup (`lib/services/syncService.ts`)
+- Unify error handling for privacy toggle mutations (`toggle_favorite_privacy`, `toggle_wishlist_privacy`): when `payload.wineryDbId` fails `toWineryDbId` validation, route immediately to DLQ as a permanent 400 validation failure and remove from queue, preventing silent mutation drops.
+- Clean up redundant `(item as any)` casts accessing `nextRetryAt` and `createdAt` now that they are natively declared on `SyncItem`.
+
+### 2.9 Runtime Mutation Allowlisting for Trip Creation (`lib/stores/slices/tripMutationHelpers.ts`)
+- Mirror `updateTripHelper` in `createTripHelper`: enforce `ALLOWED_CREATE_TRIP_KEYS = ['name', 'trip_date', 'wineries']`, strip injected keys (`id`, `user_id`, `created_at`) with dev-mode warnings, and validate `name` (string) and `trip_date` (valid date string falling back to `getTodayLocal()`).
+
 ---
 
 ## 3. Non-Functional Requirements & Performance
@@ -169,4 +186,10 @@ All agents generating task plans or implementing changes across this track MUST 
 - [ ] Dedicated unit regression tests added for all updated type guards, constructors, and opening hours utility.
 - [ ] Automated tests pass in container (`npm run test:container`) and `npm run type-check` succeeds with 0 errors.
 - [ ] Purely scaffolding/scratch tests created during this track are cleaned up to ensure a pristine test suite.
+- [ ] `parseOpeningHoursJson` performs resilient period and weekday parsing with 0 `as` assertions.
+- [ ] `ParkingOptions` and `AccessibilityOptions` domain interfaces defined and applied to `Winery` in `lib/types.ts`.
+- [ ] `parseParkingOptionsJson` and `parseAccessibilityOptionsJson` implemented with zero `as` assertions in `lib/utils/winery.ts`.
+- [ ] Missing/invalid `wineryDbId` on privacy mutations in `syncService.ts` routes to DLQ as permanent 400 error.
+- [ ] Residual `(item as any)` casts on `SyncItem` fields (`nextRetryAt`, `createdAt`) are eliminated.
+- [ ] `createTripHelper` enforces runtime key allowlisting and dev warnings on stripped properties.
 
