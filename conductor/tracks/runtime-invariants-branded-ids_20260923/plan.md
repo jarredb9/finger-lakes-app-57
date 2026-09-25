@@ -91,11 +91,11 @@ Eliminates all remaining compiler-silencing assertions across ingestion boundari
     - [x] Strengthen RPC type guards with string `name`, valid coordinates, and non-empty IDs in `lib/utils/winery.ts`
     - [x] Collapse `toGooglePlaceId` and `toWineryDbId` overload signatures in `lib/types.ts`
     - [x] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) and verify all pass (Green phase verification)
-- [ ] Task: Sync Service DLQ Routing & Residual Cast Cleanup (TDD)
-    - [ ] Add unit test in `lib/services/__tests__/syncService.test.ts` asserting that missing/invalid `wineryDbId` on privacy mutations routes to DLQ as a 400 error and removes mutation from queue
-    - [ ] Update `lib/services/syncService.ts` lines 588–604 to route missing `wineryDbId` to DLQ instead of silently dropping
-    - [ ] Remove `(item as any)` casts accessing `nextRetryAt` and `createdAt` on `SyncItem`
-    - [ ] Run sync service unit tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`) and verify all pass
+- [x] Task: Sync Service DLQ Routing & Residual Cast Cleanup (TDD) (40358a5)
+    - [x] Add unit test in `lib/services/__tests__/syncService.test.ts` asserting that missing/invalid `wineryDbId` on privacy mutations routes to DLQ as a 400 error and removes mutation from queue
+    - [x] Update `lib/services/syncService.ts` lines 588–604 to route missing `wineryDbId` to DLQ instead of silently dropping
+    - [x] Remove `(item as any)` casts accessing `nextRetryAt` and `createdAt` on `SyncItem`
+    - [x] Run sync service unit tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`) and verify all pass
 - [ ] Task: Runtime Mutation Allowlisting for `createTripHelper` (TDD)
     - [ ] Add unit tests in `lib/stores/__tests__/tripStore.test.ts` verifying `createTripHelper` strips unpermitted keys (`id`, `user_id`, `created_at`) with dev warnings and validates types
     - [ ] Implement `ALLOWED_CREATE_TRIP_KEYS` allowlisting and dev warnings in `lib/stores/slices/tripMutationHelpers.ts`
