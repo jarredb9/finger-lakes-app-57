@@ -5,6 +5,9 @@ import {
   isMapMarkerRpc,
   isWineryDetailsRpc,
   isRawDbWinery,
+  parseOpeningHoursJson,
+  parseParkingOptionsJson,
+  parseAccessibilityOptionsJson,
 } from '../winery';
 import { createMockWinery, createMockVisitWithWinery, createMockMapMarkerRpc } from '@/lib/test-utils/fixtures';
 import { Winery, MapMarkerRpc, WineryDbId } from '@/lib/types';
@@ -761,6 +764,306 @@ describe('Winery Type Guards & Invariant Protection (Issue #53 - Red Phase)', ()
         expect(result?.reviews).toHaveLength(1);
         expect(result?.reviews?.[0].time).toBe(0);
         expect(Number.isNaN(result?.reviews?.[0].time)).toBe(false);
+      });
+    });
+  });
+
+  describe('Phase 5 Adversarial Red Phase: Boundary Parsers & Tightened RPC Guards', () => {
+    describe('parseOpeningHoursJson Adversarial Red Phase', () => {
+      it('returns undefined on undefined and null on null', () => {
+        expect(parseOpeningHoursJson(undefined)).toBeUndefined();
+        expect(parseOpeningHoursJson(null)).toBeNull();
+      });
+
+      it('rejects primitives (string, number, boolean, array) and returns null', () => {
+        expect(parseOpeningHoursJson('open' as any)).toBeNull();
+        expect(parseOpeningHoursJson(123 as any)).toBeNull();
+        expect(parseOpeningHoursJson(true as any)).toBeNull();
+        expect(parseOpeningHoursJson([] as any)).toBeNull();
+      });
+
+      it('filters out corrupt period items and invalid day ranges (0-6)', () => {
+        // Missing open point
+        const missingOpen = { periods: [{ close: { day: 1, time: '1700' } }] };
+        expect(parseOpeningHoursJson(missingOpen)).toBeNull();
+
+        // Corrupt open.day (string instead of number)
+        const stringDay = {
+          periods: [
+            { open: { day: 'Monday' as any, time: '0900' }, close: { day: 1, time: '1700' } },
+          ],
+        };
+        expect(parseOpeningHoursJson(stringDay)).toBeNull();
+
+        // Out of bounds open.day (< 0 or > 6)
+        const negativeDay = { periods: [{ open: { day: -1, time: '0900' } }] };
+        expect(parseOpeningHoursJson(negativeDay)).toBeNull();
+
+        const excessiveDay = { periods: [{ open: { day: 7, time: '0900' } }] };
+        expect(parseOpeningHoursJson(excessiveDay)).toBeNull();
+
+        // Out of bounds close.day
+        const invalidClose = {
+          periods: [
+            { open: { day: 1, time: '0900' }, close: { day: 8, time: '1700' } },
+          ],
+        };
+        expect(parseOpeningHoursJson(invalidClose)).toBeNull();
+
+        // Point missing day completely
+        const missingDayInPoint = { periods: [{ open: { time: '0900' } as any }] };
+        expect(parseOpeningHoursJson(missingDayInPoint)).toBeNull();
+
+        // Mixed valid and corrupt periods: discards corrupt ones, preserves valid ones
+        const mixed = {
+          periods: [
+            { open: { day: 'Monday' as any } },
+            { open: { day: 1, time: '0900' }, close: { day: 1, time: '1700' } },
+            null,
+            123,
+            { open: { day: 8 } },
+          ],
+        };
+        const resMixed = parseOpeningHoursJson(mixed);
+        expect(resMixed).not.toBeNull();
+        expect(resMixed?.periods).toHaveLength(1);
+        expect(resMixed?.periods?.[0]?.open?.day).toBe(1);
+
+        // Corrupt periods list with 0 valid periods sets periods to undefined
+        const allCorrupt = {
+          periods: [{ open: { day: 'invalid' as any } }, { invalid: true }],
+          weekday_text: ['Mon: 9am - 5pm'],
+        };
+        const resAllCorrupt = parseOpeningHoursJson(allCorrupt);
+        expect(resAllCorrupt).not.toBeNull();
+        expect(resAllCorrupt?.periods).toBeUndefined();
+        expect(resAllCorrupt?.weekday_text).toEqual(['Mon: 9am - 5pm']);
+
+        // Valid 24/7 or closing-unspecified schedule (valid open, omitted close)
+        const open247 = {
+          periods: [{ open: { day: 0, time: '0000' } }],
+        };
+        const res247 = parseOpeningHoursJson(open247);
+        expect(res247?.periods).toHaveLength(1);
+        expect(res247?.periods?.[0]?.open?.day).toBe(0);
+        expect(res247?.periods?.[0]?.close).toBeUndefined();
+      });
+
+      it('sanitizes weekday descriptions and drops non-string entries', () => {
+        const corruptWeekday = {
+          periods: [{ open: { day: 1, time: '0900' }, close: { day: 1, time: '1700' } }],
+          weekday_text: ['Mon: 9-5', 123 as any, null as any, { text: 'Tue: 9-5' } as any, 'Wed: 9-5'],
+        };
+        const res = parseOpeningHoursJson(corruptWeekday);
+        expect(res?.weekday_text).toEqual(['Mon: 9-5', 'Wed: 9-5']);
+      });
+
+      it('accepts alternative weekday description keys (weekdayDescriptions, weekday_descriptions)', () => {
+        const altWeekday = {
+          periods: [{ open: { day: 2, time: '1000' } }],
+          weekdayDescriptions: ['Tue: 10am - 6pm', 456 as any],
+        };
+        const res = parseOpeningHoursJson(altWeekday);
+        expect(res?.weekday_text).toEqual(['Tue: 10am - 6pm']);
+
+        const altWeekdaySnake = {
+          periods: [{ open: { day: 3, time: '1000' } }],
+          weekday_descriptions: ['Wed: 10am - 6pm'],
+        };
+        const resSnake = parseOpeningHoursJson(altWeekdaySnake);
+        expect(resSnake?.weekday_text).toEqual(['Wed: 10am - 6pm']);
+      });
+
+      it('returns null if both periods and weekday_text are empty or contain only invalid entries', () => {
+        expect(parseOpeningHoursJson({ periods: [], weekday_text: [] })).toBeNull();
+        expect(parseOpeningHoursJson({ periods: [{ invalid: true }], weekday_text: [123 as any] })).toBeNull();
+        expect(parseOpeningHoursJson({ periods: [] })).toBeNull();
+        expect(parseOpeningHoursJson({ weekday_text: [] })).toBeNull();
+      });
+
+      it('safely validates boolean open_now / openNow flag', () => {
+        const withOpenNow = {
+          periods: [{ open: { day: 1, time: '0900' } }],
+          open_now: true,
+        };
+        expect(parseOpeningHoursJson(withOpenNow)?.open_now).toBe(true);
+
+        const withOpenNowAlt = {
+          periods: [{ open: { day: 1, time: '0900' } }],
+          openNow: false,
+        };
+        expect(parseOpeningHoursJson(withOpenNowAlt)?.open_now).toBe(false);
+
+        const withInvalidOpenNow = {
+          periods: [{ open: { day: 1, time: '0900' } }],
+          open_now: 'true' as any,
+        };
+        expect(parseOpeningHoursJson(withInvalidOpenNow)?.open_now).toBeUndefined();
+      });
+    });
+
+    describe('parseParkingOptionsJson Adversarial Red Phase', () => {
+      it('returns null on primitives, arrays, null, and undefined', () => {
+        expect(parseParkingOptionsJson(null)).toBeNull();
+        expect(parseParkingOptionsJson(undefined)).toBeNull();
+        expect(parseParkingOptionsJson('free' as any)).toBeNull();
+        expect(parseParkingOptionsJson(123 as any)).toBeNull();
+        expect(parseParkingOptionsJson(true as any)).toBeNull();
+        expect(parseParkingOptionsJson([] as any)).toBeNull();
+      });
+
+      it('returns null when input has no recognized parking attributes', () => {
+        expect(parseParkingOptionsJson({})).toBeNull();
+        expect(parseParkingOptionsJson({ someRandomProp: true })).toBeNull();
+      });
+
+      it('ignores non-boolean values for known flags', () => {
+        expect(parseParkingOptionsJson({ freeParkingLot: 'true' as any, paidParkingLot: 1 as any })).toBeNull();
+      });
+
+      it('extracts known boolean flags and synthesizes freeParking attribute', () => {
+        const valid = {
+          freeParkingLot: true,
+          paidStreetParking: false,
+          valetParking: true,
+        };
+        const parsed = parseParkingOptionsJson(valid);
+        expect(parsed).toEqual({
+          freeParkingLot: true,
+          paidStreetParking: false,
+          freeParking: true,
+        });
+      });
+
+      it('synthesizes freeParking: true if any free parking flag is true', () => {
+        expect(parseParkingOptionsJson({ freeStreetParking: true })?.freeParking).toBe(true);
+        expect(parseParkingOptionsJson({ freeGarageParking: true, paidParkingLot: true })?.freeParking).toBe(true);
+      });
+
+      it('synthesizes freeParking: false if any paid parking flag is true and no free parking flag is true', () => {
+        expect(parseParkingOptionsJson({ paidParkingLot: true })?.freeParking).toBe(false);
+        expect(parseParkingOptionsJson({ paidGarageParking: true, freeStreetParking: false })?.freeParking).toBe(false);
+      });
+    });
+
+    describe('parseAccessibilityOptionsJson Adversarial Red Phase', () => {
+      it('returns null on primitives, arrays, null, and undefined', () => {
+        expect(parseAccessibilityOptionsJson(null)).toBeNull();
+        expect(parseAccessibilityOptionsJson(undefined)).toBeNull();
+        expect(parseAccessibilityOptionsJson('wheelchair' as any)).toBeNull();
+        expect(parseAccessibilityOptionsJson(123 as any)).toBeNull();
+        expect(parseAccessibilityOptionsJson(true as any)).toBeNull();
+        expect(parseAccessibilityOptionsJson([] as any)).toBeNull();
+      });
+
+      it('returns null when input has no recognized accessibility attributes', () => {
+        expect(parseAccessibilityOptionsJson({})).toBeNull();
+        expect(parseAccessibilityOptionsJson({ otherFlag: true })).toBeNull();
+      });
+
+      it('ignores non-boolean values for known flags', () => {
+        expect(parseAccessibilityOptionsJson({ wheelchairAccessibleEntrance: 'yes' as any })).toBeNull();
+      });
+
+      it('extracts known boolean accessibility flags', () => {
+        const valid = {
+          wheelchairAccessibleParking: true,
+          wheelchairAccessibleEntrance: true,
+          wheelchairAccessibleRestroom: false,
+          wheelchairAccessibleSeating: true,
+        };
+        expect(parseAccessibilityOptionsJson(valid)).toEqual({
+          wheelchairAccessibleParking: true,
+          wheelchairAccessibleEntrance: true,
+          wheelchairAccessibleRestroom: false,
+          wheelchairAccessibleSeating: true,
+        });
+      });
+    });
+
+    describe('RPC Type Guard Tightening Adversarial Red Phase', () => {
+      describe('isGoogleWinery tightening', () => {
+        it('rejects objects without non-empty string name', () => {
+          expect(isGoogleWinery({ place_id: 'ChIJ123', geometry: { location: { lat: 42, lng: -76 } } })).toBe(false);
+          expect(isGoogleWinery({ place_id: 'ChIJ123', name: '', geometry: { location: { lat: 42, lng: -76 } } })).toBe(false);
+          expect(isGoogleWinery({ place_id: 'ChIJ123', name: '   ', geometry: { location: { lat: 42, lng: -76 } } })).toBe(false);
+          expect(isGoogleWinery({ place_id: 'ChIJ123', name: 123 as any, geometry: { location: { lat: 42, lng: -76 } } })).toBe(false);
+        });
+
+        it('rejects objects where geometry is not a record', () => {
+          expect(isGoogleWinery({ place_id: 'ChIJ123', name: 'Winery', geometry: null })).toBe(false);
+          expect(isGoogleWinery({ place_id: 'ChIJ123', name: 'Winery', geometry: 'coords' as any })).toBe(false);
+          expect(isGoogleWinery({ place_id: 'ChIJ123', name: 'Winery', geometry: [] as any })).toBe(false);
+        });
+
+        it('accepts valid GoogleWinery with non-empty place_id, name, and record geometry', () => {
+          expect(isGoogleWinery({ place_id: 'ChIJ123', name: 'Valid Google Winery', geometry: { location: { lat: 42, lng: -76 } } })).toBe(true);
+        });
+      });
+
+      describe('isMapMarkerRpc tightening', () => {
+        it('rejects objects without non-empty string name', () => {
+          expect(isMapMarkerRpc({ google_place_id: 'ChIJ123', latitude: 42.5, longitude: -76.5 })).toBe(false);
+          expect(isMapMarkerRpc({ google_place_id: 'ChIJ123', name: '', latitude: 42.5, longitude: -76.5 })).toBe(false);
+          expect(isMapMarkerRpc({ google_place_id: 'ChIJ123', name: '   ', latitude: 42.5, longitude: -76.5 })).toBe(false);
+          expect(isMapMarkerRpc({ google_place_id: 'ChIJ123', name: 123 as any, latitude: 42.5, longitude: -76.5 })).toBe(false);
+        });
+
+        it('rejects objects with invalid or missing coordinates', () => {
+          expect(isMapMarkerRpc({ google_place_id: 'ChIJ123', name: 'Winery' })).toBe(false);
+          expect(isMapMarkerRpc({ google_place_id: 'ChIJ123', name: 'Winery', latitude: '42.5' as any, longitude: -76.5 })).toBe(false);
+          expect(isMapMarkerRpc({ google_place_id: 'ChIJ123', name: 'Winery', latitude: NaN, longitude: -76.5 })).toBe(false);
+          expect(isMapMarkerRpc({ google_place_id: 'ChIJ123', name: 'Winery', lat: '42.5' as any, lng: -76.5 })).toBe(false);
+        });
+
+        it('rejects objects containing visits property', () => {
+          expect(isMapMarkerRpc({ google_place_id: 'ChIJ123', name: 'Winery', latitude: 42.5, longitude: -76.5, visits: [] })).toBe(false);
+        });
+
+        it('accepts valid MapMarkerRpc with valid name and coordinates', () => {
+          expect(isMapMarkerRpc({ google_place_id: 'ChIJ123', name: 'Marker Winery', latitude: 42.5, longitude: -76.5 })).toBe(true);
+          expect(isMapMarkerRpc({ id: 'ChIJ123', name: 'Marker Winery', lat: 42.5, lng: -76.5 })).toBe(true);
+        });
+      });
+
+      describe('isWineryDetailsRpc tightening', () => {
+        it('rejects objects without non-empty string name', () => {
+          expect(isWineryDetailsRpc({ google_place_id: 'ChIJ123', latitude: 42.5, longitude: -76.5, visits: [] })).toBe(false);
+          expect(isWineryDetailsRpc({ google_place_id: 'ChIJ123', name: '', latitude: 42.5, longitude: -76.5, visits: [] })).toBe(false);
+          expect(isWineryDetailsRpc({ google_place_id: 'ChIJ123', name: '   ', latitude: 42.5, longitude: -76.5, visits: [] })).toBe(false);
+        });
+
+        it('rejects objects without valid coordinates', () => {
+          expect(isWineryDetailsRpc({ google_place_id: 'ChIJ123', name: 'Winery', visits: [] })).toBe(false);
+          expect(isWineryDetailsRpc({ google_place_id: 'ChIJ123', name: 'Winery', latitude: '42.5' as any, longitude: -76.5, visits: [] })).toBe(false);
+          expect(isWineryDetailsRpc({ google_place_id: 'ChIJ123', name: 'Winery', latitude: NaN, longitude: -76.5, visits: [] })).toBe(false);
+        });
+
+        it('rejects objects without visits property', () => {
+          expect(isWineryDetailsRpc({ google_place_id: 'ChIJ123', name: 'Winery', latitude: 42.5, longitude: -76.5 })).toBe(false);
+        });
+
+        it('accepts valid WineryDetailsRpc with name, coordinates, and visits', () => {
+          expect(isWineryDetailsRpc({ google_place_id: 'ChIJ123', name: 'Details Winery', latitude: 42.5, longitude: -76.5, visits: [] })).toBe(true);
+          expect(isWineryDetailsRpc({ id: 'ChIJ123', name: 'Details Winery', lat: 42.5, lng: -76.5, visits: [] })).toBe(true);
+        });
+      });
+
+      describe('isRawDbWinery tightening', () => {
+        it('rejects objects without non-empty string name', () => {
+          expect(isRawDbWinery({ created_at: '2026-01-01' })).toBe(false);
+          expect(isRawDbWinery({ name: '', created_at: '2026-01-01' })).toBe(false);
+          expect(isRawDbWinery({ name: '   ', created_at: '2026-01-01' })).toBe(false);
+          expect(isRawDbWinery({ name: 123 as any, created_at: '2026-01-01' })).toBe(false);
+        });
+
+        it('rejects objects missing created_at', () => {
+          expect(isRawDbWinery({ name: 'Raw Winery' })).toBe(false);
+        });
+
+        it('accepts valid DbWinery with non-empty name and created_at', () => {
+          expect(isRawDbWinery({ id: 10, name: 'Raw DB Winery', created_at: '2026-01-01T00:00:00Z' })).toBe(true);
+        });
       });
     });
   });

@@ -227,10 +227,29 @@ export interface Winery {
   primary_photo_reference?: string | null;
   photo_references?: string[] | null;
   cached_photos?: Record<string, string> | null;
-  parking_options?: Record<string, any> | null;
-  accessibility_options?: Record<string, any> | null;
+  parking_options?: ParkingOptions | null;
+  accessibility_options?: AccessibilityOptions | null;
   varietals?: WineryVarietal[] | null;
   vibe_tags?: string[] | null;
+}
+
+export interface ParkingOptions {
+  freeParkingLot?: boolean | null;
+  freeStreetParking?: boolean | null;
+  freeGarageParking?: boolean | null;
+  freeValetParking?: boolean | null;
+  paidParkingLot?: boolean | null;
+  paidStreetParking?: boolean | null;
+  paidGarageParking?: boolean | null;
+  paidValetParking?: boolean | null;
+  freeParking?: boolean | null; // Synthesized convenience attribute
+}
+
+export interface AccessibilityOptions {
+  wheelchairAccessibleParking?: boolean | null;
+  wheelchairAccessibleEntrance?: boolean | null;
+  wheelchairAccessibleRestroom?: boolean | null;
+  wheelchairAccessibleSeating?: boolean | null;
 }
 
 export interface WineryVarietal {

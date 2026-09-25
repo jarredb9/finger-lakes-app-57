@@ -8,12 +8,13 @@ import {
   WineryDetailsRpc,
   Visit,
   WineryVarietal,
+  ParkingOptions,
+  AccessibilityOptions,
   toGooglePlaceId,
   toWineryDbId,
   isGooglePlaceId,
   isWineryDbId,
-} from '@/lib/types'; // Import RPC types and Json
-import { Json } from '@/lib/database.types'; // Import Json directly
+} from '@/lib/types';
 
 // Represents raw data from Google Places API or similar external sources
 export interface GoogleWinery {
@@ -150,16 +151,25 @@ function parseReviewsJson(json: unknown): PlaceReview[] | null | undefined {
 }
 
 // Helper to parse Json opening_hours to OpeningHours
-function parseOpeningHoursJson(json: Json | null | undefined): OpeningHours | null | undefined {
+export function parseOpeningHoursJson(json: unknown): OpeningHours | null | undefined {
     if (json === undefined) return undefined;
     if (json === null) return null;
     if (isRecord(json) && 'periods' in json) {
         const weekdayText = json.weekday_text || json.weekdayDescriptions || json.weekday_descriptions;
         return {
             ...json,
-            ...(weekdayText ? { weekday_text: weekdayText as string[] } : {})
+            ...(Array.isArray(weekdayText) ? { weekday_text: weekdayText as string[] } : {})
         } as unknown as OpeningHours;
     }
+    return null;
+}
+
+// Baseline stubs for Red Phase testing
+export function parseParkingOptionsJson(_json: unknown): ParkingOptions | null {
+    return null;
+}
+
+export function parseAccessibilityOptionsJson(_json: unknown): AccessibilityOptions | null {
     return null;
 }
 
@@ -350,7 +360,7 @@ export const standardizeWineryData = (
   } else {
     sourceOpeningHoursRaw = record['opening_hours'] ?? record['openingHours'];
   }
-  const parsedOpeningHours = parseOpeningHoursJson(sourceOpeningHoursRaw as Json | null | undefined);
+  const parsedOpeningHours = parseOpeningHoursJson(sourceOpeningHoursRaw);
   const openingHours = mergeField(parsedOpeningHours, existing?.openingHours);
   
   let rawReviewsSource: unknown;
@@ -429,14 +439,14 @@ export const standardizeWineryData = (
   const sourceParking = record['parking_options'] !== undefined 
     ? record['parking_options'] 
     : (record['parkingOptions'] !== undefined ? record['parkingOptions'] : undefined);
-  let rawParkingOptions: Record<string, any> | null | undefined;
+  let rawParkingOptions: ParkingOptions | null | undefined;
   if (isRecord(sourceParking)) {
-    rawParkingOptions = sourceParking as Record<string, any>;
+    rawParkingOptions = sourceParking as unknown as ParkingOptions;
   } else if (sourceParking !== undefined) {
     rawParkingOptions = null;
   }
   if (isRecord(rawParkingOptions)) {
-    const pObj = rawParkingOptions;
+    const pObj = rawParkingOptions as Record<string, unknown>;
     if (pObj['freeParking'] === undefined) {
       const hasFree = 
         pObj['freeParkingLot'] === true || 
@@ -470,9 +480,9 @@ export const standardizeWineryData = (
   const sourceAccessibility = record['accessibility_options'] !== undefined 
     ? record['accessibility_options'] 
     : (record['accessibility_flags'] !== undefined ? record['accessibility_flags'] : (record['accessibilityOptions'] !== undefined ? record['accessibilityOptions'] : undefined));
-  let rawAccessibility: Record<string, any> | null | undefined;
+  let rawAccessibility: AccessibilityOptions | null | undefined;
   if (isRecord(sourceAccessibility)) {
-    rawAccessibility = sourceAccessibility as Record<string, any>;
+    rawAccessibility = sourceAccessibility as unknown as AccessibilityOptions;
   } else if (sourceAccessibility !== undefined) {
     rawAccessibility = null;
   }
