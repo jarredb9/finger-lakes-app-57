@@ -55,12 +55,12 @@ Types Zustand trip mutations strictly to prevent in-memory and IndexedDB state c
 - [x] Task: Write Failing Tests for Trip Mutation Key Whitelisting & Input Validation (Red Phase) (71ce71f)
     - [x] Write unit tests in `lib/stores/__tests__/tripStore.test.ts` (or `tripMutationHelpers.test.ts`) verifying `updateTripHelper` accepts valid updates (`name`, `trip_date`), strips/rejects unpermitted fields, and logs dev warnings on invalid keys
     - [x] Run containerized trip store unit tests (`npm run test:container -- lib/stores/__tests__/tripStore.test.ts`) and confirm failure against current unconstrained spread implementation (Red phase verification)
-- [ ] Task: Implement Strict Typing & Sanitization for Trip Mutation Helper (Green Phase)
-    - [ ] Define `TripUpdateInput` interface (`name?: string; trip_date?: string`)
-    - [ ] Implement runtime key whitelisting and dev warning in `updateTripHelper(get, set, tripId, updates: TripUpdateInput)` in `lib/stores/slices/tripMutationHelpers.ts`
-    - [ ] Update `TripDataSlice.updateTrip` method signature in `lib/stores/slices/tripDataSlice.ts` to accept `TripUpdateInput`
-    - [ ] Run trip store unit tests (`npm run test:container -- lib/stores/__tests__/tripStore.test.ts`) and verify all pass (Green phase verification)
-    - [ ] Verify static type check passes (`npm run type-check`)
+- [x] Task: Implement Strict Typing & Sanitization for Trip Mutation Helper (Green Phase) (73fb51b)
+    - [x] Define `TripUpdateInput` interface (`name?: string; trip_date?: string`)
+    - [x] Implement runtime key whitelisting and dev warning in `updateTripHelper(get, set, tripId, updates: TripUpdateInput)` in `lib/stores/slices/tripMutationHelpers.ts`
+    - [x] Update `TripDataSlice.updateTrip` method signature in `lib/stores/slices/tripDataSlice.ts` to accept `TripUpdateInput`
+    - [x] Run trip store unit tests (`npm run test:container -- lib/stores/__tests__/tripStore.test.ts`) and verify all pass (Green phase verification)
+    - [x] Verify static type check passes (`npm run type-check`)
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Zustand Store Mutation Hardening' (Protocol in workflow.md)
 
 ## Phase 4: Test Environment Cleanup & Final Quality Gates
