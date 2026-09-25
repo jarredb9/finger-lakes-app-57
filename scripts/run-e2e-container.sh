@@ -7,8 +7,7 @@ set -e
 
 # 1. Configuration
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PLAYWRIGHT_VERSION="v1.63.0-noble"
-IMAGE="mcr.microsoft.com/playwright:$PLAYWRIGHT_VERSION"
+source "$SCRIPT_DIR/container-common.sh"
 
 # Parse optional flags
 SHOULD_BUILD=false
@@ -31,33 +30,13 @@ trap cleanup EXIT
 echo "🚀 Starting Playwright Containerized Tests (Rootless)..."
 echo "📦 Image: $IMAGE"
 
-# Detect container engine (honor CONTAINER_ENGINE env var, prefer docker in CI, fallback to podman locally)
-if [ -n "$CONTAINER_ENGINE" ]; then
-    ENGINE="$CONTAINER_ENGINE"
-elif [ "$CI" = "true" ] && command -v docker >/dev/null 2>&1; then
-    ENGINE="docker"
-elif command -v podman >/dev/null 2>&1; then
-    ENGINE="podman"
-elif command -v docker >/dev/null 2>&1; then
-    ENGINE="docker"
-else
-    echo "❌ Error: Neither podman nor docker was found on this system." >&2
-    exit 1
-fi
+# Setup container engine and pre-flight validation
+setup_container_engine
 
 # Detect TTY/CI environment to set interactive flags safely
 INTERACTIVE_FLAG=""
 if [ -t 0 ] && [ "$CI" != "true" ]; then
     INTERACTIVE_FLAG="-it"
-fi
-
-# Set engine-specific arguments
-EXTRA_OPTS=()
-if [ "$ENGINE" = "podman" ]; then
-    EXTRA_OPTS+=( "--userns=keep-id" )
-else
-    # Docker needs to run as the host user to prevent root-owned files in workspace mount
-    EXTRA_OPTS+=( "--user" "$(id -u):$(id -g)" )
 fi
 
 # Capture any caller-provided overrides before sourcing env files
@@ -144,17 +123,7 @@ else
 fi
 
 # 2. Ensure we have the image
-if [ "$ENGINE" = "podman" ]; then
-    if ! podman image exists "$IMAGE"; then
-        echo "📥 Pulling Playwright image..."
-        podman pull "$IMAGE"
-    fi
-else
-    if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-        echo "📥 Pulling Playwright image..."
-        docker pull "$IMAGE"
-    fi
-fi
+ensure_container_image "$IMAGE" "Playwright image"
 
 # 3. Run the container
 # Use a unique name to prevent stale container persistence

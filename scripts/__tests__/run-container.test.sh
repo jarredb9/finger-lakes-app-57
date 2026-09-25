@@ -260,6 +260,57 @@ run_script_not_pattern_test "$E2E_SCRIPT" "Docker CI: Preserves host node_module
     "VOL: /work/node_modules" "docker" "true"
 
 echo ""
+echo "=== Running scripts/container-common.sh Library Unit Tests ==="
+
+test_common_vars() {
+    echo -n "Running test: Common: Exports PLAYWRIGHT_VERSION and valid image... "
+    set +e
+    local output
+    output=$(bash -c "source '$PROJECT_ROOT/scripts/container-common.sh' && echo \"\$PLAYWRIGHT_VERSION \$IMAGE\"")
+    set -e
+    if [[ "$output" == "v1.63.0-noble mcr.microsoft.com/playwright:v1.63.0-noble" ]]; then
+        echo "✓ PASSED"
+        PASSED=$((PASSED + 1))
+    else
+        echo "✗ FAILED (got: $output)"
+        FAILED=$((FAILED + 1))
+    fi
+}
+test_common_vars
+
+test_common_engine_override() {
+    echo -n "Running test: Common: Honors CONTAINER_ENGINE override... "
+    set +e
+    local output
+    output=$(bash -c "export CONTAINER_ENGINE=custom-engine && source '$PROJECT_ROOT/scripts/container-common.sh' && detect_container_engine && echo \"\$ENGINE\"")
+    set -e
+    if [[ "$output" == "custom-engine" ]]; then
+        echo "✓ PASSED"
+        PASSED=$((PASSED + 1))
+    else
+        echo "✗ FAILED (got: $output)"
+        FAILED=$((FAILED + 1))
+    fi
+}
+test_common_engine_override
+
+test_common_ci_docker() {
+    echo -n "Running test: Common: Selects docker when CI=true... "
+    set +e
+    local output
+    output=$(PATH="$MOCK_BIN:$PATH" bash -c "export CI=true && source '$PROJECT_ROOT/scripts/container-common.sh' && detect_container_engine && echo \"\$ENGINE\"")
+    set -e
+    if [[ "$output" == "docker" ]]; then
+        echo "✓ PASSED"
+        PASSED=$((PASSED + 1))
+    else
+        echo "✗ FAILED (got: $output)"
+        FAILED=$((FAILED + 1))
+    fi
+}
+test_common_ci_docker
+
+echo ""
 echo "=== Test Results: $PASSED passed, $FAILED failed ==="
 
 if [ $FAILED -gt 0 ]; then
