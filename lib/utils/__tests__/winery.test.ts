@@ -442,6 +442,7 @@ describe('Winery Type Guards & Invariant Protection (Issue #53 - Red Phase)', ()
     it('returns true on valid MapMarkerRpc structure', () => {
       const valid = {
         google_place_id: 'ChIJ123',
+        name: 'Marker Winery',
         latitude: 42.5,
         longitude: -76.5
       };
@@ -486,6 +487,9 @@ describe('Winery Type Guards & Invariant Protection (Issue #53 - Red Phase)', ()
     it('returns true on valid WineryDetailsRpc structure', () => {
       const valid = {
         google_place_id: 'ChIJ123',
+        name: 'Details Winery',
+        latitude: 42.5,
+        longitude: -76.5,
         visits: []
       };
       expect(isWineryDetailsRpc(valid)).toBe(true);
@@ -523,6 +527,7 @@ describe('Winery Type Guards & Invariant Protection (Issue #53 - Red Phase)', ()
     it('returns false on objects matching GoogleWinery, MapMarkerRpc, or WineryDetailsRpc', () => {
       const google = {
         place_id: 'ChIJ123',
+        name: 'Google Winery',
         geometry: { location: { lat: 42, lng: -76 } },
         created_at: '2026-01-01'
       };
@@ -530,6 +535,7 @@ describe('Winery Type Guards & Invariant Protection (Issue #53 - Red Phase)', ()
 
       const mapMarker = {
         google_place_id: 'ChIJ123',
+        name: 'Map Marker Winery',
         latitude: 42,
         longitude: -76,
         created_at: '2026-01-01'
@@ -538,6 +544,9 @@ describe('Winery Type Guards & Invariant Protection (Issue #53 - Red Phase)', ()
 
       const wineryDetails = {
         google_place_id: 'ChIJ123',
+        name: 'Winery Details',
+        latitude: 42,
+        longitude: -76,
         visits: [],
         created_at: '2026-01-01'
       };

@@ -3,6 +3,8 @@ import {
   DbWinery,
   GooglePlaceId,
   OpeningHours,
+  OpeningHoursPoint,
+  OpeningHoursPeriod,
   PlaceReview,
   MapMarkerRpc,
   WineryDetailsRpc,
@@ -48,12 +50,31 @@ export function isRecord(val: unknown): val is Record<string, unknown> {
   return typeof val === 'object' && val !== null && !Array.isArray(val);
 }
 
+function hasNonEmptyName(source: Record<string, unknown>): boolean {
+  return typeof source.name === 'string' && source.name.trim().length > 0;
+}
+
+function hasValidCoordinates(source: Record<string, unknown>): boolean {
+  const hasStandardCoords =
+    typeof source.latitude === 'number' && !isNaN(source.latitude) &&
+    typeof source.longitude === 'number' && !isNaN(source.longitude);
+  const hasLegacyCoords =
+    typeof source.lat === 'number' && !isNaN(source.lat) &&
+    typeof source.lng === 'number' && !isNaN(source.lng);
+  return hasStandardCoords || hasLegacyCoords;
+}
+
+function hasGoogleId(source: Record<string, unknown>): boolean {
+  return isGooglePlaceId(source.google_place_id) || (typeof source.id === 'string' && source.id.trim().length > 0);
+}
+
 // Helper to check if a source is GoogleWinery
 export function isGoogleWinery(source: unknown): source is GoogleWinery {
   return (
     isRecord(source) &&
     typeof source.place_id === 'string' &&
     source.place_id.trim().length > 0 &&
+    hasNonEmptyName(source) &&
     isRecord(source.geometry)
   );
 }
@@ -61,14 +82,10 @@ export function isGoogleWinery(source: unknown): source is GoogleWinery {
 // Helper to check if a source is MapMarkerRpc
 export function isMapMarkerRpc(source: unknown): source is MapMarkerRpc {
   if (!isRecord(source)) return false;
-  // MapMarkerRpc always has latitude/longitude (standardized) or lat/lng (legacy)
-  // and some form of google id (google_place_id OR id as string)
-  const hasGoogleId = isGooglePlaceId(source.google_place_id) || (typeof source.id === 'string' && source.id.trim().length > 0);
-  const hasCoords = 'latitude' in source || 'lat' in source;
-  
   return (
-    hasGoogleId &&
-    hasCoords &&
+    hasGoogleId(source) &&
+    hasNonEmptyName(source) &&
+    hasValidCoordinates(source) &&
     !('visits' in source)
   );
 }
@@ -76,14 +93,24 @@ export function isMapMarkerRpc(source: unknown): source is MapMarkerRpc {
 // Helper to check if a source is WineryDetailsRpc
 export function isWineryDetailsRpc(source: unknown): source is WineryDetailsRpc {
   if (!isRecord(source)) return false;
-  // WineryDetailsRpc is the ONLY one with 'visits'
-  const hasGoogleId = isGooglePlaceId(source.google_place_id) || (typeof source.id === 'string' && source.id.trim().length > 0);
-  return hasGoogleId && 'visits' in source; 
+  return (
+    hasGoogleId(source) &&
+    hasNonEmptyName(source) &&
+    hasValidCoordinates(source) &&
+    'visits' in source
+  );
 }
 
 // Helper to check if a source has raw DbWinery properties (without extended user data from RPC)
 export function isRawDbWinery(source: unknown): source is DbWinery {
-  return isRecord(source) && !isGoogleWinery(source) && !isMapMarkerRpc(source) && !isWineryDetailsRpc(source) && 'created_at' in source;
+  return (
+    isRecord(source) &&
+    !isGoogleWinery(source) &&
+    !isMapMarkerRpc(source) &&
+    !isWineryDetailsRpc(source) &&
+    'created_at' in source &&
+    hasNonEmptyName(source)
+  );
 }
 
 // Helper to parse Json reviews to PlaceReview[]
@@ -150,27 +177,190 @@ function parseReviewsJson(json: unknown): PlaceReview[] | null | undefined {
     return null;
 }
 
+function parseOpeningHoursPoint(point: unknown): OpeningHoursPoint | null {
+  if (!isRecord(point)) return null;
+  if (typeof point.day !== 'number' || isNaN(point.day) || !Number.isInteger(point.day) || point.day < 0 || point.day > 6) {
+    return null;
+  }
+  const result: OpeningHoursPoint = { day: point.day };
+  if (typeof point.time === 'string') {
+    result.time = point.time;
+  }
+  if (typeof point.hour === 'number' && !isNaN(point.hour)) {
+    result.hour = point.hour;
+  }
+  if (typeof point.minute === 'number' && !isNaN(point.minute)) {
+    result.minute = point.minute;
+  }
+  return result;
+}
+
 // Helper to parse Json opening_hours to OpeningHours
 export function parseOpeningHoursJson(json: unknown): OpeningHours | null | undefined {
-    if (json === undefined) return undefined;
-    if (json === null) return null;
-    if (isRecord(json) && 'periods' in json) {
-        const weekdayText = json.weekday_text || json.weekdayDescriptions || json.weekday_descriptions;
-        return {
-            ...json,
-            ...(Array.isArray(weekdayText) ? { weekday_text: weekdayText as string[] } : {})
-        } as unknown as OpeningHours;
+  if (json === undefined) return undefined;
+  if (json === null) return null;
+  if (!isRecord(json)) return null;
+
+  let validPeriods: OpeningHoursPeriod[] | undefined;
+  if (Array.isArray(json.periods)) {
+    const collected: OpeningHoursPeriod[] = [];
+    for (const item of json.periods) {
+      if (!isRecord(item)) continue;
+      const openPoint = parseOpeningHoursPoint(item.open);
+      if (!openPoint) continue;
+
+      let closePoint: OpeningHoursPoint | null | undefined = undefined;
+      if (item.close !== undefined && item.close !== null) {
+        closePoint = parseOpeningHoursPoint(item.close);
+        if (!closePoint) continue;
+      } else if (item.close === null) {
+        closePoint = null;
+      }
+
+      const period: OpeningHoursPeriod = { open: openPoint };
+      if (closePoint !== undefined) {
+        period.close = closePoint;
+      }
+      collected.push(period);
     }
+    if (collected.length > 0) {
+      validPeriods = collected;
+    }
+  }
+
+  let validWeekdayText: string[] | undefined;
+  const rawWeekday = json.weekday_text ?? json.weekdayDescriptions ?? json.weekday_descriptions;
+  if (Array.isArray(rawWeekday)) {
+    const textArr: string[] = [];
+    for (const line of rawWeekday) {
+      if (typeof line === 'string' && line.trim().length > 0) {
+        textArr.push(line);
+      }
+    }
+    if (textArr.length > 0) {
+      validWeekdayText = textArr;
+    }
+  }
+
+  let openNow: boolean | undefined;
+  if (typeof json.open_now === 'boolean') {
+    openNow = json.open_now;
+  } else if (typeof json.openNow === 'boolean') {
+    openNow = json.openNow;
+  }
+
+  if (!validPeriods && !validWeekdayText) {
     return null;
+  }
+
+  const result: OpeningHours = {};
+  if (validPeriods) {
+    result.periods = validPeriods;
+  }
+  if (validWeekdayText) {
+    result.weekday_text = validWeekdayText;
+  }
+  if (openNow !== undefined) {
+    result.open_now = openNow;
+  }
+  return result;
 }
 
-// Baseline stubs for Red Phase testing
-export function parseParkingOptionsJson(_json: unknown): ParkingOptions | null {
+const FREE_PARKING_FLAGS = [
+  'freeParkingLot',
+  'freeStreetParking',
+  'freeGarageParking',
+  'freeValetParking',
+] as const;
+
+const PAID_PARKING_FLAGS = [
+  'paidParkingLot',
+  'paidStreetParking',
+  'paidGarageParking',
+  'paidValetParking',
+] as const;
+
+export function parseParkingOptionsJson(json: unknown): ParkingOptions | null {
+  if (!isRecord(json)) return null;
+
+  const result: ParkingOptions = {};
+  let recognizedCount = 0;
+  let hasFree = false;
+  let hasPaid = false;
+
+  for (const key of FREE_PARKING_FLAGS) {
+    if (typeof json[key] === 'boolean') {
+      result[key] = json[key];
+      recognizedCount++;
+      if (json[key] === true) {
+        hasFree = true;
+      }
+    } else if (json[key] === null) {
+      result[key] = null;
+      recognizedCount++;
+    }
+  }
+
+  for (const key of PAID_PARKING_FLAGS) {
+    if (typeof json[key] === 'boolean') {
+      result[key] = json[key];
+      recognizedCount++;
+      if (json[key] === true) {
+        hasPaid = true;
+      }
+    } else if (json[key] === null) {
+      result[key] = null;
+      recognizedCount++;
+    }
+  }
+
+  if (typeof json.freeParking === 'boolean') {
+    result.freeParking = json.freeParking;
+    recognizedCount++;
+  } else if (json.freeParking === null) {
+    result.freeParking = null;
+    recognizedCount++;
+  } else if (hasFree) {
+    result.freeParking = true;
+  } else if (hasPaid) {
+    result.freeParking = false;
+  }
+
+  if (recognizedCount === 0) {
     return null;
+  }
+
+  return result;
 }
 
-export function parseAccessibilityOptionsJson(_json: unknown): AccessibilityOptions | null {
+const ACCESSIBILITY_FLAGS = [
+  'wheelchairAccessibleParking',
+  'wheelchairAccessibleEntrance',
+  'wheelchairAccessibleRestroom',
+  'wheelchairAccessibleSeating',
+] as const;
+
+export function parseAccessibilityOptionsJson(json: unknown): AccessibilityOptions | null {
+  if (!isRecord(json)) return null;
+
+  const result: AccessibilityOptions = {};
+  let recognizedCount = 0;
+
+  for (const key of ACCESSIBILITY_FLAGS) {
+    if (typeof json[key] === 'boolean') {
+      result[key] = json[key];
+      recognizedCount++;
+    } else if (json[key] === null) {
+      result[key] = null;
+      recognizedCount++;
+    }
+  }
+
+  if (recognizedCount === 0) {
     return null;
+  }
+
+  return result;
 }
 
 
@@ -439,53 +629,13 @@ export const standardizeWineryData = (
   const sourceParking = record['parking_options'] !== undefined 
     ? record['parking_options'] 
     : (record['parkingOptions'] !== undefined ? record['parkingOptions'] : undefined);
-  let rawParkingOptions: ParkingOptions | null | undefined;
-  if (isRecord(sourceParking)) {
-    rawParkingOptions = sourceParking as unknown as ParkingOptions;
-  } else if (sourceParking !== undefined) {
-    rawParkingOptions = null;
-  }
-  if (isRecord(rawParkingOptions)) {
-    const pObj = rawParkingOptions as Record<string, unknown>;
-    if (pObj['freeParking'] === undefined) {
-      const hasFree = 
-        pObj['freeParkingLot'] === true || 
-        pObj['freeStreetParking'] === true || 
-        pObj['freeGarageParking'] === true ||
-        pObj['freeValetParking'] === true;
-        
-      const hasPaid = 
-        pObj['paidParkingLot'] === true || 
-        pObj['paidStreetParking'] === true || 
-        pObj['paidGarageParking'] === true ||
-        pObj['paidValetParking'] === true;
-
-      let freeParkingVal: boolean | undefined = undefined;
-      if (hasFree) {
-        freeParkingVal = true;
-      } else if (hasPaid) {
-        freeParkingVal = false;
-      }
-
-      if (freeParkingVal !== undefined) {
-        rawParkingOptions = {
-          ...pObj,
-          freeParking: freeParkingVal
-        };
-      }
-    }
-  }
+  const rawParkingOptions = sourceParking !== undefined ? parseParkingOptionsJson(sourceParking) : undefined;
   const parkingOptions = mergeField(rawParkingOptions, existing?.parking_options) ?? null;
 
   const sourceAccessibility = record['accessibility_options'] !== undefined 
     ? record['accessibility_options'] 
     : (record['accessibility_flags'] !== undefined ? record['accessibility_flags'] : (record['accessibilityOptions'] !== undefined ? record['accessibilityOptions'] : undefined));
-  let rawAccessibility: AccessibilityOptions | null | undefined;
-  if (isRecord(sourceAccessibility)) {
-    rawAccessibility = sourceAccessibility as unknown as AccessibilityOptions;
-  } else if (sourceAccessibility !== undefined) {
-    rawAccessibility = null;
-  }
+  const rawAccessibility = sourceAccessibility !== undefined ? parseAccessibilityOptionsJson(sourceAccessibility) : undefined;
   const accessibilityOptions = mergeField(rawAccessibility, existing?.accessibility_options) ?? null;
 
   const sourcePrimaryPhoto = typeof record['primary_photo_reference'] === 'string' 
