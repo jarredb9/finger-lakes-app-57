@@ -836,14 +836,14 @@ describe('SyncService', () => {
       expect(mockSupabase.rpc).not.toHaveBeenCalledWith('toggle_favorite', expect.anything());
     });
 
-    it('validates wineryDbId with toWineryDbId in toggle_favorite_privacy', async () => {
+    it('routes toggle_favorite_privacy with invalid wineryDbId to DLQ as a 400 error and removes from queue', async () => {
       const payload = {
         action: 'toggle_favorite_privacy',
         wineryDbId: -99, // Invalid sequence ID
       };
 
       const mockMutation = {
-        id: 'sync-toggle-privacy-invalid',
+        id: 'sync-toggle-fav-privacy-invalid',
         type: 'winery_action',
         encryptedPayload: 'privacy-payload',
         userId: 'test-user-id',
@@ -859,11 +859,76 @@ describe('SyncService', () => {
       };
 
       (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+      const routeToDLQSpy = jest.spyOn(SyncService, 'routeToDLQ');
 
       await SyncService.sync();
 
       expect(toWineryDbId).toHaveBeenCalledWith(-99);
       expect(mockSupabase.rpc).not.toHaveBeenCalledWith('toggle_favorite_privacy', expect.anything());
+      expect(routeToDLQSpy).toHaveBeenCalledWith(
+        mockMutation,
+        expect.objectContaining({
+          status: 400,
+          statusCode: 400,
+          message: expect.stringContaining('Permanent mutation failure: invalid or missing wineryDbId for toggle_favorite_privacy'),
+        }),
+        payload
+      );
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-toggle-fav-privacy-invalid');
+
+      const dlqEntries = await SyncService.getDLQEntries();
+      const routedItem = dlqEntries.find(e => e.mutationId === 'sync-toggle-fav-privacy-invalid' || e.id === 'sync-toggle-fav-privacy-invalid');
+      expect(routedItem).toBeDefined();
+      expect(routedItem?.error.status).toBe(400);
+      expect(routedItem?.error.message).toContain('Permanent mutation failure: invalid or missing wineryDbId for toggle_favorite_privacy');
+      routeToDLQSpy.mockRestore();
+    });
+
+    it('routes toggle_wishlist_privacy with missing wineryDbId to DLQ as a 400 error and removes from queue', async () => {
+      const payload = {
+        action: 'toggle_wishlist_privacy',
+        // wineryDbId missing
+      };
+
+      const mockMutation = {
+        id: 'sync-toggle-wish-privacy-missing',
+        type: 'winery_action',
+        encryptedPayload: 'privacy-payload-missing',
+        userId: 'test-user-id',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue(payload),
+      };
+
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+      const routeToDLQSpy = jest.spyOn(SyncService, 'routeToDLQ');
+
+      await SyncService.sync();
+
+      expect(mockSupabase.rpc).not.toHaveBeenCalledWith('toggle_wishlist_privacy', expect.anything());
+      expect(routeToDLQSpy).toHaveBeenCalledWith(
+        mockMutation,
+        expect.objectContaining({
+          status: 400,
+          statusCode: 400,
+          message: expect.stringContaining('Permanent mutation failure: invalid or missing wineryDbId for toggle_wishlist_privacy'),
+        }),
+        payload
+      );
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-toggle-wish-privacy-missing');
+
+      const dlqEntries = await SyncService.getDLQEntries();
+      const routedItem = dlqEntries.find(e => e.mutationId === 'sync-toggle-wish-privacy-missing' || e.id === 'sync-toggle-wish-privacy-missing');
+      expect(routedItem).toBeDefined();
+      expect(routedItem?.error.status).toBe(400);
+      expect(routedItem?.error.message).toContain('Permanent mutation failure: invalid or missing wineryDbId for toggle_wishlist_privacy');
+      routeToDLQSpy.mockRestore();
     });
   });
 });

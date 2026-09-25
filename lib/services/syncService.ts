@@ -268,7 +268,7 @@ export const SyncService = {
         }
 
         // Defer replaying mutations that are still within their backoff window
-        const nextRetry = (item as any).nextRetryAt ?? this.nextRetryMap.get(item.id);
+        const nextRetry = item.nextRetryAt ?? this.nextRetryMap.get(item.id);
         if (nextRetry && Date.now() < nextRetry) {
           if (isDiagnostic) console.log(`[SyncService] Mutation ${item.id} is in backoff window until ${new Date(nextRetry).toISOString()}`);
           continue;
@@ -476,7 +476,7 @@ export const SyncService = {
                   error = addError;
               } else {
                 // Optimistic Concurrency Control (OCC): Server-wins conflict resolution
-                const clientUpdatedAt = payload.clientUpdatedAt || (item as any).createdAt;
+                const clientUpdatedAt = payload.clientUpdatedAt || item.createdAt;
                 if (clientUpdatedAt && typeof supabase.from === 'function') {
                   const queryBuilder = supabase.from('trips');
                   if (typeof queryBuilder?.select === 'function') {
@@ -587,20 +587,38 @@ export const SyncService = {
                 error = wError;
               } else if (payload.action === 'toggle_favorite_privacy') {
                 const wineryDbId = toWineryDbId(typeof payload.wineryDbId === 'number' ? payload.wineryDbId : null);
-                if (wineryDbId) {
-                  const { error: fpError } = await supabase.rpc('toggle_favorite_privacy', {
-                    p_winery_id: wineryDbId
-                  });
-                  error = fpError;
+                if (!wineryDbId) {
+                  const validationError = {
+                    status: 400,
+                    statusCode: 400,
+                    message: `Permanent mutation failure: invalid or missing wineryDbId for ${payload.action}`
+                  };
+                  await this.routeToDLQ(item, validationError, payload);
+                  await removeMutation(item.id);
+                  this.clearBackoff(item.id);
+                  continue;
                 }
+                const { error: fpError } = await supabase.rpc('toggle_favorite_privacy', {
+                  p_winery_id: wineryDbId
+                });
+                error = fpError;
               } else if (payload.action === 'toggle_wishlist_privacy') {
                 const wineryDbId = toWineryDbId(typeof payload.wineryDbId === 'number' ? payload.wineryDbId : null);
-                if (wineryDbId) {
-                  const { error: wpError } = await supabase.rpc('toggle_wishlist_privacy', {
-                    p_winery_id: wineryDbId
-                  });
-                  error = wpError;
+                if (!wineryDbId) {
+                  const validationError = {
+                    status: 400,
+                    statusCode: 400,
+                    message: `Permanent mutation failure: invalid or missing wineryDbId for ${payload.action}`
+                  };
+                  await this.routeToDLQ(item, validationError, payload);
+                  await removeMutation(item.id);
+                  this.clearBackoff(item.id);
+                  continue;
                 }
+                const { error: wpError } = await supabase.rpc('toggle_wishlist_privacy', {
+                  p_winery_id: wineryDbId
+                });
+                error = wpError;
               }
               break;
 
@@ -632,7 +650,7 @@ export const SyncService = {
               this.backoffDelays.set(item.id, delay);
               const nextRetry = Date.now() + delay;
               this.nextRetryMap.set(item.id, nextRetry);
-              (item as any).nextRetryAt = nextRetry;
+              item.nextRetryAt = nextRetry;
               if (isDiagnostic) console.log(`[SyncService] 5xx/network error for ${item.id}. Scheduling retry in ${delay}ms (attempt ${attempt}).`);
               continue;
             }
@@ -666,7 +684,7 @@ export const SyncService = {
             this.backoffDelays.set(item.id, delay);
             const nextRetry = Date.now() + delay;
             this.nextRetryMap.set(item.id, nextRetry);
-            (item as any).nextRetryAt = nextRetry;
+            item.nextRetryAt = nextRetry;
             if (isDiagnostic) console.log(`[SyncService] 5xx/network error (caught) for ${item.id}. Scheduling retry in ${delay}ms (attempt ${attempt}).`);
             continue;
           }
