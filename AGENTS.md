@@ -14,7 +14,10 @@
 
 ## 3. Environment & Execution Commands
 - **Runtime:** Node.js 24 (LTS).
-- **Container Execution Guardrail (Agent Sandbox):** Container commands (`./scripts/run-jest-container.sh`, `./scripts/run-e2e-container.sh`, `npm run dev:container`, `npm run build:container`) interact with host rootless Podman storage (`~/.local/share/containers`) and runtime sockets (`/run`). Agents MUST execute these with `BypassSandbox: true`; running them in the default restricted sandbox will fail with a read-only filesystem error.
+- **BypassSandbox Mandates:** Standard sandbox enforces read-only `.git/` and blocks host sockets. Immediately use `BypassSandbox: true` without attempting sandboxed first:
+  - **Git mutations:** `git add`, `commit`, `stash`, `checkout -b`, `rebase` (read-only git stays sandboxed).
+  - **Container runners:** `./scripts/run-*-container.sh`, `npm run dev:container`, `build:container`.
+  - **Local DB stack:** `npm run db:start|stop|reset|status` (uses host `/run` Podman socket).
 - **Dev Server:**
   - Host: `npm run dev` (http://localhost:3000) or `npm run dev:real` (local Supabase stack at http://127.0.0.1:54321).
   - Container (RHEL 8 / Native Turbopack): `npm run dev:container` or `npm run dev:container:real` (requires `BypassSandbox: true`).
