@@ -52,9 +52,9 @@ Hardens winery type guards against `null`/`undefined` crash bugs, eliminates unt
 ## Phase 3: Zustand Store Mutation Hardening
 Types Zustand trip mutations strictly to prevent in-memory and IndexedDB state corruption.
 
-- [ ] Task: Write Failing Tests for Trip Mutation Key Whitelisting & Input Validation (Red Phase)
-    - [ ] Write unit tests in `lib/stores/__tests__/tripStore.test.ts` (or `tripMutationHelpers.test.ts`) verifying `updateTripHelper` accepts valid updates (`name`, `trip_date`), strips/rejects unpermitted fields, and logs dev warnings on invalid keys
-    - [ ] Run containerized trip store unit tests (`npm run test:container -- lib/stores/__tests__/tripStore.test.ts`) and confirm failure against current unconstrained spread implementation (Red phase verification)
+- [x] Task: Write Failing Tests for Trip Mutation Key Whitelisting & Input Validation (Red Phase) (71ce71f)
+    - [x] Write unit tests in `lib/stores/__tests__/tripStore.test.ts` (or `tripMutationHelpers.test.ts`) verifying `updateTripHelper` accepts valid updates (`name`, `trip_date`), strips/rejects unpermitted fields, and logs dev warnings on invalid keys
+    - [x] Run containerized trip store unit tests (`npm run test:container -- lib/stores/__tests__/tripStore.test.ts`) and confirm failure against current unconstrained spread implementation (Red phase verification)
 - [ ] Task: Implement Strict Typing & Sanitization for Trip Mutation Helper (Green Phase)
     - [ ] Define `TripUpdateInput` interface (`name?: string; trip_date?: string`)
     - [ ] Implement runtime key whitelisting and dev warning in `updateTripHelper(get, set, tripId, updates: TripUpdateInput)` in `lib/stores/slices/tripMutationHelpers.ts`
