@@ -29,6 +29,10 @@ Revise the plan to ensure optimal agent execution and prevent context blowup:
 
 Delegate the review to multiple multiple concurrent specialized research, code review, or other specialty agents to ensure a proper review is completed without main session or sub-agent context bloat. 
 ```
+
+### MattPocock Skills - Use /grill-with-docs to ensure intent is being met, not just architectural rigour
+/grill-with-docs Evaluate the draft spec and plan in conductor track <track-id> against <source-requirement> and our codebase. Grill me on missing edge cases, architectural trade-offs, testing gaps, and unaddressed failure modes. Once we finish, update spec.md and plan.md with our settled decisions.
+
 ### Teamwork Review Prompt - Best for large tracks that span a large part of the project, but heavy token cost
 /teamwork-preview Perform a comprehensive architectural and failure-mode of conductor/tracks/<track-id>/
 
