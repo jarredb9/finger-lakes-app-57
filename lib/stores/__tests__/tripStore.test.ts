@@ -147,18 +147,149 @@ describe('tripStore', () => {
   });
 
   describe('updateTrip', () => {
-    it('should update a trip successfully and update state', async () => {
-      useTripStore.setState({ trips: [mockTrip] });
-      const updatedTrip = { ...mockTrip, name: 'Updated Title' };
+    it('should update a trip successfully and update state with valid fields', async () => {
+      useTripStore.setState({
+        trips: [mockTrip],
+        upcomingTrips: [mockTrip],
+        tripsForDate: [mockTrip],
+      });
+      const updatedTrip = { ...mockTrip, name: 'Updated Title', trip_date: '2026-10-15' };
       mockTripService.updateTrip.mockResolvedValue(updatedTrip);
 
       await act(async () => {
-        await useTripStore.getState().updateTrip(String(mockTrip.id), { name: 'Updated Title' } as any);
+        await useTripStore.getState().updateTrip(String(mockTrip.id), {
+          name: 'Updated Title',
+          trip_date: '2026-10-15',
+        } as any);
       });
 
       const state = useTripStore.getState();
-      expect((state.trips[0] as any).name).toBe('Updated Title');
-      expect(mockTripService.updateTrip).toHaveBeenCalledWith(String(mockTrip.id), { name: 'Updated Title' });
+      expect(state.trips[0].name).toBe('Updated Title');
+      expect(state.trips[0].trip_date).toBe('2026-10-15');
+      expect(state.upcomingTrips[0].name).toBe('Updated Title');
+      expect(state.tripsForDate[0].name).toBe('Updated Title');
+      expect(mockTripService.updateTrip).toHaveBeenCalledWith(String(mockTrip.id), {
+        name: 'Updated Title',
+        trip_date: '2026-10-15',
+      });
+    });
+
+    it('strips unpermitted fields (id, user_id, notes, arbitrary keys) and prevents state and service pollution', async () => {
+      useTripStore.setState({
+        trips: [mockTrip],
+        upcomingTrips: [mockTrip],
+        tripsForDate: [mockTrip],
+      });
+      mockTripService.updateTrip.mockResolvedValue(undefined);
+
+      const adversarialUpdates = {
+        name: 'Sanitized Trip Name',
+        id: 99999,
+        user_id: 'attacker-user-id',
+        created_at: '2020-01-01T00:00:00Z',
+        notes: 'stray winery note',
+        malicious: true,
+        extraKey: 'unexpected_data',
+      };
+
+      await act(async () => {
+        await useTripStore.getState().updateTrip(String(mockTrip.id), adversarialUpdates as any);
+      });
+
+      const state = useTripStore.getState();
+      const updatedTrip = state.trips[0] as any;
+      const updatedUpcoming = state.upcomingTrips[0] as any;
+      const updatedDate = state.tripsForDate[0] as any;
+
+      // Invariant: Core immutable fields MUST NOT be overwritten by unwhitelisted mutation keys
+      expect(updatedTrip.id).toBe(100);
+      expect(updatedTrip.user_id).toBe('user-123');
+      expect(updatedTrip.name).toBe('Sanitized Trip Name');
+
+      // Invariant: Unpermitted keys MUST NOT leak into store collections
+      expect(updatedTrip.notes).toBeUndefined();
+      expect(updatedTrip.malicious).toBeUndefined();
+      expect(updatedTrip.extraKey).toBeUndefined();
+
+      expect(updatedUpcoming.id).toBe(100);
+      expect(updatedUpcoming.user_id).toBe('user-123');
+      expect(updatedUpcoming.notes).toBeUndefined();
+      expect(updatedUpcoming.malicious).toBeUndefined();
+
+      expect(updatedDate.id).toBe(100);
+      expect(updatedDate.user_id).toBe('user-123');
+      expect(updatedDate.notes).toBeUndefined();
+      expect(updatedDate.malicious).toBeUndefined();
+
+      // Invariant: Service payload passed to TripService and sync queue must ONLY contain whitelisted fields
+      expect(mockTripService.updateTrip).toHaveBeenCalledWith(String(mockTrip.id), {
+        name: 'Sanitized Trip Name',
+      });
+    });
+
+    it('logs development console.warn warning when unpermitted keys are supplied', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      useTripStore.setState({ trips: [mockTrip] });
+      mockTripService.updateTrip.mockResolvedValue(undefined);
+
+      try {
+        await act(async () => {
+          await useTripStore.getState().updateTrip(String(mockTrip.id), {
+            name: 'Valid Name',
+            unpermittedKey: 'injected',
+          } as any);
+        });
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('[updateTrip] Warning: Unpermitted or invalid keys stripped from update payload:'),
+          expect.arrayContaining(['unpermittedKey'])
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('rejects invalid non-string name and invalid date format, leaving existing fields intact', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      useTripStore.setState({ trips: [mockTrip] });
+      mockTripService.updateTrip.mockResolvedValue(undefined);
+
+      try {
+        await act(async () => {
+          await useTripStore.getState().updateTrip(String(mockTrip.id), {
+            name: 12345,
+            trip_date: 'invalid-date-string',
+          } as any);
+        });
+
+        const state = useTripStore.getState();
+        // Invariant: Existing valid name and trip_date are preserved when invalid types are passed
+        expect(state.trips[0].name).toBe('Test Trip');
+        expect(state.trips[0].trip_date).toBe(mockTrip.trip_date);
+
+        // Dev warning must be logged for invalid values
+        expect(warnSpy).toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('handles nullish and non-record update payloads defensively without throwing uncaught exceptions', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      useTripStore.setState({ trips: [mockTrip] });
+      mockTripService.updateTrip.mockResolvedValue(undefined);
+
+      try {
+        await act(async () => {
+          await useTripStore.getState().updateTrip(String(mockTrip.id), null as any);
+        });
+
+        const state = useTripStore.getState();
+        expect(state.trips[0].name).toBe('Test Trip');
+        expect(mockTripService.updateTrip).not.toHaveBeenCalled();
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
   });
 
