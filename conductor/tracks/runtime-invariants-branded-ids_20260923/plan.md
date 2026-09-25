@@ -63,7 +63,7 @@ Types Zustand trip mutations strictly to prevent in-memory and IndexedDB state c
     - [x] Verify static type check passes (`npm run type-check`)
 - [x] Task: Conductor - User Manual Verification 'Phase 3: Zustand Store Mutation Hardening' (Protocol in workflow.md) (2e0b740)
 
-## Phase 4: Test Environment Cleanup & Final Quality Gates
+## Phase 4: Test Environment Cleanup & Final Quality Gates [checkpoint: 3a3da31]
 Consolidates permanent regression tests into canonical test files, purges temporary scaffolding tests to preserve a clean test runner environment, and validates full build and type integrity.
 
 - [x] Task: Scaffolding Test Cleanup & Test Suite Consolidation (98939ff)
