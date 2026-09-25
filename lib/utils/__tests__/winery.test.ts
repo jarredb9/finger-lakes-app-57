@@ -765,6 +765,3 @@ describe('Winery Type Guards & Invariant Protection (Issue #53 - Red Phase)', ()
     });
   });
 });
-
-
-
