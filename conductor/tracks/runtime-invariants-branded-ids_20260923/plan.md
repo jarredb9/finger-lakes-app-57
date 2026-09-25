@@ -82,9 +82,9 @@ Consolidates permanent regression tests into canonical test files, purges tempor
 ## Phase 5: Gold Standard Boundary Parsers & Domain Hardening
 Eliminates all remaining compiler-silencing assertions across ingestion boundaries, adds typed domain schemas for enrichment amenities, hardens sync service error routing to DLQ, and secures trip creation mutator inputs.
 
-- [ ] Task: Adversarial Tests for Boundary Parsers & RPC Guards (Red Phase)
-    - [ ] Write red-failing unit tests in `lib/utils/__tests__/winery.test.ts` for `parseOpeningHoursJson`, `parseParkingOptionsJson`, `parseAccessibilityOptionsJson`, and tightened RPC guards (`isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, `isRawDbWinery`) covering malformed nested objects and corrupt periods
-    - [ ] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) and confirm failures on unhandled corrupt inputs (Red phase verification)
+- [x] Task: Adversarial Tests for Boundary Parsers & RPC Guards (Red Phase) (857d1c7)
+    - [x] Write red-failing unit tests in `lib/utils/__tests__/winery.test.ts` for `parseOpeningHoursJson`, `parseParkingOptionsJson`, `parseAccessibilityOptionsJson`, and tightened RPC guards (`isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, `isRawDbWinery`) covering malformed nested objects and corrupt periods
+    - [x] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) and confirm failures on unhandled corrupt inputs (Red phase verification)
 - [ ] Task: Implement Gold-Standard Structural Parsers & Domain Interfaces (Green Phase)
     - [ ] Define `ParkingOptions` and `AccessibilityOptions` interfaces in `lib/types.ts` and update `Winery`
     - [ ] Implement `parseOpeningHoursJson`, `parseParkingOptionsJson`, and `parseAccessibilityOptionsJson` with zero `as` assertions in `lib/utils/winery.ts`
