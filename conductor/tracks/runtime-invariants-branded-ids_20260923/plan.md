@@ -85,12 +85,12 @@ Eliminates all remaining compiler-silencing assertions across ingestion boundari
 - [x] Task: Adversarial Tests for Boundary Parsers & RPC Guards (Red Phase) (857d1c7)
     - [x] Write red-failing unit tests in `lib/utils/__tests__/winery.test.ts` for `parseOpeningHoursJson`, `parseParkingOptionsJson`, `parseAccessibilityOptionsJson`, and tightened RPC guards (`isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, `isRawDbWinery`) covering malformed nested objects and corrupt periods
     - [x] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) and confirm failures on unhandled corrupt inputs (Red phase verification)
-- [ ] Task: Implement Gold-Standard Structural Parsers & Domain Interfaces (Green Phase)
-    - [ ] Define `ParkingOptions` and `AccessibilityOptions` interfaces in `lib/types.ts` and update `Winery`
-    - [ ] Implement `parseOpeningHoursJson`, `parseParkingOptionsJson`, and `parseAccessibilityOptionsJson` with zero `as` assertions in `lib/utils/winery.ts`
-    - [ ] Strengthen RPC type guards with string `name`, valid coordinates, and non-empty IDs in `lib/utils/winery.ts`
-    - [ ] Collapse `toGooglePlaceId` and `toWineryDbId` overload signatures in `lib/types.ts`
-    - [ ] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) and verify all pass (Green phase verification)
+- [x] Task: Implement Gold-Standard Structural Parsers & Domain Interfaces (Green Phase) (14b3311)
+    - [x] Define `ParkingOptions` and `AccessibilityOptions` interfaces in `lib/types.ts` and update `Winery`
+    - [x] Implement `parseOpeningHoursJson`, `parseParkingOptionsJson`, and `parseAccessibilityOptionsJson` with zero `as` assertions in `lib/utils/winery.ts`
+    - [x] Strengthen RPC type guards with string `name`, valid coordinates, and non-empty IDs in `lib/utils/winery.ts`
+    - [x] Collapse `toGooglePlaceId` and `toWineryDbId` overload signatures in `lib/types.ts`
+    - [x] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) and verify all pass (Green phase verification)
 - [ ] Task: Sync Service DLQ Routing & Residual Cast Cleanup (TDD)
     - [ ] Add unit test in `lib/services/__tests__/syncService.test.ts` asserting that missing/invalid `wineryDbId` on privacy mutations routes to DLQ as a 400 error and removes mutation from queue
     - [ ] Update `lib/services/syncService.ts` lines 588–604 to route missing `wineryDbId` to DLQ instead of silently dropping
