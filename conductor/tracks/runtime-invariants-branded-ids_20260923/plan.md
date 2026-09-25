@@ -70,10 +70,10 @@ Consolidates permanent regression tests into canonical test files, purges tempor
     - [x] Review all test files created or modified during the track
     - [x] Ensure permanent regression assertions reside in canonical test suites (`lib/utils/__tests__/winery.test.ts`, `lib/utils/__tests__/opening-hours.test.ts`, `lib/__tests__/types.test.ts`, `lib/services/__tests__/syncService.test.ts`, `lib/stores/__tests__/tripStore.test.ts`)
     - [x] Identify and delete any temporary, scratch, or transitional scaffolding test files to leave a pristine test environment
-- [ ] Task: Repository-Wide Verification & Quality Gates
-    - [ ] Run full TypeScript static type checking: `npm run type-check`
-    - [ ] Run full containerized Jest test suite: `npm run test:container`
-    - [ ] Verify zero regressions across affected modules and confirm clean git working tree
+- [x] Task: Repository-Wide Verification & Quality Gates (26064aa)
+    - [x] Run full TypeScript static type checking: `npm run type-check`
+    - [x] Run full containerized Jest test suite: `npm run test:container`
+    - [x] Verify zero regressions across affected modules and confirm clean git working tree
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Test Environment Cleanup & Final Quality Gates' (Protocol in workflow.md)
 
 ## Phase: Review Fixes
