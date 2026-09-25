@@ -78,3 +78,30 @@ Consolidates permanent regression tests into canonical test files, purges tempor
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions (40f77b3) for Phase 1
+
+## Phase 5: Gold Standard Boundary Parsers & Domain Hardening
+Eliminates all remaining compiler-silencing assertions across ingestion boundaries, adds typed domain schemas for enrichment amenities, hardens sync service error routing to DLQ, and secures trip creation mutator inputs.
+
+- [ ] Task: Adversarial Tests for Boundary Parsers & RPC Guards (Red Phase)
+    - [ ] Write red-failing unit tests in `lib/utils/__tests__/winery.test.ts` for `parseOpeningHoursJson`, `parseParkingOptionsJson`, `parseAccessibilityOptionsJson`, and tightened RPC guards (`isGoogleWinery`, `isMapMarkerRpc`, `isWineryDetailsRpc`, `isRawDbWinery`) covering malformed nested objects and corrupt periods
+    - [ ] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) and confirm failures on unhandled corrupt inputs (Red phase verification)
+- [ ] Task: Implement Gold-Standard Structural Parsers & Domain Interfaces (Green Phase)
+    - [ ] Define `ParkingOptions` and `AccessibilityOptions` interfaces in `lib/types.ts` and update `Winery`
+    - [ ] Implement `parseOpeningHoursJson`, `parseParkingOptionsJson`, and `parseAccessibilityOptionsJson` with zero `as` assertions in `lib/utils/winery.ts`
+    - [ ] Strengthen RPC type guards with string `name`, valid coordinates, and non-empty IDs in `lib/utils/winery.ts`
+    - [ ] Collapse `toGooglePlaceId` and `toWineryDbId` overload signatures in `lib/types.ts`
+    - [ ] Run containerized winery tests (`npm run test:container -- lib/utils/__tests__/winery.test.ts`) and verify all pass (Green phase verification)
+- [ ] Task: Sync Service DLQ Routing & Residual Cast Cleanup (TDD)
+    - [ ] Add unit test in `lib/services/__tests__/syncService.test.ts` asserting that missing/invalid `wineryDbId` on privacy mutations routes to DLQ as a 400 error and removes mutation from queue
+    - [ ] Update `lib/services/syncService.ts` lines 588–604 to route missing `wineryDbId` to DLQ instead of silently dropping
+    - [ ] Remove `(item as any)` casts accessing `nextRetryAt` and `createdAt` on `SyncItem`
+    - [ ] Run sync service unit tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`) and verify all pass
+- [ ] Task: Runtime Mutation Allowlisting for `createTripHelper` (TDD)
+    - [ ] Add unit tests in `lib/stores/__tests__/tripStore.test.ts` verifying `createTripHelper` strips unpermitted keys (`id`, `user_id`, `created_at`) with dev warnings and validates types
+    - [ ] Implement `ALLOWED_CREATE_TRIP_KEYS` allowlisting and dev warnings in `lib/stores/slices/tripMutationHelpers.ts`
+    - [ ] Run trip store unit tests (`npm run test:container -- lib/stores/__tests__/tripStore.test.ts`) and verify all pass
+- [ ] Task: Track Quality Gates & Conductor Verification
+    - [ ] Run full static type check: `npm run type-check`
+    - [ ] Run full containerized test suite: `npm run test:container`
+    - [ ] Verify clean git tree and zero regressions
+- [ ] Task: Conductor - User Manual Verification 'Phase 5: Gold Standard Boundary Parsers & Domain Hardening' (Protocol in workflow.md)

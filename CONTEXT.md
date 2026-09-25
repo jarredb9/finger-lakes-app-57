@@ -74,6 +74,10 @@ _Avoid_: Venue, POI, spot
 Cached, supplementary winery metadata—such as varietals, vibe tags, AI summaries, and accessibility—retrieved from external services and refreshed periodically.
 _Avoid_: Augmentation, scraping, scraping cache
 
+**Enrichment Tier**:
+The classification level of supplementary metadata associated with a Winery: `basic` (core directory details), `enriched` (curated amenities and vibe tags), or `full` (comprehensive varietals, reviews, and detailed operational attributes).
+_Avoid_: Quality score, catalog grade, data level
+
 **Varietal**:
 A specific grape or wine variety produced or poured by a Winery (e.g., Riesling, Cabernet Franc).
 _Avoid_: Grape, blend, wine type
