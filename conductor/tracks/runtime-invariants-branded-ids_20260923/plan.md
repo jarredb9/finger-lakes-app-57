@@ -66,10 +66,10 @@ Types Zustand trip mutations strictly to prevent in-memory and IndexedDB state c
 ## Phase 4: Test Environment Cleanup & Final Quality Gates
 Consolidates permanent regression tests into canonical test files, purges temporary scaffolding tests to preserve a clean test runner environment, and validates full build and type integrity.
 
-- [ ] Task: Scaffolding Test Cleanup & Test Suite Consolidation
-    - [ ] Review all test files created or modified during the track
-    - [ ] Ensure permanent regression assertions reside in canonical test suites (`lib/utils/__tests__/winery.test.ts`, `lib/utils/__tests__/opening-hours.test.ts`, `lib/__tests__/types.test.ts`, `lib/services/__tests__/syncService.test.ts`, `lib/stores/__tests__/tripStore.test.ts`)
-    - [ ] Identify and delete any temporary, scratch, or transitional scaffolding test files to leave a pristine test environment
+- [x] Task: Scaffolding Test Cleanup & Test Suite Consolidation (98939ff)
+    - [x] Review all test files created or modified during the track
+    - [x] Ensure permanent regression assertions reside in canonical test suites (`lib/utils/__tests__/winery.test.ts`, `lib/utils/__tests__/opening-hours.test.ts`, `lib/__tests__/types.test.ts`, `lib/services/__tests__/syncService.test.ts`, `lib/stores/__tests__/tripStore.test.ts`)
+    - [x] Identify and delete any temporary, scratch, or transitional scaffolding test files to leave a pristine test environment
 - [ ] Task: Repository-Wide Verification & Quality Gates
     - [ ] Run full TypeScript static type checking: `npm run type-check`
     - [ ] Run full containerized Jest test suite: `npm run test:container`
