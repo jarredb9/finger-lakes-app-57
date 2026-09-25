@@ -1,4 +1,5 @@
-import { Trip } from '@/lib/types';
+import { Trip, TripUpdateInput } from '@/lib/types';
+import { isRecord } from '@/lib/utils/winery';
 import { TripService } from '@/lib/services/tripService';
 import { createClient } from '@/utils/supabase/client';
 import { getTodayLocal } from '@/lib/utils';
@@ -130,24 +131,73 @@ export async function deleteTripHelper(
   }
 }
 
+const ALLOWED_TRIP_UPDATE_KEYS = new Set<string>(['name', 'trip_date']);
+
 export async function updateTripHelper(
   get: GetTripState,
   set: SetTripState,
   tripId: string,
-  updates: any
+  updates: TripUpdateInput
 ): Promise<void> {
+  if (!isRecord(updates)) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[updateTrip] Warning: Invalid or non-object updates payload received:', updates);
+    }
+    return;
+  }
+
+  const unpermittedKeys = Object.keys(updates).filter(
+    key => !ALLOWED_TRIP_UPDATE_KEYS.has(key)
+  );
+  if (unpermittedKeys.length > 0 && process.env.NODE_ENV !== 'production') {
+    console.warn(
+      '[updateTrip] Warning: Unpermitted or invalid keys stripped from update payload:',
+      unpermittedKeys
+    );
+  }
+
+  const sanitizedUpdates: TripUpdateInput = {};
+  let hasInvalidValues = false;
+
+  if ('name' in updates) {
+    if (typeof updates.name === 'string') {
+      sanitizedUpdates.name = updates.name;
+    } else if (updates.name !== undefined) {
+      hasInvalidValues = true;
+    }
+  }
+
+  if ('trip_date' in updates) {
+    if (
+      typeof updates.trip_date === 'string' &&
+      !isNaN(new Date(updates.trip_date).getTime())
+    ) {
+      sanitizedUpdates.trip_date = updates.trip_date;
+    } else if (updates.trip_date !== undefined) {
+      hasInvalidValues = true;
+    }
+  }
+
+  if (hasInvalidValues && process.env.NODE_ENV !== 'production') {
+    console.warn('[updateTrip] Warning: Invalid field types received in updates payload:', updates);
+  }
+
+  if (Object.keys(sanitizedUpdates).length === 0) {
+    return;
+  }
+
   const tripIdAsNumber = Number(tripId);
   const now = Date.now();
   
   set(state => ({
     trips: state.trips.map(trip =>
-      Number(trip.id) === tripIdAsNumber ? { ...trip, ...updates, syncStatus: 'pending' as const } : trip
+      Number(trip.id) === tripIdAsNumber ? { ...trip, ...sanitizedUpdates, syncStatus: 'pending' as const } : trip
     ),
     tripsForDate: state.tripsForDate.map(trip =>
-      Number(trip.id) === tripIdAsNumber ? { ...trip, ...updates, syncStatus: 'pending' as const } : trip
+      Number(trip.id) === tripIdAsNumber ? { ...trip, ...sanitizedUpdates, syncStatus: 'pending' as const } : trip
     ),
     upcomingTrips: state.upcomingTrips.map(trip =>
-      Number(trip.id) === tripIdAsNumber ? { ...trip, ...updates, syncStatus: 'pending' as const } : trip
+      Number(trip.id) === tripIdAsNumber ? { ...trip, ...sanitizedUpdates, syncStatus: 'pending' as const } : trip
     ),
     lastActionTimestamp: now
   }));
@@ -156,14 +206,14 @@ export async function updateTripHelper(
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
   const user = session?.user;
-  const syncPayload = { tripId, updates };
+  const syncPayload = { tripId, updates: sanitizedUpdates };
 
   if (await enqueueIfOffline('update_trip', user?.id, syncPayload)) {
     return;
   }
 
   try {
-    await TripService.updateTrip(tripId, updates);
+    await TripService.updateTrip(tripId, sanitizedUpdates);
     set(state => ({
       trips: state.trips.map(trip =>
         Number(trip.id) === tripIdAsNumber ? { ...trip, syncStatus: 'synced' as const } : trip

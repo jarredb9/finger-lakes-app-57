@@ -328,6 +328,15 @@ export interface Trip {
     syncStatus?: SyncStatus;
 }
 
+/**
+ * Strict input for updating trip top-level fields.
+ * Conforms to PostgreSQL `trips` updatable columns (name, trip_date).
+ */
+export interface TripUpdateInput {
+  name?: string;
+  trip_date?: string;
+}
+
 export interface VisitWithWinery extends Visit {
   wineryName?: string; // Optional convenience fields
   wineryId?: GooglePlaceId;
