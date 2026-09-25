@@ -16,7 +16,7 @@ Focuses on establishing nominal branded ID constructors, runtime type guards, an
     - [x] Verify static type check passes (`npm run type-check`)
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Branded ID Ergonomics & Type Guards Foundation' (Protocol in workflow.md) (5e49957)
 
-## Phase 2: Invariant Protection & Safe Navigation in Core Utilities
+## Phase 2: Invariant Protection & Safe Navigation in Core Utilities [checkpoint: b4bb92c]
 Hardens winery type guards against `null`/`undefined` crash bugs, eliminates untyped `as any` assertions in winery standardizer, and implements safe navigation in opening hours calculation.
 
 - [x] Task: Write Failing Tests for Winery Type Guards & Invariant Protection (Red Phase) (84d1a15)
@@ -47,7 +47,7 @@ Hardens winery type guards against `null`/`undefined` crash bugs, eliminates unt
     - [x] Remove all 7 `// @ts-ignore` comments in `lib/utils/__tests__/opening-hours.test.ts`
     - [x] Run opening hours tests (`npm run test:container -- lib/utils/__tests__/opening-hours.test.ts`) and verify all pass (Green phase verification)
     - [x] Verify static type check passes (`npm run type-check`)
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Invariant Protection & Safe Navigation in Core Utilities' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Invariant Protection & Safe Navigation in Core Utilities' (Protocol in workflow.md) (b4bb92c)
 
 ## Phase 3: Zustand Store Mutation Hardening
 Types Zustand trip mutations strictly to prevent in-memory and IndexedDB state corruption.
