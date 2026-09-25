@@ -96,7 +96,7 @@ if [ "$SHOULD_BUILD" = true ]; then
     echo "🏗️  Forcing a fresh container production build (run-build-container.sh) and clearing isolated storage..."
     rm -rf .next 2>/dev/null || true
     rm -rf test-results/.storage 2>/dev/null || true
-    "$SCRIPT_DIR/run-build-container.sh"
+    NEXT_PUBLIC_IS_E2E=true IS_E2E=true "$SCRIPT_DIR/run-build-container.sh"
 fi
 
 # Determine command based on argument
