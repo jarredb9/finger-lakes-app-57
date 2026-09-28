@@ -100,8 +100,8 @@ Eliminates all remaining compiler-silencing assertions across ingestion boundari
     - [x] Add unit tests in `lib/stores/__tests__/tripStore.test.ts` verifying `createTripHelper` strips unpermitted keys (`id`, `user_id`, `created_at`) with dev warnings and validates types
     - [x] Implement `ALLOWED_CREATE_TRIP_KEYS` allowlisting and dev warnings in `lib/stores/slices/tripMutationHelpers.ts`
     - [x] Run trip store unit tests (`npm run test:container -- lib/stores/__tests__/tripStore.test.ts`) and verify all pass
-- [ ] Task: Track Quality Gates & Conductor Verification
-    - [ ] Run full static type check: `npm run type-check`
-    - [ ] Run full containerized test suite: `npm run test:container`
-    - [ ] Verify clean git tree and zero regressions
+- [x] Task: Track Quality Gates & Conductor Verification (febae63)
+    - [x] Run full static type check: `npm run type-check`
+    - [x] Run full containerized test suite: `npm run test:container`
+    - [x] Verify clean git tree and zero regressions
 - [ ] Task: Conductor - User Manual Verification 'Phase 5: Gold Standard Boundary Parsers & Domain Hardening' (Protocol in workflow.md)
