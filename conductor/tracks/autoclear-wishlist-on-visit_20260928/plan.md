@@ -3,37 +3,48 @@
 ## Phase 1: Database Migration & RPC Hardening (TDD)
 - [ ] Task: Write failing integration tests for database RPC wishlist auto-deletion
     - [ ] Add integration test cases in `lib/services/__tests__/supabase-rpc.integration.test.ts` asserting that calling `log_visit` deletes existing wishlist entry for the user and winery
+    - [ ] Add test cases verifying that logging a second visit to an already cleared winery succeeds safely
     - [ ] Add test cases verifying that deleting a visit (`delete_visit`) does not restore the winery to `public.wishlist`
     - [ ] Confirm integration tests fail against the current un-migrated database schema (Red phase)
 - [ ] Task: Create database migration updating `log_visit` RPC and historical data cleanup
     - [ ] Create a new migration file in `supabase/migrations/`
-    - [ ] Add `DELETE FROM public.wishlist WHERE user_id = auth.uid() AND winery_id = v_winery_id;` inside `public.log_visit` transaction
+    - [ ] Add `DELETE FROM public.wishlist WHERE user_id = auth.uid() AND winery_id = v_winery_id;` inside `public.log_visit` initial insert transaction
     - [ ] Add one-time retrospective data migration cleanup query for existing visited wineries in wishlists
-    - [ ] Apply migration locally via `npm run db:start` / `supabase db reset` (Green phase)
+    - [ ] Apply migration locally via `npm run db:start` (Green phase)
 - [ ] Task: Verify database integration tests pass and types are updated
     - [ ] Re-run `supabase-rpc.integration.test.ts` to confirm Green status
     - [ ] Run `npm run db:gen-types` to ensure schema types are in sync
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Database Migration & RPC Hardening' (Protocol in workflow.md)
 
-## Phase 2: Client State Reactivity & Optimistic Updates (TDD)
-- [ ] Task: Write failing unit tests for wineryStore and optimistic visit logging
-    - [ ] Create unit tests in `lib/stores/__tests__/wineryStore.test.ts` verifying that `addVisitToWinery` updates `onWishlist: false` and `wishlistIsPrivate: false`
-    - [ ] Create unit tests in `lib/stores/__tests__/visitStore.domainInvariants.test.ts` asserting optimistic visit logging clears wishlist flags
+## Phase 2: Standardizer Bugfix & Client State Reactivity (TDD)
+- [ ] Task: Write failing unit tests for `standardizeWineryData` boolean overwriting
+    - [ ] Add test cases in `lib/utils/__tests__/winery.test.ts` verifying that explicit `false` values for `on_wishlist`, `wishlistIsPrivate`, `is_favorite`, and `favoriteIsPrivate` properly overwrite existing `true` values
+    - [ ] Run tests to confirm failure due to the `|| existing` falsy fallback bug (Red phase)
+- [ ] Task: Fix boolean precedence in `standardizeWineryData`
+    - [ ] Update `lib/utils/winery.ts` to cleanly evaluate `rawBoolean !== undefined ? rawBoolean : (existing ?? false)`
+    - [ ] Re-run `winery.test.ts` to confirm Green status (Green phase)
+- [ ] Task: Write failing unit tests for wineryStore, ID matching, and optimistic rollback
+    - [ ] Add unit tests in `lib/stores/__tests__/wineryStore.test.ts` verifying that `addVisitToWinery` updates `onWishlist: false`, `wishlistIsPrivate: false`, and `userVisited: true`, matching by both Place ID and DB ID
+    - [ ] Add unit tests in `lib/stores/__tests__/visitStore.domainInvariants.test.ts` verifying optimistic visit creation clears wishlist flags, and unrecoverable errors roll back wishlist flags
     - [ ] Run tests to confirm failure (Red phase)
 - [ ] Task: Implement client state updates in wineryStore and visitMutationHelpers
-    - [ ] Update `addVisitToWinery` in `lib/stores/wineryStore.ts` to set `onWishlist: false` and `wishlistIsPrivate: false`
-    - [ ] Verify `visitMutationHelpers.ts` propagates store state correctly during optimistic mutation
-    - [ ] Run tests to confirm passing (Green phase)
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Client State Reactivity & Optimistic Updates' (Protocol in workflow.md)
+    - [ ] Update `addVisitToWinery` in `lib/stores/wineryStore.ts` with dual Place ID and DB ID matching and wishlist clearing
+    - [ ] Update `saveVisitHelper` in `lib/stores/slices/visitMutationHelpers.ts` to capture pre-mutation flags and restore them on fatal catch
+    - [ ] Re-run tests to confirm Green status (Green phase)
+- [ ] Task: Update card thumbnail presentation for visited & wishlisted wineries
+    - [ ] Add unit test in `components/__tests__/winery-card-thumbnail.test.tsx` verifying both 'Visited' and 'Want to Go' badges render when both flags are true
+    - [ ] Update `components/winery-card-thumbnail.tsx` condition to display 'Want to Go' badge without suppressing on `userVisited`
+    - [ ] Confirm tests pass
+- [ ] Task: Conductor - User Manual Verification 'Phase 2: Standardizer Bugfix & Client State Reactivity' (Protocol in workflow.md)
 
 ## Phase 3: Offline Sync Queue Replay & Edge Case Invariants (TDD)
 - [ ] Task: Write failing tests for SyncService log_visit queue processing and store revalidation
-    - [ ] Add unit tests in `lib/services/__tests__/syncService.test.ts` checking store revalidation when `log_visit` is processed
-    - [ ] Test offline replay idempotency and error handling
+    - [ ] Add unit tests in `lib/services/__tests__/syncService.test.ts` asserting that `useWineryStore.getState().fetchWineryData(userId)` is called when `log_visit` is processed
+    - [ ] Test offline replay idempotency and error resilience
     - [ ] Run tests to confirm failure (Red phase)
 - [ ] Task: Implement store revalidation and queue replay resilience in SyncService
-    - [ ] Update `SyncService.sync()` to ensure winery store data (`fetchWineryData`) is synchronized when `log_visit` is in processed types
-    - [ ] Run tests to confirm passing (Green phase)
+    - [ ] Update `SyncService.sync()` in `lib/services/syncService.ts` to invoke `fetchWineryData(user.id)` on `log_visit`
+    - [ ] Re-run tests to confirm Green status (Green phase)
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Offline Sync Queue Replay & Edge Case Invariants' (Protocol in workflow.md)
 
 ## Phase 4: Scaffolding Cleanup & Final Regression Verification
