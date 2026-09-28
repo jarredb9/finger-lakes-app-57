@@ -2,7 +2,9 @@
 
 ## [Unreleased]
 
-**Milestone v3.6.0: Architectural Recovery & Test Reliability (In-Progress)**
+## [3.6.0] - 2026-09-28
+
+**Milestone v3.6.0: Architectural Recovery & Test Reliability**
 
 ### 🛡️ Sprint 6: Runtime Invariant Protection & Branded ID Ergonomics ([#53](https://github.com/jarredb9/finger-lakes-app-57/issues/53))
 * **Nominal Branded ID Constructors & Type Guards**:
