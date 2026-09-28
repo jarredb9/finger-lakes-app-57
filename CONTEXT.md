@@ -85,3 +85,11 @@ _Avoid_: Grape, blend, wine type
 **Vibe Tag**:
 A descriptive ambiance or lifestyle amenity associated with a Winery (e.g., dog-friendly, scenic views).
 _Avoid_: Feature, tag, label, amenity
+
+**Operational Hours**:
+The structured weekly schedule of open and close periods and weekday descriptions associated with a Winery.
+_Avoid_: Operating hours, business hours, schedule
+
+**Operational Status**:
+The real-time determination (Open, Closed, or Hours Unavailable) of whether a Winery is currently admitting visitors based on its Operational Hours.
+_Avoid_: Open/closed tag, business state, venue status
