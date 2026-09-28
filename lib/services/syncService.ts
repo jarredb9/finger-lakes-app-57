@@ -6,7 +6,8 @@ import { useVisitStore } from '@/lib/stores/visitStore';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
 import { TripService } from './tripService';
-import { Trip } from '@/lib/types';
+import { Trip, toGooglePlaceId, toWineryDbId } from '@/lib/types';
+import { isRecord } from '@/lib/utils/winery';
 import { isNetworkError } from '../stores/sync-utils';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
 import { checkAndCleanupQuota, isQuotaError } from '@/lib/utils/quota';
@@ -267,7 +268,7 @@ export const SyncService = {
         }
 
         // Defer replaying mutations that are still within their backoff window
-        const nextRetry = (item as any).nextRetryAt ?? this.nextRetryMap.get(item.id);
+        const nextRetry = item.nextRetryAt ?? this.nextRetryMap.get(item.id);
         if (nextRetry && Date.now() < nextRetry) {
           if (isDiagnostic) console.log(`[SyncService] Mutation ${item.id} is in backoff window until ${new Date(nextRetry).toISOString()}`);
           continue;
@@ -310,8 +311,8 @@ export const SyncService = {
 
               const { error: visitError } = await supabase.rpc('log_visit', {
                 p_winery_data: WineryService.getRpcData({
-                  id: p.wineryId as any,
-                  dbId: p.wineryDbId as any,
+                  id: toGooglePlaceId(p.wineryId),
+                  dbId: toWineryDbId(p.wineryDbId),
                   name: p.wineryName,
                   address: p.wineryAddress,
                   latitude: p.latitude,
@@ -475,7 +476,7 @@ export const SyncService = {
                   error = addError;
               } else {
                 // Optimistic Concurrency Control (OCC): Server-wins conflict resolution
-                const clientUpdatedAt = payload.clientUpdatedAt || (item as any).createdAt;
+                const clientUpdatedAt = payload.clientUpdatedAt || item.createdAt;
                 if (clientUpdatedAt && typeof supabase.from === 'function') {
                   const queryBuilder = supabase.from('trips');
                   if (typeof queryBuilder?.select === 'function') {
@@ -552,40 +553,70 @@ export const SyncService = {
               break;
 
             case 'winery_action':
+              if (!isRecord(payload)) {
+                console.warn('[SyncService] Invalid winery_action payload received:', payload);
+                break;
+              }
               if (payload.action === 'toggle_favorite') {
-                const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; latitude: number; longitude: number };
+                const wineryId = typeof payload.wineryId === 'string' ? payload.wineryId : '';
+                const wineryDbId = typeof payload.wineryDbId === 'number' ? payload.wineryDbId : undefined;
                 const { error: fError } = await supabase.rpc('toggle_favorite', {
                   p_winery_data: WineryService.getRpcData({
-                    id: pW.wineryId as any,
-                    dbId: pW.wineryDbId as any,
-                    name: pW.wineryName,
-                    address: pW.wineryAddress,
-                    latitude: pW.latitude,
-                    longitude: pW.longitude,
+                    id: toGooglePlaceId(wineryId),
+                    dbId: toWineryDbId(wineryDbId),
+                    name: typeof payload.wineryName === 'string' ? payload.wineryName : '',
+                    address: typeof payload.wineryAddress === 'string' ? payload.wineryAddress : '',
+                    latitude: typeof payload.latitude === 'number' ? payload.latitude : 0,
+                    longitude: typeof payload.longitude === 'number' ? payload.longitude : 0,
                   })
                 });
                 error = fError;
               } else if (payload.action === 'toggle_wishlist') {
-                const pW = payload as { wineryId: string; wineryDbId: number; wineryName: string; wineryAddress: string; latitude: number; longitude: number };
+                const wineryId = typeof payload.wineryId === 'string' ? payload.wineryId : '';
+                const wineryDbId = typeof payload.wineryDbId === 'number' ? payload.wineryDbId : undefined;
                 const { error: wError } = await supabase.rpc('toggle_wishlist', {
                   p_winery_data: WineryService.getRpcData({
-                    id: pW.wineryId as any,
-                    dbId: pW.wineryDbId as any,
-                    name: pW.wineryName,
-                    address: pW.wineryAddress,
-                    latitude: pW.latitude,
-                    longitude: pW.longitude,
+                    id: toGooglePlaceId(wineryId),
+                    dbId: toWineryDbId(wineryDbId),
+                    name: typeof payload.wineryName === 'string' ? payload.wineryName : '',
+                    address: typeof payload.wineryAddress === 'string' ? payload.wineryAddress : '',
+                    latitude: typeof payload.latitude === 'number' ? payload.latitude : 0,
+                    longitude: typeof payload.longitude === 'number' ? payload.longitude : 0,
                   })
                 });
                 error = wError;
               } else if (payload.action === 'toggle_favorite_privacy') {
+                const wineryDbId = toWineryDbId(typeof payload.wineryDbId === 'number' ? payload.wineryDbId : null);
+                if (!wineryDbId) {
+                  const validationError = {
+                    status: 400,
+                    statusCode: 400,
+                    message: `Permanent mutation failure: invalid or missing wineryDbId for ${payload.action}`
+                  };
+                  await this.routeToDLQ(item, validationError, payload);
+                  await removeMutation(item.id);
+                  this.clearBackoff(item.id);
+                  continue;
+                }
                 const { error: fpError } = await supabase.rpc('toggle_favorite_privacy', {
-                  p_winery_id: payload.wineryDbId
+                  p_winery_id: wineryDbId
                 });
                 error = fpError;
               } else if (payload.action === 'toggle_wishlist_privacy') {
+                const wineryDbId = toWineryDbId(typeof payload.wineryDbId === 'number' ? payload.wineryDbId : null);
+                if (!wineryDbId) {
+                  const validationError = {
+                    status: 400,
+                    statusCode: 400,
+                    message: `Permanent mutation failure: invalid or missing wineryDbId for ${payload.action}`
+                  };
+                  await this.routeToDLQ(item, validationError, payload);
+                  await removeMutation(item.id);
+                  this.clearBackoff(item.id);
+                  continue;
+                }
                 const { error: wpError } = await supabase.rpc('toggle_wishlist_privacy', {
-                  p_winery_id: payload.wineryDbId
+                  p_winery_id: wineryDbId
                 });
                 error = wpError;
               }
@@ -619,7 +650,7 @@ export const SyncService = {
               this.backoffDelays.set(item.id, delay);
               const nextRetry = Date.now() + delay;
               this.nextRetryMap.set(item.id, nextRetry);
-              (item as any).nextRetryAt = nextRetry;
+              item.nextRetryAt = nextRetry;
               if (isDiagnostic) console.log(`[SyncService] 5xx/network error for ${item.id}. Scheduling retry in ${delay}ms (attempt ${attempt}).`);
               continue;
             }
@@ -653,7 +684,7 @@ export const SyncService = {
             this.backoffDelays.set(item.id, delay);
             const nextRetry = Date.now() + delay;
             this.nextRetryMap.set(item.id, nextRetry);
-            (item as any).nextRetryAt = nextRetry;
+            item.nextRetryAt = nextRetry;
             if (isDiagnostic) console.log(`[SyncService] 5xx/network error (caught) for ${item.id}. Scheduling retry in ${delay}ms (attempt ${attempt}).`);
             continue;
           }
