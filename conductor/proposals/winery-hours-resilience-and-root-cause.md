@@ -1,3 +1,4 @@
+fix/56-winery-hours-resilience
 # Architecture Proposal & Root Cause Plan: Winery Operational Hours Resilience & PWA Hydration
 
 > **Target Issue:** [jarredb9/finger-lakes-app-57#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)  
