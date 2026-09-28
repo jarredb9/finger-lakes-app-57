@@ -1,17 +1,18 @@
 import { isOpenNow, parseTime } from '../opening-hours';
 
-describe('isOpenNow', () => {
-  // Helper to mock the current system time for consistent testing
-  const mockTime = (day: number, hour: number, minute: number) => {
-    jest.useFakeTimers();
-    const date = new Date(2023, 0, 1 + day); // Jan 2023 started on Sunday (Day 0)
-    date.setHours(hour, minute, 0, 0);
-    jest.setSystemTime(date);
-  };
+// Helper to mock the current system time for consistent testing
+const mockTime = (day: number, hour: number, minute: number) => {
+  jest.useFakeTimers();
+  const date = new Date(2023, 0, 1 + day); // Jan 2023 started on Sunday (Day 0)
+  date.setHours(hour, minute, 0, 0);
+  jest.setSystemTime(date);
+};
 
-  afterEach(() => {
-    jest.useRealTimers();
-  });
+afterEach(() => {
+  jest.useRealTimers();
+});
+
+describe('isOpenNow', () => {
 
   const standardHours = {
     periods: [
@@ -124,6 +125,9 @@ describe('isOpenNow invariant protection & safe property navigation (Red Phase)'
       ]
     };
     expect(() => isOpenNow(missingOpenMultiple as any)).not.toThrow();
+    mockTime(1, 10, 0); // Monday 10:00 (within valid period)
+    expect(isOpenNow(missingOpenMultiple as any)).toBe(true);
+    mockTime(1, 18, 0); // Monday 18:00 (outside valid period)
     expect(isOpenNow(missingOpenMultiple as any)).toBe(false);
   });
 
@@ -147,6 +151,10 @@ describe('isOpenNow invariant protection & safe property navigation (Red Phase)'
       ]
     };
     expect(() => isOpenNow(mixedNullPeriod as any)).not.toThrow();
+    mockTime(1, 12, 0); // Monday 12:00 (within valid period)
+    expect(isOpenNow(mixedNullPeriod as any)).toBe(true);
+    mockTime(1, 18, 0); // Monday 18:00 (outside valid period)
+    expect(isOpenNow(mixedNullPeriod as any)).toBe(false);
   });
 
   it('handles malformed empty period objects without throwing TypeError', () => {
