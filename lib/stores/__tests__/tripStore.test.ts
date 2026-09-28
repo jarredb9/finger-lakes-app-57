@@ -131,18 +131,171 @@ describe('tripStore', () => {
 
   describe('createTrip', () => {
     it('should create a trip successfully and add it to state', async () => {
-      const newTripData = { title: 'New Trip' };
+      const newTripData = { name: 'New Trip', trip_date: '2026-10-15', wineries: [] };
       mockTripService.createTrip.mockResolvedValue(mockTrip);
 
       let createdTrip;
       await act(async () => {
-        createdTrip = await useTripStore.getState().createTrip(newTripData as any);
+        createdTrip = await useTripStore.getState().createTrip(newTripData);
       });
 
       const state = useTripStore.getState();
       expect(state.trips).toContainEqual(mockTrip);
       expect(createdTrip).toEqual(mockTrip);
       expect(mockTripService.createTrip).toHaveBeenCalledWith(newTripData, expect.any(String));
+    });
+
+    it('strips unpermitted fields (id, user_id, created_at, notes, arbitrary keys) and prevents state and service pollution', async () => {
+      let resolveService: (value: any) => void;
+      const servicePromise = new Promise((resolve) => {
+        resolveService = resolve;
+      });
+      mockTripService.createTrip.mockReturnValue(servicePromise);
+
+      useTripStore.setState({
+        tripsForDate: [{ ...mockTrip, trip_date: '2026-10-15' }],
+      });
+
+      const adversarialInput = {
+        name: 'Sanitized New Trip',
+        trip_date: '2026-10-15',
+        id: 99999,
+        user_id: 'attacker-user-id',
+        created_at: '2020-01-01T00:00:00Z',
+        notes: 'stray winery note',
+        malicious: true,
+        extraKey: 'unexpected_data',
+      };
+
+      let createPromise: Promise<any>;
+      await act(async () => {
+        createPromise = useTripStore.getState().createTrip(adversarialInput as any);
+      });
+
+      const state = useTripStore.getState();
+      const createdOptimisticTrip = state.trips.find(t => t.name === 'Sanitized New Trip') as any;
+      const createdUpcoming = state.upcomingTrips.find(t => t.name === 'Sanitized New Trip') as any;
+      const createdDate = state.tripsForDate.find(t => t.name === 'Sanitized New Trip') as any;
+
+      // Invariant: Core immutable fields MUST NOT be overwritten by injected keys
+      expect(createdOptimisticTrip).toBeDefined();
+      expect(createdOptimisticTrip.id).toBeLessThan(0); // temporary negative ID, not 99999
+      expect(createdOptimisticTrip.user_id).toBe('test-user'); // from session, not attacker-user-id
+      expect(createdOptimisticTrip.name).toBe('Sanitized New Trip');
+
+      // Invariant: Unpermitted keys MUST NOT leak into store collections
+      expect(createdOptimisticTrip.notes).toBeUndefined();
+      expect(createdOptimisticTrip.malicious).toBeUndefined();
+      expect(createdOptimisticTrip.extraKey).toBeUndefined();
+
+      expect(createdUpcoming).toBeDefined();
+      expect(createdUpcoming.id).toBeLessThan(0);
+      expect(createdUpcoming.user_id).toBe('test-user');
+      expect(createdUpcoming.notes).toBeUndefined();
+      expect(createdUpcoming.malicious).toBeUndefined();
+
+      expect(createdDate).toBeDefined();
+      expect(createdDate.id).toBeLessThan(0);
+      expect(createdDate.user_id).toBe('test-user');
+      expect(createdDate.notes).toBeUndefined();
+      expect(createdDate.malicious).toBeUndefined();
+
+      // Invariant: Service payload passed to TripService must ONLY contain permitted fields
+      expect(mockTripService.createTrip).toHaveBeenCalledWith(
+        {
+          name: 'Sanitized New Trip',
+          trip_date: '2026-10-15',
+          wineries: [],
+        },
+        expect.any(String)
+      );
+
+      // Complete the promise and verify final synced state
+      await act(async () => {
+        resolveService!({
+          ...mockTrip,
+          id: 500,
+          name: 'Sanitized New Trip',
+        });
+        await createPromise!;
+      });
+
+      const finalState = useTripStore.getState();
+      expect(finalState.trips[0].id).toBe(500);
+      expect(finalState.trips[0].name).toBe('Sanitized New Trip');
+      expect((finalState.trips[0] as any).notes).toBeUndefined();
+      expect((finalState.trips[0] as any).malicious).toBeUndefined();
+    });
+
+    it('logs development console.warn warning when unpermitted keys are supplied', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockTripService.createTrip.mockResolvedValue(mockTrip);
+
+      try {
+        await act(async () => {
+          await useTripStore.getState().createTrip({
+            name: 'Valid Trip',
+            unpermittedKey: 'injected',
+            id: 9999,
+          } as any);
+        });
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('[createTrip] Warning: Unpermitted or invalid keys stripped from create payload:'),
+          expect.arrayContaining(['unpermittedKey', 'id'])
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('validates field types and handles invalid non-string name, invalid date format, and non-array wineries', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockTripService.createTrip.mockResolvedValue(mockTrip);
+
+      try {
+        await act(async () => {
+          await useTripStore.getState().createTrip({
+            name: 12345,
+            trip_date: 'invalid-date-string',
+            wineries: 'not-an-array',
+          } as any);
+        });
+
+        expect(warnSpy).toHaveBeenCalled();
+        expect(mockTripService.createTrip).toHaveBeenCalledWith(
+          {
+            trip_date: expect.any(String),
+            wineries: [],
+          },
+          expect.any(String)
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('handles nullish and non-record create payloads defensively returning null without throwing', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockTripService.createTrip.mockResolvedValue(mockTrip);
+
+      try {
+        let result1, result2;
+        await act(async () => {
+          result1 = await useTripStore.getState().createTrip(null as any);
+          result2 = await useTripStore.getState().createTrip('not an object' as any);
+        });
+
+        expect(result1).toBeNull();
+        expect(result2).toBeNull();
+        expect(mockTripService.createTrip).not.toHaveBeenCalled();
+        expect(warnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('[createTrip] Warning: Invalid or non-object trip payload received:'),
+          null
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
   });
 

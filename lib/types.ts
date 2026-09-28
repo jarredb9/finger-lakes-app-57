@@ -346,6 +346,16 @@ export interface TripUpdateInput {
   trip_date?: string;
 }
 
+/**
+ * Strict input for creating a trip.
+ * Conforms to runtime allowlist: name, trip_date, wineries.
+ */
+export interface TripCreateInput {
+  name?: string;
+  trip_date?: string;
+  wineries?: Winery[];
+}
+
 export interface VisitWithWinery extends Visit {
   wineryName?: string; // Optional convenience fields
   wineryId?: GooglePlaceId;

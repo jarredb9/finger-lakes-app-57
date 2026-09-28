@@ -1,4 +1,4 @@
-import { Trip, TripUpdateInput } from '@/lib/types';
+import { Trip, TripCreateInput, TripUpdateInput, Winery } from '@/lib/types';
 import { isRecord } from '@/lib/utils/winery';
 import { TripService } from '@/lib/services/tripService';
 import { createClient } from '@/utils/supabase/client';
@@ -10,19 +10,84 @@ import type { TripState } from '../tripStore';
 type GetTripState = StoreApi<TripState>['getState'];
 type SetTripState = StoreApi<TripState>['setState'];
 
+const ALLOWED_CREATE_TRIP_KEYS = new Set<string>(['name', 'trip_date', 'wineries']);
+
 export async function createTripHelper(
   get: GetTripState,
   set: SetTripState,
-  trip: Partial<Trip>
+  trip: TripCreateInput | Partial<Trip>
 ): Promise<Trip | null> {
+  if (!isRecord(trip)) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[createTrip] Warning: Invalid or non-object trip payload received:', trip);
+    }
+    return null;
+  }
+
+  const unpermittedKeys = Object.keys(trip).filter(
+    key => !ALLOWED_CREATE_TRIP_KEYS.has(key)
+  );
+  if (unpermittedKeys.length > 0 && process.env.NODE_ENV !== 'production') {
+    console.warn(
+      '[createTrip] Warning: Unpermitted or invalid keys stripped from create payload:',
+      unpermittedKeys
+    );
+  }
+
+  let validName: string | undefined;
+  let validTripDate: string = getTodayLocal();
+  let validWineries: Winery[] = [];
+  let hasInvalidValues = false;
+
+  if ('name' in trip) {
+    if (typeof trip.name === 'string') {
+      validName = trip.name;
+    } else if (trip.name !== undefined) {
+      hasInvalidValues = true;
+    }
+  }
+
+  if ('trip_date' in trip) {
+    if (
+      typeof trip.trip_date === 'string' &&
+      !isNaN(new Date(trip.trip_date).getTime())
+    ) {
+      validTripDate = trip.trip_date;
+    } else if (trip.trip_date !== undefined) {
+      hasInvalidValues = true;
+    }
+  }
+
+  if ('wineries' in trip) {
+    if (Array.isArray(trip.wineries)) {
+      validWineries = trip.wineries;
+    } else if (trip.wineries !== undefined) {
+      hasInvalidValues = true;
+    }
+  }
+
+  if (hasInvalidValues && process.env.NODE_ENV !== 'production') {
+    console.warn('[createTrip] Warning: Invalid field types received in create payload:', trip);
+  }
+
+  const sanitizedTrip: TripCreateInput = {
+    trip_date: validTripDate,
+    wineries: validWineries,
+    ...(validName !== undefined ? { name: validName } : {}),
+  };
+
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
+
   const idempotencyKey = crypto.randomUUID();
   const tempId = -Date.now();
   const tempTrip: Trip = {
     id: tempId,
-    user_id: trip.user_id || '',
-    trip_date: trip.trip_date || getTodayLocal(),
-    name: trip.name,
-    wineries: trip.wineries || [],
+    user_id: user?.id || '',
+    trip_date: validTripDate,
+    name: validName,
+    wineries: validWineries,
     members: [],
     syncStatus: 'pending',
   };
@@ -44,17 +109,14 @@ export async function createTripHelper(
   });
   get().setLastActionTimestamp(tempId.toString(), now);
 
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  const user = session?.user;
-  const syncPayload = { ...trip, tempId };
+  const syncPayload = { ...sanitizedTrip, tempId };
 
   if (await enqueueIfOffline('create_trip', user?.id, syncPayload, idempotencyKey)) {
     return tempTrip;
   }
 
   try {
-    const createdTrip = await TripService.createTrip(trip, idempotencyKey);
+    const createdTrip = await TripService.createTrip(sanitizedTrip, idempotencyKey);
     const finishedNow = Date.now();
     if (createdTrip?.id) {
       get().setLastActionTimestamp(createdTrip.id.toString(), finishedNow);
