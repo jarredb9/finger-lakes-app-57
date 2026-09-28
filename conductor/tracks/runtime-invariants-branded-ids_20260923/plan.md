@@ -111,4 +111,4 @@ Eliminates all remaining compiler-silencing assertions across ingestion boundari
     - [x] Run full static type check: `npm run type-check`
     - [x] Run full containerized test suite: `npm run test:container`
     - [x] Verify clean git tree and zero regressions
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Gold Standard Boundary Parsers & Domain Hardening' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Gold Standard Boundary Parsers & Domain Hardening' (Protocol in workflow.md) (febae63)
