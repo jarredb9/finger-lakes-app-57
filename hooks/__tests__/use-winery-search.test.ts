@@ -1,6 +1,7 @@
 import { renderHook, act } from "@testing-library/react";
 import { useWinerySearch } from "../use-winery-search";
 import { useMapStore } from "@/lib/stores/mapStore";
+import { useWineryStore } from "@/lib/stores/wineryStore";
 import { getGoogleLibrary } from "@/lib/utils/google-maps-loader";
 import { createClient } from "@/utils/supabase/client";
 
@@ -89,6 +90,7 @@ describe("useWinerySearch", () => {
     (createClient as jest.Mock).mockReturnValue(mockSupabase);
 
     // Initial store state
+    useWineryStore.getState().reset();
     useMapStore.setState({
       isSearching: false,
       searchResults: [],
@@ -116,8 +118,35 @@ describe("useWinerySearch", () => {
     console.log("DONE CALLING EXECUTE SEARCH");
 
     // Verify that error is set in the store
-    // NOTE: This will fail because 'setError' doesn't exist and 'error' isn't being set yet.
     const state = useMapStore.getState();
     expect(state.error).toBe("Failed to find wineries in this area. Please check your connection and try again.");
+  });
+
+  it("should fallback to cached wineries in viewport when search service fails", async () => {
+    const cachedWinery = {
+      id: "cached-winery-1" as any,
+      name: "Cached Winery",
+      address: "123 Wine Trail",
+      latitude: 0,
+      longitude: 0,
+      visits: [],
+    };
+    useWineryStore.setState({
+      persistentWineries: [cachedWinery],
+    });
+
+    const { result } = renderHook(() => useWinerySearch());
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    await act(async () => {
+      await result.current.executeSearch("Some Area");
+    });
+
+    const state = useMapStore.getState();
+    expect(state.searchResults).toEqual([cachedWinery]);
+    expect(state.error).toBe("Unable to reach live search service. Displaying cached wineries for this area.");
   });
 });

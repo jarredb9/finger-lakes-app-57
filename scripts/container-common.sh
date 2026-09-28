@@ -70,3 +70,18 @@ ensure_container_image() {
         fi
     fi
 }
+
+# Restore SELinux security context on supabase/functions directory
+# Prevents Edge Runtime 503 BOOT_ERROR caused by :Z volume mounts
+restore_supabase_selinux() {
+    local target_dir="$CONTAINER_PROJECT_ROOT/supabase/functions"
+    if [ -d "$target_dir" ]; then
+        if command -v restorecon >/dev/null 2>&1; then
+            restorecon -RF "$target_dir" >/dev/null 2>&1 || true
+        elif [ -x /sbin/restorecon ]; then
+            /sbin/restorecon -RF "$target_dir" >/dev/null 2>&1 || true
+        elif [ -x /usr/sbin/restorecon ]; then
+            /usr/sbin/restorecon -RF "$target_dir" >/dev/null 2>&1 || true
+        fi
+    fi
+}

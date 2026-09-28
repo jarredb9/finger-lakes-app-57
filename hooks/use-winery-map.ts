@@ -88,6 +88,11 @@ export function useWineryMap(userId: string) {
           setBounds(currentBounds);
         }
 
+        // Auto-dismiss previous search errors when user begins panning/navigating
+        if (useMapStore.getState().error) {
+          useMapStore.getState().setError(null);
+        }
+
         if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
         
         debounceTimeoutRef.current = setTimeout(() => {

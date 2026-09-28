@@ -25,6 +25,11 @@ CONTAINER_NAME="winery-build-$(date +%s)"
 $ENGINE stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
 $ENGINE rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
 
+cleanup() {
+    restore_supabase_selinux
+}
+trap cleanup EXIT SIGINT SIGTERM
+
 # Flush filesystem to ensure volume mount sees latest changes
 sync
 

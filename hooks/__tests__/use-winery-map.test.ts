@@ -6,9 +6,16 @@ import { useUIStore } from "@/lib/stores/uiStore";
 import { createMockWinery } from "@/lib/test-utils/fixtures";
 import { GooglePlaceId } from "@/lib/types";
 
+import { useMap } from "react-map-gl/mapbox";
+
+jest.mock("react-map-gl/mapbox", () => ({
+  useMap: jest.fn(),
+}));
+
 describe("useWineryMap", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (useMap as jest.Mock).mockReturnValue(undefined);
     useMapStore.getState().reset();
     useWineryStore.getState().reset();
     useUIStore.getState().reset();
@@ -65,5 +72,31 @@ describe("useWineryMap", () => {
 
     expect(useUIStore.getState().isWineryModalOpen).toBe(true);
     expect(useUIStore.getState().activeWineryId).toBe("pin-winery-1");
+  });
+
+  it("should clear map error when map movement occurs", () => {
+    const mockMapInstance = {
+      on: jest.fn(),
+      off: jest.fn(),
+      getBounds: jest.fn().mockReturnValue({
+        north: 43,
+        south: 42,
+        east: -76,
+        west: -77,
+      }),
+      getZoom: jest.fn().mockReturnValue(10),
+    };
+
+    (useMap as jest.Mock).mockReturnValue({
+      current: mockMapInstance,
+    });
+
+    useMapStore.setState({ error: "Failed to find wineries in this area." });
+    expect(useMapStore.getState().error).toBe("Failed to find wineries in this area.");
+
+    renderHook(() => useWineryMap(""));
+
+    // Movement handler is invoked on mount, which auto-dismisses previous error
+    expect(useMapStore.getState().error).toBeNull();
   });
 });
