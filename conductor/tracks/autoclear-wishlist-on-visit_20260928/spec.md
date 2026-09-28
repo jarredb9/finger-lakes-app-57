@@ -1,44 +1,74 @@
 # Specification: Auto-Clear Wishlist on Visit Logging (Issue #54 / ADR-0001)
 
 ## Overview
-Enforces [ADR-0001](file:///home/byrnesjd4821/Git/finger-lakes-app-57/docs/adr/0001-wishlist-cleared-on-visit.md) across both database layer and client application state. Wishlists represent purely aspirational, unvisited wineries. When a user logs a visit to a winery that is currently on their wishlist, that winery must be automatically and permanently removed from their wishlist. Subsequent deletion of the visit must never restore the winery to the wishlist.
+Enforces [ADR-0001](file:///home/byrnesjd4821/Git/finger-lakes-app-57/docs/adr/0001-wishlist-cleared-on-visit.md) and updated [CONTEXT.md](file:///home/byrnesjd4821/Git/finger-lakes-app-57/CONTEXT.md) glossary across the database layer, client stores, utility standardizers, and synchronization services.
+
+Wishlists represent aspirational wineries a user intends to visit in the future. When a user logs a visit to a winery currently on their wishlist, that winery is automatically and permanently cleared from their wishlist. Subsequent deletion of the visit must never restore the winery to the wishlist. However, users may manually re-add a visited winery to their wishlist to plan return visits (which will be cleared again upon subsequent visit logging).
+
+## Settled Architectural Decisions
+
+1. **Database Migration (`log_visit` RPC & Retrospective Cleanup)**:
+   - Update PostgreSQL RPC `public.log_visit` to atomically delete any matching record from `public.wishlist` for `(user_id, winery_id)` during the initial visit insertion transaction.
+   - Retain backward-compatible return signature `jsonb` (`{ visit_id, winery_id }`).
+   - Idempotency key replays return existing visit records directly; deletion runs on initial insert.
+   - Include a one-time retrospective data migration cleanup query:
+     ```sql
+     DELETE FROM public.wishlist w
+     WHERE EXISTS (
+       SELECT 1 FROM public.visits v
+       WHERE v.user_id = w.user_id AND v.winery_id = w.winery_id
+     );
+     ```
+
+2. **Data Standardization Bugfix (`standardizeWineryData`)**:
+   - In `lib/utils/winery.ts`, fix boolean evaluation fallback (`rawOnWishlist || existing?.onWishlist`) which prevented explicit `false` values from overwriting existing `true` values.
+   - Apply clean boolean precedence (`rawBoolean !== undefined ? rawBoolean : (existing ?? false)`) for `onWishlist`, `wishlistIsPrivate`, `isFavorite`, and `favoriteIsPrivate`.
+
+3. **Client State Reactivity & Matching (`wineryStore`)**:
+   - Enhance `addVisitToWinery` in `lib/stores/wineryStore.ts` to match wineries flexibly by both Place ID (`w.id === wineryId`) and DB ID (`w.dbId && String(w.dbId) === String(wineryId)`), identical to `getWinery`.
+   - Update `userVisited: true`, `onWishlist: false`, and `wishlistIsPrivate: false` immediately upon optimistic visit creation.
+
+4. **Optimistic Error Rollback (`visitMutationHelpers`)**:
+   - In `saveVisitHelper` (`lib/stores/slices/visitMutationHelpers.ts`), capture pre-mutation winery state (`userVisited`, `onWishlist`, `wishlistIsPrivate`).
+   - If visit persistence permanently fails with an unrecoverable error (not queued offline), roll back the winery flags in `useWineryStore` to their pre-mutation values alongside marking the visit as failed.
+
+5. **Offline Sync Replay & Store Revalidation (`SyncService`)**:
+   - In `lib/services/syncService.ts`, when `processedTypes.has('log_visit')` is present, call `useWineryStore.getState().fetchWineryData(user.id)` alongside `useVisitStore.getState().fetchVisits(1, true)`.
+   - Ensure queue replay remains idempotent without schema or constraint conflicts.
+
+6. **UI Card Presentation (`winery-card-thumbnail`)**:
+   - In `components/winery-card-thumbnail.tsx`, permit both "Visited" and "Want to Go" badges to render when a user has visited and manually re-wishlisted a winery.
+
+7. **Permanent Wishlist Deletion Invariant (Non-Restoration)**:
+   - Deleting a visit (via `delete_visit` RPC or client `deleteVisit`) never restores any cleared wishlist row (`onWishlist` remains `false`).
+
+8. **Strict Test-Driven Development (TDD) Lifecycle**:
+   - Each phase follows Red-Green-Refactor cycles with failing unit/integration tests before code implementation.
+   - Clean up any temporary test harness scaffolding, preserving permanent regression tests.
 
 ## Functional Requirements
-1. **Database Migration (`log_visit` RPC)**:
-   - Update PostgreSQL RPC `public.log_visit` to delete any matching record from `public.wishlist` for `(user_id, winery_id)` atomically within the visit logging transaction.
-   - Retain backward-compatible return signature `jsonb` (`{ visit_id, winery_id }`).
-   - One-time data cleanup: execute a data-migration cleanup query `DELETE FROM public.wishlist w WHERE EXISTS (SELECT 1 FROM public.visits v WHERE v.user_id = w.user_id AND v.winery_id = w.winery_id);` to retrospectively clear historical visits from wishlists.
-2. **Client State Reactivity (`useWineryStore`)**:
-   - Update `addVisitToWinery(wineryId)` (and optimistic visit creation flow) in `lib/stores/wineryStore.ts` to immediately update `onWishlist: false` and `wishlistIsPrivate: false` alongside `userVisited: true`.
-   - Ensure optimistic visit creation in `visitMutationHelpers.ts` propagates this state immediately, keeping map markers, wishlist drawer/tabs, and winery details modals reactive without waiting for network response.
-3. **Offline Sync Replay Resilience (`SyncService`)**:
-   - When offline `log_visit` mutations are replayed in `lib/services/syncService.ts`, ensure that post-sync refresh revalidates winery store state (`fetchWineryData`) alongside visit state.
-   - Idempotent replay: if a visit was logged offline and replayed, the database deletion of any wishlist entry remains idempotent and error-free.
-4. **Permanent Wishlist Deletion Invariant (Non-Restoration)**:
-   - When a visit is deleted (via `delete_visit` RPC or client `deleteVisit`), verify and ensure that the winery's wishlist status is never restored (`onWishlist` remains `false`).
-5. **Strict Test-Driven Development (TDD) Lifecycle**:
-   - Follow strict Red-Green-Refactor cycles for each tier:
-     - Red: Author failing unit/integration tests asserting wishlist deletion and non-restoration behavior.
-     - Green: Implement minimal code changes in database RPC, stores, and sync service to pass tests.
-     - Refactor: Clean up code while maintaining green test suite.
-   - Identify, audit, and clean up any temporary scaffolding tests or throwaway harness fixtures at the end of the track, preserving only clean, long-term regression tests.
+- **FR-1**: Calling `log_visit` deletes any matching row in `public.wishlist` for the user and winery.
+- **FR-2**: One-time database migration cleans up existing wishlists for visited wineries.
+- **FR-3**: `standardizeWineryData` correctly handles `false` boolean values for wishlist and favorite flags without reverting to old `true` state.
+- **FR-4**: Optimistic visit logging in client UI immediately updates `wineryStore` (`onWishlist: false`, `wishlistIsPrivate: false`, `userVisited: true`).
+- **FR-5**: If visit creation permanently fails, client state rolls back to pre-mutation wishlist flags.
+- **FR-6**: `SyncService` revalidates `wineryStore` via `fetchWineryData(user.id)` upon replaying `log_visit` offline mutations.
+- **FR-7**: Deleting a visit never restores a winery to the wishlist.
+- **FR-8**: Thumbnail card UI displays both "Visited" and "Want to Go" if a visited winery was manually re-wishlisted.
 
 ## Non-Functional Requirements
-- **Atomic Database Operations**: Wishlist deletion and visit insertion must run within the same database transaction in `log_visit`.
+- **Atomic Database Operations**: Wishlist deletion and visit insertion execute in a single transaction in `log_visit`.
 - **Zero Breaking Changes**: Preserve existing RPC arguments and response shapes (`jsonb_build_object('visit_id', v_visit_id, 'winery_id', v_winery_id)`).
-- **Offline Integrity**: Offline mutation queuing and IndexedDB persistence must maintain state consistency across network outages and page reloads.
-- **TDD Rigor & Test Hygiene**: Every phase begins with failing automated tests; all temporary scaffolding tests must be cleaned up before completion.
+- **Offline Integrity**: Offline mutation queuing and IndexedDB persistence maintain consistent state across network drops.
+- **TDD Rigor**: All phases start with failing automated tests; scaffolding tests cleaned up before track completion.
 
 ## Acceptance Criteria
-- [ ] Logging a Visit via `log_visit` automatically deletes any row for `(auth.uid(), winery_id)` from `public.wishlist`.
-- [ ] Saving a Visit in the client UI updates local state (`wineryStore`) so that `onWishlist` becomes `false` and `wishlistIsPrivate` becomes `false` immediately for that winery.
-- [ ] Offline visit logging and sync queue reconstitution preserves this invariant upon replay.
-- [ ] Deleting a Visit does not restore the winery to the user's Wishlist.
-- [ ] Existing wishlisted wineries that already have visits logged are cleaned up via migration.
-- [ ] Strict TDD workflow followed throughout all phases.
-- [ ] Any scaffolding/throwaway test code is cleaned up and only permanent, robust regression tests remain.
-
-## Out of Scope
-- Modifying behavior of favorites (`public.favorites`) — favorites represent visited or unvisited preferences and are unaffected by visits.
-- Modifying Trip Wineries or itineraries.
-- Adding undo notifications or toast prompts specifically prompting the user to re-add to wishlist.
+- [ ] Database RPC `log_visit` atomically deletes matching `public.wishlist` entry on initial visit insert.
+- [ ] Historical visited wineries cleared from `public.wishlist` via migration script.
+- [ ] `standardizeWineryData` unit tests prove explicit `false` values overwrite existing `true` values.
+- [ ] `addVisitToWinery` updates `onWishlist: false` and `wishlistIsPrivate: false`, matching by Place ID and DB ID.
+- [ ] Fatal visit saving errors roll back optimistic wishlist clearance.
+- [ ] `SyncService` sync loop invokes `fetchWineryData(user.id)` when `log_visit` is processed.
+- [ ] Deleting a visit leaves wishlist cleared.
+- [ ] Thumbnail card renders both badges if a winery is both visited and wishlisted.
+- [ ] Full unit, integration, and type checks pass.
