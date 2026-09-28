@@ -78,6 +78,13 @@ Consolidates permanent regression tests into canonical test files, purges tempor
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions (40f77b3) for Phase 1
+- [x] Task: Apply review suggestions (8875016) for map pan crash and Edge Function resiliency
+    - [x] Permanently mount `<MapView>` in `components/WineryMap.tsx` and render errors as non-destructive floating alert overlay
+    - [x] Auto-dismiss previous search errors on map movement in `hooks/use-winery-map.ts`
+    - [x] Fallback to locally cached wineries in viewport on search failure in `hooks/use-winery-search.ts`
+    - [x] Add automated SELinux context restoration (`restore_supabase_selinux`) in `scripts/container-common.sh` and container runner traps
+    - [x] Prepend `/sbin/restorecon` in `package.json` for `dev:container` and `dev:container:real`
+    - [x] Add unit tests in `components/__tests__/WineryMap.test.tsx`, `hooks/__tests__/use-winery-map.test.ts`, and `hooks/__tests__/use-winery-search.test.ts`
 
 ## Phase 5: Gold Standard Boundary Parsers & Domain Hardening
 Eliminates all remaining compiler-silencing assertions across ingestion boundaries, adds typed domain schemas for enrichment amenities, hardens sync service error routing to DLQ, and secures trip creation mutator inputs.
