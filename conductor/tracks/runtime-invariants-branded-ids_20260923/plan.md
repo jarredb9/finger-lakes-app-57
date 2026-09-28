@@ -96,10 +96,10 @@ Eliminates all remaining compiler-silencing assertions across ingestion boundari
     - [x] Update `lib/services/syncService.ts` lines 588–604 to route missing `wineryDbId` to DLQ instead of silently dropping
     - [x] Remove `(item as any)` casts accessing `nextRetryAt` and `createdAt` on `SyncItem`
     - [x] Run sync service unit tests (`npm run test:container -- lib/services/__tests__/syncService.test.ts`) and verify all pass
-- [ ] Task: Runtime Mutation Allowlisting for `createTripHelper` (TDD)
-    - [ ] Add unit tests in `lib/stores/__tests__/tripStore.test.ts` verifying `createTripHelper` strips unpermitted keys (`id`, `user_id`, `created_at`) with dev warnings and validates types
-    - [ ] Implement `ALLOWED_CREATE_TRIP_KEYS` allowlisting and dev warnings in `lib/stores/slices/tripMutationHelpers.ts`
-    - [ ] Run trip store unit tests (`npm run test:container -- lib/stores/__tests__/tripStore.test.ts`) and verify all pass
+- [x] Task: Runtime Mutation Allowlisting for `createTripHelper` (TDD) (949fa1c)
+    - [x] Add unit tests in `lib/stores/__tests__/tripStore.test.ts` verifying `createTripHelper` strips unpermitted keys (`id`, `user_id`, `created_at`) with dev warnings and validates types
+    - [x] Implement `ALLOWED_CREATE_TRIP_KEYS` allowlisting and dev warnings in `lib/stores/slices/tripMutationHelpers.ts`
+    - [x] Run trip store unit tests (`npm run test:container -- lib/stores/__tests__/tripStore.test.ts`) and verify all pass
 - [ ] Task: Track Quality Gates & Conductor Verification
     - [ ] Run full static type check: `npm run type-check`
     - [ ] Run full containerized test suite: `npm run test:container`
