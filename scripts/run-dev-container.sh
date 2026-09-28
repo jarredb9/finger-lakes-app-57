@@ -28,6 +28,7 @@ cleanup() {
     echo "🛑 Stopping dev container ($CONTAINER_NAME)..."
     $ENGINE stop "$CONTAINER_NAME" >/dev/null 2>&1 || true
     $ENGINE rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
+    restore_supabase_selinux
     exit 0
 }
 trap cleanup SIGINT SIGTERM
@@ -36,6 +37,9 @@ sync
 
 echo "🚀 Starting Next.js Dev Server (Turbopack) in container ($ENGINE)..."
 echo "🌐 Local URL: http://localhost:3000"
+
+# Restore SELinux labels on supabase/functions after :Z volume relabeling
+(sleep 2 && restore_supabase_selinux) >/dev/null 2>&1 &
 
 $ENGINE run --rm $INTERACTIVE_FLAG \
     --name "$CONTAINER_NAME" \
@@ -59,3 +63,5 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
         fi
         npm run dev "$@"
     ' bash "$@"
+
+restore_supabase_selinux

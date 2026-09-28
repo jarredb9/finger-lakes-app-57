@@ -24,6 +24,7 @@ done
 cleanup() {
     echo "🧹 Cleaning up test storage..."
     rm -rf test-results/.storage
+    restore_supabase_selinux
 }
 trap cleanup EXIT
 

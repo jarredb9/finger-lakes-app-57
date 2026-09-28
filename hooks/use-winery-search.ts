@@ -207,6 +207,21 @@ export function useWinerySearch() {
 
       } catch (error) {
         console.error("Search error:", error);
+
+        // Fallback to locally cached wineries if available in viewport
+        if (finalSearchBounds) {
+          const { persistentWineries } = useWineryStore.getState();
+          const localResults = persistentWineries.filter(w =>
+            isCoordinateInBounds({ latitude: w.latitude, longitude: w.longitude }, finalSearchBounds)
+          );
+
+          if (localResults.length > 0) {
+            setSearchResults(localResults);
+            setError("Unable to reach live search service. Displaying cached wineries for this area.");
+            return;
+          }
+        }
+
         setError("Failed to find wineries in this area. Please check your connection and try again.");
       } finally {
         setIsSearching(false);
