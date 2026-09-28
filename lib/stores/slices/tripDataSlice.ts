@@ -1,5 +1,5 @@
 import { StateCreator } from 'zustand';
-import { Trip, TripUpdateInput, Winery } from '@/lib/types';
+import { Trip, TripCreateInput, TripUpdateInput, Winery } from '@/lib/types';
 import type { TripState } from '../tripStore';
 import {
   fetchTripsHelper,
@@ -30,7 +30,7 @@ export interface TripDataSlice {
   fetchTripById: (tripId: string) => Promise<void>;
   fetchUpcomingTrips: () => Promise<void>;
   fetchTripsForDate: (date: string) => Promise<void>;
-  createTrip: (trip: Partial<Trip>) => Promise<Trip | null>;
+  createTrip: (trip: TripCreateInput | Partial<Trip>) => Promise<Trip | null>;
   replaceTripTempId: (tempId: number | string, syncedTrip: Trip) => void;
   deleteTrip: (tripId: string) => Promise<void>;
   updateTrip: (tripId: string, updates: TripUpdateInput) => Promise<void>;
