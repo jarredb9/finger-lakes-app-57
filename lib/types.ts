@@ -13,6 +13,34 @@ export type DbFriend = Tables['friends']['Row'];
 export type GooglePlaceId = string & { __brand: 'GooglePlaceId' };
 export type WineryDbId = number & { __brand: 'WineryDbId' };
 
+export function isGooglePlaceId(val: unknown): val is GooglePlaceId {
+  return typeof val === 'string' && val.trim().length > 0;
+}
+
+export function isWineryDbId(val: unknown): val is WineryDbId {
+  return typeof val === 'number' && Number.isInteger(val) && val > 0;
+}
+
+export function toGooglePlaceId(id?: string | null): GooglePlaceId | undefined {
+  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+    if (process.env.NODE_ENV !== 'production' && id !== null && id !== undefined) {
+      console.warn(`[toGooglePlaceId] Warning: Invalid GooglePlaceId received:`, id);
+    }
+    return undefined;
+  }
+  return id as GooglePlaceId;
+}
+
+export function toWineryDbId(id?: number | null): WineryDbId | undefined {
+  if (typeof id !== 'number' || isNaN(id) || !Number.isInteger(id) || id <= 0) {
+    if (process.env.NODE_ENV !== 'production' && id !== null && id !== undefined) {
+      console.warn(`[toWineryDbId] Warning: Invalid WineryDbId received:`, id);
+    }
+    return undefined;
+  }
+  return id as WineryDbId;
+}
+
 // RPC Return Types
 export interface MapMarkerRpc {
   id: WineryDbId;
@@ -122,13 +150,19 @@ export interface PlaceReview {
 
 export interface OpeningHoursPoint {
   day: number;
-  hour: number;
-  minute: number;
+  hour?: number;
+  minute?: number;
+  time?: string;
+}
+
+export interface OpeningHoursPeriod {
+  open?: OpeningHoursPoint;
+  close?: OpeningHoursPoint | null;
 }
 
 export interface OpeningHours {
   open_now?: boolean;
-  periods?: { open: OpeningHoursPoint; close?: OpeningHoursPoint | null }[];
+  periods?: OpeningHoursPeriod[];
   weekday_text?: string[];
   toJSON?: () => Json; // From Google Places API
 }
@@ -183,10 +217,29 @@ export interface Winery {
   primary_photo_reference?: string | null;
   photo_references?: string[] | null;
   cached_photos?: Record<string, string> | null;
-  parking_options?: Record<string, any> | null;
-  accessibility_options?: Record<string, any> | null;
+  parking_options?: ParkingOptions | null;
+  accessibility_options?: AccessibilityOptions | null;
   varietals?: WineryVarietal[] | null;
   vibe_tags?: string[] | null;
+}
+
+export interface ParkingOptions {
+  freeParkingLot?: boolean | null;
+  freeStreetParking?: boolean | null;
+  freeGarageParking?: boolean | null;
+  freeValetParking?: boolean | null;
+  paidParkingLot?: boolean | null;
+  paidStreetParking?: boolean | null;
+  paidGarageParking?: boolean | null;
+  paidValetParking?: boolean | null;
+  freeParking?: boolean | null; // Synthesized convenience attribute
+}
+
+export interface AccessibilityOptions {
+  wheelchairAccessibleParking?: boolean | null;
+  wheelchairAccessibleEntrance?: boolean | null;
+  wheelchairAccessibleRestroom?: boolean | null;
+  wheelchairAccessibleSeating?: boolean | null;
 }
 
 export interface WineryVarietal {
@@ -282,6 +335,25 @@ export interface Trip {
     owner_id?: string;
     updated_at?: string;
     syncStatus?: SyncStatus;
+}
+
+/**
+ * Strict input for updating trip top-level fields.
+ * Conforms to PostgreSQL `trips` updatable columns (name, trip_date).
+ */
+export interface TripUpdateInput {
+  name?: string;
+  trip_date?: string;
+}
+
+/**
+ * Strict input for creating a trip.
+ * Conforms to runtime allowlist: name, trip_date, wineries.
+ */
+export interface TripCreateInput {
+  name?: string;
+  trip_date?: string;
+  wineries?: Winery[];
 }
 
 export interface VisitWithWinery extends Visit {
