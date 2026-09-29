@@ -45,7 +45,7 @@
     - [x] Re-run component unit tests to confirm Green status (Green phase)
 - [x] Task: Conductor - User Manual Verification 'Phase 3: UI Presentation & Return-Visit Wishlisting' (Protocol in workflow.md)
 
-## Phase 4: Offline Sync Queue Replay & Edge Case Invariants (TDD)
+## Phase 4: Offline Sync Queue Replay & Edge Case Invariants (TDD) [checkpoint: a0890ae]
 - [x] Task: Write failing tests for SyncService log_visit queue processing and store revalidation (767b40b)
     - [x] Add unit tests in `lib/services/__tests__/syncService.test.ts` asserting that `useWineryStore.getState().fetchWineryData(userId)` is called when `log_visit` is processed
     - [x] Test offline replay idempotency and error resilience
@@ -53,7 +53,7 @@
 - [x] Task: Implement store revalidation and queue replay resilience in SyncService (1f900e9)
     - [x] Update `SyncService.sync()` in `lib/services/syncService.ts` to invoke `fetchWineryData(user.id)` on `log_visit`
     - [x] Re-run tests to confirm Green status (Green phase)
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Offline Sync Queue Replay & Edge Case Invariants' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Offline Sync Queue Replay & Edge Case Invariants' (Protocol in workflow.md)
 
 ## Phase 5: Scaffolding Cleanup & Final Regression Verification
 - [ ] Task: Audit and clean up temporary scaffolding tests
