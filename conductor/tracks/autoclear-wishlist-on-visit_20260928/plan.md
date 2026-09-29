@@ -28,10 +28,10 @@
     - [x] Add unit tests in `lib/stores/__tests__/wineryStore.test.ts` verifying that `addVisitToWinery` updates `onWishlist: false`, `wishlistIsPrivate: false`, and `userVisited: true`, matching by both Place ID and DB ID
     - [x] Add unit tests in `lib/stores/__tests__/visitStore.domainInvariants.test.ts` verifying optimistic visit creation clears wishlist flags, and unrecoverable errors perform targeted rollback of `{ userVisited, onWishlist, wishlistIsPrivate }`
     - [x] Run tests to confirm failure (Red phase)
-- [ ] Task: Implement client state updates in wineryStore and visitMutationHelpers
-    - [ ] Update `addVisitToWinery` in `lib/stores/wineryStore.ts` with dual Place ID and DB ID matching and wishlist clearing
-    - [ ] Update `saveVisitHelper` in `lib/stores/slices/visitMutationHelpers.ts` to snapshot `{ userVisited, onWishlist, wishlistIsPrivate }` and restore via `updateWinery` on fatal catch
-    - [ ] Re-run tests to confirm Green status (Green phase)
+- [x] Task: Implement client state updates in wineryStore and visitMutationHelpers (d2e9e39)
+    - [x] Update `addVisitToWinery` in `lib/stores/wineryStore.ts` with dual Place ID and DB ID matching and wishlist clearing
+    - [x] Update `saveVisitHelper` in `lib/stores/slices/visitMutationHelpers.ts` to snapshot `{ userVisited, onWishlist, wishlistIsPrivate }` and restore via `updateWinery` on fatal catch
+    - [x] Re-run tests to confirm Green status (Green phase)
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Standardizer Bugfix & Store State Reactivity' (Protocol in workflow.md)
 
 ## Phase 3: UI Presentation & Return-Visit Wishlisting (TDD)
