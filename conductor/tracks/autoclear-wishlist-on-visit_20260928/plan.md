@@ -24,10 +24,10 @@
 - [x] Task: Fix boolean precedence in `standardizeWineryData` (5db4fce)
     - [x] Update `lib/utils/winery.ts` to cleanly evaluate `rawBoolean !== undefined ? rawBoolean : (existing ?? false)` for all 4 flags
     - [x] Re-run `winery.test.ts` to confirm Green status (Green phase)
-- [ ] Task: Write failing unit tests for wineryStore, ID matching, and optimistic rollback
-    - [ ] Add unit tests in `lib/stores/__tests__/wineryStore.test.ts` verifying that `addVisitToWinery` updates `onWishlist: false`, `wishlistIsPrivate: false`, and `userVisited: true`, matching by both Place ID and DB ID
-    - [ ] Add unit tests in `lib/stores/__tests__/visitStore.domainInvariants.test.ts` verifying optimistic visit creation clears wishlist flags, and unrecoverable errors perform targeted rollback of `{ userVisited, onWishlist, wishlistIsPrivate }`
-    - [ ] Run tests to confirm failure (Red phase)
+- [x] Task: Write failing unit tests for wineryStore, ID matching, and optimistic rollback (246f9d0)
+    - [x] Add unit tests in `lib/stores/__tests__/wineryStore.test.ts` verifying that `addVisitToWinery` updates `onWishlist: false`, `wishlistIsPrivate: false`, and `userVisited: true`, matching by both Place ID and DB ID
+    - [x] Add unit tests in `lib/stores/__tests__/visitStore.domainInvariants.test.ts` verifying optimistic visit creation clears wishlist flags, and unrecoverable errors perform targeted rollback of `{ userVisited, onWishlist, wishlistIsPrivate }`
+    - [x] Run tests to confirm failure (Red phase)
 - [ ] Task: Implement client state updates in wineryStore and visitMutationHelpers
     - [ ] Update `addVisitToWinery` in `lib/stores/wineryStore.ts` with dual Place ID and DB ID matching and wishlist clearing
     - [ ] Update `saveVisitHelper` in `lib/stores/slices/visitMutationHelpers.ts` to snapshot `{ userVisited, onWishlist, wishlistIsPrivate }` and restore via `updateWinery` on fatal catch
