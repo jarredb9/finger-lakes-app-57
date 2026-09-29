@@ -47,12 +47,28 @@ describe('WineryCardThumbnail', () => {
     expect(screen.getByText('Want to Go')).toBeInTheDocument();
   });
 
-  it('does NOT render "Want" badge if already visited', () => {
+  it('renders both "Visited" and "Want to Go" badges when userVisited is true and onWishlist is true, maintaining emerald status indicator', () => {
     const wishAndVisited = { ...mockWinery, onWishlist: true, userVisited: true };
-    render(<WineryCardThumbnail winery={wishAndVisited} />);
+    const { container } = render(<WineryCardThumbnail winery={wishAndVisited} />);
     
     expect(screen.getByText('Visited')).toBeInTheDocument();
-    expect(screen.queryByText('Want to Go')).not.toBeInTheDocument();
+    expect(screen.getByText('Want to Go')).toBeInTheDocument();
+    
+    const statusIndicator = container.querySelector('.w-1');
+    expect(statusIndicator).toHaveClass('bg-emerald-500');
+    expect(statusIndicator).not.toHaveClass('bg-purple-500');
+  });
+
+  it('maintains favorite (amber) status priority when winery is favorite, visited, and on wishlist', () => {
+    const allFlagsWinery = { ...mockWinery, isFavorite: true, userVisited: true, onWishlist: true };
+    const { container } = render(<WineryCardThumbnail winery={allFlagsWinery} />);
+    
+    expect(screen.getByText('Favorite')).toBeInTheDocument();
+    expect(screen.getByText('Visited')).toBeInTheDocument();
+    expect(screen.getByText('Want to Go')).toBeInTheDocument();
+    
+    const statusIndicator = container.querySelector('.w-1');
+    expect(statusIndicator).toHaveClass('bg-amber-500');
   });
 
   it('calls onClick when clicked', () => {
