@@ -62,7 +62,7 @@ export default function WineryCardThumbnail({ winery, onClick }: WineryCardProps
               Visited
             </Badge>
           )}
-          {winery.onWishlist && !winery.userVisited && (
+          {winery.onWishlist && (
             <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5 bg-purple-100 text-purple-800 hover:bg-purple-100">
               Want to Go
             </Badge>
