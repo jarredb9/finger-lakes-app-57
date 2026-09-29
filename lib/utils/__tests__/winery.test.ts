@@ -308,7 +308,7 @@ describe('standardizeWineryData', () => {
     expect(result?.longitude).toBe(-76.99);
   });
 
-  describe('standardizeWineryData boolean precedence and overwriting (Issue #54 / ADR-0001 - Red Phase)', () => {
+  describe('standardizeWineryData boolean precedence and overwriting (Issue #54 / ADR-0001)', () => {
     it('overwrites existing true flags when source explicitly provides false in snake_case', () => {
       const existingWinery: Winery = {
         ...createMockWinery(),

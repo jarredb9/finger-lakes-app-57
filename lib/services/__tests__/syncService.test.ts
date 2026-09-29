@@ -942,7 +942,7 @@ describe('SyncService', () => {
     });
   });
 
-  describe('Phase 4: Offline Sync Queue Replay & Store Revalidation (Issue #54 / ADR-0001 - Red Phase)', () => {
+  describe('Offline Sync Queue Replay & Store Revalidation (Issue #54 / ADR-0001)', () => {
     it('revalidates wineryStore by invoking fetchWineryData(userId) when log_visit is processed in sync queue', async () => {
       const mockMutation = {
         id: 'sync-log-visit-revalidate',
