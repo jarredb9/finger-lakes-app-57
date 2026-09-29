@@ -6,11 +6,11 @@
     - [x] Add test cases verifying that logging a second visit to an already cleared winery succeeds safely
     - [x] Add test cases verifying that deleting a visit (`delete_visit`) does not restore the winery to `public.wishlist`
     - [x] Confirm integration tests fail against the current un-migrated database schema (Red phase)
-- [ ] Task: Create database migration updating `log_visit` RPC and historical data cleanup
-    - [ ] Create a new migration file in `supabase/migrations/`
-    - [ ] Add `DELETE FROM public.wishlist WHERE user_id = auth.uid() AND winery_id = v_winery_id;` inside `public.log_visit` initial insert transaction
-    - [ ] Add one-time retrospective data migration cleanup query for existing visited wineries in wishlists
-    - [ ] Apply migration locally via `npm run db:start` (Green phase)
+- [x] Task: Create database migration updating `log_visit` RPC and historical data cleanup (4198eee)
+    - [x] Create a new migration file in `supabase/migrations/`
+    - [x] Add `DELETE FROM public.wishlist WHERE user_id = auth.uid() AND winery_id = v_winery_id;` inside `public.log_visit` initial insert transaction
+    - [x] Add one-time retrospective data migration cleanup query for existing visited wineries in wishlists
+    - [x] Apply migration locally via `npm run db:start` (Green phase)
 - [ ] Task: Verify database integration tests pass and types are updated
     - [ ] Re-run `supabase-rpc.integration.test.ts` to confirm Green status
     - [ ] Run `npm run db:gen-types` to ensure schema types are in sync
