@@ -1,11 +1,11 @@
 # Implementation Plan: Auto-Clear Wishlist on Visit Logging (Issue #54 / ADR-0001)
 
 ## Phase 1: Database Migration & RPC Hardening (TDD)
-- [ ] Task: Write failing integration tests for database RPC wishlist auto-deletion
-    - [ ] Add integration test cases in `lib/services/__tests__/supabase-rpc.integration.test.ts` asserting that calling `log_visit` deletes existing wishlist entry for the user and winery
-    - [ ] Add test cases verifying that logging a second visit to an already cleared winery succeeds safely
-    - [ ] Add test cases verifying that deleting a visit (`delete_visit`) does not restore the winery to `public.wishlist`
-    - [ ] Confirm integration tests fail against the current un-migrated database schema (Red phase)
+- [x] Task: Write failing integration tests for database RPC wishlist auto-deletion (dc0443d)
+    - [x] Add integration test cases in `lib/services/__tests__/supabase-rpc.integration.test.ts` asserting that calling `log_visit` deletes existing wishlist entry for the user and winery
+    - [x] Add test cases verifying that logging a second visit to an already cleared winery succeeds safely
+    - [x] Add test cases verifying that deleting a visit (`delete_visit`) does not restore the winery to `public.wishlist`
+    - [x] Confirm integration tests fail against the current un-migrated database schema (Red phase)
 - [ ] Task: Create database migration updating `log_visit` RPC and historical data cleanup
     - [ ] Create a new migration file in `supabase/migrations/`
     - [ ] Add `DELETE FROM public.wishlist WHERE user_id = auth.uid() AND winery_id = v_winery_id;` inside `public.log_visit` initial insert transaction
