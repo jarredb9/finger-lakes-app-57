@@ -201,7 +201,7 @@ describe('Supabase RPC Integration Tests', () => {
         expect(logVisitError).toBeNull();
         expect(logVisitData).toHaveProperty('visit_id');
 
-        // 4. Assert wishlist record was deleted (Fails in Red phase: length is still 1)
+        // 4. Assert wishlist record was deleted
         const { data: wishlistAfter, error: checkAfterError } = await adminClient
           .from('wishlist')
           .select('*')
