@@ -56,9 +56,9 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Offline Sync Queue Replay & Edge Case Invariants' (Protocol in workflow.md)
 
 ## Phase 5: Scaffolding Cleanup & Final Regression Verification
-- [ ] Task: Audit and clean up temporary scaffolding tests
-    - [ ] Review all tests created during track implementation
-    - [ ] Remove any temporary scaffolding tests or throwaway harness fixtures, keeping only permanent regression tests
+- [x] Task: Audit and clean up temporary scaffolding tests (4ee9868)
+    - [x] Review all tests created during track implementation
+    - [x] Remove any temporary scaffolding tests or throwaway harness fixtures, keeping only permanent regression tests
 - [ ] Task: Execute full automated test suite and type verification
     - [ ] Run containerized unit and integration test suite (`./scripts/run-jest-container.sh`)
     - [ ] Run TypeScript type check (`npm run db:check-types:local` / `tsc --noEmit`)
