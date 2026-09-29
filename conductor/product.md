@@ -24,6 +24,7 @@ This is a Next.js web application designed for planning and tracking visits to w
 - **Advanced Winery Discovery:** Detailed filtering by logistical attributes such as dog-friendliness, EV charging, and accessibility, supported by a 30-day freshness cache.
 - **Trip Planning:** Collaborative itinerary building and sharing tools for organized outings.
 - **Visit Records:** Rich logging of winery experiences, including history, photos, and notes.
+- **Wishlist & Aspirational Planning:** Track aspirational wineries to visit with automatic wishlist clearing upon logging a visit and full support for return-visit planning.
 - **Granular Privacy Controls:** Dedicated settings to control profile and activity visibility (Public, Friends Only, Private).
 - **Social Features:** Collaboration with friends, sharing winery adventures, and personalized recommendations based on friend activity.
 - **Offline-First Resilience:** Robust offline data integrity with encrypted mutation queuing and binary reconstitution for reliable use in low-connectivity areas.
