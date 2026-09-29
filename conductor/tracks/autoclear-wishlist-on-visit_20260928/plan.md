@@ -55,11 +55,11 @@
     - [x] Re-run tests to confirm Green status (Green phase)
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Offline Sync Queue Replay & Edge Case Invariants' (Protocol in workflow.md)
 
-## Phase 5: Scaffolding Cleanup & Final Regression Verification
+## Phase 5: Scaffolding Cleanup & Final Regression Verification [checkpoint: f2db817]
 - [x] Task: Audit and clean up temporary scaffolding tests (4ee9868)
     - [x] Review all tests created during track implementation
     - [x] Remove any temporary scaffolding tests or throwaway harness fixtures, keeping only permanent regression tests
 - [x] Task: Execute full automated test suite and type verification (9d572e0)
     - [x] Run containerized unit and integration test suite (`./scripts/run-jest-container.sh`)
     - [x] Run TypeScript type check (`npm run db:check-types:local` / `tsc --noEmit`)
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Scaffolding Cleanup & Final Regression Verification' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Scaffolding Cleanup & Final Regression Verification' (Protocol in workflow.md)
