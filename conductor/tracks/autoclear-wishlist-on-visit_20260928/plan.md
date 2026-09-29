@@ -11,9 +11,9 @@
     - [x] Add `DELETE FROM public.wishlist WHERE user_id = auth.uid() AND winery_id = v_winery_id;` inside `public.log_visit` initial insert transaction
     - [x] Add one-time retrospective data migration cleanup query for existing visited wineries in wishlists
     - [x] Apply migration locally via `npm run db:start` (Green phase)
-- [ ] Task: Verify database integration tests pass and types are updated
-    - [ ] Re-run `supabase-rpc.integration.test.ts` to confirm Green status
-    - [ ] Run `npm run db:gen-types` to ensure schema types are in sync
+- [x] Task: Verify database integration tests pass and types are updated (4909fdd)
+    - [x] Re-run `supabase-rpc.integration.test.ts` to confirm Green status
+    - [x] Run `npm run db:gen-types` to ensure schema types are in sync
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Database Migration & RPC Hardening' (Protocol in workflow.md)
 
 ## Phase 2: Standardizer Bugfix & Client State Reactivity (TDD)
