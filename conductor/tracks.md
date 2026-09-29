@@ -29,11 +29,11 @@
 | **frontend-modernization-architecture_20260901** | Frontend Modernization, React 19 / App Router Architecture & Bundle Optimization | [x] Archived | [Plan](./archive/frontend-modernization-architecture_20260901/plan.md) |
 | **test-infrastructure-e2e-stabilization_20260901** | Test Automation Infrastructure Modernization & E2E Test Suite Stabilization | [x] Archived | [Plan](./archive/test-infrastructure-e2e-stabilization_20260901/plan.md) |
 | **runtime-invariants-branded-ids_20260923** | Runtime Invariant Protection & Branded ID Ergonomics (PR 1 / Issue #53) | [x] Archived | [Plan](./archive/runtime-invariants-branded-ids_20260923/plan.md) |
-| **autoclear-wishlist-on-visit_20260928** | Auto-clear Wishlist entry when logging a Visit (Issue #54 / ADR-0001) | [ ] In Progress | [Plan](./tracks/autoclear-wishlist-on-visit_20260928/plan.md) |
+| **autoclear-wishlist-on-visit_20260928** | Auto-clear Wishlist entry when logging a Visit (Issue #54 / ADR-0001) | [~] In Progress | [Plan](./tracks/autoclear-wishlist-on-visit_20260928/plan.md) |
 
 ---
 
-- [ ] **Track: Auto-clear Wishlist entry when logging a Visit (Issue #54 / ADR-0001)**
+- [~] **Track: Auto-clear Wishlist entry when logging a Visit (Issue #54 / ADR-0001)**
 *Link: [./tracks/autoclear-wishlist-on-visit_20260928/](./tracks/autoclear-wishlist-on-visit_20260928/)*
 
 

@@ -17,10 +17,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Database Migration & RPC Hardening' (Protocol in workflow.md)
 
 ## Phase 2: Standardizer Bugfix & Store State Reactivity (TDD)
-- [ ] Task: Write failing unit tests for `standardizeWineryData` boolean overwriting
-    - [ ] Add test cases in `lib/utils/__tests__/winery.test.ts` verifying that explicit `false` values for `on_wishlist`, `wishlistIsPrivate`, `is_favorite`, and `favoriteIsPrivate` properly overwrite existing `true` values
-    - [ ] Test both snake_case and camelCase input representations
-    - [ ] Run tests to confirm failure due to the `|| existing` falsy fallback bug (Red phase)
+- [x] Task: Write failing unit tests for `standardizeWineryData` boolean overwriting (12999c3)
+    - [x] Add test cases in `lib/utils/__tests__/winery.test.ts` verifying that explicit `false` values for `on_wishlist`, `wishlistIsPrivate`, `is_favorite`, and `favoriteIsPrivate` properly overwrite existing `true` values
+    - [x] Test both snake_case and camelCase input representations
+    - [x] Run tests to confirm failure due to the `|| existing` falsy fallback bug (Red phase)
 - [ ] Task: Fix boolean precedence in `standardizeWineryData`
     - [ ] Update `lib/utils/winery.ts` to cleanly evaluate `rawBoolean !== undefined ? rawBoolean : (existing ?? false)` for all 4 flags
     - [ ] Re-run `winery.test.ts` to confirm Green status (Green phase)
