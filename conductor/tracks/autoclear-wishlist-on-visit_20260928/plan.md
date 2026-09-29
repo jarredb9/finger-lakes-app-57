@@ -1,6 +1,6 @@
 # Implementation Plan: Auto-Clear Wishlist on Visit Logging (Issue #54 / ADR-0001)
 
-## Phase 1: Database Migration & RPC Hardening (TDD)
+## Phase 1: Database Migration & RPC Hardening (TDD) [checkpoint: 605e963]
 - [x] Task: Write failing integration tests for database RPC wishlist auto-deletion (dc0443d)
     - [x] Add integration test cases in `lib/services/__tests__/supabase-rpc.integration.test.ts` asserting that calling `log_visit` deletes existing wishlist entry for the user and winery
     - [x] Add test cases verifying that logging a second visit to an already cleared winery succeeds safely
@@ -14,7 +14,7 @@
 - [x] Task: Verify database integration tests pass and types are updated (4909fdd)
     - [x] Re-run `supabase-rpc.integration.test.ts` to confirm Green status
     - [x] Run `npm run db:gen-types` to ensure schema types are in sync
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Database Migration & RPC Hardening' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Database Migration & RPC Hardening' (Protocol in workflow.md)
 
 ## Phase 2: Standardizer Bugfix & Client State Reactivity (TDD)
 - [ ] Task: Write failing unit tests for `standardizeWineryData` boolean overwriting
