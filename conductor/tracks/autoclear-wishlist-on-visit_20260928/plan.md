@@ -16,7 +16,7 @@
     - [x] Run `npm run db:gen-types` to ensure schema types are in sync
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Database Migration & RPC Hardening' (Protocol in workflow.md)
 
-## Phase 2: Standardizer Bugfix & Store State Reactivity (TDD)
+## Phase 2: Standardizer Bugfix & Store State Reactivity (TDD) [checkpoint: 752e296]
 - [x] Task: Write failing unit tests for `standardizeWineryData` boolean overwriting (12999c3)
     - [x] Add test cases in `lib/utils/__tests__/winery.test.ts` verifying that explicit `false` values for `on_wishlist`, `wishlistIsPrivate`, `is_favorite`, and `favoriteIsPrivate` properly overwrite existing `true` values
     - [x] Test both snake_case and camelCase input representations
@@ -32,7 +32,7 @@
     - [x] Update `addVisitToWinery` in `lib/stores/wineryStore.ts` with dual Place ID and DB ID matching and wishlist clearing
     - [x] Update `saveVisitHelper` in `lib/stores/slices/visitMutationHelpers.ts` to snapshot `{ userVisited, onWishlist, wishlistIsPrivate }` and restore via `updateWinery` on fatal catch
     - [x] Re-run tests to confirm Green status (Green phase)
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Standardizer Bugfix & Store State Reactivity' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Standardizer Bugfix & Store State Reactivity' (Protocol in workflow.md)
 
 ## Phase 3: UI Presentation & Return-Visit Wishlisting (TDD)
 - [ ] Task: Write failing unit tests for card thumbnail badge coexistence and modal action re-wishlisting
