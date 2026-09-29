@@ -21,6 +21,13 @@ export async function saveVisitHelper(
   const supabase = createClient();
   const { addVisitToWinery, replaceVisit } = useWineryStore.getState();
 
+  const existingWinery = useWineryStore.getState().getWinery?.(winery.id);
+  const preMutationWinery = {
+    userVisited: existingWinery?.userVisited ?? winery.userVisited ?? false,
+    onWishlist: existingWinery?.onWishlist ?? winery.onWishlist ?? false,
+    wishlistIsPrivate: existingWinery?.wishlistIsPrivate ?? winery.wishlistIsPrivate ?? false,
+  };
+
   const { data: { session } } = await supabase.auth.getSession();
   if (!session?.user) throw new Error("User not authenticated.");
   const user = session.user;
@@ -148,6 +155,8 @@ export async function saveVisitHelper(
     if (uploadedPaths.length > 0) {
       await supabase.storage.from('visit-photos').remove(uploadedPaths);
     }
+
+    useWineryStore.getState().updateWinery?.(winery.id, preMutationWinery);
 
     set(state => ({ 
       visits: state.visits.map(v => String(v.id) === tempId ? { ...v, syncStatus: 'error' as const } : v),
