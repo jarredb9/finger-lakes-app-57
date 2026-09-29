@@ -16,28 +16,36 @@
     - [x] Run `npm run db:gen-types` to ensure schema types are in sync
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Database Migration & RPC Hardening' (Protocol in workflow.md)
 
-## Phase 2: Standardizer Bugfix & Client State Reactivity (TDD)
+## Phase 2: Standardizer Bugfix & Store State Reactivity (TDD)
 - [ ] Task: Write failing unit tests for `standardizeWineryData` boolean overwriting
     - [ ] Add test cases in `lib/utils/__tests__/winery.test.ts` verifying that explicit `false` values for `on_wishlist`, `wishlistIsPrivate`, `is_favorite`, and `favoriteIsPrivate` properly overwrite existing `true` values
+    - [ ] Test both snake_case and camelCase input representations
     - [ ] Run tests to confirm failure due to the `|| existing` falsy fallback bug (Red phase)
 - [ ] Task: Fix boolean precedence in `standardizeWineryData`
-    - [ ] Update `lib/utils/winery.ts` to cleanly evaluate `rawBoolean !== undefined ? rawBoolean : (existing ?? false)`
+    - [ ] Update `lib/utils/winery.ts` to cleanly evaluate `rawBoolean !== undefined ? rawBoolean : (existing ?? false)` for all 4 flags
     - [ ] Re-run `winery.test.ts` to confirm Green status (Green phase)
 - [ ] Task: Write failing unit tests for wineryStore, ID matching, and optimistic rollback
     - [ ] Add unit tests in `lib/stores/__tests__/wineryStore.test.ts` verifying that `addVisitToWinery` updates `onWishlist: false`, `wishlistIsPrivate: false`, and `userVisited: true`, matching by both Place ID and DB ID
-    - [ ] Add unit tests in `lib/stores/__tests__/visitStore.domainInvariants.test.ts` verifying optimistic visit creation clears wishlist flags, and unrecoverable errors roll back wishlist flags
+    - [ ] Add unit tests in `lib/stores/__tests__/visitStore.domainInvariants.test.ts` verifying optimistic visit creation clears wishlist flags, and unrecoverable errors perform targeted rollback of `{ userVisited, onWishlist, wishlistIsPrivate }`
     - [ ] Run tests to confirm failure (Red phase)
 - [ ] Task: Implement client state updates in wineryStore and visitMutationHelpers
     - [ ] Update `addVisitToWinery` in `lib/stores/wineryStore.ts` with dual Place ID and DB ID matching and wishlist clearing
-    - [ ] Update `saveVisitHelper` in `lib/stores/slices/visitMutationHelpers.ts` to capture pre-mutation flags and restore them on fatal catch
+    - [ ] Update `saveVisitHelper` in `lib/stores/slices/visitMutationHelpers.ts` to snapshot `{ userVisited, onWishlist, wishlistIsPrivate }` and restore via `updateWinery` on fatal catch
     - [ ] Re-run tests to confirm Green status (Green phase)
-- [ ] Task: Update card thumbnail presentation for visited & wishlisted wineries
-    - [ ] Add unit test in `components/__tests__/winery-card-thumbnail.test.tsx` verifying both 'Visited' and 'Want to Go' badges render when both flags are true
-    - [ ] Update `components/winery-card-thumbnail.tsx` condition to display 'Want to Go' badge without suppressing on `userVisited`
-    - [ ] Confirm tests pass
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Standardizer Bugfix & Client State Reactivity' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 2: Standardizer Bugfix & Store State Reactivity' (Protocol in workflow.md)
 
-## Phase 3: Offline Sync Queue Replay & Edge Case Invariants (TDD)
+## Phase 3: UI Presentation & Return-Visit Wishlisting (TDD)
+- [ ] Task: Write failing unit tests for card thumbnail badge coexistence and modal action re-wishlisting
+    - [ ] Update unit tests in `components/__tests__/winery-card-thumbnail.test.tsx` verifying both 'Visited' and 'Want to Go' badges render when `userVisited: true` and `onWishlist: true`, while the status dot maintains emerald priority
+    - [ ] Create unit tests in `components/__tests__/WineryActionsPresentational.test.tsx` verifying that the Wishlist button is enabled and clickable when `winery.userVisited: true`, fires `onToggleWishlist`, and displays privacy controls when active
+    - [ ] Run tests to confirm failure against current UI restrictions (Red phase)
+- [ ] Task: Update UI presentation and action components
+    - [ ] Update `components/winery-card-thumbnail.tsx` condition to display 'Want to Go' badge without suppressing on `userVisited`
+    - [ ] Update `components/WineryActionsPresentational.tsx` to remove `disabled={winery.userVisited}` and opacity lock on the Wishlist button
+    - [ ] Re-run component unit tests to confirm Green status (Green phase)
+- [ ] Task: Conductor - User Manual Verification 'Phase 3: UI Presentation & Return-Visit Wishlisting' (Protocol in workflow.md)
+
+## Phase 4: Offline Sync Queue Replay & Edge Case Invariants (TDD)
 - [ ] Task: Write failing tests for SyncService log_visit queue processing and store revalidation
     - [ ] Add unit tests in `lib/services/__tests__/syncService.test.ts` asserting that `useWineryStore.getState().fetchWineryData(userId)` is called when `log_visit` is processed
     - [ ] Test offline replay idempotency and error resilience
@@ -45,13 +53,13 @@
 - [ ] Task: Implement store revalidation and queue replay resilience in SyncService
     - [ ] Update `SyncService.sync()` in `lib/services/syncService.ts` to invoke `fetchWineryData(user.id)` on `log_visit`
     - [ ] Re-run tests to confirm Green status (Green phase)
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Offline Sync Queue Replay & Edge Case Invariants' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 4: Offline Sync Queue Replay & Edge Case Invariants' (Protocol in workflow.md)
 
-## Phase 4: Scaffolding Cleanup & Final Regression Verification
+## Phase 5: Scaffolding Cleanup & Final Regression Verification
 - [ ] Task: Audit and clean up temporary scaffolding tests
     - [ ] Review all tests created during track implementation
     - [ ] Remove any temporary scaffolding tests or throwaway harness fixtures, keeping only permanent regression tests
 - [ ] Task: Execute full automated test suite and type verification
     - [ ] Run containerized unit and integration test suite (`./scripts/run-jest-container.sh`)
     - [ ] Run TypeScript type check (`npm run db:check-types:local` / `tsc --noEmit`)
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Scaffolding Cleanup & Final Regression Verification' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 5: Scaffolding Cleanup & Final Regression Verification' (Protocol in workflow.md)
