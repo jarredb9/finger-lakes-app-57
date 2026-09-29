@@ -68,11 +68,11 @@ Wishlists represent aspirational wineries a user intends to visit in the future.
 ## Acceptance Criteria
 - [x] Database RPC `log_visit` atomically deletes matching `public.wishlist` entry on initial visit insert.
 - [x] Historical visited wineries cleared from `public.wishlist` via migration script.
-- [ ] `standardizeWineryData` unit tests prove explicit `false` values overwrite existing `true` values.
-- [ ] `addVisitToWinery` updates `onWishlist: false` and `wishlistIsPrivate: false`, matching by Place ID and DB ID.
-- [ ] Fatal visit saving errors perform targeted rollback of pre-mutation wishlist and visited flags.
-- [ ] Thumbnail card renders both badges if a winery is both visited and wishlisted, preserving emerald status dot.
-- [ ] Winery actions modal allows toggling wishlist on visited wineries for return-visit planning.
-- [ ] `SyncService` sync loop invokes `fetchWineryData(user.id)` when `log_visit` is processed.
-- [ ] Deleting a visit leaves wishlist cleared.
-- [ ] Full unit, integration, and type checks pass.
+- [x] `standardizeWineryData` unit tests prove explicit `false` values overwrite existing `true` values.
+- [x] `addVisitToWinery` updates `onWishlist: false` and `wishlistIsPrivate: false`, matching by Place ID and DB ID.
+- [x] Fatal visit saving errors perform targeted rollback of pre-mutation wishlist and visited flags.
+- [x] Thumbnail card renders both badges if a winery is both visited and wishlisted, preserving emerald status dot.
+- [x] Winery actions modal allows toggling wishlist on visited wineries for return-visit planning.
+- [x] `SyncService` sync loop invokes `fetchWineryData(user.id)` when `log_visit` is processed.
+- [x] Deleting a visit leaves wishlist cleared.
+- [x] Full unit, integration, and type checks pass.
