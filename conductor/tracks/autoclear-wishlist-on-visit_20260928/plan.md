@@ -35,10 +35,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Standardizer Bugfix & Store State Reactivity' (Protocol in workflow.md)
 
 ## Phase 3: UI Presentation & Return-Visit Wishlisting (TDD)
-- [ ] Task: Write failing unit tests for card thumbnail badge coexistence and modal action re-wishlisting
-    - [ ] Update unit tests in `components/__tests__/winery-card-thumbnail.test.tsx` verifying both 'Visited' and 'Want to Go' badges render when `userVisited: true` and `onWishlist: true`, while the status dot maintains emerald priority
-    - [ ] Create unit tests in `components/__tests__/WineryActionsPresentational.test.tsx` verifying that the Wishlist button is enabled and clickable when `winery.userVisited: true`, fires `onToggleWishlist`, and displays privacy controls when active
-    - [ ] Run tests to confirm failure against current UI restrictions (Red phase)
+- [x] Task: Write failing unit tests for card thumbnail badge coexistence and modal action re-wishlisting (765073c)
+    - [x] Update unit tests in `components/__tests__/winery-card-thumbnail.test.tsx` verifying both 'Visited' and 'Want to Go' badges render when `userVisited: true` and `onWishlist: true`, while the status dot maintains emerald priority
+    - [x] Create unit tests in `components/__tests__/WineryActionsPresentational.test.tsx` verifying that the Wishlist button is enabled and clickable when `winery.userVisited: true`, fires `onToggleWishlist`, and displays privacy controls when active
+    - [x] Run tests to confirm failure against current UI restrictions (Red phase)
 - [ ] Task: Update UI presentation and action components
     - [ ] Update `components/winery-card-thumbnail.tsx` condition to display 'Want to Go' badge without suppressing on `userVisited`
     - [ ] Update `components/WineryActionsPresentational.tsx` to remove `disabled={winery.userVisited}` and opacity lock on the Wishlist button
