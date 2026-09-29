@@ -46,10 +46,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: UI Presentation & Return-Visit Wishlisting' (Protocol in workflow.md)
 
 ## Phase 4: Offline Sync Queue Replay & Edge Case Invariants (TDD)
-- [ ] Task: Write failing tests for SyncService log_visit queue processing and store revalidation
-    - [ ] Add unit tests in `lib/services/__tests__/syncService.test.ts` asserting that `useWineryStore.getState().fetchWineryData(userId)` is called when `log_visit` is processed
-    - [ ] Test offline replay idempotency and error resilience
-    - [ ] Run tests to confirm failure (Red phase)
+- [x] Task: Write failing tests for SyncService log_visit queue processing and store revalidation (767b40b)
+    - [x] Add unit tests in `lib/services/__tests__/syncService.test.ts` asserting that `useWineryStore.getState().fetchWineryData(userId)` is called when `log_visit` is processed
+    - [x] Test offline replay idempotency and error resilience
+    - [x] Run tests to confirm failure (Red phase)
 - [ ] Task: Implement store revalidation and queue replay resilience in SyncService
     - [ ] Update `SyncService.sync()` in `lib/services/syncService.ts` to invoke `fetchWineryData(user.id)` on `log_visit`
     - [ ] Re-run tests to confirm Green status (Green phase)
