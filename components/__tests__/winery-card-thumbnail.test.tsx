@@ -78,4 +78,44 @@ describe('WineryCardThumbnail', () => {
     fireEvent.click(screen.getByTestId(`winery-card-${mockWinery.name}`));
     expect(handleClick).toHaveBeenCalledTimes(1);
   });
+
+  describe('Operational Status Badges and Null Hours Resilience (Phase 1)', () => {
+    it('renders "Open" badge with clock icon when isOpenNow is true', () => {
+      const openWinery = {
+        ...mockWinery,
+        openingHours: {
+          open_now: true,
+          periods: [{ open: { day: 0, hour: 0, minute: 0 } }],
+        },
+      };
+      render(<WineryCardThumbnail winery={openWinery} />);
+      expect(screen.getByText('Open')).toBeInTheDocument();
+    });
+
+    it('renders "Closed" badge with clock icon when isOpenNow is false', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date(2026, 8, 30, 12, 0));
+      const closedWinery = {
+        ...mockWinery,
+        openingHours: {
+          open_now: false,
+          periods: [{ open: { day: 2, hour: 10, minute: 0 }, close: { day: 2, hour: 17, minute: 0 } }],
+        },
+      };
+      render(<WineryCardThumbnail winery={closedWinery} />);
+      expect(screen.getByText('Closed')).toBeInTheDocument();
+      jest.useRealTimers();
+    });
+
+    it('cleanly omits operational status badge when isOpen is null without defaulting to "Closed"', () => {
+      const wineryWithoutHours = {
+        ...mockWinery,
+        openingHours: null,
+      };
+      render(<WineryCardThumbnail winery={wineryWithoutHours} />);
+      expect(screen.queryByText('Open')).not.toBeInTheDocument();
+      expect(screen.queryByText('Closed')).not.toBeInTheDocument();
+      expect(screen.queryByText(/hours/i)).not.toBeInTheDocument();
+    });
+  });
 });

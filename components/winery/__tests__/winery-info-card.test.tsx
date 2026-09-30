@@ -105,5 +105,62 @@ describe('WineryInfoCard', () => {
     render(<WineryInfoCard winery={winery} />);
     expect(screen.queryByTestId('hours-toggle')).not.toBeInTheDocument();
   });
+
+  describe('Tri-state operational status, loading skeleton, and schedule fallbacks (Phase 1)', () => {
+    it('displays "Open Now" with green indicator when isOpenNow is true', () => {
+      const winery = createMockWinery({
+        openingHours: {
+          open_now: true,
+          periods: [{ open: { day: 0, hour: 0, minute: 0 } }],
+          weekday_text: ['Open 24 hours'],
+        },
+      });
+      render(<WineryInfoCard winery={winery} />);
+      expect(screen.getByText('Open Now')).toBeInTheDocument();
+    });
+
+    it('displays "Closed" with red indicator when isOpenNow is false', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date(2026, 8, 30, 12, 0)); // Wednesday 12:00
+      const winery = createMockWinery({
+        openingHours: {
+          open_now: false,
+          periods: [{ open: { day: 2, hour: 10, minute: 0 }, close: { day: 2, hour: 17, minute: 0 } }], // Tuesday only
+          weekday_text: ['Tuesday: 10:00 AM – 5:00 PM'],
+        },
+      });
+      render(<WineryInfoCard winery={winery} />);
+      expect(screen.getByText('Closed')).toBeInTheDocument();
+      jest.useRealTimers();
+    });
+
+    it('displays "Hours Unavailable" with neutral indicator when openingHours are missing and isLoading is false', () => {
+      const winery = createMockWinery({
+        openingHours: null,
+      });
+      render(<WineryInfoCard winery={winery} {...({ isLoading: false } as any)} />);
+      expect(screen.getByText('Hours Unavailable')).toBeInTheDocument();
+      expect(screen.queryByText('Closed')).not.toBeInTheDocument();
+    });
+
+    it('renders animated loading skeleton pill in status badge when isLoading is true', () => {
+      const winery = createMockWinery({
+        openingHours: null,
+      });
+      render(<WineryInfoCard winery={winery} {...({ isLoading: true } as any)} />);
+      expect(screen.getByTestId('status-loading-skeleton')).toBeInTheDocument();
+      expect(screen.queryByText('Open Now')).not.toBeInTheDocument();
+      expect(screen.queryByText('Closed')).not.toBeInTheDocument();
+    });
+
+    it('renders schedule subtext as "Hours Unavailable" with direct website fallback link when openingHours are missing and website is present', () => {
+      const winery = createMockWinery({
+        openingHours: null,
+        website: 'https://drfrankwines.com',
+      });
+      render(<WineryInfoCard winery={winery} {...({ isLoading: false } as any)} />);
+      expect(screen.getByTestId('schedule-fallback-website')).toHaveAttribute('href', 'https://drfrankwines.com');
+    });
+  });
 });
 
