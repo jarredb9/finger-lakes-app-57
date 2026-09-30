@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Winery } from "@/lib/types";
 import { Phone, Globe, ChevronDown, Mail, Navigation } from "lucide-react";
-import { isOpenNow } from "@/lib/utils/opening-hours";
+import { isOpenNow, getDailyHoursForDate, isDayForDate } from "@/lib/utils/opening-hours";
 import { MapNavigation } from "../MapNavigation";
 
 interface WineryInfoCardProps {
@@ -29,13 +29,7 @@ export function WineryInfoCard({ winery, isMobile: propIsMobile }: WineryInfoCar
   const isMobile = propIsMobile !== undefined ? propIsMobile : internalIsMobile;
 
   const getTodaysHours = () => {
-    if (!winery.openingHours?.weekday_text) {
-      return null;
-    }
-    const todayIndex = (new Date().getDay() + 6) % 7;
-    const todaysLine = winery.openingHours.weekday_text[todayIndex];
-    const hours = todaysLine.substring(todaysLine.indexOf(':') + 2);
-    return hours;
+    return getDailyHoursForDate(winery.openingHours);
   };
 
   const isOpen = isOpenNow(winery.openingHours);
@@ -74,9 +68,22 @@ export function WineryInfoCard({ winery, isMobile: propIsMobile }: WineryInfoCar
                       <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2 font-semibold">Weekly Hours</div>
                       <div className="space-y-1.5">
                         {winery.openingHours.weekday_text.map((line, index) => {
-                          const [day, ...timeParts] = line.split(': ');
-                          const time = timeParts.join(': ');
-                          const isToday = index === (new Date().getDay() + 6) % 7;
+                          const colonIndex = line.indexOf(':');
+                          let day = line;
+                          let time = '';
+                          if (colonIndex !== -1) {
+                            const beforeColon = line.substring(0, colonIndex).trim();
+                            if (!/\d/.test(beforeColon)) {
+                              day = beforeColon;
+                              time = line.substring(colonIndex + 1).trim();
+                            }
+                          }
+                          const defaultDayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                          if (day === line && winery.openingHours!.weekday_text!.length === 7 && !winery.openingHours!.weekday_text!.some((l) => isDayForDate(l))) {
+                            day = defaultDayNames[index];
+                            time = line;
+                          }
+                          const isToday = isDayForDate(day) || (winery.openingHours!.weekday_text!.length === 7 && !winery.openingHours!.weekday_text!.some((l) => isDayForDate(l)) && index === (new Date().getDay() + 6) % 7);
                           return (
                             <div key={index} className={`flex justify-between text-xs ${isToday ? 'font-bold text-foreground' : 'text-muted-foreground'}`}>
                               <span>{day}</span>
