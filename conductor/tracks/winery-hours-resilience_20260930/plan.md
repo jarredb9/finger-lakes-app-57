@@ -1,12 +1,12 @@
 # Implementation Plan: Winery Operational Hours Resilience & PWA Hydration (Issue #56)
 
 ## Phase 1: Tri-State Operational Status, Decoupled Loading & UI Resilience (TDD)
-- [ ] Task: Write failing unit tests for tri-state badge fallbacks, decoupled layout loading, and loading skeletons
-    - [ ] Add unit tests in `components/winery/__tests__/winery-info-card.test.tsx` verifying `Open Now` (true), `Closed` (false), `Hours Unavailable` (null), skeleton loading pill state (`isLoading: true`), and schedule fallback with website link
-    - [ ] Add unit tests in `components/winery/__tests__/mobile-winery-drawer.test.tsx` verifying peek badge displays animated skeleton pill when `isLoading: true`, and renders `🟢 OPEN NOW`, `🔴 CLOSED`, or `⚪ HOURS UNAVAILABLE` when loaded
-    - [ ] Add unit tests in `components/__tests__/winery-card-thumbnail.test.tsx` verifying thumbnail card cleanly omits status badge when `isOpen === null` without defaulting to `Closed`
-    - [ ] Add unit tests in `components/winery/__tests__/desktop-winery-modal.test.tsx` and `mobile-winery-drawer.test.tsx` verifying cached wineries render content immediately when `isLoading: true` (only `!winery` renders full-screen skeleton)
-    - [ ] Confirm all tests fail against current binary/coupled logic (Red phase)
+- [x] Task: Write failing unit tests for tri-state badge fallbacks, decoupled layout loading, and loading skeletons (47d7becc)
+    - [x] Add unit tests in `components/winery/__tests__/winery-info-card.test.tsx` verifying `Open Now` (true), `Closed` (false), `Hours Unavailable` (null), skeleton loading pill state (`isLoading: true`), and schedule fallback with website link
+    - [x] Add unit tests in `components/winery/__tests__/mobile-winery-drawer.test.tsx` verifying peek badge displays animated skeleton pill when `isLoading: true`, and renders `🟢 OPEN NOW`, `🔴 CLOSED`, or `⚪ HOURS UNAVAILABLE` when loaded
+    - [x] Add unit tests in `components/__tests__/winery-card-thumbnail.test.tsx` verifying thumbnail card cleanly omits status badge when `isOpen === null` without defaulting to `Closed`
+    - [x] Add unit tests in `components/winery/__tests__/desktop-winery-modal.test.tsx` and `mobile-winery-drawer.test.tsx` verifying cached wineries render content immediately when `isLoading: true` (only `!winery` renders full-screen skeleton)
+    - [x] Confirm all tests fail against current binary/coupled logic (Red phase)
 - [ ] Task: Implement tri-state status badge, decoupled loading, and schedule fallbacks across presentational components
     - [ ] Refactor `DesktopWineryLayout`, `MobileWineryLayout`, and `TabletWineryLayout` to guard full-screen skeleton only on `!winery` and pass `isLoading` down through `WineryDetails` to `WineryInfoCard`
     - [ ] Refactor `components/winery/winery-info-card.tsx` to handle `isLoading` skeleton pill, tri-state badge, and schedule fallback with website link
