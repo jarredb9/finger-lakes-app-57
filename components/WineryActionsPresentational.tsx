@@ -86,13 +86,12 @@ export function WineryActionsPresentational({
           <button 
             type="button"
             onClick={onToggleWishlist}
-            disabled={winery.userVisited}
             data-testid="wishlist-button"
             className={`p-2.5 flex flex-col items-center justify-center gap-1.5 w-full min-h-[68px] rounded-xl border border-border/50 bg-muted/30 hover:bg-muted/50 transition-all duration-300 hover:scale-105 active:scale-95 ${
               winery.onWishlist 
                 ? "bg-secondary/10 border-secondary/30 text-secondary-foreground shadow-xs font-semibold" 
                 : "text-muted-foreground hover:text-foreground"
-            } ${winery.userVisited ? "opacity-50 cursor-not-allowed" : ""}`}
+            }`}
           >
             {winery.onWishlist ? <Check className="h-4 w-4" /> : <ListPlus className="h-4 w-4" />}
             <span className="text-[10px] md:text-xs leading-none font-medium">{winery.onWishlist ? "On List" : "Wishlist"}</span>

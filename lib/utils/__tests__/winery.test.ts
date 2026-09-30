@@ -307,6 +307,114 @@ describe('standardizeWineryData', () => {
     expect(result?.latitude).toBe(42.88);
     expect(result?.longitude).toBe(-76.99);
   });
+
+  describe('standardizeWineryData boolean precedence and overwriting (Issue #54 / ADR-0001)', () => {
+    it('overwrites existing true flags when source explicitly provides false in snake_case', () => {
+      const existingWinery: Winery = {
+        ...createMockWinery(),
+        onWishlist: true,
+        wishlistIsPrivate: true,
+        isFavorite: true,
+        favoriteIsPrivate: true,
+      };
+
+      const snakeCaseUpdate = {
+        id: existingWinery.id,
+        name: existingWinery.name,
+        latitude: existingWinery.latitude,
+        longitude: existingWinery.longitude,
+        on_wishlist: false,
+        wishlist_is_private: false,
+        is_favorite: false,
+        favorite_is_private: false,
+      };
+
+      const result = standardizeWineryData(snakeCaseUpdate, existingWinery);
+
+      expect(result).not.toBeNull();
+      expect(result?.onWishlist).toBe(false);
+      expect(result?.wishlistIsPrivate).toBe(false);
+      expect(result?.isFavorite).toBe(false);
+      expect(result?.favoriteIsPrivate).toBe(false);
+    });
+
+    it('overwrites existing true flags when source explicitly provides false in alternative snake_case keys', () => {
+      const existingWinery: Winery = {
+        ...createMockWinery(),
+        wishlistIsPrivate: true,
+        favoriteIsPrivate: true,
+      };
+
+      const altSnakeUpdate = {
+        id: existingWinery.id,
+        name: existingWinery.name,
+        latitude: existingWinery.latitude,
+        longitude: existingWinery.longitude,
+        on_wishlist_private: false,
+        is_favorite_private: false,
+      };
+
+      const result = standardizeWineryData(altSnakeUpdate, existingWinery);
+
+      expect(result).not.toBeNull();
+      expect(result?.wishlistIsPrivate).toBe(false);
+      expect(result?.favoriteIsPrivate).toBe(false);
+    });
+
+    it('overwrites existing true flags when source explicitly provides false in camelCase', () => {
+      const existingWinery: Winery = {
+        ...createMockWinery(),
+        onWishlist: true,
+        wishlistIsPrivate: true,
+        isFavorite: true,
+        favoriteIsPrivate: true,
+      };
+
+      const camelCaseUpdate = {
+        id: existingWinery.id,
+        name: existingWinery.name,
+        latitude: existingWinery.latitude,
+        longitude: existingWinery.longitude,
+        onWishlist: false,
+        wishlistIsPrivate: false,
+        isFavorite: false,
+        favoriteIsPrivate: false,
+      };
+
+      const result = standardizeWineryData(camelCaseUpdate, existingWinery);
+
+      expect(result).not.toBeNull();
+      expect(result?.onWishlist).toBe(false);
+      expect(result?.wishlistIsPrivate).toBe(false);
+      expect(result?.isFavorite).toBe(false);
+      expect(result?.favoriteIsPrivate).toBe(false);
+    });
+
+    it('preserves existing true flags when source fields are undefined (partial update)', () => {
+      const existingWinery: Winery = {
+        ...createMockWinery(),
+        onWishlist: true,
+        wishlistIsPrivate: true,
+        isFavorite: true,
+        favoriteIsPrivate: true,
+      };
+
+      const partialUpdate = {
+        id: existingWinery.id,
+        name: existingWinery.name,
+        latitude: existingWinery.latitude,
+        longitude: existingWinery.longitude,
+      };
+
+      const result = standardizeWineryData(partialUpdate, existingWinery);
+
+      expect(result).not.toBeNull();
+      expect(result?.onWishlist).toBe(true);
+      expect(result?.wishlistIsPrivate).toBe(true);
+      expect(result?.isFavorite).toBe(true);
+      expect(result?.favoriteIsPrivate).toBe(true);
+    });
+  });
 });
 
 describe('Winery Type Guards & Invariant Protection (Issue #53 - Red Phase)', () => {

@@ -23,10 +23,20 @@ jest.mock('@/lib/stores/tripStore', () => ({
     })),
   },
 }));
+const mockFetchVisits = jest.fn();
+const mockFetchWineryData = jest.fn();
+
 jest.mock('@/lib/stores/visitStore', () => ({
   useVisitStore: {
     getState: jest.fn(() => ({
-      fetchVisits: jest.fn(),
+      fetchVisits: mockFetchVisits,
+    })),
+  },
+}));
+jest.mock('@/lib/stores/wineryStore', () => ({
+  useWineryStore: {
+    getState: jest.fn(() => ({
+      fetchWineryData: mockFetchWineryData,
     })),
   },
 }));
@@ -929,6 +939,164 @@ describe('SyncService', () => {
       expect(routedItem?.error.status).toBe(400);
       expect(routedItem?.error.message).toContain('Permanent mutation failure: invalid or missing wineryDbId for toggle_wishlist_privacy');
       routeToDLQSpy.mockRestore();
+    });
+  });
+
+  describe('Offline Sync Queue Replay & Store Revalidation (Issue #54 / ADR-0001)', () => {
+    it('revalidates wineryStore by invoking fetchWineryData(userId) when log_visit is processed in sync queue', async () => {
+      const mockMutation = {
+        id: 'sync-log-visit-revalidate',
+        type: 'log_visit',
+        encryptedPayload: 'encrypted-log-visit-revalidate',
+        userId: 'test-user-id',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue({
+          wineryId: 'ChIJgZbhp4Q304kRo_P2tM7K_kE',
+          wineryDbId: 42,
+          wineryName: 'Dr. Konstantin Frank Winery',
+          wineryAddress: '9749 Middle Rd, Hammondsport, NY 14840',
+          latitude: 42.4465,
+          longitude: -77.1652,
+          visit_date: '2026-09-29',
+          user_review: 'Great wine tasting',
+          rating: 5,
+          photos: [],
+        }),
+      };
+
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      await SyncService.sync();
+
+      expect(mockFetchVisits).toHaveBeenCalledWith(1, true);
+      expect(mockFetchWineryData).toHaveBeenCalledWith('test-user-id');
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-log-visit-revalidate');
+    });
+
+    it('does not invoke fetchWineryData when processed mutations do not include log_visit', async () => {
+      const mockMutation = {
+        id: 'sync-trip-delete',
+        type: 'delete_trip',
+        encryptedPayload: 'encrypted-{"tripId":"456"}',
+        userId: 'test-user-id',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue({ tripId: '456' }),
+      };
+
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      await SyncService.sync();
+
+      expect(mockFetchWineryData).not.toHaveBeenCalled();
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-trip-delete');
+    });
+
+    it('triggers fetchWineryData on idempotent replay of already committed log_visit mutation', async () => {
+      const mockMutation = {
+        id: 'sync-log-visit-idempotent',
+        type: 'log_visit',
+        encryptedPayload: 'encrypted-idempotent-payload',
+        userId: 'test-user-id',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue({
+          wineryId: 'ChIJgZbhp4Q304kRo_P2tM7K_kE',
+          wineryDbId: 42,
+          wineryName: 'Dr. Konstantin Frank Winery',
+          visit_date: '2026-09-29',
+          rating: 5,
+        }),
+      };
+
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      // Idempotent return from database RPC
+      mockSupabase.rpc.mockResolvedValueOnce({
+        data: { visit_id: 88, winery_id: 42 },
+        error: null,
+      });
+
+      await SyncService.sync();
+
+      expect(mockSupabase.rpc).toHaveBeenCalledWith(
+        'log_visit',
+        expect.objectContaining({
+          p_idempotency_key: 'sync-log-visit-idempotent',
+        })
+      );
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-log-visit-idempotent');
+      expect(mockFetchWineryData).toHaveBeenCalledWith('test-user-id');
+    });
+
+    it('defers fetchWineryData when log_visit encounters 5xx error, and invokes it upon successful replay', async () => {
+      const mockMutation = {
+        id: 'sync-5xx-retry',
+        type: 'log_visit',
+        encryptedPayload: 'encrypted-payload',
+        userId: 'test-user-id',
+        status: 'pending',
+      };
+
+      const mockSyncStore = {
+        queue: [mockMutation],
+        isInitialized: true,
+        initialize: jest.fn().mockResolvedValue(undefined),
+        removeMutation: jest.fn().mockResolvedValue(undefined),
+        updateMutationStatus: jest.fn(),
+        getDecryptedPayload: jest.fn().mockResolvedValue({
+          wineryId: 'ChIJgZbhp4Q304kRo_P2tM7K_kE',
+          wineryDbId: 42,
+          wineryName: 'Dr. Konstantin Frank Winery',
+          visit_date: '2026-09-29',
+          rating: 5,
+        }),
+      };
+
+      (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+      // Pass 1: Transient 503 error
+      mockSupabase.rpc.mockResolvedValueOnce({
+        data: null,
+        error: { message: 'Service Unavailable', status: 503 },
+      });
+
+      await SyncService.sync();
+
+      expect(mockSyncStore.removeMutation).not.toHaveBeenCalledWith('sync-5xx-retry');
+      expect(mockFetchWineryData).not.toHaveBeenCalled();
+
+      // Pass 2: Retry succeeds
+      SyncService.clearBackoff('sync-5xx-retry');
+      delete (mockMutation as any).nextRetryAt;
+      mockSupabase.rpc.mockResolvedValueOnce({
+        data: { visit_id: 99, winery_id: 42 },
+        error: null,
+      });
+
+      await SyncService.sync();
+
+      expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-5xx-retry');
+      expect(mockFetchWineryData).toHaveBeenCalledWith('test-user-id');
     });
   });
 });

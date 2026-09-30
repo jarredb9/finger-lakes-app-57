@@ -5,6 +5,7 @@ import { base64ToFile, isBase64Photo, Base64Photo } from '@/lib/utils/sync-helpe
 import { useVisitStore } from '@/lib/stores/visitStore';
 import { useTripStore } from '@/lib/stores/tripStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
+import { useWineryStore } from '@/lib/stores/wineryStore';
 import { TripService } from './tripService';
 import { Trip, toGooglePlaceId, toWineryDbId } from '@/lib/types';
 import { isRecord } from '@/lib/utils/winery';
@@ -276,7 +277,6 @@ export const SyncService = {
 
         if (isDiagnostic) console.log(`[SyncService] Processing item ${item.id} (type: ${item.type}, status: ${item.status || 'pending'})`);
 
-        processedTypes.add(item.type);
         try {
           let skippedDueToOCC = false;
           if (isDiagnostic) console.log(`[SyncService] Decrypting payload for ${item.id}...`);
@@ -665,6 +665,7 @@ export const SyncService = {
           await removeMutation(item.id);
           this.clearBackoff(item.id);
           if (isDiagnostic) console.log(`[SyncService] Removed item ${item.id} from queue.`);
+          processedTypes.add(item.type);
 
         } catch (itemError) {
           if (isDiagnostic) console.warn(`[SyncService] Unexpected error syncing item ${item.id}:`, itemError);
@@ -702,6 +703,10 @@ export const SyncService = {
         
         if (processedTypes.has('log_visit') || processedTypes.has('update_visit') || processedTypes.has('delete_visit')) {
           useVisitStore.getState().fetchVisits(1, true);
+        }
+
+        if (processedTypes.has('log_visit')) {
+          useWineryStore.getState().fetchWineryData(user.id);
         }
         
         if (processedTypes.has('create_trip') || processedTypes.has('update_trip') || processedTypes.has('delete_trip')) {

@@ -36,7 +36,7 @@ export interface WineryState {
   updateWinery: (id: GooglePlaceId, updates: Partial<Winery>) => void;
 
   // Visit Compatibility Operations (ST-03: visits stored in visitStore)
-  addVisitToWinery: (wineryId: GooglePlaceId, visit: Visit) => void;
+  addVisitToWinery: (wineryId: GooglePlaceId | string, visit?: Visit) => void;
   optimisticallyUpdateVisit: (visitId: string, visitData: Partial<Visit>) => void;
   optimisticallyDeleteVisit: (visitId: string) => void;
   replaceVisit: (wineryId: GooglePlaceId, tempId: string, finalVisit: Visit) => void;
@@ -512,7 +512,14 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
       addVisitToWinery: (wineryId) => {
         set(state => ({
           persistentWineries: state.persistentWineries.map(w =>
-            w.id === wineryId ? { ...w, userVisited: true } : w
+            w.id === wineryId || (w.dbId && String(w.dbId) === String(wineryId))
+              ? {
+                  ...w,
+                  userVisited: true,
+                  onWishlist: false,
+                  wishlistIsPrivate: false,
+                }
+              : w
           ),
         }));
       },

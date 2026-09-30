@@ -1,0 +1,8 @@
+{
+  "track_id": "autoclear-wishlist-on-visit_20260928",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-09-28T16:55:00Z",
+  "updated_at": "2026-09-28T16:55:00Z",
+  "description": "Auto-clear Wishlist entry when logging a Visit (Issue #54 / ADR-0001)"
+}

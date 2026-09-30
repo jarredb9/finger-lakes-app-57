@@ -1,3 +1,4 @@
+fix/56-winery-hours-resilience
 # Architecture Proposal & Root Cause Plan: Winery Operational Hours Resilience & PWA Hydration
 
 > **Target Issue:** [jarredb9/finger-lakes-app-57#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56)  
@@ -62,6 +63,9 @@ Following [`CONTEXT.md`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/CONTE
 ### Phase 1: Tri-State Operational Status & UI Resilience
 **Objective:** Eliminate the false-closed bug across all winery presentational surfaces.
 
+> **Note (v3.6.1 Foundation Completed in PR #54):**
+> Robust daily hours extraction (`getDailyHoursForDate`), canonical day matching (`isDayForDate`, `getDayIndex`), and safe weekly accordion colon/day parsing in `components/winery/winery-info-card.tsx` were implemented in v3.6.1 to eliminate a critical runtime render crash on partial/missing schedules. Phase 1 implementation must branch from or rebase on `main` after PR #54 merges, and reuse these utilities directly.
+
 1. **Update [`components/winery/winery-info-card.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/winery-info-card.tsx):**
    - Consume `isLoading` state from `useWineryModalState` / props.
    - Refactor status badge rendering:
@@ -71,8 +75,9 @@ Following [`CONTEXT.md`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/CONTE
        - If `isLoading`: Render animated skeleton pill (`h-3 w-16 bg-muted-foreground/20 animate-pulse rounded`).
        - If not loading: Neutral gray dot (`bg-muted-foreground`) + "HOURS UNAVAILABLE".
    - Underneath the status badge:
-     - If `winery.openingHours?.weekday_text`: Render today's hours string and weekly dropdown chevron.
-     - If `winery.openingHours` is null/empty: Render "Hours not provided" with a direct link or button to the winery website if available (`winery.website`).
+     - Utilize `getDailyHoursForDate(winery.openingHours)` (completed in v3.6.1):
+       - If string returned: Render today's hours string and weekly dropdown chevron.
+       - If `null`: Render "Hours Unavailable" / "Hours not provided" with a direct link or button to the winery website if available (`winery.website`).
 
 2. **Update [`components/winery/mobile-winery-drawer.tsx`](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/winery/mobile-winery-drawer.tsx):**
    - Refactor the hero overlay badge:

@@ -108,11 +108,24 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 25
+    env:
+      NODE_OPTIONS: "--max-old-space-size=2048"
     strategy:
       fail-fast: true
       matrix:
         shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
+      - name: Configure Swap Space
+        run: |
+          if [ ! -f /swapfile ]; then
+            sudo fallocate -l 4G /swapfile || sudo dd if=/dev/zero of=/swapfile bs=1M count=4096
+            sudo chmod 600 /swapfile
+            sudo mkswap /swapfile
+            sudo swapon /swapfile
+            echo "Swap configuration complete:"
+            free -h
+          fi
+
       - name: Checkout code
         uses: actions/checkout@v4
 
