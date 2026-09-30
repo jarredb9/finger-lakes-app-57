@@ -135,8 +135,17 @@ $ENGINE rm "$CONTAINER_NAME" >/dev/null 2>&1 || true
 # Flush filesystem to ensure volume mount sees latest changes
 sync
 
+# Memory constraint to prevent container OOM killer from starving host services (Supabase & runner agent)
+MEMORY_OPTS=()
+if [ -n "${CONTAINER_MEMORY_LIMIT:-}" ]; then
+    MEMORY_OPTS+=( "--memory=$CONTAINER_MEMORY_LIMIT" )
+elif [ "$CI" = "true" ]; then
+    MEMORY_OPTS+=( "--memory=4500m" )
+fi
+
 $ENGINE run --rm $INTERACTIVE_FLAG \
     --name "$CONTAINER_NAME" \
+    "${MEMORY_OPTS[@]}" \
     --network=host \
     -v "$(pwd):/work:Z" \
     "${EXTRA_OPTS[@]}" \
@@ -144,6 +153,7 @@ $ENGINE run --rm $INTERACTIVE_FLAG \
     --security-opt seccomp=unconfined \
     -w /work \
     -e CI="$CI" \
+    -e NODE_OPTIONS="${NODE_OPTIONS:---max-old-space-size=2048}" \
     -e IS_E2E=true \
     -e NEXT_PUBLIC_IS_E2E=true \
     -e NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
