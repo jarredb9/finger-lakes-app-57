@@ -30,5 +30,9 @@
 | **test-infrastructure-e2e-stabilization_20260901** | Test Automation Infrastructure Modernization & E2E Test Suite Stabilization | [x] Archived | [Plan](./archive/test-infrastructure-e2e-stabilization_20260901/plan.md) |
 | **runtime-invariants-branded-ids_20260923** | Runtime Invariant Protection & Branded ID Ergonomics (PR 1 / Issue #53) | [x] Archived | [Plan](./archive/runtime-invariants-branded-ids_20260923/plan.md) |
 | **autoclear-wishlist-on-visit_20260928** | Auto-clear Wishlist entry when logging a Visit (Issue #54 / ADR-0001) | [x] Archived | [Plan](./archive/autoclear-wishlist-on-visit_20260928/plan.md) |
+| **winery-hours-resilience_20260930** | Winery Operational Hours Resilience & PWA Hydration (Issue #56) | [ ] In Progress | [Plan](./tracks/winery-hours-resilience_20260930/plan.md) |
 
+---
 
+- [ ] **Track: Winery Operational Hours Resilience & PWA Hydration (Issue #56)**
+*Link: [./tracks/winery-hours-resilience_20260930/](./tracks/winery-hours-resilience_20260930/)*
