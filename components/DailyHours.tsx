@@ -1,6 +1,6 @@
-// components/DailyHours.tsx
 import { OpeningHours } from "@/lib/types";
 import { Clock } from "lucide-react";
+import { getDailyHoursForDate } from "@/lib/utils/opening-hours";
 
 interface DailyHoursProps {
   openingHours: OpeningHours | null | undefined;
@@ -8,15 +8,11 @@ interface DailyHoursProps {
 }
 
 export default function DailyHours({ openingHours, tripDate }: DailyHoursProps) {
-  if (!openingHours?.weekday_text) {
+  const hours = getDailyHoursForDate(openingHours, tripDate);
+
+  if (!hours) {
     return null;
   }
-
-  // The Google Places API weekday_text array starts with Monday.
-  // Date.getDay() returns 0 for Sunday, 1 for Monday, etc.
-  const dayIndex = (tripDate.getDay() + 6) % 7;
-  const line = openingHours.weekday_text[dayIndex];
-  const hours = line.substring(line.indexOf(':') + 2);
 
   // Don't show anything if hours are "Closed" or not available for that day
   if (hours.toLowerCase().includes('closed') || hours.trim() === '') {
