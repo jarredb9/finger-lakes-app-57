@@ -18,12 +18,16 @@
 * **UI Presentation & Return-Visit Planning Support**:
     * Updated `components/winery-card-thumbnail.tsx` to permit concurrent rendering of both "Visited" and "Want to Go" badges when a visited winery has been re-wishlisted, while keeping the primary status dot prioritized to emerald (`userVisited`).
     * Removed disabled lock (`disabled={winery.userVisited}`) and opacity styling on the Wishlist button in `components/WineryActionsPresentational.tsx`, allowing users to manually re-add visited wineries to their Wishlist for return-visit planning.
+* **Opening Hours Crash Prevention & Safe Schedule Parsing**:
+    * Implemented `getDailyHoursForDate` in `lib/utils/opening-hours.ts` supporting full day names, 3-letter abbreviations, alternate spellings, and day ranges, with positional fallback strictly restricted to complete 7-day schedules to eliminate false hours assignment.
+    * Fixed an uncaught `TypeError` in `components/winery/winery-info-card.tsx` and `components/DailyHours.tsx` when rendering partial `weekday_text` schedules (fewer than 7 days), resolving intermittent failures in `e2e/winery-modal.spec.ts` on non-Mondays.
+    * Hardened weekly hours accordion parsing in `WineryInfoCard` against splitting on time colons, and aligned `isToday` highlighting with day names rather than raw array indices.
 * **Offline Sync Queue Replay & Store Revalidation**:
     * Updated `SyncService.sync()` in `lib/services/syncService.ts` to trigger `useWineryStore.getState().fetchWineryData(user.id)` upon successfully replaying `log_visit` mutations.
     * Deferred store revalidation and queue pruning until mutations are successfully processed and confirmed.
 * **Invariant & Integration Test Coverage**:
     * Added comprehensive database RPC integration tests in `lib/services/__tests__/supabase-rpc.integration.test.ts` verifying atomic wishlist auto-deletion on first visit, safety on second visits, and non-restoration of wishlist rows upon visit deletion.
-    * Added unit test coverage for standardizer boolean precedence (`lib/utils/__tests__/winery.test.ts`), dual-ID store matching (`lib/stores/__tests__/wineryStore.test.ts`), targeted optimistic error rollback (`lib/stores/__tests__/visitStore.domainInvariants.test.ts`), concurrent card badges and return-visit action enablement (`components/__tests__/`), and offline sync replay revalidation (`lib/services/__tests__/syncService.test.ts`).
+    * Added unit test coverage for standardizer boolean precedence (`lib/utils/__tests__/winery.test.ts`), dual-ID store matching (`lib/stores/__tests__/wineryStore.test.ts`), targeted optimistic error rollback (`lib/stores/__tests__/visitStore.domainInvariants.test.ts`), concurrent card badges and return-visit action enablement (`components/__tests__/`), offline sync replay revalidation (`lib/services/__tests__/syncService.test.ts`), and partial opening hours extraction (`lib/utils/__tests__/opening-hours.test.ts`, `components/__tests__/DailyHours.test.tsx`).
 
 ## [3.6.0] - 2026-09-28
 
