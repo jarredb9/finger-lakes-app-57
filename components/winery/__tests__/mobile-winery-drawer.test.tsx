@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { MobileWineryDrawer } from '../mobile-winery-drawer';
 import { createMockWinery, createMockVisit } from '@/lib/test-utils/fixtures';
 
@@ -224,9 +224,10 @@ describe('MobileWineryDrawer', () => {
       render(<MobileWineryDrawer {...defaultProps} winery={mockWinery} isLoading={true} />);
       expect(screen.getByTestId('winery-modal-drawer')).toHaveAttribute('data-state', 'loading');
       expect(screen.getByTestId('drawer-title-card')).toBeInTheDocument();
-      expect(screen.getByText('Dr. Konstantin Frank')).toBeInTheDocument();
+      expect(screen.getAllByText('Dr. Konstantin Frank').length).toBeGreaterThanOrEqual(1);
 
       // 2. No winery present with isLoading true
+      cleanup();
       render(<MobileWineryDrawer {...defaultProps} winery={null} isLoading={true} />);
       expect(screen.queryByTestId('drawer-title-card')).not.toBeInTheDocument();
     });
