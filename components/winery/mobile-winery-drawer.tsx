@@ -75,7 +75,7 @@ export function MobileWineryLayout({
   onTripBadgeClick = () => {},
   onClose = () => {},
 }: MobileWineryLayoutProps) {
-  if (isLoading || !winery) {
+  if (!winery) {
     return (
       <div className="flex flex-col h-[300px] overflow-hidden p-4 space-y-4">
         <Skeleton className="h-10 w-3/4 mx-auto rounded-lg text-center" />
@@ -110,12 +110,23 @@ export function MobileWineryLayout({
           <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-background/90 to-transparent pointer-events-none z-10" />
 
           {/* Overlaid Translucent Open Status Badge */}
-          <span
-            data-testid="peek-open-status-tag"
-            className="absolute top-3 right-3 z-20 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-black/40 backdrop-blur-md text-white border border-white/20 shadow-xs"
-          >
-            {isOpen ? "🟢 OPEN NOW" : "🔴 CLOSED"}
-          </span>
+          {isOpen === null && isLoading ? (
+            <div
+              data-testid="peek-status-skeleton"
+              className="absolute top-3 right-3 z-20 h-6 w-24 bg-white/20 animate-pulse rounded-full border border-white/20 shadow-xs"
+            />
+          ) : (
+            <span
+              data-testid="peek-open-status-tag"
+              className="absolute top-3 right-3 z-20 inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-black/40 backdrop-blur-md text-white border border-white/20 shadow-xs"
+            >
+              {isOpen === true
+                ? "🟢 OPEN NOW"
+                : isOpen === false
+                ? "🔴 CLOSED"
+                : "⚪ HOURS UNAVAILABLE"}
+            </span>
+          )}
         </div>
       </div>
 
@@ -233,7 +244,7 @@ export function MobileWineryLayout({
           <WineryTripBadge winery={winery} onTripBadgeClick={onTripBadgeClick} />
 
           {/* Contact Overview Card */}
-          <WineryDetails winery={winery} loadingWineryId={loadingWineryId} mode="info" />
+          <WineryDetails winery={winery} loadingWineryId={loadingWineryId} isLoading={isLoading} mode="info" />
 
           {/* Interaction Tabs */}
           {isFull && (

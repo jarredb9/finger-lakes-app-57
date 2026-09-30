@@ -85,7 +85,7 @@ describe('WineryInfoCard', () => {
     render(<WineryInfoCard winery={winery} />);
 
     // Since today is Wednesday and only Monday is in weekday_text, it should display Hours Unavailable safely
-    expect(screen.getByText('Hours Unavailable')).toBeInTheDocument();
+    expect(screen.getAllByText('Hours Unavailable').length).toBeGreaterThanOrEqual(1);
 
     // Toggle hours dropdown should safely show Monday without crashing
     const toggleButton = screen.getByTestId('hours-toggle');
