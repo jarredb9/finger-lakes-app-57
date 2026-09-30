@@ -276,4 +276,102 @@ describe('WineryUIStore: fetchWineryData', () => {
       expect(useWineryStore.getState().getWinery('bulk-2')?.name).toBe('Bulk 2');
     });
   });
+
+  describe('WineryUIStore: addVisitToWinery (ADR-0001 Wishlist Auto-Clear & Matching)', () => {
+    beforeEach(() => {
+      useWineryStore.getState().reset();
+    });
+
+    it('clears onWishlist and wishlistIsPrivate and sets userVisited: true when matching by Place ID', () => {
+      const winery = createMockWinery({
+        id: 'winery-wishlist-place-1' as GooglePlaceId,
+        dbId: 101 as WineryDbId,
+        userVisited: false,
+        onWishlist: true,
+        wishlistIsPrivate: true,
+      });
+
+      useWineryStore.setState({ persistentWineries: [winery] });
+
+      const mockVisit = createMockVisit({ id: 'visit-1' as any, winery_id: 101 as WineryDbId });
+      useWineryStore.getState().addVisitToWinery(winery.id, mockVisit);
+
+      const updated = useWineryStore.getState().persistentWineries.find(w => w.id === winery.id);
+      expect(updated).toBeDefined();
+      expect(updated?.userVisited).toBe(true);
+      expect(updated?.onWishlist).toBe(false);
+      expect(updated?.wishlistIsPrivate).toBe(false);
+    });
+
+    it('matches by numeric dbId and clears onWishlist and wishlistIsPrivate and sets userVisited: true', () => {
+      const winery = createMockWinery({
+        id: 'winery-wishlist-db-num' as GooglePlaceId,
+        dbId: 202 as WineryDbId,
+        userVisited: false,
+        onWishlist: true,
+        wishlistIsPrivate: true,
+      });
+
+      useWineryStore.setState({ persistentWineries: [winery] });
+
+      const mockVisit = createMockVisit({ id: 'visit-2' as any, winery_id: 202 as WineryDbId });
+      useWineryStore.getState().addVisitToWinery('202' as GooglePlaceId, mockVisit);
+
+      const updated = useWineryStore.getState().persistentWineries.find(w => w.dbId === 202);
+      expect(updated).toBeDefined();
+      expect(updated?.userVisited).toBe(true);
+      expect(updated?.onWishlist).toBe(false);
+      expect(updated?.wishlistIsPrivate).toBe(false);
+    });
+
+    it('matches by string dbId and clears onWishlist and wishlistIsPrivate and sets userVisited: true', () => {
+      const winery = createMockWinery({
+        id: 'winery-wishlist-db-str' as GooglePlaceId,
+        dbId: 303 as WineryDbId,
+        userVisited: false,
+        onWishlist: true,
+        wishlistIsPrivate: false,
+      });
+
+      useWineryStore.setState({ persistentWineries: [winery] });
+
+      const mockVisit = createMockVisit({ id: 'visit-3' as any, winery_id: 303 as WineryDbId });
+      useWineryStore.getState().addVisitToWinery(303 as any, mockVisit);
+
+      const updated = useWineryStore.getState().persistentWineries.find(w => w.dbId === 303);
+      expect(updated).toBeDefined();
+      expect(updated?.userVisited).toBe(true);
+      expect(updated?.onWishlist).toBe(false);
+      expect(updated?.wishlistIsPrivate).toBe(false);
+    });
+
+    it('preserves other winery properties while clearing wishlist flags and updating userVisited', () => {
+      const winery = createMockWinery({
+        id: 'winery-wishlist-preserve' as GooglePlaceId,
+        dbId: 404 as WineryDbId,
+        name: 'Preserved Estate',
+        isFavorite: true,
+        favoriteIsPrivate: true,
+        rating: 4.9,
+        userVisited: false,
+        onWishlist: true,
+        wishlistIsPrivate: true,
+      });
+
+      useWineryStore.setState({ persistentWineries: [winery] });
+
+      const mockVisit = createMockVisit({ id: 'visit-4' as any, winery_id: 404 as WineryDbId });
+      useWineryStore.getState().addVisitToWinery(winery.id, mockVisit);
+
+      const updated = useWineryStore.getState().persistentWineries.find(w => w.id === winery.id);
+      expect(updated).toBeDefined();
+      expect(updated?.name).toBe('Preserved Estate');
+      expect(updated?.isFavorite).toBe(true);
+      expect(updated?.favoriteIsPrivate).toBe(true);
+      expect(updated?.rating).toBe(4.9);
+      expect(updated?.userVisited).toBe(true);
+      expect(updated?.onWishlist).toBe(false);
+      expect(updated?.wishlistIsPrivate).toBe(false);
+    });
+  });
 });

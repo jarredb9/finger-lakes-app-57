@@ -39,7 +39,7 @@ _Avoid_: Member, guest, follower
 ## User Collections
 
 **Wishlist**:
-A collection of unvisited wineries a user intends or aspires to visit in the future.
+A collection of wineries a user intends or aspires to visit in the future. Once visited, entries are automatically cleared unless manually re-added to plan a return visit.
 _Avoid_: Bucket list, bookmark, to-do
 
 **Favorite**:

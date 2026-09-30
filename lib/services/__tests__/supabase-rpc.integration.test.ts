@@ -155,6 +155,176 @@ describe('Supabase RPC Integration Tests', () => {
         expect(visit.user_id).toBe(user1.id);
         expect(visit.rating).toBe(mockVisit.rating);
       });
+
+      it('should automatically delete existing wishlist entry when log_visit is called for a winery', async () => {
+        const mockWinery = createMockWinery();
+        const wineryPlaceId = `mock-winery-autoclear-${crypto.randomUUID()}`;
+        const wineryData = {
+          id: wineryPlaceId,
+          name: mockWinery.name,
+          address: mockWinery.address,
+          latitude: mockWinery.latitude,
+          longitude: mockWinery.longitude,
+          rating: mockWinery.rating
+        };
+        createdWineryIds.push(wineryPlaceId);
+
+        // 1. Add winery to user1 wishlist via add_to_wishlist RPC
+        const { data: wishData, error: wishError } = await user1.client.rpc('add_to_wishlist', {
+          p_winery_data: wineryData
+        });
+        expect(wishError).toBeNull();
+        expect(wishData).toHaveProperty('winery_id');
+        const wineryDbId = wishData.winery_id;
+
+        // 2. Verify wishlist entry exists in public.wishlist
+        const { data: wishlistBefore, error: checkBeforeError } = await adminClient
+          .from('wishlist')
+          .select('*')
+          .eq('user_id', user1.id)
+          .eq('winery_id', wineryDbId);
+        expect(checkBeforeError).toBeNull();
+        expect(wishlistBefore).toHaveLength(1);
+
+        // 3. Log a visit for the wishlisted winery
+        const mockVisit = createMockVisit();
+        const visitData = {
+          visit_date: mockVisit.visit_date,
+          rating: mockVisit.rating,
+          user_review: mockVisit.user_review
+        };
+
+        const { data: logVisitData, error: logVisitError } = await user1.client.rpc('log_visit', {
+          p_winery_data: wineryData,
+          p_visit_data: visitData
+        });
+        expect(logVisitError).toBeNull();
+        expect(logVisitData).toHaveProperty('visit_id');
+
+        // 4. Assert wishlist record was deleted
+        const { data: wishlistAfter, error: checkAfterError } = await adminClient
+          .from('wishlist')
+          .select('*')
+          .eq('user_id', user1.id)
+          .eq('winery_id', wineryDbId);
+        expect(checkAfterError).toBeNull();
+        expect(wishlistAfter).toHaveLength(0);
+      });
+
+      it('should succeed safely when logging a second visit to an already cleared winery', async () => {
+        const mockWinery = createMockWinery();
+        const wineryPlaceId = `mock-winery-second-visit-${crypto.randomUUID()}`;
+        const wineryData = {
+          id: wineryPlaceId,
+          name: mockWinery.name,
+          address: mockWinery.address,
+          latitude: mockWinery.latitude,
+          longitude: mockWinery.longitude,
+          rating: mockWinery.rating
+        };
+        createdWineryIds.push(wineryPlaceId);
+
+        // 1. Add winery to user1 wishlist
+        const { data: wishData, error: wishError } = await user1.client.rpc('add_to_wishlist', {
+          p_winery_data: wineryData
+        });
+        expect(wishError).toBeNull();
+        const wineryDbId = wishData.winery_id;
+
+        // 2. Log first visit
+        const mockVisit1 = createMockVisit();
+        const { data: firstVisitData, error: firstVisitError } = await user1.client.rpc('log_visit', {
+          p_winery_data: wineryData,
+          p_visit_data: {
+            visit_date: mockVisit1.visit_date,
+            rating: mockVisit1.rating,
+            user_review: 'First visit'
+          }
+        });
+        expect(firstVisitError).toBeNull();
+        expect(firstVisitData).toHaveProperty('visit_id');
+
+        // 3. Log a second visit to the same winery
+        const mockVisit2 = createMockVisit();
+        const { data: secondVisitData, error: secondVisitError } = await user1.client.rpc('log_visit', {
+          p_winery_data: wineryData,
+          p_visit_data: {
+            visit_date: mockVisit2.visit_date,
+            rating: mockVisit2.rating,
+            user_review: 'Second visit'
+          }
+        });
+        expect(secondVisitError).toBeNull();
+        expect(secondVisitData).toHaveProperty('visit_id');
+        expect(secondVisitData.visit_id).not.toBe(firstVisitData.visit_id);
+
+        // 4. Assert wishlist remains cleared
+        const { data: wishlistAfter, error: checkAfterError } = await adminClient
+          .from('wishlist')
+          .select('*')
+          .eq('user_id', user1.id)
+          .eq('winery_id', wineryDbId);
+        expect(checkAfterError).toBeNull();
+        expect(wishlistAfter).toHaveLength(0);
+      });
+
+      it('should not restore a winery to public.wishlist when a visit is deleted', async () => {
+        const mockWinery = createMockWinery();
+        const wineryPlaceId = `mock-winery-delete-visit-${crypto.randomUUID()}`;
+        const wineryData = {
+          id: wineryPlaceId,
+          name: mockWinery.name,
+          address: mockWinery.address,
+          latitude: mockWinery.latitude,
+          longitude: mockWinery.longitude,
+          rating: mockWinery.rating
+        };
+        createdWineryIds.push(wineryPlaceId);
+
+        // 1. Add winery to wishlist
+        const { data: wishData, error: wishError } = await user1.client.rpc('add_to_wishlist', {
+          p_winery_data: wineryData
+        });
+        expect(wishError).toBeNull();
+        const wineryDbId = wishData.winery_id;
+
+        // 2. Log visit
+        const mockVisit = createMockVisit();
+        const { data: visitData, error: visitError } = await user1.client.rpc('log_visit', {
+          p_winery_data: wineryData,
+          p_visit_data: {
+            visit_date: mockVisit.visit_date,
+            rating: mockVisit.rating,
+            user_review: 'Visit before deletion'
+          }
+        });
+        expect(visitError).toBeNull();
+        const visitId = visitData.visit_id;
+
+        // 3. Delete visit via delete_visit RPC
+        const { data: deleteData, error: deleteError } = await user1.client.rpc('delete_visit', {
+          p_visit_id: visitId
+        });
+        expect(deleteError).toBeNull();
+        expect(deleteData).toEqual({ success: true });
+
+        // 4. Verify visit is deleted from public.visits
+        const { data: visitInDb } = await adminClient
+          .from('visits')
+          .select('id')
+          .eq('id', visitId)
+          .maybeSingle();
+        expect(visitInDb).toBeNull();
+
+        // 5. Invariant check: public.wishlist must NOT restore the cleared winery
+        const { data: wishlistAfter, error: checkAfterError } = await adminClient
+          .from('wishlist')
+          .select('*')
+          .eq('user_id', user1.id)
+          .eq('winery_id', wineryDbId);
+        expect(checkAfterError).toBeNull();
+        expect(wishlistAfter).toHaveLength(0);
+      });
     });
 
     describe('Social RPCs', () => {

@@ -581,16 +581,16 @@ export const standardizeWineryData = (
   const userVisited = record['user_visited'] !== undefined ? Boolean(record['user_visited']) : (record['userVisited'] !== undefined ? Boolean(record['userVisited']) : (existing?.userVisited ?? false));
 
   const rawOnWishlist = record['on_wishlist'] !== undefined ? Boolean(record['on_wishlist']) : (record['onWishlist'] !== undefined ? Boolean(record['onWishlist']) : undefined);
-  const onWishlist = rawOnWishlist !== undefined ? (rawOnWishlist || (existing?.onWishlist ?? false)) : (existing?.onWishlist ?? false);
+  const onWishlist = rawOnWishlist !== undefined ? rawOnWishlist : (existing?.onWishlist ?? false);
 
   const rawIsFavorite = record['is_favorite'] !== undefined ? Boolean(record['is_favorite']) : (record['isFavorite'] !== undefined ? Boolean(record['isFavorite']) : undefined);
-  const isFavorite = rawIsFavorite !== undefined ? (rawIsFavorite || (existing?.isFavorite ?? false)) : (existing?.isFavorite ?? false);
+  const isFavorite = rawIsFavorite !== undefined ? rawIsFavorite : (existing?.isFavorite ?? false);
   
   const rawFavPriv = record['is_favorite_private'] !== undefined ? Boolean(record['is_favorite_private']) : (record['favorite_is_private'] !== undefined ? Boolean(record['favorite_is_private']) : (record['favoriteIsPrivate'] !== undefined ? Boolean(record['favoriteIsPrivate']) : undefined));
-  const favoriteIsPrivate = rawFavPriv !== undefined ? (rawFavPriv || (existing?.favoriteIsPrivate ?? false)) : (existing?.favoriteIsPrivate ?? false);
+  const favoriteIsPrivate = rawFavPriv !== undefined ? rawFavPriv : (existing?.favoriteIsPrivate ?? false);
 
   const rawWishPriv = record['on_wishlist_private'] !== undefined ? Boolean(record['on_wishlist_private']) : (record['wishlist_is_private'] !== undefined ? Boolean(record['wishlist_is_private']) : (record['wishlistIsPrivate'] !== undefined ? Boolean(record['wishlistIsPrivate']) : undefined));
-  const wishlistIsPrivate = rawWishPriv !== undefined ? (rawWishPriv || (existing?.wishlistIsPrivate ?? false)) : (existing?.wishlistIsPrivate ?? false);
+  const wishlistIsPrivate = rawWishPriv !== undefined ? rawWishPriv : (existing?.wishlistIsPrivate ?? false);
 
   // Enrichment (Places API v1)
   const lastEnrichedAt = (typeof record['last_enriched_at'] === 'string' ? record['last_enriched_at'] : undefined) || existing?.last_enriched_at;

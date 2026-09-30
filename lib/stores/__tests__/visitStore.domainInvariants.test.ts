@@ -37,6 +37,7 @@ interface MockWineryStoreState {
   revertOptimisticUpdate: jest.Mock;
   getWineries: jest.Mock;
   upsertWinery: jest.Mock;
+  updateWinery: jest.Mock;
 }
 
 interface MockDomainInvariantGlobals {
@@ -77,6 +78,7 @@ let mockWineryStoreState: MockWineryStoreState = {
   revertOptimisticUpdate: jest.fn(),
   getWineries: jest.fn().mockReturnValue([]),
   upsertWinery: jest.fn(),
+  updateWinery: jest.fn(),
 };
 
 globalThis._VISIT_DOMAIN_INVARIANT_MOCKS = {
@@ -130,6 +132,7 @@ describe('visitStore Domain Invariants & Offline Reconstitution', () => {
       revertOptimisticUpdate: jest.fn(),
       getWineries: jest.fn().mockReturnValue([]),
       upsertWinery: jest.fn(),
+      updateWinery: jest.fn(),
     };
 
     useVisitStore.getState().reset();
@@ -572,6 +575,111 @@ describe('visitStore Domain Invariants & Offline Reconstitution', () => {
 
       const state = useVisitStore.getState();
       expect(state.visits).toHaveLength(0);
+    });
+  });
+
+  describe('Invariant 5: Auto-Clear Wishlist & Targeted Optimistic Error Rollback (ADR-0001)', () => {
+    it('optimistically calls addVisitToWinery with winery.id and tempVisit, triggering wishlist clearance in wineryStore', async () => {
+      const winery = createMockWinery({
+        id: 'w-wishlist-opt-1' as GooglePlaceId,
+        dbId: 101 as WineryDbId,
+        userVisited: false,
+        onWishlist: true,
+        wishlistIsPrivate: true,
+      });
+
+      const visitData = {
+        visit_date: '2026-10-15',
+        user_review: 'Optimistic wishlist clearing test',
+        rating: 5,
+        photos: [],
+      };
+
+      await act(async () => {
+        await useVisitStore.getState().saveVisit(winery, visitData);
+      });
+
+      // addVisitToWinery must be called optimistically with the winery ID and pending visit
+      expect(mockWineryStoreState.addVisitToWinery).toHaveBeenCalledWith(
+        winery.id,
+        expect.objectContaining({
+          syncStatus: 'pending',
+          wineryId: winery.id,
+        })
+      );
+    });
+
+    it('rolls back targeted { userVisited, onWishlist, wishlistIsPrivate } via updateWinery on unrecoverable visit save failure', async () => {
+      const winery = createMockWinery({
+        id: 'w-rollback-fail' as GooglePlaceId,
+        dbId: 202 as WineryDbId,
+        userVisited: false,
+        onWishlist: true,
+        wishlistIsPrivate: true,
+      });
+
+      const visitData = {
+        visit_date: '2026-10-15',
+        user_review: 'Fatal failure test',
+        rating: 5,
+        photos: [],
+      };
+
+      const fatalError = new Error('Fatal database constraint error');
+      mockSupabase.rpc.mockRejectedValue(fatalError);
+
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      await act(async () => {
+        await expect(useVisitStore.getState().saveVisit(winery, visitData)).rejects.toThrow('Fatal database constraint error');
+      });
+
+      // Target rollback assertion: updateWinery called with original pre-mutation state
+      expect(mockWineryStoreState.updateWinery).toHaveBeenCalledWith(winery.id, {
+        userVisited: false,
+        onWishlist: true,
+        wishlistIsPrivate: true,
+      });
+
+      // Store assertion: Visit marked as error
+      const visits = useVisitStore.getState().visits;
+      expect(visits).toHaveLength(1);
+      expect(visits[0].syncStatus).toBe('error');
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('does not invoke updateWinery rollback when visit save is enqueued offline (recoverable)', async () => {
+      Object.defineProperty(navigator, 'onLine', { value: false, writable: true, configurable: true });
+
+      const winery = createMockWinery({
+        id: 'w-offline-success' as GooglePlaceId,
+        dbId: 303 as WineryDbId,
+        userVisited: false,
+        onWishlist: true,
+        wishlistIsPrivate: false,
+      });
+
+      const visitData = {
+        visit_date: '2026-10-15',
+        user_review: 'Offline success test',
+        rating: 4,
+        photos: [],
+      };
+
+      await act(async () => {
+        await useVisitStore.getState().saveVisit(winery, visitData);
+      });
+
+      // addVisitToWinery must be called optimistically
+      expect(mockWineryStoreState.addVisitToWinery).toHaveBeenCalledWith(winery.id, expect.any(Object));
+
+      // Rollback must NOT be called because it was queued offline successfully
+      expect(mockWineryStoreState.updateWinery).not.toHaveBeenCalled();
+
+      const visits = useVisitStore.getState().visits;
+      expect(visits).toHaveLength(1);
+      expect(visits[0].syncStatus).toBe('pending');
     });
   });
 });

@@ -69,4 +69,41 @@ describe('WineryInfoCard', () => {
     fireEvent.click(toggleButton);
     expect(screen.queryByText('Weekly Hours')).not.toBeInTheDocument();
   });
+
+  it('renders safely without throwing TypeError when weekday_text has fewer than 7 entries on days other than Monday', () => {
+    // Mock system time to Wednesday (day 3)
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 8, 30, 12, 0)); // Wednesday
+
+    const winery = createMockWinery({
+      openingHours: {
+        open_now: true,
+        weekday_text: ['Monday: 10:00 AM – 5:00 PM'],
+      },
+    });
+
+    render(<WineryInfoCard winery={winery} />);
+
+    // Since today is Wednesday and only Monday is in weekday_text, it should display Hours Unavailable safely
+    expect(screen.getByText('Hours Unavailable')).toBeInTheDocument();
+
+    // Toggle hours dropdown should safely show Monday without crashing
+    const toggleButton = screen.getByTestId('hours-toggle');
+    fireEvent.click(toggleButton);
+    expect(screen.getByText('Weekly Hours')).toBeInTheDocument();
+    expect(screen.getByText('Monday')).toBeInTheDocument();
+    expect(screen.getByText('10:00 AM – 5:00 PM')).toBeInTheDocument();
+
+    jest.useRealTimers();
+  });
+
+  it('handles null or undefined openingHours gracefully', () => {
+    const winery = createMockWinery({
+      openingHours: undefined,
+    });
+
+    render(<WineryInfoCard winery={winery} />);
+    expect(screen.queryByTestId('hours-toggle')).not.toBeInTheDocument();
+  });
 });
+
