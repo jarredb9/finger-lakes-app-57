@@ -7,12 +7,12 @@
     - [x] Add unit tests in `components/__tests__/winery-card-thumbnail.test.tsx` verifying thumbnail card cleanly omits status badge when `isOpen === null` without defaulting to `Closed`
     - [x] Add unit tests in `components/winery/__tests__/desktop-winery-modal.test.tsx` and `mobile-winery-drawer.test.tsx` verifying cached wineries render content immediately when `isLoading: true` (only `!winery` renders full-screen skeleton)
     - [x] Confirm all tests fail against current binary/coupled logic (Red phase)
-- [ ] Task: Implement tri-state status badge, decoupled loading, and schedule fallbacks across presentational components
-    - [ ] Refactor `DesktopWineryLayout`, `MobileWineryLayout`, and `TabletWineryLayout` to guard full-screen skeleton only on `!winery` and pass `isLoading` down through `WineryDetails` to `WineryInfoCard`
-    - [ ] Refactor `components/winery/winery-info-card.tsx` to handle `isLoading` skeleton pill, tri-state badge, and schedule fallback with website link
-    - [ ] Refactor `components/winery/mobile-winery-drawer.tsx` peek status badge to handle `isLoading` animated skeleton pill and `⚪ HOURS UNAVAILABLE`
-    - [ ] Update `components/winery-card-thumbnail.tsx` to cleanly omit badge when `isOpen === null`
-    - [ ] Re-run component unit tests via Jest container to confirm Green status (Green phase)
+- [x] Task: Implement tri-state status badge, decoupled loading, and schedule fallbacks across presentational components (210fb49e)
+    - [x] Refactor `DesktopWineryLayout`, `MobileWineryLayout`, and `TabletWineryLayout` to guard full-screen skeleton only on `!winery` and pass `isLoading` down through `WineryDetails` to `WineryInfoCard`
+    - [x] Refactor `components/winery/winery-info-card.tsx` to handle `isLoading` skeleton pill, tri-state badge, and schedule fallback with website link
+    - [x] Refactor `components/winery/mobile-winery-drawer.tsx` peek status badge to handle `isLoading` animated skeleton pill and `⚪ HOURS UNAVAILABLE`
+    - [x] Update `components/winery-card-thumbnail.tsx` to cleanly omit badge when `isOpen === null`
+    - [x] Re-run component unit tests via Jest container to confirm Green status (Green phase)
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Tri-State Operational Status, Decoupled Loading & UI Resilience' (Protocol in workflow.md)
 
 ## Phase 2: On-Demand Enrichment & Numeric ID Resolution Hardening (TDD)
