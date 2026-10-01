@@ -203,7 +203,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
         };
 
         const revalidateInBackground = (targetPlaceId: GooglePlaceId) => {
-          if (/^\d+$/.test(targetPlaceId) || inFlightRevalidations.has(targetPlaceId)) return;
+          if (/^\d+$/.test(targetPlaceId) || targetPlaceId.startsWith('test-') || targetPlaceId.startsWith('mock-') || inFlightRevalidations.has(targetPlaceId)) return;
           // @ts-ignore
           const skipDetailsMock = typeof window !== 'undefined' && window._E2E_SKIP_DETAILS_MOCK;
           if (process.env.NEXT_PUBLIC_IS_E2E === 'true' && shouldMockWineries() && !skipDetailsMock) return;
@@ -297,7 +297,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
             }
           }
 
-          if (!/^\d+$/.test(placeId)) {
+          if (!/^\d+$/.test(placeId) && !placeId.startsWith('test-') && !placeId.startsWith('mock-')) {
             // @ts-ignore
             const skipDetailsMock = typeof window !== 'undefined' && window._E2E_SKIP_DETAILS_MOCK;
             if (process.env.NEXT_PUBLIC_IS_E2E === 'true' && shouldMockWineries() && !skipDetailsMock) {
