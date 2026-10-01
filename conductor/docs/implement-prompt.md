@@ -9,28 +9,42 @@ Conductor natively handles TDD, git commits, git notes, and plan tracking via `w
 Use this for almost every task:
 
 ```text
-/conductor:implement @[conductor/tracks/<track_id>]
+#### Optimized Prompt 1: Research & Plan (Session 1)
 
-Execute Phase <X>, Task <Y> only. Halt after committing. Include git notes and plan.md update upon completion.
+/conductor:implement @[conductor/tracks/<track-name>] Plan Phase X Task Y only.
+
+Gate & Planning Protocol:
+- Perform static inspection only (NO test runners, build commands, or background docs). Seam-bounded inspection.
+- Write the implementation plan directly to: conductor/tracks/<track-name>/phase-X-task-Y-plan.md
+- CRITICAL: The plan must provide EXACT drop-in code blocks (imports, functions, replacement chunks) and precise line anchors for target files so the executor does not need to inspect surrounding files.
+- Halt for user approval via modal before modifying any files.
+
+#### Optimized Prompt 2: Implementation (Session 2 — Fresh Session)
+
+Execute Phase X Task Y strictly following @conductor/tracks/<track-name>/phase-X-task-Y-plan.md.
+
+Execution Directives (Zero-Amnesia Mode):
+1. The plan is 100% authoritative and contains exact drop-in replacements.
+2. DO NOT run git log, git show, or view unmentioned files. Proceed immediately to Step 1: apply planned edits to target files using replace_file_content.
+3. Run containerized Jest ONCE after all edits are applied (confirm failing tests if Red phase, or passing tests if Green phase).
+4. Update plan.md, record git notes, and commit with message: "<git-message>"
+5. Halt immediately after commit.
 ```
 
-*(Optional: Append the specific test path, e.g. `(target test: lib/.../myTest.test.ts)` to save 2 search tool calls).*
-```text
-/plan /conductor:implement @[conductor/tracks/<track_id>]
+### CLI Prompt Generator (Instant Copy-Paste)
 
-Plan Phase <X>, Task <Y> only.
-```
+You can generate and copy these prompts instantly using `scripts/generate-prompt.py`:
 
-```text
-/conductor:implement @[conductor/tracks/<track_id>]
+```bash
+# Auto-detect active track and next pending task:
+python3 scripts/generate-prompt.py
 
-Execute Phase <X>, Task <Y> only. Follow the implementation plan at @/home/byrnesjd4821/.gemini/antigravity-cli/brain/<conversation-id>/<plan-name.md>. Halt after committing.Include git notes and plan.md update upon completion.
-```
+# Specify Phase and Task for active track:
+python3 scripts/generate-prompt.py 3 1
 
-```text
-/conductor:implement @[<track_path>] Execute Phase <X> Task <Y> only.
-
-Gate: Research the task using static inspection only (do not run test suites or build commands yet). Write a concise implementation plan to @/tmp/<trackname_phase-X_task-Y_plan.md> covering target files, test assertions, and code changes. Halt for approval before modifying any code.
+# Copy directly to clipboard:
+python3 scripts/generate-prompt.py 3 1 --copy-plan   # Copies Plan prompt
+python3 scripts/generate-prompt.py 3 1 --copy-exec   # Copies Exec prompt
 ```
 ---
 
