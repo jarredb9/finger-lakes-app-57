@@ -21,16 +21,16 @@
     - [x] Add test cases verifying error resilience when `google_place_id` is missing or Edge Function rejects: returns standardized `dbData` with null hours, clears `loadingWineryId`, and does not stall `inFlightRevalidations`
     - [x] Add test cases verifying `revalidateInBackground` handles numeric IDs by resolving `google_place_id`
     - [x] Confirm tests fail against current `wineryStore.ts` implementation (Red phase)
-- [x] Task: Implement numeric ID on-demand enrichment in wineryStore
+- [x] Task: Implement numeric ID on-demand enrichment in wineryStore (887fc12)
     - [x] Update `ensureWineryDetails` in `lib/stores/wineryStore.ts` to inspect `dbData.google_place_id` and trigger Edge Function enrichment if `opening_hours` is missing
     - [x] Maintain `loadingWineryId` active during pending on-demand enrichment and clear on completion or error
     - [x] Update `revalidateInBackground` to resolve `google_place_id` from numeric IDs
     - [x] Audit and standardize modal opening callers to provide `winery.id` (Place ID) where available
     - [x] Re-run unit tests to confirm Green status (Green phase)
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: On-Demand Enrichment & Numeric ID Resolution Hardening' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: On-Demand Enrichment & Numeric ID Resolution Hardening' (Protocol in workflow.md)
 
 ## Phase 3: PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore (TDD)
-- [x] Task: Write failing unit tests for store version migration and session-backed PWA modal restoration
+- [x] Task: Write failing unit tests for store version migration and session-backed PWA modal restoration (c29d399)
     - [x] Add unit tests in `lib/stores/__tests__/wineryStore.persist.test.ts` verifying Zustand `version: 2` migration selectively purges corrupt/stale enriched records lacking `openingHours` while preserving basic map marker records
     - [x] Add unit tests in `hooks/__tests__/use-pwa-update.test.ts` asserting `_PWA_JUST_UPDATED` timestamp and active modal ID (`_PWA_ACTIVE_WINERY_ID`) are stored in `sessionStorage` on `applyUpdate`
     - [x] Add unit tests in `components/modals/__tests__/authenticated-modal-host.test.tsx` verifying `_PWA_ACTIVE_WINERY_ID` triggers modal reopening and detail hydration on mount
