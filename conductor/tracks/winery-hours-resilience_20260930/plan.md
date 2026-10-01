@@ -35,11 +35,11 @@
     - [x] Add unit tests in `hooks/__tests__/use-pwa-update.test.ts` asserting `_PWA_JUST_UPDATED` timestamp and active modal ID (`_PWA_ACTIVE_WINERY_ID`) are stored in `sessionStorage` on `applyUpdate`
     - [x] Add unit tests in `components/modals/__tests__/authenticated-modal-host.test.tsx` verifying `_PWA_ACTIVE_WINERY_ID` triggers modal reopening and detail hydration on mount
     - [x] Confirm tests fail (Red phase)
-- [ ] Task: Implement store version 2 selective migration and session-backed modal restoration
-    - [ ] Configure `version: 2` and selective `migrate` callback in `lib/stores/wineryStore.ts`
-    - [ ] Update `hooks/use-pwa-update.ts` to serialize `activeWineryId` to `sessionStorage` on `applyUpdate()` without coupling to data stores
-    - [ ] Update `components/modals/authenticated-modal-host.tsx` to restore modal and trigger `ensureWineryDetails` when `_PWA_ACTIVE_WINERY_ID` is present on mount
-    - [ ] Re-run tests to confirm Green status (Green phase)
+- [x] Task: Implement store version 2 selective migration and session-backed modal restoration
+    - [x] Configure `version: 2` and selective `migrate` callback in `lib/stores/wineryStore.ts`
+    - [x] Update `hooks/use-pwa-update.ts` to serialize `activeWineryId` to `sessionStorage` on `applyUpdate()` without coupling to data stores
+    - [x] Update `components/modals/authenticated-modal-host.tsx` to restore modal and trigger `ensureWineryDetails` when `_PWA_ACTIVE_WINERY_ID` is present on mount
+    - [x] Re-run tests to confirm Green status (Green phase)
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore' (Protocol in workflow.md)
 
 ## Phase 4: Test Retention Audit & Final Regression Verification (TDD)
