@@ -16,11 +16,11 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Tri-State Operational Status, Decoupled Loading & UI Resilience' (Protocol in workflow.md)
 
 ## Phase 2: On-Demand Enrichment & Numeric ID Resolution Hardening (TDD)
-- [ ] Task: Write failing unit and integration tests for numeric ID on-demand enrichment
-    - [ ] Add unit tests in `lib/stores/__tests__/wineryStore.test.ts` verifying that calling `ensureWineryDetails('2988')` when Postgres RPC returns data without `opening_hours` resolves `google_place_id` and invokes Edge Function `get-winery-details`
-    - [ ] Add test cases verifying error resilience when `google_place_id` is missing or Edge Function rejects: returns standardized `dbData` with null hours, clears `loadingWineryId`, and does not stall `inFlightRevalidations`
-    - [ ] Add test cases verifying `revalidateInBackground` handles numeric IDs by resolving `google_place_id`
-    - [ ] Confirm tests fail against current `wineryStore.ts` implementation (Red phase)
+- [x] Task: Write failing unit and integration tests for numeric ID on-demand enrichment (887fc12d)
+    - [x] Add unit tests in `lib/stores/__tests__/wineryStore.test.ts` verifying that calling `ensureWineryDetails('2988')` when Postgres RPC returns data without `opening_hours` resolves `google_place_id` and invokes Edge Function `get-winery-details`
+    - [x] Add test cases verifying error resilience when `google_place_id` is missing or Edge Function rejects: returns standardized `dbData` with null hours, clears `loadingWineryId`, and does not stall `inFlightRevalidations`
+    - [x] Add test cases verifying `revalidateInBackground` handles numeric IDs by resolving `google_place_id`
+    - [x] Confirm tests fail against current `wineryStore.ts` implementation (Red phase)
 - [ ] Task: Implement numeric ID on-demand enrichment in wineryStore
     - [ ] Update `ensureWineryDetails` in `lib/stores/wineryStore.ts` to inspect `dbData.google_place_id` and trigger Edge Function enrichment if `opening_hours` is missing
     - [ ] Maintain `loadingWineryId` active during pending on-demand enrichment and clear on completion or error
