@@ -1,6 +1,6 @@
 # Implementation Plan: Winery Operational Hours Resilience & PWA Hydration (Issue #56)
 
-## Phase 1: Tri-State Operational Status, Decoupled Loading & UI Resilience (TDD)
+## Phase 1: Tri-State Operational Status, Decoupled Loading & UI Resilience (TDD) [checkpoint: a89d255d]
 - [x] Task: Write failing unit tests for tri-state badge fallbacks, decoupled layout loading, and loading skeletons (47d7becc)
     - [x] Add unit tests in `components/winery/__tests__/winery-info-card.test.tsx` verifying `Open Now` (true), `Closed` (false), `Hours Unavailable` (null), skeleton loading pill state (`isLoading: true`), and schedule fallback with website link
     - [x] Add unit tests in `components/winery/__tests__/mobile-winery-drawer.test.tsx` verifying peek badge displays animated skeleton pill when `isLoading: true`, and renders `🟢 OPEN NOW`, `🔴 CLOSED`, or `⚪ HOURS UNAVAILABLE` when loaded
@@ -13,7 +13,7 @@
     - [x] Refactor `components/winery/mobile-winery-drawer.tsx` peek status badge to handle `isLoading` animated skeleton pill and `⚪ HOURS UNAVAILABLE`
     - [x] Update `components/winery-card-thumbnail.tsx` to cleanly omit badge when `isOpen === null`
     - [x] Re-run component unit tests via Jest container to confirm Green status (Green phase)
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: Tri-State Operational Status, Decoupled Loading & UI Resilience' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: Tri-State Operational Status, Decoupled Loading & UI Resilience' (Protocol in workflow.md)
 
 ## Phase 2: On-Demand Enrichment & Numeric ID Resolution Hardening (TDD)
 - [ ] Task: Write failing unit and integration tests for numeric ID on-demand enrichment
