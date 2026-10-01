@@ -72,6 +72,29 @@ async function populate() {
     }
   }
 
+  // Seed deterministic test winery with null opening hours and null website for UI verification
+  const testWinery = {
+    name: 'Silent Valley Cellars (Test Winery)',
+    google_place_id: 'test-winery-silent-valley',
+    address: '1000 Secret Hollow Rd, Hammondsport, NY 14840',
+    latitude: 42.45,
+    longitude: -77.2,
+    google_rating: 4.5,
+    website: null,
+    opening_hours: null,
+    enrichment_tier: 'basic',
+  };
+
+  const { error: testWineryError } = await supabase
+    .from('wineries')
+    .upsert(testWinery, { onConflict: 'google_place_id' });
+
+  if (testWineryError) {
+    console.error('⚠️  Failed to seed test winery:', testWineryError.message);
+  } else {
+    console.log('🧪 Seeded test winery for UI resilience: "Silent Valley Cellars (Test Winery)" (No website, no hours).');
+  }
+
   console.log('\n✨ Population complete! Real Google Places data populated. AI insights and varietals will enrich lazily when viewing winery modals.');
 }
 
