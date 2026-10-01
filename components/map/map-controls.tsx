@@ -20,7 +20,7 @@ export interface MapControlsProps {
   hitApiLimit?: boolean;
   filter?: string[];
   handleFilterChange?: (value: string[]) => void;
-  handlePlaceSelect?: (winery: Winery, sdkPlace: google.maps.places.Place) => void;
+  handlePlaceSelect?: (winery: Winery, sdkPlace?: google.maps.places.Place | null) => void;
   selectedTrip?: Trip | null;
   setSelectedTrip?: (trip: Trip | null) => void;
   upcomingTrips?: Trip[];

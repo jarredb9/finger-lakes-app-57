@@ -26,6 +26,12 @@ Plan Phase <X>, Task <Y> only.
 
 Execute Phase <X>, Task <Y> only. Follow the implementation plan at @/home/byrnesjd4821/.gemini/antigravity-cli/brain/<conversation-id>/<plan-name.md>. Halt after committing.Include git notes and plan.md update upon completion.
 ```
+
+```text
+/conductor:implement @[<track_path>] Execute Phase <X> Task <Y> only.
+
+Gate: Research the task using static inspection only (do not run test suites or build commands yet). Write a concise implementation plan to @/tmp/<trackname_phase-X_task-Y_plan.md> covering target files, test assertions, and code changes. Halt for approval before modifying any code.
+```
 ---
 
 ## 2. Recovery Invocation (Uncommitted Changes in `git status`)

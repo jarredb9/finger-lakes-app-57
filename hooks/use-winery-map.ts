@@ -218,14 +218,16 @@ export function useWineryMap(userId: string) {
       }
 
       // 4. Fetch enriched details in the background and update search results once ready
-      ensureWineryDetails(winery.id).then((enriched) => {
-        if (enriched) {
-          const state = useMapStore.getState();
-          state.setSearchResults(state.searchResults.map(w => w.id === winery.id ? enriched : w));
-        }
-      }).catch((err) => {
-        console.error("Failed to fetch winery details:", err);
-      });
+      if (!winery.id.startsWith("test-") && !winery.id.startsWith("mock-")) {
+        ensureWineryDetails(winery.id).then((enriched) => {
+          if (enriched) {
+            const state = useMapStore.getState();
+            state.setSearchResults(state.searchResults.map(w => w.id === winery.id ? enriched : w));
+          }
+        }).catch((err) => {
+          console.error("Failed to fetch winery details:", err);
+        });
+      }
     } else {
       // It's a region/city/locality
       setSearchLocation(winery.name);
