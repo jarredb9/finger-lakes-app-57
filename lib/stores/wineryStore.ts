@@ -573,7 +573,49 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'winery-data-storage-e2e' : 'winery-data-storage',
+      version: 2,
       storage: createJSONStorage(() => idbStorage),
+      migrate: (persistedState: any, version: number) => {
+        if (version >= 2) {
+          return persistedState;
+        }
+
+        const state = persistedState as Partial<WineryState>;
+        if (!state || !Array.isArray(state.persistentWineries)) {
+          return persistedState;
+        }
+
+        const migratedWineries = state.persistentWineries.filter((w: any) => {
+          if (!w || typeof w !== 'object') return false;
+          if (!w.id || typeof w.id !== 'string' || w.id.trim().length === 0) return false;
+          if (typeof w.name !== 'string' || w.name.trim().length === 0) return false;
+          if (
+            typeof w.latitude !== 'number' ||
+            isNaN(w.latitude) ||
+            typeof w.longitude !== 'number' ||
+            isNaN(w.longitude)
+          ) {
+            return false;
+          }
+
+          // If record claims to be enriched or full, it MUST have valid openingHours
+          if (w.enrichment_tier === 'enriched' || w.enrichment_tier === 'full') {
+            const hasHours =
+              w.openingHours &&
+              typeof w.openingHours === 'object' &&
+              ((Array.isArray(w.openingHours.weekday_text) && w.openingHours.weekday_text.length > 0) ||
+                (Array.isArray(w.openingHours.periods) && w.openingHours.periods.length > 0));
+            if (!hasHours) return false;
+          }
+
+          return true;
+        });
+
+        return {
+          ...state,
+          persistentWineries: migratedWineries,
+        };
+      },
       partialize: (state): Partial<WineryState> => {
         if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
         return {
