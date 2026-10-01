@@ -21,12 +21,12 @@
     - [x] Add test cases verifying error resilience when `google_place_id` is missing or Edge Function rejects: returns standardized `dbData` with null hours, clears `loadingWineryId`, and does not stall `inFlightRevalidations`
     - [x] Add test cases verifying `revalidateInBackground` handles numeric IDs by resolving `google_place_id`
     - [x] Confirm tests fail against current `wineryStore.ts` implementation (Red phase)
-- [ ] Task: Implement numeric ID on-demand enrichment in wineryStore
-    - [ ] Update `ensureWineryDetails` in `lib/stores/wineryStore.ts` to inspect `dbData.google_place_id` and trigger Edge Function enrichment if `opening_hours` is missing
-    - [ ] Maintain `loadingWineryId` active during pending on-demand enrichment and clear on completion or error
-    - [ ] Update `revalidateInBackground` to resolve `google_place_id` from numeric IDs
-    - [ ] Audit and standardize modal opening callers to provide `winery.id` (Place ID) where available
-    - [ ] Re-run unit tests to confirm Green status (Green phase)
+- [x] Task: Implement numeric ID on-demand enrichment in wineryStore
+    - [x] Update `ensureWineryDetails` in `lib/stores/wineryStore.ts` to inspect `dbData.google_place_id` and trigger Edge Function enrichment if `opening_hours` is missing
+    - [x] Maintain `loadingWineryId` active during pending on-demand enrichment and clear on completion or error
+    - [x] Update `revalidateInBackground` to resolve `google_place_id` from numeric IDs
+    - [x] Audit and standardize modal opening callers to provide `winery.id` (Place ID) where available
+    - [x] Re-run unit tests to confirm Green status (Green phase)
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: On-Demand Enrichment & Numeric ID Resolution Hardening' (Protocol in workflow.md)
 
 ## Phase 3: PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore (TDD)
