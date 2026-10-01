@@ -30,11 +30,11 @@
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: On-Demand Enrichment & Numeric ID Resolution Hardening' (Protocol in workflow.md)
 
 ## Phase 3: PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore (TDD)
-- [ ] Task: Write failing unit tests for store version migration and session-backed PWA modal restoration
-    - [ ] Add unit tests in `lib/stores/__tests__/wineryStore.persist.test.ts` verifying Zustand `version: 2` migration selectively purges corrupt/stale enriched records lacking `openingHours` while preserving basic map marker records
-    - [ ] Add unit tests in `hooks/__tests__/use-pwa-update.test.ts` asserting `_PWA_JUST_UPDATED` timestamp and active modal ID (`_PWA_ACTIVE_WINERY_ID`) are stored in `sessionStorage` on `applyUpdate`
-    - [ ] Add unit tests in `components/modals/__tests__/authenticated-modal-host.test.tsx` verifying `_PWA_ACTIVE_WINERY_ID` triggers modal reopening and detail hydration on mount
-    - [ ] Confirm tests fail (Red phase)
+- [x] Task: Write failing unit tests for store version migration and session-backed PWA modal restoration
+    - [x] Add unit tests in `lib/stores/__tests__/wineryStore.persist.test.ts` verifying Zustand `version: 2` migration selectively purges corrupt/stale enriched records lacking `openingHours` while preserving basic map marker records
+    - [x] Add unit tests in `hooks/__tests__/use-pwa-update.test.ts` asserting `_PWA_JUST_UPDATED` timestamp and active modal ID (`_PWA_ACTIVE_WINERY_ID`) are stored in `sessionStorage` on `applyUpdate`
+    - [x] Add unit tests in `components/modals/__tests__/authenticated-modal-host.test.tsx` verifying `_PWA_ACTIVE_WINERY_ID` triggers modal reopening and detail hydration on mount
+    - [x] Confirm tests fail (Red phase)
 - [ ] Task: Implement store version 2 selective migration and session-backed modal restoration
     - [ ] Configure `version: 2` and selective `migrate` callback in `lib/stores/wineryStore.ts`
     - [ ] Update `hooks/use-pwa-update.ts` to serialize `activeWineryId` to `sessionStorage` on `applyUpdate()` without coupling to data stores
