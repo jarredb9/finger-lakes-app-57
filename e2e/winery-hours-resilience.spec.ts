@@ -168,6 +168,11 @@ test.describe('Winery Operational Hours Resilience & PWA Hydration Suite', () =>
           enrichment_tier: 'enriched',
           opening_hours: {
             open_now: true,
+            periods: [
+              {
+                open: { day: 0, hour: 0, minute: 0 },
+              },
+            ],
             weekday_text: [
               'Monday: 10:00 AM – 5:00 PM',
               'Tuesday: 10:00 AM – 5:00 PM',
