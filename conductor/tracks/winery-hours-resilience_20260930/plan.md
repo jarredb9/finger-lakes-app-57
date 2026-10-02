@@ -43,10 +43,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore' (Protocol in workflow.md)
 
 ## Phase 4: Test Retention Audit & Final Regression Verification (TDD)
-- [ ] Task: Audit test suite and verify permanent regression retention
-    - [ ] Review all test files created or modified during the track
-    - [ ] Ensure all unit, integration, and E2E test suites created in Phases 1-3 are retained permanently as regression coverage
-    - [ ] Clean up any temporary scratch files or redundant mock spies
+- [x] Task: Audit test suite and verify permanent regression retention
+    - [x] Review all test files created or modified during the track
+    - [x] Ensure all unit, integration, and E2E test suites created in Phases 1-3 are retained permanently as regression coverage
+    - [x] Clean up any temporary scratch files or redundant mock spies
 - [ ] Task: Execute full automated test suite and type verification
     - [ ] Run containerized unit and integration test suite (`./scripts/run-jest-container.sh`)
     - [ ] Run TypeScript type check (`npm run db:check-types:local` / `tsc --noEmit`)
