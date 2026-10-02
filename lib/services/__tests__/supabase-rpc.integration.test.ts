@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import path from 'path';
 import { createMockWinery, createMockVisit } from '@/lib/test-utils/fixtures';
+import { getTodayLocal } from '@/lib/utils';
 
 // Load env vars immediately at the top of the file
 // In CI, .env.local won't exist, so we use the provided process.env
@@ -122,12 +123,14 @@ describe('Supabase RPC Integration Tests', () => {
       });
 
       it('should persist numeric coordinates when add_winery_to_trip is called with latitude and longitude keys (without lat/lng)', async () => {
-        // 1. Create a base trip with user1
+        // 1. Create a base trip with user1 and register base winery for teardown
+        const basePlaceId = `mock-winery-base-${crypto.randomUUID()}`;
+        createdWineryIds.push(basePlaceId);
         const { data: tripData, error: tripError } = await user1.client.rpc('create_trip_with_winery', {
           p_trip_name: 'Coord Test Trip',
-          p_trip_date: new Date().toISOString().split('T')[0],
+          p_trip_date: getTodayLocal(),
           p_winery_data: {
-            id: `mock-winery-base-${crypto.randomUUID()}`,
+            id: basePlaceId,
             name: 'Base Winery',
             address: '100 Base Way',
             lat: 42.5,
@@ -188,12 +191,14 @@ describe('Supabase RPC Integration Tests', () => {
       });
 
       it('should maintain backward compatibility and persist numeric coordinates when add_winery_to_trip is called with legacy lat and lng keys', async () => {
-        // 1. Create a base trip with user1
+        // 1. Create a base trip with user1 and register legacy base winery for teardown
+        const legacyBasePlaceId = `mock-winery-legacy-base-${crypto.randomUUID()}`;
+        createdWineryIds.push(legacyBasePlaceId);
         const { data: tripData, error: tripError } = await user1.client.rpc('create_trip_with_winery', {
           p_trip_name: 'Legacy Coord Trip',
-          p_trip_date: new Date().toISOString().split('T')[0],
+          p_trip_date: getTodayLocal(),
           p_winery_data: {
-            id: `mock-winery-legacy-base-${crypto.randomUUID()}`,
+            id: legacyBasePlaceId,
             name: 'Legacy Base Winery',
             address: '100 Base Way',
             lat: 42.5,
