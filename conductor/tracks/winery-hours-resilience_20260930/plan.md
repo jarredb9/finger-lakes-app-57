@@ -47,11 +47,11 @@
     - [x] Review all test files created or modified during the track
     - [x] Ensure all unit, integration, and E2E test suites created in Phases 1-3 are retained permanently as regression coverage
     - [x] Clean up any temporary scratch files or redundant mock spies
-- [ ] Task: Execute full automated test suite and type verification
-    - [ ] Run containerized unit and integration test suite (`./scripts/run-jest-container.sh`)
-    - [ ] Run TypeScript type check (`npm run db:check-types:local` / `tsc --noEmit`)
-    - [ ] Run E2E Playwright verification (`./scripts/run-e2e-container.sh webkit e2e/winery-hours-resilience.spec.ts`)
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Test Retention Audit & Final Regression Verification' (Protocol in workflow.md)
+- [x] Task: Execute full automated test suite and type verification (f3757f2)
+    - [x] Run containerized unit and integration test suite (`./scripts/run-jest-container.sh`)
+    - [x] Run TypeScript type check (`npm run db:check-types:local` / `tsc --noEmit`)
+    - [x] Run E2E Playwright verification (`./scripts/run-e2e-container.sh webkit e2e/winery-hours-resilience.spec.ts`)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Test Retention Audit & Final Regression Verification' (Protocol in workflow.md) (f3757f2)
 
 ## Review
 - [x] Task: Review and resolve WineryModal regression for tri-state operational hours (d5a4ee70)
