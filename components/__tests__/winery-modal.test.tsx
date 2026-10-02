@@ -189,7 +189,7 @@ describe('WineryModal Redesign', () => {
       // Peek state elements
       const openStatusTag = screen.getByTestId('peek-open-status-tag');
       expect(openStatusTag).toBeInTheDocument();
-      expect(openStatusTag).toHaveTextContent(/OPEN NOW|CLOSED/i);
+      expect(openStatusTag).toHaveTextContent(/OPEN NOW|CLOSED|HOURS UNAVAILABLE/i);
 
       // Swapped Log Visit button in Peek bar
       const peekLogVisitBtn = screen.getAllByTestId('log-visit-button')[0];

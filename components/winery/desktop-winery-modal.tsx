@@ -67,7 +67,7 @@ export function DesktopWineryLayout({
   onTripBadgeClick = () => {},
   onClose = () => {},
 }: DesktopWineryLayoutProps) {
-  if (isLoading || !winery) {
+  if (!winery) {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 h-[500px] overflow-hidden">
         <div className="flex flex-col" data-testid="modal-left-column">
@@ -146,7 +146,7 @@ export function DesktopWineryLayout({
 
           <WineryVibeScroller winery={winery} />
 
-          <WineryDetails winery={winery} loadingWineryId={loadingWineryId} mode="info" />
+          <WineryDetails winery={winery} loadingWineryId={loadingWineryId} isLoading={isLoading} mode="info" />
         </div>
       </div>
 

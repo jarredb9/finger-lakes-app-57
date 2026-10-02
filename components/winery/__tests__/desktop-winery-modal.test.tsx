@@ -155,4 +155,20 @@ describe('DesktopWineryModal', () => {
     expect(screen.queryByText('0')).not.toBeInTheDocument();
     expect(screen.getByText('123 Wine Trail, Geneva, NY')).toBeInTheDocument();
   });
+
+  describe('Decoupled layout loading (Phase 1)', () => {
+    it('decoupled layout: renders cached winery content immediately when isLoading is true', () => {
+      render(<DesktopWineryModal {...defaultProps} winery={mockWinery} isLoading={true} />);
+      expect(screen.getByTestId('winery-modal-dialog')).toHaveAttribute('data-state', 'loading');
+      expect(screen.getAllByText('Ravines Wine Cellars').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('400 Barracks Rd')).toBeInTheDocument();
+      expect(screen.getByTestId('mock-winery-actions')).toBeInTheDocument();
+    });
+
+    it('renders full-screen skeleton only when winery is null', () => {
+      render(<DesktopWineryModal {...defaultProps} winery={null} isLoading={true} />);
+      expect(screen.getByTestId('winery-modal-dialog')).toHaveAttribute('data-state', 'loading');
+      expect(screen.queryByText('Ravines Wine Cellars')).not.toBeInTheDocument();
+    });
+  });
 });

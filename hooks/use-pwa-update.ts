@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useCallback, useState } from 'react';
+import { useUIStore } from '@/lib/stores/uiStore';
 
 export function usePWAUpdate() {
   const [isUpdateAvailable, setIsUpdateAvailable] = useState(false);
@@ -55,6 +56,18 @@ export function usePWAUpdate() {
   }, []);
 
   const applyUpdate = useCallback(() => {
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      try {
+        window.sessionStorage.setItem('_PWA_JUST_UPDATED', String(Date.now()));
+        const activeWineryId = useUIStore.getState().activeWineryId;
+        if (activeWineryId) {
+          window.sessionStorage.setItem('_PWA_ACTIVE_WINERY_ID', String(activeWineryId));
+        }
+      } catch (err) {
+        console.warn('[usePWAUpdate] Failed to persist session data on update', err);
+      }
+    }
+
     if (registration?.waiting) {
       registration.waiting.postMessage({ type: 'SKIP_WAITING' });
     }

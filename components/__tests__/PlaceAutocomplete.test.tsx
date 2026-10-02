@@ -185,5 +185,57 @@ describe("PlaceAutocomplete", () => {
     });
     spyBlur.mockRestore();
   });
+
+  it("should intercept test winery selection and bypass fetchPlaceDetails", async () => {
+    const { useWineryStore } = await import("@/lib/stores/wineryStore");
+    const testWinery = {
+      id: "test-winery-silent-valley",
+      name: "Silent Valley Cellars (Test Winery)",
+      address: "1000 Secret Hollow Rd",
+      latitude: 42.45,
+      longitude: -77.2,
+    };
+    useWineryStore.setState({ persistentWineries: [testWinery as any] });
+
+    const mockSuggestions = [
+      {
+        placePrediction: {
+          toPlace: () => ({ id: "test-winery-silent-valley" }),
+          mainText: { text: "Silent Valley Cellars (Test Winery)" },
+          secondaryText: { text: "1000 Secret Hollow Rd" },
+        },
+      },
+    ];
+
+    (usePlacesAutocompleteSession as jest.Mock).mockReturnValue({
+      suggestions: mockSuggestions,
+      isLoading: false,
+      fetchSuggestions: mockFetchSuggestions,
+      fetchPlaceDetails: mockFetchPlaceDetails,
+      setSuggestions: mockSetSuggestions,
+      refreshSessionToken: jest.fn(),
+    });
+
+    render(<PlaceAutocomplete onPlaceSelect={mockOnPlaceSelect} />);
+
+    const input = screen.getByTestId("place-autocomplete-input");
+    fireEvent.change(input, { target: { value: "Silent" } });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("place-autocomplete-results")).toBeVisible();
+    });
+
+    const suggestionBtn = screen.getByTestId("autocomplete-option-0");
+    fireEvent.click(suggestionBtn);
+
+    await waitFor(() => {
+      expect(mockOnPlaceSelect).toHaveBeenCalledWith(
+        expect.objectContaining({ id: "test-winery-silent-valley" }),
+        null
+      );
+    });
+
+    expect(mockFetchPlaceDetails).not.toHaveBeenCalled();
+  });
 });
 

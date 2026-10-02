@@ -108,4 +108,44 @@ describe("usePlacesAutocompleteSession", () => {
     expect(mockPlaces.AutocompleteSessionToken).toHaveBeenCalled(); // verified refresh token gets called
     expect(detailsResult).toBe(mockPlaceInstance);
   });
+
+  it("should prepend synthetic test wineries in development/E2E mode", async () => {
+    const originalEnv = process.env.NODE_ENV;
+    (process.env as any).NODE_ENV = "development";
+
+    const { useWineryStore } = await import("@/lib/stores/wineryStore");
+    useWineryStore.setState({
+      persistentWineries: [
+        {
+          id: "test-winery-silent-valley",
+          name: "Silent Valley Cellars (Test Winery)",
+          address: "1000 Secret Hollow Rd, Hammondsport, NY",
+          latitude: 42.45,
+          longitude: -77.2,
+          isFavorite: false,
+          userVisited: false,
+        } as any,
+      ],
+    });
+
+    mockFetchSuggestions.mockResolvedValue({ suggestions: [] });
+
+    const { result } = renderHook(() => usePlacesAutocompleteSession());
+
+    await waitFor(() => {
+      expect(result.current.sessionToken).toBe(mockTokenInstance);
+    });
+
+    await act(async () => {
+      await result.current.fetchSuggestions("Silent");
+    });
+
+    expect(result.current.suggestions).toHaveLength(1);
+    const suggestion = result.current.suggestions[0];
+    expect(suggestion.placePrediction?.mainText?.text).toBe("Silent Valley Cellars (Test Winery)");
+    expect(suggestion.placePrediction?.secondaryText?.text).toContain("1000 Secret Hollow Rd");
+    expect(suggestion.placePrediction?.toPlace().id).toBe("test-winery-silent-valley");
+
+    (process.env as any).NODE_ENV = originalEnv;
+  });
 });

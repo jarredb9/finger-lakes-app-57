@@ -69,7 +69,7 @@ export function TabletWineryLayout({
   onTripBadgeClick = () => {},
   onClose = () => {},
 }: TabletWineryLayoutProps) {
-  if (isLoading || !winery) {
+  if (!winery) {
     return (
       <div className="p-4 space-y-4 flex flex-col flex-1 overflow-y-auto">
         <Skeleton className="h-40 w-full rounded-xl" />
@@ -148,7 +148,7 @@ export function TabletWineryLayout({
           </div>
         )}
 
-        <WineryDetails winery={winery} loadingWineryId={loadingWineryId} mode="info" />
+        <WineryDetails winery={winery} loadingWineryId={loadingWineryId} isLoading={isLoading} mode="info" />
 
         {/* Tabs Section */}
         <div className="pt-2 flex flex-col flex-1 space-y-3">

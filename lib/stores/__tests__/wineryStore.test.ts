@@ -374,4 +374,270 @@ describe('WineryUIStore: fetchWineryData', () => {
       expect(updated?.wishlistIsPrivate).toBe(false);
     });
   });
+
+  describe('WineryUIStore: Phase 2 Numeric ID On-Demand Enrichment & Revalidation Hardening', () => {
+    beforeEach(() => {
+      window._E2E_SKIP_WINERY_INJECTION = true;
+      window._E2E_SKIP_DETAILS_MOCK = true;
+      mockRpc.mockReset().mockResolvedValue({ data: [], error: null });
+      mockInvoke.mockReset().mockResolvedValue({ data: null, error: null });
+      useWineryStore.getState().reset();
+    });
+
+    it('resolves google_place_id and invokes Edge Function get-winery-details when ensureWineryDetails(\'2988\') receives DB data without opening_hours', async () => {
+      mockRpc.mockResolvedValueOnce({
+        data: [{
+          id: 2988,
+          google_place_id: 'ChIJ_mock_2988',
+          name: 'Seneca Shore Winery',
+          latitude: 42.8,
+          longitude: -76.9,
+          opening_hours: null,
+          enrichment_tier: 'basic',
+        }],
+        error: null,
+      });
+
+      mockInvoke.mockResolvedValueOnce({
+        data: {
+          id: 'ChIJ_mock_2988',
+          name: 'Seneca Shore Winery',
+          latitude: 42.8,
+          longitude: -76.9,
+          opening_hours: { weekday_text: ['Mon: 10am-5pm'] },
+          enrichment_tier: 'enriched',
+        },
+        error: null,
+      });
+
+      const result = await useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
+
+      expect(mockRpc).toHaveBeenCalledWith('get_winery_details_by_id', { p_winery_id: 2988 });
+      expect(mockInvoke).toHaveBeenCalledWith('get-winery-details', { body: { placeId: 'ChIJ_mock_2988' } });
+      expect(result).toBeDefined();
+      expect(result?.id).toBe('ChIJ_mock_2988');
+      expect(result?.dbId).toBe(2988);
+      expect(result?.openingHours?.weekday_text).toEqual(['Mon: 10am-5pm']);
+      expect(useWineryStore.getState().loadingWineryId).toBeNull();
+      expect(useWineryStore.getState().getWinery('2988')?.openingHours?.weekday_text).toEqual(['Mon: 10am-5pm']);
+    });
+
+    it('returns standardized dbData with openingHours: null, logs warning, and clears loadingWineryId when google_place_id is missing from dbData', async () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      mockRpc.mockResolvedValueOnce({
+        data: [{
+          id: 2988,
+          google_place_id: null,
+          name: 'Seneca Shore Winery',
+          latitude: 42.8,
+          longitude: -76.9,
+          opening_hours: null,
+          enrichment_tier: 'basic',
+        }],
+        error: null,
+      });
+
+      const result = await useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
+
+      expect(mockInvoke).not.toHaveBeenCalled();
+      expect(result).not.toBeNull();
+      expect(result?.dbId).toBe(2988);
+      expect(result?.openingHours).toBeNull();
+      expect(useWineryStore.getState().loadingWineryId).toBeNull();
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[ensureWineryDetails] Winery 2988 has no google_place_id')
+      );
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('returns standardized dbData with openingHours: null, clears loadingWineryId, and does not throw when Edge Function returns an error', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      mockRpc.mockResolvedValueOnce({
+        data: [{
+          id: 2988,
+          google_place_id: 'ChIJ_mock_2988',
+          name: 'Seneca Shore Winery',
+          latitude: 42.8,
+          longitude: -76.9,
+          opening_hours: null,
+          enrichment_tier: 'basic',
+        }],
+        error: null,
+      });
+
+      mockInvoke.mockResolvedValueOnce({
+        data: null,
+        error: new Error('Places API 500 Internal Error'),
+      });
+
+      const result = await useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
+
+      expect(mockInvoke).toHaveBeenCalledWith('get-winery-details', { body: { placeId: 'ChIJ_mock_2988' } });
+      expect(result).not.toBeNull();
+      expect(result?.dbId).toBe(2988);
+      expect(result?.openingHours).toBeNull();
+      expect(useWineryStore.getState().loadingWineryId).toBeNull();
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('handles Edge Function promise rejection gracefully without stalling loadingWineryId', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      mockRpc.mockResolvedValueOnce({
+        data: [{
+          id: 2988,
+          google_place_id: 'ChIJ_mock_2988',
+          name: 'Seneca Shore Winery',
+          latitude: 42.8,
+          longitude: -76.9,
+          opening_hours: null,
+          enrichment_tier: 'basic',
+        }],
+        error: null,
+      });
+
+      mockInvoke.mockRejectedValueOnce(new Error('Network timeout'));
+
+      const result = await useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
+
+      expect(result).not.toBeNull();
+      expect(result?.dbId).toBe(2988);
+      expect(result?.openingHours).toBeNull();
+      expect(useWineryStore.getState().loadingWineryId).toBeNull();
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('maintains loadingWineryId as \'2988\' while on-demand enrichment is pending and clears it upon completion', async () => {
+      mockRpc.mockResolvedValueOnce({
+        data: [{
+          id: 2988,
+          google_place_id: 'ChIJ_mock_2988',
+          name: 'Seneca Shore Winery',
+          latitude: 42.8,
+          longitude: -76.9,
+          opening_hours: null,
+          enrichment_tier: 'basic',
+        }],
+        error: null,
+      });
+
+      let resolveDeferred!: (value: any) => void;
+      const deferredPromise = new Promise((resolve) => {
+        resolveDeferred = resolve;
+      });
+
+      mockInvoke.mockReturnValueOnce(deferredPromise);
+
+      const promise = useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
+
+      // Give microtasks a turn to run RPC and set loadingWineryId
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(useWineryStore.getState().loadingWineryId).toBe('2988');
+
+      resolveDeferred({
+        data: {
+          id: 'ChIJ_mock_2988',
+          name: 'Seneca Shore Winery',
+          latitude: 42.8,
+          longitude: -76.9,
+          opening_hours: { weekday_text: ['Mon: 10am-5pm'] },
+          enrichment_tier: 'enriched',
+        },
+        error: null,
+      });
+
+      await promise;
+
+      expect(useWineryStore.getState().loadingWineryId).toBeNull();
+    });
+
+    it('resolves google_place_id and triggers background revalidation when ensureWineryDetails is called with a numeric ID for a stale cached winery', async () => {
+      const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+      const staleWinery: Winery = {
+        ...createMockWinery(),
+        id: 'ChIJ_mock_2988' as GooglePlaceId,
+        dbId: 2988 as WineryDbId,
+        name: 'Seneca Shore Winery',
+        openingHours: { weekday_text: ['Mon: 10am-5pm'] },
+        userVisited: false,
+        enrichment_tier: 'enriched',
+        last_enriched_at: fortyDaysAgo,
+        reviews: [{ author_name: 'Tester', rating: 5, text: 'Great!', time: 12345, relative_time_description: 'today' }],
+        userRatingCount: 10,
+        generative_summary: 'Great winery summary',
+        vibe_tags: ['Dog Friendly'],
+      };
+
+      useWineryStore.setState({ persistentWineries: [staleWinery] });
+
+      // When called with numeric ID '2988', ensureWineryDetails should return cached data immediately
+      const result = await useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
+      expect(result).toEqual(staleWinery);
+
+      // And triggers background revalidation with canonical Place ID 'ChIJ_mock_2988'
+      expect(mockInvoke).toHaveBeenCalledWith('get-winery-details', { body: { placeId: 'ChIJ_mock_2988' } });
+      expect(mockInvoke).toHaveBeenCalledTimes(1);
+
+      // Consecutive calls while in-flight deduplicate calls
+      await useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
+      expect(mockInvoke).toHaveBeenCalledTimes(1);
+    });
+
+    it('cleans up inFlightRevalidations when background revalidation fails so subsequent requests are not stalled', async () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+      const fortyDaysAgo = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+      const staleWinery: Winery = {
+        ...createMockWinery(),
+        id: 'ChIJ_mock_2988' as GooglePlaceId,
+        dbId: 2988 as WineryDbId,
+        name: 'Seneca Shore Winery',
+        openingHours: { weekday_text: ['Mon: 10am-5pm'] },
+        userVisited: false,
+        enrichment_tier: 'enriched',
+        last_enriched_at: fortyDaysAgo,
+        reviews: [{ author_name: 'Tester', rating: 5, text: 'Great!', time: 12345, relative_time_description: 'today' }],
+        userRatingCount: 10,
+        generative_summary: 'Great winery summary',
+        vibe_tags: ['Dog Friendly'],
+      };
+
+      useWineryStore.setState({ persistentWineries: [staleWinery] });
+
+      mockInvoke.mockRejectedValueOnce(new Error('Background fetch failed'));
+
+      // First call triggers background revalidation which rejects
+      await useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
+      expect(mockInvoke).toHaveBeenCalledTimes(1);
+
+      // Allow microtasks for .catch and .finally to execute
+      await Promise.resolve();
+      await Promise.resolve();
+
+      // Subsequent call should be able to trigger revalidation again because inFlightRevalidations was cleaned up
+      mockInvoke.mockResolvedValueOnce({
+        data: {
+          id: 'ChIJ_mock_2988',
+          name: 'Seneca Shore Winery',
+          latitude: 42.8,
+          longitude: -76.9,
+          opening_hours: { weekday_text: ['Mon: 10am-6pm'] },
+          enrichment_tier: 'enriched',
+        },
+        error: null,
+      });
+
+      await useWineryStore.getState().ensureWineryDetails('2988' as GooglePlaceId);
+      expect(mockInvoke).toHaveBeenCalledTimes(2);
+
+      consoleErrorSpy.mockRestore();
+    });
+  });
 });
