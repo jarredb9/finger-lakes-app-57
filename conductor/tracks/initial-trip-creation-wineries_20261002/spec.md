@@ -5,63 +5,112 @@
 **Type:** Bug Fix  
 
 ## 1. Overview
-When creating a new trip via the "Create a Trip" dialog ([TripForm](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/trip-form.tsx)), users can input a name, select a date, and search/select wineries to include. However, upon trip creation, the resulting trip card displays "0 Wineries", and the selected wineries are not associated with the created trip. In contrast, adding wineries from the winery modal or the trip details page works correctly.
+When creating a new trip via the "Create a Trip" dialog ([TripForm](file:///home/byrnesjd4821/Git/finger-lakes-app-57/components/trip-form.tsx)), users can input a name, select a date, and search/select wineries to include as Trip Stops. However, upon trip creation, the resulting trip card displays "0 Wineries", and the selected wineries are not associated with the created trip. In contrast, adding wineries from the winery modal or the trip details page works correctly.
 
-This specification addresses the three underlying root causes:
-1. **Unregistered Form Field:** The winery autocomplete in `TripForm` was controlled via imperative `form.setValue` calls rather than a formal React Hook Form `<FormField control={form.control} name="wineries" ... />` binding, causing state detachment in React 19's form lifecycle.
-2. **Multi-Winery Chaining with Ephemeral IDs:** `TripService.createTrip` passed unpersisted/ephemeral IDs (`extra.dbId || 0`) to `addWineryToExistingTrip` for additional wineries (stops 2+), causing database foreign key lookups to fail for newly selected Google Places wineries.
-3. **Store Synchronization & Count Invariants:** `createTripHelper` did not populate `wineries_count` on optimistic or synced trip records, leaving trip cards evaluating `{trip.wineries_count ?? trip.wineries?.length ?? 0}` out of sync until a manual page refresh, and failed to trigger background cache re-fetching.
+This specification addresses the six underlying root causes identified through architectural audit and grilling:
+1. **PostgreSQL RPC Coordinate Schema Mismatch:** While recent database migrations updated write RPCs (like `create_trip_with_winery`) to coalesce `COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat')`, the baseline RPC `add_winery_to_trip` only extracts `(p_winery_data->>'lat')::numeric` and `(p_winery_data->>'lng')::numeric`. Meanwhile, `WineryService.getRpcData` only emitted `latitude` and `longitude`, causing PostgreSQL to insert `NULL` coordinates for chained stops.
+2. **Unregistered Form Field:** The winery autocomplete in `TripForm` was controlled via imperative `form.setValue` calls rather than a formal React Hook Form `<FormField control={form.control} name="wineries" ... />` binding, causing state detachment in React 19's form lifecycle.
+3. **Multi-Winery Chaining with Ephemeral IDs:** `TripService.createTrip` passed unpersisted/ephemeral IDs (`extra.dbId || 0`) to `addWineryToExistingTrip` for additional wineries (stops 2+), causing database foreign key lookups to fail for newly selected Google Places wineries without prior Postgres IDs.
+4. **Offline Queue Replay Parity Gap:** `syncService.ts` re-implemented `create_trip` manually by invoking `create_trip_with_winery` with only the first winery (`payload.wineries[0]`), permanently dropping stops 2+ during offline sync and omitting `wineries_count`.
+5. **Store Synchronization & Count Invariants:** `createTripHelper` did not populate `wineries_count` on optimistic or synced trip records, leaving trip cards evaluating `{trip.wineries_count ?? trip.wineries?.length ?? 0}` out of sync until a manual page refresh, and failed to trigger background cache re-fetching.
+6. **Grammar & Pluralization Bug:** `TripCardSimplePresentational.tsx` hardcoded `{count} Wineries`, causing "1 Wineries" to render for single-stop trips unlike `TripCardPresentational.tsx`.
 
-## 2. Functional Requirements
+## 2. Domain Model Alignment (`CONTEXT.md`)
+- **Trip:** A scheduled itinerary of planned winery stops for a specific calendar date, organized by an owner and optionally shared with collaborators.
+- **Trip Stop:** A single planned destination within a Trip, specifying a Winery, its sequence in the itinerary, and planning notes. Avoid: *Visit*, *waypoint*, *destination*, *trip winery*.
+- **Winery:** A commercial establishment producing or offering wine tasting in the region.
+- All coordinate standardizations continue through `standardizeWineryData` accessing `location.latitude` and `location.longitude`.
 
-### 2.1 Form Field Binding in `TripForm`
+## 3. Functional Requirements
+
+### 3.1 PostgreSQL RPC Coordinate Standardization (`add_winery_to_trip`)
+- Create a non-breaking Supabase migration to update `public.add_winery_to_trip(p_trip_id integer, p_winery_data jsonb, p_notes text DEFAULT NULL)`:
+  - Update coordinate extraction to use:
+    ```sql
+    (COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat'))::numeric,
+    (COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng'))::numeric,
+    ```
+  - Follow the expand-and-contract pattern to ensure 100% backward compatibility with existing callers while standardizing with all other write RPCs (`create_trip_with_winery`, `log_visit`).
+  - Maintain identical ownership, permissions (`authenticated`, `service_role`), and security definer search path.
+
+### 3.2 Dual-Key Coordinate Serialization in `WineryService.getRpcData`
+- Update `WineryService.getRpcData(winery)` to serialize coordinates with dual-keys:
+  ```typescript
+  latitude: winery.latitude || 0,
+  longitude: winery.longitude || 0,
+  lat: winery.latitude || 0,
+  lng: winery.longitude || 0,
+  ```
+- This defense-in-depth policy guarantees safety during deployment cutovers and avoids any transient coordinate loss regardless of migration timing.
+
+### 3.3 Controlled Form Field Binding in `TripForm`
 - Wrap winery search and selection inside `<FormField control={form.control} name="wineries" render={({ field }) => ...} />`.
-- When a user selects a winery from `PlaceAutocomplete`, update state synchronously via `field.onChange([...current, winery])`.
+- When a user selects a winery from `PlaceAutocomplete`, update state synchronously via `field.onChange([...current, winery])`, deduplicating by `winery.id`.
 - Support winery removal via `field.onChange(current.filter(w => w.id !== winery.id))`.
-- Remove legacy imperative `handleWineryToggle` and direct `form.setValue("wineries", ...)`.
-- Ensure winery selection renders removable badge tags with accessible labels and distinct test IDs (`data-testid="selected-wineries-list"`).
+- Remove legacy imperative `handleWineryToggle`, `ensureInDb`, and direct `form.setValue("wineries", ...)`.
+- Ensure winery selection renders removable badge tags with accessible labels and distinct test IDs (`data-testid="selected-wineries-list"`, `data-testid="selected-winery-${winery.id}"`).
 
-### 2.2 Polymorphic Multi-Winery Chaining in `TripService`
-- Extend `TripService.addWineryToExistingTrip(tripId: number, wineryOrId: number | Winery, notes: string | null)` to accept either a numeric winery database ID or a full `Winery` domain object.
-- If a `Winery` object is passed:
-  - If it has a positive `dbId` (`wineryOrId.dbId > 0`), use the existing ID or RPC data.
-  - If `!wineryOrId.dbId || wineryOrId.dbId <= 0` (e.g. from Google Places), construct RPC payload via `WineryService.getRpcData(wineryOrId)` and pass `p_winery_data` to ensure the winery is inserted/upserted and linked to the trip stop.
-- In `TripService.createTrip`, iterate over subsequent wineries (`trip.wineries.slice(1)`) passing each full `Winery` object directly to `addWineryToExistingTrip`.
+### 3.4 Polymorphic Chaining & Atomic Rollback in `TripService`
+- Extend `TripService.addWineryToExistingTrip(tripId: number, wineryOrId: number | Winery, notes: string | null)`:
+  - If `wineryOrId` is an object: invoke `add_winery_to_trip` with `p_winery_data: WineryService.getRpcData(wineryOrId)`.
+  - If `wineryOrId` is a number: validate `wineryOrId > 0`; if valid, look up via `findWineryByDbId` or pass `p_winery_id`. If non-positive (`<= 0`), throw an error immediately.
+- In `TripService.createTrip`:
+  - Pass the first winery via `p_winery_data: WineryService.getRpcData(w)` to `create_trip_with_winery`.
+  - For subsequent wineries (`trip.wineries.slice(1)`), iterate sequentially and invoke `this.addWineryToExistingTrip(data.trip_id, extra, null)`.
+  - **Strict Rollback & Offline Queue Suppression:** If any chained stop addition fails, catch the error, invoke `this.deleteTrip(data.trip_id.toString())` to clean up the partial remote trip, tag the error (`preventOfflineEnqueue = true`), and rethrow.
 
-### 2.3 Store Synchronization & Background Cache Invalidation
+### 3.5 Full Offline Sync Parity in `syncService.ts`
+- Refactor `syncService.ts`'s `'create_trip'` case to directly invoke `TripService.createTrip(payload, item.id)`.
+- Eliminates duplicate, incomplete stop-creation logic and ensures identical behavior online and offline.
+- Upon completion, replace temporary trip with synced record containing accurate `wineries_count: syncedTrip.wineries?.length ?? payload.wineries?.length ?? 0`.
+- Trigger background store cache re-fetches (`fetchUpcomingTrips`, `fetchTripsForDate`, `fetchTrips`).
+
+### 3.6 Store Synchronization & Invalidation in `tripMutationHelpers`
 - In `createTripHelper`:
   - Set optimistic `wineries_count: validWineries.length` on `tempTrip`.
-  - Set `wineries_count: (createdTrip?.wineries?.length ?? validWineries.length)` on `syncedTrip`.
-  - Ensure the resulting trip object in `trips` state retains both the populated `wineries` array and the accurate `wineries_count`.
-  - Trigger non-blocking, fire-and-forget background cache re-fetches for `fetchUpcomingTrips()`, `fetchTripsForDate(targetDate)`, and `fetchTrips(1, 'upcoming', true)` with error handling to guarantee eventual consistency across all trip list views.
+  - Set synced `wineries_count: (createdTrip?.wineries?.length ?? validWineries.length)` on `syncedTrip`.
+  - Check error tag: if `(error as any)?.preventOfflineEnqueue` is true, bypass `handleSyncError` offline queueing and immediately execute optimistic rollback.
+  - Dispatch non-blocking, fire-and-forget background cache re-fetches for `fetchUpcomingTrips()`, `fetchTripsForDate(targetDate)`, and `fetchTrips(1, 'upcoming', true)` with error logging.
 
-### 2.4 Presentation Badge Standardization
-- Verify that `TripCardSimplePresentational` and any related trip card components display the winery count accurately using `{trip.wineries_count ?? trip.wineries?.length ?? 0}`.
-- Ensure pluralization ("1 Winery" vs "N Wineries") renders consistently across both optimistic and confirmed states.
+### 3.7 Presentation Badge Standardization in `TripCardSimplePresentational`
+- Standardize badge pluralization in `TripCardSimplePresentational.tsx`:
+  ```tsx
+  const count = trip.wineries_count ?? trip.wineries?.length ?? 0;
+  <Badge variant="secondary">
+    <Wine className="w-3 h-3 mr-1" /> {count} {count === 1 ? 'Winery' : 'Wineries'}
+  </Badge>
+  ```
 
-## 3. Strict TDD Workflow & Architecture Requirements
-- **Strict Test-Driven Development (TDD):** Every task must strictly execute the Red-Green-Refactor cycle:
-  1. **Red Phase:** Write unit tests that capture the bug and assert the expected behavior. Execute tests and verify expected failure before writing any implementation code.
-  2. **Green Phase:** Write the minimal code required to pass tests.
-  3. **Refactor Phase:** Refactor for clarity and maintainability while keeping tests green.
-- **Test Artifact Hygiene & Scaffolding Cleanup:** Any temporary exploration files, one-off test harnesses, or throwaway scaffolding files created during development must be deleted before phase completion. Only permanent, high-value regression tests integrated into the project's standard test suites (`components/__tests__/`, `lib/services/__tests__/`, `lib/stores/__tests__/`, `e2e/`) are retained.
-- **Runtime Invariants:** Follow project standards in [AGENTS.md](file:///home/byrnesjd4821/Git/finger-lakes-app-57/AGENTS.md) and [CONTEXT.md](file:///home/byrnesjd4821/Git/finger-lakes-app-57/CONTEXT.md).
-- **Coordinate Standardization:** All wineries pass through `standardizeWineryData` accessing `location.latitude` and `location.longitude`.
-- **Non-Blocking UI:** Trip creation form submission dialog must close smoothly without awaiting background list cache re-fetching.
-- **Backwards Compatibility:** Maintain signature compatibility for `TripService.addWineryToExistingTrip` so existing numeric callers continue functioning without modification.
+## 4. Test Suite Restructuring & Hygiene
+- **Test File Modularization:**
+  - Split `components/__tests__/react19-form-actions.test.tsx`:
+    - Move auth form tests (`LoginForm`, `ForgotPasswordForm`, `ManualConfirmForm`) to `components/__tests__/auth-forms.test.tsx`.
+    - Create dedicated `components/__tests__/trip-form.test.tsx` containing all `TripForm` tests (controlled `<FormField>` binding, autocomplete place selection, badge tag removal, validation, and submit payload delivery).
+    - Remove legacy `react19-form-actions.test.tsx`.
+- **Corrected Store Test Path:**
+  - Update plan and scripts to target the actual path: `lib/stores/slices/__tests__/tripMutationHelpers.test.ts`.
 
-## 4. Acceptance Criteria
-1. Strict TDD cycle is followed and documented for each task (failing test run confirmed before implementation).
-2. Submitting `TripForm` with 1 selected winery creates the trip in Supabase, links the winery stop, and displays "1 Winery" on the newly rendered trip card immediately.
-3. Submitting `TripForm` with multiple selected wineries (including newly searched Google Places wineries without prior Postgres database IDs) successfully associates all stops with the trip.
-4. Removing a winery badge in `TripForm` prior to submit properly decrements the selection and submits only the remaining wineries.
-5. Optimistic trip state displays the correct winery count immediately without flickering to "0 Wineries".
-6. Background re-fetches keep `upcomingTrips`, `tripsForDate`, and paginated `trips` synchronized with backend aggregates.
-7. Containerized Jest tests pass for `trip-form.test.tsx`, `tripService.mutations.test.ts`, and `tripMutationHelpers.test.ts`.
-8. Playwright E2E test passes verifying trip creation with wineries in `e2e/trip-flow.spec.ts`.
-9. All temporary scaffolding test files are deleted; only permanent, cleanly structured regression tests remain.
+## 5. Strict TDD Workflow
+Every task executes the strict Red-Green-Refactor cycle:
+1. **Red Phase:** Write unit tests that capture the bug and assert the expected behavior. Execute containerized test runner (`./scripts/run-jest-container.sh`) and confirm failure before implementation.
+2. **Green Phase:** Implement the minimal code required to satisfy the tests.
+3. **Refactor Phase:** Refactor for clarity and maintainability, ensuring tests remain green.
+4. **Scaffolding Cleanup:** Remove any temporary test harnesses or exploration scripts before phase completion.
 
-## 5. Out of Scope
+## 6. Acceptance Criteria
+1. Strict TDD cycle is followed and documented for each task (failing test run confirmed before code changes).
+2. PostgreSQL migration updates `add_winery_to_trip` to coalesce `latitude`/`lat` and `longitude`/`lng` without breaking existing callers.
+3. Submitting `TripForm` with 1 selected winery creates the trip in Supabase, links the winery stop with valid coordinates, and displays "1 Winery" on the newly rendered trip card immediately.
+4. Submitting `TripForm` with multiple selected wineries (including newly searched Google Places wineries without prior Postgres database IDs) successfully links all stops with valid coordinates.
+5. Removing a winery badge in `TripForm` prior to submit properly decrements the selection and submits only the remaining wineries.
+6. Optimistic trip state displays the correct winery count immediately without flickering to "0 Wineries".
+7. If a chained stop addition fails during multi-winery creation, the trip is rolled back, and offline queueing is suppressed to prevent phantom duplicate replays.
+8. Offline trip creation replayed through `syncService.ts` creates all winery stops and normalizes `wineries_count`.
+9. Background re-fetches keep `upcomingTrips`, `tripsForDate`, and paginated `trips` synchronized with backend aggregates.
+10. Containerized Jest tests pass for `auth-forms.test.tsx`, `trip-form.test.tsx`, `tripService.mutations.test.ts`, and `tripMutationHelpers.test.ts`.
+11. Playwright E2E test passes verifying full trip creation with wineries in `e2e/trip-flow.spec.ts`.
+12. Zero temporary scaffolding files remain.
+
+## 7. Out of Scope
 - Redesigning the `PlaceAutocomplete` component or changing external Google Places v1 API schemas.
-- Modifying Postgres RPC schemas or DDL migrations (existing RPCs `create_trip_with_winery` and `add_winery_to_trip` already support `p_winery_data`).
 - Reordering stops within the initial creation modal (reordering remains a trip details feature).
