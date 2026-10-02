@@ -29,7 +29,7 @@
     - [x] Re-run unit tests to confirm Green status (Green phase)
 - [x] Task: Conductor - User Manual Verification 'Phase 2: On-Demand Enrichment & Numeric ID Resolution Hardening' (Protocol in workflow.md)
 
-## Phase 3: PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore (TDD)
+## Phase 3: PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore (TDD) [checkpoint: 4862da47]
 - [x] Task: Write failing unit tests for store version migration and session-backed PWA modal restoration (c29d399)
     - [x] Add unit tests in `lib/stores/__tests__/wineryStore.persist.test.ts` verifying Zustand `version: 2` migration selectively purges corrupt/stale enriched records lacking `openingHours` while preserving basic map marker records
     - [x] Add unit tests in `hooks/__tests__/use-pwa-update.test.ts` asserting `_PWA_JUST_UPDATED` timestamp and active modal ID (`_PWA_ACTIVE_WINERY_ID`) are stored in `sessionStorage` on `applyUpdate`
@@ -40,7 +40,7 @@
     - [x] Update `hooks/use-pwa-update.ts` to serialize `activeWineryId` to `sessionStorage` on `applyUpdate()` without coupling to data stores
     - [x] Update `components/modals/authenticated-modal-host.tsx` to restore modal and trigger `ensureWineryDetails` when `_PWA_ACTIVE_WINERY_ID` is present on mount
     - [x] Re-run tests to confirm Green status (Green phase)
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore' (Protocol in workflow.md)
 
 ## Phase 4: Test Retention Audit & Final Regression Verification (TDD)
 - [ ] Task: Audit test suite and verify permanent regression retention
