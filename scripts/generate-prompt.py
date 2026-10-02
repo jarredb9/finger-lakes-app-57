@@ -58,17 +58,23 @@ def resolve_track_dir(track_name):
     """Resolves track directory path whether active or archived."""
     if not track_name:
         return None
+    # 1. Direct path (absolute or relative to current working directory or PROJECT_ROOT)
     p = Path(track_name)
+    if not p.is_absolute():
+        p = (PROJECT_ROOT / p).resolve()
     if p.is_dir() and (p / "plan.md").exists():
         return p
-    # Try conductor/tracks/<track_name>
-    tracks_dir = PROJECT_ROOT / "conductor" / "tracks" / track_name
+
+    # 2. Bare track name under conductor/tracks/
+    tracks_dir = (PROJECT_ROOT / "conductor" / "tracks" / track_name).resolve()
     if tracks_dir.is_dir():
         return tracks_dir
-    # Try conductor/archive/<track_name>
-    archive_dir = PROJECT_ROOT / "conductor" / "archive" / track_name
+
+    # 3. Bare track name under conductor/archive/
+    archive_dir = (PROJECT_ROOT / "conductor" / "archive" / track_name).resolve()
     if archive_dir.is_dir():
         return archive_dir
+
     return tracks_dir
 
 
@@ -205,11 +211,12 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
     all_task_text = task_desc + "\n" + "\n".join(subtasks)
     desc_lower = all_task_text.lower()
 
-    # Extract test files mentioned in subtasks or task description
-    test_file_matches = re.findall(r"(?:`|'|\")?([a-zA-Z0-9_\-/\.]+\.(?:test|spec)\.[tj]sx?)(?:`|'|\")?", all_task_text)
-    for tf in test_file_matches:
-        if tf not in plan_targets and not tf.startswith("conductor/"):
-            plan_targets.append(tf)
+    # Only fall back to regex scanning task_desc/subtasks if the task plan did not define any targets
+    if not plan_targets and not plan_verification_cmds:
+        test_file_matches = re.findall(r"(?:`|'|\")?([a-zA-Z0-9_\-/\.]+\.(?:test|spec)\.[tj]sx?)(?:`|'|\")?", all_task_text)
+        for tf in test_file_matches:
+            if tf not in plan_targets and not tf.startswith("conductor/"):
+                plan_targets.append(tf)
 
     def clean_test_paths(paths):
         unique_paths = []
@@ -260,7 +267,9 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
         commit_msg = f"feat({scope}): {task_desc or f'Execute full automated test suite for Phase {phase_num} Task {task_num}'}"
     elif is_red:
         # Red phase: failing tests
-        if has_spec and not has_unit:
+        if plan_verification_cmds:
+            commands = plan_verification_cmds
+        elif has_spec and not has_unit:
             target_arg = (" " + " ".join(spec_files)) if spec_files else ""
             commands = [f"./scripts/run-e2e-container.sh webkit{target_arg}".strip()]
         else:
@@ -296,11 +305,11 @@ def infer_verification_strategy(track_name, phase_num, task_num, task_desc="", i
         commit_msg = f"feat({scope}): {task_desc or f'Implement Phase {phase_num} Task {task_num}'}"
     elif has_unit:
         # Targeted unit tests
-        if unit_files:
+        if plan_verification_cmds:
+            commands = plan_verification_cmds
+        elif unit_files:
             target_arg = " " + " ".join(unit_files)
             commands = [f"./scripts/run-jest-container.sh{target_arg}".strip()]
-        elif plan_verification_cmds:
-            commands = plan_verification_cmds
         else:
             commands = ["./scripts/run-jest-container.sh"]
         if wants_type_check:
@@ -368,7 +377,7 @@ Execution Directives (Seam-Bounded & Empirically Verified):
 1. The plan is 100% authoritative. Stay strictly within the planned seam (DO NOT view unmentioned files or explore git history).
 2. Proceed immediately to apply planned additions or edits using write_to_file or replace_file_content.
 {verification_block}
-4. Once verified, update plan.md, record git notes, and commit with message: "{strategy['commit_msg']}"
+4. Once verified, commit changes with message: "{strategy['commit_msg']}", record git notes, append [commit: <hash>] to the completed task line in plan.md, and commit plan.md.
 5. Halt immediately after commit."""
 
 
