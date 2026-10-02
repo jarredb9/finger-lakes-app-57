@@ -4,6 +4,32 @@
 
 **Milestone [v3.6.1](https://github.com/jarredb9/finger-lakes-app-57/milestone/4)**
 
+### 🕒 Winery Operational Hours Resilience & PWA Hydration ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56))
+* **Tri-State Operational Status & UI Presentation**:
+    * Eliminated false-closed defects across all presentational surfaces by introducing an explicit tri-state status model (`Open Now`, `Closed`, and `Hours Unavailable`).
+    * Implemented animated skeleton loading pills (`animate-pulse`) in `WineryInfoCard` and `MobileWineryDrawer` peek status badges when operational hours are indeterminate while Places API enrichment is in-flight.
+    * Updated `WineryCardThumbnail` to cleanly omit operational status badges when hours are `null`, avoiding list clutter while never falsely displaying "Closed".
+    * Added schedule subtext fallbacks with direct website links ("Visit website for hours →") in `WineryInfoCard` when hours are missing and a website URL is present.
+* **Decoupled Layout-Level Hydration**:
+    * Decoupled top-level layout loading from detail enrichment across `DesktopWineryLayout`, `MobileWineryLayout`, and `TabletWineryLayout`.
+    * Guarded full-screen skeleton loaders exclusively on `!winery` (uncached records), enabling cached wineries to render immediately with field-level loading states while Places API enrichment resolves in the background.
+* **On-Demand Places Enrichment & Numeric ID Resolution Hardening**:
+    * Hardened `ensureWineryDetails` in `lib/stores/wineryStore.ts` to inspect `dbData.google_place_id` when queried with a numeric database ID and trigger Edge Function (`get-winery-details`) enrichment when Postgres records lack opening hours.
+    * Maintained `loadingWineryId` active throughout pending on-demand enrichment, ensuring safe cleanup to `null` on completion or failure.
+    * Added resilient error handling for missing `google_place_id` or Edge Function failures (4xx/5xx/network timeouts), returning standardized database data with `openingHours: null` without throwing or stalling `inFlightRevalidations`.
+    * Updated `revalidateInBackground` to resolve canonical `google_place_id` from cached numeric IDs and cleanly release in-flight revalidation locks on failure.
+* **PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore**:
+    * Upgraded Zustand persistence schema to `version: 2` with a selective `migrate` callback in `lib/stores/wineryStore.ts` that purges corrupt or stale enriched records lacking `openingHours` while strictly preserving basic map markers and coordinate geometries for offline map availability.
+    * Updated `hooks/use-pwa-update.ts` to persist `_PWA_JUST_UPDATED` timestamp and active modal ID `_PWA_ACTIVE_WINERY_ID` to `sessionStorage` upon `applyUpdate()`, maintaining complete decoupling from domain data stores.
+    * Added a mount effect in `components/modals/authenticated-modal-host.tsx` to detect `_PWA_ACTIVE_WINERY_ID`, automatically reopen the active modal via `openWineryModal`, trigger `ensureWineryDetails`, and immediately cleanse session storage to prevent reopen loops.
+* **Standardizer Merging & Synthetic Test Fixture Interception**:
+    * Enhanced `standardizeWineryData` in `lib/utils/winery.ts` to allow explicit incoming `opening_hours: null` values to clear or merge accurately and fallback to existing coordinates when missing from partial payloads.
+    * Implemented synthetic test fixture interception in `hooks/use-places-autocomplete-session.ts` and `components/PlaceAutocomplete.tsx` for dev and E2E testing environments.
+    * Seeded deterministic test winery fixture ("Silent Valley Cellars (Test Winery)" with null website and null hours) in `scripts/populate-wineries.ts`.
+* **Permanent Unit & E2E Regression Test Suites**:
+    * Added comprehensive unit test coverage across 10 test suites covering tri-state badge rendering, loading skeletons, decoupled layouts, numeric ID resolution, Zustand v2 selective migration, and session-backed modal restoration.
+    * Implemented containerized Playwright E2E test suite `e2e/winery-hours-resilience.spec.ts` asserting tri-state hours rendering, mobile peek badges, schedule website fallbacks, and dynamic enrichment transitions.
+
 ### 🍷 Auto-clear Wishlist Entry on Visit Logging ([#54](https://github.com/jarredb9/finger-lakes-app-57/issues/54) / [ADR-0001](docs/adr/0001-wishlist-cleared-on-visit.md))
 * **Database Migration & RPC Hardening**:
     * Updated PostgreSQL `public.log_visit` RPC to atomically delete existing `public.wishlist` entries for `(user_id, winery_id)` in the initial insert transaction (`supabase/migrations/20260929111500_autoclear_wishlist_on_visit.sql`).
