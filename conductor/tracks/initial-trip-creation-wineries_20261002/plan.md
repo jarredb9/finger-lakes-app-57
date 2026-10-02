@@ -5,9 +5,9 @@
 
 ## Phase 1: PostgreSQL RPC Coordinate Standardization (`add_winery_to_trip`)
 
-- [ ] Task: Write Failing Integration Test for `add_winery_to_trip` Coordinates (Red Phase)
-    - [ ] Add integration test in `lib/services/__tests__/tripService.mutations.test.ts` (or Supabase integration suite) verifying that calling `add_winery_to_trip` with `latitude`/`longitude` JSON keys (and without `lat`/`lng`) correctly persists numeric coordinates.
-    - [ ] Run containerized Jest suite (`./scripts/run-jest-container.sh lib/services/__tests__/tripService.mutations.test.ts`) and confirm test failure.
+- [x] Task: Write Failing Integration Test for `add_winery_to_trip` Coordinates (Red Phase)
+    - [x] Add integration test in `lib/services/__tests__/tripService.mutations.test.ts` (or Supabase integration suite) verifying that calling `add_winery_to_trip` with `latitude`/`longitude` JSON keys (and without `lat`/`lng`) correctly persists numeric coordinates.
+    - [x] Run containerized Jest suite (`./scripts/run-jest-container.sh lib/services/__tests__/tripService.mutations.test.ts`) and confirm test failure.
 - [ ] Task: Create & Apply Supabase Migration for `add_winery_to_trip` (Green Phase)
     - [ ] Create `supabase/migrations/20261002120000_standardize_add_winery_to_trip_coordinates.sql` updating `add_winery_to_trip` to use `COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat')::numeric` and `COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng')::numeric`.
     - [ ] Apply migration locally via `npm run db:start` / verify schema.
