@@ -120,6 +120,122 @@ describe('Supabase RPC Integration Tests', () => {
         expect(details).not.toBeNull();
         expect(details.id).toBe(tripId);
       });
+
+      it('should persist numeric coordinates when add_winery_to_trip is called with latitude and longitude keys (without lat/lng)', async () => {
+        // 1. Create a base trip with user1
+        const { data: tripData, error: tripError } = await user1.client.rpc('create_trip_with_winery', {
+          p_trip_name: 'Coord Test Trip',
+          p_trip_date: new Date().toISOString().split('T')[0],
+          p_winery_data: {
+            id: `mock-winery-base-${crypto.randomUUID()}`,
+            name: 'Base Winery',
+            address: '100 Base Way',
+            lat: 42.5,
+            lng: -76.9,
+            rating: 4.5
+          }
+        });
+        expect(tripError).toBeNull();
+        const tripId = tripData.trip_id;
+
+        // 2. Call add_winery_to_trip using standardized latitude / longitude keys (NO lat/lng keys)
+        const wineryPlaceId = `mock-winery-coord-${crypto.randomUUID()}`;
+        createdWineryIds.push(wineryPlaceId);
+        const wineryData = {
+          id: wineryPlaceId,
+          name: 'Standardized Coord Winery',
+          address: '200 Finger Lakes Rd',
+          latitude: 42.7485,
+          longitude: -76.8921,
+          phone: '555-123-4567',
+          website: 'https://example.com',
+          rating: 4.8
+        };
+
+        const { data: addData, error: addError } = await user1.client.rpc('add_winery_to_trip', {
+          p_trip_id: tripId,
+          p_winery_data: wineryData,
+          p_notes: 'Stop 2 via standardized coordinates'
+        });
+
+        expect(addError).toBeNull();
+        expect(addData).toHaveProperty('success', true);
+        expect(addData).toHaveProperty('winery_id');
+        const wineryId = addData.winery_id;
+
+        // 3. Inspect public.wineries - must persist numeric coordinates rather than NULL
+        const { data: wineryRecord, error: wineryError } = await adminClient
+          .from('wineries')
+          .select('id, google_place_id, name, latitude, longitude')
+          .eq('id', wineryId)
+          .single();
+
+        expect(wineryError).toBeNull();
+        expect(wineryRecord).not.toBeNull();
+        expect(wineryRecord!.latitude).toBe(42.7485);
+        expect(wineryRecord!.longitude).toBe(-76.8921);
+
+        // 4. Verify stop association in public.trip_wineries
+        const { data: twRecord, error: twError } = await adminClient
+          .from('trip_wineries')
+          .select('trip_id, winery_id, notes, visit_order')
+          .eq('trip_id', tripId)
+          .eq('winery_id', wineryId)
+          .single();
+
+        expect(twError).toBeNull();
+        expect(twRecord!.notes).toBe('Stop 2 via standardized coordinates');
+      });
+
+      it('should maintain backward compatibility and persist numeric coordinates when add_winery_to_trip is called with legacy lat and lng keys', async () => {
+        // 1. Create a base trip with user1
+        const { data: tripData, error: tripError } = await user1.client.rpc('create_trip_with_winery', {
+          p_trip_name: 'Legacy Coord Trip',
+          p_trip_date: new Date().toISOString().split('T')[0],
+          p_winery_data: {
+            id: `mock-winery-legacy-base-${crypto.randomUUID()}`,
+            name: 'Legacy Base Winery',
+            address: '100 Base Way',
+            lat: 42.5,
+            lng: -76.9
+          }
+        });
+        expect(tripError).toBeNull();
+        const tripId = tripData.trip_id;
+
+        // 2. Call add_winery_to_trip using legacy lat / lng keys
+        const wineryPlaceId = `mock-winery-legacy-${crypto.randomUUID()}`;
+        createdWineryIds.push(wineryPlaceId);
+        const wineryData = {
+          id: wineryPlaceId,
+          name: 'Legacy Coord Winery',
+          address: '300 Legacy Rd',
+          lat: 42.6123,
+          lng: -76.7456
+        };
+
+        const { data: addData, error: addError } = await user1.client.rpc('add_winery_to_trip', {
+          p_trip_id: tripId,
+          p_winery_data: wineryData,
+          p_notes: 'Stop 2 via legacy coordinates'
+        });
+
+        expect(addError).toBeNull();
+        expect(addData).toHaveProperty('success', true);
+        const wineryId = addData.winery_id;
+
+        // 3. Inspect public.wineries - legacy keys must persist
+        const { data: wineryRecord, error: wineryError } = await adminClient
+          .from('wineries')
+          .select('id, latitude, longitude')
+          .eq('id', wineryId)
+          .single();
+
+        expect(wineryError).toBeNull();
+        expect(wineryRecord).not.toBeNull();
+        expect(wineryRecord!.latitude).toBe(42.6123);
+        expect(wineryRecord!.longitude).toBe(-76.7456);
+      });
     });
 
     describe('Visit Logging RPCs', () => {
