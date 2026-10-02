@@ -82,6 +82,7 @@ async function main() {
       console.error(`Error: Transcript not found for session ${convId}`);
       console.error(`Looked in: ${transcriptPath}`);
       console.error(`Looked in: ${compactPath}`);
+      console.error(`\nTip: If running inside antigravity-cli sandbox, inspecting external sessions requires 'BypassSandbox: true' or passing a direct path to the transcript file.`);
       process.exit(1);
     }
   }
