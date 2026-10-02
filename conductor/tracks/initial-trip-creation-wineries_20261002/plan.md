@@ -3,7 +3,7 @@
 **Tracking:** Issue [#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57)  
 **Specification Reference:** [spec.md](./spec.md)  
 
-## Phase 1: PostgreSQL RPC Coordinate Standardization (`add_winery_to_trip`)
+## Phase 1: PostgreSQL RPC Coordinate Standardization (`add_winery_to_trip`) [checkpoint: 5107fec]
 
 - [x] Task: Write Failing Integration Test for `add_winery_to_trip` Coordinates (Red Phase) [commit: 45349bd]
     - [x] Add integration test in `lib/services/__tests__/supabase-rpc.integration.test.ts` verifying that calling `add_winery_to_trip` with `latitude`/`longitude` JSON keys (and without `lat`/`lng`) correctly persists numeric coordinates.
@@ -15,7 +15,7 @@
 - [x] Task: Refactor & Scaffolding Cleanup [commit: 29170a4b]
     - [x] Verify TypeScript database types (`npm run db:check-types:local`).
     - [x] Remove any temporary SQL scripts or exploration artifacts.
-- [ ] Task: Conductor - User Manual Verification 'Phase 1: PostgreSQL RPC Coordinate Standardization' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 1: PostgreSQL RPC Coordinate Standardization' (Protocol in workflow.md)
 
 ## Phase 2: Test Suite Restructuring & Controlled Binding (`TripForm`)
 
