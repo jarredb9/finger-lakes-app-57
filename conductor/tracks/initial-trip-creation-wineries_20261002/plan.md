@@ -12,9 +12,9 @@
     - [x] Create `supabase/migrations/20261002120000_standardize_add_winery_to_trip_coordinates.sql` updating `add_winery_to_trip` to use `COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat')::numeric` and `COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng')::numeric`.
     - [x] Apply migration locally via `npm run db:start` / verify schema.
     - [x] Run containerized Jest suite and verify test passes.
-- [ ] Task: Refactor & Scaffolding Cleanup
-    - [ ] Verify TypeScript database types (`npm run db:check-types:local`).
-    - [ ] Remove any temporary SQL scripts or exploration artifacts.
+- [x] Task: Refactor & Scaffolding Cleanup [commit: 29170a4b]
+    - [x] Verify TypeScript database types (`npm run db:check-types:local`).
+    - [x] Remove any temporary SQL scripts or exploration artifacts.
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: PostgreSQL RPC Coordinate Standardization' (Protocol in workflow.md)
 
 ## Phase 2: Test Suite Restructuring & Controlled Binding (`TripForm`)
