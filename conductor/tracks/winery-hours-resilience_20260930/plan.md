@@ -43,7 +43,7 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 3: PWA Cache Invalidation, Selective Migration & Session-Backed Modal Restore' (Protocol in workflow.md)
 
 ## Phase 4: Test Retention Audit & Final Regression Verification (TDD)
-- [x] Task: Audit test suite and verify permanent regression retention (d1794e88)
+- [x] Task: Audit test suite and verify permanent regression retention (bfe59b61)
     - [x] Review all test files created or modified during the track
     - [x] Ensure all unit, integration, and E2E test suites created in Phases 1-3 are retained permanently as regression coverage
     - [x] Clean up any temporary scratch files or redundant mock spies
@@ -52,3 +52,8 @@
     - [ ] Run TypeScript type check (`npm run db:check-types:local` / `tsc --noEmit`)
     - [ ] Run E2E Playwright verification (`./scripts/run-e2e-container.sh webkit e2e/winery-hours-resilience.spec.ts`)
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Test Retention Audit & Final Regression Verification' (Protocol in workflow.md)
+
+## Review
+- [x] Task: Review and resolve WineryModal regression for tri-state operational hours (d5a4ee70)
+    - [x] Align `components/__tests__/winery-modal.test.tsx` peek status tag expectation with `/OPEN NOW|CLOSED|HOURS UNAVAILABLE/i`
+    - [x] Verify resolution across containerized Jest test suite
