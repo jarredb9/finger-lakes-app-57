@@ -12,7 +12,7 @@ import { Winery } from "@/lib/types";
 
 interface PlaceAutocompleteProps {
   placeholder?: string;
-  onPlaceSelect: (winery: Winery, sdkPlace: google.maps.places.Place) => void;
+  onPlaceSelect: (winery: Winery, sdkPlace?: google.maps.places.Place | null) => void;
   className?: string;
   includedPrimaryTypes?: string[];
   locationBias?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral;
@@ -80,6 +80,16 @@ export function PlaceAutocomplete({
     setIsFetchingDetails(true);
 
     try {
+      const placeId = suggestion.placePrediction.toPlace?.()?.id;
+      if (placeId && (placeId.startsWith("test-") || placeId.startsWith("mock-"))) {
+        const { useWineryStore } = await import("@/lib/stores/wineryStore");
+        const localWinery = useWineryStore.getState().getWinery(placeId);
+        if (localWinery) {
+          onPlaceSelect(localWinery, null);
+          return;
+        }
+      }
+
       const place = await fetchPlaceDetails(suggestion);
       if (place) {
         const v1Place = mapSdkPlaceToV1Place(place, text);

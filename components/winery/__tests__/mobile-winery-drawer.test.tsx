@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { MobileWineryDrawer } from '../mobile-winery-drawer';
 import { createMockWinery, createMockVisit } from '@/lib/test-utils/fixtures';
 
@@ -170,5 +170,66 @@ describe('MobileWineryDrawer', () => {
 
     fireEvent.click(tripBadge);
     expect(defaultProps.onTripBadgeClick).toHaveBeenCalledWith(456);
+  });
+
+  describe('Tri-state status badge and decoupled layout loading (Phase 1)', () => {
+    it('renders peek badge as "🟢 OPEN NOW" when loaded and open', () => {
+      const openWinery = createMockWinery({
+        ...mockWinery,
+        openingHours: {
+          open_now: true,
+          periods: [{ open: { day: 0, hour: 0, minute: 0 } }],
+        },
+      });
+      render(<MobileWineryDrawer {...defaultProps} winery={openWinery} isLoading={false} />);
+      expect(screen.getByTestId('peek-open-status-tag')).toHaveTextContent('🟢 OPEN NOW');
+    });
+
+    it('renders peek badge as "🔴 CLOSED" when loaded and closed', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date(2026, 8, 30, 12, 0));
+      const closedWinery = createMockWinery({
+        ...mockWinery,
+        openingHours: {
+          open_now: false,
+          periods: [{ open: { day: 2, hour: 10, minute: 0 }, close: { day: 2, hour: 17, minute: 0 } }],
+        },
+      });
+      render(<MobileWineryDrawer {...defaultProps} winery={closedWinery} isLoading={false} />);
+      expect(screen.getByTestId('peek-open-status-tag')).toHaveTextContent('🔴 CLOSED');
+      jest.useRealTimers();
+    });
+
+    it('renders peek badge as "⚪ HOURS UNAVAILABLE" when loaded and hours are indeterminate', () => {
+      const wineryWithoutHours = createMockWinery({
+        ...mockWinery,
+        openingHours: null,
+      });
+      render(<MobileWineryDrawer {...defaultProps} winery={wineryWithoutHours} isLoading={false} />);
+      expect(screen.getByTestId('peek-open-status-tag')).toHaveTextContent('⚪ HOURS UNAVAILABLE');
+      expect(screen.queryByText(/🔴 CLOSED/)).not.toBeInTheDocument();
+    });
+
+    it('renders animated skeleton pill in peek status badge when isLoading is true and hours are indeterminate', () => {
+      const wineryWithoutHours = createMockWinery({
+        ...mockWinery,
+        openingHours: null,
+      });
+      render(<MobileWineryDrawer {...defaultProps} winery={wineryWithoutHours} isLoading={true} />);
+      expect(screen.getByTestId('peek-status-skeleton')).toBeInTheDocument();
+    });
+
+    it('decoupled layout: renders cached winery content immediately when isLoading is true, only rendering full skeleton when winery is null', () => {
+      // 1. Cached winery present with isLoading true
+      render(<MobileWineryDrawer {...defaultProps} winery={mockWinery} isLoading={true} />);
+      expect(screen.getByTestId('winery-modal-drawer')).toHaveAttribute('data-state', 'loading');
+      expect(screen.getByTestId('drawer-title-card')).toBeInTheDocument();
+      expect(screen.getAllByText('Dr. Konstantin Frank').length).toBeGreaterThanOrEqual(1);
+
+      // 2. No winery present with isLoading true
+      cleanup();
+      render(<MobileWineryDrawer {...defaultProps} winery={null} isLoading={true} />);
+      expect(screen.queryByTestId('drawer-title-card')).not.toBeInTheDocument();
+    });
   });
 });

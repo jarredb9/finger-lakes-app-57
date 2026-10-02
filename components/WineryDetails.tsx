@@ -24,10 +24,11 @@ export {
 export interface WineryDetailsProps {
   winery: Winery;
   loadingWineryId?: string | null;
+  isLoading?: boolean;
   mode?: "full" | "info" | "logistics" | "ai_insights";
 }
 
-export function WineryDetails({ winery, loadingWineryId, mode = "full" }: WineryDetailsProps) {
+export function WineryDetails({ winery, loadingWineryId, isLoading = false, mode = "full" }: WineryDetailsProps) {
   const [activeQuestionId, setActiveQuestionId] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
   const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
@@ -139,7 +140,7 @@ export function WineryDetails({ winery, loadingWineryId, mode = "full" }: Winery
   if (mode === "info") {
     return (
       <div className="space-y-4">
-        <WineryInfoCard winery={winery} isMobile={isMobile} />
+        <WineryInfoCard winery={winery} isMobile={isMobile} isLoading={isLoading} />
         {!activeQuestionId && (
           <div className="hidden" data-testid="winery-qna-wrapper">
             <WineryQnA 
@@ -169,7 +170,7 @@ export function WineryDetails({ winery, loadingWineryId, mode = "full" }: Winery
       {renderPhotoSection()}
 
       {/* Info Card */}
-      <WineryInfoCard winery={winery} isMobile={isMobile} />
+      <WineryInfoCard winery={winery} isMobile={isMobile} isLoading={isLoading} />
 
       {/* AI Insights */}
       <div className="mt-4">

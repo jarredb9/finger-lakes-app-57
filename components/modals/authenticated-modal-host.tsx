@@ -4,6 +4,8 @@ import { useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useUIStore } from "@/lib/stores/uiStore";
+import { useWineryStore } from "@/lib/stores/wineryStore";
+import type { GooglePlaceId } from "@/lib/types";
 
 // Dynamically load modal trees with ssr: false
 const VisitFormModal = dynamic(
@@ -92,6 +94,17 @@ export function AuthenticatedModalHost() {
       }
     }
     return undefined;
+  }, []);
+
+  // Restore open winery modal if triggered by PWA update
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.sessionStorage) return;
+    const restoredWineryId = window.sessionStorage.getItem("_PWA_ACTIVE_WINERY_ID");
+    if (restoredWineryId) {
+      window.sessionStorage.removeItem("_PWA_ACTIVE_WINERY_ID");
+      useUIStore.getState().openWineryModal(restoredWineryId);
+      useWineryStore.getState().ensureWineryDetails(restoredWineryId as GooglePlaceId);
+    }
   }, []);
 
   // Clean up open modal state and body locks on route transitions

@@ -203,16 +203,25 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
         };
 
         const revalidateInBackground = (targetPlaceId: GooglePlaceId) => {
-          if (/^\d+$/.test(targetPlaceId) || inFlightRevalidations.has(targetPlaceId)) return;
+          let resolvedPlaceId = targetPlaceId;
+          if (/^\d+$/.test(targetPlaceId)) {
+            const cached = get().getWinery(targetPlaceId);
+            if (cached?.id && !/^\d+$/.test(cached.id)) {
+              resolvedPlaceId = cached.id;
+            } else {
+              return;
+            }
+          }
+          if (resolvedPlaceId.startsWith('test-') || resolvedPlaceId.startsWith('mock-') || inFlightRevalidations.has(resolvedPlaceId)) return;
           // @ts-ignore
           const skipDetailsMock = typeof window !== 'undefined' && window._E2E_SKIP_DETAILS_MOCK;
           if (process.env.NEXT_PUBLIC_IS_E2E === 'true' && shouldMockWineries() && !skipDetailsMock) return;
 
-          inFlightRevalidations.add(targetPlaceId);
-          invokeFunction('get-winery-details', { body: { placeId: targetPlaceId } })
+          inFlightRevalidations.add(resolvedPlaceId);
+          invokeFunction('get-winery-details', { body: { placeId: resolvedPlaceId } })
             .then(({ data: googleData, error: functionError }) => {
               if (!functionError && googleData) {
-                const currentExisting = get().getWinery(targetPlaceId);
+                const currentExisting = get().getWinery(resolvedPlaceId);
                 const standardized = standardizeWineryData(googleData, currentExisting || undefined);
                 if (standardized) {
                   get().upsertWinery(standardized);
@@ -221,7 +230,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
             })
             .catch((err) => console.error('[ensureWineryDetails] Background revalidation failed:', err))
             .finally(() => {
-              inFlightRevalidations.delete(targetPlaceId);
+              inFlightRevalidations.delete(resolvedPlaceId);
             });
         };
 
@@ -241,6 +250,8 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
         }
 
         set({ loadingWineryId: placeId });
+
+        let standardizedDb: Winery | null = null;
 
         try {
           const supabase = createClient();
@@ -270,6 +281,7 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
           if (dbData) {
             const standardized = standardizeWineryData(dbData, existing || undefined);
             if (standardized) {
+              standardizedDb = standardized;
               get().upsertWinery(standardized);
 
               if (Array.isArray(dbData.visits) && dbData.visits.length > 0) {
@@ -297,35 +309,52 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
             }
           }
 
-          if (!/^\d+$/.test(placeId)) {
+          // Determine effective Google Place ID for enrichment
+          let effectivePlaceId: GooglePlaceId | null = null;
+          if (!/^\d+$/.test(placeId) && !placeId.startsWith('test-') && !placeId.startsWith('mock-')) {
+            effectivePlaceId = placeId;
+          } else if (dbData?.google_place_id && !/^\d+$/.test(dbData.google_place_id)) {
+            effectivePlaceId = dbData.google_place_id;
+          } else if (existing?.id && !/^\d+$/.test(existing.id)) {
+            effectivePlaceId = existing.id;
+          }
+
+          if (effectivePlaceId) {
             // @ts-ignore
             const skipDetailsMock = typeof window !== 'undefined' && window._E2E_SKIP_DETAILS_MOCK;
             if (process.env.NEXT_PUBLIC_IS_E2E === 'true' && shouldMockWineries() && !skipDetailsMock) {
               set({ loadingWineryId: null });
-              return existing || null;
+              return standardizedDb || existing || null;
             }
-            const { data: googleData, error: functionError } = await invokeFunction('get-winery-details', {
-              body: { placeId },
-            });
 
-            if (!functionError && googleData) {
-              const currentExisting = get().getWinery(placeId);
-              const standardized = standardizeWineryData(googleData, currentExisting || existing || undefined);
-              if (standardized) {
-                get().upsertWinery(standardized);
-                set({ loadingWineryId: null });
-                return standardized;
+            try {
+              const { data: googleData, error: functionError } = await invokeFunction('get-winery-details', {
+                body: { placeId: effectivePlaceId },
+              });
+
+              if (!functionError && googleData) {
+                const currentExisting = get().getWinery(effectivePlaceId) || get().getWinery(placeId);
+                const standardized = standardizeWineryData(googleData, currentExisting || existing || standardizedDb || undefined);
+                if (standardized) {
+                  get().upsertWinery(standardized);
+                  set({ loadingWineryId: null });
+                  return standardized;
+                }
+              } else if (functionError) {
+                console.error('[ensureWineryDetails] Edge Function failed:', functionError);
               }
-            } else if (functionError) {
-              console.error('Edge Function failed:', functionError);
+            } catch (invokeErr) {
+              console.error('[ensureWineryDetails] Edge Function invocation exception:', invokeErr);
             }
+          } else if (dbData && !dbData.google_place_id) {
+            console.warn(`[ensureWineryDetails] Winery ${placeId} has no google_place_id; skipping Places enrichment`);
           }
         } catch (error) {
           console.error('Details fetch failed:', error);
         }
 
         set({ loadingWineryId: null });
-        return existing || null;
+        return standardizedDb || existing || null;
       },
 
       toggleFavorite: async (target) => {
@@ -544,7 +573,49 @@ export const useWineryStore = createWithEqualityFn<WineryState>()(
     }),
     {
       name: process.env.NEXT_PUBLIC_IS_E2E === 'true' ? 'winery-data-storage-e2e' : 'winery-data-storage',
+      version: 2,
       storage: createJSONStorage(() => idbStorage),
+      migrate: (persistedState: any, version: number) => {
+        if (version >= 2) {
+          return persistedState;
+        }
+
+        const state = persistedState as Partial<WineryState>;
+        if (!state || !Array.isArray(state.persistentWineries)) {
+          return persistedState;
+        }
+
+        const migratedWineries = state.persistentWineries.filter((w: any) => {
+          if (!w || typeof w !== 'object') return false;
+          if (!w.id || typeof w.id !== 'string' || w.id.trim().length === 0) return false;
+          if (typeof w.name !== 'string' || w.name.trim().length === 0) return false;
+          if (
+            typeof w.latitude !== 'number' ||
+            isNaN(w.latitude) ||
+            typeof w.longitude !== 'number' ||
+            isNaN(w.longitude)
+          ) {
+            return false;
+          }
+
+          // If record claims to be enriched or full, it MUST have valid openingHours
+          if (w.enrichment_tier === 'enriched' || w.enrichment_tier === 'full') {
+            const hasHours =
+              w.openingHours &&
+              typeof w.openingHours === 'object' &&
+              ((Array.isArray(w.openingHours.weekday_text) && w.openingHours.weekday_text.length > 0) ||
+                (Array.isArray(w.openingHours.periods) && w.openingHours.periods.length > 0));
+            if (!hasHours) return false;
+          }
+
+          return true;
+        });
+
+        return {
+          ...state,
+          persistentWineries: migratedWineries,
+        };
+      },
       partialize: (state): Partial<WineryState> => {
         if (process.env.NEXT_PUBLIC_IS_E2E === 'true') return {};
         return {

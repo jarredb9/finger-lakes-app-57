@@ -5,14 +5,15 @@ import { Phone, Globe, ChevronDown, Mail, Navigation } from "lucide-react";
 import { isOpenNow, getDailyHoursForDate, isDayForDate } from "@/lib/utils/opening-hours";
 import { MapNavigation } from "../MapNavigation";
 
-interface WineryInfoCardProps {
+export interface WineryInfoCardProps {
   winery: Winery;
   isMobile?: boolean;
+  isLoading?: boolean;
 }
 
 const isTestEnv = typeof process !== "undefined" && process.env.NODE_ENV === "test";
 
-export function WineryInfoCard({ winery, isMobile: propIsMobile }: WineryInfoCardProps) {
+export function WineryInfoCard({ winery, isMobile: propIsMobile, isLoading = false }: WineryInfoCardProps) {
   const [showAllHours, setShowAllHours] = useState(false);
   const [internalIsMobile, setInternalIsMobile] = useState(false);
 
@@ -39,16 +40,32 @@ export function WineryInfoCard({ winery, isMobile: propIsMobile }: WineryInfoCar
       <div className="bg-muted/40 backdrop-blur-md border border-border/50 rounded-xl flex flex-row items-center justify-between w-full p-2.5 sm:p-3 gap-1.5 sm:gap-2 min-h-[72px]">
         {/* Left Side: Hours & Status */}
         <div className="flex flex-col gap-0.5 justify-center flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 text-xs font-semibold">
-            <span className="relative flex h-2.5 w-2.5 shrink-0">
-              {isOpen && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
-              <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${isOpen ? "bg-green-500" : "bg-red-500"}`}></span>
-            </span>
-            <span className="uppercase tracking-wide text-foreground truncate">
-              {isOpen ? "Open Now" : "Closed"}
-            </span>
-          </div>
-          {winery.openingHours && (winery.openingHours.weekday_text || winery.openingHours.open_now !== undefined) && (
+          {isOpen === null && isLoading ? (
+            <div data-testid="status-loading-skeleton" className="h-3 w-16 bg-muted-foreground/20 animate-pulse rounded" />
+          ) : (
+            <div className="flex items-center gap-1.5 text-xs font-semibold">
+              <span className="relative flex h-2.5 w-2.5 shrink-0">
+                {isOpen && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>}
+                <span
+                  className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+                    isOpen === true
+                      ? "bg-green-500"
+                      : isOpen === false
+                      ? "bg-red-500"
+                      : "bg-muted-foreground"
+                  }`}
+                ></span>
+              </span>
+              <span className="uppercase tracking-wide text-foreground truncate">
+                {isOpen === true
+                  ? "Open Now"
+                  : isOpen === false
+                  ? "Closed"
+                  : "Hours Unavailable"}
+              </span>
+            </div>
+          )}
+          {winery.openingHours && (winery.openingHours.weekday_text || winery.openingHours.open_now !== undefined) ? (
             <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
               <span className="text-[11px] md:text-xs text-muted-foreground truncate leading-tight">
                 {getTodaysHours() || "Hours Unavailable"}
@@ -97,7 +114,19 @@ export function WineryInfoCard({ winery, isMobile: propIsMobile }: WineryInfoCar
                 </div>
               )}
             </div>
-          )}
+          ) : !isLoading && winery.website ? (
+            <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
+              <a
+                href={winery.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                data-testid="schedule-fallback-website"
+                className="text-[11px] md:text-xs text-primary hover:underline font-medium truncate"
+              >
+                Visit website for hours &rarr;
+              </a>
+            </div>
+          ) : null}
         </div>
 
         {/* Divider */}

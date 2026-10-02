@@ -381,7 +381,8 @@ export const standardizeWineryData = (
     (isGoogleWinery(source) && source.place_id) ||
     (typeof record['google_place_id'] === 'string' ? record['google_place_id'] : undefined) ||
     (typeof record['id'] === 'string' && !/^\d+$/.test(record['id']) ? record['id'] : undefined) ||
-    existing?.id
+    existing?.id ||
+    (record['id'] !== undefined && record['id'] !== null ? String(record['id']) : undefined)
   );
   const googleId = toGooglePlaceId(rawGoogleId);
 
@@ -437,6 +438,9 @@ export const standardizeWineryData = (
     // Legacy support for older RPCs or mocks
     lat = Number(record['lat']);
     lng = Number(record['lng'] || record['long']);
+  } else if (existing && typeof existing.latitude === 'number' && typeof existing.longitude === 'number') {
+    lat = existing.latitude;
+    lng = existing.longitude;
   } else {
     console.warn('[Validation] No valid coordinates found for source:', source);
     return null; 
@@ -465,7 +469,7 @@ export const standardizeWineryData = (
     if (!isIncomingEnriched && existingVal !== undefined && existingVal !== null) {
       return existingVal;
     }
-    return newVal !== undefined && newVal !== null ? newVal : existingVal;
+    return newVal !== undefined ? newVal : existingVal;
   };
 
   // Conditionally access properties using type guards
@@ -544,11 +548,11 @@ export const standardizeWineryData = (
   if (isGoogleWinery(source)) {
     sourceOpeningHoursRaw = source.opening_hours;
   } else if (isWineryDetailsRpc(source) || isMapMarkerRpc(source)) {
-    sourceOpeningHoursRaw = source.opening_hours ?? ('openingHours' in record ? record['openingHours'] : undefined);
+    sourceOpeningHoursRaw = source.opening_hours !== undefined ? source.opening_hours : ('openingHours' in record ? record['openingHours'] : undefined);
   } else if (isRawDbWinery(source)) {
     sourceOpeningHoursRaw = source.opening_hours;
   } else {
-    sourceOpeningHoursRaw = record['opening_hours'] ?? record['openingHours'];
+    sourceOpeningHoursRaw = record['opening_hours'] !== undefined ? record['opening_hours'] : record['openingHours'];
   }
   const parsedOpeningHours = parseOpeningHoursJson(sourceOpeningHoursRaw);
   const openingHours = mergeField(parsedOpeningHours, existing?.openingHours);

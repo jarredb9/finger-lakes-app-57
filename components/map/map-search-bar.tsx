@@ -19,7 +19,7 @@ export interface MapSearchBarProps {
   autoSearch?: boolean;
   setAutoSearch?: (value: boolean) => void;
   hitApiLimit?: boolean;
-  handlePlaceSelect?: (winery: Winery, sdkPlace: google.maps.places.Place) => void;
+  handlePlaceSelect?: (winery: Winery, sdkPlace?: google.maps.places.Place | null) => void;
   onClearSearch?: () => void;
   placeholder?: string;
   className?: string;
