@@ -14,41 +14,65 @@ jest.mock('@/hooks/use-toast', () => ({
   }),
 }));
 
-// Mock PlaceAutocomplete to allow multi-winery selection simulation
-jest.mock('../PlaceAutocomplete', () => ({
-  PlaceAutocomplete: ({ onPlaceSelect }: any) => (
-    <div data-testid="mock-place-autocomplete-container">
-      <button
-        data-testid="trip-form-winery-autocomplete"
-        type="button"
-        onClick={() =>
-          onPlaceSelect({
-            id: 'google-place-winery-123',
-            name: 'Keuka Spring Vineyards',
-            address: '243 Route 54, Penn Yan, NY',
-            location: { latitude: 42.63, longitude: -77.12 },
-          })
-        }
-      >
-        Select Keuka Spring Vineyards
-      </button>
-      <button
-        data-testid="mock-select-winery-2"
-        type="button"
-        onClick={() =>
-          onPlaceSelect({
-            id: 'google-place-winery-456',
-            name: 'Dr. Konstantin Frank',
-            address: '9749 Middle Rd, Hammondsport, NY',
-            location: { latitude: 42.55, longitude: -77.18 },
-          })
-        }
-      >
-        Select Dr. Konstantin Frank
-      </button>
-    </div>
-  ),
-}));
+// Mock PlaceAutocomplete to allow multi-winery selection simulation and clearOnSelect validation
+jest.mock('../PlaceAutocomplete', () => {
+  const React = require('react');
+  return {
+    PlaceAutocomplete: ({ onPlaceSelect, clearOnSelect }: any) => {
+      const [mockInputValue, setMockInputValue] = React.useState('');
+      return (
+        <div
+          data-testid="mock-place-autocomplete-container"
+          data-clear-on-select={String(clearOnSelect)}
+        >
+          <input
+            data-testid="place-autocomplete-input"
+            value={mockInputValue}
+            onChange={(e: any) => setMockInputValue(e.target.value)}
+          />
+          <button
+            data-testid="trip-form-winery-autocomplete"
+            type="button"
+            onClick={() => {
+              onPlaceSelect({
+                id: 'google-place-winery-123',
+                name: 'Keuka Spring Vineyards',
+                address: '243 Route 54, Penn Yan, NY',
+                location: { latitude: 42.63, longitude: -77.12 },
+              });
+              if (clearOnSelect) {
+                setMockInputValue('');
+              } else {
+                setMockInputValue('Keuka Spring Vineyards');
+              }
+            }}
+          >
+            Select Keuka Spring Vineyards
+          </button>
+          <button
+            data-testid="mock-select-winery-2"
+            type="button"
+            onClick={() => {
+              onPlaceSelect({
+                id: 'google-place-winery-456',
+                name: 'Dr. Konstantin Frank',
+                address: '9749 Middle Rd, Hammondsport, NY',
+                location: { latitude: 42.55, longitude: -77.18 },
+              });
+              if (clearOnSelect) {
+                setMockInputValue('');
+              } else {
+                setMockInputValue('Dr. Konstantin Frank');
+              }
+            }}
+          >
+            Select Dr. Konstantin Frank
+          </button>
+        </div>
+      );
+    },
+  };
+});
 
 describe('TripForm Controlled FormField & Multi-Stop Binding', () => {
   const mockUser: AuthenticatedUser = {
@@ -199,6 +223,28 @@ describe('TripForm Controlled FormField & Multi-Stop Binding', () => {
         expect.objectContaining({ description: 'Trip created successfully!' })
       );
       expect(mockOnClose).toHaveBeenCalled();
+    });
+  });
+
+  describe('PlaceAutocomplete clearOnSelect UX in TripForm (Red Phase Assertions)', () => {
+    it('configures PlaceAutocomplete with clearOnSelect={true} and clears search input on winery selection', async () => {
+      render(<TripForm user={mockUser} initialDate={new Date('2026-10-15T12:00:00')} />);
+
+      const autocompleteContainer = screen.getByTestId('mock-place-autocomplete-container');
+      // RED PHASE CHECK: In current TripForm, PlaceAutocomplete is rendered without clearOnSelect prop.
+      // Target behavior passes clearOnSelect={true}.
+      expect(autocompleteContainer).toHaveAttribute('data-clear-on-select', 'true');
+
+      const input = screen.getByTestId('place-autocomplete-input');
+      fireEvent.change(input, { target: { value: 'Keuka' } });
+      expect(input).toHaveValue('Keuka');
+
+      const winerySelectButton = screen.getByTestId('trip-form-winery-autocomplete');
+      fireEvent.click(winerySelectButton);
+
+      expect(screen.getByTestId('selected-winery-google-place-winery-123')).toBeInTheDocument();
+      // RED PHASE CHECK: Because clearOnSelect is undefined in current TripForm, the input is not cleared.
+      expect(input).toHaveValue('');
     });
   });
 });
