@@ -71,7 +71,7 @@
     - [x] Audit and remove any temporary scratch or scaffolding test files.
 - [x] Task: Conductor - User Manual Verification 'Phase 4: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback' (Protocol in workflow.md) [commit: 6d5e1a62]
 
-## Phase 5: Offline Sync Parity (`syncService.ts`)
+## Phase 5: Offline Sync Parity (`syncService.ts`) [checkpoint: d8838103]
 
 - [x] Task: Write Failing Tests for Offline Multi-Stop Trip Replay (Red Phase) [commit: 4d9dabe5]
     - [x] Add unit/integration test in `lib/stores/__tests__/tripStore.syncStore.test.ts` asserting that an offline `create_trip` sync item with multiple wineries replays through `TripService.createTrip` without dropping stops 2+ and populates `wineries_count`.
@@ -82,7 +82,7 @@
     - [x] Run containerized Jest suite and verify all tests pass.
 - [x] Task: Refactor & Scaffolding Cleanup [commit: 08b15640]
     - [x] Audit offline sync handlers and clean up redundant code.
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Offline Sync Parity' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 5: Offline Sync Parity' (Protocol in workflow.md) [commit: d8838103]
 
 ## Phase 6: Store Invariants, Background Invalidation & Badge Pluralization (`tripMutationHelpers`, `TripCardSimplePresentational`)
 
