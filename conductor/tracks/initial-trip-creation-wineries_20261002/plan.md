@@ -36,14 +36,14 @@
 
 ## Phase 3: PlaceAutocomplete Selection UX & Re-Query Suppression (Red-Green-Refactor)
 
-- [ ] Task: Write Failing Tests for `clearOnSelect` and Programmatic Re-Query Suppression (Red Phase)
-    - [ ] Add unit tests in `components/__tests__/PlaceAutocomplete.test.tsx` asserting:
+- [x] Task: Write Failing Tests for `clearOnSelect` and Programmatic Re-Query Suppression (Red Phase) [commit: aadb0e30]
+    - [x] Add unit tests in `components/__tests__/PlaceAutocomplete.test.tsx` asserting:
       - `clearOnSelect: true` clears `inputValue` upon successful suggestion selection.
       - Programmatic value updates do not trigger debounced `fetchSuggestions` or re-open the dropdown.
       - If place details resolution fails, the input field retains the typed search string and the dropdown remains closed.
-    - [ ] Add tests in `components/__tests__/trip-form.test.tsx` verifying that selecting a winery clears the search input when `clearOnSelect={true}`.
-    - [ ] Add regression tests in `components/__tests__/PlaceAutocomplete.test.tsx` verifying default `clearOnSelect: false` retains the selected place string without re-opening the dropdown (covering `MapSearchBar` behavior).
-    - [ ] Run containerized Jest suite (`./scripts/run-jest-container.sh components/__tests__/PlaceAutocomplete.test.tsx components/__tests__/trip-form.test.tsx`) and confirm expected test failures.
+    - [x] Add tests in `components/__tests__/trip-form.test.tsx` verifying that selecting a winery clears the search input when `clearOnSelect={true}`.
+    - [x] Add regression tests in `components/__tests__/PlaceAutocomplete.test.tsx` verifying default `clearOnSelect: false` retains the selected place string without re-opening the dropdown (covering `MapSearchBar` behavior).
+    - [x] Run containerized Jest suite (`./scripts/run-jest-container.sh components/__tests__/PlaceAutocomplete.test.tsx components/__tests__/trip-form.test.tsx`) and confirm expected test failures.
 - [ ] Task: Implement Selection Guard & `clearOnSelect` in `PlaceAutocomplete` (Green Phase)
     - [ ] In `components/PlaceAutocomplete.tsx`, implement `clearOnSelect?: boolean` prop and internal programmatic selection guard ref to suppress debounced re-queries.
     - [ ] In `handleSelectSuggestion`, clear `inputValue` on successful selection if `clearOnSelect` is true; retain typed string on error.
