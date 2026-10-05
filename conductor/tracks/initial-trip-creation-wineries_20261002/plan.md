@@ -61,11 +61,11 @@
     - [x] Add test cases for `addWineryToExistingTrip` with a full `Winery` object (no DB ID) and non-positive DB ID rejection.
     - [x] Add test cases for `createTrip` chained winery addition and strict rollback with `preventOfflineEnqueue = true` when chained addition fails.
     - [x] Run containerized Jest suite (`./scripts/run-jest-container.sh lib/services/__tests__/tripService.mutations.test.ts`) and confirm test failure.
-- [ ] Task: Implement Dual-Key Coordinates, Polymorphic Chaining & Rollback Semantics (Green Phase)
-    - [ ] Update `WineryService.getRpcData` to emit `latitude`, `longitude`, `lat`, and `lng` for 100% backward compatibility across all PostgreSQL RPCs.
-    - [ ] Update `TripService.addWineryToExistingTrip` signature to `(tripId: number, wineryOrId: number | Winery, notes: string | null)` and validate positive ID if numeric.
-    - [ ] Update `TripService.createTrip` to loop through `trip.wineries.slice(1)` passing `extra`, catch errors, execute `deleteTrip`, tag `preventOfflineEnqueue = true`, and rethrow.
-    - [ ] Run containerized Jest suite and verify all tests pass.
+- [x] Task: Implement Dual-Key Coordinates, Polymorphic Chaining & Rollback Semantics (Green Phase) [commit: 1cc1fce3]
+    - [x] Update `WineryService.getRpcData` to emit `latitude`, `longitude`, `lat`, and `lng` for 100% backward compatibility across all PostgreSQL RPCs.
+    - [x] Update `TripService.addWineryToExistingTrip` signature to `(tripId: number, wineryOrId: number | Winery, notes: string | null)` and validate positive ID if numeric.
+    - [x] Update `TripService.createTrip` to loop through `trip.wineries.slice(1)` passing `extra`, catch errors, execute `deleteTrip`, tag `preventOfflineEnqueue = true`, and rethrow.
+    - [x] Run containerized Jest suite and verify all tests pass.
 - [ ] Task: Refactor & Scaffolding Cleanup
     - [ ] Ensure strict TypeScript typing without unsafe type assertions.
     - [ ] Audit and remove any temporary scratch or scaffolding test files.
