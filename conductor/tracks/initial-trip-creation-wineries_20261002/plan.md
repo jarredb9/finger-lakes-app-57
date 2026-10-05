@@ -86,11 +86,11 @@
 
 ## Phase 6: Store Invariants, Background Invalidation & Badge Pluralization (`tripMutationHelpers`, `TripCardSimplePresentational`)
 
-- [ ] Task: Write Failing Tests for Store Invariants & Rollback Suppression (Red Phase)
-    - [ ] Add test cases to `lib/stores/slices/__tests__/tripMutationHelpers.test.ts` verifying `wineries_count` on `tempTrip` and `syncedTrip`.
-    - [ ] Add test case verifying background cache invalidation (`fetchUpcomingTrips`, `fetchTripsForDate`, `fetchTrips`).
-    - [ ] Add test case verifying that errors tagged with `preventOfflineEnqueue` bypass `handleSyncError` and do NOT enqueue to offline store.
-    - [ ] Run containerized Jest suite (`./scripts/run-jest-container.sh lib/stores/slices/__tests__/tripMutationHelpers.test.ts`) and confirm test failure.
+- [x] Task: Write Failing Tests for Store Invariants & Rollback Suppression (Red Phase) [commit: 799e88fd]
+    - [x] Add test cases to `lib/stores/slices/__tests__/tripMutationHelpers.test.ts` verifying `wineries_count` on `tempTrip` and `syncedTrip`.
+    - [x] Add test case verifying background cache invalidation (`fetchUpcomingTrips`, `fetchTripsForDate`, `fetchTrips`).
+    - [x] Add test case verifying that errors tagged with `preventOfflineEnqueue` bypass `handleSyncError` and do NOT enqueue to offline store.
+    - [x] Run containerized Jest suite (`./scripts/run-jest-container.sh lib/stores/slices/__tests__/tripMutationHelpers.test.ts`) and confirm test failure.
 - [ ] Task: Implement Store Count Population, Offline Suppression & Badge Pluralization (Green Phase)
     - [ ] In `createTripHelper` (`lib/stores/slices/tripMutationHelpers.ts`), set `wineries_count: validWineries.length` on `tempTrip` and `wineries_count: (createdTrip?.wineries?.length ?? validWineries.length)` on `syncedTrip`.
     - [ ] Suppress offline enqueueing when `(error as any)?.preventOfflineEnqueue` is true.
