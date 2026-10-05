@@ -17,6 +17,7 @@ interface PlaceAutocompleteProps {
   includedPrimaryTypes?: string[];
   locationBias?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral;
   id?: string;
+  clearOnSelect?: boolean;
 }
 
 export function PlaceAutocomplete({
@@ -26,12 +27,14 @@ export function PlaceAutocomplete({
   includedPrimaryTypes,
   locationBias,
   id = "place-autocomplete",
+  clearOnSelect = false,
 }: PlaceAutocompleteProps) {
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const isProgrammaticUpdateRef = useRef(false);
 
   const {
     suggestions,
@@ -43,6 +46,11 @@ export function PlaceAutocomplete({
 
   // Debounce autocomplete query
   useEffect(() => {
+    if (isProgrammaticUpdateRef.current) {
+      isProgrammaticUpdateRef.current = false;
+      return;
+    }
+
     if (inputValue.trim().length < 3) {
       setSuggestions([]);
       setIsOpen(false);
@@ -74,8 +82,10 @@ export function PlaceAutocomplete({
       document.activeElement.blur();
     }
 
-    const text = suggestion.placePrediction.text?.text || "";
-    setInputValue(text);
+    const text =
+      suggestion.placePrediction.text?.text ||
+      suggestion.placePrediction.mainText?.text ||
+      "";
     setIsOpen(false);
     setIsFetchingDetails(true);
 
@@ -85,6 +95,11 @@ export function PlaceAutocomplete({
         const { useWineryStore } = await import("@/lib/stores/wineryStore");
         const localWinery = useWineryStore.getState().getWinery(placeId);
         if (localWinery) {
+          const nextValue = clearOnSelect ? "" : text;
+          if (inputValue !== nextValue) {
+            isProgrammaticUpdateRef.current = true;
+            setInputValue(nextValue);
+          }
           onPlaceSelect(localWinery, null);
           return;
         }
@@ -95,6 +110,11 @@ export function PlaceAutocomplete({
         const v1Place = mapSdkPlaceToV1Place(place, text);
         const winery = standardizeWineryData(v1Place);
         if (winery) {
+          const nextValue = clearOnSelect ? "" : text;
+          if (inputValue !== nextValue) {
+            isProgrammaticUpdateRef.current = true;
+            setInputValue(nextValue);
+          }
           onPlaceSelect(winery, place);
         }
       }
