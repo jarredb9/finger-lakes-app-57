@@ -206,6 +206,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
                         includedPrimaryTypes={["winery"]}
                         className="mt-2"
                         id="trip-form-winery-autocomplete"
+                        clearOnSelect={true}
                       />
                     </FormControl>
 
