@@ -54,7 +54,7 @@
     - [x] Perform scaffolding audit: ensure zero temporary or throwaway test files exist.
 - [x] Task: Conductor - User Manual Verification 'Phase 3: PlaceAutocomplete Selection UX & Re-Query Suppression' (Protocol in workflow.md)
 
-## Phase 4: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback (`WineryService`, `TripService`)
+## Phase 4: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback (`WineryService`, `TripService`) [checkpoint: 6d5e1a6]
 
 - [x] Task: Write Failing Tests for Dual-Key Coordinates, Polymorphic Chaining, and Strict Rollback (Red Phase) [commit: f99432e1]
     - [x] Add test cases in `lib/services/__tests__/tripService.mutations.test.ts` for dual-key coordinates in `WineryService.getRpcData` (`lat`/`lng` and `latitude`/`longitude`).
@@ -69,7 +69,7 @@
 - [x] Task: Refactor & Scaffolding Cleanup [commit: dc434fc8]
     - [x] Ensure strict TypeScript typing without unsafe type assertions.
     - [x] Audit and remove any temporary scratch or scaffolding test files.
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 4: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback' (Protocol in workflow.md) [commit: 6d5e1a62]
 
 ## Phase 5: Offline Sync Parity (`syncService.ts`)
 
