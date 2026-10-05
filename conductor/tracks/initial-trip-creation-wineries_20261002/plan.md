@@ -56,11 +56,11 @@
 
 ## Phase 4: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback (`WineryService`, `TripService`)
 
-- [ ] Task: Write Failing Tests for Dual-Key Coordinates, Polymorphic Chaining, and Strict Rollback (Red Phase)
-    - [ ] Add test cases in `lib/services/__tests__/tripService.mutations.test.ts` for dual-key coordinates in `WineryService.getRpcData` (`lat`/`lng` and `latitude`/`longitude`).
-    - [ ] Add test cases for `addWineryToExistingTrip` with a full `Winery` object (no DB ID) and non-positive DB ID rejection.
-    - [ ] Add test cases for `createTrip` chained winery addition and strict rollback with `preventOfflineEnqueue = true` when chained addition fails.
-    - [ ] Run containerized Jest suite (`./scripts/run-jest-container.sh lib/services/__tests__/tripService.mutations.test.ts`) and confirm test failure.
+- [x] Task: Write Failing Tests for Dual-Key Coordinates, Polymorphic Chaining, and Strict Rollback (Red Phase) [commit: f99432e1]
+    - [x] Add test cases in `lib/services/__tests__/tripService.mutations.test.ts` for dual-key coordinates in `WineryService.getRpcData` (`lat`/`lng` and `latitude`/`longitude`).
+    - [x] Add test cases for `addWineryToExistingTrip` with a full `Winery` object (no DB ID) and non-positive DB ID rejection.
+    - [x] Add test cases for `createTrip` chained winery addition and strict rollback with `preventOfflineEnqueue = true` when chained addition fails.
+    - [x] Run containerized Jest suite (`./scripts/run-jest-container.sh lib/services/__tests__/tripService.mutations.test.ts`) and confirm test failure.
 - [ ] Task: Implement Dual-Key Coordinates, Polymorphic Chaining & Rollback Semantics (Green Phase)
     - [ ] Update `WineryService.getRpcData` to emit `latitude`, `longitude`, `lat`, and `lng` for 100% backward compatibility across all PostgreSQL RPCs.
     - [ ] Update `TripService.addWineryToExistingTrip` signature to `(tripId: number, wineryOrId: number | Winery, notes: string | null)` and validate positive ID if numeric.
