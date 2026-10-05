@@ -212,16 +212,18 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
         wineries: [mockWinery1, mockWinery2],
       };
 
-      let thrownError: any;
+      let thrownError: (Error & { preventOfflineEnqueue?: boolean }) | null = null;
       try {
         await TripService.createTrip(tripInput);
       } catch (err) {
-        thrownError = err;
+        if (err instanceof Error) {
+          thrownError = err as Error & { preventOfflineEnqueue?: boolean };
+        }
       }
 
-      expect(thrownError).toBeDefined();
-      expect(thrownError.message).toBe('Secondary winery RPC failure');
-      expect(thrownError.preventOfflineEnqueue).toBe(true);
+      expect(thrownError).not.toBeNull();
+      expect(thrownError?.message).toBe('Secondary winery RPC failure');
+      expect(thrownError?.preventOfflineEnqueue).toBe(true);
       expect(mockRpc).toHaveBeenCalledWith('delete_trip', { p_trip_id: 505 });
     });
   });
@@ -468,7 +470,7 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
 
       mockRpc.mockResolvedValueOnce({ data: { success: true }, error: null });
 
-      const result = await TripService.addWineryToExistingTrip(300, mockWineryNoDb as any, 'Lovely Riesling');
+      const result = await TripService.addWineryToExistingTrip(300, mockWineryNoDb, 'Lovely Riesling');
 
       expect(mockFindWineryByDbId).not.toHaveBeenCalled();
       expect(mockRpc).toHaveBeenCalledWith('add_winery_to_trip', {
@@ -526,8 +528,8 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
 
       expect(rpcData.latitude).toBe(42.474);
       expect(rpcData.longitude).toBe(-77.172);
-      expect((rpcData as any).lat).toBe(42.474);
-      expect((rpcData as any).lng).toBe(-77.172);
+      expect(rpcData.lat).toBe(42.474);
+      expect(rpcData.lng).toBe(-77.172);
     });
 
     it('defaults lat and lng to 0 when coordinates are omitted or undefined', () => {
@@ -540,8 +542,8 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
 
       expect(rpcData.latitude).toBe(0);
       expect(rpcData.longitude).toBe(0);
-      expect((rpcData as any).lat).toBe(0);
-      expect((rpcData as any).lng).toBe(0);
+      expect(rpcData.lat).toBe(0);
+      expect(rpcData.lng).toBe(0);
     });
   });
 });
