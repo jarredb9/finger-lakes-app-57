@@ -34,7 +34,7 @@
     - [x] Audit and verify clean test files without any temporary scaffolding artifacts.
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Test Suite Restructuring & Controlled Binding' (Protocol in workflow.md)
 
-## Phase 3: PlaceAutocomplete Selection UX & Re-Query Suppression (Red-Green-Refactor)
+## Phase 3: PlaceAutocomplete Selection UX & Re-Query Suppression (Red-Green-Refactor) [checkpoint: 4a82f6df]
 
 - [x] Task: Write Failing Tests for `clearOnSelect` and Programmatic Re-Query Suppression (Red Phase) [commit: aadb0e30]
     - [x] Add unit tests in `components/__tests__/PlaceAutocomplete.test.tsx` asserting:
@@ -52,7 +52,7 @@
 - [x] Task: Refactor & Scaffolding Cleanup [commit: 579d0b45]
     - [x] Refactor `PlaceAutocomplete.tsx` for clean hook separation and accessibility.
     - [x] Perform scaffolding audit: ensure zero temporary or throwaway test files exist.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: PlaceAutocomplete Selection UX & Re-Query Suppression' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 3: PlaceAutocomplete Selection UX & Re-Query Suppression' (Protocol in workflow.md)
 
 ## Phase 4: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback (`WineryService`, `TripService`)
 
