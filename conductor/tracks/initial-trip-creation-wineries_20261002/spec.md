@@ -96,6 +96,11 @@ This specification addresses the six underlying root causes identified through a
     - Remove legacy `react19-form-actions.test.tsx`.
 - **Corrected Store Test Path:**
   - Update plan and scripts to target the actual path: `lib/stores/slices/__tests__/tripMutationHelpers.test.ts`.
+- **End-to-End Testing Strategy (Playwright in Phase 7):**
+  - **Fidelity Seam & Rationale:** While Jest (JSDOM) verifies unit logic, state transitions, and guards, real browser E2E verification is essential to guard against Combobox and dialog failure modes that JSDOM cannot replicate: pointer-down vs blur event race conditions, Radix UI `<Dialog>` portal stacking/clipping, and mobile virtual keyboard dismissal.
+  - **Phasing Alignment:** E2E testing is strictly deferred to Phase 7. Multi-stop trip creation through the full UI journey depends on downstream service chaining (Phase 4), offline sync parity (Phase 5), and store count synchronization (Phase 6).
+  - **Test Replacement:** Replace the existing 5-line placeholder stub `test('can create a new trip from a winery')` in `e2e/trip-flow.spec.ts` with `test('can create a new trip with initial winery stops from dialog')`.
+  - **Primary Verification Engine:** Execute against WebKit (`./scripts/run-e2e-container.sh webkit e2e/trip-flow.spec.ts`) for maximum sensitivity to combobox focus, touch, and event-delegation quirks.
 
 ## 5. Strict TDD Workflow
 Every task executes the strict Red-Green-Refactor cycle:
@@ -117,7 +122,7 @@ Every task executes the strict Red-Green-Refactor cycle:
 10. Offline trip creation replayed through `syncService.ts` creates all winery stops and normalizes `wineries_count`.
 11. Background re-fetches keep `upcomingTrips`, `tripsForDate`, and paginated `trips` synchronized with backend aggregates.
 12. Containerized Jest tests pass for `auth-forms.test.tsx`, `trip-form.test.tsx`, `PlaceAutocomplete.test.tsx`, `tripService.mutations.test.ts`, and `tripMutationHelpers.test.ts`.
-13. Playwright E2E test passes verifying full trip creation with wineries in `e2e/trip-flow.spec.ts`.
+13. Playwright E2E test in WebKit replaces stub in `e2e/trip-flow.spec.ts`, verifying full trip creation with multiple winery stops and correct card count badge.
 14. Zero temporary scaffolding files remain.
 
 ## 7. Out of Scope
