@@ -29,6 +29,7 @@ export default function TripCardSimple({
 }: TripCardSimpleProps) {
     const router = useRouter();
     const isPending = trip.syncStatus === 'pending';
+    const count = trip.wineries_count ?? trip.wineries?.length ?? 0;
 
     const handleViewTrip = (tripId: number) => {
         router.push(`/trips/${tripId}`);
@@ -161,7 +162,7 @@ export default function TripCardSimple({
                     >
                         View Details <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
-                    <Badge variant="secondary"><Wine className="w-3 h-3 mr-1" /> {trip.wineries_count ?? trip.wineries?.length ?? 0} Wineries</Badge>
+                    <Badge variant="secondary"><Wine className="w-3 h-3 mr-1" /> {count} {count === 1 ? 'Winery' : 'Wineries'}</Badge>
                 </div>
             </CardContent>
         </Card>
