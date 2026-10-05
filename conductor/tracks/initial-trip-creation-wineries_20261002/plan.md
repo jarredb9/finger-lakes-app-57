@@ -29,9 +29,9 @@
     - [x] Replace legacy imperative `handleWineryToggle`, `ensureInDb`, and `setValue` calls with `field.onChange`.
     - [x] Add test IDs (`data-testid="selected-wineries-list"`) and tag removal handlers.
     - [x] Run containerized Jest suite and verify all tests pass.
-- [ ] Task: Refactor & Scaffolding Cleanup
-    - [ ] Refactor `components/trip-form.tsx` for readability and adherence to UI container/presentational conventions.
-    - [ ] Audit and verify clean test files without any temporary scaffolding artifacts.
+- [x] Task: Refactor & Scaffolding Cleanup [commit: 537e3cfc]
+    - [x] Refactor `components/trip-form.tsx` for readability and adherence to UI container/presentational conventions.
+    - [x] Audit and verify clean test files without any temporary scaffolding artifacts.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Test Suite Restructuring & Controlled Binding' (Protocol in workflow.md)
 
 ## Phase 3: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback (`WineryService`, `TripService`)
