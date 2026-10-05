@@ -66,9 +66,9 @@
     - [x] Update `TripService.addWineryToExistingTrip` signature to `(tripId: number, wineryOrId: number | Winery, notes: string | null)` and validate positive ID if numeric.
     - [x] Update `TripService.createTrip` to loop through `trip.wineries.slice(1)` passing `extra`, catch errors, execute `deleteTrip`, tag `preventOfflineEnqueue = true`, and rethrow.
     - [x] Run containerized Jest suite and verify all tests pass.
-- [ ] Task: Refactor & Scaffolding Cleanup
-    - [ ] Ensure strict TypeScript typing without unsafe type assertions.
-    - [ ] Audit and remove any temporary scratch or scaffolding test files.
+- [x] Task: Refactor & Scaffolding Cleanup [commit: dc434fc8]
+    - [x] Ensure strict TypeScript typing without unsafe type assertions.
+    - [x] Audit and remove any temporary scratch or scaffolding test files.
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback' (Protocol in workflow.md)
 
 ## Phase 5: Offline Sync Parity (`syncService.ts`)
