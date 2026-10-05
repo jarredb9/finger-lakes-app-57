@@ -1,5 +1,5 @@
 import { createClient } from '@/utils/supabase/client';
-import { Trip } from '@/lib/types';
+import { Trip, Winery } from '@/lib/types';
 import { getTodayLocal, formatDateLocal } from '@/lib/utils';
 import { WineryService } from './wineryService';
 import { findWineryByDbId } from '@/lib/stores/wineryStore';
@@ -136,13 +136,16 @@ export const TripService = {
             const extraWineries = trip.wineries.slice(1);
             try {
                 for (const extra of extraWineries) {
-                    await this.addWineryToExistingTrip(data.trip_id, extra.dbId || 0, null);
+                    await this.addWineryToExistingTrip(data.trip_id, extra, extra.notes || null);
                 }
-            } catch (chainedError) {
+            } catch (chainedError: any) {
                 try {
                     await this.deleteTrip(data.trip_id.toString());
                 } catch (rollbackError) {
                     console.error("Failed to rollback trip creation after chaining error:", rollbackError);
+                }
+                if (chainedError && typeof chainedError === 'object') {
+                    chainedError.preventOfflineEnqueue = true;
                 }
                 throw chainedError;
             }
@@ -306,32 +309,49 @@ export const TripService = {
     return { success: true, tripId: data.trip_id };
   },
 
-  async addWineryToExistingTrip(tripId: number, wineryId: number, notes: string | null) {
+  async addWineryToExistingTrip(tripId: number, wineryOrId: number | Winery, notes: string | null = null) {
     const supabase = createClient();
-    const winery = findWineryByDbId(wineryId);
 
-    if (!winery) {
-        // If not in store, we might just have the ID. 
-        // We can't use add_winery_to_trip RPC if it requires full winery data.
-        
-        // We should use the simple ID one if we only have wineryId.
+    if (typeof wineryOrId === 'object' && wineryOrId !== null) {
+      const { error } = await supabase.rpc('add_winery_to_trip', {
+        p_trip_id: tripId,
+        p_winery_data: WineryService.getRpcData(wineryOrId),
+        p_notes: notes,
+      });
+
+      if (error) throw error;
+      return { success: true };
+    }
+
+    if (typeof wineryOrId === 'number') {
+      if (isNaN(wineryOrId) || wineryOrId <= 0) {
+        throw new Error("Invalid winery ID");
+      }
+
+      const winery = findWineryByDbId(wineryOrId);
+
+      if (!winery) {
+        // If not in store, fallback to passing numeric winery ID
         const { error } = await supabase.rpc('add_winery_to_trip', {
-            p_trip_id: tripId,
-            p_winery_id: wineryId,
-            p_notes: notes
+          p_trip_id: tripId,
+          p_winery_id: wineryOrId,
+          p_notes: notes,
         });
         if (error) throw error;
         return { success: true };
-    }
+      }
 
-    const { error } = await supabase.rpc('add_winery_to_trip', {
+      const { error } = await supabase.rpc('add_winery_to_trip', {
         p_trip_id: tripId,
         p_winery_data: WineryService.getRpcData(winery),
-        p_notes: notes
-    });
+        p_notes: notes,
+      });
 
-    if (error) throw error;
-    return { success: true };
+      if (error) throw error;
+      return { success: true };
+    }
+
+    throw new Error("Invalid winery ID or data");
   },
 
   async addWineryToTripByApi(wineryId: number, tripIds: number[]) {
