@@ -24,11 +24,11 @@
     - [x] Create dedicated `components/__tests__/trip-form.test.tsx` containing existing `TripForm` tests and new failing tests asserting controlled `<FormField>` binding, `PlaceAutocomplete` selection, tag removal, and payload delivery to `createTrip`.
     - [x] Delete legacy `components/__tests__/react19-form-actions.test.tsx`.
     - [x] Run containerized Jest suite (`./scripts/run-jest-container.sh components/__tests__/trip-form.test.tsx components/__tests__/auth-forms.test.tsx`) and confirm expected failure on new tests.
-- [ ] Task: Implement Controlled `<FormField>` Binding in `TripForm` (Green Phase)
-    - [ ] Refactor `components/trip-form.tsx` to bind `PlaceAutocomplete` and selected winery tags inside `<FormField control={form.control} name="wineries" render={({ field }) => ...} />`.
-    - [ ] Replace legacy imperative `handleWineryToggle`, `ensureInDb`, and `setValue` calls with `field.onChange`.
-    - [ ] Add test IDs (`data-testid="selected-wineries-list"`) and tag removal handlers.
-    - [ ] Run containerized Jest suite and verify all tests pass.
+- [x] Task: Implement Controlled `<FormField>` Binding in `TripForm` (Green Phase) [commit: 0a827d67]
+    - [x] Refactor `components/trip-form.tsx` to bind `PlaceAutocomplete` and selected winery tags inside `<FormField control={form.control} name="wineries" render={({ field }) => ...} />`.
+    - [x] Replace legacy imperative `handleWineryToggle`, `ensureInDb`, and `setValue` calls with `field.onChange`.
+    - [x] Add test IDs (`data-testid="selected-wineries-list"`) and tag removal handlers.
+    - [x] Run containerized Jest suite and verify all tests pass.
 - [ ] Task: Refactor & Scaffolding Cleanup
     - [ ] Refactor `components/trip-form.tsx` for readability and adherence to UI container/presentational conventions.
     - [ ] Audit and verify clean test files without any temporary scaffolding artifacts.
