@@ -4,8 +4,6 @@ import { useTripStore } from '@/lib/stores/tripStore';
 import { useWineryStore } from '@/lib/stores/wineryStore';
 import { AuthenticatedUser } from '@/lib/types';
 
-const mockPush = jest.fn();
-const mockRefresh = jest.fn();
 const mockToast = jest.fn();
 
 jest.mock('@/hooks/use-toast', () => ({
@@ -13,13 +11,6 @@ jest.mock('@/hooks/use-toast', () => ({
     toast: mockToast,
     toasts: [],
     dismiss: jest.fn(),
-  }),
-}));
-
-jest.mock('next/navigation', () => ({
-  useRouter: () => ({
-    push: mockPush,
-    refresh: mockRefresh,
   }),
 }));
 
@@ -105,7 +96,7 @@ describe('TripForm Controlled FormField & Multi-Stop Binding', () => {
     });
   });
 
-  describe('Controlled FormField Binding & Deduplication (Red Phase Assertions)', () => {
+  describe('Controlled FormField Binding & Deduplication Invariants', () => {
     it('updates form state synchronously via controlled field without invoking legacy ensureInDb on place select', async () => {
       const ensureInDbMock = jest.fn();
       useWineryStore.setState({ ensureInDb: ensureInDbMock });
@@ -116,8 +107,6 @@ describe('TripForm Controlled FormField & Multi-Stop Binding', () => {
       fireEvent.click(winerySelectButton);
 
       expect(screen.getByTestId('selected-winery-google-place-winery-123')).toBeInTheDocument();
-      // RED PHASE CHECK: In current TripForm, handleWineryToggle calls ensureInDb(winery.id).
-      // Controlled FormField binding must NOT call ensureInDb on place selection.
       expect(ensureInDbMock).not.toHaveBeenCalled();
     });
 
@@ -133,8 +122,6 @@ describe('TripForm Controlled FormField & Multi-Stop Binding', () => {
       // Second click: autocomplete selection must deduplicate, NOT toggle off
       fireEvent.click(winerySelectButton);
 
-      // RED PHASE CHECK: In current TripForm, handleWineryToggle toggles the winery off on second click.
-      // Target FormField binding deduplicates and keeps the tag in the list.
       expect(screen.getByTestId('selected-winery-google-place-winery-123')).toBeInTheDocument();
       const selectedTags = screen.getAllByTestId('selected-winery-google-place-winery-123');
       expect(selectedTags).toHaveLength(1);
