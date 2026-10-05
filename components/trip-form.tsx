@@ -81,7 +81,7 @@ export function SelectedWineriesList({ wineries, onRemoveWinery }: SelectedWiner
   );
 }
 
-export default function TripForm({ initialDate, user, onClose }: TripFormProps) {
+export function TripForm({ initialDate, user, onClose }: TripFormProps) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     // Use requestAnimationFrame to ensure we only mark as ready 
@@ -104,7 +104,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
     },
   });
 
-  const [_actionState, formAction, isPending] = useActionState<TripActionState, TripFormValues>(
+  const [, formAction, isPending] = useActionState<TripActionState, TripFormValues>(
     async (_prevState, data) => {
       try {
         await createTrip({
@@ -241,3 +241,5 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
     </Card>
   );
 }
+
+export default TripForm;
