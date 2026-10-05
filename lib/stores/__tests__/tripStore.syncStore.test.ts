@@ -50,7 +50,7 @@ describe('tripStore SyncStore integration', () => {
     jest.clearAllMocks();
     mockAddMutation.mockResolvedValue(undefined);
     mockRemoveMutation.mockResolvedValue(undefined);
-    (SyncService as any).isSyncing = false;
+    SyncService.isSyncing = false;
 
     // Mock navigator.onLine to false (default for enqueue tests)
     Object.defineProperty(navigator, 'onLine', {
