@@ -32,9 +32,29 @@
 - [x] Task: Refactor & Scaffolding Cleanup [commit: 537e3cfc]
     - [x] Refactor `components/trip-form.tsx` for readability and adherence to UI container/presentational conventions.
     - [x] Audit and verify clean test files without any temporary scaffolding artifacts.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Test Suite Restructuring & Controlled Binding' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Test Suite Restructuring & Controlled Binding' (Protocol in workflow.md)
 
-## Phase 3: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback (`WineryService`, `TripService`)
+## Phase 3: PlaceAutocomplete Selection UX & Re-Query Suppression (Red-Green-Refactor)
+
+- [ ] Task: Write Failing Tests for `clearOnSelect` and Programmatic Re-Query Suppression (Red Phase)
+    - [ ] Add unit tests in `components/__tests__/PlaceAutocomplete.test.tsx` asserting:
+      - `clearOnSelect: true` clears `inputValue` upon successful suggestion selection.
+      - Programmatic value updates do not trigger debounced `fetchSuggestions` or re-open the dropdown.
+      - If place details resolution fails, the input field retains the typed search string and the dropdown remains closed.
+    - [ ] Add tests in `components/__tests__/trip-form.test.tsx` verifying that selecting a winery clears the search input when `clearOnSelect={true}`.
+    - [ ] Add regression tests in `components/__tests__/PlaceAutocomplete.test.tsx` verifying default `clearOnSelect: false` retains the selected place string without re-opening the dropdown (covering `MapSearchBar` behavior).
+    - [ ] Run containerized Jest suite (`./scripts/run-jest-container.sh components/__tests__/PlaceAutocomplete.test.tsx components/__tests__/trip-form.test.tsx`) and confirm expected test failures.
+- [ ] Task: Implement Selection Guard & `clearOnSelect` in `PlaceAutocomplete` (Green Phase)
+    - [ ] In `components/PlaceAutocomplete.tsx`, implement `clearOnSelect?: boolean` prop and internal programmatic selection guard ref to suppress debounced re-queries.
+    - [ ] In `handleSelectSuggestion`, clear `inputValue` on successful selection if `clearOnSelect` is true; retain typed string on error.
+    - [ ] In `components/trip-form.tsx`, pass `clearOnSelect={true}` to `PlaceAutocomplete`.
+    - [ ] Run containerized Jest suite and confirm all tests pass.
+- [ ] Task: Refactor & Scaffolding Cleanup
+    - [ ] Refactor `PlaceAutocomplete.tsx` for clean hook separation and accessibility.
+    - [ ] Perform scaffolding audit: ensure zero temporary or throwaway test files exist.
+- [ ] Task: Conductor - User Manual Verification 'Phase 3: PlaceAutocomplete Selection UX & Re-Query Suppression' (Protocol in workflow.md)
+
+## Phase 4: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback (`WineryService`, `TripService`)
 
 - [ ] Task: Write Failing Tests for Dual-Key Coordinates, Polymorphic Chaining, and Strict Rollback (Red Phase)
     - [ ] Add test cases in `lib/services/__tests__/tripService.mutations.test.ts` for dual-key coordinates in `WineryService.getRpcData` (`lat`/`lng` and `latitude`/`longitude`).
@@ -49,9 +69,9 @@
 - [ ] Task: Refactor & Scaffolding Cleanup
     - [ ] Ensure strict TypeScript typing without unsafe type assertions.
     - [ ] Audit and remove any temporary scratch or scaffolding test files.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 4: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback' (Protocol in workflow.md)
 
-## Phase 4: Offline Sync Parity (`syncService.ts`)
+## Phase 5: Offline Sync Parity (`syncService.ts`)
 
 - [ ] Task: Write Failing Tests for Offline Multi-Stop Trip Replay (Red Phase)
     - [ ] Add unit/integration test in `lib/stores/__tests__/tripStore.syncStore.test.ts` asserting that an offline `create_trip` sync item with multiple wineries replays through `TripService.createTrip` without dropping stops 2+ and populates `wineries_count`.
@@ -62,9 +82,9 @@
     - [ ] Run containerized Jest suite and verify all tests pass.
 - [ ] Task: Refactor & Scaffolding Cleanup
     - [ ] Audit offline sync handlers and clean up redundant code.
-- [ ] Task: Conductor - User Manual Verification 'Phase 4: Offline Sync Parity' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 5: Offline Sync Parity' (Protocol in workflow.md)
 
-## Phase 5: Store Invariants, Background Invalidation & Badge Pluralization (`tripMutationHelpers`, `TripCardSimplePresentational`)
+## Phase 6: Store Invariants, Background Invalidation & Badge Pluralization (`tripMutationHelpers`, `TripCardSimplePresentational`)
 
 - [ ] Task: Write Failing Tests for Store Invariants & Rollback Suppression (Red Phase)
     - [ ] Add test cases to `lib/stores/slices/__tests__/tripMutationHelpers.test.ts` verifying `wineries_count` on `tempTrip` and `syncedTrip`.
@@ -79,9 +99,9 @@
     - [ ] Run containerized Jest suite and verify all tests pass.
 - [ ] Task: Refactor & Scaffolding Cleanup
     - [ ] Clean up store helper logic, verify Zustand 5 selectors, and remove any temporary test artifacts.
-- [ ] Task: Conductor - User Manual Verification 'Phase 5: Store Invariants, Background Invalidation & Badge Pluralization' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 6: Store Invariants, Background Invalidation & Badge Pluralization' (Protocol in workflow.md)
 
-## Phase 6: End-to-End Verification & Final Quality Gates
+## Phase 7: End-to-End Verification & Final Quality Gates
 
 - [ ] Task: E2E Integration Flow (Playwright)
     - [ ] Add or update E2E test in `e2e/trip-flow.spec.ts` covering dialog opening, winery search/selection via `PlaceAutocomplete`, submission, and verifying the resulting trip card displays "1 Winery" (and "N Wineries" for multiple stops).
@@ -90,4 +110,5 @@
     - [ ] Run full unit test suite via container runner (`./scripts/run-jest-container.sh`).
     - [ ] Run type checking and container build (`npm run db:check-types:local`).
     - [ ] Perform strict scaffolding audit: ensure zero temporary or throwaway test files exist.
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: End-to-End Verification & Final Quality Gates' (Protocol in workflow.md)
+- [ ] Task: Conductor - User Manual Verification 'Phase 7: End-to-End Verification & Final Quality Gates' (Protocol in workflow.md)
+

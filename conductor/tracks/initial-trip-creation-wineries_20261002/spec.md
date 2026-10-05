@@ -50,7 +50,14 @@ This specification addresses the six underlying root causes identified through a
 - Remove legacy imperative `handleWineryToggle`, `ensureInDb`, and direct `form.setValue("wineries", ...)`.
 - Ensure winery selection renders removable badge tags with accessible labels and distinct test IDs (`data-testid="selected-wineries-list"`, `data-testid="selected-winery-${winery.id}"`).
 
-### 3.4 Polymorphic Chaining & Atomic Rollback in `TripService`
+### 3.4 PlaceAutocomplete Selection UX & Re-Query Suppression
+- Add `clearOnSelect?: boolean` prop to `PlaceAutocomplete` (defaulting to `false` for backward compatibility with `MapSearchBar`).
+- When `clearOnSelect: true` (passed by `TripForm`), clear `inputValue` upon successful place selection and badge creation, leaving the input empty and immediately ready for adding subsequent winery stops.
+- If place details resolution fails, retain the typed search query in the input field so the user can easily retry without retyping from scratch.
+- Introduce an internal selection guard ref in `PlaceAutocomplete` to distinguish user typing from programmatic value assignments, preventing debounced re-queries and ensuring the suggestions dropdown remains closed after selection.
+- Retain existing `blur()` invocation on suggestion selection to dismiss mobile virtual keyboards and keep newly added winery badges visible.
+
+### 3.5 Polymorphic Chaining & Atomic Rollback in `TripService`
 - Extend `TripService.addWineryToExistingTrip(tripId: number, wineryOrId: number | Winery, notes: string | null)`:
   - If `wineryOrId` is an object: invoke `add_winery_to_trip` with `p_winery_data: WineryService.getRpcData(wineryOrId)`.
   - If `wineryOrId` is a number: validate `wineryOrId > 0`; if valid, look up via `findWineryByDbId` or pass `p_winery_id`. If non-positive (`<= 0`), throw an error immediately.
@@ -59,20 +66,20 @@ This specification addresses the six underlying root causes identified through a
   - For subsequent wineries (`trip.wineries.slice(1)`), iterate sequentially and invoke `this.addWineryToExistingTrip(data.trip_id, extra, null)`.
   - **Strict Rollback & Offline Queue Suppression:** If any chained stop addition fails, catch the error, invoke `this.deleteTrip(data.trip_id.toString())` to clean up the partial remote trip, tag the error (`preventOfflineEnqueue = true`), and rethrow.
 
-### 3.5 Full Offline Sync Parity in `syncService.ts`
+### 3.6 Full Offline Sync Parity in `syncService.ts`
 - Refactor `syncService.ts`'s `'create_trip'` case to directly invoke `TripService.createTrip(payload, item.id)`.
 - Eliminates duplicate, incomplete stop-creation logic and ensures identical behavior online and offline.
 - Upon completion, replace temporary trip with synced record containing accurate `wineries_count: syncedTrip.wineries?.length ?? payload.wineries?.length ?? 0`.
 - Trigger background store cache re-fetches (`fetchUpcomingTrips`, `fetchTripsForDate`, `fetchTrips`).
 
-### 3.6 Store Synchronization & Invalidation in `tripMutationHelpers`
+### 3.7 Store Synchronization & Invalidation in `tripMutationHelpers`
 - In `createTripHelper`:
   - Set optimistic `wineries_count: validWineries.length` on `tempTrip`.
   - Set synced `wineries_count: (createdTrip?.wineries?.length ?? validWineries.length)` on `syncedTrip`.
   - Check error tag: if `(error as any)?.preventOfflineEnqueue` is true, bypass `handleSyncError` offline queueing and immediately execute optimistic rollback.
   - Dispatch non-blocking, fire-and-forget background cache re-fetches for `fetchUpcomingTrips()`, `fetchTripsForDate(targetDate)`, and `fetchTrips(1, 'upcoming', true)` with error logging.
 
-### 3.7 Presentation Badge Standardization in `TripCardSimplePresentational`
+### 3.8 Presentation Badge Standardization in `TripCardSimplePresentational`
 - Standardize badge pluralization in `TripCardSimplePresentational.tsx`:
   ```tsx
   const count = trip.wineries_count ?? trip.wineries?.length ?? 0;
@@ -103,14 +110,17 @@ Every task executes the strict Red-Green-Refactor cycle:
 3. Submitting `TripForm` with 1 selected winery creates the trip in Supabase, links the winery stop with valid coordinates, and displays "1 Winery" on the newly rendered trip card immediately.
 4. Submitting `TripForm` with multiple selected wineries (including newly searched Google Places wineries without prior Postgres database IDs) successfully links all stops with valid coordinates.
 5. Removing a winery badge in `TripForm` prior to submit properly decrements the selection and submits only the remaining wineries.
-6. Optimistic trip state displays the correct winery count immediately without flickering to "0 Wineries".
-7. If a chained stop addition fails during multi-winery creation, the trip is rolled back, and offline queueing is suppressed to prevent phantom duplicate replays.
-8. Offline trip creation replayed through `syncService.ts` creates all winery stops and normalizes `wineries_count`.
-9. Background re-fetches keep `upcomingTrips`, `tripsForDate`, and paginated `trips` synchronized with backend aggregates.
-10. Containerized Jest tests pass for `auth-forms.test.tsx`, `trip-form.test.tsx`, `tripService.mutations.test.ts`, and `tripMutationHelpers.test.ts`.
-11. Playwright E2E test passes verifying full trip creation with wineries in `e2e/trip-flow.spec.ts`.
-12. Zero temporary scaffolding files remain.
+6. Selecting a winery from autocomplete in `TripForm` immediately clears the search input, suppresses re-querying, keeps the suggestions dropdown closed, and leaves the input ready for additional stop selection.
+7. `MapSearchBar` retains its selected location text (`clearOnSelect: false`) and does not re-open the suggestions dropdown after selection.
+8. Optimistic trip state displays the correct winery count immediately without flickering to "0 Wineries".
+9. If a chained stop addition fails during multi-winery creation, the trip is rolled back, and offline queueing is suppressed to prevent phantom duplicate replays.
+10. Offline trip creation replayed through `syncService.ts` creates all winery stops and normalizes `wineries_count`.
+11. Background re-fetches keep `upcomingTrips`, `tripsForDate`, and paginated `trips` synchronized with backend aggregates.
+12. Containerized Jest tests pass for `auth-forms.test.tsx`, `trip-form.test.tsx`, `PlaceAutocomplete.test.tsx`, `tripService.mutations.test.ts`, and `tripMutationHelpers.test.ts`.
+13. Playwright E2E test passes verifying full trip creation with wineries in `e2e/trip-flow.spec.ts`.
+14. Zero temporary scaffolding files remain.
 
 ## 7. Out of Scope
-- Redesigning the `PlaceAutocomplete` component or changing external Google Places v1 API schemas.
+- Changing external Google Places v1 API schemas.
 - Reordering stops within the initial creation modal (reordering remains a trip details feature).
+
