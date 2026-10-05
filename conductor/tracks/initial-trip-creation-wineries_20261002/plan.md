@@ -19,11 +19,11 @@
 
 ## Phase 2: Test Suite Restructuring & Controlled Binding (`TripForm`)
 
-- [ ] Task: Restructure Legacy Test Suite & Write Failing Tests for Form Field Registration (Red Phase)
-    - [ ] Extract auth form tests (`LoginForm`, `ForgotPasswordForm`, `ManualConfirmForm`) from `components/__tests__/react19-form-actions.test.tsx` into `components/__tests__/auth-forms.test.tsx`.
-    - [ ] Create dedicated `components/__tests__/trip-form.test.tsx` containing existing `TripForm` tests and new failing tests asserting controlled `<FormField>` binding, `PlaceAutocomplete` selection, tag removal, and payload delivery to `createTrip`.
-    - [ ] Delete legacy `components/__tests__/react19-form-actions.test.tsx`.
-    - [ ] Run containerized Jest suite (`./scripts/run-jest-container.sh components/__tests__/trip-form.test.tsx components/__tests__/auth-forms.test.tsx`) and confirm expected failure on new tests.
+- [x] Task: Restructure Legacy Test Suite & Write Failing Tests for Form Field Registration (Red Phase) [commit: 380d591b]
+    - [x] Extract auth form tests (`LoginForm`, `ForgotPasswordForm`, `ManualConfirmForm`) from `components/__tests__/react19-form-actions.test.tsx` into `components/__tests__/auth-forms.test.tsx`.
+    - [x] Create dedicated `components/__tests__/trip-form.test.tsx` containing existing `TripForm` tests and new failing tests asserting controlled `<FormField>` binding, `PlaceAutocomplete` selection, tag removal, and payload delivery to `createTrip`.
+    - [x] Delete legacy `components/__tests__/react19-form-actions.test.tsx`.
+    - [x] Run containerized Jest suite (`./scripts/run-jest-container.sh components/__tests__/trip-form.test.tsx components/__tests__/auth-forms.test.tsx`) and confirm expected failure on new tests.
 - [ ] Task: Implement Controlled `<FormField>` Binding in `TripForm` (Green Phase)
     - [ ] Refactor `components/trip-form.tsx` to bind `PlaceAutocomplete` and selected winery tags inside `<FormField control={form.control} name="wineries" render={({ field }) => ...} />`.
     - [ ] Replace legacy imperative `handleWineryToggle`, `ensureInDb`, and `setValue` calls with `field.onChange`.
