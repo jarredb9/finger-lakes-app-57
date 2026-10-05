@@ -237,5 +237,278 @@ describe("PlaceAutocomplete", () => {
 
     expect(mockFetchPlaceDetails).not.toHaveBeenCalled();
   });
+
+  describe("PlaceAutocomplete clearOnSelect & Re-Query Suppression (Issue #57 Red Phase)", () => {
+    it("clears inputValue upon successful suggestion selection when clearOnSelect is true", async () => {
+      const mockSdkPlace = {
+        id: "place-1",
+        displayName: "Mock Winery",
+        formattedAddress: "123 mock address",
+        location: {
+          lat: () => 42.5,
+          lng: () => -76.8,
+        },
+      };
+
+      const mockSuggestions = [
+        {
+          placePrediction: {
+            toPlace: () => mockSdkPlace,
+            text: { text: "Mock Winery" },
+            mainText: { text: "Mock Winery" },
+            secondaryText: { text: "123 mock address" },
+          },
+        },
+      ];
+
+      const mockWineryObj = {
+        id: "place-1",
+        name: "Mock Winery",
+        address: "123 mock address",
+        latitude: 42.5,
+        longitude: -76.8,
+      };
+
+      (usePlacesAutocompleteSession as jest.Mock).mockReturnValue({
+        suggestions: mockSuggestions,
+        isLoading: false,
+        fetchSuggestions: mockFetchSuggestions,
+        fetchPlaceDetails: mockFetchPlaceDetails.mockResolvedValue(mockSdkPlace),
+        setSuggestions: mockSetSuggestions,
+        refreshSessionToken: jest.fn(),
+      });
+
+      (standardizeWineryData as jest.Mock).mockReturnValue(mockWineryObj);
+
+      render(
+        <PlaceAutocomplete
+          onPlaceSelect={mockOnPlaceSelect}
+          {...({ clearOnSelect: true } as any)}
+        />
+      );
+
+      const input = screen.getByTestId("place-autocomplete-input");
+      fireEvent.change(input, { target: { value: "mock winery" } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("place-autocomplete-results")).toBeVisible();
+      });
+
+      const suggestionBtn = screen.getByTestId("autocomplete-option-0");
+      fireEvent.click(suggestionBtn);
+
+      await waitFor(() => {
+        expect(mockOnPlaceSelect).toHaveBeenCalledWith(mockWineryObj, mockSdkPlace);
+      });
+
+      // RED PHASE CHECK: In current PlaceAutocomplete, handleSelectSuggestion calls setInputValue(text)
+      // without checking clearOnSelect, so the input retains "Mock Winery".
+      // Target behavior clears inputValue to "" on successful selection when clearOnSelect={true}.
+      expect(input).toHaveValue("");
+    });
+
+    it("does not trigger debounced fetchSuggestions or re-open the dropdown upon programmatic selection value updates", async () => {
+      const mockSdkPlace = {
+        id: "place-1",
+        displayName: "Mock Winery",
+        formattedAddress: "123 mock address",
+        location: {
+          lat: () => 42.5,
+          lng: () => -76.8,
+        },
+      };
+
+      const mockSuggestions = [
+        {
+          placePrediction: {
+            toPlace: () => mockSdkPlace,
+            text: { text: "Mock Winery" },
+            mainText: { text: "Mock Winery" },
+            secondaryText: { text: "123 mock address" },
+          },
+        },
+      ];
+
+      (usePlacesAutocompleteSession as jest.Mock).mockReturnValue({
+        suggestions: mockSuggestions,
+        isLoading: false,
+        fetchSuggestions: mockFetchSuggestions,
+        fetchPlaceDetails: mockFetchPlaceDetails.mockResolvedValue(mockSdkPlace),
+        setSuggestions: mockSetSuggestions,
+        refreshSessionToken: jest.fn(),
+      });
+
+      (standardizeWineryData as jest.Mock).mockReturnValue({
+        id: "place-1",
+        name: "Mock Winery",
+        address: "123 mock address",
+        latitude: 42.5,
+        longitude: -76.8,
+      });
+
+      render(<PlaceAutocomplete onPlaceSelect={mockOnPlaceSelect} />);
+
+      const input = screen.getByTestId("place-autocomplete-input");
+      fireEvent.change(input, { target: { value: "mock winery" } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("place-autocomplete-results")).toBeVisible();
+      });
+
+      // Clear mock calls from initial typing
+      mockFetchSuggestions.mockClear();
+
+      const suggestionBtn = screen.getByTestId("autocomplete-option-0");
+      fireEvent.click(suggestionBtn);
+
+      await waitFor(() => {
+        expect(mockOnPlaceSelect).toHaveBeenCalled();
+      });
+
+      // Wait past the 300ms debounce interval to verify programmatic updates do not re-trigger fetchSuggestions
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
+      // RED PHASE CHECK: In current PlaceAutocomplete, setInputValue(text) triggers the debounce useEffect,
+      // which invokes fetchSuggestions("Mock Winery", ...) and sets isOpen=true after 300ms.
+      // Target behavior uses an internal guard ref to suppress debounced re-queries on programmatic selection.
+      expect(mockFetchSuggestions).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("place-autocomplete-results")).not.toBeInTheDocument();
+    });
+
+    it("retains the typed search string and keeps dropdown closed when place details resolution fails", async () => {
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+
+      const mockSuggestions = [
+        {
+          placePrediction: {
+            toPlace: () => ({ id: "place-fail" }),
+            text: { text: "Failing Winery Prediction Full Name" },
+            mainText: { text: "Failing Winery" },
+            secondaryText: { text: "999 Error Rd" },
+          },
+        },
+      ];
+
+      (usePlacesAutocompleteSession as jest.Mock).mockReturnValue({
+        suggestions: mockSuggestions,
+        isLoading: false,
+        fetchSuggestions: mockFetchSuggestions,
+        fetchPlaceDetails: mockFetchPlaceDetails.mockRejectedValue(
+          new Error("Places API fetch failure")
+        ),
+        setSuggestions: mockSetSuggestions,
+        refreshSessionToken: jest.fn(),
+      });
+
+      render(
+        <PlaceAutocomplete
+          onPlaceSelect={mockOnPlaceSelect}
+          {...({ clearOnSelect: true } as any)}
+        />
+      );
+
+      const input = screen.getByTestId("place-autocomplete-input");
+      fireEvent.change(input, { target: { value: "Keuka Spring" } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("place-autocomplete-results")).toBeVisible();
+      });
+
+      const suggestionBtn = screen.getByTestId("autocomplete-option-0");
+      fireEvent.click(suggestionBtn);
+
+      await waitFor(() => {
+        expect(mockFetchPlaceDetails).toHaveBeenCalled();
+      });
+
+      // Wait past debounce interval
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
+      // RED PHASE CHECK: In current PlaceAutocomplete, setInputValue(text) overwrites the input with prediction text
+      // before details are fetched. On failure, the input retains prediction text instead of what the user typed.
+      // Target behavior retains the user's typed search query ("Keuka Spring") and keeps dropdown closed.
+      expect(mockOnPlaceSelect).not.toHaveBeenCalled();
+      expect(input).toHaveValue("Keuka Spring");
+      expect(screen.queryByTestId("place-autocomplete-results")).not.toBeInTheDocument();
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it("retains the selected place text and keeps dropdown closed when clearOnSelect is false (MapSearchBar regression)", async () => {
+      const mockSdkPlace = {
+        id: "place-map-1",
+        displayName: "Dr. Konstantin Frank",
+        formattedAddress: "9749 Middle Rd, Hammondsport, NY",
+        location: {
+          lat: () => 42.55,
+          lng: () => -77.18,
+        },
+      };
+
+      const mockSuggestions = [
+        {
+          placePrediction: {
+            toPlace: () => mockSdkPlace,
+            text: { text: "Dr. Konstantin Frank Winery" },
+            mainText: { text: "Dr. Konstantin Frank" },
+            secondaryText: { text: "9749 Middle Rd, Hammondsport, NY" },
+          },
+        },
+      ];
+
+      const mockWineryObj = {
+        id: "place-map-1",
+        name: "Dr. Konstantin Frank Winery",
+        address: "9749 Middle Rd, Hammondsport, NY",
+        latitude: 42.55,
+        longitude: -77.18,
+      };
+
+      (usePlacesAutocompleteSession as jest.Mock).mockReturnValue({
+        suggestions: mockSuggestions,
+        isLoading: false,
+        fetchSuggestions: mockFetchSuggestions,
+        fetchPlaceDetails: mockFetchPlaceDetails.mockResolvedValue(mockSdkPlace),
+        setSuggestions: mockSetSuggestions,
+        refreshSessionToken: jest.fn(),
+      });
+
+      (standardizeWineryData as jest.Mock).mockReturnValue(mockWineryObj);
+
+      render(
+        <PlaceAutocomplete
+          onPlaceSelect={mockOnPlaceSelect}
+          {...({ clearOnSelect: false } as any)}
+        />
+      );
+
+      const input = screen.getByTestId("place-autocomplete-input");
+      fireEvent.change(input, { target: { value: "Frank" } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("place-autocomplete-results")).toBeVisible();
+      });
+
+      mockFetchSuggestions.mockClear();
+
+      const suggestionBtn = screen.getByTestId("autocomplete-option-0");
+      fireEvent.click(suggestionBtn);
+
+      await waitFor(() => {
+        expect(mockOnPlaceSelect).toHaveBeenCalledWith(mockWineryObj, mockSdkPlace);
+      });
+
+      // Input must retain the selected place name
+      expect(input).toHaveValue("Dr. Konstantin Frank Winery");
+
+      // Wait past debounce interval
+      await new Promise((resolve) => setTimeout(resolve, 350));
+
+      // RED PHASE CHECK: In current PlaceAutocomplete, setting the input value to the selected name triggers
+      // a re-query after 300ms. Target behavior suppresses re-querying when clearOnSelect is false.
+      expect(mockFetchSuggestions).not.toHaveBeenCalled();
+      expect(screen.queryByTestId("place-autocomplete-results")).not.toBeInTheDocument();
+    });
+  });
 });
 
