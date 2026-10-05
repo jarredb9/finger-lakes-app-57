@@ -104,7 +104,12 @@
 ## Phase 7: End-to-End Verification & Final Quality Gates
 
 - [ ] Task: E2E Integration Flow (Playwright)
-    - [ ] Add or update E2E test in `e2e/trip-flow.spec.ts` covering dialog opening, winery search/selection via `PlaceAutocomplete`, submission, and verifying the resulting trip card displays "1 Winery" (and "N Wineries" for multiple stops).
+    - [ ] Replace existing placeholder stub `test('can create a new trip from a winery')` in `e2e/trip-flow.spec.ts` with `test('can create a new trip with initial winery stops from dialog')` covering:
+        - Opening the "New Trip" dialog from the sidebar.
+        - Searching and selecting multiple Places via `PlaceAutocomplete` as planned Trip Stops.
+        - Verifying `clearOnSelect` clears the input and suppresses re-querying after each selection.
+        - Verifying selected winery badges render with remove buttons and deduplication.
+        - Submitting the form and asserting the created trip card displays correct pluralized badge ("2 Wineries").
     - [ ] Execute Playwright test via container runner (`./scripts/run-e2e-container.sh webkit e2e/trip-flow.spec.ts`).
 - [ ] Task: Full Suite Verification & Build Audit
     - [ ] Run full unit test suite via container runner (`./scripts/run-jest-container.sh`).
