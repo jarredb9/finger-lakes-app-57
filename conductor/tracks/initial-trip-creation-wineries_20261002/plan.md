@@ -91,12 +91,12 @@
     - [x] Add test case verifying background cache invalidation (`fetchUpcomingTrips`, `fetchTripsForDate`, `fetchTrips`).
     - [x] Add test case verifying that errors tagged with `preventOfflineEnqueue` bypass `handleSyncError` and do NOT enqueue to offline store.
     - [x] Run containerized Jest suite (`./scripts/run-jest-container.sh lib/stores/slices/__tests__/tripMutationHelpers.test.ts`) and confirm test failure.
-- [ ] Task: Implement Store Count Population, Offline Suppression & Badge Pluralization (Green Phase)
-    - [ ] In `createTripHelper` (`lib/stores/slices/tripMutationHelpers.ts`), set `wineries_count: validWineries.length` on `tempTrip` and `wineries_count: (createdTrip?.wineries?.length ?? validWineries.length)` on `syncedTrip`.
-    - [ ] Suppress offline enqueueing when `(error as any)?.preventOfflineEnqueue` is true.
-    - [ ] Fire non-blocking `void Promise.all([...])` background cache refresh.
-    - [ ] Update `components/TripCardSimplePresentational.tsx` badge to pluralize correctly: `{count} {count === 1 ? 'Winery' : 'Wineries'}`.
-    - [ ] Run containerized Jest suite and verify all tests pass.
+- [x] Task: Implement Store Count Population, Offline Suppression & Badge Pluralization (Green Phase) [commit: d4006dd8]
+    - [x] In `createTripHelper` (`lib/stores/slices/tripMutationHelpers.ts`), set `wineries_count: validWineries.length` on `tempTrip` and `wineries_count: (createdTrip?.wineries?.length ?? validWineries.length)` on `syncedTrip`.
+    - [x] Suppress offline enqueueing when `(error as any)?.preventOfflineEnqueue` is true.
+    - [x] Fire non-blocking `void Promise.all([...])` background cache refresh.
+    - [x] Update `components/TripCardSimplePresentational.tsx` badge to pluralize correctly: `{count} {count === 1 ? 'Winery' : 'Wineries'}`.
+    - [x] Run containerized Jest suite and verify all tests pass.
 - [ ] Task: Refactor & Scaffolding Cleanup
     - [ ] Clean up store helper logic, verify Zustand 5 selectors, and remove any temporary test artifacts.
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Store Invariants, Background Invalidation & Badge Pluralization' (Protocol in workflow.md)
