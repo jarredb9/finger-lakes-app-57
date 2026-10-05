@@ -73,9 +73,9 @@
 
 ## Phase 5: Offline Sync Parity (`syncService.ts`)
 
-- [ ] Task: Write Failing Tests for Offline Multi-Stop Trip Replay (Red Phase)
-    - [ ] Add unit/integration test in `lib/stores/__tests__/tripStore.syncStore.test.ts` asserting that an offline `create_trip` sync item with multiple wineries replays through `TripService.createTrip` without dropping stops 2+ and populates `wineries_count`.
-    - [ ] Run containerized Jest suite and confirm test failure.
+- [x] Task: Write Failing Tests for Offline Multi-Stop Trip Replay (Red Phase) [commit: 4d9dabe5]
+    - [x] Add unit/integration test in `lib/stores/__tests__/tripStore.syncStore.test.ts` asserting that an offline `create_trip` sync item with multiple wineries replays through `TripService.createTrip` without dropping stops 2+ and populates `wineries_count`.
+    - [x] Run containerized Jest suite and confirm test failure.
 - [ ] Task: Refactor `syncService.ts` to Delegate to `TripService.createTrip` (Green Phase)
     - [ ] In `lib/services/syncService.ts`, refactor `'create_trip'` case to invoke `TripService.createTrip(payload, item.id)`.
     - [ ] Populate `wineries_count` on the replaced store trip and trigger background cache invalidation (`fetchUpcomingTrips`, `fetchTripsForDate`, `fetchTrips`).
