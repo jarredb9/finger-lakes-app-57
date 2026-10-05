@@ -7,7 +7,7 @@ import { useTripStore } from '@/lib/stores/tripStore';
 import { useFriendStore } from '@/lib/stores/friendStore';
 import { useWineryStore } from '@/lib/stores/wineryStore';
 import { TripService } from './tripService';
-import { Trip, toGooglePlaceId, toWineryDbId } from '@/lib/types';
+import { Trip, Winery, toGooglePlaceId, toWineryDbId } from '@/lib/types';
 import { isRecord } from '@/lib/utils/winery';
 import { isNetworkError } from '../stores/sync-utils';
 import { get as idbGet, set as idbSet } from 'idb-keyval';
@@ -72,6 +72,15 @@ interface UpdateVisitPayload {
   newPhotos: (string | Base64Photo)[];
   photosToDelete: string[];
   visitData: Record<string, unknown>;
+}
+
+interface CreateTripPayload {
+  tempId?: number;
+  name?: string;
+  trip_date?: string;
+  wineries?: Winery[];
+  notes?: string;
+  [key: string]: unknown;
 }
 
 export const SyncService = {
@@ -378,37 +387,38 @@ export const SyncService = {
 
             case 'delete_visit':
               const { error: deleteError } = await supabase.rpc('delete_visit', {
-                p_visit_id: parseInt(payload.visitId)
+                p_visit_id: parseInt(payload.visitId, 10)
               });
               error = deleteError;
               break;
 
             case 'create_trip': {
+              const p = payload as CreateTripPayload;
               try {
-                const syncedTrip = await TripService.createTrip(payload, item.id);
+                const syncedTrip = await TripService.createTrip(p, item.id);
                 if (!syncedTrip) {
                   throw new Error(`Failed to create trip for mutation ${item.id}`);
                 }
-                const targetDate = syncedTrip.trip_date || payload.trip_date;
+                const targetDate = syncedTrip.trip_date || p.trip_date || '';
                 const wineriesCount =
                   syncedTrip.wineries_count ??
                   syncedTrip.wineries?.length ??
-                  payload.wineries?.length ??
+                  p.wineries?.length ??
                   0;
                 const finalTrip: Trip = {
                   ...syncedTrip,
                   id: Number(syncedTrip.id),
                   user_id: syncedTrip.user_id || user.id,
-                  name: syncedTrip.name || payload.name,
+                  name: syncedTrip.name || p.name,
                   trip_date: targetDate,
-                  wineries: syncedTrip.wineries || payload.wineries || [],
+                  wineries: syncedTrip.wineries || p.wineries || [],
                   wineries_count: wineriesCount,
                   members: syncedTrip.members || [],
                   syncStatus: 'synced',
                 };
 
-                if (payload.tempId) {
-                  useTripStore.getState().replaceTripTempId(payload.tempId, finalTrip);
+                if (p.tempId) {
+                  useTripStore.getState().replaceTripTempId(p.tempId, finalTrip);
                 }
 
                 if (targetDate) {
@@ -424,7 +434,7 @@ export const SyncService = {
               const { tripId: uTripId, updates: uUpdates } = payload;
               if (uUpdates.wineryOrder) {
                 const { error: reorderError } = await supabase.rpc('reorder_trip_wineries', {
-                  p_trip_id: parseInt(uTripId),
+                  p_trip_id: parseInt(uTripId, 10),
                   p_winery_ids: uUpdates.wineryOrder
                 });
                 error = reorderError;
@@ -439,7 +449,7 @@ export const SyncService = {
                 const { wineryId: nWineryId, notes: nNotes } = uUpdates.updateNote;
                 if (typeof nNotes === 'string') {
                     const { error: noteError } = await supabase.rpc('update_trip_winery_notes', {
-                      p_trip_id: parseInt(uTripId),
+                      p_trip_id: parseInt(uTripId, 10),
                       p_winery_id: nWineryId,
                       p_notes: nNotes
                     });
@@ -447,8 +457,8 @@ export const SyncService = {
                 } else if (typeof nNotes === 'object') {
                     const promises = Object.entries(nNotes).map(([wId, text]) => 
                         supabase.rpc('update_trip_winery_notes', {
-                            p_trip_id: parseInt(uTripId),
-                            p_winery_id: parseInt(wId),
+                            p_trip_id: parseInt(uTripId, 10),
+                            p_winery_id: parseInt(wId, 10),
                             p_notes: text as string
                         })
                     );
@@ -459,7 +469,7 @@ export const SyncService = {
               } else if (uUpdates.addWinery) {
                   const { winery, notes: aNotes } = uUpdates.addWinery;
                   const { error: addError } = await supabase.rpc('add_winery_to_trip', {
-                      p_trip_id: parseInt(uTripId),
+                      p_trip_id: parseInt(uTripId, 10),
                       p_winery_data: WineryService.getRpcData(winery),
                       p_notes: aNotes
                   });
@@ -502,7 +512,7 @@ export const SyncService = {
 
             case 'delete_trip':
               const { error: dTripError } = await supabase.rpc('delete_trip', {
-                p_trip_id: parseInt(payload.tripId)
+                p_trip_id: parseInt(payload.tripId, 10)
               });
               error = dTripError;
               break;

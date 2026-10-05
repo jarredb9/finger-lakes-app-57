@@ -73,7 +73,7 @@ describe('SyncService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (SyncService as any).isSyncing = false;
+    SyncService.isSyncing = false;
 
     mockSupabase = {
       auth: {
