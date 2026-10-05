@@ -37,15 +37,49 @@ const tripSchema = z.object({
   date: z.date({
     required_error: "Date is required",
   }),
-  wineries: z.array(z.any()), // Using any for the complex Winery object
-})
+  wineries: z.array(z.custom<Winery>()),
+});
 
-type TripFormValues = z.infer<typeof tripSchema>
+type TripFormValues = z.infer<typeof tripSchema>;
 
 type TripActionState = {
   success: boolean;
   error: string | null;
 };
+
+interface SelectedWineriesListProps {
+  wineries: Winery[];
+  onRemoveWinery: (wineryId: string | number) => void;
+}
+
+export function SelectedWineriesList({ wineries, onRemoveWinery }: SelectedWineriesListProps) {
+  if (wineries.length === 0) return null;
+
+  return (
+    <div
+      className="flex flex-wrap gap-2 mt-3 p-2 border rounded-lg bg-muted/30"
+      data-testid="selected-wineries-list"
+    >
+      {wineries.map((winery) => (
+        <Badge
+          key={winery.id}
+          className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 px-2.5 py-1 text-xs"
+          data-testid={`selected-winery-${winery.id}`}
+        >
+          <span>{winery.name}</span>
+          <button
+            type="button"
+            onClick={() => onRemoveWinery(winery.id)}
+            className="rounded-full p-0.5 hover:bg-black/10 text-primary-foreground/80 hover:text-primary-foreground transition-colors cursor-pointer"
+            aria-label={`Remove ${winery.name}`}
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </Badge>
+      ))}
+    </div>
+  );
+}
 
 export default function TripForm({ initialDate, user, onClose }: TripFormProps) {
   const [mounted, setMounted] = useState(false);
@@ -57,7 +91,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
   }, []);
 
   const { toast } = useToast();
-  const { createTrip } = useTripStore();
+  const createTrip = useTripStore((s) => s.createTrip);
   
   // Initialize form
   const form = useForm<TripFormValues>({
@@ -68,7 +102,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
       date: initialDate,
       wineries: [],
     },
-  })
+  });
 
   const [_actionState, formAction, isPending] = useActionState<TripActionState, TripFormValues>(
     async (_prevState, data) => {
@@ -149,7 +183,7 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
               control={form.control}
               name="wineries"
               render={({ field }) => {
-                const wineries = (field.value || []) as Winery[];
+                const wineries = field.value || [];
 
                 const handleSelectWinery = (winery: Winery) => {
                   const exists = wineries.some((w) => w.id === winery.id);
@@ -175,31 +209,10 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
                       />
                     </FormControl>
 
-                    {/* Selected Wineries List */}
-                    {wineries.length > 0 && (
-                      <div
-                        className="flex flex-wrap gap-2 mt-3 p-2 border rounded-lg bg-muted/30"
-                        data-testid="selected-wineries-list"
-                      >
-                        {wineries.map((winery) => (
-                          <Badge
-                            key={winery.id}
-                            className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 px-2.5 py-1 text-xs"
-                            data-testid={`selected-winery-${winery.id}`}
-                          >
-                            <span>{winery.name}</span>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveWinery(winery.id)}
-                              className="rounded-full p-0.5 hover:bg-black/10 text-primary-foreground/80 hover:text-primary-foreground transition-colors cursor-pointer"
-                              aria-label={`Remove ${winery.name}`}
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
+                    <SelectedWineriesList
+                      wineries={wineries}
+                      onRemoveWinery={handleRemoveWinery}
+                    />
 
                     <FormMessage />
                   </FormItem>
