@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useActionState, startTransition } from "react";
 import { useTripStore } from "@/lib/stores/tripStore"; 
-import { useWineryStore } from "@/lib/stores/wineryStore";
 import { DatePicker } from "./DatePicker";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -59,7 +58,6 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
 
   const { toast } = useToast();
   const { createTrip } = useTripStore();
-  const { ensureInDb, upsertWinery } = useWineryStore();
   
   // Initialize form
   const form = useForm<TripFormValues>({
@@ -101,30 +99,6 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
     },
     { success: false, error: null }
   );
-
-  const selectedWineries = form.watch("wineries") as Winery[];
-
-  const handleWineryToggle = async (winery: Winery) => {
-    const currentWineries = form.getValues("wineries") as Winery[];
-    const isSelected = currentWineries.some(w => w.id === winery.id);
-
-    if (isSelected) {
-      form.setValue("wineries", currentWineries.filter(w => w.id !== winery.id));
-    } else {
-      // Add - first ensure it's in the store and DB
-      upsertWinery(winery);
-      let dbId: number | null = null;
-      try {
-        dbId = await ensureInDb(winery.id);
-      } catch {
-        dbId = null;
-      }
-      
-      const resolvedDbId = dbId ?? -Date.now();
-      const wineryWithDbId = { ...winery, dbId: resolvedDbId };
-      form.setValue("wineries", [...currentWineries, wineryWithDbId]);
-    }
-  };
 
   const onSubmit = (data: TripFormValues) => {
     startTransition(() => {
@@ -171,45 +145,67 @@ export default function TripForm({ initialDate, user, onClose }: TripFormProps) 
               />
             </div>
 
-            <div>
-              <FormLabel className="font-semibold">Select Wineries (Optional):</FormLabel>
-              
-              <PlaceAutocomplete
-                placeholder="Search for a winery..."
-                onPlaceSelect={async (winery) => {
-                  await handleWineryToggle(winery);
-                }}
-                includedPrimaryTypes={["winery"]}
-                className="mt-2"
-                id="trip-form-winery-autocomplete"
-              />
+            <FormField
+              control={form.control}
+              name="wineries"
+              render={({ field }) => {
+                const wineries = (field.value || []) as Winery[];
 
-              {/* Selected Wineries List */}
-              {selectedWineries.length > 0 && (
-                <div className="flex flex-wrap gap-2 mt-3 p-2 border rounded-lg bg-muted/30" data-testid="selected-wineries-list">
-                  {selectedWineries.map((winery) => (
-                    <Badge 
-                      key={winery.id} 
-                      className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 px-2.5 py-1 text-xs"
-                      data-testid={`selected-winery-${winery.id}`}
-                    >
-                      <span>{winery.name}</span>
-                      <button 
-                        type="button" 
-                        onClick={() => handleWineryToggle(winery)}
-                        className="rounded-full p-0.5 hover:bg-black/10 text-primary-foreground/80 hover:text-primary-foreground transition-colors cursor-pointer"
-                        aria-label={`Remove ${winery.name}`}
+                const handleSelectWinery = (winery: Winery) => {
+                  const exists = wineries.some((w) => w.id === winery.id);
+                  if (!exists) {
+                    field.onChange([...wineries, winery]);
+                  }
+                };
+
+                const handleRemoveWinery = (wineryId: string | number) => {
+                  field.onChange(wineries.filter((w) => w.id !== wineryId));
+                };
+
+                return (
+                  <FormItem>
+                    <FormLabel className="font-semibold">Select Wineries (Optional):</FormLabel>
+                    <FormControl>
+                      <PlaceAutocomplete
+                        placeholder="Search for a winery..."
+                        onPlaceSelect={handleSelectWinery}
+                        includedPrimaryTypes={["winery"]}
+                        className="mt-2"
+                        id="trip-form-winery-autocomplete"
+                      />
+                    </FormControl>
+
+                    {/* Selected Wineries List */}
+                    {wineries.length > 0 && (
+                      <div
+                        className="flex flex-wrap gap-2 mt-3 p-2 border rounded-lg bg-muted/30"
+                        data-testid="selected-wineries-list"
                       >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
+                        {wineries.map((winery) => (
+                          <Badge
+                            key={winery.id}
+                            className="bg-primary text-primary-foreground hover:bg-primary/90 flex items-center gap-1.5 px-2.5 py-1 text-xs"
+                            data-testid={`selected-winery-${winery.id}`}
+                          >
+                            <span>{winery.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveWinery(winery.id)}
+                              className="rounded-full p-0.5 hover:bg-black/10 text-primary-foreground/80 hover:text-primary-foreground transition-colors cursor-pointer"
+                              aria-label={`Remove ${winery.name}`}
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
 
-              {/* Show error for wineries if we added validation for min length later */}
-              <FormMessage>{form.formState.errors.wineries?.message}</FormMessage>
-            </div>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
+            />
 
             {form.formState.errors.root?.message && (
               <p className="text-sm font-medium text-destructive">
