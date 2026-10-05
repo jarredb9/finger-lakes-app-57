@@ -49,9 +49,9 @@
     - [x] In `handleSelectSuggestion`, clear `inputValue` on successful selection if `clearOnSelect` is true; retain typed string on error.
     - [x] In `components/trip-form.tsx`, pass `clearOnSelect={true}` to `PlaceAutocomplete`.
     - [x] Run containerized Jest suite and confirm all tests pass.
-- [ ] Task: Refactor & Scaffolding Cleanup
-    - [ ] Refactor `PlaceAutocomplete.tsx` for clean hook separation and accessibility.
-    - [ ] Perform scaffolding audit: ensure zero temporary or throwaway test files exist.
+- [x] Task: Refactor & Scaffolding Cleanup [commit: 579d0b45]
+    - [x] Refactor `PlaceAutocomplete.tsx` for clean hook separation and accessibility.
+    - [x] Perform scaffolding audit: ensure zero temporary or throwaway test files exist.
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: PlaceAutocomplete Selection UX & Re-Query Suppression' (Protocol in workflow.md)
 
 ## Phase 4: Dual-Key Coordinates, Polymorphic Chaining & Strict Rollback (`WineryService`, `TripService`)
