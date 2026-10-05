@@ -384,48 +384,38 @@ export const SyncService = {
               break;
 
             case 'create_trip': {
-              let createdTripResult: { trip_id?: number | string; id?: number | string } | null = null;
-              if (payload.wineries && payload.wineries.length > 0) {
-                  const { data, error: tripError } = await supabase.rpc('create_trip_with_winery', {
-                    p_trip_name: payload.name,
-                    p_trip_date: payload.trip_date,
-                    p_winery_data: WineryService.getRpcData(payload.wineries[0]),
-                    p_notes: payload.notes || null,
-                    p_members: [],
-                    p_idempotency_key: item.id
-                  });
-                  error = tripError;
-                  createdTripResult = data;
-              } else {
-                  const { data, error: tripError } = await supabase.rpc('create_trip', {
-                    p_name: payload.name,
-                    p_trip_date: payload.trip_date,
-                    p_idempotency_key: item.id
-                  });
-                  error = tripError;
-                  createdTripResult = data;
-              }
+              try {
+                const syncedTrip = await TripService.createTrip(payload, item.id);
+                if (!syncedTrip) {
+                  throw new Error(`Failed to create trip for mutation ${item.id}`);
+                }
+                const targetDate = syncedTrip.trip_date || payload.trip_date;
+                const wineriesCount =
+                  syncedTrip.wineries_count ??
+                  syncedTrip.wineries?.length ??
+                  payload.wineries?.length ??
+                  0;
+                const finalTrip: Trip = {
+                  ...syncedTrip,
+                  id: Number(syncedTrip.id),
+                  user_id: syncedTrip.user_id || user.id,
+                  name: syncedTrip.name || payload.name,
+                  trip_date: targetDate,
+                  wineries: syncedTrip.wineries || payload.wineries || [],
+                  wineries_count: wineriesCount,
+                  members: syncedTrip.members || [],
+                  syncStatus: 'synced',
+                };
 
-              if (!error && payload.tempId) {
-                const serverTripId = createdTripResult?.trip_id || createdTripResult?.id;
-                if (serverTripId) {
-                  let syncedTrip: Trip | null = null;
-                  try {
-                    syncedTrip = await TripService.getTripById(serverTripId.toString());
-                  } catch {
-                    syncedTrip = null;
-                  }
-                  const finalTrip: Trip = syncedTrip || {
-                    id: Number(serverTripId),
-                    user_id: user.id,
-                    name: payload.name,
-                    trip_date: payload.trip_date,
-                    wineries: payload.wineries || [],
-                    members: [],
-                    syncStatus: 'synced',
-                  };
+                if (payload.tempId) {
                   useTripStore.getState().replaceTripTempId(payload.tempId, finalTrip);
                 }
+
+                if (targetDate) {
+                  useTripStore.getState().fetchTripsForDate(targetDate);
+                }
+              } catch (err) {
+                error = err;
               }
               break;
             }
