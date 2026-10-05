@@ -44,11 +44,11 @@
     - [x] Add tests in `components/__tests__/trip-form.test.tsx` verifying that selecting a winery clears the search input when `clearOnSelect={true}`.
     - [x] Add regression tests in `components/__tests__/PlaceAutocomplete.test.tsx` verifying default `clearOnSelect: false` retains the selected place string without re-opening the dropdown (covering `MapSearchBar` behavior).
     - [x] Run containerized Jest suite (`./scripts/run-jest-container.sh components/__tests__/PlaceAutocomplete.test.tsx components/__tests__/trip-form.test.tsx`) and confirm expected test failures.
-- [ ] Task: Implement Selection Guard & `clearOnSelect` in `PlaceAutocomplete` (Green Phase)
-    - [ ] In `components/PlaceAutocomplete.tsx`, implement `clearOnSelect?: boolean` prop and internal programmatic selection guard ref to suppress debounced re-queries.
-    - [ ] In `handleSelectSuggestion`, clear `inputValue` on successful selection if `clearOnSelect` is true; retain typed string on error.
-    - [ ] In `components/trip-form.tsx`, pass `clearOnSelect={true}` to `PlaceAutocomplete`.
-    - [ ] Run containerized Jest suite and confirm all tests pass.
+- [x] Task: Implement Selection Guard & `clearOnSelect` in `PlaceAutocomplete` (Green Phase) [commit: 369c2b00]
+    - [x] In `components/PlaceAutocomplete.tsx`, implement `clearOnSelect?: boolean` prop and internal programmatic selection guard ref to suppress debounced re-queries.
+    - [x] In `handleSelectSuggestion`, clear `inputValue` on successful selection if `clearOnSelect` is true; retain typed string on error.
+    - [x] In `components/trip-form.tsx`, pass `clearOnSelect={true}` to `PlaceAutocomplete`.
+    - [x] Run containerized Jest suite and confirm all tests pass.
 - [ ] Task: Refactor & Scaffolding Cleanup
     - [ ] Refactor `PlaceAutocomplete.tsx` for clean hook separation and accessibility.
     - [ ] Perform scaffolding audit: ensure zero temporary or throwaway test files exist.
