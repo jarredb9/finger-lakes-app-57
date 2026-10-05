@@ -138,14 +138,14 @@ export const TripService = {
                 for (const extra of extraWineries) {
                     await this.addWineryToExistingTrip(data.trip_id, extra, extra.notes || null);
                 }
-            } catch (chainedError: any) {
+            } catch (chainedError: unknown) {
                 try {
                     await this.deleteTrip(data.trip_id.toString());
                 } catch (rollbackError) {
                     console.error("Failed to rollback trip creation after chaining error:", rollbackError);
                 }
                 if (chainedError && typeof chainedError === 'object') {
-                    chainedError.preventOfflineEnqueue = true;
+                    (chainedError as { preventOfflineEnqueue?: boolean }).preventOfflineEnqueue = true;
                 }
                 throw chainedError;
             }
@@ -309,7 +309,7 @@ export const TripService = {
     return { success: true, tripId: data.trip_id };
   },
 
-  async addWineryToExistingTrip(tripId: number, wineryOrId: number | Winery, notes: string | null = null) {
+  async addWineryToExistingTrip(tripId: number, wineryOrId: number | Winery, notes: string | null = null): Promise<{ success: true }> {
     const supabase = createClient();
 
     if (typeof wineryOrId === 'object' && wineryOrId !== null) {
