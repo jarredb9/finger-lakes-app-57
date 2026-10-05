@@ -17,7 +17,7 @@
     - [x] Remove any temporary SQL scripts or exploration artifacts.
 - [x] Task: Conductor - User Manual Verification 'Phase 1: PostgreSQL RPC Coordinate Standardization' (Protocol in workflow.md)
 
-## Phase 2: Test Suite Restructuring & Controlled Binding (`TripForm`)
+## Phase 2: Test Suite Restructuring & Controlled Binding (`TripForm`) [checkpoint: 1944413]
 
 - [x] Task: Restructure Legacy Test Suite & Write Failing Tests for Form Field Registration (Red Phase) [commit: 380d591b]
     - [x] Extract auth form tests (`LoginForm`, `ForgotPasswordForm`, `ManualConfirmForm`) from `components/__tests__/react19-form-actions.test.tsx` into `components/__tests__/auth-forms.test.tsx`.
