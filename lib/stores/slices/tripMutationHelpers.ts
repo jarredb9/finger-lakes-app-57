@@ -88,6 +88,7 @@ export async function createTripHelper(
     trip_date: validTripDate,
     name: validName,
     wineries: validWineries,
+    wineries_count: validWineries.length,
     members: [],
     syncStatus: 'pending',
   };
@@ -122,7 +123,11 @@ export async function createTripHelper(
       get().setLastActionTimestamp(createdTrip.id.toString(), finishedNow);
     }
     set(state => {
-      const syncedTrip = createdTrip ? { ...createdTrip, syncStatus: 'synced' as const } : null;
+      const syncedTrip = createdTrip ? {
+        ...createdTrip,
+        wineries_count: createdTrip.wineries_count ?? createdTrip.wineries?.length ?? validWineries.length,
+        syncStatus: 'synced' as const
+      } : null;
       return {
         tripsForDate: state.tripsForDate.map(t => Number(t.id) === tempId ? syncedTrip! : t),
         upcomingTrips: state.upcomingTrips.map(t => Number(t.id) === tempId ? syncedTrip! : t),
@@ -131,8 +136,27 @@ export async function createTripHelper(
       };
     });
 
+    void Promise.all([
+      get().fetchUpcomingTrips(),
+      get().fetchTripsForDate(validTripDate),
+      get().fetchTrips(1, 'upcoming', true)
+    ]).catch(err => {
+      console.error("Failed to refresh background cache after trip creation:", err);
+    });
+
     return createdTrip;
   } catch (error) {
+    if ((error as { preventOfflineEnqueue?: boolean })?.preventOfflineEnqueue) {
+      console.error("Trip creation chained addition failed, rolling back optimistic state and suppressing offline enqueue.", error);
+      set(state => ({ 
+        tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tempId),
+        upcomingTrips: state.upcomingTrips.filter(t => Number(t.id) !== tempId),
+        trips: state.trips.filter(t => Number(t.id) !== tempId),
+        lastActionTimestamp: Date.now()
+      }));
+      throw error;
+    }
+
     if (await handleSyncError(error, 'create_trip', user?.id, syncPayload, idempotencyKey)) {
       return tempTrip;
     }
