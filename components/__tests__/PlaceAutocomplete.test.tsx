@@ -238,7 +238,7 @@ describe("PlaceAutocomplete", () => {
     expect(mockFetchPlaceDetails).not.toHaveBeenCalled();
   });
 
-  describe("PlaceAutocomplete clearOnSelect & Re-Query Suppression (Issue #57 Red Phase)", () => {
+  describe("PlaceAutocomplete clearOnSelect & Re-Query Suppression Invariants", () => {
     it("clears inputValue upon successful suggestion selection when clearOnSelect is true", async () => {
       const mockSdkPlace = {
         id: "place-1",
@@ -283,7 +283,7 @@ describe("PlaceAutocomplete", () => {
       render(
         <PlaceAutocomplete
           onPlaceSelect={mockOnPlaceSelect}
-          {...({ clearOnSelect: true } as any)}
+          clearOnSelect={true}
         />
       );
 
@@ -301,9 +301,6 @@ describe("PlaceAutocomplete", () => {
         expect(mockOnPlaceSelect).toHaveBeenCalledWith(mockWineryObj, mockSdkPlace);
       });
 
-      // RED PHASE CHECK: In current PlaceAutocomplete, handleSelectSuggestion calls setInputValue(text)
-      // without checking clearOnSelect, so the input retains "Mock Winery".
-      // Target behavior clears inputValue to "" on successful selection when clearOnSelect={true}.
       expect(input).toHaveValue("");
     });
 
@@ -355,7 +352,6 @@ describe("PlaceAutocomplete", () => {
         expect(screen.getByTestId("place-autocomplete-results")).toBeVisible();
       });
 
-      // Clear mock calls from initial typing
       mockFetchSuggestions.mockClear();
 
       const suggestionBtn = screen.getByTestId("autocomplete-option-0");
@@ -365,12 +361,8 @@ describe("PlaceAutocomplete", () => {
         expect(mockOnPlaceSelect).toHaveBeenCalled();
       });
 
-      // Wait past the 300ms debounce interval to verify programmatic updates do not re-trigger fetchSuggestions
       await new Promise((resolve) => setTimeout(resolve, 350));
 
-      // RED PHASE CHECK: In current PlaceAutocomplete, setInputValue(text) triggers the debounce useEffect,
-      // which invokes fetchSuggestions("Mock Winery", ...) and sets isOpen=true after 300ms.
-      // Target behavior uses an internal guard ref to suppress debounced re-queries on programmatic selection.
       expect(mockFetchSuggestions).not.toHaveBeenCalled();
       expect(screen.queryByTestId("place-autocomplete-results")).not.toBeInTheDocument();
     });
@@ -403,7 +395,7 @@ describe("PlaceAutocomplete", () => {
       render(
         <PlaceAutocomplete
           onPlaceSelect={mockOnPlaceSelect}
-          {...({ clearOnSelect: true } as any)}
+          clearOnSelect={true}
         />
       );
 
@@ -421,12 +413,8 @@ describe("PlaceAutocomplete", () => {
         expect(mockFetchPlaceDetails).toHaveBeenCalled();
       });
 
-      // Wait past debounce interval
       await new Promise((resolve) => setTimeout(resolve, 350));
 
-      // RED PHASE CHECK: In current PlaceAutocomplete, setInputValue(text) overwrites the input with prediction text
-      // before details are fetched. On failure, the input retains prediction text instead of what the user typed.
-      // Target behavior retains the user's typed search query ("Keuka Spring") and keeps dropdown closed.
       expect(mockOnPlaceSelect).not.toHaveBeenCalled();
       expect(input).toHaveValue("Keuka Spring");
       expect(screen.queryByTestId("place-autocomplete-results")).not.toBeInTheDocument();
@@ -478,7 +466,7 @@ describe("PlaceAutocomplete", () => {
       render(
         <PlaceAutocomplete
           onPlaceSelect={mockOnPlaceSelect}
-          {...({ clearOnSelect: false } as any)}
+          clearOnSelect={false}
         />
       );
 
@@ -504,10 +492,74 @@ describe("PlaceAutocomplete", () => {
       // Wait past debounce interval
       await new Promise((resolve) => setTimeout(resolve, 350));
 
-      // RED PHASE CHECK: In current PlaceAutocomplete, setting the input value to the selected name triggers
-      // a re-query after 300ms. Target behavior suppresses re-querying when clearOnSelect is false.
       expect(mockFetchSuggestions).not.toHaveBeenCalled();
       expect(screen.queryByTestId("place-autocomplete-results")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Accessibility & WAI-ARIA Combobox Attributes", () => {
+    it("renders combobox attributes and controls suggestions listbox with option selection", async () => {
+      const mockSdkPlace = {
+        id: "place-aria-1",
+        displayName: "Wagner Vineyards",
+        formattedAddress: "9322 NY-414, Lodi, NY",
+        location: { lat: () => 42.6, lng: () => -76.9 },
+      };
+
+      const mockSuggestions = [
+        {
+          placePrediction: {
+            toPlace: () => mockSdkPlace,
+            text: { text: "Wagner Vineyards" },
+            mainText: { text: "Wagner Vineyards" },
+            secondaryText: { text: "9322 NY-414, Lodi, NY" },
+          },
+        },
+      ];
+
+      (usePlacesAutocompleteSession as jest.Mock).mockReturnValue({
+        suggestions: mockSuggestions,
+        isLoading: false,
+        fetchSuggestions: mockFetchSuggestions,
+        fetchPlaceDetails: mockFetchPlaceDetails.mockResolvedValue(mockSdkPlace),
+        setSuggestions: mockSetSuggestions,
+        refreshSessionToken: jest.fn(),
+      });
+
+      render(<PlaceAutocomplete onPlaceSelect={mockOnPlaceSelect} id="custom-autocomplete" />);
+
+      const input = screen.getByTestId("place-autocomplete-input");
+      expect(input).toHaveAttribute("role", "combobox");
+      expect(input).toHaveAttribute("aria-autocomplete", "list");
+      expect(input).toHaveAttribute("aria-expanded", "false");
+      expect(input).toHaveAttribute("aria-haspopup", "listbox");
+      expect(input).not.toHaveAttribute("aria-controls");
+
+      // Open autocomplete dropdown
+      fireEvent.change(input, { target: { value: "Wagner" } });
+
+      await waitFor(() => {
+        expect(screen.getByTestId("place-autocomplete-results")).toBeVisible();
+      });
+
+      expect(input).toHaveAttribute("aria-expanded", "true");
+      expect(input).toHaveAttribute("aria-controls", "custom-autocomplete-results");
+
+      const resultsList = screen.getByTestId("place-autocomplete-results");
+      expect(resultsList).toHaveAttribute("role", "listbox");
+      expect(resultsList).toHaveAttribute("id", "custom-autocomplete-results");
+      expect(resultsList).toHaveAttribute("aria-label", "Location suggestions");
+
+      const option0 = screen.getByTestId("autocomplete-option-0");
+      expect(option0).toHaveAttribute("role", "option");
+      expect(option0).toHaveAttribute("id", "custom-autocomplete-option-0");
+      expect(option0).toHaveAttribute("aria-selected", "false");
+
+      // Navigate down via keyboard
+      fireEvent.keyDown(input, { key: "ArrowDown" });
+
+      expect(input).toHaveAttribute("aria-activedescendant", "custom-autocomplete-option-0");
+      expect(option0).toHaveAttribute("aria-selected", "true");
     });
   });
 });

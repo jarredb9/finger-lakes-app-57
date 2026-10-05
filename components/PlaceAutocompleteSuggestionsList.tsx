@@ -6,6 +6,7 @@ export interface PlaceAutocompleteSuggestionsListProps {
   activeIndex: number;
   onSelectSuggestion: (suggestion: google.maps.places.AutocompleteSuggestion) => void;
   className?: string;
+  id?: string;
 }
 
 export function PlaceAutocompleteSuggestionsList({
@@ -14,6 +15,7 @@ export function PlaceAutocompleteSuggestionsList({
   activeIndex,
   onSelectSuggestion,
   className = "",
+  id = "place-autocomplete",
 }: PlaceAutocompleteSuggestionsListProps) {
   if (!isOpen || suggestions.length === 0) {
     return null;
@@ -21,6 +23,9 @@ export function PlaceAutocompleteSuggestionsList({
 
   return (
     <div
+      id={`${id}-results`}
+      role="listbox"
+      aria-label="Location suggestions"
       className={`absolute z-50 mt-1 w-full max-h-60 overflow-y-auto rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none animate-in fade-in-0 zoom-in-95 duration-100 ${className}`}
       data-testid="place-autocomplete-results"
     >
@@ -35,6 +40,9 @@ export function PlaceAutocompleteSuggestionsList({
         return (
           <button
             key={prediction.toPlace().id || index}
+            id={`${id}-option-${index}`}
+            role="option"
+            aria-selected={isSelected}
             type="button"
             onClick={() => onSelectSuggestion(suggestion)}
             className={`w-full text-left px-3 py-2 rounded-sm text-sm transition-colors flex flex-col gap-0.5 ${
