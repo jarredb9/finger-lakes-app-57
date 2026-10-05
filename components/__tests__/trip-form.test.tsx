@@ -226,13 +226,11 @@ describe('TripForm Controlled FormField & Multi-Stop Binding', () => {
     });
   });
 
-  describe('PlaceAutocomplete clearOnSelect UX in TripForm (Red Phase Assertions)', () => {
+  describe('PlaceAutocomplete clearOnSelect UX in TripForm', () => {
     it('configures PlaceAutocomplete with clearOnSelect={true} and clears search input on winery selection', async () => {
       render(<TripForm user={mockUser} initialDate={new Date('2026-10-15T12:00:00')} />);
 
       const autocompleteContainer = screen.getByTestId('mock-place-autocomplete-container');
-      // RED PHASE CHECK: In current TripForm, PlaceAutocomplete is rendered without clearOnSelect prop.
-      // Target behavior passes clearOnSelect={true}.
       expect(autocompleteContainer).toHaveAttribute('data-clear-on-select', 'true');
 
       const input = screen.getByTestId('place-autocomplete-input');
@@ -243,7 +241,6 @@ describe('TripForm Controlled FormField & Multi-Stop Binding', () => {
       fireEvent.click(winerySelectButton);
 
       expect(screen.getByTestId('selected-winery-google-place-winery-123')).toBeInTheDocument();
-      // RED PHASE CHECK: Because clearOnSelect is undefined in current TripForm, the input is not cleared.
       expect(input).toHaveValue('');
     });
   });
