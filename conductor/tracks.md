@@ -32,3 +32,9 @@
 | **autoclear-wishlist-on-visit_20260928** | Auto-clear Wishlist entry when logging a Visit (Issue #54 / ADR-0001) | [x] Archived | [Plan](./archive/autoclear-wishlist-on-visit_20260928/plan.md) |
 | **winery-hours-resilience_20260930** | Winery Operational Hours Resilience & PWA Hydration (Issue #56) | [x] Archived | [Plan](./archive/winery-hours-resilience_20260930/plan.md) |
 | **initial-trip-creation-wineries_20261002** | Initial Trip Creation Winery Persistence & Store Synchronization (Issue #57) | [x] Archived | [Plan](./archive/initial-trip-creation-wineries_20261002/plan.md) |
+| **explore-enrichment-sync_20261006** | ExploreTabContent Data Pipeline Desynchronization & Missing Winery Enrichment (Issue #44) | [ ] In Progress | [Plan](./tracks/explore-enrichment-sync_20261006/plan.md) |
+
+---
+
+- [ ] **Track: ExploreTabContent Data Pipeline Desynchronization & Missing Winery Enrichment (Issue #44)**
+*Link: [./tracks/explore-enrichment-sync_20261006/](./tracks/explore-enrichment-sync_20261006/)*
