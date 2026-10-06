@@ -86,6 +86,61 @@ export class GoogleMapsSdkShim {
           };
         };
 
+        window.google.maps.importLibrary = async function(libraryName) {
+          return window.google.maps[libraryName] || {};
+        };
+
+        window.google.maps.places.AutocompleteSessionToken = function() {
+          this.id = 'mock-session-token-' + Math.random().toString(36).substring(2, 9);
+        };
+
+        window.google.maps.places.Place = function(options) {
+          const allItems = {
+            'ch-12345-mock-winery-1': { id: 'ch-12345-mock-winery-1', name: 'Mock Winery One', address: '123 Vineyard Way, NY', lat: 42.5, lng: -76.8 },
+            'ch-67890-mock-winery-2': { id: 'ch-67890-mock-winery-2', name: 'Vineyard of Illusion', address: '456 Mirage Ln, NY', lat: 42.6, lng: -76.9 },
+            'ch-abcde-mock-winery-3': { id: 'ch-abcde-mock-winery-3', name: 'The Phantom Cellar', address: '789 Ethereal Rd, NY', lat: 42.7, lng: -77.0 }
+          };
+          const item = (options && options.id && allItems[options.id]) || allItems['ch-12345-mock-winery-1'];
+          this.id = item.id;
+          this.displayName = item.name;
+          this.formattedAddress = item.address;
+          this.location = {
+            lat: () => item.lat,
+            lng: () => item.lng,
+            latitude: item.lat,
+            longitude: item.lng
+          };
+          this.rating = 4.8;
+          this.userRatingCount = 120;
+          this.fetchFields = async function(req) { return this; };
+        };
+
+        window.google.maps.places.AutocompleteSuggestion = {
+          fetchAutocompleteSuggestions: async function(req) {
+            const input = (req && req.input ? req.input : '').toLowerCase();
+            const allItems = [
+              { id: 'ch-12345-mock-winery-1', name: 'Mock Winery One', address: '123 Vineyard Way, NY' },
+              { id: 'ch-67890-mock-winery-2', name: 'Vineyard of Illusion', address: '456 Mirage Ln, NY' },
+              { id: 'ch-abcde-mock-winery-3', name: 'The Phantom Cellar', address: '789 Ethereal Rd, NY' }
+            ];
+            const filtered = allItems.filter(function(item) {
+              return item.name.toLowerCase().includes(input) || item.address.toLowerCase().includes(input);
+            });
+            return {
+              suggestions: (filtered.length > 0 ? filtered : allItems).map(function(item) {
+                return {
+                  placePrediction: {
+                    text: { text: item.name + ', ' + item.address },
+                    mainText: { text: item.name },
+                    secondaryText: { text: item.address },
+                    toPlace: function() { return new window.google.maps.places.Place({ id: item.id }); }
+                  }
+                };
+              })
+            };
+          }
+        };
+
         // Call initialization callbacks if provided
         const urlParams = new URLSearchParams(window.location.search);
         const callbackName = urlParams.get('callback');
