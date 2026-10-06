@@ -31,9 +31,4 @@
 | **runtime-invariants-branded-ids_20260923** | Runtime Invariant Protection & Branded ID Ergonomics (PR 1 / Issue #53) | [x] Archived | [Plan](./archive/runtime-invariants-branded-ids_20260923/plan.md) |
 | **autoclear-wishlist-on-visit_20260928** | Auto-clear Wishlist entry when logging a Visit (Issue #54 / ADR-0001) | [x] Archived | [Plan](./archive/autoclear-wishlist-on-visit_20260928/plan.md) |
 | **winery-hours-resilience_20260930** | Winery Operational Hours Resilience & PWA Hydration (Issue #56) | [x] Archived | [Plan](./archive/winery-hours-resilience_20260930/plan.md) |
-| **initial-trip-creation-wineries_20261002** | Initial Trip Creation Winery Persistence & Store Synchronization (Issue #57) | [ ] In Progress | [Plan](./tracks/initial-trip-creation-wineries_20261002/plan.md) |
-
----
-
-- [ ] **Track: Initial Trip Creation Winery Persistence & Store Synchronization (Issue #57)**
-*Link: [./tracks/initial-trip-creation-wineries_20261002/](./tracks/initial-trip-creation-wineries_20261002/)*
+| **initial-trip-creation-wineries_20261002** | Initial Trip Creation Winery Persistence & Store Synchronization (Issue #57) | [x] Archived | [Plan](./archive/initial-trip-creation-wineries_20261002/plan.md) |
