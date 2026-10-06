@@ -49,6 +49,7 @@ export const createMockTrip = (overrides: Partial<Trip> = {}): Trip => ({
   trip_date: getTodayLocal(),
   name: 'Test Trip',
   wineries: [],
+  wineries_count: overrides.wineries_count ?? overrides.wineries?.length ?? 0,
   members: [],
   syncStatus: 'synced',
   ...overrides,

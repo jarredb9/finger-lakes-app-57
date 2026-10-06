@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, Loader2, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { usePlacesAutocompleteSession } from "@/hooks/use-places-autocomplete-session";
@@ -17,6 +17,38 @@ interface PlaceAutocompleteProps {
   includedPrimaryTypes?: string[];
   locationBias?: google.maps.LatLngBounds | google.maps.LatLngBoundsLiteral;
   id?: string;
+  clearOnSelect?: boolean;
+}
+
+/**
+ * Resolves an autocomplete suggestion to a standardized Winery and optional SDK Place.
+ * Handles synthetic test fixtures and external Google Places API details resolution.
+ */
+async function resolveWineryFromSuggestion(
+  suggestion: google.maps.places.AutocompleteSuggestion,
+  fetchPlaceDetails: (s: google.maps.places.AutocompleteSuggestion) => Promise<google.maps.places.Place | null>
+): Promise<{ winery: Winery; sdkPlace: google.maps.places.Place | null } | null> {
+  const placeId = suggestion.placePrediction?.toPlace?.()?.id;
+  if (placeId && (placeId.startsWith("test-") || placeId.startsWith("mock-"))) {
+    const { useWineryStore } = await import("@/lib/stores/wineryStore");
+    const localWinery = useWineryStore.getState().getWinery(placeId);
+    if (localWinery) {
+      return { winery: localWinery, sdkPlace: null };
+    }
+  }
+
+  const place = await fetchPlaceDetails(suggestion);
+  if (!place) return null;
+
+  const text =
+    suggestion.placePrediction?.text?.text ||
+    suggestion.placePrediction?.mainText?.text ||
+    "";
+  const v1Place = mapSdkPlaceToV1Place(place, text);
+  const winery = standardizeWineryData(v1Place);
+  if (!winery) return null;
+
+  return { winery, sdkPlace: place };
 }
 
 export function PlaceAutocomplete({
@@ -26,12 +58,14 @@ export function PlaceAutocomplete({
   includedPrimaryTypes,
   locationBias,
   id = "place-autocomplete",
+  clearOnSelect = false,
 }: PlaceAutocompleteProps) {
   const [inputValue, setInputValue] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const isProgrammaticUpdateRef = useRef(false);
 
   const {
     suggestions,
@@ -43,6 +77,11 @@ export function PlaceAutocomplete({
 
   // Debounce autocomplete query
   useEffect(() => {
+    if (isProgrammaticUpdateRef.current) {
+      isProgrammaticUpdateRef.current = false;
+      return;
+    }
+
     if (inputValue.trim().length < 3) {
       setSuggestions([]);
       setIsOpen(false);
@@ -64,47 +103,41 @@ export function PlaceAutocomplete({
     return () => clearTimeout(timer);
   }, [inputValue, includedPrimaryTypes, locationBias, fetchSuggestions, setSuggestions]);
 
-  const handleSelectSuggestion = async (
-    suggestion: google.maps.places.AutocompleteSuggestion
-  ) => {
-    if (!suggestion.placePrediction) return;
+  const handleSelectSuggestion = useCallback(
+    async (suggestion: google.maps.places.AutocompleteSuggestion) => {
+      if (!suggestion.placePrediction) return;
 
-    // Dismiss virtual keyboard on suggestion select
-    if (document.activeElement instanceof HTMLElement) {
-      document.activeElement.blur();
-    }
-
-    const text = suggestion.placePrediction.text?.text || "";
-    setInputValue(text);
-    setIsOpen(false);
-    setIsFetchingDetails(true);
-
-    try {
-      const placeId = suggestion.placePrediction.toPlace?.()?.id;
-      if (placeId && (placeId.startsWith("test-") || placeId.startsWith("mock-"))) {
-        const { useWineryStore } = await import("@/lib/stores/wineryStore");
-        const localWinery = useWineryStore.getState().getWinery(placeId);
-        if (localWinery) {
-          onPlaceSelect(localWinery, null);
-          return;
-        }
+      // Dismiss virtual keyboard on suggestion select
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
       }
 
-      const place = await fetchPlaceDetails(suggestion);
-      if (place) {
-        const v1Place = mapSdkPlaceToV1Place(place, text);
-        const winery = standardizeWineryData(v1Place);
-        if (winery) {
-          onPlaceSelect(winery, place);
+      const text =
+        suggestion.placePrediction.text?.text ||
+        suggestion.placePrediction.mainText?.text ||
+        "";
+      setIsOpen(false);
+      setIsFetchingDetails(true);
+
+      try {
+        const resolved = await resolveWineryFromSuggestion(suggestion, fetchPlaceDetails);
+        if (resolved) {
+          const nextValue = clearOnSelect ? "" : text;
+          if (inputValue !== nextValue) {
+            isProgrammaticUpdateRef.current = true;
+            setInputValue(nextValue);
+          }
+          onPlaceSelect(resolved.winery, resolved.sdkPlace);
         }
+      } catch (error) {
+        console.error("[PlaceAutocomplete] Selection failed:", error);
+      } finally {
+        setIsFetchingDetails(false);
+        setSuggestions([]);
       }
-    } catch (error) {
-      console.error("[PlaceAutocomplete] Selection failed:", error);
-    } finally {
-      setIsFetchingDetails(false);
-      setSuggestions([]);
-    }
-  };
+    },
+    [clearOnSelect, fetchPlaceDetails, inputValue, onPlaceSelect, setSuggestions]
+  );
 
   const { activeIndex, handleKeyDown } = useComboboxKeyboard({
     items: suggestions,
@@ -114,11 +147,11 @@ export function PlaceAutocomplete({
     containerRef,
   });
 
-  const handleClear = () => {
+  const handleClear = useCallback(() => {
     setInputValue("");
     setSuggestions([]);
     setIsOpen(false);
-  };
+  }, [setSuggestions]);
 
   const showLoader = isAutocompleteLoading || isFetchingDetails;
 
@@ -128,6 +161,15 @@ export function PlaceAutocomplete({
         <Input
           id={id}
           type="text"
+          role="combobox"
+          aria-autocomplete="list"
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+          aria-controls={isOpen && suggestions.length > 0 ? `${id}-results` : undefined}
+          aria-activedescendant={
+            isOpen && activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined
+          }
+          aria-label={placeholder}
           placeholder={placeholder}
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
@@ -157,6 +199,7 @@ export function PlaceAutocomplete({
       </div>
 
       <PlaceAutocompleteSuggestionsList
+        id={id}
         suggestions={suggestions}
         isOpen={isOpen}
         activeIndex={activeIndex}

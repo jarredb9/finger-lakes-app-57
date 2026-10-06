@@ -2,7 +2,34 @@
 
 ## [Unreleased] - v3.6.1
 
-**Milestone [v3.6.1](https://github.com/jarredb9/finger-lakes-app-57/milestone/4)**
+### 🗺️ Initial Trip Creation Winery Persistence & Store Synchronization ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57))
+* **PostgreSQL RPC Coordinate Standardization & Dual-Key Serialization**:
+    * Updated `public.add_winery_to_trip` RPC migration (`supabase/migrations/20261002120000_standardize_add_winery_to_trip_coordinates.sql`) to coalesce `COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat')::numeric` and `COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng')::numeric`, eliminating `NULL` coordinate persistence for chained winery stops while preserving 100% backward compatibility via the expand-and-contract pattern.
+    * Enhanced `WineryService.getRpcData` in `lib/services/wineryService.ts` with dual-key coordinate serialization emitting both `latitude`/`longitude` and `lat`/`lng` for defense-in-depth safety across legacy and updated RPC callers.
+* **Controlled Form Field Binding & Autocomplete UX in `TripForm`**:
+    * Refactored `components/trip-form.tsx` to bind winery search and selection inside a formal React Hook Form `<FormField control={form.control} name="wineries" render={({ field }) => ...} />`, replacing imperative `handleWineryToggle`, `ensureInDb`, and `form.setValue` calls with declarative `field.onChange` state management.
+    * Replaced untyped `z.any()` in schema with `z.array(z.custom<Winery>())`.
+    * Extracted presentational `SelectedWineriesList` component rendering selected wineries as dismissible badges with accessible removal buttons and test IDs (`data-testid="selected-wineries-list"`, `data-testid="selected-winery-${winery.id}"`).
+    * Implemented `clearOnSelect` prop and programmatic update guard ref in `components/PlaceAutocomplete.tsx` to immediately clear search inputs upon suggestion selection, keeping the dropdown closed and suppressing debounced re-queries while retaining typed queries on resolution failures.
+    * Added full WAI-ARIA combobox accessibility attributes across `PlaceAutocomplete` and `PlaceAutocompleteSuggestionsList` (`role="combobox"`, `role="listbox"`, `role="option"`, `aria-activedescendant`, `aria-controls`, `aria-expanded`).
+* **Polymorphic Chaining & Strict Rollback in `TripService`**:
+    * Extended `TripService.addWineryToExistingTrip` in `lib/services/tripService.ts` to accept polymorphic `wineryOrId: number | Winery`, allowing newly selected Google Places wineries without prior Postgres database IDs to be persisted directly via `WineryService.getRpcData`.
+    * Updated `TripService.createTrip` to loop through additional wineries (`trip.wineries.slice(1)`), passing full winery objects and notes.
+    * Enforced strict atomic rollback: if chained addition fails, `createTrip` invokes `deleteTrip`, tags the error with `preventOfflineEnqueue = true`, and rethrows to avoid leaving partial orphan trips in Postgres.
+* **Offline Sync Parity & Store Count Invariants**:
+    * Refactored `SyncService` (`lib/services/syncService.ts`) `'create_trip'` queue handler to delegate directly to `TripService.createTrip`, ensuring identical multi-stop creation logic online and offline while setting accurate `wineries_count` and triggering background store re-fetching.
+    * Updated `createTripHelper` in `lib/stores/slices/tripMutationHelpers.ts` to populate optimistic `wineries_count: validWineries.length` on `tempTrip` and synced `wineries_count` on `syncedTrip`, eliminating flickering to "0 Wineries" on newly created trip cards.
+    * Added `isPreventOfflineEnqueueError` guard in `createTripHelper` to immediately roll back optimistic state and bypass offline queueing when chained stop creation fails.
+    * Dispatched non-blocking background cache re-fetches (`fetchUpcomingTrips()`, `fetchTripsForDate()`, `fetchTrips(1, 'upcoming', true)`).
+* **Trip Stop Hydration & UI Presentational Enhancements**:
+    * Updated `TripService.getTrips` to query nested `trip_wineries` stops with standardized wineries and ordering by `visit_order`, eagerly populating `wineries: Winery[]` on returned trips.
+    * Standardized badge pluralization in `components/TripCardSimplePresentational.tsx`: `{count} {count === 1 ? 'Winery' : 'Wineries'}`.
+    * Hardened "Export to Google Maps" button in `TripCardSimplePresentational.tsx` to guard against pending sync states (`isPending`) or empty winery lists (`count === 0 || !trip.wineries || trip.wineries.length === 0`).
+    * Defaulted `wineries_count` in `createMockTrip` fixture (`lib/test-utils/fixtures.ts`) to maintain store count invariants across tests.
+* **Test Suite Modularization & Regression Coverage**:
+    * Modularized legacy `components/__tests__/react19-form-actions.test.tsx` by splitting into `components/__tests__/auth-forms.test.tsx` and dedicated `components/__tests__/trip-form.test.tsx`.
+    * Added comprehensive unit and integration test coverage across `components/__tests__/trip-form.test.tsx`, `components/__tests__/PlaceAutocomplete.test.tsx`, `lib/services/__tests__/tripService.mutations.test.ts`, `lib/services/__tests__/tripService.test.ts`, `lib/stores/slices/__tests__/tripMutationHelpers.test.ts`, `lib/stores/__tests__/tripStore.syncStore.test.ts`, `components/__tests__/TripCardSimplePresentational.test.tsx`, `components/__tests__/trip-card-simple.test.tsx`, `hooks/__tests__/use-trip-actions.test.ts`, and `lib/services/__tests__/supabase-rpc.integration.test.ts`.
+    * Replaced placeholder stub in `e2e/trip-flow.spec.ts` with Playwright WebKit E2E test verifying sidebar dialog trip creation with multiple stops, input clearing, badge deduplication and removal, card count display, and enabled Google Maps export.
 
 ### 🕒 Winery Operational Hours Resilience & PWA Hydration ([#56](https://github.com/jarredb9/finger-lakes-app-57/issues/56))
 * **Tri-State Operational Status & UI Presentation**:

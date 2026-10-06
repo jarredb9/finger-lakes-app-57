@@ -1,4 +1,5 @@
 import { TripService } from '../tripService';
+import { WineryService } from '../wineryService';
 import { Trip, Winery, GooglePlaceId, WineryDbId } from '@/lib/types';
 import { createMockWinery } from '@/lib/test-utils/fixtures';
 
@@ -60,6 +61,15 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
       longitude: -76.963,
     });
 
+    const mockWineryNoDb: Winery = createMockWinery({
+      id: 'place_nodb' as GooglePlaceId,
+      dbId: undefined,
+      name: 'Lamoreaux Landing Wine Cellars',
+      address: '9224 NY-414, Lodi, NY',
+      latitude: 42.502,
+      longitude: -76.873,
+    });
+
     it('creates a trip with a single winery and returns the populated trip', async () => {
       mockRpc
         .mockResolvedValueOnce({ data: { trip_id: 501 }, error: null }) // create_trip_with_winery
@@ -110,6 +120,38 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
       expect(result.id).toBe(502);
     });
 
+    it('chains wineries without database IDs (Google Places results) by passing full Winery objects', async () => {
+      mockFindWineryByDbId.mockReturnValue(undefined);
+
+      mockRpc
+        .mockResolvedValueOnce({ data: { trip_id: 506 }, error: null }) // create_trip_with_winery for mockWinery1
+        .mockResolvedValueOnce({ data: { success: true }, error: null }) // add_winery_to_trip for mockWineryNoDb
+        .mockResolvedValueOnce({ data: { id: 506, name: 'Chained Unpersisted Tour', wineries: [mockWinery1, mockWineryNoDb] }, error: null }); // get_trip_details
+
+      const tripInput: Partial<Trip> = {
+        name: 'Chained Unpersisted Tour',
+        trip_date: '2026-10-19',
+        wineries: [mockWinery1, mockWineryNoDb],
+      };
+
+      const result = await TripService.createTrip(tripInput);
+
+      expect(mockRpc).toHaveBeenCalledWith('create_trip_with_winery', expect.any(Object));
+      expect(mockRpc).toHaveBeenCalledWith('add_winery_to_trip', {
+        p_trip_id: 506,
+        p_winery_data: expect.objectContaining({
+          id: 'place_nodb',
+          name: 'Lamoreaux Landing Wine Cellars',
+          latitude: 42.502,
+          longitude: -76.873,
+          lat: 42.502,
+          lng: -76.873,
+        }),
+        p_notes: null,
+      });
+      expect(result.id).toBe(506);
+    });
+
     it('creates an empty trip without wineries when no wineries are provided', async () => {
       mockRpc
         .mockResolvedValueOnce({ data: { id: 503 }, error: null }) // create_trip
@@ -153,6 +195,35 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
 
       await expect(TripService.createTrip(tripInput)).rejects.toThrow('Secondary winery RPC failure');
       // Hardening contract: must invoke delete_trip rollback to prevent orphaned partial trip
+      expect(mockRpc).toHaveBeenCalledWith('delete_trip', { p_trip_id: 505 });
+    });
+
+    it('tags error with preventOfflineEnqueue = true and rolls back partial trip when secondary chained winery addition fails', async () => {
+      mockFindWineryByDbId.mockReturnValue(null);
+
+      mockRpc
+        .mockResolvedValueOnce({ data: { trip_id: 505 }, error: null }) // create_trip_with_winery succeeds
+        .mockResolvedValueOnce({ data: null, error: new Error('Secondary winery RPC failure') }) // add_winery_to_trip fails
+        .mockResolvedValueOnce({ data: null, error: null }); // delete_trip (rollback)
+
+      const tripInput: Partial<Trip> = {
+        name: 'Rollback Tour',
+        trip_date: '2026-10-18',
+        wineries: [mockWinery1, mockWinery2],
+      };
+
+      let thrownError: (Error & { preventOfflineEnqueue?: boolean }) | null = null;
+      try {
+        await TripService.createTrip(tripInput);
+      } catch (err) {
+        if (err instanceof Error) {
+          thrownError = err as Error & { preventOfflineEnqueue?: boolean };
+        }
+      }
+
+      expect(thrownError).not.toBeNull();
+      expect(thrownError?.message).toBe('Secondary winery RPC failure');
+      expect(thrownError?.preventOfflineEnqueue).toBe(true);
       expect(mockRpc).toHaveBeenCalledWith('delete_trip', { p_trip_id: 505 });
     });
   });
@@ -386,6 +457,43 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
 
       await expect(TripService.addWineryToExistingTrip(300, 999, null)).rejects.toThrow('Trip not editable');
     });
+
+    it('accepts a full Winery object (without DB ID) and passes standardized RPC data directly', async () => {
+      const mockWineryNoDb: Winery = createMockWinery({
+        id: 'place_direct_obj' as GooglePlaceId,
+        dbId: undefined,
+        name: 'Boundary Breaks Vineyard',
+        address: '1568 Porter Covert Rd, Lodi, NY',
+        latitude: 42.605,
+        longitude: -76.877,
+      });
+
+      mockRpc.mockResolvedValueOnce({ data: { success: true }, error: null });
+
+      const result = await TripService.addWineryToExistingTrip(300, mockWineryNoDb, 'Lovely Riesling');
+
+      expect(mockFindWineryByDbId).not.toHaveBeenCalled();
+      expect(mockRpc).toHaveBeenCalledWith('add_winery_to_trip', {
+        p_trip_id: 300,
+        p_winery_data: expect.objectContaining({
+          id: 'place_direct_obj',
+          name: 'Boundary Breaks Vineyard',
+          latitude: 42.605,
+          longitude: -76.877,
+          lat: 42.605,
+          lng: -76.877,
+        }),
+        p_notes: 'Lovely Riesling',
+      });
+      expect(result).toEqual({ success: true });
+    });
+
+    it('rejects non-positive winery IDs (<= 0 or NaN) before issuing DB RPC', async () => {
+      await expect(TripService.addWineryToExistingTrip(300, 0, null)).rejects.toThrow(/invalid winery id/i);
+      await expect(TripService.addWineryToExistingTrip(300, -5, null)).rejects.toThrow(/invalid winery id/i);
+      await expect(TripService.addWineryToExistingTrip(300, NaN, null)).rejects.toThrow(/invalid winery id/i);
+      expect(mockRpc).not.toHaveBeenCalled();
+    });
   });
 
   describe('addWineryToTripByApi', () => {
@@ -405,6 +513,37 @@ describe('TripService Mutation Test Suite (QA-14)', () => {
       mockRpc.mockResolvedValueOnce({ data: null, error: new Error('RPC batch error') });
 
       await expect(TripService.addWineryToTripByApi(55, [101])).rejects.toThrow('RPC batch error');
+    });
+  });
+
+  describe('WineryService.getRpcData Dual-Key Coordinates', () => {
+    it('emits dual-key coordinates (latitude, longitude, lat, lng) for backward compatibility', () => {
+      const winery = createMockWinery({
+        id: 'place_dual_test' as GooglePlaceId,
+        latitude: 42.474,
+        longitude: -77.172,
+      });
+
+      const rpcData = WineryService.getRpcData(winery);
+
+      expect(rpcData.latitude).toBe(42.474);
+      expect(rpcData.longitude).toBe(-77.172);
+      expect(rpcData.lat).toBe(42.474);
+      expect(rpcData.lng).toBe(-77.172);
+    });
+
+    it('defaults lat and lng to 0 when coordinates are omitted or undefined', () => {
+      const winery: Partial<Winery> = {
+        id: 'place_missing_coords' as GooglePlaceId,
+        name: 'Coords Test Winery',
+      };
+
+      const rpcData = WineryService.getRpcData(winery);
+
+      expect(rpcData.latitude).toBe(0);
+      expect(rpcData.longitude).toBe(0);
+      expect(rpcData.lat).toBe(0);
+      expect(rpcData.lng).toBe(0);
     });
   });
 });

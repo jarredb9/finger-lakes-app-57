@@ -11,16 +11,32 @@ const shouldSkipRealSync = () => {
     return !(globalVal || localVal);
 };
 
+export interface WineryRpcData {
+  id?: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  lat: number;
+  lng: number;
+  phone: string | null;
+  website: string | null;
+  rating: number | null;
+  user_rating_count: number | null;
+}
+
 export const WineryService = {
   /**
    * Standardizes winery data for Supabase RPCs.
    */
-  getRpcData: (winery: Partial<Winery>) => ({
+  getRpcData: (winery: Partial<Winery>): WineryRpcData => ({
       id: winery.id,
       name: winery.name || '',
       address: winery.address || '',
       latitude: winery.latitude || 0,
       longitude: winery.longitude || 0,
+      lat: winery.latitude || 0,
+      lng: winery.longitude || 0,
       phone: winery.phone || null,
       website: winery.website || null,
       rating: winery.rating || null,

@@ -115,6 +115,7 @@ async function parseTranscript(transcriptPath, convId, dbPath) {
   const toolCounts = {};
   const toolOutputs = [];
   const fileViews = {};
+  const fileViewChars = {};
   const commandRuns = {};
   const artifactsCreated = [];
   const turnMilestones = [];
@@ -156,7 +157,7 @@ async function parseTranscript(transcriptPath, convId, dbPath) {
         toolCounts[tc.name] = (toolCounts[tc.name] || 0) + 1;
 
         if (tc.name === 'view_file' && tc.args && tc.args.AbsolutePath) {
-          const p = tc.args.AbsolutePath;
+          const p = tc.args.AbsolutePath.replace(/^"|"$/g, '').trim();
           fileViews[p] = (fileViews[p] || 0) + 1;
         } else if (tc.name === 'run_command' && tc.args && tc.args.CommandLine) {
           const cmd = tc.args.CommandLine;
@@ -179,6 +180,14 @@ async function parseTranscript(transcriptPath, convId, dbPath) {
         len: contentLen,
         preview: (s.content || '').slice(0, 150).replace(/\n/g, ' ')
       });
+
+      if (s.content) {
+        const fileMatch = s.content.match(/File Path:\s*`file:\/\/([^`]+)`/);
+        if (fileMatch) {
+          const p = fileMatch[1].trim();
+          fileViewChars[p] = (fileViewChars[p] || 0) + contentLen;
+        }
+      }
     }
 
     // When Model finishes planning/responding, that marks a Turn
@@ -223,15 +232,26 @@ async function parseTranscript(transcriptPath, convId, dbPath) {
     preview: t.preview
   }));
 
-  // Top files viewed
+  // Top files viewed (measuring actual characters ingested into context)
   const allFiles = Object.entries(fileViews).map(([file, count]) => {
     let size = 0;
     try {
       if (fs.existsSync(file)) size = fs.statSync(file).size;
     } catch {}
-    return { file, count, sizeChars: size, estTokens: Math.round(size / 3.6) };
+    const actualChars = fileViewChars[file] || size;
+    const totalTokens = Math.round(actualChars / 3.6);
+    const avgTokens = Math.round(totalTokens / count);
+    return {
+      file,
+      count,
+      sizeChars: size,
+      totalChars: actualChars,
+      totalTokens,
+      avgTokens,
+      estTokens: totalTokens
+    };
   });
-  allFiles.sort((a, b) => (b.sizeChars * b.count) - (a.sizeChars * a.count));
+  allFiles.sort((a, b) => b.totalChars - a.totalChars);
 
   let durationMin = 0;
   if (firstTimestamp && lastTimestamp) {
@@ -311,7 +331,8 @@ function printReport(s, isSummary) {
   console.log(`\n• Top Files Viewed in Context:`);
   s.topFiles.forEach((f, i) => {
     const name = f.file.replace(process.cwd() + '/', '');
-    console.log(`  ${i+1}. ${name} (${f.count}x, ~${f.estTokens} tokens per read)`);
+    const tokensLabel = f.count > 1 ? `~${f.avgTokens} tokens/read, ~${f.totalTokens} total` : `~${f.totalTokens} tokens`;
+    console.log(`  ${i+1}. ${name} (${f.count}x, ${tokensLabel})`);
   });
 
   console.log(`\n• Context Growth Trajectory:`);

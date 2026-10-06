@@ -147,12 +147,40 @@ export class TripsHandler {
         const wineryData = postData.p_winery_data || {};
         const wineryId = wineryData.id || 1;
 
+        const initialWineries: Winery[] = (wineryData && (wineryData.name || wineryData.id || wineryData.google_place_id)) ? [{
+          id: String(wineryData.id || wineryData.google_place_id || 'ch-12345-mock-winery-1') as GooglePlaceId,
+          dbId: (wineryData.dbId || wineryId) as WineryDbId,
+          name: wineryData.name || 'Mock Winery One',
+          address: wineryData.address || '',
+          latitude: Number(wineryData.latitude ?? wineryData.lat ?? 0),
+          longitude: Number(wineryData.longitude ?? wineryData.lng ?? 0),
+          rating: 4.5,
+          userVisited: false,
+          onWishlist: false,
+          isFavorite: false,
+          visits: [],
+          allows_dogs: null,
+          has_ev_charging: null,
+          serves_wine: null,
+          good_for_children: null,
+          outdoor_seating: null,
+          primary_photo_reference: null,
+          photo_references: null,
+          cached_photos: null,
+          parking_options: null,
+          accessibility_options: null,
+          last_enriched_at: new Date().toISOString(),
+          ...wineryData,
+        }] : [];
+
         const newTrip: MockTrip = {
           ...createMockTrip({
             id: newId,
             name: postData.p_trip_name,
             trip_date: postData.p_trip_date,
             user_id: this.currentUserId,
+            wineries: initialWineries,
+            wineries_count: initialWineries.length,
             updated_at: new Date(Date.now() + 5000).toISOString(),
           }),
           idempotency_key: idempotencyKey,
@@ -246,6 +274,7 @@ export class TripsHandler {
               longitude: Number(wineryData.longitude ?? wineryData.lng ?? 0),
               ...wineryData,
             });
+            trip.wineries_count = trip.wineries.length;
             trip.updated_at = new Date().toISOString();
           }
         }
@@ -315,7 +344,19 @@ export class TripsHandler {
       const trips = this.state.trips || [];
       const transformed = trips.map(t => ({
         ...t,
-        trip_wineries: [{ count: t.wineries?.length || 0 }],
+        trip_wineries: (t.wineries || []).map((w, idx) => ({
+          id: idx + 1,
+          visit_order: idx + 1,
+          notes: '',
+          wineries: {
+            id: w.dbId || idx + 1,
+            google_place_id: w.id,
+            name: w.name,
+            address: w.address,
+            latitude: w.latitude,
+            longitude: w.longitude,
+          },
+        })),
         trip_members: (t.members || []).map(m => ({
           user_id: m.id,
           role: m.role,
