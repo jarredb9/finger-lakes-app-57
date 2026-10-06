@@ -204,6 +204,53 @@ describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () =
         expect(store.replaceTripTempId).toBeDefined();
       }
     });
+
+    it('normalizes wineries_count on reconciled synced trip when replacing tempId', () => {
+      const tempId = -Date.now();
+      const mockWinery = createMockWinery({
+        id: 'place_1' as GooglePlaceId,
+        dbId: 101 as WineryDbId,
+        name: 'Dr. Konstantin Frank',
+      });
+
+      const tempTrip: Trip = {
+        id: tempId,
+        user_id: 'test-user-1',
+        trip_date: '2026-10-01',
+        name: 'Offline Created Trip',
+        wineries: [mockWinery],
+        wineries_count: 1,
+        members: [],
+        syncStatus: 'pending',
+      };
+
+      useTripStore.setState({
+        trips: [tempTrip],
+        upcomingTrips: [tempTrip],
+        tripsForDate: [tempTrip],
+      });
+
+      // Server trip omitting wineries_count property
+      const syncedServerTrip: Trip = {
+        id: 42,
+        user_id: 'test-user-1',
+        trip_date: '2026-10-01',
+        name: 'Offline Created Trip (Synced)',
+        wineries: [mockWinery],
+        members: [],
+        syncStatus: 'synced',
+      };
+
+      const store = useTripStore.getState();
+      act(() => {
+        store.replaceTripTempId(tempId, syncedServerTrip);
+      });
+
+      const updatedState = useTripStore.getState();
+      expect(updatedState.trips[0].wineries_count).toBe(1);
+      expect(updatedState.upcomingTrips[0].wineries_count).toBe(1);
+      expect(updatedState.tripsForDate[0].wineries_count).toBe(1);
+    });
   });
 
   describe('createTripHelper store invariants - wineries_count population', () => {
@@ -427,8 +474,10 @@ describe('Phase 6 Task 1: tripMutationHelpers & Optimistic Rollback Tests', () =
         tripsForDate: [existingTrip],
       });
 
-      const chainedError = new Error('Chained stop addition failed: 404 Winery Not Found');
-      (chainedError as any).preventOfflineEnqueue = true;
+      const chainedError = Object.assign(
+        new Error('Chained stop addition failed: 404 Winery Not Found'),
+        { preventOfflineEnqueue: true }
+      );
 
       mockTripService.createTrip.mockRejectedValueOnce(chainedError);
       // If handleSyncError were erroneously invoked, configure it to return true

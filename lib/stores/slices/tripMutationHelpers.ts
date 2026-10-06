@@ -10,6 +10,28 @@ import type { TripState } from '../tripStore';
 type GetTripState = StoreApi<TripState>['getState'];
 type SetTripState = StoreApi<TripState>['setState'];
 
+export interface PreventOfflineEnqueueError {
+  preventOfflineEnqueue?: boolean;
+}
+
+export function isPreventOfflineEnqueueError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'preventOfflineEnqueue' in error &&
+    Boolean((error as PreventOfflineEnqueueError).preventOfflineEnqueue)
+  );
+}
+
+function rollbackOptimisticTrip(set: SetTripState, tempId: number): void {
+  set(state => ({
+    tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tempId),
+    upcomingTrips: state.upcomingTrips.filter(t => Number(t.id) !== tempId),
+    trips: state.trips.filter(t => Number(t.id) !== tempId),
+    lastActionTimestamp: Date.now(),
+  }));
+}
+
 const ALLOWED_CREATE_TRIP_KEYS = new Set<string>(['name', 'trip_date', 'wineries']);
 
 export async function createTripHelper(
@@ -146,14 +168,9 @@ export async function createTripHelper(
 
     return createdTrip;
   } catch (error) {
-    if ((error as { preventOfflineEnqueue?: boolean })?.preventOfflineEnqueue) {
+    if (isPreventOfflineEnqueueError(error)) {
       console.error("Trip creation chained addition failed, rolling back optimistic state and suppressing offline enqueue.", error);
-      set(state => ({ 
-        tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tempId),
-        upcomingTrips: state.upcomingTrips.filter(t => Number(t.id) !== tempId),
-        trips: state.trips.filter(t => Number(t.id) !== tempId),
-        lastActionTimestamp: Date.now()
-      }));
+      rollbackOptimisticTrip(set, tempId);
       throw error;
     }
 
@@ -162,12 +179,7 @@ export async function createTripHelper(
     }
 
     console.error("Failed to create trip, rolling back optimistic state.", error);
-    set(state => ({ 
-      tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tempId),
-      upcomingTrips: state.upcomingTrips.filter(t => Number(t.id) !== tempId),
-      trips: state.trips.filter(t => Number(t.id) !== tempId),
-      lastActionTimestamp: Date.now()
-    }));
+    rollbackOptimisticTrip(set, tempId);
     throw error;
   }
 }
@@ -342,6 +354,7 @@ export function replaceTripTempIdHelper(
   const normalizedSyncedTrip: Trip = {
     ...syncedTrip,
     id: Number(syncedTrip.id),
+    wineries_count: syncedTrip.wineries_count ?? syncedTrip.wineries?.length ?? 0,
     syncStatus: 'synced',
   };
 
