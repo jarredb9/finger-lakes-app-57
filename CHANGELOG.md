@@ -2,6 +2,23 @@
 
 ## [Unreleased] - v3.6.1
 
+### 📜 Client-Side Full Visit History Evaluation & Multi-Column Sorting ([ADR-0003](docs/adr/0003-client-side-visit-history-evaluation.md))
+* **Client-Side Full Dataset Evaluation & On-Demand Hydration**:
+    * Implemented on-demand complete lifetime visit history fetching (`fetchAllVisits` in `useVisitStore` / `visitDataSlice.ts`) when opening the Full Visit History modal (`VisitHistoryModal`), querying `get_paginated_visits_with_winery_and_friends` with a single high-limit batch (`p_page_size: 1000`) to evaluate the full historical visit catalog in-memory without altering database DDL.
+    * Added `allVisitsLoaded` state flag in `visitStore` and wired cache invalidation to reset `allVisitsLoaded: false` whenever paginated `fetchVisits(1, true)` refreshes the chronological feed.
+    * Guarded `fetchAllVisitsHelper` against redundant in-flight network requests (`if (get().isLoading) return;`).
+* **Multi-Column Sorting & In-Memory Filtering**:
+    * Integrated client-side sorting across Date (comparing timestamps), Rating (numeric star ranking with unrated fallback), and Winery Name (`localeCompare`) in `components/visits-table-columns.tsx`.
+    * Standardized table column headers and search placeholders to align with canonical domain terminology ("Visit Note", "Filter by winery or notes...").
+    * Ensured strict column typing (`ColumnDef<VisitWithWinery>[]`) eliminating unsafe `as any` type assertions.
+* **Responsive Client-Side Pagination**:
+    * Integrated TanStack Table `getPaginationRowModel` into `components/ui/data-table.tsx` with a default page size of 25, interactive page size selector (10, 25, 50 rows per page), and page boundary controls.
+    * Added mobile pagination (10 cards per page) with defensive bounds clamping (`Math.min(mobilePage, totalMobilePages)`) and immediate page resets on search filter or sort changes, eliminating React 19 cascading re-render warnings (`react-hooks/set-state-in-effect`).
+* **Regression Testing & Style Guide Compliance**:
+    * Added comprehensive unit test suite in `components/__tests__/visit-history-sorting.test.tsx` verifying full dataset hydration, ascending/descending multi-column sorting, text search filtering, page size switches, and mobile pagination boundary clamping.
+    * Added store test coverage in `lib/stores/__tests__/visitStore.test.ts` verifying `fetchAllVisits` batch fetching, reset handling, and `fetchVisits(1, true)` cache invalidation.
+    * Ensured full compliance with the Google TypeScript Style Guide (elimination of `any`, explicit typing from database RPC return types, single quotes, terminal semicolons).
+
 ### 🗺️ Initial Trip Creation Winery Persistence & Store Synchronization ([#57](https://github.com/jarredb9/finger-lakes-app-57/issues/57))
 * **PostgreSQL RPC Coordinate Standardization & Dual-Key Serialization**:
     * Updated `public.add_winery_to_trip` RPC migration (`supabase/migrations/20261002120000_standardize_add_winery_to_trip_coordinates.sql`) to coalesce `COALESCE(p_winery_data->>'latitude', p_winery_data->>'lat')::numeric` and `COALESCE(p_winery_data->>'longitude', p_winery_data->>'lng')::numeric`, eliminating `NULL` coordinate persistence for chained winery stops while preserving 100% backward compatibility via the expand-and-contract pattern.

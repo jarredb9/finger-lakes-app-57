@@ -329,7 +329,94 @@ describe('VisitStore Offline Logic', () => {
       expect(cached).toHaveLength(1);
       expect(mockRpc).not.toHaveBeenCalled();
     });
+
+    it('fetchAllVisits calls get_paginated_visits_with_winery_and_friends with page_size 1000 and sets allVisitsLoaded', async () => {
+      useVisitStore.setState({ visits: [], allVisitsLoaded: false });
+
+      mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            visit_id: 1,
+            user_id: 'user-123',
+            visit_date: '2024-05-10',
+            user_review: 'Recent visit in 2024',
+            rating: 5,
+            photos: [],
+            winery_id: 101,
+            winery_name: 'Seneca Shore Wine Cellars',
+            google_place_id: 'place-seneca',
+            winery_address: 'Seneca Lake Rd',
+            latitude: 42.6,
+            longitude: -76.9,
+          },
+          {
+            visit_id: 2,
+            user_id: 'user-123',
+            visit_date: '2016-08-20',
+            user_review: 'Earliest visit from 2016',
+            rating: 4,
+            photos: [],
+            winery_id: 102,
+            winery_name: 'Dr. Konstantin Frank',
+            google_place_id: 'place-dr-frank',
+            winery_address: '9749 Middle Rd',
+            latitude: 42.5,
+            longitude: -77.1,
+          },
+        ],
+        error: null,
+      });
+
+      await act(async () => {
+        await useVisitStore.getState().fetchAllVisits();
+      });
+
+      expect(mockRpc).toHaveBeenCalledWith('get_paginated_visits_with_winery_and_friends', {
+        p_page_number: 1,
+        p_page_size: 1000,
+      });
+
+      const state = useVisitStore.getState();
+      expect(state.allVisitsLoaded).toBe(true);
+      expect(state.visits).toHaveLength(2);
+      expect(state.visits[0].id).toBe(1);
+      expect(state.visits[1].id).toBe(2);
+      expect(state.visits[0].wineries?.name).toBe('Seneca Shore Wine Cellars');
+      expect(state.visits[1].wineries?.name).toBe('Dr. Konstantin Frank');
+
+      // Verify reset clears allVisitsLoaded
+      act(() => {
+        useVisitStore.getState().reset();
+      });
+      expect(useVisitStore.getState().allVisitsLoaded).toBe(false);
+
+      // Verify fetchVisits(1, true) resets allVisitsLoaded to false when refreshing
+      useVisitStore.setState({ allVisitsLoaded: true });
+      mockRpc.mockResolvedValueOnce({
+        data: [
+          {
+            visit_id: 1,
+            visit_date: '2024-05-10',
+            user_review: 'Recent',
+            rating: 5,
+            photos: [],
+            winery_id: 101,
+            winery_name: 'Seneca',
+            google_place_id: 'p1',
+            winery_address: 'Addr',
+            latitude: 42,
+            longitude: -76,
+          },
+        ],
+        error: null,
+      });
+      await act(async () => {
+        await useVisitStore.getState().fetchVisits(1, true);
+      });
+      expect(useVisitStore.getState().allVisitsLoaded).toBe(false);
+    });
   });
 });
+
 
 
