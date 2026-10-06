@@ -84,7 +84,7 @@
     - [x] Audit offline sync handlers and clean up redundant code.
 - [x] Task: Conductor - User Manual Verification 'Phase 5: Offline Sync Parity' (Protocol in workflow.md) [commit: d8838103]
 
-## Phase 6: Store Invariants, Background Invalidation & Badge Pluralization (`tripMutationHelpers`, `TripCardSimplePresentational`)
+## Phase 6: Store Invariants, Background Invalidation & Badge Pluralization (`tripMutationHelpers`, `TripCardSimplePresentational`) [checkpoint: 114a92e4]
 
 - [x] Task: Write Failing Tests for Store Invariants & Rollback Suppression (Red Phase) [commit: 799e88fd]
     - [x] Add test cases to `lib/stores/slices/__tests__/tripMutationHelpers.test.ts` verifying `wineries_count` on `tempTrip` and `syncedTrip`.
@@ -102,7 +102,7 @@
     - [x] Hydrate Trip Stops in `TripService.getTrips` and update `TripCardSimplePresentational` export button disabled guard (`isPending || count === 0 || !trip.wineries || trip.wineries.length === 0`).
     - [x] Default `wineries_count` in `createMockTrip` test fixture (`lib/test-utils/fixtures.ts`) to maintain store count invariants.
     - [x] Add unit tests in `tripService.test.ts`, `TripCardSimplePresentational.test.tsx`, `trip-card-simple.test.tsx`, and `use-trip-actions.test.ts` verifying stop hydration, hook delegation, and export button states.
-- [ ] Task: Conductor - User Manual Verification 'Phase 6: Store Invariants, Background Invalidation & Badge Pluralization' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 6: Store Invariants, Background Invalidation & Badge Pluralization' (Protocol in workflow.md) [commit: 114a92e4]
 
 ## Phase 7: End-to-End Verification & Final Quality Gates
 
