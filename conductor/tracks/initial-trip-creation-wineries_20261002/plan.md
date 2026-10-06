@@ -114,10 +114,10 @@
         - Verifying selected winery badges render with remove buttons and deduplication.
         - Submitting the form and asserting the created trip card displays correct pluralized badge ("2 Wineries") and enabled "Export to Google Maps" button (AC 15).
     - [x] Execute Playwright test via container runner (`./scripts/run-e2e-container.sh webkit e2e/trip-flow.spec.ts`).
-- [ ] Task: Full Suite Verification & Build Audit
-    - [ ] Run full unit test suite via container runner (`./scripts/run-jest-container.sh`).
-    - [ ] Run type checking and container build (`npm run db:check-types:local`).
-    - [ ] Perform strict scaffolding audit: ensure zero temporary or throwaway test files exist.
+- [x] Task: Full Suite Verification & Build Audit [commit: 4761d240]
+    - [x] Run full unit test suite via container runner (`./scripts/run-jest-container.sh`).
+    - [x] Run type checking and container build (`npm run db:check-types:local`).
+    - [x] Perform strict scaffolding audit: ensure zero temporary or throwaway test files exist.
 - [ ] Task: Conductor - User Manual Verification 'Phase 7: End-to-End Verification & Final Quality Gates' (Protocol in workflow.md)
 
 ## Phase: Review Fixes
