@@ -10,6 +10,28 @@ import type { TripState } from '../tripStore';
 type GetTripState = StoreApi<TripState>['getState'];
 type SetTripState = StoreApi<TripState>['setState'];
 
+export interface PreventOfflineEnqueueError {
+  preventOfflineEnqueue?: boolean;
+}
+
+export function isPreventOfflineEnqueueError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'preventOfflineEnqueue' in error &&
+    Boolean((error as PreventOfflineEnqueueError).preventOfflineEnqueue)
+  );
+}
+
+function rollbackOptimisticTrip(set: SetTripState, tempId: number): void {
+  set(state => ({
+    tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tempId),
+    upcomingTrips: state.upcomingTrips.filter(t => Number(t.id) !== tempId),
+    trips: state.trips.filter(t => Number(t.id) !== tempId),
+    lastActionTimestamp: Date.now(),
+  }));
+}
+
 const ALLOWED_CREATE_TRIP_KEYS = new Set<string>(['name', 'trip_date', 'wineries']);
 
 export async function createTripHelper(
@@ -88,6 +110,7 @@ export async function createTripHelper(
     trip_date: validTripDate,
     name: validName,
     wineries: validWineries,
+    wineries_count: validWineries.length,
     members: [],
     syncStatus: 'pending',
   };
@@ -122,7 +145,11 @@ export async function createTripHelper(
       get().setLastActionTimestamp(createdTrip.id.toString(), finishedNow);
     }
     set(state => {
-      const syncedTrip = createdTrip ? { ...createdTrip, syncStatus: 'synced' as const } : null;
+      const syncedTrip = createdTrip ? {
+        ...createdTrip,
+        wineries_count: createdTrip.wineries_count ?? createdTrip.wineries?.length ?? validWineries.length,
+        syncStatus: 'synced' as const
+      } : null;
       return {
         tripsForDate: state.tripsForDate.map(t => Number(t.id) === tempId ? syncedTrip! : t),
         upcomingTrips: state.upcomingTrips.map(t => Number(t.id) === tempId ? syncedTrip! : t),
@@ -131,19 +158,28 @@ export async function createTripHelper(
       };
     });
 
+    void Promise.all([
+      get().fetchUpcomingTrips(),
+      get().fetchTripsForDate(validTripDate),
+      get().fetchTrips(1, 'upcoming', true)
+    ]).catch(err => {
+      console.error("Failed to refresh background cache after trip creation:", err);
+    });
+
     return createdTrip;
   } catch (error) {
+    if (isPreventOfflineEnqueueError(error)) {
+      console.error("Trip creation chained addition failed, rolling back optimistic state and suppressing offline enqueue.", error);
+      rollbackOptimisticTrip(set, tempId);
+      throw error;
+    }
+
     if (await handleSyncError(error, 'create_trip', user?.id, syncPayload, idempotencyKey)) {
       return tempTrip;
     }
 
     console.error("Failed to create trip, rolling back optimistic state.", error);
-    set(state => ({ 
-      tripsForDate: state.tripsForDate.filter(t => Number(t.id) !== tempId),
-      upcomingTrips: state.upcomingTrips.filter(t => Number(t.id) !== tempId),
-      trips: state.trips.filter(t => Number(t.id) !== tempId),
-      lastActionTimestamp: Date.now()
-    }));
+    rollbackOptimisticTrip(set, tempId);
     throw error;
   }
 }
@@ -318,6 +354,7 @@ export function replaceTripTempIdHelper(
   const normalizedSyncedTrip: Trip = {
     ...syncedTrip,
     id: Number(syncedTrip.id),
+    wineries_count: syncedTrip.wineries_count ?? syncedTrip.wineries?.length ?? 0,
     syncStatus: 'synced',
   };
 

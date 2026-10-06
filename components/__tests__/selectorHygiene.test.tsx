@@ -5,14 +5,29 @@ import { useUserStore } from "@/lib/stores/userStore";
 import { useUIStore } from "@/lib/stores/uiStore";
 import { useShallow } from "zustand/react/shallow";
 import TripCard from "@/components/trip-card";
+import TripCardSimple from "@/components/trip-card-simple";
 import { MapControls } from "@/components/map/map-controls";
 import MapView from "@/components/map/MapView";
 import { Trip, Winery } from "@/lib/types";
 
 // Track render counts across components
 let tripCardRenderCount = 0;
+let tripCardSimpleRenderCount = 0;
 let mapControlsChildRenderCount = 0;
 let mapViewChildRenderCount = 0;
+
+// Mock child and peripheral components to accurately count parent re-render executions
+jest.mock("@/components/TripCardSimplePresentational", () => {
+  return function MockTripCardSimplePresentational(props: any) {
+    tripCardSimpleRenderCount++;
+    return (
+      <div
+        data-testid="mock-trip-card-simple-presentational"
+        data-is-owner={String(props.isOwner)}
+      />
+    );
+  };
+});
 
 // Mock child and peripheral components to accurately count parent re-render executions
 jest.mock("@/components/TripCardPresentational", () => {
@@ -127,6 +142,7 @@ describe("ST-10: Component Store Subscriptions & Selector Hygiene", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     tripCardRenderCount = 0;
+    tripCardSimpleRenderCount = 0;
     mapControlsChildRenderCount = 0;
     mapViewChildRenderCount = 0;
 
@@ -218,6 +234,49 @@ describe("ST-10: Component Store Subscriptions & Selector Hygiene", () => {
         "data-is-updating",
         "true"
       );
+    });
+  });
+
+  describe("TripCardSimple Selector Hygiene (ST-10)", () => {
+    it("does not re-render when unrelated userStore state changes (error)", () => {
+      render(<TripCardSimple trip={baseTrip} onDelete={jest.fn()} />);
+      const initialRenders = tripCardSimpleRenderCount;
+
+      act(() => {
+        useUserStore.setState({
+          error: "Auth refresh error",
+        } as any);
+      });
+
+      expect(tripCardSimpleRenderCount).toBe(initialRenders);
+    });
+
+    it("does not re-render when unrelated uiStore state changes (isModalOpen, activeModal)", () => {
+      render(<TripCardSimple trip={baseTrip} onDelete={jest.fn()} />);
+      const initialRenders = tripCardSimpleRenderCount;
+
+      act(() => {
+        useUIStore.setState({
+          isModalOpen: true,
+          activeModal: { type: "winery_notes" },
+          activeWineryId: "42",
+        });
+      });
+
+      expect(tripCardSimpleRenderCount).toBe(initialRenders);
+    });
+
+    it("re-renders when subscribed userStore state changes (user)", () => {
+      render(<TripCardSimple trip={baseTrip} onDelete={jest.fn()} />);
+      const initialRenders = tripCardSimpleRenderCount;
+
+      act(() => {
+        useUserStore.setState({
+          user: { id: "user-2", email: "other@example.com" } as any,
+        });
+      });
+
+      expect(tripCardSimpleRenderCount).toBe(initialRenders + 1);
     });
   });
 

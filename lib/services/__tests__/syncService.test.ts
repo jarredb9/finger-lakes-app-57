@@ -15,12 +15,26 @@ jest.mock('@/lib/types', () => {
 });
 jest.mock('@/lib/stores/syncStore');
 jest.mock('@/utils/supabase/client');
+const mockReplaceTripTempId = jest.fn();
+const mockFetchTrips = jest.fn();
+const mockFetchUpcomingTrips = jest.fn();
+const mockFetchTripsForDate = jest.fn();
+
 jest.mock('@/lib/stores/tripStore', () => ({
   useTripStore: {
     getState: jest.fn(() => ({
-      fetchTrips: jest.fn(),
-      fetchUpcomingTrips: jest.fn(),
+      fetchTrips: mockFetchTrips,
+      fetchUpcomingTrips: mockFetchUpcomingTrips,
+      fetchTripsForDate: mockFetchTripsForDate,
+      replaceTripTempId: mockReplaceTripTempId,
     })),
+  },
+}));
+
+jest.mock('../tripService', () => ({
+  TripService: {
+    createTrip: jest.fn(),
+    getTripById: jest.fn(),
   },
 }));
 const mockFetchVisits = jest.fn();
@@ -59,7 +73,7 @@ describe('SyncService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    (SyncService as any).isSyncing = false;
+    SyncService.isSyncing = false;
 
     mockSupabase = {
       auth: {
@@ -205,6 +219,62 @@ describe('SyncService', () => {
 
     expect(mockSupabase.rpc).toHaveBeenCalledWith('delete_trip', { p_trip_id: 456 });
     expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-trip-delete');
+  });
+
+  it('should handle create_trip mutations by delegating to TripService.createTrip with full multi-stop payload', async () => {
+    const { TripService } = require('../tripService');
+    const mockWinery1 = { id: 'place_1', name: 'Winery 1', latitude: 42.5, longitude: -77.1 };
+    const mockWinery2 = { id: 'place_2', name: 'Winery 2', latitude: 42.6, longitude: -77.2 };
+    const payload = {
+      tempId: -1001,
+      name: 'Multi-Stop Tour',
+      trip_date: '2026-10-25',
+      wineries: [mockWinery1, mockWinery2],
+      notes: 'Two stops',
+    };
+
+    const mockMutation = {
+      id: 'sync-trip-create',
+      type: 'create_trip',
+      encryptedPayload: 'encrypted-payload',
+      userId: 'test-user-id',
+    };
+
+    const mockSyncStore = {
+      queue: [mockMutation],
+      isInitialized: true,
+      initialize: jest.fn().mockResolvedValue(undefined),
+      removeMutation: jest.fn().mockResolvedValue(undefined),
+      updateMutationStatus: jest.fn(),
+      getDecryptedPayload: jest.fn().mockResolvedValue(payload),
+    };
+
+    (useSyncStore.getState as jest.Mock).mockReturnValue(mockSyncStore);
+
+    const serverTrip = {
+      id: 999,
+      user_id: 'test-user-id',
+      name: 'Multi-Stop Tour',
+      trip_date: '2026-10-25',
+      wineries: [mockWinery1, mockWinery2],
+      members: [],
+      syncStatus: 'synced',
+      wineries_count: 2,
+    };
+    (TripService.createTrip as jest.Mock).mockResolvedValue(serverTrip);
+
+    await SyncService.sync();
+
+    expect(TripService.createTrip).toHaveBeenCalledWith(payload, 'sync-trip-create');
+    expect(mockReplaceTripTempId).toHaveBeenCalledWith(-1001, expect.objectContaining({
+      id: 999,
+      wineries_count: 2,
+      syncStatus: 'synced',
+    }));
+    expect(mockSyncStore.removeMutation).toHaveBeenCalledWith('sync-trip-create');
+    expect(mockFetchUpcomingTrips).toHaveBeenCalled();
+    expect(mockFetchTrips).toHaveBeenCalledWith(1, 'upcoming', true);
+    expect(mockFetchTripsForDate).toHaveBeenCalledWith('2026-10-25');
   });
 
   it('should handle update_profile mutations', async () => {
