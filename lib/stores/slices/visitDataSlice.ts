@@ -7,6 +7,7 @@ import {
   hydrateVisitsHelper,
   fetchVisitsForWineryHelper,
   fetchVisitsHelper,
+  fetchAllVisitsHelper,
   saveVisitHelper,
   updateVisitHelper,
   deleteVisitHelper,
@@ -19,10 +20,12 @@ export interface VisitDataSlice {
   isLoading: boolean;
   error: string | null;
   isSavingVisit: boolean;
+  allVisitsLoaded: boolean;
   getVisitsByWinery: (wineryIdentifier: number | string) => VisitWithWinery[];
   fetchVisitsForWinery: (wineryIdentifier: number | string) => Promise<VisitWithWinery[]>;
   hydrateVisits: (rawVisits: any[], wineryMeta?: any) => void;
   fetchVisits: (page?: number, refresh?: boolean) => Promise<void>;
+  fetchAllVisits: () => Promise<void>;
   saveVisit: (
     winery: Winery,
     visitData: { visit_date: string; user_review: string; rating: number; photos: (File | Base64Photo)[]; is_private?: boolean }
@@ -51,11 +54,13 @@ export const createVisitDataSlice: StateCreator<
   isLoading: false,
   error: null,
   isSavingVisit: false,
+  allVisitsLoaded: false,
 
   getVisitsByWinery: (wineryIdentifier) => getVisitsByWineryHelper(get, wineryIdentifier),
   hydrateVisits: (rawVisits, wineryMeta) => hydrateVisitsHelper(set, rawVisits, wineryMeta),
   fetchVisitsForWinery: (wineryIdentifier) => fetchVisitsForWineryHelper(get, wineryIdentifier),
   fetchVisits: (pageNumber, refresh) => fetchVisitsHelper(set, pageNumber, refresh),
+  fetchAllVisits: () => fetchAllVisitsHelper(get, set),
   saveVisit: (winery, visitData) => saveVisitHelper(get, set, winery, visitData),
   updateVisit: (visitId, visitData, newPhotos, photosToDelete) =>
     updateVisitHelper(get, set, visitId, visitData, newPhotos, photosToDelete),

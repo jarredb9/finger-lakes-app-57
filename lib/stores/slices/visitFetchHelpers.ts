@@ -1,10 +1,12 @@
 import { VisitWithWinery, GooglePlaceId, WineryDbId } from '@/lib/types';
+import type { Database } from '@/lib/database.types';
 import { createClient } from '@/utils/supabase/client';
 import type { StoreApi } from 'zustand';
 import type { VisitState } from '../visitStore';
 
 type GetVisitState = StoreApi<VisitState>['getState'];
 type SetVisitState = StoreApi<VisitState>['setState'];
+type PaginatedVisitRpcRow = Database['public']['Functions']['get_paginated_visits_with_winery_and_friends']['Returns'][number];
 
 export const VISITS_PER_PAGE = 10;
 
@@ -162,7 +164,8 @@ export async function fetchVisitsHelper(
       totalPages: Math.ceil((count || 0) / VISITS_PER_PAGE),
       hasMore: fetchedVisits.length === VISITS_PER_PAGE,
       isLoading: false,
-      error: null
+      error: null,
+      allVisitsLoaded: refresh || pageNumber === 1 ? false : state.allVisitsLoaded,
     }));
 
   } catch (error: any) {
@@ -170,3 +173,54 @@ export async function fetchVisitsHelper(
     set({ isLoading: false, error: error.message || "Failed to fetch visits" });
   }
 }
+
+export async function fetchAllVisitsHelper(
+  get: GetVisitState,
+  set: SetVisitState
+): Promise<void> {
+  if (get().isLoading) return;
+  set({ isLoading: true, error: null });
+  const supabase = createClient();
+  try {
+    const { data, error } = await supabase.rpc('get_paginated_visits_with_winery_and_friends', {
+      p_page_number: 1,
+      p_page_size: 1000,
+    });
+
+    if (error) throw error;
+
+    const fetchedVisits: VisitWithWinery[] = ((data as PaginatedVisitRpcRow[] | null) || []).map((v: PaginatedVisitRpcRow) => ({
+      id: typeof v.visit_id === 'number' ? v.visit_id : (!isNaN(Number(v.visit_id)) ? Number(v.visit_id) : v.visit_id),
+      visit_date: v.visit_date,
+      user_review: v.user_review,
+      rating: v.rating,
+      photos: v.photos,
+      winery_id: Number(v.winery_id) as WineryDbId,
+      wineryName: v.winery_name,
+      wineryId: v.google_place_id as GooglePlaceId,
+      friend_visits: Array.isArray(v.friend_visits) ? v.friend_visits : undefined,
+      syncStatus: 'synced',
+      wineries: {
+        id: Number(v.winery_id) as WineryDbId,
+        google_place_id: v.google_place_id as GooglePlaceId,
+        name: v.winery_name,
+        address: v.winery_address,
+        latitude: Number(v.latitude),
+        longitude: Number(v.longitude),
+      },
+    }));
+
+    set({
+      visits: fetchedVisits,
+      allVisitsLoaded: true,
+      hasMore: false,
+      isLoading: false,
+      error: null,
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch all visits';
+    console.error('Failed to fetch all visits:', error);
+    set({ isLoading: false, error: message });
+  }
+}
+

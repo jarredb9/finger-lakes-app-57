@@ -7,6 +7,7 @@ import {
   flexRender,
   getCoreRowModel,
   getFilteredRowModel,
+  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
@@ -21,6 +22,13 @@ import {
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { XCircle } from "lucide-react"
 
 interface DataTableProps<TData, TValue> {
@@ -34,8 +42,12 @@ export function DataTable<TData, TValue>({
   data,
   onRowClick,
 }: DataTableProps<TData, TValue>) {
-  const [sorting, setSorting] = React.useState<SortingState>([{ id: "visit_date", desc: true }])
-  const [globalFilter, setGlobalFilter] = React.useState("")
+  const [sorting, setSorting] = React.useState<SortingState>([{ id: 'visit_date', desc: true }]);
+  const [globalFilter, setGlobalFilter] = React.useState('');
+  const [pagination, setPagination] = React.useState({
+    pageIndex: 0,
+    pageSize: 25,
+  });
 
   const table = useReactTable({
     data,
@@ -45,17 +57,23 @@ export function DataTable<TData, TValue>({
     getSortedRowModel: getSortedRowModel(),
     onGlobalFilterChange: setGlobalFilter,
     getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    onPaginationChange: setPagination,
     state: {
       sorting,
       globalFilter,
+      pagination,
     },
-  })
+  });
+
+  const pageCount = table.getPageCount();
+  const currentPage = pageCount === 0 ? 0 : table.getState().pagination.pageIndex + 1;
 
   return (
     <div>
         <div className="flex items-center justify-between py-4">
             <Input
-                placeholder="Filter by winery or review..."
+                placeholder="Filter by winery or notes..."
                 value={globalFilter ?? ""}
                 onChange={(event) => setGlobalFilter(event.target.value)}
                 className="max-w-sm"
@@ -116,6 +134,53 @@ export function DataTable<TData, TValue>({
             )}
           </TableBody>
         </Table>
+      </div>
+
+      {/* Pagination Controls */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 px-2">
+        <div className="flex items-center space-x-2">
+          <p className="text-sm font-medium text-muted-foreground">Rows per page</p>
+          <Select
+            value={`${table.getState().pagination.pageSize}`}
+            onValueChange={(value) => {
+              table.setPageSize(Number(value));
+            }}
+          >
+            <SelectTrigger className="h-8 w-[70px]" aria-label="Rows per page">
+              <SelectValue placeholder={`${table.getState().pagination.pageSize}`} />
+            </SelectTrigger>
+            <SelectContent side="top">
+              {[10, 25, 50].map((pageSize) => (
+                <SelectItem key={pageSize} value={`${pageSize}`}>
+                  {pageSize}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex items-center space-x-6 lg:space-x-8">
+          <div className="flex items-center justify-center text-sm font-medium text-muted-foreground">
+            Page {currentPage} of {pageCount}
+          </div>
+          <div className="flex items-center space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
       </div>
     </div>
   )

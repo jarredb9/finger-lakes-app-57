@@ -38,6 +38,7 @@ export const useVisitStore = createWithEqualityFn<VisitState>()(
           page: 1,
           totalPages: 1,
           hasMore: false,
+          allVisitsLoaded: false,
         });
       },
     }),

@@ -19,8 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { Pagination, PaginationContent, PaginationItem, PaginationNext } from "@/components/ui/pagination";
-
 
 interface VisitHistoryModalProps {
   // visits prop removed, as this component now fetches its own data
@@ -35,24 +33,24 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
   const { 
       visits, 
       isLoading, 
-      page, 
-      hasMore, 
-      fetchVisits 
+      fetchAllVisits,
+      allVisitsLoaded,
   } = useVisitStore()
   
   const [mobileSearch, setMobileSearch] = useState("")
   const [sortField, setSortField] = useState<SortField>("date")
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
+  const [mobilePage, setMobilePage] = useState(1)
+  const mobilePageSize = 10
 
   useEffect(() => {
-    if (isVisitHistoryModalOpen) {
-        fetchVisits(1, true);
+    if (isVisitHistoryModalOpen && !allVisitsLoaded) {
+      fetchAllVisits();
     }
-  }, [isVisitHistoryModalOpen, fetchVisits]);
-
+  }, [isVisitHistoryModalOpen, allVisitsLoaded, fetchAllVisits]);
 
   const handleRowClick = (visit: VisitWithWinery) => {
-     setVisitHistoryModalOpen(false) // Close the current modal first
+     setVisitHistoryModalOpen(false); // Close the current modal first
      
      if (visit.wineries?.google_place_id) {
         // Ensure data is loaded
@@ -62,48 +60,56 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
         // between the closing and opening dialogs.
         setTimeout(() => {
             // Open the winery modal and tell it to return to history when closed
-            openWineryModal(visit.wineries.google_place_id, true)
+            openWineryModal(visit.wineries.google_place_id, true);
         }, 100);
      }
-  }
+  };
 
   const toggleSortDirection = () => {
-    setSortDirection(prev => prev === "asc" ? "desc" : "asc")
-  }
+    setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    setMobilePage(1);
+  };
 
   const filteredAndSortedVisits = useMemo(() => {
-    let result = [...visits]
+    let result = [...visits];
 
     // Filter
     if (mobileSearch) {
-        const lower = mobileSearch.toLowerCase()
+        const lower = mobileSearch.toLowerCase();
         result = result.filter(v => 
           v.wineries?.name?.toLowerCase().includes(lower) || 
           v.user_review?.toLowerCase().includes(lower)
-        )
+        );
     }
 
     // Sort
     result.sort((a, b) => {
-        let comparison = 0
+        let comparison = 0;
         switch (sortField) {
             case "date":
-                comparison = new Date(a.visit_date).getTime() - new Date(b.visit_date).getTime()
-                break
+                comparison = new Date(a.visit_date).getTime() - new Date(b.visit_date).getTime();
+                break;
             case "rating":
-                comparison = (a.rating || 0) - (b.rating || 0)
-                break
+                comparison = (a.rating || 0) - (b.rating || 0);
+                break;
             case "name":
-                const nameA = a.wineries?.name || ""
-                const nameB = b.wineries?.name || ""
-                comparison = nameA.localeCompare(nameB)
-                break
+                const nameA = a.wineries?.name || '';
+                const nameB = b.wineries?.name || '';
+                comparison = nameA.localeCompare(nameB);
+                break;
         }
-        return sortDirection === "asc" ? comparison : -comparison
-    })
+        return sortDirection === 'asc' ? comparison : -comparison;
+    });
 
-    return result
-  }, [visits, mobileSearch, sortField, sortDirection])
+    return result;
+  }, [visits, mobileSearch, sortField, sortDirection]);
+
+  const totalMobilePages = Math.max(1, Math.ceil(filteredAndSortedVisits.length / mobilePageSize));
+  const paginatedMobileVisits = useMemo(() => {
+    const safeMobilePage = Math.min(mobilePage, totalMobilePages);
+    const startIndex = (safeMobilePage - 1) * mobilePageSize;
+    return filteredAndSortedVisits.slice(startIndex, startIndex + mobilePageSize);
+  }, [filteredAndSortedVisits, mobilePage, totalMobilePages, mobilePageSize]);
 
   return (
     <Dialog open={isVisitHistoryModalOpen} onOpenChange={setVisitHistoryModalOpen}>
@@ -133,16 +139,25 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
                     <div className="relative">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
-                            placeholder="Search visits..."
+                            placeholder="Filter by winery or notes..."
                             value={mobileSearch}
-                            onChange={(e) => setMobileSearch(e.target.value)}
+                            onChange={(e) => {
+                              setMobileSearch(e.target.value);
+                              setMobilePage(1);
+                            }}
                             className="pl-8"
                         />
                     </div>
                     <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-1">
                             <span className="text-xs text-muted-foreground font-medium uppercase shrink-0">Sort By</span>
-                            <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
+                            <Select 
+                              value={sortField} 
+                              onValueChange={(v) => {
+                                setSortField(v as SortField);
+                                setMobilePage(1);
+                              }}
+                            >
                                 <SelectTrigger className="h-8 text-xs">
                                     <SelectValue placeholder="Sort by" />
                                 </SelectTrigger>
@@ -159,20 +174,20 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
                             className="h-8 w-8 px-0"
                             onClick={toggleSortDirection}
                         >
-                            {sortDirection === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                            {sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
                         </Button>
                     </div>
                 </div>
 
                 <div className="space-y-3">
-                    {isLoading && visits.length === 0 ? (
+                    {isLoading && !allVisitsLoaded ? (
                         <div className="flex justify-center items-center py-8">
                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                         </div>
                     ) : filteredAndSortedVisits.length === 0 ? (
                         <p className="text-center text-muted-foreground py-8 text-sm">No visits found.</p>
                     ) : (
-                        filteredAndSortedVisits.map((visit) => (
+                        paginatedMobileVisits.map((visit) => (
                             <Card 
                                 key={visit.id} 
                                 onClick={() => handleRowClick(visit)}
@@ -210,26 +225,42 @@ export function VisitHistoryModal({}: VisitHistoryModalProps) {
                         ))
                     )}
                 </div>
-                {hasMore && (
-                    <Pagination>
-                        <PaginationContent>
-                            <PaginationItem>
-                                <PaginationNext 
-                                    href="#" 
-                                    onClick={(e) => { e.preventDefault(); fetchVisits(page + 1); }} 
-                                    aria-label="Load more visits"
-                                />
-                            </PaginationItem>
-                        </PaginationContent>
-                    </Pagination>
+                {totalMobilePages > 1 && (
+                    <div className="flex items-center justify-between pt-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setMobilePage(p => Math.max(1, p - 1))}
+                            disabled={mobilePage <= 1}
+                        >
+                            Previous
+                        </Button>
+                        <span className="text-xs text-muted-foreground font-medium">
+                            Page {mobilePage} of {totalMobilePages}
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setMobilePage(p => Math.min(totalMobilePages, p + 1))}
+                            disabled={mobilePage >= totalMobilePages}
+                        >
+                            Next
+                        </Button>
+                    </div>
                 )}
             </div>
 
             {/* Desktop View: Data Table */}
             <div className="hidden lg:block">
-                <div className="overflow-x-auto">
-                    <DataTable columns={columns as any} data={visits} onRowClick={handleRowClick} />
-                </div>
+                {isLoading && !allVisitsLoaded ? (
+                    <div className="flex justify-center items-center py-12">
+                        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                ) : (
+                    <div className="overflow-x-auto">
+                        <DataTable columns={columns} data={visits} onRowClick={handleRowClick} />
+                    </div>
+                )}
             </div>
         </div>
       </DialogContent>
