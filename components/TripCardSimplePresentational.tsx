@@ -63,7 +63,7 @@ export default function TripCardSimple({
                                         size="icon" 
                                         variant="outline" 
                                         onClick={onExportToMaps} 
-                                        disabled={!trip.wineries || trip.wineries.length === 0}
+                                        disabled={isPending || count === 0 || !trip.wineries || trip.wineries.length === 0}
                                         aria-label="Export to Google Maps"
                                     >
                                         <Share2 size={16} />
