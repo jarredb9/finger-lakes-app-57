@@ -97,8 +97,8 @@
     - [x] Fire non-blocking `void Promise.all([...])` background cache refresh.
     - [x] Update `components/TripCardSimplePresentational.tsx` badge to pluralize correctly: `{count} {count === 1 ? 'Winery' : 'Wineries'}`.
     - [x] Run containerized Jest suite and verify all tests pass.
-- [ ] Task: Refactor & Scaffolding Cleanup
-    - [ ] Clean up store helper logic, verify Zustand 5 selectors, and remove any temporary test artifacts.
+- [x] Task: Refactor & Scaffolding Cleanup [commit: 3c6c823e]
+    - [x] Clean up store helper logic, verify Zustand 5 selectors, and remove any temporary test artifacts.
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Store Invariants, Background Invalidation & Badge Pluralization' (Protocol in workflow.md)
 
 ## Phase 7: End-to-End Verification & Final Quality Gates
