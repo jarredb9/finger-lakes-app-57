@@ -88,6 +88,15 @@ This specification addresses the six underlying root causes identified through a
   </Badge>
   ```
 
+### 3.9 Eager List Trip Stop Hydration & Export Guard (`TripService.getTrips`, `TripCardSimplePresentational`)
+- Update `TripService.getTrips` in `lib/services/tripService.ts` to query nested `trip_wineries (id, visit_order, notes, wineries (id, google_place_id, name, address, latitude, longitude))` and standardize/map each stop ordered by `visit_order` into `wineries: Winery[]` on each returned `Trip`.
+- Safely derive `wineries_count` from `trip_wineries.length` (or nested count when mocked).
+- Update the "Export to Google Maps" button in `TripCardSimplePresentational.tsx` to guard against pending sync states and zero wineries:
+  ```tsx
+  disabled={isPending || count === 0 || !trip.wineries || trip.wineries.length === 0}
+  ```
+- Default `wineries_count: overrides.wineries_count ?? overrides.wineries?.length ?? 0` in `createMockTrip` fixture (`lib/test-utils/fixtures.ts`) to maintain store count invariants across tests.
+
 ## 4. Test Suite Restructuring & Hygiene
 - **Test File Modularization:**
   - Split `components/__tests__/react19-form-actions.test.tsx`:
@@ -124,6 +133,7 @@ Every task executes the strict Red-Green-Refactor cycle:
 12. Containerized Jest tests pass for `auth-forms.test.tsx`, `trip-form.test.tsx`, `PlaceAutocomplete.test.tsx`, `tripService.mutations.test.ts`, and `tripMutationHelpers.test.ts`.
 13. Playwright E2E test in WebKit replaces stub in `e2e/trip-flow.spec.ts`, verifying full trip creation with multiple winery stops and correct card count badge.
 14. Zero temporary scaffolding files remain.
+15. In "My Trips" tab (`TripCardSimple`), the "Export to Google Maps" button is enabled and fully functional for trips with wineries, disabled when `wineries_count === 0`, and disabled when `syncStatus === 'pending'`.
 
 ## 7. Out of Scope
 - Changing external Google Places v1 API schemas.

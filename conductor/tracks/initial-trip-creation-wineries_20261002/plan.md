@@ -99,6 +99,9 @@
     - [x] Run containerized Jest suite and verify all tests pass.
 - [x] Task: Refactor & Scaffolding Cleanup [commit: 3c6c823e]
     - [x] Clean up store helper logic, verify Zustand 5 selectors, and remove any temporary test artifacts.
+    - [x] Hydrate Trip Stops in `TripService.getTrips` and update `TripCardSimplePresentational` export button disabled guard (`isPending || count === 0 || !trip.wineries || trip.wineries.length === 0`).
+    - [x] Default `wineries_count` in `createMockTrip` test fixture (`lib/test-utils/fixtures.ts`) to maintain store count invariants.
+    - [x] Add unit tests in `tripService.test.ts` and `TripCardSimplePresentational.test.tsx` verifying stop hydration and export button states.
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Store Invariants, Background Invalidation & Badge Pluralization' (Protocol in workflow.md)
 
 ## Phase 7: End-to-End Verification & Final Quality Gates

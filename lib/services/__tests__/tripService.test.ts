@@ -61,6 +61,59 @@ describe('TripService', () => {
       expect(typeof result.trips[1].id).toBe('number');
       expect(result.trips[1].id).toBe(456);
     });
+
+    it('should populate wineries array and wineries_count from trip_wineries', async () => {
+      const mockTrips = [
+        {
+          id: '123',
+          name: 'Finger Lakes Tour',
+          trip_date: '2026-05-10',
+          trip_wineries: [
+            {
+              id: 1,
+              visit_order: 2,
+              notes: 'Stop 2 notes',
+              wineries: {
+                id: 102,
+                google_place_id: 'place_ravines',
+                name: 'Ravines Wine Cellars',
+                address: '400 Barracks Rd',
+                latitude: 42.6,
+                longitude: -77.0,
+              },
+            },
+            {
+              id: 2,
+              visit_order: 1,
+              notes: 'Stop 1 notes',
+              wineries: {
+                id: 101,
+                google_place_id: 'place_dr_frank',
+                name: 'Dr. Konstantin Frank',
+                address: '9749 Middle Rd',
+                latitude: 42.5,
+                longitude: -77.1,
+              },
+            },
+          ],
+        },
+      ];
+
+      mockRange.mockResolvedValue({
+        data: mockTrips,
+        error: null,
+        count: 1,
+      });
+
+      const result = await TripService.getTrips(1, 'upcoming');
+
+      expect(result.trips[0].wineries_count).toBe(2);
+      expect(result.trips[0].wineries).toHaveLength(2);
+      expect(result.trips[0].wineries[0].name).toBe('Dr. Konstantin Frank');
+      expect(result.trips[0].wineries[0].visit_order).toBe(1);
+      expect(result.trips[0].wineries[1].name).toBe('Ravines Wine Cellars');
+      expect(result.trips[0].wineries[1].visit_order).toBe(2);
+    });
   });
 
   describe('getUpcomingTrips', () => {

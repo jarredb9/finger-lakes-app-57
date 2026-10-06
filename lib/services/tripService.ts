@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/client';
 import { Trip, Winery } from '@/lib/types';
 import { getTodayLocal, formatDateLocal } from '@/lib/utils';
+import { standardizeWineryData } from '@/lib/utils/winery';
 import { WineryService } from './wineryService';
 import { findWineryByDbId } from '@/lib/stores/wineryStore';
 
@@ -27,7 +28,19 @@ export const TripService = {
           name,
           trip_date,
           updated_at,
-          trip_wineries (count),
+          trip_wineries (
+              id,
+              visit_order,
+              notes,
+              wineries (
+                  id,
+                  google_place_id,
+                  name,
+                  address,
+                  latitude,
+                  longitude
+              )
+          ),
           trip_members!inner (
               user_id,
               role,
@@ -51,19 +64,51 @@ export const TripService = {
     if (error) throw error;
 
     // Transform to match expected UI structure
-    const formattedTrips = trips?.map((t: any) => ({
-      ...t,
-      id: Number(t.id),
-      wineries_count: t.trip_wineries?.[0]?.count || 0,
-      wineries: [], // List view doesn't need full winery details
-      members: t.trip_members?.map((m: any) => ({
-        id: m.user_id,
-        role: m.role,
-        status: m.status,
-        name: m.profiles?.name || 'User',
-        email: m.profiles?.email || ''
-      })) || []
-    }));
+    const formattedTrips = trips?.map((t: any) => {
+      const rawTripWineries = t.trip_wineries;
+      const wineriesCount = typeof rawTripWineries?.[0]?.count === 'number'
+        ? rawTripWineries[0].count
+        : (Array.isArray(rawTripWineries) ? rawTripWineries.length : 0);
+
+      const wineries = (Array.isArray(rawTripWineries) ? rawTripWineries : [])
+        .filter((tw: any) => tw?.wineries || (tw?.id && tw?.name))
+        .sort((a: any, b: any) => (a.visit_order ?? 0) - (b.visit_order ?? 0))
+        .map((tw: any) => {
+          const rawWinery = tw.wineries || tw;
+          const standardized = standardizeWineryData(rawWinery);
+          if (standardized) {
+            return {
+              ...standardized,
+              visit_order: tw.visit_order,
+              notes: tw.notes || ''
+            };
+          }
+          return {
+            dbId: rawWinery.id ? Number(rawWinery.id) : undefined,
+            id: rawWinery.google_place_id || String(rawWinery.id || ''),
+            name: rawWinery.name || '',
+            address: rawWinery.address || '',
+            latitude: Number(rawWinery.latitude || 0),
+            longitude: Number(rawWinery.longitude || 0),
+            visit_order: tw.visit_order,
+            notes: tw.notes || ''
+          };
+        });
+
+      return {
+        ...t,
+        id: Number(t.id),
+        wineries_count: wineriesCount,
+        wineries,
+        members: t.trip_members?.map((m: any) => ({
+          id: m.user_id,
+          role: m.role,
+          status: m.status,
+          name: m.profiles?.name || 'User',
+          email: m.profiles?.email || ''
+        })) || []
+      };
+    });
 
     return { trips: formattedTrips || [], count: count || 0 };
   },

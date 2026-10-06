@@ -142,6 +142,19 @@ describe('TripCardSimplePresentational', () => {
       expect(screen.getByTestId('view-trip-details-btn')).toBeDisabled();
       expect(screen.getByTestId('share-trip-btn')).toBeDisabled();
       expect(screen.getByTestId('delete-trip-btn')).toBeDisabled();
+      expect(screen.getByRole('button', { name: /Export to Google Maps/i })).toBeDisabled();
+    });
+
+    it('disables export button when trip has no wineries or wineries_count is 0', () => {
+      const trip: Trip = createMockTrip({
+        id: 50,
+        wineries_count: 0,
+        wineries: [],
+      });
+      render(<TripCardSimple {...defaultProps} trip={trip} />);
+
+      const exportBtn = screen.getByRole('button', { name: /Export to Google Maps/i });
+      expect(exportBtn).toBeDisabled();
     });
 
     it('invokes onShare when share button is clicked by owner', () => {
@@ -168,11 +181,13 @@ describe('TripCardSimplePresentational', () => {
     it('invokes onExportToMaps when export button is clicked on trip with wineries', () => {
       const trip: Trip = createMockTrip({
         id: 50,
+        wineries_count: 1,
         wineries: [mockWinery1],
       });
       render(<TripCardSimple {...defaultProps} trip={trip} />);
 
       const exportBtn = screen.getByRole('button', { name: /Export to Google Maps/i });
+      expect(exportBtn).not.toBeDisabled();
       fireEvent.click(exportBtn);
 
       expect(mockOnExportToMaps).toHaveBeenCalledTimes(1);
