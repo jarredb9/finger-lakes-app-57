@@ -12,8 +12,8 @@ interface TripCardSimpleProps {
 }
 
 export default function TripCardSimple({ trip, onDelete }: TripCardSimpleProps) {
-    const { openShareDialog } = useUIStore();
-    const { user } = useUserStore();
+    const openShareDialog = useUIStore((s) => s.openShareDialog);
+    const user = useUserStore((s) => s.user);
     
     const { 
         currentMembers, 
