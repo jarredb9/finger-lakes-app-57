@@ -104,7 +104,7 @@
     - [x] Add unit tests in `tripService.test.ts`, `TripCardSimplePresentational.test.tsx`, `trip-card-simple.test.tsx`, and `use-trip-actions.test.ts` verifying stop hydration, hook delegation, and export button states.
 - [x] Task: Conductor - User Manual Verification 'Phase 6: Store Invariants, Background Invalidation & Badge Pluralization' (Protocol in workflow.md) [commit: 114a92e4]
 
-## Phase 7: End-to-End Verification & Final Quality Gates
+## Phase 7: End-to-End Verification & Final Quality Gates [checkpoint: 0f48c20]
 
 - [x] Task: E2E Integration Flow (Playwright) [commit: a5ecfe23]
     - [x] Replace existing placeholder stub `test('can create a new trip from a winery')` in `e2e/trip-flow.spec.ts` with `test('can create a new trip with initial winery stops from dialog')` covering:
@@ -118,7 +118,7 @@
     - [x] Run full unit test suite via container runner (`./scripts/run-jest-container.sh`).
     - [x] Run type checking and container build (`npm run db:check-types:local`).
     - [x] Perform strict scaffolding audit: ensure zero temporary or throwaway test files exist.
-- [ ] Task: Conductor - User Manual Verification 'Phase 7: End-to-End Verification & Final Quality Gates' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 7: End-to-End Verification & Final Quality Gates' (Protocol in workflow.md) [commit: 0f48c20c]
 
 ## Phase: Review Fixes
 - [x] Task: Apply review suggestions 98f8d35
