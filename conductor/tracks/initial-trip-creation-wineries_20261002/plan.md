@@ -101,7 +101,7 @@
     - [x] Clean up store helper logic, verify Zustand 5 selectors, and remove any temporary test artifacts.
     - [x] Hydrate Trip Stops in `TripService.getTrips` and update `TripCardSimplePresentational` export button disabled guard (`isPending || count === 0 || !trip.wineries || trip.wineries.length === 0`).
     - [x] Default `wineries_count` in `createMockTrip` test fixture (`lib/test-utils/fixtures.ts`) to maintain store count invariants.
-    - [x] Add unit tests in `tripService.test.ts` and `TripCardSimplePresentational.test.tsx` verifying stop hydration and export button states.
+    - [x] Add unit tests in `tripService.test.ts`, `TripCardSimplePresentational.test.tsx`, `trip-card-simple.test.tsx`, and `use-trip-actions.test.ts` verifying stop hydration, hook delegation, and export button states.
 - [ ] Task: Conductor - User Manual Verification 'Phase 6: Store Invariants, Background Invalidation & Badge Pluralization' (Protocol in workflow.md)
 
 ## Phase 7: End-to-End Verification & Final Quality Gates
@@ -112,7 +112,7 @@
         - Searching and selecting multiple Places via `PlaceAutocomplete` as planned Trip Stops.
         - Verifying `clearOnSelect` clears the input and suppresses re-querying after each selection.
         - Verifying selected winery badges render with remove buttons and deduplication.
-        - Submitting the form and asserting the created trip card displays correct pluralized badge ("2 Wineries").
+        - Submitting the form and asserting the created trip card displays correct pluralized badge ("2 Wineries") and enabled "Export to Google Maps" button (AC 15).
     - [ ] Execute Playwright test via container runner (`./scripts/run-e2e-container.sh webkit e2e/trip-flow.spec.ts`).
 - [ ] Task: Full Suite Verification & Build Audit
     - [ ] Run full unit test suite via container runner (`./scripts/run-jest-container.sh`).
