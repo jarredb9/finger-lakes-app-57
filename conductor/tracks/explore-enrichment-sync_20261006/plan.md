@@ -24,10 +24,10 @@
 - [x] Task: Conductor - User Manual Verification 'Phase 2: Database Map Markers RPC Expansion, Type Synchronization & Fixture Hardening' (Protocol in workflow.md)
 
 ## Phase 3: Authoritative Store Caching & Reactive User State Synchronization
-- [ ] Task: Write failing unit tests for persistentWineries search merging and cache hydration (TDD Red phase)
-    - [ ] Add unit tests in `lib/stores/__tests__/wineryStore.enrichment.test.ts` verifying incoming search results merge into `persistentWineries`
-    - [ ] Add unit tests verifying `ensureWineryDetails` updates `persistentWineries` seamlessly
-    - [ ] Confirm tests fail (Red phase)
+- [x] Task: Write failing unit tests for persistentWineries search merging and cache hydration (TDD Red phase) [commit: 60174b81c285b4f082d73183c7f86f47f635066d]
+    - [x] Add unit tests in `lib/stores/__tests__/wineryStore.enrichment.test.ts` verifying incoming search results merge into `persistentWineries`
+    - [x] Add unit tests verifying `ensureWineryDetails` updates `persistentWineries` seamlessly
+    - [x] Confirm tests fail (Red phase)
 - [ ] Task: Implement persistentWineries search merging and cache hydration in wineryStore (TDD Green phase)
     - [ ] Update search ingestion in `wineryStore` / `useWinerySearch` to merge search results into `persistentWineries` via `bulkUpsertWineries` and `standardizeWineryData`, preserving user flags (`isFavorite`, `onWishlist`, `userVisited`)
     - [ ] Ensure `ensureWineryDetails` updates `persistentWineries` seamlessly
