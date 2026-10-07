@@ -13,7 +13,7 @@
     - [x] Write failing database RPC integration tests in `lib/services/__tests__/db-optimization.integration.test.ts` checking returned ratings, review counts, and Vibe Tag fields
     - [x] Author safe transaction migration `supabase/migrations/<timestamp>_enrich_map_markers_rpc.sql` executing `DROP FUNCTION IF EXISTS public.get_map_markers(uuid);` and `CREATE OR REPLACE FUNCTION public.get_map_markers` with expanded `RETURNS TABLE`
     - [x] Run migration on local Supabase stack (`npm run db:start`) and verify integration tests pass
-- [ ] Task: Synchronize TypeScript types, E2E fixtures, and `standardizeWineryData` (TDD)
+- [ ] Task: Synchronize TypeScript types, E2E fixtures, and `standardizeWineryData` (TDD) [commit: 81a2a126]
     - [ ] Update `MapMarkerRpc` interface in `lib/types.ts` and regenerate types via `npm run db:gen-types`
     - [ ] Update E2E mock fixtures in `e2e/fixtures/handlers/favorites.handler.ts` to include expanded marker columns
     - [ ] Write failing unit tests in `lib/utils/__tests__/winery.test.ts` for tri-state Vibe Tag parsing (`boolean | null`), rating mapping, and ghost visit clearing
