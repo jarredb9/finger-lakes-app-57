@@ -8,7 +8,7 @@
     - [x] Run Edge Function tests (`npm run test:functions`) to verify green status
 - [x] Task: Conductor - User Manual Verification 'Phase 1: Places API Field Mask & Edge Function Rating Ingestion' (Protocol in workflow.md)
 
-## Phase 2: Database Map Markers RPC Expansion, Type Synchronization & Fixture Hardening
+## Phase 2: Database Map Markers RPC Expansion, Type Synchronization & Fixture Hardening [checkpoint: be59c97]
 - [x] Task: Expand `get_map_markers` RPC with ratings, review count, and Vibe Tag columns (TDD) [commit: 3ccf775e]
     - [x] Write failing database RPC integration tests in `lib/services/__tests__/db-optimization.integration.test.ts` checking returned ratings, review counts, and Vibe Tag fields
     - [x] Author safe transaction migration `supabase/migrations/<timestamp>_enrich_map_markers_rpc.sql` executing `DROP FUNCTION IF EXISTS public.get_map_markers(uuid);` and `CREATE OR REPLACE FUNCTION public.get_map_markers` with expanded `RETURNS TABLE`
@@ -21,7 +21,7 @@
     - [x] Implement `parseTriStateBoolean` and update `standardizeWineryData` in `lib/utils/winery.ts` to preserve `null` and enforce ghost visit prevention
     - [x] Update mock fixtures in `lib/test-utils/fixtures.ts`, `e2e/fixtures/utils/mock-wineries.ts`, and `e2e/fixtures/handlers/favorites.handler.ts`
     - [x] Run unit tests (`./scripts/run-jest-container.sh lib/utils/__tests__/winery.test.ts`) and typecheck (`npm run type-check`) to verify green status
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Database Map Markers RPC Expansion, Type Synchronization & Fixture Hardening' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Database Map Markers RPC Expansion, Type Synchronization & Fixture Hardening' (Protocol in workflow.md)
 
 ## Phase 3: Authoritative Store Caching & Reactive User State Synchronization
 - [ ] Task: Write failing unit tests for persistentWineries search merging and cache hydration (TDD Red phase)
