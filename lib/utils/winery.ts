@@ -363,6 +363,17 @@ export function parseAccessibilityOptionsJson(json: unknown): AccessibilityOptio
   return result;
 }
 
+/**
+ * Helper to safely parse tri-state booleans (true, false, null).
+ * Returns undefined if value is not present or unrecognized.
+ */
+export function parseTriStateBoolean(val: unknown): boolean | null | undefined {
+  if (typeof val === 'boolean') return val;
+  if (val === 'true') return true;
+  if (val === 'false') return false;
+  if (val === null) return null;
+  return undefined;
+}
 
 /**
  * Standardizes winery data from various sources (DB, Google API, Mixed) into a single Winery object.
@@ -527,8 +538,8 @@ export const standardizeWineryData = (
 
   let rawUserRatingCount: unknown;
   if (isGoogleWinery(source)) {
-    rawUserRatingCount = source.userRatingCount;
-  } else if (isWineryDetailsRpc(source)) {
+    rawUserRatingCount = source.userRatingCount ?? ('user_rating_count' in record ? record['user_rating_count'] : undefined);
+  } else if (isWineryDetailsRpc(source) || isMapMarkerRpc(source)) {
     rawUserRatingCount = source.user_rating_count ?? ('userRatingCount' in record ? record['userRatingCount'] : undefined);
   } else if (isRawDbWinery(source)) {
     rawUserRatingCount = 'user_rating_count' in record ? record['user_rating_count'] : undefined;
@@ -624,11 +635,17 @@ export const standardizeWineryData = (
   }
   const neighborhoodSummary = mergeField(neighborhoodSummaryText, existing?.neighborhood_summary);
 
-  const allowsDogs = mergeField(record['allows_dogs'] !== undefined ? Boolean(record['allows_dogs']) : null, existing?.allows_dogs);
-  const hasEvCharging = mergeField(record['has_ev_charging'] !== undefined ? Boolean(record['has_ev_charging']) : null, existing?.has_ev_charging);
-  const servesWine = mergeField(record['serves_wine'] !== undefined ? Boolean(record['serves_wine']) : null, existing?.serves_wine);
-  const goodForChildren = mergeField(record['good_for_children'] !== undefined ? Boolean(record['good_for_children']) : null, existing?.good_for_children);
-  const outdoorSeating = mergeField(record['outdoor_seating'] !== undefined ? Boolean(record['outdoor_seating']) : null, existing?.outdoor_seating);
+  const rawAllowsDogs = record['allows_dogs'] !== undefined ? record['allows_dogs'] : record['allowsDogs'];
+  const rawHasEvCharging = record['has_ev_charging'] !== undefined ? record['has_ev_charging'] : record['hasEvCharging'];
+  const rawServesWine = record['serves_wine'] !== undefined ? record['serves_wine'] : record['servesWine'];
+  const rawGoodForChildren = record['good_for_children'] !== undefined ? record['good_for_children'] : record['goodForChildren'];
+  const rawOutdoorSeating = record['outdoor_seating'] !== undefined ? record['outdoor_seating'] : record['outdoorSeating'];
+
+  const allowsDogs = mergeField(parseTriStateBoolean(rawAllowsDogs), existing?.allows_dogs) ?? null;
+  const hasEvCharging = mergeField(parseTriStateBoolean(rawHasEvCharging), existing?.has_ev_charging) ?? null;
+  const servesWine = mergeField(parseTriStateBoolean(rawServesWine), existing?.serves_wine) ?? null;
+  const goodForChildren = mergeField(parseTriStateBoolean(rawGoodForChildren), existing?.good_for_children) ?? null;
+  const outdoorSeating = mergeField(parseTriStateBoolean(rawOutdoorSeating), existing?.outdoor_seating) ?? null;
   
   const sourceParking = record['parking_options'] !== undefined 
     ? record['parking_options'] 
@@ -662,10 +679,9 @@ export const standardizeWineryData = (
   let visits = (isWineryDetailsRpc(source) && source.visits) ? source.visits : (Array.isArray(record['visits']) ? (record['visits'] as Visit[]) : existing?.visits || []);
   
   if (
-    ('user_visited' in record && record['user_visited'] === false) ||
+    ('user_visited' in record && (record['user_visited'] === false || record['user_visited'] === 0)) ||
     ('userVisited' in record && record['userVisited'] === false) ||
-    record['user_visited'] === false ||
-    record['userVisited'] === false
+    userVisited === false
   ) {
       visits = [];
   }
