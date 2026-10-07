@@ -13,44 +13,61 @@
     - [x] Write failing database RPC integration tests in `lib/services/__tests__/db-optimization.integration.test.ts` checking returned ratings, review counts, and Vibe Tag fields
     - [x] Author safe transaction migration `supabase/migrations/<timestamp>_enrich_map_markers_rpc.sql` executing `DROP FUNCTION IF EXISTS public.get_map_markers(uuid);` and `CREATE OR REPLACE FUNCTION public.get_map_markers` with expanded `RETURNS TABLE`
     - [x] Run migration on local Supabase stack (`npm run db:start`) and verify integration tests pass
-- [x] Task: Synchronize TypeScript types, E2E fixtures, and `standardizeWineryData` (TDD) [commit: 59821567]
-    - [x] Update `MapMarkerRpc` interface in `lib/types.ts` and regenerate types via `npm run db:gen-types`
-    - [x] Update E2E mock fixtures in `e2e/fixtures/handlers/favorites.handler.ts` to include expanded marker columns
+- [x] Task: Write failing unit tests for tri-state Vibe Tag parsing, rating mapping, and ghost visit clearing (TDD Red phase) [commit: 81a2a126]
+    - [x] Update `MapMarkerRpc` interface in `lib/types.ts` and add `db:gen-types` script
     - [x] Write failing unit tests in `lib/utils/__tests__/winery.test.ts` for tri-state Vibe Tag parsing (`boolean | null`), rating mapping, and ghost visit clearing
-    - [x] Update `standardizeWineryData` in `lib/utils/winery.ts` to preserve `null` for un-enriched Vibe Tags and enforce ghost visit prevention
-    - [x] Run unit tests to verify green status
+    - [x] Verify tests fail with expected assertions (Red phase)
+- [x] Task: Implement tri-state Vibe Tag preservation, rating mapping, and ghost visit prevention (TDD Green phase) [commit: 59821567]
+    - [x] Implement `parseTriStateBoolean` and update `standardizeWineryData` in `lib/utils/winery.ts` to preserve `null` and enforce ghost visit prevention
+    - [x] Update mock fixtures in `lib/test-utils/fixtures.ts`, `e2e/fixtures/utils/mock-wineries.ts`, and `e2e/fixtures/handlers/favorites.handler.ts`
+    - [x] Run unit tests (`./scripts/run-jest-container.sh lib/utils/__tests__/winery.test.ts`) and typecheck (`npm run type-check`) to verify green status
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Database Map Markers RPC Expansion, Type Synchronization & Fixture Hardening' (Protocol in workflow.md)
 
 ## Phase 3: Authoritative Store Caching & Reactive User State Synchronization
-- [ ] Task: Establish `wineryStore.persistentWineries` as single source of truth for search results (TDD)
-    - [ ] Write failing unit tests in `lib/stores/__tests__/wineryStore.enrichment.test.ts` verifying incoming search results merge into `persistentWineries`
+- [ ] Task: Write failing unit tests for persistentWineries search merging and cache hydration (TDD Red phase)
+    - [ ] Add unit tests in `lib/stores/__tests__/wineryStore.enrichment.test.ts` verifying incoming search results merge into `persistentWineries`
+    - [ ] Add unit tests verifying `ensureWineryDetails` updates `persistentWineries` seamlessly
+    - [ ] Confirm tests fail (Red phase)
+- [ ] Task: Implement persistentWineries search merging and cache hydration in wineryStore (TDD Green phase)
     - [ ] Update search ingestion in `wineryStore` / `useWinerySearch` to merge search results into `persistentWineries` via `bulkUpsertWineries` and `standardizeWineryData`, preserving user flags (`isFavorite`, `onWishlist`, `userVisited`)
     - [ ] Ensure `ensureWineryDetails` updates `persistentWineries` seamlessly
     - [ ] Run store tests to verify green status
-- [ ] Task: Reactive propagation of favorite, wishlist, and visit actions (TDD)
-    - [ ] Write failing unit tests verifying user state actions (`toggleFavorite`, `toggleWishlist`, visit logs) immediately update `persistentWineries` and propagate across map pins and sidebar
-    - [ ] Verify state updates adhere to domain invariants and run unit tests to verify green status
+- [ ] Task: Write failing unit tests for reactive propagation of favorite, wishlist, and visit actions (TDD Red phase)
+    - [ ] Add unit tests verifying user state actions (`toggleFavorite`, `toggleWishlist`, visit logs) immediately update `persistentWineries` and propagate across map pins and sidebar
+    - [ ] Confirm tests fail (Red phase)
+- [ ] Task: Implement reactive propagation of user actions across persistentWineries (TDD Green phase)
+    - [ ] Update user state action reducers/mutations to propagate updates across `persistentWineries`
+    - [ ] Verify state updates adhere to domain invariants and run store tests to verify green status
 - [ ] Task: Conductor - User Manual Verification 'Phase 3: Authoritative Store Caching & Reactive User State Synchronization' (Protocol in workflow.md)
 
 ## Phase 4: Unified Sidebar List & Viewport Filtering
-- [ ] Task: Refactor `useWineryFilter` to eliminate diverging `searchResults` branching (TDD)
-    - [ ] Write failing unit tests in `hooks/__tests__/use-winery-filter.test.ts` verifying `listResultsInView` includes all cached wineries within viewport bounds even when searches have been performed
-    - [ ] Write failing unit tests verifying user badges (`isFavorite`, `userVisited`, `onWishlist`) are preserved in `listResultsInView`
+- [ ] Task: Write failing unit tests for useWineryFilter viewport list unification and Vibe Tag filtering (TDD Red phase)
+    - [ ] Add unit tests in `hooks/__tests__/use-winery-filter.test.ts` verifying `listResultsInView` includes all cached wineries within viewport bounds even when searches have been performed
+    - [ ] Add unit tests verifying user badges (`isFavorite`, `userVisited`, `onWishlist`) are preserved in `listResultsInView`
+    - [ ] Add unit tests verifying Vibe Tag filters strictly match `=== true` (excluding `null` / un-enriched records)
+    - [ ] Confirm tests fail (Red phase)
+- [ ] Task: Refactor useWineryFilter to eliminate diverging searchResults branching (TDD Green phase)
     - [ ] Refactor `listResultsInView` in `hooks/use-winery-filter.ts` to compute list from unified winery collection filtered by `bounds` and active criteria
     - [ ] Ensure Vibe Tag filters (`allowsDogs`, `goodForChildren`, etc.) strictly match `=== true` (excluding `null` / un-enriched records)
     - [ ] Run filter hook unit tests to verify green status
-- [ ] Task: Synchronize card thumbnail indicators and Vibe Tag filtering (TDD)
-    - [ ] Write failing component tests verifying `WineryCardThumbnail` renders ratings, review count, and status badges accurately
+- [ ] Task: Write failing component tests for WineryCardThumbnail badges and Vibe Tag filtering (TDD Red phase)
+    - [ ] Add failing component tests in `components/__tests__/winery-card-thumbnail.test.tsx` verifying card thumbnail renders ratings, review count, and status badges accurately
+    - [ ] Add component tests verifying filter Vibe Tag toggles filter both map pins and sidebar list
+    - [ ] Confirm tests fail (Red phase)
+- [ ] Task: Implement WineryCardThumbnail badges and synchronize Vibe Tag filtering (TDD Green phase)
+    - [ ] Update `WineryCardThumbnail` to render ratings, review counts, and status badges
     - [ ] Ensure filter Vibe Tag toggles accurately filter both map pins and sidebar list on initial load
     - [ ] Run component tests to verify green status
 - [ ] Task: Conductor - User Manual Verification 'Phase 4: Unified Sidebar List & Viewport Filtering' (Protocol in workflow.md)
 
 ## Phase 5: Viewport Search UX & Map Event Sync
-- [ ] Task: Implement Haversine distance utility and floating "Search this area" overlay (TDD)
+- [ ] Task: Write failing unit tests for Haversine distance and FloatingSearchAreaButton (TDD Red phase)
     - [ ] Write failing unit tests for `calculateDistanceKm` in `lib/utils/__tests__/map-utils.test.ts`
+    - [ ] Write failing tests for viewport distance tracking: display floating button when `autoSearch` is false and center distance > 5 km from `lastSearchedBounds`
+    - [ ] Confirm tests fail (Red phase)
+- [ ] Task: Implement Haversine distance utility and FloatingSearchAreaButton overlay (TDD Green phase)
     - [ ] Implement `calculateDistanceKm` in `lib/utils/map-utils.ts`
     - [ ] Create `FloatingSearchAreaButton` component and embed at top-center of the map canvas in `components/WineryMap.tsx`
-    - [ ] Write failing tests for viewport distance tracking: display floating button when `autoSearch` is false and center distance > 5 km from `lastSearchedBounds`
     - [ ] Wire button click to trigger `handleManualSearchArea()` and dismiss button
     - [ ] Add map `resize` listener so sidebar expand/collapse recalculates viewport `bounds`
     - [ ] Run unit tests to verify green status
