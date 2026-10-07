@@ -22,6 +22,7 @@ describe('Database Optimization RPC & RLS Integration Contracts', () => {
   let user1: { id: string; email: string; client: SupabaseClient };
   let user2: { id: string; email: string; client: SupabaseClient };
   let testWineryId: number;
+  let testUnenrichedWineryId: number;
   const testPlaceId = `test-db-opt-${Date.now()}`;
 
   const createAuthenticatedUser = async () => {
@@ -48,7 +49,7 @@ describe('Database Optimization RPC & RLS Integration Contracts', () => {
     user1 = await createAuthenticatedUser();
     user2 = await createAuthenticatedUser();
 
-    // Create a temporary winery for tests
+    // Create an enriched temporary winery for tests
     const { data: winery, error: wineryError } = await adminClient
       .from('wineries')
       .insert({
@@ -57,12 +58,35 @@ describe('Database Optimization RPC & RLS Integration Contracts', () => {
         google_place_id: testPlaceId,
         latitude: 42.8864,
         longitude: -76.9897,
+        google_rating: 4.8,
+        user_rating_count: 125,
+        allows_dogs: true,
+        good_for_children: false,
+        outdoor_seating: true,
+        has_ev_charging: true,
+        enrichment_tier: 'enriched',
       })
       .select('id')
       .single();
 
     if (wineryError || !winery) throw wineryError;
     testWineryId = winery.id;
+
+    // Create an un-enriched temporary winery for tests
+    const { data: unenrichedWinery, error: unenrichedError } = await adminClient
+      .from('wineries')
+      .insert({
+        name: 'DB Optimization Un-enriched Winery',
+        address: '456 Test Ave, Geneva, NY 14456',
+        google_place_id: `${testPlaceId}-unenriched`,
+        latitude: 42.8870,
+        longitude: -76.9900,
+      })
+      .select('id')
+      .single();
+
+    if (unenrichedError || !unenrichedWinery) throw unenrichedError;
+    testUnenrichedWineryId = unenrichedWinery.id;
   });
 
   afterAll(async () => {
@@ -70,6 +94,9 @@ describe('Database Optimization RPC & RLS Integration Contracts', () => {
     if (user2) await adminClient.auth.admin.deleteUser(user2.id);
     if (testWineryId) {
       await adminClient.from('wineries').delete().eq('id', testWineryId);
+    }
+    if (testUnenrichedWineryId) {
+      await adminClient.from('wineries').delete().eq('id', testUnenrichedWineryId);
     }
   });
 
@@ -99,6 +126,35 @@ describe('Database Optimization RPC & RLS Integration Contracts', () => {
       expect(testMarker.is_favorite).toBe(true);
       expect(testMarker.user_visited).toBe(true);
       expect(testMarker.on_wishlist).toBe(false);
+    });
+
+    it('should return ratings, user_rating_count, vibe tags, and enrichment_tier in marker payload', async () => {
+      const { data, error } = await user1.client.rpc('get_map_markers', {
+        p_user_id: user1.id,
+      });
+
+      expect(error).toBeNull();
+      expect(Array.isArray(data)).toBe(true);
+
+      const enrichedMarker = data.find((m: any) => m.id === testWineryId);
+      expect(enrichedMarker).toBeDefined();
+      expect(enrichedMarker.google_rating).toBe(4.8);
+      expect(enrichedMarker.user_rating_count).toBe(125);
+      expect(enrichedMarker.allows_dogs).toBe(true);
+      expect(enrichedMarker.good_for_children).toBe(false);
+      expect(enrichedMarker.outdoor_seating).toBe(true);
+      expect(enrichedMarker.has_ev_charging).toBe(true);
+      expect(enrichedMarker.enrichment_tier).toBe('enriched');
+
+      const unenrichedMarker = data.find((m: any) => m.id === testUnenrichedWineryId);
+      expect(unenrichedMarker).toBeDefined();
+      expect(unenrichedMarker.google_rating).toBeNull();
+      expect(unenrichedMarker.user_rating_count).toBeNull();
+      expect(unenrichedMarker.allows_dogs).toBeNull();
+      expect(unenrichedMarker.good_for_children).toBeNull();
+      expect(unenrichedMarker.outdoor_seating).toBeNull();
+      expect(unenrichedMarker.has_ev_charging).toBeNull();
+      expect(unenrichedMarker.enrichment_tier).toBe('basic');
     });
   });
 
