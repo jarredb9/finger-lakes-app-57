@@ -1,11 +1,11 @@
 # Implementation Plan: ExploreTabContent Data Pipeline Desynchronization & Missing Winery Enrichment
 
 ## Phase 1: Places API Field Mask & Edge Function Rating Ingestion
-- [ ] Task: Expand Places API v1 essentials field mask and Edge Function response normalization (TDD)
-    - [ ] Write failing Edge Function tests in `supabase/functions/search-wineries` verifying `places.rating` and `places.userRatingCount` ingestion
-    - [ ] Add `places.rating` and `places.userRatingCount` to `ESSENTIALS_FIELD_MASK` in `supabase/functions/_shared/google-maps.ts`
-    - [ ] Update and verify `normalizeGooglePlaceV1` in `supabase/functions/_shared/normalization.ts` maps rating and user rating count
-    - [ ] Run Edge Function tests (`npm run test:functions`) to verify green status
+- [x] Task: Expand Places API v1 essentials field mask and Edge Function response normalization (TDD) [commit: fb0ebb97]
+    - [x] Write failing Edge Function tests in `supabase/functions/search-wineries` verifying `places.rating` and `places.userRatingCount` ingestion
+    - [x] Add `places.rating` and `places.userRatingCount` to `ESSENTIALS_FIELD_MASK` in `supabase/functions/_shared/google-maps.ts`
+    - [x] Update and verify `normalizeGooglePlaceV1` in `supabase/functions/_shared/normalization.ts` maps rating and user rating count
+    - [x] Run Edge Function tests (`npm run test:functions`) to verify green status
 - [ ] Task: Conductor - User Manual Verification 'Phase 1: Places API Field Mask & Edge Function Rating Ingestion' (Protocol in workflow.md)
 
 ## Phase 2: Database Map Markers RPC Expansion, Type Synchronization & Fixture Hardening
