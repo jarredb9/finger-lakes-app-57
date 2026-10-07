@@ -1,5 +1,6 @@
 /** @jest-environment node */
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { MapMarkerRpc } from '@/lib/types';
 import * as dotenv from 'dotenv';
 import path from 'path';
 
@@ -136,7 +137,7 @@ describe('Database Optimization RPC & RLS Integration Contracts', () => {
       expect(error).toBeNull();
       expect(Array.isArray(data)).toBe(true);
 
-      const enrichedMarker = data.find((m: any) => m.id === testWineryId);
+      const enrichedMarker = data.find((m: MapMarkerRpc) => m.id === testWineryId);
       expect(enrichedMarker).toBeDefined();
       expect(enrichedMarker.google_rating).toBe(4.8);
       expect(enrichedMarker.user_rating_count).toBe(125);
@@ -146,7 +147,7 @@ describe('Database Optimization RPC & RLS Integration Contracts', () => {
       expect(enrichedMarker.has_ev_charging).toBe(true);
       expect(enrichedMarker.enrichment_tier).toBe('enriched');
 
-      const unenrichedMarker = data.find((m: any) => m.id === testUnenrichedWineryId);
+      const unenrichedMarker = data.find((m: MapMarkerRpc) => m.id === testUnenrichedWineryId);
       expect(unenrichedMarker).toBeDefined();
       expect(unenrichedMarker.google_rating).toBeNull();
       expect(unenrichedMarker.user_rating_count).toBeNull();
